@@ -3,8 +3,7 @@
 
 import apiClient from './apiClient'; // CORRECTED: Use a default import
 
-export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1'; // Your FastAPI backend URL for v1 endpoints
-export const API_BASE_URL_V2 = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v2'; // Your FastAPI backend URL for v2 endpoints (NEW)
+export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL; // Your FastAPI backend URL for v1 endpoints
 
 // Function to store the access token
 export const setAuthToken = (token) => {
