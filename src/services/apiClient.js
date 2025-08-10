@@ -1,8 +1,8 @@
 // frontend/src/services/apiClient.js
 import axios from 'axios';
 
-// Get the base URL from your environment variables or hardcode it
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
+// Corrected: Use the Vercel environment variable directly.
+const API_BASE_URL = process.env.REACT_APP_API_URL;
 
 // Create an Axios instance with the base URL
 const apiClient = axios.create({
