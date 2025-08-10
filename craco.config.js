@@ -1,13 +1,4 @@
-const webpack = require('webpack');
-
 module.exports = {
-  webpack: {
-    plugins: [
-      new webpack.DefinePlugin({
-        'process.env.REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL),
-      }),
-    ],
-  },
   style: {
     postcss: {
       plugins: [
@@ -16,4 +7,5 @@ module.exports = {
       ],
     },
   },
+  // Other craco settings...
 };
