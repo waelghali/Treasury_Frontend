@@ -4,7 +4,6 @@
 import apiClient from './apiClient'; // CORRECTED: Use a default import
 
 export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
-export const API_BASE_URL_V2 = process.env.REACT_APP_API_BASE_URL_V2 || 'http://localhost:8000/api/v2';
 
 // Function to store the access token
 export const setAuthToken = (token) => {
