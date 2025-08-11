@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
-import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, FileText, CheckCircle, MinusCircle, Mail, Truck, Building, Repeat, Eye } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, CheckCircle, MinusCircle, Eye } from 'lucide-react';
 import moment from 'moment';
 import LGLifecycleHistoryComponent from '../../components/LGLifecycleHistoryComponent';
 import ChangeLGOwnerModal from '../../components/Modals/ChangeLGOwnerModal';

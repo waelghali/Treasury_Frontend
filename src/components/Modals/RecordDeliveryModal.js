@@ -1,8 +1,8 @@
 // frontend/src/components/Modals/RecordDeliveryModal.js
 import React, { useState } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
-import { X, Save, Truck, AlertCircle, Upload } from 'lucide-react';
-import { Formik, Form, Field, ErrorMessage } from 'formik';
+import { X, Truck, AlertCircle} from 'lucide-react';
+import { Formik, Form, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';

@@ -19,7 +19,7 @@ import EndUserRoutes from './routes/EndUserRoutes.js';
 import { getAuthToken, setAuthToken } from './services/apiService';
 import { jwtDecode } from 'jwt-decode';
 
-import { ToastContainer, Flip, toast } from 'react-toastify';
+import { ToastContainer, Flip } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './ToastAnimations.css';
 
