@@ -1,7 +1,7 @@
 // src/pages/Auth/ResetPasswordPage.js
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { apiRequest, API_BASE_URL_V2 } from 'services/apiService';
+import { apiRequest, API_BASE_URL } from 'services/apiService';
 import { Lock, Loader } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -70,7 +70,7 @@ function ResetPasswordPage() {
 
     try {
       // Direct fetch to new v2 reset-password endpoint
-      const response = await fetch(`${API_BASE_URL_V2}/reset-password`, {
+      const response = await fetch(`${API_BASE_URL}/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

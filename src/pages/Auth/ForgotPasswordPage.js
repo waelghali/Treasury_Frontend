@@ -1,6 +1,6 @@
 // src/pages/Auth/ForgotPasswordPage.js
 import React, { useState } from 'react';
-import { apiRequest, API_BASE_URL_V2 } from 'services/apiService';
+import { apiRequest, API_BASE_URL } from 'services/apiService';
 import { Mail, Loader } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -24,7 +24,7 @@ function ForgotPasswordPage() {
 
     try {
       // Direct fetch to new v2 forgot-password endpoint
-      await fetch(`${API_BASE_URL_V2}/forgot-password`, {
+      await fetch(`${API_BASE_URL}/forgot-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

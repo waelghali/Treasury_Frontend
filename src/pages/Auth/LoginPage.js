@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { setAuthToken, API_BASE_URL_V2 } from 'services/apiService';
+import { setAuthToken, API_BASE_URL } from 'services/apiService';
 import { useNavigate, Link } from 'react-router-dom'; // MODIFIED: Import Link
 
 function LoginPage({ onLoginSuccess }) {
@@ -27,7 +27,7 @@ function LoginPage({ onLoginSuccess }) {
       formData.append('username', email);
       formData.append('password', password);
 
-      const response = await fetch(`${API_BASE_URL_V2}/login`, {
+      const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
