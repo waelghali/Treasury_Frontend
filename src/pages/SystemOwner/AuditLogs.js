@@ -238,7 +238,7 @@ function AuditLogs() { // Removed onLogout as it's not used here
             <tbody className="bg-white divide-y divide-gray-200">
               {logs.map((log) => (
                 <tr key={log.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatTimestamp(log.created_at)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatTimestamp(log.timestamp)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.user_id}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.action_type}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_type}</td>

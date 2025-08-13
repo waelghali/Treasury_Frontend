@@ -479,7 +479,9 @@ const LGLifecycleHistoryComponent = ({
 
             {filteredEvents.map((eventItem, index) => {
                 const instruction = getInstructionForEvent(eventItem);
-
+                
+                const isInstructionIssued = instruction && isActionableInstructionType(instruction.instruction_type);
+                
                 const deliveryDoc = instruction ? instruction.documents?.find(doc =>
                     doc.document_type === 'DELIVERY_PROOF' && doc.lg_instruction_id === instruction.id
                 ) : null;
@@ -487,7 +489,6 @@ const LGLifecycleHistoryComponent = ({
                     doc.document_type === 'BANK_REPLY' && doc.lg_instruction_id === instruction.id
                 ) : null;
 
-                const isInstructionIssued = instruction && isActionableInstructionType(instruction.instruction_type);
                 const hasDeliveryDate = instruction && (instruction.delivery_date !== null && instruction.delivery_date !== "");
                 const hasBankReplyDate = instruction && (instruction.bank_reply_date !== null && instruction.bank_reply_date !== "");
                 const isReminderInstruction = instruction && instruction.instruction_type === 'LG_REMINDER_TO_BANKS';
@@ -497,7 +498,6 @@ const LGLifecycleHistoryComponent = ({
                                               instruction && Number.isInteger(instruction.id) &&
                                               (instruction.bank_reply_date === null || instruction.bank_reply_date === "") &&
                                               !isReminderInstruction &&
-                                              isActionableInstructionType(instruction.instruction_type) &&
                                               isReminderApplicableByTime(instruction) &&
                                               !hasBeenRemindedPreviously &&
                                               !!onSendReminder;
@@ -507,7 +507,10 @@ const LGLifecycleHistoryComponent = ({
                 
                 const isLatestInstruction = latestCancellableInstruction && instruction?.id === latestCancellableInstruction.id;
                 const isCancellableStatus = instruction?.status === 'Instruction Issued' || instruction?.status === 'Reminder Issued';
-                const isCancellableType = isActionableInstructionType(instruction?.instruction_type) && !instruction?.instruction_type.includes('REMINDER');
+                const isCancellableType = ['LG_EXTENSION', 'LG_LIQUIDATION', 'LG_RELEASE', 'LG_DECREASE_AMOUNT', 'LG_ACTIVATE_NON_OPERATIVE'].includes(instruction?.instruction_type);
+
+                // Unified condition to show all action buttons
+                const showAllActionButtons = instruction && instruction.generated_content_path;
 
                 return (
                     <div key={eventItem.id || `event-${index}`} className="mb-8 relative">
@@ -544,19 +547,17 @@ const LGLifecycleHistoryComponent = ({
                                         </GracePeriodTooltip>
                                     )}
 
-                                    {instruction.generated_content_path && (
-                                        <button
-                                            onClick={() => onViewInstructionLetter(instruction.id)}
-                                            className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                            title="View Instruction Letter"
-                                        >
-                                            <FileText className="h-4 w-4 mr-2" />
-                                            View Letter
-                                        </button>
-                                    )}
-
-                                    {isInstructionIssued && !isReminderInstruction && (
+                                    {showAllActionButtons && (
                                         <>
+                                            <button
+                                                onClick={() => onViewInstructionLetter(instruction.id)}
+                                                className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                                title="View Instruction Letter"
+                                            >
+                                                <FileText className="h-4 w-4 mr-2" />
+                                                View Letter
+                                            </button>
+
                                             {!isCorporateAdminView && !isGracePeriod && !hasDeliveryDate ? (
                                                 <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                     <button
@@ -570,20 +571,20 @@ const LGLifecycleHistoryComponent = ({
                                                     </button>
                                                 </GracePeriodTooltip>
                                             ) : hasDeliveryDate ? (
-												deliveryDoc ? (
-													<button
-														onClick={() => onViewInstructionDocument(deliveryDoc.id)}
-														className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-														title={`View Delivery Evidence (${format(new Date(instruction.delivery_date), 'MMM dd, yyyy')})`}
-													>
-														<Download className="h-4 w-4 mr-2" />
-														Delivery Evid.
-													</button>
-												) : (
-													<span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
-														Delivered {format(new Date(instruction.delivery_date), 'MMM dd, yyyy')} (No Doc)
-													</span>
-												)
+                                                deliveryDoc ? (
+                                                    <button
+                                                        onClick={() => onViewInstructionDocument(deliveryDoc.id)}
+                                                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                                        title={`View Delivery Evidence (${format(new Date(instruction.delivery_date), 'MMM dd, yyyy')})`}
+                                                    >
+                                                        <Download className="h-4 w-4 mr-2" />
+                                                        Delivery Evid.
+                                                    </button>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
+                                                        Delivered {format(new Date(instruction.delivery_date), 'MMM dd, yyyy')} (No Doc)
+                                                    </span>
+                                                )
                                             ) : (
                                                 isCorporateAdminView && (
                                                     <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
@@ -591,11 +592,7 @@ const LGLifecycleHistoryComponent = ({
                                                     </span>
                                                 )
                                             )}
-                                        </>
-                                    )}
 
-                                    {isInstructionIssued && !isReminderInstruction && (
-                                        <>
                                             {!isCorporateAdminView && !isGracePeriod && !hasBankReplyDate ? (
                                                 <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                     <button
@@ -609,20 +606,20 @@ const LGLifecycleHistoryComponent = ({
                                                     </button>
                                                 </GracePeriodTooltip>
                                             ) : hasBankReplyDate ? (
-												bankReplyDoc ? (
-													<button
-														onClick={() => onViewInstructionDocument(bankReplyDoc.id)}
-														className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-														title={`View Bank Reply (${format(new Date(instruction.bank_reply_date), 'MMM dd, yyyy')})`}
-													>
-														<Download className="h-4 w-4 mr-2" />
-														Bank Reply Evid.
-													</button>
-												) : (
-													<span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
-														Replied {format(new Date(instruction.bank_reply_date), 'MMM dd, yyyy')} (No Doc)
-													</span>
-												)
+                                                bankReplyDoc ? (
+                                                    <button
+                                                        onClick={() => onViewInstructionDocument(bankReplyDoc.id)}
+                                                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                                        title={`View Bank Reply (${format(new Date(instruction.bank_reply_date), 'MMM dd, yyyy')})`}
+                                                    >
+                                                        <Download className="h-4 w-4 mr-2" />
+                                                        Bank Reply Evid.
+                                                    </button>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
+                                                        Replied {format(new Date(instruction.bank_reply_date), 'MMM dd, yyyy')} (No Doc)
+                                                    </span>
+                                                )
                                             ) : (
                                                 isCorporateAdminView && (
                                                     <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
@@ -651,7 +648,8 @@ const LGLifecycleHistoryComponent = ({
                                                     <Eye className="h-4 w-4 mr-1" /> View Issued Reminder
                                                 </button>
                                             ) : (
-                                                isInstructionIssued && !isReminderInstruction && (
+                                                // This is the corrected line
+                                                showAllActionButtons && (
                                                     <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
                                                         No Reminder Needed
                                                     </span>

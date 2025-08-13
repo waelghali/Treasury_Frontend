@@ -12,6 +12,8 @@ import LGActionsMenu from 'components/LGActionsMenu';
 import ReleaseLGModal from 'components/Modals/ReleaseLGModal';
 import LiquidateLGModal from 'components/Modals/LiquidateLGModal';
 import DecreaseAmountModal from 'components/Modals/DecreaseAmountModal';
+import LGAmendModal from 'components/Modals/LGAmendModal'; // NEW: Import Amend Modal
+import LGActivateNonOperativeModal from 'components/Modals/LGActivateNonOperativeModal'; // NEW: Import Activate Modal
 import { Switch } from '@headlessui/react';
 import { toast } from 'react-toastify';
 import { Listbox, Transition } from '@headlessui/react';
@@ -62,6 +64,14 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
 
   const [showDecreaseAmountModal, setShowDecreaseAmountModal] = useState(false);
   const [selectedLgRecordForDecreaseAmount, setSelectedLgRecordForDecreaseAmount] = useState(null);
+
+  // NEW: States for Amend and Activate Modals
+  const [showAmendModal, setShowAmendModal] = useState(false);
+  const [selectedLgRecordForAmend, setSelectedLgRecordForAmend] = useState(null);
+
+  const [showActivateModal, setShowActivateModal] = useState(false);
+  const [selectedLgRecordForActivate, setSelectedLgRecordForActivate] = useState(null);
+
 
   // Sorting states
   const [sortColumn, setSortColumn] = useState('expiry_date');
@@ -115,6 +125,10 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     setSelectedLgRecordForLiquidate(null);
     setShowDecreaseAmountModal(false);
     setSelectedLgRecordForDecreaseAmount(null);
+    setShowAmendModal(false); // NEW
+    setSelectedLgRecordForAmend(null); // NEW
+    setShowActivateModal(false); // NEW
+    setSelectedLgRecordForActivate(null); // NEW
 
     // DIRECTLY UPDATE THE STATE WITH THE FRESH RECORD
     setLgRecords(prevRecords => {
@@ -177,6 +191,22 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     if (!isCorporateAdminView && !isGracePeriod) {
       setSelectedLgRecordForDecreaseAmount(record);
       setShowDecreaseAmountModal(true);
+    }
+  };
+
+  // NEW: Handler for Amend Modal
+  const handleAmend = (record) => {
+    if (!isCorporateAdminView && !isGracePeriod) {
+      setSelectedLgRecordForAmend(record);
+      setShowAmendModal(true);
+    }
+  };
+
+  // NEW: Handler for Activate Modal
+  const handleActivate = (record) => {
+    if (!isCorporateAdminView && !isGracePeriod) {
+      setSelectedLgRecordForActivate(record);
+      setShowActivateModal(true);
     }
   };
 
@@ -311,6 +341,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
         record.lg_number.toLowerCase().includes(lowerCaseSearchTerm) ||
         (record.beneficiary_corporate?.entity_name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
         (record.issuing_bank?.name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
+        (record.lg_category?.category_name || '').toLowerCase().includes(lowerCaseSearchTerm) || // NEW: Added category to search filter
         formatAmount(record.lg_amount, record.lg_currency?.iso_code).toLowerCase().includes(lowerCaseSearchTerm) ||
         formatDate(record.expiry_date).toLowerCase().includes(lowerCaseSearchTerm)
       );
@@ -345,6 +376,10 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
           aValue = a.issuing_bank?.name || '';
           bValue = b.issuing_bank?.name || '';
           break;
+        case 'lg_category':
+            aValue = a.lg_category?.category_name || '';
+            bValue = b.lg_category?.category_name || '';
+            break;
         case 'expiry_date':
           aValue = new Date(a.expiry_date);
           bValue = new Date(b.expiry_date);
@@ -430,7 +465,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
           <div className="mb-4 flex items-center justify-between space-x-4">
             <input
               type="text"
-              placeholder="Search by LG No., Beneficiary, Bank..."
+              placeholder="Search by LG No., Beneficiary, Bank, Category..."
               className="mt-1 block flex-grow border border-gray-300 pl-3 pr-10 py-2 text-base rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-md"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -545,6 +580,15 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                   <th
                     scope="col"
                     className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                    onClick={() => handleSort('lg_category')}
+                  >
+                    <div className="flex items-center">
+                      Category {renderSortIcon('lg_category')}
+                    </div>
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
                     onClick={() => handleSort('expiry_date')}
                   >
                     <div className="flex items-center">
@@ -582,6 +626,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                       {formatAmount(record.lg_amount, record.lg_currency?.iso_code)}
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{record.issuing_bank?.name || 'N/A'}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{record.lg_category?.category_name || 'N/A'}</td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{formatDate(record.expiry_date)}</td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -631,6 +676,8 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                               onLiquidate={handleLiquidate}
                               onDecreaseAmount={handleDecreaseAmount}
                               onViewDetails={handleViewDetails} // Still pass for consistent behavior
+                              onAmend={handleAmend} // NEW: Pass the new handler
+                              onActivate={handleActivate} // NEW: Pass the new handler
                           />
                       )}
                     </td>
@@ -688,6 +735,22 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                 onClose={() => setShowDecreaseAmountModal(false)}
                 onSuccess={handleActionSuccess}
                 isGracePeriod={isGracePeriod} // NEW: Pass prop
+            />
+          )}
+          {/* NEW: Amend Modal */}
+          {showAmendModal && selectedLgRecordForAmend && (
+            <LGAmendModal
+                lgRecord={selectedLgRecordForAmend}
+                onClose={() => setShowAmendModal(false)}
+                onSuccess={handleActionSuccess}
+            />
+          )}
+          {/* NEW: Activate Modal */}
+          {showActivateModal && selectedLgRecordForActivate && (
+            <LGActivateNonOperativeModal
+                lgRecord={selectedLgRecordForActivate}
+                onClose={() => setShowActivateModal(false)}
+                onSuccess={handleActionSuccess}
             />
           )}
         </>

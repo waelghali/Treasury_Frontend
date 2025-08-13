@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
-import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, CheckCircle, MinusCircle, Eye } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, CheckCircle, MinusCircle, Eye, Edit, PlayCircle } from 'lucide-react';
 import moment from 'moment';
 import LGLifecycleHistoryComponent from '../../components/LGLifecycleHistoryComponent';
 import ChangeLGOwnerModal from '../../components/Modals/ChangeLGOwnerModal';
@@ -15,6 +15,8 @@ import LiquidateLGModal from '../../components/Modals/LiquidateLGModal';
 import DecreaseAmountModal from '../../components/Modals/DecreaseAmountModal';
 import RecordDeliveryModal from '../../components/Modals/RecordDeliveryModal';
 import RecordBankReplyModal from '../../components/Modals/RecordBankReplyModal';
+import LGAmendModal from '../../components/Modals/LGAmendModal'; // NEW: Import Amend Modal
+import LGActivateNonOperativeModal from '../../components/Modals/LGActivateNonOperativeModal'; // NEW: Import Activate Modal
 import { Switch } from '@headlessui/react';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
@@ -73,6 +75,9 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
     const [showRecordDeliveryModal, setShowRecordDeliveryModal] = useState(false);
     const [showRecordBankReplyModal, setShowRecordBankReplyModal] = useState(false);
     const [selectedInstructionForAction, setSelectedInstructionForAction] = useState(null);
+    // NEW: States for Amend and Activate Modals
+    const [showAmendModal, setShowAmendModal] = useState(false);
+    const [showActivateModal, setShowActivateModal] = useState(false);
 
     const fetchLgRecord = useCallback(async (isBackgroundRefresh = false) => {
         if (!isBackgroundRefresh) {
@@ -160,6 +165,8 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
         setShowRecordDeliveryModal(false);
         setShowRecordBankReplyModal(false);
         setSelectedInstructionForAction(null);
+        setShowAmendModal(false); // NEW
+        setShowActivateModal(false); // NEW
 
         setLgRecord(updatedRecordFromBackend);
 
@@ -211,6 +218,24 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
         } else if (isGracePeriod) {
             toast.warn("This action is disabled during your subscription's grace period.");
         }
+    };
+
+    // NEW: Handler for Amend Modal
+    const handleAmend = () => {
+      if (!isCorporateAdminView && lgRecord && !isGracePeriod) {
+        setShowAmendModal(true);
+      } else if (isGracePeriod) {
+        toast.warn("This action is disabled during your subscription's grace period.");
+      }
+    };
+
+    // NEW: Handler for Activate Modal
+    const handleActivate = () => {
+      if (!isCorporateAdminView && lgRecord && !isGracePeriod) {
+        setShowActivateModal(true);
+      } else if (isGracePeriod) {
+        toast.warn("This action is disabled during your subscription's grace period.");
+      }
     };
 
     const handleToggleAutoRenewal = useCallback(async (newStatus) => {
@@ -467,7 +492,24 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 
     const isLgValid = lgRecord.lg_status?.name === 'Valid';
     const isLgValidOrActive = ['Valid', 'Active'].includes(lgRecord.lg_status?.name);
+    // Constants for LG Type and Operational Status from backend
+    const LG_TYPE_ADVANCE_PAYMENT_GUARANTEE = 2; // Assuming ID 2 is Advance Payment Guarantee
+    const LG_OPERATIONAL_STATUS_NON_OPERATIVE = 2; // Assuming ID 2 is Non-Operative
 
+    // NEW: Conditional rendering for the 'Activate' button
+    const canActivate = lgRecord.lg_type?.id === LG_TYPE_ADVANCE_PAYMENT_GUARANTEE && lgRecord.lg_operational_status?.id === LG_OPERATIONAL_STATUS_NON_OPERATIVE;
+
+    // Determine the number of buttons to calculate grid columns dynamically
+    const numberOfButtons = [
+        isLgValid, // Extend
+        isLgValidOrActive, // Amend
+        isLgValidOrActive, // Decrease Amount
+        canActivate, // Activate
+        isLgValidOrActive, // Release
+        isLgValidOrActive // Liquidate
+    ].filter(Boolean).length;
+
+    const gridColumnsClass = `md:grid-cols-${numberOfButtons}`;
 
     return (
         <div className="container mx-auto p-6 bg-white rounded-lg shadow-xl my-8 relative">
@@ -478,7 +520,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
             )}
             {/* Action Buttons: Full width, spaced evenly */}
             {!isCorporateAdminView && ( // Hide action bar if Corporate Admin
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 w-full p-3 bg-gray-50 rounded-lg shadow-inner mb-6">
+                <div className={`grid grid-cols-2 sm:grid-cols-3 ${gridColumnsClass} gap-2 w-full p-3 bg-gray-50 rounded-lg shadow-inner mb-6`}>
                     {isLgValid && ( // Only show Extend for 'Valid' LGs
                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                             <button
@@ -489,6 +531,45 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                             >
                                 <CalendarPlus className="h-5 w-5 mr-2" />
                                 Extend
+                            </button>
+                        </GracePeriodTooltip>
+                    )}
+                    {isLgValidOrActive && ( // Show Amend
+                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                            <button
+                                onClick={handleAmend}
+                                className={`${actionBarButtonClassNames('blue')} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                title="Amend LG"
+                                disabled={isGracePeriod}
+                            >
+                                <Edit className="h-5 w-5 mr-2" />
+                                Amend LG
+                            </button>
+                        </GracePeriodTooltip>
+                    )}
+                    {isLgValidOrActive && ( // Show Decrease Amount for 'Valid' or 'Active' LGs
+                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                            <button
+                                onClick={handleDecreaseAmount}
+                                className={`${actionBarButtonClassNames('orange')} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                title="Decrease LG Amount"
+                                disabled={isGracePeriod}
+                            >
+                                <MinusCircle className="h-5 w-5 mr-2" />
+                                Decrease Amt
+                            </button>
+                        </GracePeriodTooltip>
+                    )}
+                    {canActivate && ( // Show Activate for specific LG types/statuses
+                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                            <button
+                                onClick={handleActivate}
+                                className={`${actionBarButtonClassNames('teal')} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                title="Activate LG"
+                                disabled={isGracePeriod}
+                            >
+                                <PlayCircle className="h-5 w-5 mr-2" />
+                                Activate
                             </button>
                         </GracePeriodTooltip>
                     )}
@@ -518,30 +599,6 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                             </button>
                         </GracePeriodTooltip>
                     )}
-                    {isLgValidOrActive && ( // Show Decrease Amount for 'Valid' or 'Active' LGs
-                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                            <button
-                                onClick={handleDecreaseAmount}
-                                className={`${actionBarButtonClassNames('orange')} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                title="Decrease LG Amount"
-                                disabled={isGracePeriod}
-                            >
-                                <MinusCircle className="h-5 w-5 mr-2" />
-                                Decrease Amt
-                            </button>
-                        </GracePeriodTooltip>
-                    )}
-                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                        <button // Change Owner can always be done (if not Corporate Admin view)
-                            onClick={handleChangeOwner}
-                            className={`${actionBarButtonClassNames('purple')} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            title="Change Internal Owner"
-                            disabled={isGracePeriod}
-                        >
-                            <Users className="h-5 w-5 mr-2" />
-                            Change Owner
-                        </button>
-                    </GracePeriodTooltip>
                 </div>
             )}
 
@@ -763,21 +820,21 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                             isGracePeriod={isGracePeriod} // NEW: Pass prop
                         />
                     )}
-                    {showRecordDeliveryModal && selectedInstructionForAction && (
-                        <RecordDeliveryModal
-                            instruction={selectedInstructionForAction}
-                            onClose={() => setShowRecordDeliveryModal(false)}
-                            onSuccess={handleActionSuccess}
-                            isGracePeriod={isGracePeriod} // NEW: Pass prop
-                        />
+                    {/* NEW: Amend Modal */}
+                    {showAmendModal && lgRecord && (
+                      <LGAmendModal
+                        lgRecord={lgRecord}
+                        onClose={() => setShowAmendModal(false)}
+                        onSuccess={handleActionSuccess}
+                      />
                     )}
-                    {showRecordBankReplyModal && selectedInstructionForAction && (
-                        <RecordBankReplyModal
-                            instruction={selectedInstructionForAction}
-                            onClose={() => setShowRecordBankReplyModal(false)}
-                            onSuccess={handleActionSuccess}
-                            isGracePeriod={isGracePeriod} // NEW: Pass prop
-                        />
+                    {/* NEW: Activate Modal */}
+                    {showActivateModal && lgRecord && (
+                      <LGActivateNonOperativeModal
+                        lgRecord={lgRecord}
+                        onClose={() => setShowActivateModal(false)}
+                        onSuccess={handleActionSuccess}
+                      />
                     )}
                 </>
             )}
