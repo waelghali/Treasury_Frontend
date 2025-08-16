@@ -36,7 +36,7 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus }) {
   return (
     <Routes>
       {/* Dashboard */}
-      <Route path="dashboard" element={<CorporateAdminDashboard onLogout={onLogout} />} />
+      <Route path="dashboard" element={<CorporateAdminDashboard onLogout={onLogout} isGracePeriod={isGracePeriod} />} />
 
       {/* Action Center - NEW ROUTE */}
       <Route path="action-center" element={<ActionCenter onLogout={onLogout} />} />

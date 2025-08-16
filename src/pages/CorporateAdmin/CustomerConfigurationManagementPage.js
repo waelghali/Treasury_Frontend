@@ -80,21 +80,33 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
     setEmailSettingsError('');
     try {
       const response = await apiRequest('/corporate-admin/email-settings/', 'GET');
+      
+      // NEW: A simpler check. If a response exists at all, use it.
       if (response) {
         setEmailSettings(response);
         setEmailSettingsForm({
           smtp_host: response.smtp_host,
           smtp_port: response.smtp_port,
           smtp_username: response.smtp_username,
-          smtp_password: '',
+          smtp_password: '', // Password field is never returned, so it's empty
           sender_email: response.sender_email,
           sender_display_name: response.sender_display_name || '',
           is_active: response.is_active,
         });
         setIsNewSettings(false);
       } else {
+        // If the response is null (meaning no record exists), prepare for a new creation.
         setEmailSettings(null);
         setIsNewSettings(true);
+        setEmailSettingsForm({
+          smtp_host: '',
+          smtp_port: 587,
+          smtp_username: '',
+          smtp_password: '',
+          sender_email: '',
+          sender_display_name: '',
+          is_active: true
+        });
       }
     } catch (err) {
       console.error('Failed to fetch email settings:', err);
@@ -737,6 +749,19 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
                       id="smtp_port"
                       name="smtp_port"
                       value={emailSettingsForm.smtp_port}
+                      onChange={handleEmailSettingsChange}
+                      className={inputClassNames}
+                      required
+                      disabled={isGracePeriod}
+                    />
+                  </div>
+				  <div>
+                    <label htmlFor="smtp_username" className={labelClassNames}>SMTP Username</label>
+                    <input
+                      type="text"
+                      id="smtp_username"
+                      name="smtp_username"
+                      value={emailSettingsForm.smtp_username}
                       onChange={handleEmailSettingsChange}
                       className={inputClassNames}
                       required

@@ -774,69 +774,82 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                         onSendReminder={isCorporateAdminView || isGracePeriod ? null : handleSendReminderToBank} // NEW: Pass null if in grace period
                         onViewInstructionLetter={handleViewInstructionLetterFromHistory}
                         onViewInstructionDocument={handleViewInstructionDocument}
+                        isCorporateAdminView={isCorporateAdminView} // NEW: Pass the prop here
                     />
                 )}
             </div>
 
-            {!isCorporateAdminView && (
-                <>
-                    {showChangeOwnerModal && lgRecord && (
-                        <ChangeLGOwnerModal
-                            lgRecord={lgRecord}
-                            onClose={() => setShowChangeOwnerModal(false)}
-                            onSuccess={handleActionSuccess}
-                            isGracePeriod={isGracePeriod} // NEW: Pass prop
-                        />
-                    )}
-                    {showExtendModal && lgRecord && (
-                        <ExtendLGModal
-                            lgRecord={lgRecord}
-                            onClose={() => setShowExtendModal(false)}
-                            onSuccess={handleActionSuccess}
-                            isGracePeriod={isGracePeriod} // NEW: Pass prop
-                        />
-                    )}
-                    {showReleaseModal && lgRecord && (
-                        <ReleaseLGModal
-                            lgRecord={lgRecord}
-                            onClose={() => setShowReleaseModal(false)}
-                            onSuccess={handleActionSuccess}
-                            isGracePeriod={isGracePeriod} // NEW: Pass prop
-                        />
-                    )}
-                    {showLiquidateModal && lgRecord && (
-                        <LiquidateLGModal
-                            lgRecord={lgRecord}
-                            onClose={() => setShowLiquidateModal(false)}
-                            onSuccess={handleActionSuccess}
-                            isGracePeriod={isGracePeriod} // NEW: Pass prop
-                        />
-                    )}
-                    {showDecreaseAmountModal && lgRecord && (
-                        <DecreaseAmountModal
-                            lgRecord={lgRecord}
-                            onClose={() => setShowDecreaseAmountModal(false)}
-                            onSuccess={handleActionSuccess}
-                            isGracePeriod={isGracePeriod} // NEW: Pass prop
-                        />
-                    )}
-                    {/* NEW: Amend Modal */}
-                    {showAmendModal && lgRecord && (
-                      <LGAmendModal
-                        lgRecord={lgRecord}
-                        onClose={() => setShowAmendModal(false)}
-                        onSuccess={handleActionSuccess}
-                      />
-                    )}
-                    {/* NEW: Activate Modal */}
-                    {showActivateModal && lgRecord && (
-                      <LGActivateNonOperativeModal
-                        lgRecord={lgRecord}
-                        onClose={() => setShowActivateModal(false)}
-                        onSuccess={handleActionSuccess}
-                      />
-                    )}
-                </>
+            {/* Modals outside the conditional rendering blocks for availability */}
+            {showChangeOwnerModal && lgRecord && (
+                <ChangeLGOwnerModal
+                    lgRecord={lgRecord}
+                    onClose={() => setShowChangeOwnerModal(false)}
+                    onSuccess={handleActionSuccess}
+                    isGracePeriod={isGracePeriod}
+                />
+            )}
+            {showExtendModal && lgRecord && (
+                <ExtendLGModal
+                    lgRecord={lgRecord}
+                    onClose={() => setShowExtendModal(false)}
+                    onSuccess={handleActionSuccess}
+                    isGracePeriod={isGracePeriod}
+                />
+            )}
+            {showReleaseModal && lgRecord && (
+                <ReleaseLGModal
+                    lgRecord={lgRecord}
+                    onClose={() => setShowReleaseModal(false)}
+                    onSuccess={handleActionSuccess}
+                    isGracePeriod={isGracePeriod}
+                />
+            )}
+            {showLiquidateModal && lgRecord && (
+                <LiquidateLGModal
+                    lgRecord={lgRecord}
+                    onClose={() => setShowLiquidateModal(false)}
+                    onSuccess={handleActionSuccess}
+                    isGracePeriod={isGracePeriod}
+                />
+            )}
+            {showDecreaseAmountModal && lgRecord && (
+                <DecreaseAmountModal
+                    lgRecord={lgRecord}
+                    onClose={() => setShowDecreaseAmountModal(false)}
+                    onSuccess={handleActionSuccess}
+                    isGracePeriod={isGracePeriod}
+                />
+            )}
+            {showAmendModal && lgRecord && (
+                <LGAmendModal
+                    lgRecord={lgRecord}
+                    onClose={() => setShowAmendModal(false)}
+                    onSuccess={handleActionSuccess}
+                />
+            )}
+            {showActivateModal && lgRecord && (
+                <LGActivateNonOperativeModal
+                    lgRecord={lgRecord}
+                    onClose={() => setShowActivateModal(false)}
+                    onSuccess={handleActionSuccess}
+                />
+            )}
+            {/* The problematic modals, now outside the conditional block */}
+            {showRecordDeliveryModal && selectedInstructionForAction && (
+                <RecordDeliveryModal
+                    instruction={selectedInstructionForAction}
+                    onClose={() => setShowRecordDeliveryModal(false)}
+                    onSuccess={handleActionSuccess}
+                    isGracePeriod={isGracePeriod}
+                />
+            )}
+            {showRecordBankReplyModal && selectedInstructionForAction && (
+                <RecordBankReplyModal
+                    instruction={selectedInstructionForAction}
+                    onClose={() => setShowRecordBankReplyModal(false)}
+                    onSuccess={handleActionSuccess}
+                    isGracePeriod={isGracePeriod}
+                />
             )}
         </div>
     );

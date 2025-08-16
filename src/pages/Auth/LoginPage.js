@@ -54,12 +54,18 @@ function LoginPage({ onLoginSuccess }) {
   };
 
   return (
+  
     <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-2xl p-8 space-y-6 border border-gray-200">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-gray-900 mb-2">
-            System Owner Login
-          </h2>
+        <img
+  src="/growlogonocircle.png"
+  alt="Grow BD Logo"
+  className="mx-auto mb-4"
+  style={{ width: '400px', height: 'auto' }}
+/>
+
+		<div className="text-center">
+
           <p className="text-gray-500">Access the Treasury Management Platform</p>
         </div>
 

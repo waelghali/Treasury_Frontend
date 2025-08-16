@@ -12,7 +12,14 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, headerTitle, sy
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       <aside className="w-72 bg-white shadow-lg border-r border-gray-200 flex flex-col flex-shrink-0">
         <div className="p-6 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-gray-800">Treasury Platform</h1>
+		<div className="flex items-center justify-center space-x-2">
+		  <img
+			src="/growlogonleaf.png"
+			alt="Grow BD Logo"
+			style={{ width: '80px', height: 'auto' }}
+		  />
+		  <h1 className="text-xl font-bold text-gray-800">Treasury Platform</h1>
+		</div>          
           <p className="text-sm text-gray-500">End User Edition</p>
         </div>
 
