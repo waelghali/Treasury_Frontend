@@ -59,8 +59,13 @@ function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) { // NEW
 
   useEffect(() => {
     if (lgRecord && lgRecord.expiry_date) {
-      const currentExpiryMoment = moment(lgRecord.expiry_date);
-      setSpecificNewExpiryDateMoment(currentExpiryMoment.add(1, 'day'));
+      // FIX: Calculate the proposed date based on the LG's period
+      const proposedDate = moment(lgRecord.expiry_date).add(lgRecord.lg_period_months, 'months');
+      // FIX: Calculate the absolute minimum valid date (day after current expiry)
+      const minValidDate = moment(lgRecord.expiry_date).add(1, 'day');
+      
+      // FIX: Set the suggested date to the later of the two dates to prevent a clash with minDate
+      setSpecificNewExpiryDateMoment(proposedDate.isAfter(minValidDate) ? proposedDate : minValidDate);
 
       if (lgRecord.lg_period_months) {
         setExtensionMonths(lgRecord.lg_period_months);

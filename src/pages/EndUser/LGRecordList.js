@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from 'services/apiService.js';
-import { PlusCircle, Edit, Eye, Loader2, AlertCircle, CalendarPlus, ChevronUp, ChevronDown, Users, FileText, Filter as FilterIcon } from 'lucide-react';
+import { PlusCircle, Edit, Eye, Loader2, AlertCircle, CalendarPlus, ChevronUp, ChevronDown, Users, FileText, Filter as FilterIcon, Download } from 'lucide-react';
 import moment from 'moment';
 import ExtendLGModal from 'components/Modals/ExtendLGModal';
 import ChangeLGOwnerModal from 'components/Modals/ChangeLGOwnerModal';
@@ -16,7 +16,10 @@ import LGAmendModal from 'components/Modals/LGAmendModal'; // NEW: Import Amend 
 import LGActivateNonOperativeModal from 'components/Modals/LGActivateNonOperativeModal'; // NEW: Import Activate Modal
 import { Switch } from '@headlessui/react';
 import { toast } from 'react-toastify';
-import { Listbox, Transition } from '@headlessui/react';
+import { Listbox, Transition, Menu } from '@headlessui/react'; // ADDED Menu for dropdown
+
+// NEW: Import necessary xlsx library for Excel export
+import * as XLSX from 'xlsx';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -81,6 +84,9 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState([]); // For multi-select status filter
 
+  // Added a new state to store all records fetched from API, to allow exporting unfiltered data
+  const [allLgRecords, setAllLgRecords] = useState([]);
+
   // Modified fetchLgRecords to handle initial vs. background loading
   const fetchLgRecords = useCallback(async (isBackgroundRefresh = false) => {
     if (!isBackgroundRefresh) {
@@ -97,6 +103,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
       }
       const response = await apiRequest(url, 'GET');
       setLgRecords(response);
+      setAllLgRecords(response); // Store the raw data for 'export all' option
     } catch (err) {
       console.error('Failed to fetch LG records:', err);
       setError(`Failed to load LG Records. ${err.message || 'An unexpected error occurred.'}`);
@@ -407,6 +414,30 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     return sortableRecords;
   }, [lgRecords, sortColumn, sortDirection, searchTerm, selectedStatuses]);
 
+  // NEW: Function to handle the Excel export
+  const handleExportToExcel = (dataToExport) => {
+    // Flatten the data for the export
+    const exportData = dataToExport.map(record => ({
+      'LG Number': record.lg_number,
+      'Beneficiary': record.beneficiary_corporate?.entity_name || 'N/A',
+      'Amount': record.lg_amount,
+      'Currency': record.lg_currency?.iso_code || 'N/A',
+      'Issuing Bank': record.issuing_bank?.name || 'N/A',
+      'Category': record.lg_category?.category_name || 'N/A',
+      'Expiry Date': formatDate(record.expiry_date),
+      'Status': record.lg_status?.name || 'N/A',
+      'Auto Renewal': record.auto_renewal ? 'Yes' : 'No',
+      'Internal Owner Email': record.internal_owner_contact?.email || 'N/A',
+      'Description': record.description_purpose,
+      'Issuance Date': formatDate(record.issuance_date),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "LG Records");
+    XLSX.writeFile(workbook, "LG_Records.xlsx");
+  };
+
   const renderSortIcon = (column) => {
     if (sortColumn === column) {
       return sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />;
@@ -429,6 +460,56 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                     Clear Filter
                 </button>
             )}
+            {/* NEW: Export Button with Dropdown */}
+            <Menu as="div" className="relative inline-block text-left">
+              <Menu.Button className={`${buttonBaseClassNames} bg-teal-600 text-white hover:bg-teal-700`}>
+                <Download className="h-5 w-5 mr-2" />
+                Export
+              </Menu.Button>
+              <Transition
+                as={Fragment}
+                enter="transition ease-out duration-100"
+                enterFrom="transform opacity-0 scale-95"
+                enterTo="transform opacity-100 scale-100"
+                leave="transition ease-in duration-75"
+                leaveFrom="transform opacity-100 scale-100"
+                leaveTo="transform opacity-0 scale-95"
+              >
+                <Menu.Items className="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                  <div className="py-1">
+                    <Menu.Item>
+                      {({ active }) => (
+                        <a
+                          href="#"
+                          onClick={() => handleExportToExcel(filteredAndSortedRecords)}
+                          className={`
+                            ${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'}
+                            block px-4 py-2 text-sm
+                          `}
+                        >
+                          Export Filtered Data ({filteredAndSortedRecords.length})
+                        </a>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item>
+                      {({ active }) => (
+                        <a
+                          href="#"
+                          onClick={() => handleExportToExcel(allLgRecords)}
+                          className={`
+                            ${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'}
+                            block px-4 py-2 text-sm
+                          `}
+                        >
+                          Export All Data ({allLgRecords.length})
+                        </a>
+                      )}
+                    </Menu.Item>
+                  </div>
+                </Menu.Items>
+              </Transition>
+            </Menu>
+
             {!isCorporateAdminView && (
               <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                 <button
