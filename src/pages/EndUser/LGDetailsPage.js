@@ -18,6 +18,7 @@ import RecordBankReplyModal from '../../components/Modals/RecordBankReplyModal';
 import LGAmendModal from '../../components/Modals/LGAmendModal'; // NEW: Import Amend Modal
 import LGActivateNonOperativeModal from '../../components/Modals/LGActivateNonOperativeModal'; // NEW: Import Activate Modal
 import { Switch } from '@headlessui/react';
+import LgTimelineBar from '../../components/LgTimelineBar';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -37,17 +38,6 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-// Helper to get RGB from Tailwind color class (approximate for glow)
-const getRgbFromTailwind = (colorClass) => {
-    switch (colorClass) {
-        case 'bg-green-500': return '59, 201, 107';
-        case 'bg-orange-500': return '255, 165, 0';
-        case 'bg-red-500': return '239, 68, 68';
-        case 'bg-gray-500': return '107, 114, 128';
-        case 'bg-purple-500': return '168, 85, 247';
-        default: return '255, 255, 255';
-    }
-};
 
 // Reusable styling for action bar buttons (lighter colors)
 const actionBarButtonClassNames = (baseColor) => `
@@ -376,94 +366,6 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
         return moment(dateString).format('DD-MMM-YYYY');
     };
 
-    const getExpiryStatusBarProps = (lgRecord) => {
-        const defaultProps = {
-            barColorClass: 'bg-gray-600',
-            fillColorClass: 'bg-gray-300',
-            labelText: 'Status Unavailable',
-            percentage: 100,
-            indicatorColor: 'text-white',
-            glowShadow: 'none'
-        };
-
-        if (!lgRecord || !lgRecord.lg_status) {
-            return defaultProps;
-        }
-
-        const statusName = lgRecord.lg_status.name;
-        const expiryDate = moment(lgRecord.expiry_date);
-        const today = moment();
-
-        if (statusName === 'Valid') {
-            const remainingDays = expiryDate.diff(today, 'days');
-
-            const CRITICAL_DAYS = 30;
-            const MODERATE_DAYS = 60;
-
-            let fillColor = '';
-            let label = `${remainingDays} days remaining`;
-            let calculatedPercentage = 0;
-            let glowRgb = '';
-
-            if (remainingDays <= 0) {
-                fillColor = 'bg-red-500';
-                label = 'Expired';
-                calculatedPercentage = 100;
-                glowRgb = getRgbFromTailwind(fillColor);
-            } else if (remainingDays <= CRITICAL_DAYS) {
-                fillColor = 'bg-red-500';
-                calculatedPercentage = ((CRITICAL_DAYS - remainingDays) / CRITICAL_DAYS) * 100;
-                calculatedPercentage = Math.min(100, Math.max(0, calculatedPercentage));
-                glowRgb = getRgbFromTailwind(fillColor);
-            } else if (remainingDays <= MODERATE_DAYS) {
-                fillColor = 'bg-orange-500';
-                calculatedPercentage = ((MODERATE_DAYS - remainingDays) / (MODERATE_DAYS - CRITICAL_DAYS)) * 100;
-                calculatedPercentage = Math.min(100, Math.max(0, calculatedPercentage));
-                glowRgb = getRgbFromTailwind(fillColor);
-            } else {
-                fillColor = 'bg-green-500';
-                calculatedPercentage = 0;
-                glowRgb = getRgbFromTailwind(fillColor);
-            }
-
-            const glowShadow = `0 0 8px rgba(${glowRgb}, 0.7), 0 0 15px rgba(${glowRgb}, 0.4)`;
-
-            return {
-                barColorClass: 'bg-gray-800',
-                fillColorClass: fillColor,
-                labelText: label,
-                percentage: calculatedPercentage,
-                indicatorColor: 'text-white',
-                glowShadow: glowShadow
-            };
-        } else {
-            let barFillColor = '';
-            let barGlowRgb = '';
-            if (statusName === 'Expired') {
-                barFillColor = 'bg-red-500';
-            } else if (statusName === 'Released') {
-                barFillColor = 'bg-gray-500';
-            } else if (statusName === 'Liquidated') {
-                barFillColor = 'bg-purple-500';
-            } else {
-                barFillColor = 'bg-gray-500';
-            }
-            barGlowRgb = getRgbFromTailwind(barFillColor);
-            const glowShadow = `0 0 8px rgba(${barGlowRgb}, 0.7), 0 0 15px rgba(${barGlowRgb}, 0.4)`;
-
-            return {
-                barColorClass: 'bg-gray-800',
-                fillColorClass: barFillColor,
-                labelText: statusName,
-                percentage: 100,
-                indicatorColor: 'text-white',
-                glowShadow: glowShadow
-            };
-        }
-    };
-
-    const statusBarProps = lgRecord ? getExpiryStatusBarProps(lgRecord) : null;
-
     if (isInitialLoading) {
         return (
             <div className="flex justify-center items-center h-screen bg-gray-100">
@@ -615,26 +517,8 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                 </div>
             </div>
 
-            {statusBarProps && (
-                <div className={`w-full h-6 rounded-full ${statusBarProps.barColorClass} relative overflow-hidden mb-6 shadow-inner`}>
-                    <div
-                        className={`h-full rounded-full ${statusBarProps.fillColorClass} transition-all duration-500 ease-in-out`}
-                        style={{
-                            width: `${statusBarProps.percentage}%`,
-                            boxShadow: statusBarProps.glowShadow,
-                        }}
-                    >
-                        <div className="absolute inset-0 rounded-full opacity-70" style={{
-                            background: `radial-gradient(circle at right, rgba(${getRgbFromTailwind(statusBarProps.fillColorClass)}, 0.9) 0%, transparent 60%)`
-                        }}></div>
-                    </div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <span className={`font-semibold text-sm md:text-base ${statusBarProps.indicatorColor} text-shadow-sm`}>
-                            {statusBarProps.labelText}
-                        </span>
-                    </div>
-                </div>
-            )}
+			<LgTimelineBar lgRecord={lgRecord} isGracePeriod={isGracePeriod} />
+
 
             <div className="border-b border-gray-200 mb-6">
                 <nav className="-mb-px flex space-x-8" aria-label="Tabs">

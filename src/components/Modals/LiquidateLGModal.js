@@ -154,7 +154,7 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { 
                                                                         setFieldValue('newAmount', '');
                                                                     }
                                                                 }}
-                                                                className={`mt-1 block w-full ${errors.liquidationType && touched.liquidationType ? 'border-red-500' : 'border-gray-300'}`}
+                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.liquidationType && touched.liquidationType ? 'border-red-500' : 'border-gray-300'}`}
                                                                 disabled={isGracePeriod} // NEW: Disable select input
                                                             >
                                                                 <option value="full">Full Liquidation (Amount becomes 0)</option>
@@ -173,7 +173,7 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { 
                                                                     id="newAmount"
                                                                     name="newAmount"
                                                                     step="0.01"
-                                                                    className={`mt-1 block w-full ${errors.newAmount && touched.newAmount ? 'border-red-500' : 'border-gray-300'}`}
+                                                                    className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.newAmount && touched.newAmount ? 'border-red-500' : 'border-gray-300'}`}
                                                                     disabled={isGracePeriod} // NEW: Disable input
                                                                 />
                                                                 <ErrorMessage name="newAmount" component="div" className="text-red-600 text-xs mt-1" />
@@ -189,7 +189,7 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { 
                                                                 id="reason"
                                                                 name="reason"
                                                                 rows="3"
-                                                                className={`mt-1 block w-full ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
+                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
                                                                 disabled={isGracePeriod} // NEW: Disable textarea
                                                             />
                                                             <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />

@@ -138,7 +138,7 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { //
                                                                 id="reason"
                                                                 name="reason"
                                                                 rows="3"
-                                                                className={`mt-1 block w-full ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
+                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
                                                                 disabled={isGracePeriod} // NEW: Disable textarea
                                                             />
                                                             <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
@@ -150,7 +150,7 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { //
                                                                 type="number"
                                                                 id="totalDocumentsCount"
                                                                 name="totalDocumentsCount"
-                                                                className="mt-1 block w-full bg-gray-100 cursor-not-allowed"
+                                                                className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 bg-gray-100 cursor-not-allowed"
                                                                 disabled
                                                             />
                                                         </div>
@@ -160,7 +160,7 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { //
                                                                 type="number"
                                                                 id="pendingRepliesCount"
                                                                 name="pendingRepliesCount"
-                                                                className="mt-1 block w-full bg-gray-100 cursor-not-allowed"
+                                                                className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 bg-gray-100 cursor-not-allowed"
                                                                 disabled
                                                             />
                                                         </div>

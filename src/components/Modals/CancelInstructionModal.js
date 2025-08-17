@@ -156,7 +156,7 @@ const CancelInstructionModal = ({ instruction, onClose, onSuccess, isGracePeriod
                                 id="reason"
                                 name="reason"
                                 rows="3"
-                                className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 mt-1 block w-full sm:text-sm border-gray-300 rounded-md"
+                                className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 sm:text-sm"
                                 placeholder="e.g., Incorrect amount was entered"
                                 value={reason}
                                 onChange={(e) => setReason(e.target.value)}

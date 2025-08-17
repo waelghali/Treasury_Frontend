@@ -6,6 +6,7 @@ import LoginPage from './pages/Auth/LoginPage';
 import ForcePasswordChangePage from './pages/Auth/ForcePasswordChangePage';
 import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/Auth/ResetPasswordPage';
+import LandingPage from './pages/LandingPage';
 
 import RenewalPage from './pages/RenewalPage'; 
 
@@ -31,7 +32,7 @@ function AppContent() {
   const [customerName, setCustomerName] = useState(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
-  // NEW: State for subscription status and end date
+  // State for subscription status and end date
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [subscriptionEndDate, setSubscriptionEndDate] = useState(null);
 
@@ -46,8 +47,6 @@ function AppContent() {
     let mustChange = false;
     let id = null;
     let name = null;
-
-    // NEW: Subscription vars
     let status = null;
     let endDate = null;
 
@@ -59,11 +58,8 @@ function AppContent() {
         mustChange = decoded.must_change_password || false;
         id = decoded.user_id;
         name = decoded.customer_name;
-
-        // NEW: Read subscription details from token
-        status = decoded.subscription_status || 'active'; // Default to active
+        status = decoded.subscription_status || 'active';
         endDate = decoded.subscription_end_date || null;
-
       } catch (error) {
         console.error("App.js: Failed to decode token:", error);
         setAuthToken(null);
@@ -75,8 +71,6 @@ function AppContent() {
     setMustChangePassword(mustChange);
     setUserId(id);
     setCustomerName(name);
-
-    // NEW: Set subscription state
     setSubscriptionStatus(status);
     setSubscriptionEndDate(endDate);
 
@@ -109,7 +103,7 @@ function AppContent() {
         navigate("/login", { replace: true });
     } else if (updatedMustChangePassword) {
         navigate("/force-password-change", { replace: true });
-    } else if (updatedSubscriptionStatus === 'expired') { // NEW: Redirect to renewal page if expired
+    } else if (updatedSubscriptionStatus === 'expired') {
         navigate("/renewal", { replace: true });
     } else {
         const redirectPath = getDefaultRedirectPath(updatedUserRole);
@@ -147,21 +141,17 @@ function AppContent() {
       );
     }
 
-    // NEW: Redirect to renewal page if subscription is expired
-    if (isAuthenticated && subscriptionStatus === 'expired') {
-      return <Navigate to="/renewal" replace />;
-    }
-
     return (
       <Routes>
+        {/* PUBLIC ROUTES - Outside the AuthWrapper */}
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/force-password-change" element={<ForcePasswordChangePage onPasswordChangeSuccess={handleLoginSuccess} />} />
-
-        {/* NEW: Renewal page outside of the protected routes */}
         <Route path="/renewal" element={<RenewalPage />} />
 
+        {/* PROTECTED ROUTES - Inside the AuthWrapper */}
         <Route element={<AuthWrapper isAuthenticated={isAuthenticated} userRole={userRole} onLogout={handleLogout} />}>
           {mustChangePassword ? (
             <Route path="*" element={<Navigate to="/force-password-change" replace />} />
@@ -171,14 +161,14 @@ function AppContent() {
               element={<ProtectedLayout onLogout={handleLogout} key={userId} customerName={customerName} subscriptionStatus={subscriptionStatus} subscriptionEndDate={subscriptionEndDate} />}
             >
               <Route path="system-owner/*" element={<SystemOwnerRoutes onLogout={handleLogout} />} />
-              <Route path="corporate-admin/*" element={<CorporateAdminRoutes onLogout={handleLogout} />} />
-              <Route path="end-user/*" element={<EndUserRoutes onLogout={handleLogout} />} />
+              <Route path="corporate-admin/*" element={<CorporateAdminRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} />} />
+              <Route path="end-user/*" element={<EndUserRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} />} />
               <Route path="*" element={<Navigate to={getDefaultRedirectPath(userRole)} replace />} />
             </Route>
           )}
         </Route>
 
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   };

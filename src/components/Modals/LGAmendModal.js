@@ -105,7 +105,9 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
                         readOnly={readOnly}
                         className={classNames(
                             "mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2",
-                            readOnly ? "bg-gray-100 border-gray-300 text-gray-500" : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-500",
+                            // Add these two classes for the border to match CustomerOnboardingForm
+                            "border border-gray-300",
+                            readOnly ? "bg-gray-100 text-gray-500" : "focus:border-indigo-500 focus:ring-indigo-500",
                             hasBeenChanged ? "bg-yellow-50 border-yellow-400" : "bg-white"
                         )}
                         {...extraProps}

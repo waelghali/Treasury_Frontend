@@ -150,7 +150,7 @@ const InternalOwnerFormModal = ({ owner, onClose, onSuccess, isGracePeriod }) =>
                                                                 type="email"
                                                                 id="email"
                                                                 name="email"
-                                                                className={`mt-1 block w-full ${errors.email && touched.email ? 'border-red-500' : 'border-gray-300'}`}
+                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border ${errors.email && touched.email ? 'border-red-500' : 'border-gray-300'}`}
                                                                 disabled={isEditMode || isGracePeriod} // NEW: Disable input
                                                             />
                                                             <ErrorMessage name="email" component="div" className="text-red-600 text-xs mt-1" />
@@ -163,7 +163,7 @@ const InternalOwnerFormModal = ({ owner, onClose, onSuccess, isGracePeriod }) =>
                                                                 type="text"
                                                                 id="phoneNumber"
                                                                 name="phoneNumber"
-                                                                className={`mt-1 block w-full ${errors.phoneNumber && touched.phoneNumber ? 'border-red-500' : 'border-gray-300'}`}
+                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border ${errors.phoneNumber && touched.phoneNumber ? 'border-red-500' : 'border-gray-300'}`}
                                                                 disabled={isGracePeriod} // NEW: Disable input
                                                             />
                                                             <ErrorMessage name="phoneNumber" component="div" className="text-red-600 text-xs mt-1" />
@@ -176,7 +176,7 @@ const InternalOwnerFormModal = ({ owner, onClose, onSuccess, isGracePeriod }) =>
                                                                 type="text"
                                                                 id="internalId"
                                                                 name="internalId"
-                                                                className="mt-1 block w-full border-gray-300"
+                                                                className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300"
                                                                 disabled={isGracePeriod} // NEW: Disable input
                                                             />
                                                         </div>
@@ -188,7 +188,7 @@ const InternalOwnerFormModal = ({ owner, onClose, onSuccess, isGracePeriod }) =>
                                                                 type="email"
                                                                 id="managerEmail"
                                                                 name="managerEmail"
-                                                                className={`mt-1 block w-full ${errors.managerEmail && touched.managerEmail ? 'border-red-500' : 'border-gray-300'}`}
+                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border ${errors.managerEmail && touched.managerEmail ? 'border-red-500' : 'border-gray-300'}`}
                                                                 disabled={isGracePeriod} // NEW: Disable input
                                                             />
                                                             <ErrorMessage name="managerEmail" component="div" className="text-red-600 text-xs mt-1" />

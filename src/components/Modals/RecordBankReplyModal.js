@@ -154,7 +154,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
                                                                     setFieldValue('bankReplyDate', date);
                                                                 }}
                                                                 dateFormat="yyyy-MM-dd"
-                                                                className={`mt-1 block w-full ${errors.bankReplyDate && touched.bankReplyDate ? 'border-red-500' : 'border-gray-300'}`}
+                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.bankReplyDate && touched.bankReplyDate ? 'border-red-500' : 'border-gray-300'}`}
                                                                 maxDate={new Date()}
                                                                 popperPlacement="auto"
                                                                 disabled={isGracePeriod} // NEW: Disable DatePicker
@@ -171,7 +171,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
                                                                 id="replyDetails"
                                                                 name="replyDetails"
                                                                 rows="3"
-                                                                className="mt-1 block w-full border-gray-300"
+                                                                className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded-md"
                                                                 disabled={isGracePeriod} // NEW: Disable textarea
                                                             />
                                                             <ErrorMessage name="replyDetails" component="div" className="text-red-600 text-xs mt-1" />
@@ -192,7 +192,8 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
                                                                            file:rounded-md file:border-0
                                                                            file:text-sm file:font-semibold
                                                                            file:bg-blue-50 file:text-blue-700
-                                                                           hover:file:bg-blue-100"
+                                                                           hover:file:bg-blue-100
+                                                                           border border-gray-300 rounded-md"
                                                                 disabled={isGracePeriod} // NEW: Disable file input
                                                             />
                                                             <p className="mt-1 text-xs text-gray-500">Supported formats: JPG, PNG, PDF. (Max 5MB)</p>

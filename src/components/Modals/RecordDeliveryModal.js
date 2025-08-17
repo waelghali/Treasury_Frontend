@@ -151,7 +151,7 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod })
                                                                     setFieldValue('deliveryDate', date);
                                                                 }}
                                                                 dateFormat="yyyy-MM-dd"
-                                                                className={`mt-1 block w-full ${errors.deliveryDate && touched.deliveryDate ? 'border-red-500' : 'border-gray-300'}`}
+                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.deliveryDate && touched.deliveryDate ? 'border-red-500' : 'border-gray-300'}`}
                                                                 maxDate={new Date()}
                                                                 popperPlacement="auto"
                                                                 disabled={isGracePeriod} // NEW: Disable DatePicker
@@ -169,7 +169,7 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod })
                                                                 type="file"
                                                                 accept="image/*,application/pdf"
                                                                 onChange={(event) => setDeliveryFile(event.currentTarget.files[0])}
-                                                                className="mt-1 block w-full text-sm text-gray-500
+                                                                className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 text-sm text-gray-500
                                                                            file:mr-4 file:py-2 file:px-4
                                                                            file:rounded-md file:border-0
                                                                            file:text-sm file:font-semibold

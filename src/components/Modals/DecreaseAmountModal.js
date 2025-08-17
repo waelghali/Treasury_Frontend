@@ -139,7 +139,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                                                                 id="decreaseAmount"
                                                                 name="decreaseAmount"
                                                                 step="0.01"
-                                                                className={`mt-1 block w-full ${errors.decreaseAmount && touched.decreaseAmount ? 'border-red-500' : 'border-gray-300'}`}
+                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.decreaseAmount && touched.decreaseAmount ? 'border-red-500' : 'border-gray-300'}`}
                                                                 disabled={isGracePeriod} // NEW: Disable input
                                                             />
                                                             <ErrorMessage name="decreaseAmount" component="div" className="text-red-600 text-xs mt-1" />
@@ -154,7 +154,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                                                                 id="reason"
                                                                 name="reason"
                                                                 rows="3"
-                                                                className={`mt-1 block w-full ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
+                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
                                                                 disabled={isGracePeriod} // NEW: Disable textarea
                                                             />
                                                             <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />

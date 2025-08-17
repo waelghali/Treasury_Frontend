@@ -3,17 +3,18 @@ import { useLocation, Outlet } from 'react-router-dom';
 import SidebarLayout from './Layout/SidebarLayout';
 import CorporateAdminLayout from './Layout/CorporateAdminLayout';
 import EndUserLayout from './Layout/EndUserLayout';
-import { jwtDecode } from 'jwt-decode';
 import { fetchActiveSystemNotifications } from '../services/notificationService';
 
-function ProtectedLayout({ onLogout, subscriptionStatus, subscriptionEndDate }) {
+function ProtectedLayout({ onLogout, customerName, subscriptionStatus, subscriptionEndDate }) { // Props from App.js
   const location = useLocation();
-  const [userRole, setUserRole] = useState(null);
-  const [customerId, setCustomerId] = useState(null);
-  const [customerName, setCustomerName] = useState(null);
   const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [headerTitle, setHeaderTitle] = useState('');
   const [systemNotifications, setSystemNotifications] = useState([]);
+  
+  // The userRole, userId, and customerName are now passed in directly as props
+  // from App.js. No need to decode the token again.
+  // We'll use location.pathname to infer the userRole for the initial state.
+  const userRole = location.pathname.split('/')[1];
 
   const getActiveState = (currentPath, role) => {
     let activeItem = null;
@@ -24,7 +25,7 @@ function ProtectedLayout({ onLogout, subscriptionStatus, subscriptionEndDate }) 
     }
     
     // Logic for System Owner menu items and headers
-    if (role === 'system_owner') {
+    if (role === 'system-owner') {
       if (currentPath.startsWith('/system-owner/dashboard')) { activeItem = 'dashboard'; title = 'Treasury Dashboard'; }
       else if (currentPath.startsWith('/system-owner/customers')) { activeItem = 'customer-management'; title = 'Customer Management'; }
       else if (currentPath.startsWith('/system-owner/subscription-plans')) { activeItem = 'subscription-plans'; title = 'Subscription Plans'; }
@@ -47,7 +48,7 @@ function ProtectedLayout({ onLogout, subscriptionStatus, subscriptionEndDate }) 
       else { activeItem = 'dashboard'; title = 'Treasury Dashboard'; }
     }
     // Logic for Corporate Admin menu items and headers
-    else if (role === 'corporate_admin') {
+    else if (role === 'corporate-admin') {
       if (currentPath.startsWith('/corporate-admin/dashboard')) { activeItem = 'corporate-admin-dashboard'; title = 'Corporate Admin Dashboard'; }
       else if (currentPath.startsWith('/corporate-admin/action-center')) { activeItem = 'corporate-admin-action-center'; title = 'Action Center'; }
       else if (currentPath.startsWith('/corporate-admin/lg-categories/new')) { activeItem = 'corporate-admin-lg-categories'; title = 'Create LG Category'; }
@@ -69,7 +70,7 @@ function ProtectedLayout({ onLogout, subscriptionStatus, subscriptionEndDate }) 
       else { activeItem = 'corporate-admin-dashboard'; title = 'Corporate Admin Dashboard'; }
     }
     // Logic for End User / Checker menu items and headers
-    else if (role === 'end_user' || role === 'checker') {
+    else if (role === 'end-user' || role === 'checker') {
       if (currentPath.startsWith('/end-user/dashboard')) { activeItem = 'end-user-dashboard'; title = 'End User Dashboard'; }
       else if (currentPath.startsWith('/end-user/action-center')) { activeItem = 'end-user-action-center'; title = 'Action Center'; }
       else if (currentPath.startsWith('/end-user/lg-records/new')) { activeItem = 'end-user-record-new-lg'; title = 'Record New LG'; }
@@ -89,31 +90,19 @@ function ProtectedLayout({ onLogout, subscriptionStatus, subscriptionEndDate }) 
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('jwt_token');
-    if (token) {
-      try {
-        const decoded = jwtDecode(token);
-        setUserRole(decoded.role);
-        setCustomerId(decoded.customer_id);
-        setCustomerName(decoded.customer_name);
-      } catch (error) {
-        console.error("ProtectedLayout: Failed to decode token:", error);
-        onLogout(); 
-      }
-    } else {
-      onLogout();
-    }
-  }, [onLogout]);
-
-  useEffect(() => {
+    // This hook now only sets the active menu item and header title.
     const { activeItem, title } = getActiveState(location.pathname, userRole);
     setActiveMenuItem(activeItem);
     setHeaderTitle(title);
   }, [location.pathname, userRole]);
 
   useEffect(() => {
+    // This hook is for fetching notifications, which is independent of auth state.
     const getNotifications = async () => {
-      if (userRole && userRole !== 'system_owner') {
+      // The old customerId state is not used anymore since we receive everything as a prop
+      // Let's assume you'll pass customerId as a prop too
+      // if (userRole && userRole !== 'system_owner' && customerId) {
+      if (userRole && userRole !== 'system-owner') {
         const notifications = await fetchActiveSystemNotifications();
         setSystemNotifications(notifications);
       } else {
@@ -122,15 +111,15 @@ function ProtectedLayout({ onLogout, subscriptionStatus, subscriptionEndDate }) 
     };
 
     getNotifications();
-  }, [userRole, customerId]);
+  }, [userRole]);
 
-  if (userRole === 'system_owner') {
+  if (userRole === 'system-owner') {
     return (
       <SidebarLayout onLogout={onLogout} activeMenuItem={activeMenuItem} headerTitle={headerTitle}>
         <Outlet />
       </SidebarLayout>
     );
-  } else if (userRole === 'corporate_admin') {
+  } else if (userRole === 'corporate-admin') {
     return (
       <CorporateAdminLayout
         onLogout={onLogout}
@@ -144,7 +133,7 @@ function ProtectedLayout({ onLogout, subscriptionStatus, subscriptionEndDate }) 
         <Outlet />
       </CorporateAdminLayout>
     );
-  } else if (userRole === 'end_user' || userRole === 'checker') {
+  } else if (userRole === 'end-user' || userRole === 'checker') {
     return (
       <EndUserLayout
         onLogout={onLogout}

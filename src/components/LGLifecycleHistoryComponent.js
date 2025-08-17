@@ -5,6 +5,7 @@ import { format, differenceInDays } from 'date-fns';
 import { Loader, AlertCircle, Clock, Info, CheckCircle, Edit, Repeat, Truck, Building, User, RotateCcw, FileText, ChevronDown, Download, Mail, Eye, FileMinus, MinusCircle, Users } from 'lucide-react';
 import CancelInstructionModal from 'components/Modals/CancelInstructionModal';
 import { toast } from 'react-toastify';
+import { getEventIcon, formatActionTypeLabel } from '../utils/timelineHelpers';
 
 // A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -24,10 +25,6 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-const formatActionTypeLabel = (actionType) => {
-    if (!actionType) return '';
-    return actionType.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
-};
 
 const LGLifecycleHistoryComponent = ({
     lgRecordId,
@@ -170,63 +167,6 @@ const LGLifecycleHistoryComponent = ({
         return sentInAuditLog || sentInObjectFlag;
     }, [events, instructionsMap]);
 
-    const getEventIcon = (actionType) => {
-        switch (actionType) {
-            case 'LG_CREATED': return <CheckCircle className="text-green-500" size={20} />;
-            case 'LG_EXTENDED': return <Repeat className="text-blue-500" size={20} />;
-            case 'LG_AMENDED': return <Edit className="text-purple-500" size={20} />;
-            case 'LG_LIQUIDATED_FULL':
-            case 'LG_LIQUIDATED_PARTIAL':
-            case 'LG_LIQUIDATE':
-                return <FileMinus className="text-red-500" size={20} />;
-            case 'LG_RELEASED':
-            case 'LG_RELEASE':
-                return <CheckCircle className="text-green-500" size={20} />;
-            case 'LG_DECREASED_AMOUNT':
-            case 'LG_DECREASE_AMOUNT':
-                return <MinusCircle className="text-orange-500" size={20} />;
-            case 'LG_INSTRUCTION_DELIVERED':
-            case 'LG_RECORD_DELIVERY':
-                return <Truck className="text-indigo-500" size={20} />;
-            case 'LG_BANK_REPLY_RECORDED':
-            case 'LG_RECORD_BANK_REPLY':
-                return <Building className="text-teal-500" size={20} />;
-            case 'LG_REMINDER_SENT_TO_BANK':
-            case 'LG_REMINDER_TO_BANKS':
-                return <Mail className="text-yellow-500" size={20} />;
-            case 'LG_BULK_REMINDER_INITIATED': return <Mail className="text-yellow-500" size={20} />;
-            case 'INTERNAL_OWNER_CHANGE':
-            case 'LG_OWNER_DETAILS_UPDATED':
-            case 'LG_SINGLE_OWNER_CHANGED':
-            case 'LG_BULK_OWNER_CHANGED':
-                return <Users className="text-gray-600" size={20} />;
-            case 'INSTRUCTION_ACCESSED_FOR_PRINT': return <FileText className="text-pink-500" size={20} />;
-            case 'LG_ACTIVATED':
-            case 'LG_ACTIVATE_NON_OPERATIVE': return <CheckCircle className="text-green-500" size={20} />;
-            case 'LG_TOGGLE_AUTO_RENEWAL': return <Repeat className="text-blue-400" size={20} />;
-            case 'APPROVAL_REQUEST_SUBMITTED': return <Clock className="text-gray-400" size={20} />;
-            case 'APPROVAL_REQUEST_APPROVED': return <CheckCircle className="text-green-500" size={20} />;
-            case 'APPROVAL_REQUEST_REJECTED': return <AlertCircle className="text-red-500" size={20} />;
-            case 'APPROVAL_REQUEST_WITHDRAWN': return <RotateCcw className="text-gray-500" size={20} />;
-            case 'APPROVAL_REQUEST_AUTO_REJECTED': return <AlertCircle className="text-gray-500" size={20} />;
-            case 'APPROVAL_INVALIDATED_BY_OTHER_APPROVAL': return <AlertCircle className="text-orange-500" size={20} />;
-            case 'CREATE': return <CheckCircle className="text-green-500" size={20} />;
-            case 'UPDATE': return <Edit className="text-blue-500" size={20} />;
-            case 'SOFT_DELETE': return <AlertCircle className="text-red-500" size={20} />;
-            case 'RESTORE': return <RotateCcw className="text-green-500" size={20} />;
-            case 'LOGIN_SUCCESS': return <User className="text-green-500" size={20} />;
-            case 'LOGIN_FAILED': return <AlertCircle className="text-red-500" size={20} />;
-            case 'AI_SCAN_SUCCESS': return <Info className="text-purple-500" size={20} />;
-            case 'AI_SCAN_FAILED': return <AlertCircle className="text-red-500" size={20} />;
-            case 'NOTIFICATION_SENT': return <Mail className="text-teal-500" size={20} />;
-            case 'NOTIFICATION_FAILED': return <AlertCircle className="text-red-500" size={20} />;
-            case 'LG_RENEWAL_REMINDER_FIRST_SENT': return <Mail className="text-yellow-400" size={20} />;
-            case 'LG_RENEWAL_REMINDER_SECOND_SENT': return <Mail className="text-red-500" size={20} />;
-            case 'LG_OWNER_RENEWAL_REMINDER_SENT': return <Mail className="text-orange-400" size={20} />;
-            case 'LG_OWNER_RENEWAL_REMINDER_SKIPPED_RECENTLY_SENT': return <Info className="text-gray-400" size={20} />;
-            default: return <Info className="text-gray-400" size={20} />;
-        }
-    };
 
     const formatEventDetails = (actionType, details, userEmail) => {
         let detailString = '';

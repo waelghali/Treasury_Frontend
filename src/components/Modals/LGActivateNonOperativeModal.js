@@ -120,7 +120,7 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                                                                 value={paymentDetails.amount}
                                                                 onChange={handleInputChange}
                                                                 required
-                                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-2"
+                                                                className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm sm:text-sm p-2"
                                                             />
                                                         </div>
                                                         <div>
@@ -132,7 +132,7 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                                                                 value={paymentDetails.currency_id}
                                                                 onChange={handleInputChange}
                                                                 required
-                                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-2"
+                                                                className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm sm:text-sm p-2"
                                                             />
                                                         </div>
                                                         <div>
@@ -144,7 +144,7 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                                                                 value={paymentDetails.payment_method}
                                                                 onChange={handleInputChange}
                                                                 required
-                                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-2"
+                                                                className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm sm:text-sm p-2"
                                                             />
                                                         </div>
                                                         <div>
@@ -156,7 +156,7 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                                                                 value={paymentDetails.payment_date}
                                                                 onChange={handleInputChange}
                                                                 required
-                                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-2"
+                                                                className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm sm:text-sm p-2"
                                                             />
                                                         </div>
                                                         <div className="md:col-span-2">
@@ -167,7 +167,7 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                                                                 id="payment_reference"
                                                                 value={paymentDetails.payment_reference}
                                                                 onChange={handleInputChange}
-                                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-2"
+                                                                className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm sm:text-sm p-2"
                                                             />
                                                         </div>
                                                     </div>

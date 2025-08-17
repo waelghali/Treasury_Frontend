@@ -28,9 +28,10 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
 
         {/* FIX: Removed overflow-y-auto to prevent the scrollbar, and adjusted padding */}
         <nav className="flex-grow p-4 space-y-2">
+          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/dashboard"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-dashboard' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -38,9 +39,10 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Dashboard
           </Link>
           
+          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/action-center"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-action-center' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -48,9 +50,10 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Action Center (View)
           </Link>
 
+          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/lg-records"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-lg-records' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -58,9 +61,10 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Manage LG Records (View)
           </Link>
 
+          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/users"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-users' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -68,9 +72,10 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Manage Users
           </Link>
 
+          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/module-configs"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-module-configs' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -78,9 +83,10 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Module Settings
           </Link>
 
+          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/lg-categories"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-lg-categories' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -88,9 +94,10 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             LG Categories
           </Link>
 
+          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/approval-requests"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-approval-requests' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -98,9 +105,10 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Pending Approvals
           </Link>
 
+          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/reports"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-reports' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -108,9 +116,10 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Reports
           </Link>
 
+          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/audit-logs"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-audit-logs' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -120,7 +129,7 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
         </nav>
 
         <div className="p-4 border-t border-gray-200 flex-shrink-0">
-          <div className="flex items-center mb-3">
+          <div className="flex items-center mb-1">
             <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white text-sm font-semibold">
               CA
             </span>
@@ -141,7 +150,7 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
       </aside>
 
       <main className="flex-1 p-8 overflow-y-auto">
-        <header className="flex justify-between items-center pb-6 border-b border-gray-200 mb-6">
+        <header className="flex justify-between items-center pb-6 border-b border-gray-200 mb-4">
           <h1 className="text-2xl font-semibold text-gray-800">
             {headerTitle}
           </h1>

@@ -218,7 +218,7 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                                                                         type="email"
                                                                         id="newOwnerEmail"
                                                                         name="newOwnerEmail"
-                                                                        className={`mt-1 block w-full ${errors.newOwnerEmail && touched.newOwnerEmail ? 'border-red-500' : 'border-gray-300'}`}
+                                                                        className={`mt-1 block w-full px-3 py-2 rounded-md border ${errors.newOwnerEmail && touched.newOwnerEmail ? 'border-red-500' : 'border-gray-300'}`}
                                                                         disabled={isGracePeriod} // NEW: Disable input
                                                                     />
                                                                     <ErrorMessage name="newOwnerEmail" component="div" className="text-red-600 text-xs mt-1" />
@@ -231,7 +231,7 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                                                                         type="text"
                                                                         id="newOwnerPhoneNumber"
                                                                         name="newOwnerPhoneNumber"
-                                                                        className={`mt-1 block w-full ${errors.newOwnerPhoneNumber && touched.newOwnerPhoneNumber ? 'border-red-500' : 'border-gray-300'}`}
+                                                                        className={`mt-1 block w-full px-3 py-2 rounded-md border ${errors.newOwnerPhoneNumber && touched.newOwnerPhoneNumber ? 'border-red-500' : 'border-gray-300'}`}
                                                                         disabled={isGracePeriod} // NEW: Disable input
                                                                     />
                                                                     <ErrorMessage name="newOwnerPhoneNumber" component="div" className="text-red-600 text-xs mt-1" />
@@ -244,7 +244,7 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                                                                         type="text"
                                                                         id="newOwnerInternalId"
                                                                         name="newOwnerInternalId"
-                                                                        className="mt-1 block w-full border-gray-300"
+                                                                        className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300"
                                                                         disabled={isGracePeriod} // NEW: Disable input
                                                                     />
                                                                 </div>
@@ -256,7 +256,7 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                                                                         type="email"
                                                                         id="newOwnerManagerEmail"
                                                                         name="newOwnerManagerEmail"
-                                                                        className={`mt-1 block w-full ${errors.newOwnerManagerEmail && touched.newOwnerManagerEmail ? 'border-red-500' : 'border-gray-300'}`}
+                                                                        className={`mt-1 block w-full px-3 py-2 rounded-md border ${errors.newOwnerManagerEmail && touched.newOwnerManagerEmail ? 'border-red-500' : 'border-gray-300'}`}
                                                                         disabled={isGracePeriod} // NEW: Disable input
                                                                     />
                                                                     <ErrorMessage name="newOwnerManagerEmail" component="div" className="text-red-600 text-xs mt-1" />
@@ -274,7 +274,7 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                                                                         as="select"
                                                                         id="newOwnerId"
                                                                         name="newOwnerId"
-                                                                        className={`mt-1 block w-full ${errors.newOwnerId && touched.newOwnerId ? 'border-red-500' : 'border-gray-300'}`}
+                                                                        className={`mt-1 block w-full px-3 py-2 rounded-md border ${errors.newOwnerId && touched.newOwnerId ? 'border-red-500' : 'border-gray-300'}`}
                                                                         disabled={isGracePeriod} // NEW: Disable select input
                                                                     >
                                                                         <option value="">-- Select an owner --</option>
@@ -298,7 +298,7 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                                                                 id="reason"
                                                                 name="reason"
                                                                 rows="2"
-                                                                className={`mt-1 block w-full ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
+                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
                                                                 disabled={isGracePeriod} // NEW: Disable textarea
                                                             />
                                                             <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
