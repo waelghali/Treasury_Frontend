@@ -21,12 +21,20 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-function LGCategoryForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod prop
+// Common input field styling classes
+const inputClassNames = "mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200";
+const labelClassNames = "block text-sm font-medium text-gray-700";
+
+function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  // FIX: Declare these variables in the component's scope, outside of useEffect
+  const isSystemOwner = userRole === 'system-owner';
+  const baseApiUrl = isSystemOwner ? '/system-owner/lg-categories/universal' : '/corporate-admin/lg-categories';
+
   const [formData, setFormData] = useState({
-    category_name: '',
+    name: '',
     code: '',
     extra_field_name: '',
     is_mandatory: false,
@@ -36,35 +44,34 @@ function LGCategoryForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
 
   const [allCustomerEntities, setAllCustomerEntities] = useState([]);
   const [selectedEntityIds, setSelectedEntityIds] = useState([]);
-
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [formTitle, setFormTitle] = useState('Create New LG Category');
-  const [isUniversalCategory, setIsUniversalCategory] = useState(false);
+  const [isDefaultCategory, setIsDefaultCategory] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       setError('');
-
       try {
-        const entitiesResponse = await apiRequest('/corporate-admin/customer-entities/', 'GET');
-        setAllCustomerEntities(entitiesResponse);
+        if (!isSystemOwner) {
+          const entitiesResponse = await apiRequest('/corporate-admin/customer-entities/', 'GET');
+          setAllCustomerEntities(entitiesResponse);
+        }
 
         if (id) {
-          setFormTitle('Edit LG Category');
-          const category = await apiRequest(`/corporate-admin/lg-categories/${id}`, 'GET');
+          setFormTitle(`Edit ${isSystemOwner ? 'Universal' : 'LG'} Category`);
+          const category = await apiRequest(`${baseApiUrl}/${id}`, 'GET');
           
-          if (category.type === 'universal') {
-              setIsUniversalCategory(true);
-              setError("This is a system default category (Universal Category) and cannot be edited by Corporate Admins.");
+          if (isSystemOwner && category.customer_id !== null) {
+              setError("This category is not a universal category and cannot be edited from this page.");
               setIsLoading(false);
               return;
           }
 
           setFormData({
-            category_name: category.category_name || '',
+            name: category.name || '',
             code: category.code || '',
             extra_field_name: category.extra_field_name || '',
             is_mandatory: category.is_mandatory,
@@ -72,14 +79,14 @@ function LGCategoryForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
             has_all_entity_access: category.has_all_entity_access,
           });
 
-          if (!category.has_all_entity_access && category.entities_with_access) {
+          if (!isSystemOwner) {
             setSelectedEntityIds(category.entities_with_access.map(entity => entity.id));
           } else {
             setSelectedEntityIds([]);
           }
 
         } else {
-          setFormTitle('Create New LG Category');
+          setFormTitle(`Create New ${isSystemOwner ? 'Universal' : 'LG'} Category`);
           setFormData(prev => ({ ...prev, has_all_entity_access: true }));
           setSelectedEntityIds([]);
         }
@@ -92,7 +99,7 @@ function LGCategoryForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
     };
 
     fetchData();
-  }, [id]);
+  }, [id, userRole]); // userRole is now a dependency
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -124,18 +131,12 @@ function LGCategoryForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isGracePeriod) { // NEW: Grace period check
+    if (isGracePeriod) {
       setError("This action is disabled during your subscription's grace period.");
       return;
     }
     setIsSaving(true);
     setError('');
-
-    if (isUniversalCategory) {
-        setError("System default categories cannot be updated by Corporate Admins.");
-        setIsSaving(false);
-        return;
-    }
 
     const payload = { ...formData };
     if (payload.communication_list) {
@@ -147,27 +148,38 @@ function LGCategoryForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
     if (payload.code) {
         payload.code = payload.code.toUpperCase();
     }
-
-    if (payload.has_all_entity_access) {
-      payload.entity_ids = [];
-    } else {
-      payload.entity_ids = selectedEntityIds;
-      if (selectedEntityIds.length === 0) {
-        setError("Please select at least one entity if 'Applies to All Entities' is unchecked.");
-        setIsSaving(false);
-        return;
+    
+    // Logic for entity IDs is only for Corporate Admins
+    if (userRole === 'corporate-admin') {
+      if (payload.has_all_entity_access) {
+        payload.entity_ids = [];
+      } else {
+        payload.entity_ids = selectedEntityIds;
+        if (selectedEntityIds.length === 0) {
+          setError("Please select at least one entity if 'Applies to All Entities' is unchecked.");
+          setIsSaving(false);
+          return;
+        }
       }
+    } else {
+      // System Owner can only create universal categories, so no entity IDs are needed.
+      payload.has_all_entity_access = true;
+      payload.entity_ids = [];
     }
+
+    const apiUrl = id
+      ? `${baseApiUrl}/${id}`
+      : baseApiUrl;
 
     try {
       if (id) {
-        await apiRequest(`/corporate-admin/lg-categories/${id}`, 'PUT', payload);
+        await apiRequest(apiUrl, 'PUT', payload);
         alert('LG Category updated successfully!');
       } else {
-        await apiRequest('/corporate-admin/lg-categories/', 'POST', payload);
+        await apiRequest(apiUrl, 'POST', payload);
         alert('LG Category created successfully!');
       }
-      navigate('/corporate-admin/lg-categories');
+      navigate(isSystemOwner ? '/system-owner/lg-categories/universal' : '/corporate-admin/lg-categories');
     } catch (err) {
       console.error('Error saving LG category:', err);
       setError(`Error saving LG Category: ${err.message || 'An unexpected error occurred.'}`);
@@ -176,7 +188,7 @@ function LGCategoryForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
     }
   };
 
-  const isFormDisabled = isUniversalCategory || isGracePeriod;
+  const isFormDisabled = isGracePeriod;
 
   if (isLoading) {
     return (
@@ -200,30 +212,30 @@ function LGCategoryForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
         </div>
       )}
 
-      {isUniversalCategory && (
+      {isSystemOwner && id && (
         <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-md relative mb-4" role="alert">
-          <span className="block sm:inline">This is a system default category (Universal Category) and cannot be edited by Corporate Admins.</span>
+          <span className="block sm:inline">You are editing a system-wide (universal) category. Changes will affect all customers.</span>
         </div>
       )}
 
       <div className={`bg-white p-6 rounded-lg shadow-md ${isFormDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="category_name" className="block text-sm font-medium text-gray-700">Category Name</label>
+            <label htmlFor="name" className={labelClassNames}>Category Name</label>
             <input
               type="text"
-              name="category_name"
-              id="category_name"
-              value={formData.category_name}
+              name="name"
+              id="name"
+              value={formData.name}
               onChange={handleChange}
               required
               readOnly={isFormDisabled}
-              className="mt-1 block w-full rounded-md border border-gray-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-colors duration-200 text-sm"
+              className="mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
             />
           </div>
 
           <div>
-            <label htmlFor="code" className="block text-sm font-medium text-gray-700">Code (1-2 Alphanumeric Chars)</label>
+            <label htmlFor="code" className={labelClassNames}>Code (1-2 Alphanumeric Chars)</label>
             <input
               type="text"
               name="code"
@@ -233,12 +245,12 @@ function LGCategoryForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
               required
               maxLength="2"
               readOnly={isFormDisabled}
-              className="mt-1 block w-full rounded-md border border-gray-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-colors duration-200 text-sm uppercase"
+              className="mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 uppercase"
             />
           </div>
 
           <div>
-            <label htmlFor="extra_field_name" className="block text-sm font-medium text-gray-700">Extra Field Name (e.g., 'Project Code')</label>
+            <label htmlFor="extra_field_name" className={labelClassNames}>Extra Field Name (e.g., 'Project Code')</label>
             <input
               type="text"
               name="extra_field_name"
@@ -246,7 +258,7 @@ function LGCategoryForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
               value={formData.extra_field_name}
               onChange={handleChange}
               readOnly={isFormDisabled}
-              className="mt-1 block w-full rounded-md border border-gray-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-colors duration-200 text-sm"
+              className="mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
             />
           </div>
 
@@ -266,7 +278,7 @@ function LGCategoryForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
           </div>
 
           <div>
-            <label htmlFor="communication_list" className="block text-sm font-medium text-gray-700">Communication List (Comma-separated emails)</label>
+            <label htmlFor="communication_list" className={labelClassNames}>Communication List (Comma-separated emails)</label>
             <textarea
               name="communication_list"
               id="communication_list"
@@ -275,62 +287,67 @@ function LGCategoryForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
               onChange={handleChange}
               placeholder="e.g., email1@example.com, email2@example.com"
               readOnly={isFormDisabled}
-              className="mt-1 block w-full rounded-md border border-gray-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-colors duration-200 text-sm"
+              className="mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
             ></textarea>
             <p className="mt-1 text-sm text-gray-500">
               Emails in this list will receive notifications for LGs in this category.
             </p>
           </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              name="has_all_entity_access"
-              id="has_all_entity_access"
-              checked={formData.has_all_entity_access}
-              onChange={handleChange}
-              disabled={isFormDisabled}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="has_all_entity_access" className="ml-2 block text-sm text-gray-900">
-              Applies to All Entities for this Customer
-            </label>
-          </div>
-
-          {!formData.has_all_entity_access && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Specific Entities (Leave unchecked to apply to all)
-              </label>
-              {allCustomerEntities.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 bg-gray-50 p-4 rounded-md border border-gray-200">
-                  {allCustomerEntities.map((entity) => (
-                    <div key={entity.id} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id={`entity-${entity.id}`}
-                        value={entity.id}
-                        checked={selectedEntityIds.includes(entity.id)}
-                        onChange={handleEntitySelectionChange}
-                        disabled={isFormDisabled}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor={`entity-${entity.id}`} className="ml-2 text-sm text-gray-900">
-                        {entity.entity_name} ({entity.code})
-                      </label>
-                    </div>
-                  ))}
+          
+          {/* Only show entity access controls for Corporate Admins */}
+          {!isSystemOwner && (
+              <>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    name="has_all_entity_access"
+                    id="has_all_entity_access"
+                    checked={formData.has_all_entity_access}
+                    onChange={handleChange}
+                    disabled={isFormDisabled}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="has_all_entity_access" className="ml-2 block text-sm text-gray-900">
+                    Applies to All Entities for this Customer
+                  </label>
                 </div>
-              ) : (
-                <p className="text-sm text-gray-500 mt-1">No entities found for this customer. All categories will apply to all entities by default.</p>
-              )}
-            </div>
+
+                {!formData.has_all_entity_access && (
+                    <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select Specific Entities (Leave unchecked to apply to all)
+                    </label>
+                    {allCustomerEntities.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 bg-gray-50 p-4 rounded-md border border-gray-200">
+                        {allCustomerEntities.map((entity) => (
+                            <div key={entity.id} className="flex items-center">
+                            <input
+                                type="checkbox"
+                                id={`entity-${entity.id}`}
+                                value={entity.id}
+                                checked={selectedEntityIds.includes(entity.id)}
+                                onChange={handleEntitySelectionChange}
+                                disabled={isFormDisabled}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <label htmlFor={`entity-${entity.id}`} className="ml-2 text-sm text-gray-900">
+                                {entity.entity_name} ({entity.code})
+                            </label>
+                            </div>
+                        ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-gray-500 mt-1">No entities found for this customer. All categories will apply to all entities by default.</p>
+                    )}
+                    </div>
+                )}
+              </>
           )}
 
           <div className="flex justify-end space-x-3">
             <button
               type="button"
-              onClick={() => navigate('/corporate-admin/lg-categories')}
+              onClick={() => navigate(isSystemOwner ? '/system-owner/lg-categories/universal' : '/corporate-admin/lg-categories')}
               className="btn-secondary px-4 py-2"
               disabled={isSaving}
             >

@@ -119,59 +119,67 @@ function CustomerDetailsPage({ onLogout }) {
   };
 
   // Handle Add/Update Entity Submission
-  const handleAddUpdateEntity = async (e) => {
-    e.preventDefault();
-    setError('');
+	// Corrected handleAddUpdateEntity function in CustomerDetailsPage.js
+	const handleAddUpdateEntity = async (e) => {
+		e.preventDefault();
+		setError('');
 
-    // Basic validation
-    if (!currentEntityFormData.entity_name.trim()) {
-      setError('Entity name cannot be empty.');
-      return;
-    }
-    // Simple email format check
-    if (currentEntityFormData.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentEntityFormData.contact_email)) {
-      setError('Invalid contact email format.');
-      return;
-    }
+		// --- NEW: Data Cleaning Before Submission ---
+		// Ensure optional string fields are null if empty, to pass Pydantic validation.
+		const cleanedFormData = { ...currentEntityFormData };
+		for (const key of ['contact_person', 'contact_email', 'address', 'commercial_register_number', 'tax_id', 'code']) {
+			if (cleanedFormData[key] === '') {
+				cleanedFormData[key] = null;
+			}
+		}
+		// --- END NEW DATA CLEANING ---
 
-    try {
-      if (editingEntityId) { // Update mode
-        await apiRequest(`/system-owner/customer-entities/${editingEntityId}`, 'PUT', currentEntityFormData);
-        alert('Entity updated successfully!');
-      } else { // Add mode
-        // Check if customer's plan allows multi-entity (frontend side before API call)
-        if (customer && !customer.subscription_plan.can_multi_entity) {
-          const activeEntitiesCount = entities.filter(e => !e.is_deleted && e.is_active).length;
-          if (activeEntitiesCount >= 1) {
-             setError(`Customer's plan does not support adding more entities. Max 1 active entity allowed.`);
-             return;
-          }
-        }
-        await apiRequest('/system-owner/customer-entities', 'POST', {
-          ...currentEntityFormData,
-          customer_id: customer.id, // Associate with current customer
-        });
-        alert('Entity added successfully!');
-      }
-      // Reset form and close
-      setCurrentEntityFormData({
-        entity_name: '',
-        code: '',
-        contact_person: '',
-        contact_email: '',
-        is_active: true,
-        address: '', // New field
-        commercial_register_number: '', // New field
-        tax_id: '', // New field
-      });
-      setEditingEntityId(null);
-      setShowAddEditEntityForm(false);
-      fetchCustomerDetails(); // Refresh the list
-    } catch (err) {
-      console.error('Failed to save entity:', err);
-      setError(`Failed to save entity: ${err.message || 'An unexpected error occurred.'}`);
-    }
-  };
+		// Basic validation
+		if (!cleanedFormData.entity_name.trim()) {
+			setError('Entity name cannot be empty.');
+			return;
+		}
+		// Simple email format check (now more robust as it handles nulls)
+		if (cleanedFormData.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedFormData.contact_email)) {
+			setError('Invalid contact email format.');
+			return;
+		}
+
+		try {
+			if (editingEntityId) { // Update mode
+				await apiRequest(`/system-owner/customer-entities/${editingEntityId}`, 'PUT', cleanedFormData);
+				alert('Entity updated successfully!');
+			} else { // Add mode
+				if (customer && !customer.subscription_plan.can_multi_entity) {
+					const activeEntitiesCount = entities.filter(e => !e.is_deleted && e.is_active).length;
+					if (activeEntitiesCount >= 1) {
+						setError(`Customer's plan does not support adding more entities. Max 1 active entity allowed.`);
+						return;
+					}
+				}
+				// Corrected API call
+				await apiRequest(`/system-owner/customers/${customer.id}/entities/`, 'POST', cleanedFormData);
+				alert('Entity added successfully!');
+			}
+			// Reset form and close
+			setCurrentEntityFormData({
+				entity_name: '',
+				code: '',
+				contact_person: '',
+				contact_email: '',
+				is_active: true,
+				address: '',
+				commercial_register_number: '',
+				tax_id: '',
+			});
+			setEditingEntityId(null);
+			setShowAddEditEntityForm(false);
+			fetchCustomerDetails(); // Refresh the list
+		} catch (err) {
+			console.error('Failed to save entity:', err);
+			setError(`Failed to save entity: ${err.message || 'An unexpected error occurred.'}`);
+		}
+	};
 
   // Handle Edit Entity (initiate edit mode)
   const handleEditEntityClick = (entity) => {

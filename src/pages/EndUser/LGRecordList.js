@@ -348,7 +348,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
         record.lg_number.toLowerCase().includes(lowerCaseSearchTerm) ||
         (record.beneficiary_corporate?.entity_name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
         (record.issuing_bank?.name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
-        (record.lg_category?.category_name || '').toLowerCase().includes(lowerCaseSearchTerm) || // NEW: Added category to search filter
+        (record.lg_category?.name || '').toLowerCase().includes(lowerCaseSearchTerm) || // <<< CRITICAL CHANGE: Use 'name'
         formatAmount(record.lg_amount, record.lg_currency?.iso_code).toLowerCase().includes(lowerCaseSearchTerm) ||
         formatDate(record.expiry_date).toLowerCase().includes(lowerCaseSearchTerm)
       );
@@ -384,8 +384,8 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
           bValue = b.issuing_bank?.name || '';
           break;
         case 'lg_category':
-            aValue = a.lg_category?.category_name || '';
-            bValue = b.lg_category?.category_name || '';
+            aValue = a.lg_category?.name || '';
+            bValue = b.lg_category?.name || ''; 
             break;
         case 'expiry_date':
           aValue = new Date(a.expiry_date);
@@ -423,7 +423,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
       'Amount': record.lg_amount,
       'Currency': record.lg_currency?.iso_code || 'N/A',
       'Issuing Bank': record.issuing_bank?.name || 'N/A',
-      'Category': record.lg_category?.category_name || 'N/A',
+      'Category': record.lg_category?.name || 'N/A',
       'Expiry Date': formatDate(record.expiry_date),
       'Status': record.lg_status?.name || 'N/A',
       'Auto Renewal': record.auto_renewal ? 'Yes' : 'No',
@@ -707,7 +707,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                       {formatAmount(record.lg_amount, record.lg_currency?.iso_code)}
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{record.issuing_bank?.name || 'N/A'}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{record.lg_category?.category_name || 'N/A'}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{record.lg_category?.name || 'N/A'}</td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{formatDate(record.expiry_date)}</td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${

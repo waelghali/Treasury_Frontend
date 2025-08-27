@@ -1,3 +1,4 @@
+// frontend/src/pages/EndUser/RecordNewLGPage.js
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
@@ -128,6 +129,14 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
           customerEntities, currencies, lgTypes, lgStatuses, lgOperationalStatuses,
           banks, issuingMethods, rules, lgCategories
         });
+		        // NEW LOGIC: Set default Issuing Method after data is loaded.
+        if (issuingMethods.length > 0) {
+            setFormData(prev => ({
+                ...prev,
+                issuing_method_id: String(issuingMethods[0].id)
+            }));
+        }
+
       } catch (err) {
         console.error('Failed to fetch dropdown data:', err);
         setError(`Failed to load necessary data for the form. ${err.message || 'An unexpected error occurred.'}`);
@@ -209,23 +218,29 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
     }
   };
 
+  // NEW FUNCTION: Clears the form without a confirmation message.
+  const clearFormDirectly = () => {
+    setFormData(initialFormData);
+    setError('');
+    setAccordionsOpen({
+      mainLGData: true,
+      bankData: false,
+      internalData: false,
+    });
+    setIsInternalOwnerFieldsLocked(false);
+    setAiScanSuccess(false);
+    if (aiFileInputRef.current) {
+      aiFileInputRef.current.value = '';
+    }
+    if (internalDocInputRef.current) {
+      internalDocInputRef.current.value = '';
+    }
+  };
+
+  // ORIGINAL FUNCTION: Clears the form with a confirmation message.
   const handleClearForm = () => {
     if (window.confirm("Are you sure you want to clear all form fields?")) {
-      setFormData(initialFormData);
-      setError('');
-      setAccordionsOpen({
-        mainLGData: true,
-        bankData: false,
-        internalData: false,
-      });
-      setIsInternalOwnerFieldsLocked(false);
-      setAiScanSuccess(false);
-      if (aiFileInputRef.current) {
-        aiFileInputRef.current.value = '';
-      }
-      if (internalDocInputRef.current) {
-        internalDocInputRef.current.value = '';
-      }
+      clearFormDirectly();
     }
   };
 
@@ -259,6 +274,15 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
 
       const extractedData = await apiRequest('/end-user/lg-records/scan-file/', 'POST', data, 'multipart/form-data');
       setFormData(prev => {
+        // Correctly handle the 'other_conditions' field. The AI returns an array,
+        // but the form expects a single string. We'll join the array elements.
+        let otherConditionsString = '';
+        if (Array.isArray(extractedData.other_conditions)) {
+          otherConditionsString = extractedData.other_conditions.join('\n');
+        } else if (typeof extractedData.other_conditions === 'string') {
+          otherConditionsString = extractedData.other_conditions;
+        }
+
         const newFormData = {
           ...prev,
           beneficiary_corporate_id: extractedData.beneficiary_corporate_id ? String(extractedData.beneficiary_corporate_id) : '',
@@ -282,7 +306,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
           issuing_method_id: extractedData.issuing_method_id ? String(extractedData.issuing_method_id) : '',
           applicable_rule_id: extractedData.applicable_rule_id ? String(extractedData.applicable_rule_id) : '',
           applicable_rules_text: extractedData.applicable_rules_text || '',
-          other_conditions: extractedData.other_conditions || '',
+          other_conditions: otherConditionsString, // Use the correctly formatted string
           lg_category_id: extractedData.lg_category_id ? String(extractedData.lg_category_id) : '',
           additional_field_values: extractedData.additional_field_values || {},
           internal_owner_email: extractedData.internal_owner_email || '',
@@ -348,7 +372,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
           return newContactData;
         });
         setIsInternalOwnerFieldsLocked(true);
-        alert(`Internal Owner contact '${email}' found and details auto-populated.`);
+        //alert(`Internal Owner contact '${email}' found and details auto-populated.`);
       } else {
         setFormData(prev => ({
           ...prev,
@@ -498,7 +522,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
     try {
         const response = await apiRequest('/end-user/lg-records/', 'POST', formDataToSend, 'multipart/form-data');
         alert('New LG Record created successfully!');
-        handleClearForm();
+        clearFormDirectly(); // UPDATED: Call the new function here
         navigate('/end-user/dashboard');
     } catch (err) {
       console.error('Error creating LG record:', err);
@@ -785,7 +809,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
               )}
               <div className="md:col-span-2 mb-2">
                 <label htmlFor="other_conditions" className={labelClassNames}>Other Conditions</label>
-                <textarea name="other_conditions" id="other_conditions" value={formData.other_conditions} onChange={handleChange} maxLength="2048" rows="2" className={inputClassNames} disabled={isGracePeriod}></textarea> {/* NEW: Disable textarea */}
+                <textarea name="other_conditions" id="other_conditions" value={formData.other_conditions} onChange={handleChange} maxLength="8000" rows="2" className={inputClassNames} disabled={isGracePeriod}></textarea> {/* UPDATED: maxLength to 8000 */}
               </div>
             </div>
           )}
@@ -863,7 +887,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                     <option value="">Select Category</option>
                     {dropdownData.lgCategories.map(cat => (
                       <option key={`lg-category-${cat.type}-${cat.id}`} value={String(cat.id)}>
-                        {cat.category_name} ({cat.code}) {cat.type === 'universal' ? '(System Default)' : ''}
+                        {cat.name} ({cat.code}) {cat.customer_id === null ? '(System Default)' : ''}
                       </option>
                     ))}
                   </select>

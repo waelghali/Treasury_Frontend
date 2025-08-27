@@ -100,26 +100,28 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
               </MenuItem>
             )}
             
-            <MenuItem disabled={isGracePeriod}>
-              {({ active }) => (
-                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                  <button
-                    onClick={() => handleAction(() => onDecreaseAmount(lgRecord))}
-                    className={classNames(
-                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
-                      'group flex items-center w-full px-4 py-2 text-sm',
-                      isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
-                    )}
-                    disabled={isGracePeriod}
-                  >
-                    <MinusCircle className="mr-3 h-5 w-5 text-orange-400 group-hover:text-orange-500" aria-hidden="true" />
-                    Decrease Amount
-                  </button>
-                </GracePeriodTooltip>
-              )}
-            </MenuItem>
+            {/* Conditional rendering for Decrease Amount, now only for 'Valid' or 'Active' LGs */}
+            {isLgValidOrActive && (
+              <MenuItem disabled={isGracePeriod}>
+                {({ active }) => (
+                  <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                    <button
+                      onClick={() => handleAction(() => onDecreaseAmount(lgRecord))}
+                      className={classNames(
+                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
+                        'group flex items-center w-full px-4 py-2 text-sm',
+                        isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
+                      )}
+                      disabled={isGracePeriod}
+                    >
+                      <MinusCircle className="mr-3 h-5 w-5 text-orange-400 group-hover:text-orange-500" aria-hidden="true" />
+                      Decrease Amount
+                    </button>
+                  </GracePeriodTooltip>
+                )}
+              </MenuItem>
+            )}
             
-            {/* NEW: Amend LG */}
             {isLgValidOrActive && (
               <MenuItem disabled={isGracePeriod}>
                 {({ active }) => (
@@ -141,7 +143,6 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
               </MenuItem>
             )}
             
-            {/* NEW: Activate Non-Operative LG (Conditional Rendering) */}
             {canActivate && (
               <MenuItem disabled={isGracePeriod}>
                 {({ active }) => (

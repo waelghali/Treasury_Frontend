@@ -23,13 +23,14 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod }) => { // NEW: Accept isGracePeriod prop
+// Reverted: No longer accepts renewalSettings prop
+const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod }) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
 
     const handleRunRenewal = async () => {
-        if (isGracePeriod) { // NEW: Grace period check
+        if (isGracePeriod) {
             toast.warn("This action is disabled during your subscription's grace period.");
             return;
         }
@@ -118,10 +119,7 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod }) => { // NEW:
                 ) : (
                     <>
                         <p className="text-gray-700 mb-4">
-                            This process will identify all eligible Letters of Guarantee for auto-renewal
-                            (based on `auto_renewal` status and `AUTO_RENEWAL_DAYS_BEFORE_EXPIRY` setting)
-                            and for forced renewal (based on `FORCED_RENEW_DAYS_BEFORE_EXPIRY` setting)
-                            for your customer.
+                            This process will identify all your eligible Letters of Guarantee for auto-renewal and for forced renewal.
                         </p>
                         <p className="text-gray-700 mb-6">
                             For each eligible LG, the system will automatically extend its expiry date,

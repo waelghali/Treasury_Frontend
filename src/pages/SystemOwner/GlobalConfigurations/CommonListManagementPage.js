@@ -78,12 +78,6 @@ function CommonListManagementPage({ onLogout }) {
         fields: ['name', 'description'],
         uniqueField: 'name',
       };
-      case 'universal-categories': return {
-        endpoint: '/system-owner/universal-categories',
-        title: 'Universal Categories',
-        fields: ['category_name', 'code', 'extra_field_name', 'is_mandatory', 'communication_list'], // Added 'code'
-        uniqueField: 'category_name',
-      };
       case 'banks': return {
         endpoint: '/system-owner/banks',
         title: 'Banks',

@@ -1,18 +1,17 @@
 // src/components/Layout/CorporateAdminLayout.js
 import React from 'react';
 import { Link, Outlet } from 'react-router-dom';
-import { Home, Users, FolderKanban, LogOut, Settings, FileText, BarChart, Hourglass, ListTodo, ClipboardList } from 'lucide-react';
+import { Home, Users, FolderKanban, LogOut, Settings, FileText, BarChart, Hourglass, ListTodo, ClipboardList, DatabaseZap } from 'lucide-react'; // NEW: Import DatabaseZap for migration icon
 import NotificationBanner from '../NotificationBanner';
-import SubscriptionBanner from '../SubscriptionBanner'; // NEW: Import the subscription banner
+import SubscriptionBanner from '../SubscriptionBanner';
 
-function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTitle, systemNotifications, subscriptionStatus, subscriptionEndDate }) { // NEW: Receive subscription props
+function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTitle, systemNotifications, subscriptionStatus, subscriptionEndDate }) {
   const isDashboard = activeMenuItem === 'corporate-admin-dashboard';
-  const isGracePeriod = subscriptionStatus === 'grace'; // NEW: Check for grace status
+  const isGracePeriod = subscriptionStatus === 'grace';
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       <aside className="w-72 bg-white shadow-lg border-r border-gray-200 flex flex-col flex-shrink-0">
-        {/* FIX: Reduced padding to shrink top space */}
         <div className="py-4 px-6 border-b border-gray-200">
         <div className="flex items-center justify-center space-x-2">
 		  <img
@@ -26,12 +25,10 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
           <p className="text-sm text-gray-500">Corporate Edition</p>
         </div>
 
-        {/* FIX: Removed overflow-y-auto to prevent the scrollbar, and adjusted padding */}
         <nav className="flex-grow p-4 space-y-2">
-          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/dashboard"
-            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-dashboard' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -39,10 +36,9 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Dashboard
           </Link>
           
-          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/action-center"
-            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-action-center' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -50,10 +46,9 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Action Center (View)
           </Link>
 
-          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/lg-records"
-            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-lg-records' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -61,10 +56,9 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Manage LG Records (View)
           </Link>
 
-          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/users"
-            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-users' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -72,10 +66,9 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Manage Users
           </Link>
 
-          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/module-configs"
-            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-module-configs' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -83,10 +76,9 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Module Settings
           </Link>
 
-          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/lg-categories"
-            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-lg-categories' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -94,10 +86,9 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             LG Categories
           </Link>
 
-          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/approval-requests"
-            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-approval-requests' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -105,10 +96,9 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Pending Approvals
           </Link>
 
-          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/reports"
-            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-reports' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -116,15 +106,25 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Reports
           </Link>
 
-          {/* FIX: Adjusted vertical padding to py-2 to reduce height */}
           <Link
             to="/corporate-admin/audit-logs"
-            className={`flex items-center py-2.5 px-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'corporate-admin-audit-logs' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
             <FileText className="h-5 w-5 mr-3" />
             Audit Log
+          </Link>
+
+          {/* NEW: Navigation link for the migration hub */}
+          <Link
+            to="/corporate-admin/migration-hub"
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
+              activeMenuItem === 'corporate-admin-migration-hub' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <DatabaseZap className="h-5 w-5 mr-3" />
+            Migration Hub
           </Link>
         </nav>
 
@@ -135,7 +135,6 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             </span>
             <div className="ml-3">
               <p className="text-sm font-semibold text-gray-800">Corporate Admin</p>
-              {/* FIX: Conditionally render customerName to avoid "Org: " when no name is available */}
               <p className="text-xs text-gray-500">{customerName ? `Org: ${customerName}` : 'Org: N/A'}</p>
             </div>
           </div>

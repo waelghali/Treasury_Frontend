@@ -34,10 +34,12 @@ function CustomerOnboardingForm({ onLogout }) {
     contact_phone: '',
     subscription_plan_id: '',
     initial_corporate_admin: {
-      email: '',
-      password: '',
-      role: 'corporate_admin', // Default role for initial admin
-    },
+	  email: '',
+	  password: '',
+	  role: 'corporate_admin',
+	  has_all_entity_access: true,
+	  entity_ids: [],
+	},
     initial_entities: [{
       entity_name: '',
       code: '',
@@ -164,7 +166,31 @@ function CustomerOnboardingForm({ onLogout }) {
         return;
       }
 
-      await apiRequest('/system-owner/customers/onboard', 'POST', customerData);
+      // --- NEW LOGIC FOR CLEANING DATA ---
+      const cleanedEntities = customerData.initial_entities.map(entity => {
+          const cleanedEntity = {};
+          for (const key in entity) {
+              // Only include fields with a non-empty, non-null value
+              if (entity[key] !== '' && entity[key] !== null && entity[key] !== undefined) {
+                  cleanedEntity[key] = entity[key];
+              }
+          }
+          return cleanedEntity;
+      });
+
+      const payload = {
+          ...customerData,
+          // Ensure all required nested fields are explicitly set
+          initial_corporate_admin: {
+              ...customerData.initial_corporate_admin,
+              // These fields are required by the backend schema
+              has_all_entity_access: true, 
+              entity_ids: [],
+          },
+          initial_entities: cleanedEntities,
+      };
+
+      await apiRequest('/system-owner/customers/onboard', 'POST', payload);
       alert('Customer onboarded successfully!');
       navigate('/system-owner/customers');
     } catch (err) {
@@ -283,7 +309,7 @@ function CustomerOnboardingForm({ onLogout }) {
                       id={`code_${index}`}
                       value={entity.code}
                       onChange={(e) => handleEntityChange(index, e)}
-                      maxLength="2"
+                      maxLength="4"
                       className={inputClassNames}
                     />
                   </div>

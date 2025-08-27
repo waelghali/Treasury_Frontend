@@ -1,7 +1,9 @@
 // src/services/apiService.js
 // Centralized service for making API calls to the backend.
 
-import apiClient from './apiClient'; // CORRECTED: Use a default import
+// We will use a regular import of axios as you've provided, but the core logic
+// will be within the apiRequest function for clarity.
+import apiClient from './apiClient';
 
 export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
 
@@ -66,6 +68,14 @@ export const apiRequest = async (url, method = 'GET', data = null, contentType =
       error.statusCode = response.status;
       throw error;
     }
+
+    // --- NEW LOGIC: Check for a refreshed token in the response headers ---
+    const newToken = response.headers.get('X-New-Auth-Token');
+    if (newToken) {
+      setAuthToken(newToken);
+      console.log('New token received and stored from response header.');
+    }
+    // --- END NEW LOGIC ---
 
     // Check for a 204 No Content response
     const contentTypeHeader = response.headers.get('content-type');

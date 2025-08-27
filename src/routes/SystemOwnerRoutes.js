@@ -19,6 +19,10 @@ import SchedulerPage from 'pages/SystemOwner/scheduler/SchedulerPage';
 import SystemNotificationList from 'pages/SystemOwner/SystemNotifications/SystemNotificationList';
 import SystemNotificationForm from 'pages/SystemOwner/SystemNotifications/SystemNotificationForm';
 
+// NEW: Import LG Category management components from the Corporate Admin folder
+import LGCategoryList from 'pages/CorporateAdmin/LGCategoryList';
+import LGCategoryForm from 'pages/CorporateAdmin/LGCategoryForm';
+
 
 // NEW: Import the generic ReportsPage and the single report component for this role
 import ReportsPage from 'pages/Reports/ReportsPage';
@@ -63,6 +67,11 @@ function SystemOwnerRoutes({ onLogout }) {
       <Route path="global-configurations/templates/edit/:id" element={<TemplateForm onLogout={onLogout} />} />
       <Route path="scheduler" element={<SchedulerPage onLogout={onLogout} />} />
 
+      {/* LG Category Management (NEW ROUTES FOR SYSTEM OWNER) */}
+      <Route path="lg-categories/universal" element={<LGCategoryList onLogout={onLogout} userRole="system-owner" />} />
+      <Route path="lg-categories/universal/new" element={<LGCategoryForm onLogout={onLogout} userRole="system-owner" />} />
+      <Route path="lg-categories/universal/edit/:id" element={<LGCategoryForm onLogout={onLogout} userRole="system-owner" />} />
+      
       {/* System Notifications (NEW ROUTES) */}
       <Route path="system-notifications" element={<SystemNotificationList onLogout={onLogout} />} />
       <Route path="system-notifications/new" element={<SystemNotificationForm onLogout={onLogout} />} />

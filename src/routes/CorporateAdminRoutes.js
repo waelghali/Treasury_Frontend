@@ -14,6 +14,7 @@ import LGDetailsReadOnlyPage from 'pages/CorporateAdmin/LGDetailsReadOnlyPage';
 import LGRecordListReadOnlyPage from 'pages/CorporateAdmin/LGRecordListReadOnlyPage';
 import AuditLogsCorporate from 'pages/CorporateAdmin/AuditLogsCorporate';
 import ActionCenter from 'pages/CorporateAdmin/ActionCenter';
+import MigrationUploadPage from 'pages/CorporateAdmin/MigrationUploadPage'; // NEW: Import the migration page
 
 // NEW: Import the generic ReportsPage and the single report component for this role
 import ReportsPage from 'pages/Reports/ReportsPage';
@@ -70,6 +71,9 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus }) {
 
       {/* Audit Logs for CA */}
       <Route path="audit-logs" element={<AuditLogsCorporate onLogout={onLogout} />} />
+      
+      {/* NEW: Migration Hub */}
+      <Route path="migration-hub" element={<MigrationUploadPage onLogout={onLogout} />} />
 
       {/* Fallback for any unmatched path within /corporate-admin/* */}
       <Route path="*" element={<Navigate to="dashboard" replace />} />

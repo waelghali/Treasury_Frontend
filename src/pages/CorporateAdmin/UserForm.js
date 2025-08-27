@@ -194,7 +194,7 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
             name="email"
             value={formData.email}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+            className="mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
             required
             disabled={!!id || isGracePeriod} // NEW: Disable email edit for existing users or in grace period
           />
@@ -207,7 +207,7 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
             name="role"
             value={formData.role}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+            className="mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
             required
             disabled={isGracePeriod} // NEW: Disable role selection in grace period
           >
@@ -240,7 +240,7 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+                  className="mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   minLength="8"
                   required={showPasswordFields && !id}
                   disabled={isGracePeriod} // NEW: Disable password input
@@ -256,7 +256,7 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
                   onChange={(e) => {
                     setFormData(prev => ({ ...prev, confirm_password: e.target.value }));
                   }}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+                  className="mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   minLength="8"
                   required={showPasswordFields && !id}
                   disabled={isGracePeriod} // NEW: Disable confirm password input

@@ -1,7 +1,7 @@
 // src/components/SidebarLayout.js
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Home, Users, Briefcase, Settings, FileText, BarChart, LogOut, DollarSign, List, Gavel, File, HardDrive, LayoutDashboard, Clock } from 'lucide-react';
+import { Home, Users, Briefcase, Settings, FileText, BarChart, LogOut, DollarSign, List, Gavel, File, HardDrive, LayoutDashboard, Clock, BookOpen } from 'lucide-react';
 
 function SidebarLayout({ onLogout, headerTitle }) {
   const [showGlobalConfigSubMenu, setShowGlobalConfigSubMenu] = useState(false);
@@ -34,7 +34,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
         <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
           <Link
             to="/system-owner/dashboard"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               isLinkActive('/system-owner/dashboard') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -44,7 +44,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
 
           <Link
             to="/system-owner/subscription-plans"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               isLinkActive('/system-owner/subscription-plans') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -54,7 +54,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
 
           <Link
             to="/system-owner/customers"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               isLinkActive('/system-owner/customers') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -63,7 +63,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
           </Link>
           <Link
             to="/system-owner/system-notifications"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               isLinkActive('/system-owner/system-notifications') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -72,7 +72,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
           </Link>		
           <Link
             to="/system-owner/scheduler"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               isLinkActive('/system-owner/scheduler') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -102,7 +102,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
               <div className="ml-6 mt-1 space-y-1">
                 <Link
                   to="/system-owner/global-configurations"
-                  className={`flex items-center p-2 rounded-lg transition-colors duration-200 ${
+                  className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
                     isLinkActive('/system-owner/global-configurations') && !isLinkActive('/system-owner/global-configurations/common-list') && !isLinkActive('/system-owner/global-configurations/templates')
                     ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'
                   }`}
@@ -112,7 +112,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
                 </Link>
                 <Link
                   to="/system-owner/global-configurations/common-list/banks"
-                  className={`flex items-center p-2 rounded-lg transition-colors duration-200 ${
+                  className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
                     isLinkActive('/system-owner/global-configurations/common-list/banks') ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -121,7 +121,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
                 </Link>
                 <Link
                   to="/system-owner/global-configurations/common-list/currencies"
-                  className={`flex items-center p-2 rounded-lg transition-colors duration-200 ${
+                  className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
                     isLinkActive('/system-owner/global-configurations/common-list/currencies') ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -130,7 +130,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
                 </Link>
                 <Link
                   to="/system-owner/global-configurations/common-list/lg-types"
-                  className={`flex items-center p-2 rounded-lg transition-colors duration-200 ${
+                  className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
                     isLinkActive('/system-owner/global-configurations/common-list/lg-types') ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -139,7 +139,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
                 </Link>
                 <Link
                   to="/system-owner/global-configurations/common-list/rules"
-                  className={`flex items-center p-2 rounded-lg transition-colors duration-200 ${
+                  className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
                     isLinkActive('/system-owner/global-configurations/common-list/rules') ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -148,7 +148,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
                 </Link>
                 <Link
                   to="/system-owner/global-configurations/common-list/issuing-methods"
-                  className={`flex items-center p-2 rounded-lg transition-colors duration-200 ${
+                  className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
                     isLinkActive('/system-owner/global-configurations/common-list/issuing-methods') ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -157,7 +157,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
                 </Link>
                 <Link
                   to="/system-owner/global-configurations/common-list/lg-statuses"
-                  className={`flex items-center p-2 rounded-lg transition-colors duration-200 ${
+                  className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
                     isLinkActive('/system-owner/global-configurations/common-list/lg-statuses') ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -166,7 +166,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
                 </Link>
                 <Link
                   to="/system-owner/global-configurations/common-list/lg-operational-statuses"
-                  className={`flex items-center p-2 rounded-lg transition-colors duration-200 ${
+                  className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
                     isLinkActive('/system-owner/global-configurations/common-list/lg-operational-statuses') ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -174,18 +174,8 @@ function SidebarLayout({ onLogout, headerTitle }) {
                   LG Operational Statuses
                 </Link>
                 <Link
-                  to="/system-owner/global-configurations/common-list/universal-categories"
-                  className={`flex items-center p-2 rounded-lg transition-colors duration-200 ${
-                    isLinkActive('/system-owner/global-configurations/common-list/universal-categories') ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <List className="h-4 w-4 mr-2" />
-                  Universal Categories
-                </Link>
-
-                <Link
                   to="/system-owner/global-configurations/templates"
-                  className={`flex items-center p-2 rounded-lg transition-colors duration-200 ${
+                  className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
                     isLinkActive('/system-owner/global-configurations/templates') ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -197,8 +187,18 @@ function SidebarLayout({ onLogout, headerTitle }) {
           </div>
 
           <Link
+            to="/system-owner/lg-categories/universal"
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
+              isLinkActive('/system-owner/lg-categories/universal') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <BookOpen className="h-5 w-5 mr-3" />
+            Universal Categories
+          </Link>
+
+          <Link
             to="/system-owner/audit-logs"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               isLinkActive('/system-owner/audit-logs')
                 ? 'bg-blue-100 text-blue-700 font-semibold'
                 : 'text-gray-700 hover:bg-gray-100'
@@ -210,7 +210,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
 
           <Link
             to="/system-owner/reports"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
               isLinkActive('/system-owner/reports') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >

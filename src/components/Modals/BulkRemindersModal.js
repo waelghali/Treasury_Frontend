@@ -1,6 +1,5 @@
 // frontend/src/components/Modals/BulkRemindersModal.js
 import React, { useState } from 'react';
-import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import { X, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
 import { toast } from 'react-toastify';
@@ -25,12 +24,12 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
-const BulkRemindersModal = ({ onClose, onSuccess, isGracePeriod }) => { // NEW: Accept isGracePeriod prop
+const BulkRemindersModal = ({ onClose, onSuccess, isGracePeriod }) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [processError, setProcessError] = useState('');
 
     const handleGenerateBulkReminders = async () => {
-        if (isGracePeriod) { // NEW: Grace period check
+        if (isGracePeriod) {
             toast.warn("This action is disabled during your subscription's grace period.");
             return;
         }
@@ -69,95 +68,54 @@ const BulkRemindersModal = ({ onClose, onSuccess, isGracePeriod }) => { // NEW: 
     };
 
     return (
-        <Transition show={true} as={React.Fragment}>
-            <Dialog as="div" className="relative z-10" onClose={onClose}>
-                <TransitionChild
-                    as={React.Fragment}
-                    enter="ease-out duration-300"
-                    enterFrom="opacity-0"
-                    enterTo="opacity-100"
-                    leave="ease-in duration-200"
-                    leaveFrom="opacity-100"
-                    leaveTo="opacity-0"
-                >
-                    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
-                </TransitionChild>
-
-                <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
-                    <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                        <TransitionChild
-                            as={React.Fragment}
-                            enter="ease-out duration-300"
-                            enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                            enterTo="opacity-100 translate-y-0 sm:scale-100"
-                            leave="ease-in duration-200"
-                            leaveFrom="opacity-100"
-                            leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                        >
-                            <DialogPanel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                                <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
-                                    <button
-                                        type="button"
-                                        className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                                        onClick={onClose}
-                                    >
-                                        <span className="sr-only">Close</span>
-                                        <X className="h-6 w-6" aria-hidden="true" />
-                                    </button>
-                                </div>
-                                <div className="sm:flex sm:items-start">
-                                    <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                                        <DialogTitle as="h3" className="text-xl font-semibold leading-6 text-gray-900 border-b pb-3 mb-4">
-                                            Generate Bulk Bank Reminders
-                                        </DialogTitle>
-                                        <div className="mt-2 text-gray-700 space-y-4">
-                                            <p>
-                                                This action will automatically identify all eligible LG instructions for a bank reminder
-                                                and generate a consolidated PDF document containing all such reminders.
-                                                The PDF will open in a new tab for printing.
-                                            </p>
-                                            <p className="text-sm text-gray-600">
-                                                Eligible instructions are those where a bank reply has not been recorded, and they fall
-                                                within configured time thresholds (e.g., days since issuance/delivery).
-                                            </p>
-
-                                            {processError && (
-                                                <div className="text-red-600 text-sm mt-2">
-                                                    <AlertCircle className="inline h-4 w-4 mr-1" />
-                                                    {processError}
-                                                </div>
-                                            )}
-
-                                            <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
-                                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                    <button
-                                                        type="button"
-                                                        className={`${buttonBaseClassNames} sm:col-start-2 bg-blue-600 text-white hover:bg-blue-700 ${isProcessing || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                        onClick={handleGenerateBulkReminders}
-                                                        disabled={isProcessing || isGracePeriod}
-                                                    >
-                                                        {isProcessing ? 'Generating...' : <Mail className="h-5 w-5 mr-2" />}
-                                                        {isProcessing ? 'Generating...' : 'Generate & Print Reminders'}
-                                                    </button>
-                                                </GracePeriodTooltip>
-                                                <button
-                                                    type="button"
-                                                    className={`${buttonBaseClassNames} sm:col-start-1 bg-gray-200 text-gray-700 hover:bg-gray-300`}
-                                                    onClick={onClose}
-                                                    disabled={isProcessing}
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </DialogPanel>
-                        </TransitionChild>
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex justify-center items-center">
+            <div className="bg-white p-6 rounded-lg shadow-xl w-11/12 md:w-2/3 lg:w-1/2">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Generate Bulk Bank Reminders</h2>
+                
+                {processError && (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
+                        <X className="h-5 w-5 mr-2" />
+                        <span className="block sm:inline">{processError}</span>
                     </div>
+                )}
+                
+                <p className="text-gray-700 mb-4">
+                    This action will automatically identify all eligible LG instructions for a bank reminder
+                    and generate a consolidated PDF document containing all such reminders.
+                    The PDF will open in a new tab for printing.
+                </p>
+                <p className="text-gray-700 mb-6">
+                    Eligible instructions are those where a bank reply has not been recorded, and they fall
+                    within configured time thresholds (e.g., days since issuance/delivery).
+                </p>
+
+                <div className="flex justify-end space-x-4">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className={`inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={isProcessing}
+                    >
+                        Cancel
+                    </button>
+                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                        <button
+                            type="button"
+                            onClick={handleGenerateBulkReminders}
+                            disabled={isProcessing || isGracePeriod}
+                            className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm bg-teal-100 text-teal-700 hover:bg-teal-200 ${isProcessing || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            {isProcessing ? (
+                                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                            ) : (
+                                <Mail className="h-5 w-5 mr-2" />
+                            )}
+                            {isProcessing ? 'Generating...' : 'Generate & Print Reminders'}
+                        </button>
+                    </GracePeriodTooltip>
                 </div>
-            </Dialog>
-        </Transition>
+            </div>
+        </div>
     );
 };
 

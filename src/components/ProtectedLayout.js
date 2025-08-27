@@ -67,6 +67,8 @@ function ProtectedLayout({ onLogout, customerName, subscriptionStatus, subscript
       else if (currentPath.startsWith('/corporate-admin/approval-requests')) { activeItem = 'corporate-admin-approval-requests'; title = 'Pending Approvals'; }
       else if (currentPath.startsWith('/corporate-admin/lg-records/')) { activeItem = 'corporate-admin-lg-records'; title = 'LG Record Details (Read-Only)'; }
       else if (currentPath.startsWith('/corporate-admin/lg-records')) { activeItem = 'corporate-admin-lg-records'; title = 'Manage LG Records (View)'; }
+      // NEW: Add logic for the Migration Hub
+      else if (currentPath.startsWith('/corporate-admin/migration-hub')) { activeItem = 'corporate-admin-migration-hub'; title = 'Migration Hub'; }
       else { activeItem = 'corporate-admin-dashboard'; title = 'Corporate Admin Dashboard'; }
     }
     // Logic for End User / Checker menu items and headers
@@ -115,11 +117,17 @@ function ProtectedLayout({ onLogout, customerName, subscriptionStatus, subscript
 
   if (userRole === 'system-owner') {
     return (
-      <SidebarLayout onLogout={onLogout} activeMenuItem={activeMenuItem} headerTitle={headerTitle}>
+      <SidebarLayout 
+        onLogout={onLogout} 
+        activeMenuItem={activeMenuItem} 
+        headerTitle={headerTitle}
+        userRole={userRole} // FIX: Pass the userRole prop
+      >
         <Outlet />
       </SidebarLayout>
     );
-  } else if (userRole === 'corporate-admin') {
+  }
+   else if (userRole === 'corporate-admin') {
     return (
       <CorporateAdminLayout
         onLogout={onLogout}

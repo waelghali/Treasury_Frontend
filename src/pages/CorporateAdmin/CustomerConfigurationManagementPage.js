@@ -21,7 +21,8 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-const inputClassNames = "mt-1 block w-full rounded-md border-blue-200 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 text-base p-1";
+// Common input field styling classes
+const inputClassNames = "mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200";
 const labelClassNames = "block text-sm font-medium text-gray-700";
 const buttonBaseClassNames = "px-3 py-1 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
@@ -410,7 +411,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
             <button
               onClick={() => setShowEmailSettingsModal(true)}
-              className={`${buttonBaseClassNames} bg-blue-600 text-white hover:bg-blue-700 flex items-center ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isGracePeriod}
             >
               <Mail className="h-4 w-4 mr-2" />
@@ -573,7 +574,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
                         <button
                           type="button"
                           onClick={() => handleEditClick(config)}
-                          className={`${buttonBaseClassNames} bg-blue-500 text-white hover:bg-blue-600 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           disabled={isGracePeriod}
                         >
                           <Edit className="h-4 w-4" />
@@ -640,7 +641,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
                 <button
                   type="button"
                   onClick={handleAddEmail}
-                  className={`${buttonBaseClassNames} bg-blue-500 text-white hover:bg-blue-600 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={isGracePeriod}
                 >
                   <Plus className="h-4 w-4" />
@@ -658,7 +659,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
                   setEmailListError('');
                   setCurrentConfigToEdit(null);
                 }}
-                className={`${buttonBaseClassNames} bg-gray-200 text-gray-700 hover:bg-gray-300`}
+                className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isSaving}
               >
                 Cancel
@@ -667,7 +668,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
                 <button
                   type="button"
                   onClick={handleSaveEmailList}
-                  className={`${buttonBaseClassNames} bg-green-600 text-white hover:bg-green-700 flex items-center ${isSaving || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={isSaving || isGracePeriod}
                 >
                   {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4 mr-1" />}
@@ -813,7 +814,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
               <button
                 type="button"
                 onClick={() => setShowEmailSettingsModal(false)}
-                className={`${buttonBaseClassNames} bg-gray-200 text-gray-700 hover:bg-gray-300`}
+                className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isEmailSettingsSaving}
               >
                 Cancel
@@ -824,7 +825,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
                     <button
                       type="button"
                       onClick={handleDeleteEmailSettings}
-                      className={`${buttonBaseClassNames} bg-red-600 text-white hover:bg-red-700 ${isEmailSettingsSaving || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={isEmailSettingsSaving || isGracePeriod}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -835,7 +836,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
                   <button
                     type="button"
                     onClick={handleSaveEmailSettings}
-                    className={`${buttonBaseClassNames} bg-green-600 text-white hover:bg-green-700 flex items-center ${isEmailSettingsSaving || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={isEmailSettingsSaving || isGracePeriod}
                   >
                     {isEmailSettingsSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4 mr-1" />}

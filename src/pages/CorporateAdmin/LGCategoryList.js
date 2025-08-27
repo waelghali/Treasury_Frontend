@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { PlusCircle, Edit, Trash, RotateCcw } from 'lucide-react';
+import { PlusCircle, Edit, Trash, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
@@ -22,21 +22,42 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-function LGCategoryList({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod prop
+// Common input field styling classes
+const inputClassNames = "mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-200 transition-all duration-200";
+const labelClassNames = "block text-sm font-medium text-gray-700";
+const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
+
+
+function LGCategoryList({ onLogout, isGracePeriod, userRole }) {
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showDeleted, setShowDeleted] = useState(false); // NEW state variable
+  
+  // NEW: Determine base API URL and title dynamically based on userRole
+  const isSystemOwner = userRole === 'system-owner';
+  const baseApiUrl = isSystemOwner ? '/system-owner/lg-categories/universal' : '/corporate-admin/lg-categories';
+  const pageTitle = isSystemOwner ? 'Universal Categories' : 'LG Categories';
+  const singularListName = isSystemOwner ? 'Universal Category' : 'LG Category';
 
   const fetchLGCategories = async () => {
     setIsLoading(true);
     setError('');
     try {
-      const response = await apiRequest('/corporate-admin/lg-categories/', 'GET');
+      // MODIFIED: Add include_deleted query parameter
+      const params = new URLSearchParams();
+      if (showDeleted) {
+        params.append('include_deleted', true);
+      }
+      const queryString = params.toString();
+      const url = `${baseApiUrl}${queryString ? `?${queryString}` : ''}`;
+      
+      const response = await apiRequest(url, 'GET');
       setCategories(response);
     } catch (err) {
       console.error('Failed to fetch LG categories:', err);
-      setError(`Failed to load LG Categories. ${err.message || 'An unexpected error occurred.'}`);
+      setError(`Failed to load ${pageTitle}. ${err.message || 'An unexpected error occurred.'}`);
     } finally {
       setIsLoading(false);
     }
@@ -44,89 +65,89 @@ function LGCategoryList({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
 
   useEffect(() => {
     fetchLGCategories();
-  }, []);
+  }, [baseApiUrl, showDeleted]); // MODIFIED: Add showDeleted to dependencies
 
   const handleEdit = (category) => {
-    if (isGracePeriod) { // NEW: Grace period check
+    if (isGracePeriod) {
         toast.warn("This action is disabled during your subscription's grace period.");
         return;
     }
-    if (category.type === 'universal') {
-      setError("System default categories cannot be edited by Corporate Admins. Please create a new custom category if needed.");
+    if (userRole === 'corporate-admin' && category.customer_id === null) {
+      setError("System default categories cannot be edited by Corporate Admins.");
       return;
     }
-    navigate(`/corporate-admin/lg-categories/edit/${category.id}`);
+    const editUrl = userRole === 'system-owner' 
+        ? `/system-owner/lg-categories/universal/edit/${category.id}` 
+        : `/corporate-admin/lg-categories/edit/${category.id}`;
+    navigate(editUrl);
   };
 
   const handleDelete = async (category) => {
-    if (isGracePeriod) { // NEW: Grace period check
+    if (isGracePeriod) {
         toast.warn("This action is disabled during your subscription's grace period.");
         return;
     }
-    if (category.type === 'universal') {
+    if (userRole === 'corporate-admin' && category.customer_id === null) {
       setError("System default categories (Universal Categories) cannot be deleted by Corporate Admins.");
       return;
     }
-    if (window.confirm(`Are you sure you want to soft-delete "${category.category_name}"?`)) {
+    if (window.confirm(`Are you sure you want to soft-delete "${category.name}"?`)) {
       try {
         setIsLoading(true);
-        await apiRequest(`/corporate-admin/lg-categories/${category.id}`, 'DELETE');
-        alert(`LG Category "${category.category_name}" soft-deleted successfully.`);
+        const deleteUrl = userRole === 'system-owner'
+          ? `/system-owner/lg-categories/universal/${category.id}`
+          : `/corporate-admin/lg-categories/${category.id}`;
+        await apiRequest(deleteUrl, 'DELETE');
+        toast.success(`"${category.name}" soft-deleted successfully.`);
         fetchLGCategories();
       } catch (err) {
         console.error('Failed to soft-delete LG category:', err);
-        setError(`Failed to soft-delete "${category.category_name}". ${err.message || 'An unexpected error occurred.'}`);
+        setError(`Failed to soft-delete "${category.name}". ${err.message || 'An unexpected error occurred.'}`);
         setIsLoading(false);
       }
     }
   };
 
   const handleRestore = async (category) => {
-    if (isGracePeriod) { // NEW: Grace period check
+    if (isGracePeriod) {
         toast.warn("This action is disabled during your subscription's grace period.");
         return;
     }
-    if (category.type === 'universal') {
-        setError("System default categories (Universal Categories) cannot be restored as they are never deleted.");
+    if (userRole === 'corporate-admin' && category.customer_id === null) {
+        setError("System default categories (Universal Categories) cannot be restored by Corporate Admins.");
         return;
     }
-    if (window.confirm(`Are you sure you want to restore "${category.category_name}"?`)) {
+    if (window.confirm(`Are you sure you want to restore "${category.name}"?`)) {
       try {
         setIsLoading(true);
-        await apiRequest(`/corporate-admin/lg-categories/${category.id}/restore`, 'POST');
-        alert(`LG Category "${category.category_name}" restored successfully.`);
+        const restoreUrl = userRole === 'system-owner'
+          ? `/system-owner/lg-categories/universal/${category.id}/restore`
+          : `/corporate-admin/lg-categories/${category.id}/restore`;
+        await apiRequest(restoreUrl, 'POST');
+        toast.success(`"${category.name}" restored successfully.`);
         fetchLGCategories();
       } catch (err) {
         console.error('Failed to restore LG category:', err);
-        setError(`Failed to restore "${category.category_name}". ${err.message || 'An unexpected error occurred.'}`);
+        setError(`Failed to restore "${category.name}". ${err.message || 'An unexpected error occurred.'}`);
         setIsLoading(false);
       }
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="text-center py-8">
-        <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <p className="text-gray-600 mt-2">Loading LG Categories...</p>
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-800">LG Categories</h2>
+        <h2 className="text-2xl font-semibold text-gray-800">{pageTitle}</h2>
         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
             <button
-              onClick={() => navigate('/corporate-admin/lg-categories/new')}
-              className={`btn-primary px-4 py-2 flex items-center ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+              onClick={() => {
+                const newUrl = userRole === 'system-owner' ? '/system-owner/lg-categories/universal/new' : '/corporate-admin/lg-categories/new';
+                navigate(newUrl);
+              }}
+              className={`${buttonBaseClassNames} bg-blue-600 text-white hover:bg-blue-700 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isGracePeriod}
             >
-              <PlusCircle className="h-5 w-5 mr-2" /> Add New LG Category
+              <PlusCircle className="h-5 w-5 mr-2" /> Add New {singularListName}
             </button>
         </GracePeriodTooltip>
       </div>
@@ -137,9 +158,21 @@ function LGCategoryList({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
         </div>
       )}
 
+      <div className="flex justify-end mb-4">
+        <label className="inline-flex items-center">
+          <input
+            type="checkbox"
+            className="form-checkbox h-4 w-4 text-blue-600 rounded"
+            checked={showDeleted}
+            onChange={(e) => setShowDeleted(e.target.checked)}
+          />
+          <span className="ml-2 text-sm text-gray-700">Show Deleted Categories</span>
+        </label>
+      </div>
+
       {categories.length === 0 && !isLoading ? (
         <div className="bg-white p-6 rounded-lg shadow-md text-center">
-          <p className="text-gray-500">No LG Categories found for your customer. Click "Add New LG Category" to get started.</p>
+          <p className="text-gray-500">No {pageTitle.toLowerCase()} found. Click "Add New {singularListName}" to get started.</p>
         </div>
       ) : (
         <div className="overflow-x-auto bg-white rounded-lg shadow-md">
@@ -152,9 +185,11 @@ function LGCategoryList({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Code
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
-                </th>
+                {!isSystemOwner && (
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                )}
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Extra Field Name
                 </th>
@@ -164,9 +199,11 @@ function LGCategoryList({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Communication List
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Applies To Entities
-                </th>
+                {!isSystemOwner && (
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Applies To Entities
+                    </th>
+                )}
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
@@ -179,14 +216,16 @@ function LGCategoryList({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
               {categories.map((category) => (
                 <tr key={category.id} className={category.is_deleted ? 'bg-gray-50 opacity-60' : ''}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {category.category_name}
+                    {category.name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {category.code}
+                    {category.code || 'N/A'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                    {category.type || 'N/A'}
-                  </td>
+                  {!isSystemOwner && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
+                      {category.customer_id === null ? 'Universal' : 'Customer-specific'}
+                    </td>
+                  )}
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {category.extra_field_name || 'N/A'}
                   </td>
@@ -198,25 +237,27 @@ function LGCategoryList({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
                       ? category.communication_list.join(', ')
                       : 'N/A'}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {category.has_all_entity_access ? (
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                        All Entities
-                      </span>
-                    ) : (
-                      Array.isArray(category.entities_with_access) && category.entities_with_access.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {category.entities_with_access.map(entity => (
-                            <span key={entity.id} className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                              {entity.entity_name}
+                  {!isSystemOwner && (
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                        {category.has_all_entity_access ? (
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                All Entities
                             </span>
-                          ))}
-                        </div>
-                      ) : (
-                        'N/A'
-                      )
-                    )}
-                  </td>
+                        ) : (
+                            Array.isArray(category.entities_with_access) && category.entities_with_access.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                    {category.entities_with_access.map(entity => (
+                                        <span key={entity.id} className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                            {entity.entity_name}
+                                        </span>
+                                    ))}
+                                </div>
+                            ) : (
+                                'N/A'
+                            )
+                        )}
+                    </td>
+                  )}
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {category.is_deleted ? (
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
@@ -229,7 +270,7 @@ function LGCategoryList({ onLogout, isGracePeriod }) { // NEW: Accept isGracePer
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {category.type === 'universal' ? (
+                    {category.customer_id === null && !isSystemOwner ? (
                         <span className="text-gray-400">System Default</span>
                     ) : (
                         category.is_deleted ? (
