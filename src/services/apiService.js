@@ -1,8 +1,6 @@
 // src/services/apiService.js
 // Centralized service for making API calls to the backend.
 
-// We will use a regular import of axios as you've provided, but the core logic
-// will be within the apiRequest function for clarity.
 import apiClient from './apiClient';
 
 export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
@@ -19,6 +17,42 @@ export const setAuthToken = (token) => {
 // Function to get the current access token
 export const getAuthToken = () => {
   return localStorage.getItem('jwt_token');
+};
+
+// NEW: Inactivity Timer Logic
+let inactivityTimer;
+const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+export const resetInactivityTimer = () => {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(logoutUser, INACTIVITY_TIMEOUT);
+};
+
+export const logoutUser = () => {
+    console.log('User logged out due to inactivity.');
+    setAuthToken(null);
+    stopInactivityTracker();
+    window.location.href = '/login';
+};
+
+export const startInactivityTracker = () => {
+    if (typeof window !== 'undefined') { // Check if running in a browser environment
+        window.addEventListener('mousemove', resetInactivityTimer);
+        window.addEventListener('keydown', resetInactivityTimer);
+        window.addEventListener('click', resetInactivityTimer);
+        window.addEventListener('scroll', resetInactivityTimer);
+        resetInactivityTimer();
+    }
+};
+
+export const stopInactivityTracker = () => {
+    if (typeof window !== 'undefined') {
+        clearTimeout(inactivityTimer);
+        window.removeEventListener('mousemove', resetInactivityTimer);
+        window.removeEventListener('keydown', resetInactivityTimer);
+        window.removeEventListener('click', resetInactivityTimer);
+        window.removeEventListener('scroll', resetInactivityTimer);
+    }
 };
 
 /**
@@ -69,13 +103,8 @@ export const apiRequest = async (url, method = 'GET', data = null, contentType =
       throw error;
     }
 
-    // --- NEW LOGIC: Check for a refreshed token in the response headers ---
-    const newToken = response.headers.get('X-New-Auth-Token');
-    if (newToken) {
-      setAuthToken(newToken);
-      console.log('New token received and stored from response header.');
-    }
-    // --- END NEW LOGIC ---
+    // REMOVED: NEW LOGIC to check for a refreshed token
+    // The frontend now handles the inactivity timeout.
 
     // Check for a 204 No Content response
     const contentTypeHeader = response.headers.get('content-type');
