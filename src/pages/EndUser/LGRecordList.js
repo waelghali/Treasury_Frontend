@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from 'services/apiService.js';
-import { PlusCircle, Edit, Eye, Loader2, AlertCircle, CalendarPlus, ChevronUp, ChevronDown, Users, FileText, Filter as FilterIcon, Download } from 'lucide-react';
+import { PlusCircle, Edit, Eye, Loader2, AlertCircle, CalendarPlus, ChevronUp, ChevronDown, Users, FileText, Filter as FilterIcon, Download, XCircle } from 'lucide-react';
 import moment from 'moment';
 import ExtendLGModal from 'components/Modals/ExtendLGModal';
 import ChangeLGOwnerModal from 'components/Modals/ChangeLGOwnerModal';
@@ -12,16 +12,14 @@ import LGActionsMenu from 'components/LGActionsMenu';
 import ReleaseLGModal from 'components/Modals/ReleaseLGModal';
 import LiquidateLGModal from 'components/Modals/LiquidateLGModal';
 import DecreaseAmountModal from 'components/Modals/DecreaseAmountModal';
-import LGAmendModal from 'components/Modals/LGAmendModal'; // NEW: Import Amend Modal
-import LGActivateNonOperativeModal from 'components/Modals/LGActivateNonOperativeModal'; // NEW: Import Activate Modal
+import LGAmendModal from 'components/Modals/LGAmendModal';
+import LGActivateNonOperativeModal from 'components/Modals/LGActivateNonOperativeModal';
 import { Switch } from '@headlessui/react';
 import { toast } from 'react-toastify';
-import { Listbox, Transition, Menu } from '@headlessui/react'; // ADDED Menu for dropdown
+import { Listbox, Transition, Menu } from '@headlessui/react';
 
-// NEW: Import necessary xlsx library for Excel export
 import * as XLSX from 'xlsx';
 
-// NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
   if (isGracePeriod) {
     return (
@@ -41,8 +39,7 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
-// Add isCorporateAdminView and isGracePeriod props
-function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod }) { // Default to false for End User
+function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod }) {
   const navigate = useNavigate();
   const location = useLocation();
   const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
@@ -52,7 +49,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  // States for Modals
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [selectedLgRecordForExtension, setSelectedLgRecordForExtension] = useState(null);
 
@@ -68,26 +64,20 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   const [showDecreaseAmountModal, setShowDecreaseAmountModal] = useState(false);
   const [selectedLgRecordForDecreaseAmount, setSelectedLgRecordForDecreaseAmount] = useState(null);
 
-  // NEW: States for Amend and Activate Modals
   const [showAmendModal, setShowAmendModal] = useState(false);
   const [selectedLgRecordForAmend, setSelectedLgRecordForAmend] = useState(null);
 
   const [showActivateModal, setShowActivateModal] = useState(false);
   const [selectedLgRecordForActivate, setSelectedLgRecordForActivate] = useState(null);
 
-
-  // Sorting states
   const [sortColumn, setSortColumn] = useState('expiry_date');
   const [sortDirection, setSortDirection] = useState('asc');
 
-  // Filter states
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatuses, setSelectedStatuses] = useState([]); // For multi-select status filter
+  const [selectedStatuses, setSelectedStatuses] = useState([]);
 
-  // Added a new state to store all records fetched from API, to allow exporting unfiltered data
   const [allLgRecords, setAllLgRecords] = useState([]);
 
-  // Modified fetchLgRecords to handle initial vs. background loading
   const fetchLgRecords = useCallback(async (isBackgroundRefresh = false) => {
     if (!isBackgroundRefresh) {
       setIsInitialLoading(true);
@@ -96,14 +86,13 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     }
     setError('');
     try {
-      // UPDATED: Conditionally include the ownerId query param in the API call
       let url = '/end-user/lg-records/';
       if (filterByOwnerId) {
           url += `?internal_owner_contact_id=${filterByOwnerId}`;
       }
       const response = await apiRequest(url, 'GET');
       setLgRecords(response);
-      setAllLgRecords(response); // Store the raw data for 'export all' option
+      setAllLgRecords(response);
     } catch (err) {
       console.error('Failed to fetch LG records:', err);
       setError(`Failed to load LG Records. ${err.message || 'An unexpected error occurred.'}`);
@@ -116,12 +105,10 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   }, [filterByOwnerId]);
 
   useEffect(() => {
-    fetchLgRecords(false); // Initial fetch on component mount
+    fetchLgRecords(false);
   }, [fetchLgRecords]);
 
-  // Unified success handler for all modals (triggers background refresh)
   const handleActionSuccess = (updatedRecordFromBackend, latestInstructionId = null) => {
-    // Reset all modal states
     setShowExtendModal(false);
     setSelectedLgRecordForExtension(null);
     setShowChangeOwnerModal(false);
@@ -132,12 +119,11 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     setSelectedLgRecordForLiquidate(null);
     setShowDecreaseAmountModal(false);
     setSelectedLgRecordForDecreaseAmount(null);
-    setShowAmendModal(false); // NEW
-    setSelectedLgRecordForAmend(null); // NEW
-    setShowActivateModal(false); // NEW
-    setSelectedLgRecordForActivate(null); // NEW
+    setShowAmendModal(false);
+    setSelectedLgRecordForAmend(null);
+    setShowActivateModal(false);
+    setSelectedLgRecordForActivate(null);
 
-    // DIRECTLY UPDATE THE STATE WITH THE FRESH RECORD
     setLgRecords(prevRecords => {
         return prevRecords.map(rec => {
             if (!rec) {
@@ -150,7 +136,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
 
     toast.success("LG action completed successfully!");
 
-    // NEW LOGIC: If a latestInstructionId is provided, trigger view letter
     if (latestInstructionId) {
         const recordToView = updatedRecordFromBackend;
         setTimeout(() => {
@@ -160,12 +145,10 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   };
 
   const handleViewDetails = (lgRecordId) => {
-    // Navigate based on whether it's Corporate Admin view or End User view
     const detailsPath = isCorporateAdminView ? `/corporate-admin/lg-records/${lgRecordId}` : `/end-user/lg-records/${lgRecordId}`;
     navigate(detailsPath);
   };
 
-  // Specific handlers for opening modals - now conditional based on isCorporateAdminView and isGracePeriod
   const handleExtend = (record) => {
     if (!isCorporateAdminView && !isGracePeriod) {
       setSelectedLgRecordForExtension(record);
@@ -201,7 +184,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     }
   };
 
-  // NEW: Handler for Amend Modal
   const handleAmend = (record) => {
     if (!isCorporateAdminView && !isGracePeriod) {
       setSelectedLgRecordForAmend(record);
@@ -209,7 +191,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     }
   };
 
-  // NEW: Handler for Activate Modal
   const handleActivate = (record) => {
     if (!isCorporateAdminView && !isGracePeriod) {
       setSelectedLgRecordForActivate(record);
@@ -271,7 +252,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
 
     if (latestInstruction && latestInstruction.id) {
       try {
-        // Only mark as accessed for End User view
         if (!isCorporateAdminView) {
             await apiRequest(
               `/end-user/lg-records/instructions/${latestInstruction.id}/mark-as-accessed-for-print`,
@@ -327,6 +307,12 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     }
   };
 
+  // NEW: Function to clear both search and status filters
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setSelectedStatuses([]);
+  };
+
   const uniqueStatuses = useMemo(() => {
     const statuses = new Set();
     lgRecords.forEach(record => {
@@ -337,7 +323,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     return Array.from(statuses).sort();
   }, [lgRecords]);
 
-
   const filteredAndSortedRecords = useMemo(() => {
     if (!lgRecords || lgRecords.length === 0) return [];
 
@@ -346,14 +331,14 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     const filteredRecords = lgRecords.filter(record => {
       const matchesSearchTerm = (
         record.lg_number.toLowerCase().includes(lowerCaseSearchTerm) ||
+        (record.issuer_name || '').toLowerCase().includes(lowerCaseSearchTerm) || // NEW: Add issuer_name to search filter
         (record.beneficiary_corporate?.entity_name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
         (record.issuing_bank?.name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
-        (record.lg_category?.name || '').toLowerCase().includes(lowerCaseSearchTerm) || // <<< CRITICAL CHANGE: Use 'name'
+        (record.lg_category?.name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
         formatAmount(record.lg_amount, record.lg_currency?.iso_code).toLowerCase().includes(lowerCaseSearchTerm) ||
         formatDate(record.expiry_date).toLowerCase().includes(lowerCaseSearchTerm)
       );
 
-      // Apply status filter
       const matchesStatus = selectedStatuses.length === 0 ||
                             (record.lg_status?.name && selectedStatuses.includes(record.lg_status.name));
 
@@ -371,6 +356,10 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
           aValue = a.lg_number;
           bValue = b.lg_number;
           break;
+        case 'issuer_name':
+            aValue = a.issuer_name || '';
+            bValue = b.issuer_name || '';
+            break;
         case 'beneficiary_corporate':
           aValue = a.beneficiary_corporate?.entity_name || '';
           bValue = b.beneficiary_corporate?.entity_name || '';
@@ -385,7 +374,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
           break;
         case 'lg_category':
             aValue = a.lg_category?.name || '';
-            bValue = b.lg_category?.name || ''; 
+            bValue = b.lg_category?.name || '';
             break;
         case 'expiry_date':
           aValue = new Date(a.expiry_date);
@@ -414,9 +403,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     return sortableRecords;
   }, [lgRecords, sortColumn, sortDirection, searchTerm, selectedStatuses]);
 
-  // NEW: Function to handle the Excel export
   const handleExportToExcel = (dataToExport) => {
-    // Flatten the data for the export
     const exportData = dataToExport.map(record => ({
       'LG Number': record.lg_number,
       'Beneficiary': record.beneficiary_corporate?.entity_name || 'N/A',
@@ -452,12 +439,14 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
             {filterByOwnerId ? `LGs for Owner ID: ${filterByOwnerId}` : `Manage LG Records`}
         </h2>
         <div className="flex space-x-3">
-            {filterByOwnerId && (
+            {/* Conditional Clear Filter Button */}
+            {(searchTerm.length > 0 || selectedStatuses.length > 0) && (
                 <button
-                    onClick={() => navigate('/end-user/lg-records')}
+                    onClick={handleClearFilters}
                     className={`${buttonBaseClassNames} bg-gray-600 text-white hover:bg-gray-700`}
                 >
-                    Clear Filter
+                    <XCircle className="h-5 w-5 mr-2" />
+                    Clear Filters
                 </button>
             )}
             {/* NEW: Export Button with Dropdown */}
@@ -546,7 +535,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
           <div className="mb-4 flex items-center justify-between space-x-4">
             <input
               type="text"
-              placeholder="Search by LG No., Beneficiary, Bank, Category..."
+              placeholder="Search by LG No., Issuer, Beneficiary, Bank, Category..."
               className="mt-1 block flex-grow border border-gray-300 pl-3 pr-10 py-2 text-base rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-md"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -634,6 +623,15 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                   <th
                     scope="col"
                     className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                    onClick={() => handleSort('issuer_name')}
+                  >
+                    <div className="flex items-center">
+                      Issuer Name {renderSortIcon('issuer_name')}
+                    </div>
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
                     onClick={() => handleSort('beneficiary_corporate')}
                   >
                     <div className="flex items-center">
@@ -702,6 +700,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                     >
                       {record.lg_number}
                     </td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{record.issuer_name || 'N/A'}</td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{record.beneficiary_corporate?.entity_name || 'N/A'}</td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
                       {formatAmount(record.lg_amount, record.lg_currency?.iso_code)}
@@ -724,7 +723,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                           <Switch
                               checked={record.auto_renewal}
                               onChange={(newStatus) => handleToggleAutoRenewal(record, newStatus)}
-                              disabled={isGracePeriod} // NEW: Disable the switch
+                              disabled={isGracePeriod}
                               className={`${
                                   record.auto_renewal ? 'bg-blue-600' : 'bg-gray-200'
                               } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -747,7 +746,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                       >
                         <FileText className="h-5 w-5" />
                       </button>
-                      {/* Only display LGActionsMenu if not Corporate Admin View or in Grace Period */}
                       {!isCorporateAdminView && !isGracePeriod && (
                           <LGActionsMenu
                               lgRecord={record}
@@ -756,9 +754,9 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                               onRelease={handleRelease}
                               onLiquidate={handleLiquidate}
                               onDecreaseAmount={handleDecreaseAmount}
-                              onViewDetails={handleViewDetails} // Still pass for consistent behavior
-                              onAmend={handleAmend} // NEW: Pass the new handler
-                              onActivate={handleActivate} // NEW: Pass the new handler
+                              onViewDetails={handleViewDetails}
+                              onAmend={handleAmend}
+                              onActivate={handleActivate}
                           />
                       )}
                     </td>
@@ -775,7 +773,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
         </>
       )}
 
-      {/* Modals for actions - only rendered if NOT Corporate Admin View */}
       {!isCorporateAdminView && (
         <>
           {showExtendModal && selectedLgRecordForExtension && (
@@ -783,7 +780,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
               lgRecord={selectedLgRecordForExtension}
               onClose={() => setShowExtendModal(false)}
               onSuccess={handleActionSuccess}
-              isGracePeriod={isGracePeriod} // NEW: Pass prop
+              isGracePeriod={isGracePeriod}
             />
           )}
           {showChangeOwnerModal && selectedLgRecordForOwnerChange && (
@@ -791,7 +788,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                 lgRecord={selectedLgRecordForOwnerChange}
                 onClose={() => setShowChangeOwnerModal(false)}
                 onSuccess={handleActionSuccess}
-                isGracePeriod={isGracePeriod} // NEW: Pass prop
+                isGracePeriod={isGracePeriod}
             />
           )}
           {showReleaseModal && selectedLgRecordForRelease && (
@@ -799,7 +796,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                 lgRecord={selectedLgRecordForRelease}
                 onClose={() => setShowReleaseModal(false)}
                 onSuccess={handleActionSuccess}
-                isGracePeriod={isGracePeriod} // NEW: Pass prop
+                isGracePeriod={isGracePeriod}
             />
           )}
           {showLiquidateModal && selectedLgRecordForLiquidate && (
@@ -807,7 +804,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                 lgRecord={selectedLgRecordForLiquidate}
                 onClose={() => setShowLiquidateModal(false)}
                 onSuccess={handleActionSuccess}
-                isGracePeriod={isGracePeriod} // NEW: Pass prop
+                isGracePeriod={isGracePeriod}
             />
           )}
           {showDecreaseAmountModal && selectedLgRecordForDecreaseAmount && (
@@ -815,10 +812,9 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                 lgRecord={selectedLgRecordForDecreaseAmount}
                 onClose={() => setShowDecreaseAmountModal(false)}
                 onSuccess={handleActionSuccess}
-                isGracePeriod={isGracePeriod} // NEW: Pass prop
+                isGracePeriod={isGracePeriod}
             />
           )}
-          {/* NEW: Amend Modal */}
           {showAmendModal && selectedLgRecordForAmend && (
             <LGAmendModal
                 lgRecord={selectedLgRecordForAmend}
@@ -826,7 +822,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                 onSuccess={handleActionSuccess}
             />
           )}
-          {/* NEW: Activate Modal */}
           {showActivateModal && selectedLgRecordForActivate && (
             <LGActivateNonOperativeModal
                 lgRecord={selectedLgRecordForActivate}

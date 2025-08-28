@@ -562,6 +562,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                             <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">LG Core Information</h2>
                         </div>
                         <p><strong>LG Number:</strong> {lgRecord.lg_number}</p>
+                        <p><strong>Issuer Name:</strong> {lgRecord.issuer_name || 'N/A'}</p>
                         <p><strong>Beneficiary:</strong> {lgRecord.beneficiary_corporate?.entity_name || 'N/A'}</p>
                         <p><strong>Amount:</strong> {formatAmount(lgRecord.lg_amount, lgRecord.lg_currency?.iso_code)}</p>
                         <p><strong>Issuance Date:</strong> {formatDate(lgRecord.issuance_date)}</p>
