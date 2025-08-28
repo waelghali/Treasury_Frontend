@@ -395,7 +395,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
     const isLgValid = lgRecord.lg_status?.name === 'Valid';
     const isLgValidOrActive = ['Valid', 'Active'].includes(lgRecord.lg_status?.name);
     // Constants for LG Type and Operational Status from backend
-    const LG_TYPE_ADVANCE_PAYMENT_GUARANTEE = 2; // Assuming ID 2 is Advance Payment Guarantee
+    const LG_TYPE_ADVANCE_PAYMENT_GUARANTEE = 3; // Assuming ID 2 is Advance Payment Guarantee
     const LG_OPERATIONAL_STATUS_NON_OPERATIVE = 2; // Assuming ID 2 is Non-Operative
 
     // NEW: Conditional rendering for the 'Activate' button

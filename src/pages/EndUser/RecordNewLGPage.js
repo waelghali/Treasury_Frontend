@@ -184,11 +184,12 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
         return { ...prevData, [name]: parseFloat(value) || '' };
       }
       if (['beneficiary_corporate_id', 'lg_currency_id', 'lg_payable_currency_id', 'lg_type_id',
-           'lg_operational_status_id', 'issuing_bank_id', 'issuing_method_id', 'applicable_rule_id',
-           'lg_category_id'].includes(name)) {
-        const parsedValue = parseInt(value, 10);
-        return { ...prevData, [name]: isNaN(parsedValue) ? null : String(parsedValue) };
-      }
+			 'lg_operational_status_id', 'issuing_bank_id', 'issuing_method_id', 'applicable_rule_id',
+			 'lg_category_id'].includes(name)) {
+		  const parsedValue = parseInt(value, 10);
+		  // Corrected logic: if the value is an empty string, set to null
+		  return { ...prevData, [name]: value === '' ? null : String(parsedValue) };
+		}
       return { ...prevData, [name]: value };
     });
   };
@@ -491,7 +492,8 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
         issuance_date: formData.issuance_date ? moment(formData.issuance_date).format('YYYY-MM-DD') : null,
         expiry_date: formData.expiry_date ? moment(formData.expiry_date).format('YYYY-MM-DD') : null,
         lg_operational_status_id: (selectedLgType && selectedLgType.name === "Advance Payment LG") ? formData.lg_operational_status_id : null,
-        payment_conditions: (selectedLgType && selectedLgType.name === "Advance Payment LG" && selectedOperationalStatus && selectedOperationalStatus.name === "Non-Operative") ? formData.payment_conditions : null,
+        lg_payable_currency_id: formData.lg_payable_currency_id,
+		payment_conditions: (selectedLgType && selectedLgType.name === "Advance Payment LG" && selectedOperationalStatus && selectedOperationalStatus.name === "Non-Operative") ? formData.payment_conditions : null,
         applicable_rules_text: (selectedApplicableRule && selectedApplicableRule.name === "Other") ? formData.applicable_rules_text : null,
         additional_field_values: (selectedLGCategory && selectedLGCategory.extra_field_name) ? formData.additional_field_values : {},
         ai_scan_file: formData.ai_scan_file ? {
