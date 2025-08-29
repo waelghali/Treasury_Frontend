@@ -188,8 +188,9 @@ function EndUserActionCenter({ isGracePeriod }) { // NEW: Accept isGracePeriod p
         }
     };
 
+    // Corrected implementation of handleSendReminder
     const handleSendReminder = async (instructionId, serialNumber) => {
-        if (isGracePeriod) { // NEW: Grace period check
+        if (isGracePeriod) {
             toast.warn("This action is disabled during your subscription's grace period.");
             return;
         }
@@ -199,24 +200,39 @@ function EndUserActionCenter({ isGracePeriod }) { // NEW: Accept isGracePeriod p
                 toast.error("Authentication required to send reminder.");
                 return;
             }
-
-            let url = `${API_BASE_URL}/end-user/lg-records/instructions/${instructionId}/send-reminder-to-bank`;
-            url += `?token=${authToken}&print=true`;
-
-            const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
-            if (newWindow) {
-                toast.info(`Generating and opening reminder PDF for instruction ${serialNumber} in a new tab. Please ensure pop-ups are allowed.`);
-                
-                setTimeout(() => {
-                    fetchAllActionCenterData();
-                }, 1000); 
+    
+            const response = await apiRequest(
+                `/end-user/lg-records/instructions/${instructionId}/send-reminder-to-bank`,
+                'POST',
+                null, // No body
+                'application/json', // Keep as 'application/json' for headers, as no body is sent
+                'text' //  <---  CORRECTED: Specify responseType as 'text'
+            );
+    
+            if (response) {
+                const newWindow = window.open('', '_blank');
+                if (newWindow) {
+                    newWindow.document.write(response);
+                    newWindow.document.close();
+                    toast.info(`Generating reminder PDF for instruction ${serialNumber}. A new tab should open. Please click 'Print' inside the new tab.`);
+    
+                    setTimeout(() => {
+                        fetchAllActionCenterData();
+                    }, 1000);
+                } else {
+                    toast.error("Failed to open new tab. Please ensure your browser allows pop-ups.");
+                }
             } else {
-                toast.error("Failed to open new tab. Please ensure your browser allows pop-ups.");
+                toast.error("Failed to generate reminder content from the server.");
             }
-
         } catch (error) {
             console.error("Failed to send reminder:", error);
-            toast.error(`Failed to send reminder: ${error.message || 'An unexpected error occurred.'}`);
+            // Check if the error is due to an HTML response and handle it gracefully
+            if (error.message && error.message.includes("Unexpected token '<'")) {
+                toast.error("An unexpected error occurred with the server response. Please try again.");
+            } else {
+                toast.error(`Failed to send reminder: ${error.message || 'An unexpected error occurred.'}`);
+            }
         }
     };
 
@@ -333,7 +349,7 @@ function EndUserActionCenter({ isGracePeriod }) { // NEW: Accept isGracePeriod p
                                     <thead className="bg-gray-50">
                                         <tr>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LG Number</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Beneficiary</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issuer Name</th>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry Date</th>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Remaining</th>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
@@ -344,7 +360,7 @@ function EndUserActionCenter({ isGracePeriod }) { // NEW: Accept isGracePeriod p
                                         {lgRenewalList.map(lg => (
                                             <tr key={lg.id}>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{lg.lg_number}</td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{lg.beneficiary_corporate?.entity_name || 'N/A'}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{lg.issuer_name || 'N/A'}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(lg.expiry_date)}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                                                     {moment(lg.expiry_date).diff(moment(), 'days')}

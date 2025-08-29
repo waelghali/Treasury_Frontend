@@ -355,6 +355,55 @@ const LGLifecycleHistoryComponent = ({
         }
     };
 
+    // New API call for sending reminders
+    const handleSendReminderLocal = async (instructionId, serialNumber) => {
+        if (isGracePeriod) {
+            toast.warn("This action is disabled during your subscription's grace period.");
+            return;
+        }
+        try {
+            const authToken = getAuthToken();
+            if (!authToken) {
+                toast.error("Authentication required to send reminder.");
+                return;
+            }
+    
+            // Corrected apiRequest call
+            const response = await apiRequest(
+                `/end-user/lg-records/instructions/${instructionId}/send-reminder-to-bank`,
+                'POST',
+                null, // No body
+                'text/html', // Corrected content-type for response
+                'text'       // Corrected responseType
+            );
+    
+            if (response) {
+                const newWindow = window.open('', '_blank');
+                if (newWindow) {
+                    newWindow.document.write(response);
+                    newWindow.document.close();
+                    toast.info(`Generating reminder PDF for instruction ${serialNumber}. A new tab should open. Please click 'Print' inside the new tab.`);
+    
+                    setTimeout(() => {
+                        fetchLifecycleHistoryAndConfig();
+                    }, 1000);
+                } else {
+                    toast.error("Failed to open new tab. Please ensure your browser allows pop-ups.");
+                }
+            } else {
+                toast.error("Failed to generate reminder content from the server.");
+            }
+        } catch (error) {
+            console.error("Failed to send reminder:", error);
+            // Check if the error is due to an HTML response and handle it gracefully
+            if (error.message && error.message.includes("Unexpected token '<'")) {
+                toast.error("An unexpected error occurred with the server response. Please try again.");
+            } else {
+                toast.error(`Failed to send reminder: ${error.message || 'An unexpected error occurred.'}`);
+            }
+        }
+    };
+    
     const filteredEvents = React.useMemo(() => {
         if (selectedActionType === 'ALL') {
             return events;
@@ -498,7 +547,7 @@ const LGLifecycleHistoryComponent = ({
                                                 View Letter
                                             </button>
 
-                                            {!isCorporateAdminView && !isGracePeriod && !hasDeliveryDate ? (
+                                            {!isCorporateAdminView && !hasDeliveryDate ? (
                                                 <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                     <button
                                                         onClick={() => onRecordDelivery(instruction)}
@@ -533,7 +582,7 @@ const LGLifecycleHistoryComponent = ({
                                                 )
                                             )}
 
-                                            {!isCorporateAdminView && !isGracePeriod && !hasBankReplyDate ? (
+                                            {!isCorporateAdminView && !hasBankReplyDate ? (
                                                 <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                     <button
                                                         onClick={() => onRecordBankReply(instruction)}
@@ -571,7 +620,8 @@ const LGLifecycleHistoryComponent = ({
                                             {showSendReminderButtonForEndUser ? (
                                                 <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                     <button
-                                                        onClick={() => onSendReminder(instruction)}
+                                                        // Corrected call to local handler
+                                                        onClick={() => handleSendReminderLocal(instruction.id, instruction.serial_number)}
                                                         className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-md shadow-sm bg-orange-100 text-orange-700 hover:bg-orange-200"
                                                         title="Send Reminder to Bank"
                                                         disabled={isGracePeriod}

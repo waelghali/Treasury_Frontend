@@ -1,7 +1,7 @@
 // frontend/src/pages/EndUser/ManageInternalOwnersPage.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '../../services/apiService';
-import { Loader2, AlertCircle, PlusCircle, Edit, Users, Eye, Trash2 } from 'lucide-react';
+import { Loader2, AlertCircle, PlusCircle, Edit, Users, Eye, Trash2, ChevronUp, ChevronDown, Filter as FilterIcon } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 import { useNavigate } from 'react-router-dom';
@@ -39,6 +39,11 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
 
     const [showBulkChangeLGOwnerModal, setShowBulkChangeLGOwnerModal] = useState(false);
     const [selectedOwnerForBulkChange, setSelectedOwnerForBulkChange] = useState(null);
+
+    // NEW: State for sorting and filtering
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortColumn, setSortColumn] = useState('email');
+    const [sortDirection, setSortDirection] = useState('asc');
 
     const fetchInternalOwners = async () => {
         setIsLoading(true);
@@ -116,6 +121,58 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
         fetchInternalOwners();
     };
 
+    // NEW: Sorting and Filtering Logic
+    const handleSort = (column) => {
+        if (sortColumn === column) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortColumn(column);
+            setSortDirection('asc');
+        }
+    };
+
+    const renderSortIcon = (column) => {
+        if (sortColumn === column) {
+            return sortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />;
+        }
+        return null;
+    };
+
+    const filteredAndSortedOwners = useMemo(() => {
+        if (!owners || owners.length === 0) return [];
+    
+        let sortableOwners = [...owners];
+        const lowerCaseSearchTerm = searchTerm.toLowerCase();
+    
+        // 1. Filter by search term
+        const filteredOwners = sortableOwners.filter(owner => 
+            owner.email.toLowerCase().includes(lowerCaseSearchTerm) ||
+            (owner.phone_number || '').toLowerCase().includes(lowerCaseSearchTerm) ||
+            (owner.internal_id || '').toLowerCase().includes(lowerCaseSearchTerm) ||
+            (owner.manager_email || '').toLowerCase().includes(lowerCaseSearchTerm)
+        );
+    
+        // 2. Sort the filtered results
+        filteredOwners.sort((a, b) => {
+            const aValue = a[sortColumn] || '';
+            const bValue = b[sortColumn] || '';
+    
+            if (typeof aValue === 'string' && typeof bValue === 'string') {
+                return sortDirection === 'asc'
+                    ? aValue.localeCompare(bValue)
+                    : bValue.localeCompare(aValue);
+            } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+                return sortDirection === 'asc'
+                    ? aValue - bValue
+                    : bValue - aValue;
+            }
+            return 0;
+        });
+    
+        return filteredOwners;
+    }, [owners, searchTerm, sortColumn, sortDirection]);
+    
+
     return (
         <div className="card">
             <div className="flex justify-between items-center mb-6">
@@ -160,20 +217,62 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                     </GracePeriodTooltip>
                 </div>
             ) : (
+                <>
+                <div className="mb-4">
+                    <input
+                        type="text"
+                        placeholder="Search by email, phone, or ID..."
+                        className="mt-1 block w-full border border-gray-300 pl-3 pr-10 py-2 text-base rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-md"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
                 <div className="overflow-x-auto rounded-lg shadow">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone Number</th>
-                                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Internal ID</th>
-                                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manager Email</th>
+                                <th
+                                    scope="col"
+                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                                    onClick={() => handleSort('email')}
+                                >
+                                    <div className="flex items-center">
+                                        Email {renderSortIcon('email')}
+                                    </div>
+                                </th>
+                                <th
+                                    scope="col"
+                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                                    onClick={() => handleSort('phone_number')}
+                                >
+                                    <div className="flex items-center">
+                                        Phone Number {renderSortIcon('phone_number')}
+                                    </div>
+                                </th>
+                                <th
+                                    scope="col"
+                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                                    onClick={() => handleSort('internal_id')}
+                                >
+                                    <div className="flex items-center">
+                                        Internal ID {renderSortIcon('internal_id')}
+                                    </div>
+                                </th>
+                                <th
+                                    scope="col"
+                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                                    onClick={() => handleSort('manager_email')}
+                                >
+                                    <div className="flex items-center">
+                                        Manager Email {renderSortIcon('manager_email')}
+                                    </div>
+                                </th>
                                 <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">View LGs</th>
                                 <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {owners.map((owner) => (
+                            {filteredAndSortedOwners.map((owner) => (
                                 <tr key={owner.id}>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{owner.email}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{owner.phone_number || 'N/A'}</td>
@@ -230,7 +329,13 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                             ))}
                         </tbody>
                     </table>
+                    {filteredAndSortedOwners.length === 0 && (
+                        <div className="bg-gray-50 p-6 text-center border-t border-gray-200">
+                            <p className="text-gray-500">No owners match your search criteria.</p>
+                        </div>
+                    )}
                 </div>
+                </>
             )}
             
             {showFormModal && (

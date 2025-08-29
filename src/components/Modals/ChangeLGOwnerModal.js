@@ -7,7 +7,7 @@ import * as Yup from 'yup';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 
-// NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
+// A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     if (isGracePeriod) {
         return (
@@ -27,10 +27,11 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
-const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { // NEW: Accept isGracePeriod prop
+const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
     const [existingOwners, setExistingOwners] = useState([]);
     const [isLoadingOwners, setIsLoadingOwners] = useState(true);
     const [isCreatingNewOwner, setIsCreatingNewOwner] = useState(false);
+    const [isOwnerFieldsLocked, setIsOwnerFieldsLocked] = useState(false);
 
     const initialValues = {
         newOwnerId: '',
@@ -70,8 +71,9 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
         const fetchExistingOwners = async () => {
             setIsLoadingOwners(true);
             try {
-                const response = await apiRequest('/end-user/internal-owner-contacts/', 'GET');
-                setExistingOwners(response);
+                const response = await apiRequest('/end-user/internal-owner-contacts/with-lg-count', 'GET');
+                const filteredOwners = response.filter(o => o.id !== lgRecord.internal_owner_contact?.id);
+                setExistingOwners(filteredOwners);
             } catch (err) {
                 console.error("Failed to fetch existing internal owners:", err);
                 toast.error("Failed to load existing owners for selection.");
@@ -80,10 +82,33 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
             }
         };
         fetchExistingOwners();
-    }, []);
+    }, [lgRecord]);
+
+    const handleEmailLookup = async (email, setFieldValue) => {
+        if (!email) {
+            setIsOwnerFieldsLocked(false);
+            return;
+        }
+
+        try {
+            const contactDetails = await apiRequest(`/end-user/internal-owner-contacts/lookup-by-email/?email=${encodeURIComponent(email)}`, 'GET');
+            
+            if (contactDetails) {
+                toast.info(`An existing owner was found with this email. Please select from the dropdown.`);
+                setIsCreatingNewOwner(false);
+                setFieldValue('newOwnerId', contactDetails.id);
+                setIsOwnerFieldsLocked(true);
+            } else {
+                setIsOwnerFieldsLocked(false);
+            }
+        } catch (err) {
+            console.error('Owner lookup failed:', err);
+            toast.error(`Owner lookup failed: ${err.message || 'An unexpected error occurred.'}`);
+        }
+    };
 
     const handleSubmit = async (values, { setSubmitting, setErrors }) => {
-        if (isGracePeriod) { // NEW: Grace period check
+        if (isGracePeriod) {
             toast.warn("This action is disabled during your subscription's grace period.");
             setSubmitting(false);
             return;
@@ -200,7 +225,7 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                                                                     setFieldValue('newOwnerManagerEmail', '');
                                                                 }}
                                                                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                                disabled={isGracePeriod} // NEW: Disable checkbox
+                                                                disabled={isGracePeriod || isOwnerFieldsLocked}
                                                             />
                                                             <label htmlFor="isCreatingNewOwner" className="text-sm font-medium text-gray-700">
                                                                 Create a New Internal Owner Contact
@@ -218,8 +243,9 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                                                                         type="email"
                                                                         id="newOwnerEmail"
                                                                         name="newOwnerEmail"
+                                                                        onBlur={(e) => handleEmailLookup(e.target.value, setFieldValue)}
                                                                         className={`mt-1 block w-full px-3 py-2 rounded-md border ${errors.newOwnerEmail && touched.newOwnerEmail ? 'border-red-500' : 'border-gray-300'}`}
-                                                                        disabled={isGracePeriod} // NEW: Disable input
+                                                                        disabled={isGracePeriod || isOwnerFieldsLocked}
                                                                     />
                                                                     <ErrorMessage name="newOwnerEmail" component="div" className="text-red-600 text-xs mt-1" />
                                                                 </div>
@@ -232,7 +258,7 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                                                                         id="newOwnerPhoneNumber"
                                                                         name="newOwnerPhoneNumber"
                                                                         className={`mt-1 block w-full px-3 py-2 rounded-md border ${errors.newOwnerPhoneNumber && touched.newOwnerPhoneNumber ? 'border-red-500' : 'border-gray-300'}`}
-                                                                        disabled={isGracePeriod} // NEW: Disable input
+                                                                        disabled={isGracePeriod || isOwnerFieldsLocked}
                                                                     />
                                                                     <ErrorMessage name="newOwnerPhoneNumber" component="div" className="text-red-600 text-xs mt-1" />
                                                                 </div>
@@ -245,8 +271,9 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                                                                         id="newOwnerInternalId"
                                                                         name="newOwnerInternalId"
                                                                         className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300"
-                                                                        disabled={isGracePeriod} // NEW: Disable input
+                                                                        disabled={isGracePeriod || isOwnerFieldsLocked}
                                                                     />
+                                                                    <ErrorMessage name="newOwnerInternalId" component="div" className="text-red-600 text-xs mt-1" />
                                                                 </div>
                                                                 <div>
                                                                     <label htmlFor="newOwnerManagerEmail" className="block text-sm font-medium text-gray-700">
@@ -257,7 +284,7 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                                                                         id="newOwnerManagerEmail"
                                                                         name="newOwnerManagerEmail"
                                                                         className={`mt-1 block w-full px-3 py-2 rounded-md border ${errors.newOwnerManagerEmail && touched.newOwnerManagerEmail ? 'border-red-500' : 'border-gray-300'}`}
-                                                                        disabled={isGracePeriod} // NEW: Disable input
+                                                                        disabled={isGracePeriod || isOwnerFieldsLocked}
                                                                     />
                                                                     <ErrorMessage name="newOwnerManagerEmail" component="div" className="text-red-600 text-xs mt-1" />
                                                                 </div>
@@ -275,7 +302,7 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                                                                         id="newOwnerId"
                                                                         name="newOwnerId"
                                                                         className={`mt-1 block w-full px-3 py-2 rounded-md border ${errors.newOwnerId && touched.newOwnerId ? 'border-red-500' : 'border-gray-300'}`}
-                                                                        disabled={isGracePeriod} // NEW: Disable select input
+                                                                        disabled={isGracePeriod}
                                                                     >
                                                                         <option value="">-- Select an owner --</option>
                                                                         {existingOwners.map(ownerOption => (
@@ -299,7 +326,7 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                                                                 name="reason"
                                                                 rows="2"
                                                                 className={`mt-1 block w-full px-3 py-2 rounded-md border ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
-                                                                disabled={isGracePeriod} // NEW: Disable textarea
+                                                                disabled={isGracePeriod}
                                                             />
                                                             <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
                                                         </div>

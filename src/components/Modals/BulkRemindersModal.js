@@ -36,28 +36,40 @@ const BulkRemindersModal = ({ onClose, onSuccess, isGracePeriod }) => {
         setIsProcessing(true);
         setProcessError('');
         try {
-            const authToken = getAuthToken();
-            if (!authToken) {
-                setProcessError("Authentication token missing. Please log in again.");
-                toast.error("Authentication required to generate reminders.");
-                setIsProcessing(false);
-                return;
-            }
-
-            let url = `${API_BASE_URL}/end-user/lg-records/instructions/generate-all-bank-reminders-pdf`;
-            url += `?token=${authToken}`;
-
-            const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+            // Corrected to use the centralized apiRequest function
+            const response = await apiRequest(
+                '/end-user/lg-records/instructions/generate-all-bank-reminders-pdf',
+                'GET'
+            );
             
-            if (newWindow) {
-                toast.info("Generating and opening consolidated reminder PDF in a new tab. Please ensure pop-ups are allowed.");
-                setTimeout(() => {
-                    onSuccess();
-                }, 1000);
+            if (response && response.combined_pdf_base64) {
+                // Decode the base64 string
+                const pdfData = atob(response.combined_pdf_base64);
+                const pdfBytes = new Uint8Array(pdfData.length);
+                for (let i = 0; i < pdfData.length; i++) {
+                    pdfBytes[i] = pdfData.charCodeAt(i);
+                }
+
+                // Create a blob and a URL to open the PDF in a new tab
+                const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+
+                const newWindow = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+            
+                if (newWindow) {
+                    toast.info("Generating and opening consolidated reminder PDF in a new tab. Please ensure pop-ups are allowed.");
+                    setTimeout(() => {
+                        onSuccess();
+                    }, 1000);
+                } else {
+                    setProcessError("Failed to open new tab. Please ensure your browser allows pop-ups.");
+                    toast.error("Failed to open new tab. Check pop-up blocker.");
+                }
             } else {
-                setProcessError("Failed to open new tab. Please ensure your browser allows pop-ups.");
-                toast.error("Failed to open new tab. Check pop-up blocker.");
+                 setProcessError("No eligible reminders found to generate a PDF.");
+                 toast.error("No eligible reminders found.");
             }
+
         } catch (error) {
             console.error("Failed to generate bulk reminders:", error);
             setProcessError(`Failed to generate bulk reminders: ${error.message || 'An unexpected error occurred.'}`);
@@ -80,9 +92,7 @@ const BulkRemindersModal = ({ onClose, onSuccess, isGracePeriod }) => {
                 )}
                 
                 <p className="text-gray-700 mb-4">
-                    This action will automatically identify all eligible LG instructions for a bank reminder
-                    and generate a consolidated PDF document containing all such reminders.
-                    The PDF will open in a new tab for printing.
+                    This action will automatically identify all eligible LG instructions for a bank reminder, which may extend beyond the list below. It will then generate a consolidated PDF document containing all such reminders. The PDF will open in a new tab for printing.
                 </p>
                 <p className="text-gray-700 mb-6">
                     Eligible instructions are those where a bank reply has not been recorded, and they fall

@@ -61,10 +61,11 @@ export const stopInactivityTracker = () => {
  * @param {string} method The HTTP method (GET, POST, PUT, DELETE).
  * @param {object} data The request body data (optional).
  * @param {string} contentType The Content-Type header (e.g., 'application/json', 'multipart/form-data').
+ * @param {string} responseType The expected response type (e.g., 'json', 'text'). Defaults to 'json'.
  * @returns {Promise<any>} A promise that resolves to the response data.
  * @throws {Error} Throws an error for non-2xx responses or network issues.
  */
-export const apiRequest = async (url, method = 'GET', data = null, contentType = 'application/json') => {
+export const apiRequest = async (url, method = 'GET', data = null, contentType = 'application/json', responseType = 'json') => {
   const token = getAuthToken();
   const headers = {};
 
@@ -110,6 +111,10 @@ export const apiRequest = async (url, method = 'GET', data = null, contentType =
     const contentTypeHeader = response.headers.get('content-type');
     if (response.status === 204 || !contentTypeHeader) {
       return null;
+    }
+    
+    if (responseType === 'text') {
+      return await response.text();
     }
 
     return await response.json();

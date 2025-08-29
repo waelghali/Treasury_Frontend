@@ -407,6 +407,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
         isLgValidOrActive, // Amend
         isLgValidOrActive, // Decrease Amount
         canActivate, // Activate
+        isLgValidOrActive, // Change Owner
         isLgValidOrActive, // Release
         isLgValidOrActive // Liquidate
     ].filter(Boolean).length;
@@ -472,6 +473,19 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                             >
                                 <PlayCircle className="h-5 w-5 mr-2" />
                                 Activate
+                            </button>
+                        </GracePeriodTooltip>
+                    )}
+                    {isLgValidOrActive && ( // Show Change Owner for 'Valid' or 'Active' LGs
+                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                            <button
+                                onClick={handleChangeOwner}
+                                className={`${actionBarButtonClassNames('purple')} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                title="Change LG Owner"
+                                disabled={isGracePeriod}
+                            >
+                                <Users className="h-5 w-5 mr-2" />
+                                Change Owner
                             </button>
                         </GracePeriodTooltip>
                     )}

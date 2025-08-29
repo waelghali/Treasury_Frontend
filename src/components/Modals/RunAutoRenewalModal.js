@@ -122,7 +122,7 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod }) => {
                             This process will identify all your eligible Letters of Guarantee for auto-renewal and for forced renewal.
                         </p>
                         <p className="text-gray-700 mb-6">
-                            For each eligible LG, the system will automatically extend its expiry date,
+                            For each eligible LG (which may differ from the list shown below), the system will automatically extend its expiry date,
                             generate an individual instruction letter, and send an individual email notification.
                             A single, combined PDF containing all generated instruction letters will be provided for download.
                         </p>
