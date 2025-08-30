@@ -4,6 +4,7 @@ import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiServic
 import { Loader2, AlertCircle, Clock, FileText, Repeat, CalendarPlus, Truck, Building, Mail, Printer, Eye } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
+import { useNavigate } from 'react-router-dom';
 
 import ExtendLGModal from '../../components/Modals/ExtendLGModal';
 import RecordDeliveryModal from '../../components/Modals/RecordDeliveryModal';
@@ -30,6 +31,7 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 };
 
 function EndUserActionCenter({ isGracePeriod }) { // NEW: Accept isGracePeriod prop
+    const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     
@@ -142,6 +144,10 @@ function EndUserActionCenter({ isGracePeriod }) { // NEW: Accept isGracePeriod p
     useEffect(() => {
         fetchAllActionCenterData();
     }, [fetchAllActionCenterData]);
+
+    const handleViewDetails = (lgRecordId) => {
+        navigate(`/end-user/lg-records/${lgRecordId}`);
+    };
 
     const formatAmount = (amount, currencyCode) => {
         if (amount === null || currencyCode === null || currencyCode === undefined || isNaN(parseFloat(amount))) {
@@ -299,7 +305,12 @@ function EndUserActionCenter({ isGracePeriod }) { // NEW: Accept isGracePeriod p
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {approvedPendingPrints.map(request => (
                                             <tr key={request.id}>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{request.lg_record?.lg_number || 'N/A'}</td>
+                                                <td 
+                                                    className="px-4 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer"
+                                                    onClick={() => request.lg_record?.id && handleViewDetails(request.lg_record.id)}
+                                                >
+                                                    {request.lg_record?.lg_number || 'N/A'}
+                                                </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatActionTypeLabel(request.action_type)}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{request.maker_user?.email || 'N/A'}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(request.updated_at)}</td>
@@ -359,7 +370,12 @@ function EndUserActionCenter({ isGracePeriod }) { // NEW: Accept isGracePeriod p
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {lgRenewalList.map(lg => (
                                             <tr key={lg.id}>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{lg.lg_number}</td>
+                                                <td 
+                                                    className="px-4 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer"
+                                                    onClick={() => handleViewDetails(lg.id)}
+                                                >
+                                                    {lg.lg_number}
+                                                </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{lg.issuer_name || 'N/A'}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(lg.expiry_date)}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -428,7 +444,12 @@ function EndUserActionCenter({ isGracePeriod }) { // NEW: Accept isGracePeriod p
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {instructionsUndelivered.map(inst => (
                                             <tr key={inst.id}>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.lg_record?.lg_number || 'N/A'}</td>
+                                                <td 
+                                                    className="px-4 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer"
+                                                    onClick={() => inst.lg_record?.id && handleViewDetails(inst.lg_record.id)}
+                                                >
+                                                    {inst.lg_record?.lg_number || 'N/A'}
+                                                </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatActionTypeLabel(inst.instruction_type)}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{inst.serial_number}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(inst.instruction_date)}</td>
@@ -497,7 +518,12 @@ function EndUserActionCenter({ isGracePeriod }) { // NEW: Accept isGracePeriod p
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {instructionsNoReply.map(inst => (
                                             <tr key={inst.id}>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inst.lg_record?.lg_number || 'N/A'}</td>
+                                                <td 
+                                                    className="px-4 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer"
+                                                    onClick={() => inst.lg_record?.id && handleViewDetails(inst.lg_record.id)}
+                                                >
+                                                    {inst.lg_record?.lg_number || 'N/A'}
+                                                </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatActionTypeLabel(inst.instruction_type)}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{inst.serial_number}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(inst.instruction_date)}</td>
