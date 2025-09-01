@@ -176,70 +176,123 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
         );
     };
 
-    const renderActionSpecificDetails = () => {
+    const handleViewDocument = async (documentId) => {
+		try {
+			const response = await apiRequest(`/end-user/lg-documents/${documentId}/view`, 'GET');
+			if (response && response.signed_url) {
+				window.open(response.signed_url, '_blank');
+			} else {
+				toast.error("Failed to retrieve the document link.");
+			}
+		} catch (err) {
+			toast.error(`Error retrieving document: ${err.message}`);
+		}
+	};
+
+	const renderActionSpecificDetails = () => {
         if (!request || !request.request_details) return null;
 
         const details = request.request_details;
 
         switch (request.action_type) {
-            case 'LG_DECREASE_AMOUNT':
-                return (
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                        <h4 className="font-semibold text-blue-800 mb-2">Decrease Amount Request Details:</h4>
-                        <p><strong>Amount to Decrease:</strong> {formatAmount(details.decrease_amount, request.lg_record?.lg_currency?.iso_code)}</p>
-                        <p><strong>Reason:</strong> {details.reason || 'No reason provided'}</p>
-                    </div>
-                );
-            case 'LG_LIQUIDATE':
-                return (
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                        <h4 className="font-semibold text-blue-800 mb-2">LG Liquidation Request Details:</h4>
-                        <p><strong>Liquidation Type:</strong> {details.liquidation_type || 'N/A'}</p>
-                        {details.liquidation_type === 'partial' && (
-                            <p><strong>New Amount (for partial):</strong> {formatAmount(details.new_amount, request.lg_record?.lg_currency?.iso_code)}</p>
-                        )}
-                        <p><strong>Reason:</strong> {details.reason || 'No reason provided'}</p>
-                    </div>
-                );
-            case 'LG_RELEASE':
-                return (
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                        <h4 className="font-semibold text-blue-800 mb-2">LG Release Request Details:</h4>
-                        <p><strong>Reason:</strong> {details.reason || 'No reason provided'}</p>
-                    </div>
-                );
-            case 'LG_AMEND':
-                return (
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                        <h4 className="font-semibold text-blue-800 mb-2">LG Amendment Request Details:</h4>
-                        <p><strong>Reason:</strong> {details.reason || 'No reason provided'}</p>
-                        {details.amendment_details && (
-                            <div>
-                                <p className="font-medium mt-2">Requested Amendments:</p>
-                                <ul className="list-disc list-inside ml-4">
-                                    {Object.entries(details.amendment_details).map(([key, value]) => (
-                                        <li key={key}>
-                                            <strong>{formatActionType(key.replace(/_id$/, ''))}:</strong> {
-                                                (key.includes('date') && value) ? formatDate(value) :
-                                                (key.includes('amount') && value) ? formatAmount(value, request.lg_record?.lg_currency?.iso_code) :
-                                                (typeof value === 'object' && value !== null) ? JSON.stringify(value) :
-                                                String(value)
-                                            }
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-                        {details.amendment_document_id && (
-                            <p className="mt-2">
-                                <FileText className="inline-block h-4 w-4 mr-1" />
-                                <a href={`/api/v1/end-user/lg-records/documents/${details.amendment_document_id}/view`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                    View Amendment Letter (ID: {details.amendment_document_id})
-                                </a>
-                            </p>
-                        )}
-                    </div>
-                );
+			case 'LG_DECREASE_AMOUNT':
+				return (
+					<div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+						<h4 className="font-semibold text-blue-800 mb-2">Decrease Amount Request Details:</h4>
+						<p><strong>Amount to Decrease:</strong> {formatAmount(details.decrease_amount, request.lg_record?.lg_currency?.iso_code)}</p>
+						<p><strong>Reason:</strong> {details.reason || 'No reason provided'}</p>
+						{/* FIX: Add conditional rendering for the supporting document */}
+						{details.supporting_document_id && (
+							<p className="mt-2">
+								<FileText className="inline-block h-4 w-4 mr-1" />
+								<button
+									onClick={() => handleViewDocument(details.supporting_document_id)}
+									className="text-blue-600 hover:underline focus:outline-none"
+								>
+									View Supporting Document (ID: {details.supporting_document_id})
+								</button>
+							</p>
+						)}
+					</div>
+				);
+			case 'LG_LIQUIDATE':
+				return (
+					<div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+						<h4 className="font-semibold text-blue-800 mb-2">LG Liquidation Request Details:</h4>
+						<p><strong>Liquidation Type:</strong> {details.liquidation_type || 'N/A'}</p>
+						{details.liquidation_type === 'partial' && (
+							<p><strong>New Amount (for partial):</strong> {formatAmount(details.new_amount, request.lg_record?.lg_currency?.iso_code)}</p>
+						)}
+						<p><strong>Reason:</strong> {details.reason || 'No reason provided'}</p>
+						{/* FIX: Add conditional rendering for the supporting document */}
+						{details.supporting_document_id && (
+							<p className="mt-2">
+								<FileText className="inline-block h-4 w-4 mr-1" />
+								<button
+									onClick={() => handleViewDocument(details.supporting_document_id)}
+									className="text-blue-600 hover:underline focus:outline-none"
+								>
+									View Supporting Document (ID: {details.supporting_document_id})
+								</button>
+							</p>
+						)}
+					</div>
+				);
+			case 'LG_RELEASE':
+				return (
+					<div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+						<h4 className="font-semibold text-blue-800 mb-2">LG Release Request Details:</h4>
+						<p><strong>Reason:</strong> {details.reason || 'No reason provided'}</p>
+						{/* FIX: Add conditional rendering for the supporting document */}
+						{details.supporting_document_id && (
+							<p className="mt-2">
+								<FileText className="inline-block h-4 w-4 mr-1" />
+								<button
+									onClick={() => handleViewDocument(details.supporting_document_id)}
+									className="text-blue-600 hover:underline focus:outline-none"
+								>
+									View Supporting Document (ID: {details.supporting_document_id})
+								</button>
+							</p>
+						)}
+					</div>
+				);
+			case 'LG_AMEND':
+				return (
+					<div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+						<h4 className="font-semibold text-blue-800 mb-2">LG Amendment Request Details:</h4>
+						<p><strong>Reason:</strong> {details.reason || 'No reason provided'}</p>
+						{details.amendment_details && (
+							<div>
+								<p className="font-medium mt-2">Requested Amendments:</p>
+								<ul className="list-disc list-inside ml-4">
+									{Object.entries(details.amendment_details).map(([key, value]) => (
+										<li key={key}>
+											<strong>{formatActionType(key.replace(/_id$/, ''))}:</strong> {
+												(key.includes('date') && value) ? formatDate(value) :
+												(key.includes('amount') && value) ? formatAmount(value, request.lg_record?.lg_currency?.iso_code) :
+												(typeof value === 'object' && value !== null) ? JSON.stringify(value) :
+												String(value)
+											}
+										</li>
+									))}
+								</ul>
+							</div>
+						)}
+						{details.amendment_document_id && (
+							<p className="mt-2">
+								<FileText className="inline-block h-4 w-4 mr-1" />
+								{/* FIX: Use an onClick handler to fetch the signed URL */}
+								<button
+									onClick={() => handleViewDocument(details.amendment_document_id)}
+									className="text-blue-600 hover:underline focus:outline-none"
+								>
+									View Amendment Letter (ID: {details.amendment_document_id})
+								</button>
+							</p>
+						)}
+					</div>
+				);
             case 'LG_ACTIVATE_NON_OPERATIVE':
                 const paymentCurrencyCode = details.currency_id ? (currentLgRecord?.lg_currency?.iso_code || currentLgRecord?.lg_currency?.symbol) : 'N/A';
                 return (
@@ -250,6 +303,18 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                         <p><strong>Payment Reference:</strong> {details.payment_reference || 'N/A'}</p>
                         <p><strong>Issuing Bank ID:</strong> {details.issuing_bank_id || 'N/A'}</p>
                         <p><strong>Payment Date:</strong> {formatDate(details.payment_date) || 'N/A'}</p>
+                        {/* FIX: Add conditional rendering for the supporting document */}
+                        {details.supporting_document_id && (
+                            <p className="mt-2">
+                                <FileText className="inline-block h-4 w-4 mr-1" />
+                                <button
+                                    onClick={() => handleViewDocument(details.supporting_document_id)}
+                                    className="text-blue-600 hover:underline focus:outline-none"
+                                >
+                                    View Supporting Document (ID: {details.supporting_document_id})
+                                </button>
+                            </p>
+                        )}
                     </div>
                 );
             case 'LG_CHANGE_OWNER_DETAILS':

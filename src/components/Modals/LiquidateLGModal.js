@@ -1,7 +1,7 @@
 // frontend/src/components/Modals/LiquidateLGModal.js
 import React, { useState } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
-import { X, FileMinus, AlertCircle } from 'lucide-react';
+import { X, FileMinus, AlertCircle, FileText, Loader2 } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { apiRequest } from '../../services/apiService';
@@ -27,8 +27,10 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
-const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { // NEW: Accept isGracePeriod prop
+const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
     const [liquidationType, setLiquidationType] = useState('full');
+    const [supportingDocument, setSupportingDocument] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false); // CRITICAL FIX: Add local state for submission status
 
     const initialValues = {
         liquidationType: 'full',
@@ -50,21 +52,31 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { 
         reason: Yup.string().required('Reason for liquidation is required').min(10, 'Reason must be at least 10 characters.'),
     });
 
-    const handleSubmit = async (values, { setSubmitting, setErrors }) => {
-        if (isGracePeriod) { // NEW: Grace period check
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        setSupportingDocument(file);
+    };
+
+    const handleSubmit = async (values, { setErrors }) => {
+        if (isGracePeriod) {
             toast.warn("This action is disabled during your subscription's grace period.");
-            setSubmitting(false);
             return;
         }
 
-        try {
-            const payload = {
-                liquidation_type: values.liquidationType,
-                new_amount: values.liquidationType === 'partial' ? parseFloat(values.newAmount) : undefined,
-                reason: values.reason,
-            };
+        setIsSubmitting(true);
 
-            const response = await apiRequest(`/end-user/lg-records/${lgRecord.id}/liquidate`, 'POST', payload);
+        try {
+            const formData = new FormData();
+            formData.append('liquidation_type', values.liquidationType);
+            formData.append('reason', values.reason);
+            if (values.liquidationType === 'partial' && values.newAmount) {
+                formData.append('new_amount', values.newAmount);
+            }
+            if (supportingDocument) {
+                formData.append('internal_supporting_document_file', supportingDocument);
+            }
+
+            const response = await apiRequest(`/end-user/lg-records/${lgRecord.id}/liquidate`, 'POST', formData);
 
             if (response.approval_request_id) {
                 toast.info(`LG Liquidation request submitted for approval. Request ID: ${response.approval_request_id}.`);
@@ -78,7 +90,7 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { 
             toast.error(`Failed to liquidate LG: ${error.message || 'An unexpected error occurred.'}`);
             setErrors({ general: error.message || 'An unexpected error occurred.' });
         } finally {
-            setSubmitting(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -133,7 +145,7 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { 
                                                 validationSchema={LiquidateLgSchema}
                                                 onSubmit={handleSubmit}
                                             >
-                                                {({ isSubmitting, errors, touched, values, setFieldValue }) => (
+                                                {({ errors, touched, values, setFieldValue }) => (
                                                     <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
                                                         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
                                                             Current LG Amount: <strong>{lgRecord.lg_amount} {lgRecord.lg_currency?.iso_code}</strong> | Status: <strong>{lgRecord.lg_status?.name}</strong>
@@ -155,7 +167,7 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { 
                                                                     }
                                                                 }}
                                                                 className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.liquidationType && touched.liquidationType ? 'border-red-500' : 'border-gray-300'}`}
-                                                                disabled={isGracePeriod} // NEW: Disable select input
+                                                                disabled={isGracePeriod}
                                                             >
                                                                 <option value="full">Full Liquidation (Amount becomes 0)</option>
                                                                 <option value="partial">Partial Liquidation (Reduce Amount)</option>
@@ -174,7 +186,7 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { 
                                                                     name="newAmount"
                                                                     step="0.01"
                                                                     className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.newAmount && touched.newAmount ? 'border-red-500' : 'border-gray-300'}`}
-                                                                    disabled={isGracePeriod} // NEW: Disable input
+                                                                    disabled={isGracePeriod}
                                                                 />
                                                                 <ErrorMessage name="newAmount" component="div" className="text-red-600 text-xs mt-1" />
                                                             </div>
@@ -190,9 +202,33 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { 
                                                                 name="reason"
                                                                 rows="3"
                                                                 className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
-                                                                disabled={isGracePeriod} // NEW: Disable textarea
+                                                                disabled={isGracePeriod}
                                                             />
                                                             <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
+                                                        </div>
+                                                        
+                                                        <div className="border-t pt-4">
+                                                            <label htmlFor="supporting-document-file" className="block text-sm font-medium text-gray-700">
+                                                                Optional Supporting Document
+                                                            </label>
+                                                            <div className="mt-1 flex items-center">
+                                                                <input
+                                                                    id="supporting-document-file"
+                                                                    name="internal_supporting_document_file"
+                                                                    type="file"
+                                                                    onChange={handleFileChange}
+                                                                    accept=".pdf,image/*"
+                                                                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                                    disabled={isGracePeriod || isSubmitting}
+                                                                />
+                                                                {supportingDocument && (
+                                                                    <span className="ml-3 text-sm text-gray-500">
+                                                                        <FileText className="inline-block h-4 w-4 mr-1" />
+                                                                        {supportingDocument.name}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="mt-2 text-sm text-gray-500">Attach any documents related to this request (e.g., formal request from beneficiary).</p>
                                                         </div>
 
                                                         {errors.general && (
@@ -209,7 +245,7 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { 
                                                                     className={`${buttonBaseClassNames} sm:col-start-2 bg-red-600 text-white hover:bg-red-700 ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                                     disabled={isSubmitting || isGracePeriod}
                                                                 >
-                                                                    {isSubmitting ? 'Processing...' : <FileMinus className="h-5 w-5 mr-2" />}
+                                                                    {isSubmitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <FileMinus className="h-5 w-5 mr-2" />}
                                                                     {isSubmitting ? 'Processing...' : 'Submit Liquidation Request'}
                                                                 </button>
                                                             </GracePeriodTooltip>

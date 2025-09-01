@@ -3,6 +3,7 @@ import React from 'react';
 import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react';
 import { EllipsisVertical, CalendarPlus, Users, CheckCircle, FileMinus, MinusCircle, Eye, Edit, PlayCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
+import moment from 'moment';
 
 // A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -28,16 +29,18 @@ function classNames(...classes) {
 
 const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquidate, onDecreaseAmount, onViewDetails, isGracePeriod, onAmend, onActivate }) => {
   const isLgValid = lgRecord.lg_status?.name === 'Valid';
-  const isLgValidOrActive = ['Valid', 'Active'].includes(lgRecord.lg_status?.name);
+  const isExpired = lgRecord.lg_status?.name === 'Expired';
+  const expiryDateMoment = moment(lgRecord.expiry_date);
+  const thirtyDaysAgo = moment().subtract(30, 'days');
+  const isExpiredWithinGrace = isExpired && expiryDateMoment.isSameOrAfter(thirtyDaysAgo);
+    
+  const canAmend = isLgValid || isExpiredWithinGrace; 
 
-  // Constants for LG Type and Operational Status from backend (these would typically be imported or hard-coded)
-  const LG_TYPE_ADVANCE_PAYMENT_LG = 3; // Assuming ID 2 is Advance Payment Guarantee
-  const LG_OPERATIONAL_STATUS_NON_OPERATIVE = 2; // Assuming ID 2 is Non-Operative
+  const LG_TYPE_ADVANCE_PAYMENT_LG = 3; 
+  const LG_OPERATIONAL_STATUS_NON_OPERATIVE = 2; 
 
-  // NEW: Conditional rendering for the 'Activate' button
   const canActivate = lgRecord.lg_type?.id === LG_TYPE_ADVANCE_PAYMENT_LG && lgRecord.lg_operational_status?.id === LG_OPERATIONAL_STATUS_NON_OPERATIVE;
 
-  // Define a wrapper for actions that checks for grace period
   const handleAction = (action) => {
     if (isGracePeriod) {
       toast.warn("This action is disabled during your subscription's grace period.");
@@ -92,7 +95,7 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                       )}
                       disabled={isGracePeriod}
                     >
-                      <CalendarPlus className="mr-3 h-5 w-5 text-indigo-400 group-hover:text-indigo-500" aria-hidden="true" />
+                      <CalendarPlus className="mr-3 h-5 w-5 text-blue-600 group-hover:text-blue-700" aria-hidden="true" />
                       Extend LG
                     </button>
                   </GracePeriodTooltip>
@@ -100,8 +103,7 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
               </MenuItem>
             )}
             
-            {/* Conditional rendering for Decrease Amount, now only for 'Valid' or 'Active' LGs */}
-            {isLgValidOrActive && (
+            {isLgValid && (
               <MenuItem disabled={isGracePeriod}>
                 {({ active }) => (
                   <GracePeriodTooltip isGracePeriod={isGracePeriod}>
@@ -114,7 +116,7 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                       )}
                       disabled={isGracePeriod}
                     >
-                      <MinusCircle className="mr-3 h-5 w-5 text-orange-400 group-hover:text-orange-500" aria-hidden="true" />
+                      <MinusCircle className="mr-3 h-5 w-5 text-orange-600 group-hover:text-orange-700" aria-hidden="true" />
                       Decrease Amount
                     </button>
                   </GracePeriodTooltip>
@@ -122,7 +124,7 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
               </MenuItem>
             )}
             
-            {isLgValidOrActive && (
+            {canAmend && (
               <MenuItem disabled={isGracePeriod}>
                 {({ active }) => (
                   <GracePeriodTooltip isGracePeriod={isGracePeriod}>
@@ -135,7 +137,7 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                       )}
                       disabled={isGracePeriod}
                     >
-                      <Edit className="mr-3 h-5 w-5 text-blue-400 group-hover:text-blue-500" aria-hidden="true" />
+                      <Edit className="mr-3 h-5 w-5 text-yellow-600 group-hover:text-yellow-700" aria-hidden="true" />
                       Amend LG
                     </button>
                   </GracePeriodTooltip>
@@ -156,7 +158,7 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                       )}
                       disabled={isGracePeriod}
                     >
-                      <PlayCircle className="mr-3 h-5 w-5 text-teal-400 group-hover:text-teal-500" aria-hidden="true" />
+                      <PlayCircle className="mr-3 h-5 w-5 text-teal-600 group-hover:text-teal-700" aria-hidden="true" />
                       Activate LG
                     </button>
                   </GracePeriodTooltip>
@@ -164,7 +166,7 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
               </MenuItem>
             )}
 
-            {isLgValidOrActive && (
+            {isLgValid && (
               <>
                 <MenuItem disabled={isGracePeriod}>
                   {({ active }) => (
@@ -178,7 +180,7 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                         )}
                         disabled={isGracePeriod}
                       >
-                        <CheckCircle className="mr-3 h-5 w-5 text-green-400 group-hover:text-green-500" aria-hidden="true" />
+                        <CheckCircle className="mr-3 h-5 w-5 text-green-600 group-hover:text-green-700" aria-hidden="true" />
                         Release LG
                       </button>
                     </GracePeriodTooltip>
@@ -196,7 +198,7 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                         )}
                         disabled={isGracePeriod}
                       >
-                        <FileMinus className="mr-3 h-5 w-5 text-red-400 group-hover:text-red-500" aria-hidden="true" />
+                        <FileMinus className="mr-3 h-5 w-5 text-red-600 group-hover:text-red-700" aria-hidden="true" />
                         Liquidate LG
                       </button>
                     </GracePeriodTooltip>
@@ -205,24 +207,26 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
               </>
             )}
             
-            <MenuItem disabled={isGracePeriod}>
-              {({ active }) => (
-                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                  <button
-                    onClick={() => handleAction(() => onChangeOwner(lgRecord))}
-                    className={classNames(
-                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
-                      'group flex items-center w-full px-4 py-2 text-sm',
-                      isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
-                    )}
-                    disabled={isGracePeriod}
-                  >
-                    <Users className="mr-3 h-5 w-5 text-purple-400 group-hover:text-purple-500" aria-hidden="true" />
-                    Change Owner
-                  </button>
-                </GracePeriodTooltip>
-              )}
-            </MenuItem>
+            {isLgValid && (
+              <MenuItem disabled={isGracePeriod}>
+                {({ active }) => (
+                  <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                    <button
+                      onClick={() => handleAction(() => onChangeOwner(lgRecord))}
+                      className={classNames(
+                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
+                        'group flex items-center w-full px-4 py-2 text-sm',
+                        isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
+                      )}
+                      disabled={isGracePeriod}
+                    >
+                      <Users className="mr-3 h-5 w-5 text-purple-600 group-hover:text-purple-700" aria-hidden="true" />
+                      Change Owner
+                    </button>
+                  </GracePeriodTooltip>
+                )}
+              </MenuItem>
+            )}
           </div>
         </MenuItems>
       </Transition>

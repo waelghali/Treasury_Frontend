@@ -36,7 +36,7 @@ const parseDateFromInput = (dateString) => {
   return mDate.isValid() ? mDate.toDate() : null;
 };
 
-function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod prop
+function RecordNewLGPage({ onLogout, isGracePeriod }) {
   const navigate = useNavigate();
 
   const initialFormData = {
@@ -58,7 +58,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
     issuing_bank_address: '',
     issuing_bank_phone: '',
     issuing_bank_fax: '',
-    issuing_method_id: '',
+    issuing_method_id: '2',
     applicable_rule_id: '',
     applicable_rules_text: '',
     other_conditions: '',
@@ -101,6 +101,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
   const [aiScanInProgress, setAiScanInProgress] = useState(false);
   const [isInternalOwnerFieldsLocked, setIsInternalOwnerFieldsLocked] = useState(false);
   const [aiScanSuccess, setAiScanSuccess] = useState(false);
+  const [isFormDisabled, setIsFormDisabled] = useState(false); // NEW STATE: For disabling the form
 
   const aiFileInputRef = useRef(null);
   const internalDocInputRef = useRef(null);
@@ -129,14 +130,6 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
           customerEntities, currencies, lgTypes, lgStatuses, lgOperationalStatuses,
           banks, issuingMethods, rules, lgCategories
         });
-		        // NEW LOGIC: Set default Issuing Method after data is loaded.
-        if (issuingMethods.length > 0) {
-            setFormData(prev => ({
-                ...prev,
-                issuing_method_id: String(issuingMethods[0].id)
-            }));
-        }
-
       } catch (err) {
         console.error('Failed to fetch dropdown data:', err);
         setError(`Failed to load necessary data for the form. ${err.message || 'An unexpected error occurred.'}`);
@@ -187,7 +180,6 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
 			 'lg_operational_status_id', 'issuing_bank_id', 'issuing_method_id', 'applicable_rule_id',
 			 'lg_category_id'].includes(name)) {
 		  const parsedValue = parseInt(value, 10);
-		  // Corrected logic: if the value is an empty string, set to null
 		  return { ...prevData, [name]: value === '' ? null : String(parsedValue) };
 		}
       return { ...prevData, [name]: value };
@@ -219,7 +211,6 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
     }
   };
 
-  // NEW FUNCTION: Clears the form without a confirmation message.
   const clearFormDirectly = () => {
     setFormData(initialFormData);
     setError('');
@@ -238,7 +229,6 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
     }
   };
 
-  // ORIGINAL FUNCTION: Clears the form with a confirmation message.
   const handleClearForm = () => {
     if (window.confirm("Are you sure you want to clear all form fields?")) {
       clearFormDirectly();
@@ -253,6 +243,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
     }
 
     setAiScanInProgress(true);
+    setIsFormDisabled(true); // NEW: Disable the form
     setError('');
     setAiScanSuccess(false);
 
@@ -260,13 +251,16 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
     if (!fileMimeType.startsWith('image/') && fileMimeType !== 'application/pdf') {
       setError("Only image files (JPEG, PNG) or PDF files are supported for AI scanning.");
       setAiScanInProgress(false);
+      setIsFormDisabled(false); // NEW: Re-enable the form
       return;
     }
 
+    // Preserve internal supporting document while clearing other fields
+    const internalSupportingDocFile = formData.internal_supporting_document_file;
     setFormData(prev => ({
       ...initialFormData,
       ai_scan_file: fileToProcess,
-      internal_supporting_document_file: prev.internal_supporting_document_file
+      internal_supporting_document_file: internalSupportingDocFile
     }));
 
     try {
@@ -275,8 +269,6 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
 
       const extractedData = await apiRequest('/end-user/lg-records/scan-file/', 'POST', data, 'multipart/form-data');
       setFormData(prev => {
-        // Correctly handle the 'other_conditions' field. The AI returns an array,
-        // but the form expects a single string. We'll join the array elements.
         let otherConditionsString = '';
         if (Array.isArray(extractedData.other_conditions)) {
           otherConditionsString = extractedData.other_conditions.join('\n');
@@ -304,10 +296,10 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
           issuing_bank_address: extractedData.issuing_bank_address || '',
           issuing_bank_phone: extractedData.issuing_bank_phone || '',
           issuing_bank_fax: extractedData.issuing_bank_fax || '',
-          issuing_method_id: extractedData.issuing_method_id ? String(extractedData.issuing_method_id) : '',
+          issuing_method_id: extractedData.issuing_method_id ? String(extractedData.issuing_method_id) : '2', // FIX: Set a default value here
           applicable_rule_id: extractedData.applicable_rule_id ? String(extractedData.applicable_rule_id) : '',
           applicable_rules_text: extractedData.applicable_rules_text || '',
-          other_conditions: otherConditionsString, // Use the correctly formatted string
+          other_conditions: otherConditionsString,
           lg_category_id: extractedData.lg_category_id ? String(extractedData.lg_category_id) : '',
           additional_field_values: extractedData.additional_field_values || {},
           internal_owner_email: extractedData.internal_owner_email || '',
@@ -329,6 +321,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
       setFormData(prev => ({ ...prev, ai_scan_file: null }));
     } finally {
       setAiScanInProgress(false);
+      setIsFormDisabled(false); // NEW: Re-enable the form
     }
   };
 
@@ -373,7 +366,6 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
           return newContactData;
         });
         setIsInternalOwnerFieldsLocked(true);
-        //alert(`Internal Owner contact '${email}' found and details auto-populated.`);
       } else {
         setFormData(prev => ({
           ...prev,
@@ -413,7 +405,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
     setIsSaving(true);
     setError('');
     
-    if (isGracePeriod) { // NEW: Grace period check at start of submit
+    if (isGracePeriod) {
       setError("This action is disabled during your subscription's grace period.");
       setIsSaving(false);
       return;
@@ -452,14 +444,14 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
 
     if (selectedLgType && selectedLgType.name === "Advance Payment LG") {
       if (!formData.lg_operational_status_id) errors.push("Operational Status is mandatory for 'Advance Payment LG' type.");
-      if (selectedOperationalStatus && selectedOperationalStatus.name === "Non-Operative") {
-        if (!formData.payment_conditions || formData.payment_conditions.trim() === '') errors.push("Payment Conditions are mandatory when LG Type is 'Advance Payment LG' and Operational Status is 'Non-Operative'.");
+      if (selectedOperationalStatus && selectedOperationalStatus.name === "None Operative") {
+        if (!formData.payment_conditions || formData.payment_conditions.trim() === '') errors.push("Payment Conditions are mandatory when LG Type is 'Advance Payment LG' and Operational Status is 'None Operative'.");
       } else if (formData.payment_conditions && formData.payment_conditions.trim() !== '') {
-        errors.push("Payment Conditions should only be provided for 'Advance Payment LG' with 'Non-Operative' status.");
+        errors.push("Payment Conditions should only be provided for 'Advance Payment LG' with 'None Operative' status.");
       }
     } else {
       if (formData.lg_operational_status_id) errors.push("Operational Status is only applicable for 'Advance Payment LG' type.");
-      if (formData.payment_conditions && formData.payment_conditions.trim() !== '') errors.push("Payment Conditions are only applicable for 'Advance Payment LG' type with 'Non-Operative' status.");
+      if (formData.payment_conditions && formData.payment_conditions.trim() !== '') errors.push("Payment Conditions are only applicable for 'Advance Payment LG' type with 'None Operative' status.");
     }
 
     if (selectedApplicableRule && selectedApplicableRule.name === "Other") {
@@ -493,7 +485,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
         expiry_date: formData.expiry_date ? moment(formData.expiry_date).format('YYYY-MM-DD') : null,
         lg_operational_status_id: (selectedLgType && selectedLgType.name === "Advance Payment LG") ? formData.lg_operational_status_id : null,
         lg_payable_currency_id: formData.lg_payable_currency_id,
-		payment_conditions: (selectedLgType && selectedLgType.name === "Advance Payment LG" && selectedOperationalStatus && selectedOperationalStatus.name === "Non-Operative") ? formData.payment_conditions : null,
+		payment_conditions: (selectedLgType && selectedLgType.name === "Advance Payment LG" && selectedOperationalStatus && selectedOperationalStatus.name === "None Operative") ? formData.payment_conditions : null,
         applicable_rules_text: (selectedApplicableRule && selectedApplicableRule.name === "Other") ? formData.applicable_rules_text : null,
         additional_field_values: (selectedLGCategory && selectedLGCategory.extra_field_name) ? formData.additional_field_values : {},
         ai_scan_file: formData.ai_scan_file ? {
@@ -524,7 +516,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
     try {
         const response = await apiRequest('/end-user/lg-records/', 'POST', formDataToSend, 'multipart/form-data');
         alert('New LG Record created successfully!');
-        clearFormDirectly(); // UPDATED: Call the new function here
+        clearFormDirectly();
         navigate('/end-user/dashboard');
     } catch (err) {
       console.error('Error creating LG record:', err);
@@ -581,16 +573,17 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
             type="button"
             className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 bg-gray-50 rounded-t-lg hover:bg-gray-100 focus:outline-none"
             onClick={() => toggleAccordion('mainLGData')}
+            disabled={isFormDisabled || isGracePeriod} // NEW: Disable accordion button
           >
             <span>Main LG Data</span>
             {accordionsOpen.mainLGData ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
           </button>
           {accordionsOpen.mainLGData && (
-            <div className="p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
               <div className="md:col-span-2 mb-2">
                 <label htmlFor="ai_scan_file" className={labelClassNames}>LG Copy {requiredSpan}</label>
                 <div className={`flex items-stretch rounded-md shadow-sm border ${aiScanSuccess ? 'border-green-500' : 'border-gray-300'} focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all duration-200`}>
-                  <label htmlFor="ai_scan_file" className={`cursor-pointer bg-gray-50 hover:bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 rounded-l-md flex items-center border-r border-gray-300 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  <label htmlFor="ai_scan_file" className={`cursor-pointer bg-gray-50 hover:bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 rounded-l-md flex items-center border-r border-gray-300 ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     Choose File
                   </label>
                   <input
@@ -601,7 +594,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                     onChange={handleFileChange}
                     accept="image/*,application/pdf"
                     className="hidden"
-                    disabled={isGracePeriod} // NEW: Disable file input
+                    disabled={isFormDisabled || isGracePeriod}
                   />
                   <div className="flex-grow px-3 py-2 text-sm text-gray-900 bg-white flex items-center truncate">
                     {formData.ai_scan_file ? formData.ai_scan_file.name : 'No file chosen'}
@@ -614,9 +607,9 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                   <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                     <button
                       type="button"
-                      className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-r-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200 ease-in-out ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-r-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200 ease-in-out ${aiScanInProgress || !formData.ai_scan_file || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                       onClick={handleAiScan}
-                      disabled={aiScanInProgress || !formData.ai_scan_file || isGracePeriod} // NEW: Disable scan button
+                      disabled={aiScanInProgress || !formData.ai_scan_file || isGracePeriod}
                     >
                       {aiScanInProgress ? (
                         <Loader2 className="h-5 w-5 mr-2 animate-spin" />
@@ -631,7 +624,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                   {formData.ai_scan_file ? (
                     <>
                       File uploaded, scanned & data extracted!{' '}
-                      {!isGracePeriod && <span onClick={() => aiFileInputRef.current && aiFileInputRef.current.click()} className="text-blue-600 cursor-pointer hover:underline">Change File</span>}
+                      {!isFormDisabled && !isGracePeriod && <span onClick={() => aiFileInputRef.current && aiFileInputRef.current.click()} className="text-blue-600 cursor-pointer hover:underline">Change File</span>}
                     </>
                   ) : (
                     'Upload an image or PDF of the LG to auto-populate fields.'
@@ -647,7 +640,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                   onChange={handleChange}
                   required
                   className={inputClassNames}
-                  disabled={isGracePeriod} // NEW: Disable select input
+                  disabled={isFormDisabled || isGracePeriod}
                 >
                   <option value="">Select Beneficiary Corporate</option>
                   {dropdownData.customerEntities.map(entity => (
@@ -658,25 +651,25 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
                 <div className="mb-2">
                   <label htmlFor="issuer_name" className={labelClassNames}>Issuer Name {requiredSpan}</label>
-                  <input type="text" name="issuer_name" id="issuer_name" value={formData.issuer_name} onChange={handleChange} required className={inputClassNames} disabled={isGracePeriod} /> {/* NEW: Disable input */}
+                  <input type="text" name="issuer_name" id="issuer_name" value={formData.issuer_name} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
                 </div>
                 <div className="mb-2">
                   <label htmlFor="issuer_id" className={labelClassNames}>Issuer ID</label>
-                  <input type="text" name="issuer_id" id="issuer_id" value={formData.issuer_id} onChange={handleChange} maxLength="15" className={inputClassNames} disabled={isGracePeriod} /> {/* NEW: Disable input */}
+                  <input type="text" name="issuer_id" id="issuer_id" value={formData.issuer_id} onChange={handleChange} maxLength="15" className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
                 </div>
               </div>
               <div className="mb-2">
                 <label htmlFor="lg_number" className={labelClassNames}>LG Number {requiredSpan}</label>
-                <input type="text" name="lg_number" id="lg_number" value={formData.lg_number} onChange={handleChange} required maxLength="64" className={inputClassNames} disabled={isGracePeriod} /> {/* NEW: Disable input */}
+                <input type="text" name="lg_number" id="lg_number" value={formData.lg_number} onChange={handleChange} required maxLength="64" className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
               </div>
               <div className="mb-2">
                 <label htmlFor="lg_amount" className={labelClassNames}>LG Amount {requiredSpan}</label>
-                <input type="number" name="lg_amount" id="lg_amount" value={formData.lg_amount} onChange={handleChange} required min="0.01" step="0.01" className={inputClassNames} disabled={isGracePeriod} /> {/* NEW: Disable input */}
+                <input type="number" name="lg_amount" id="lg_amount" value={formData.lg_amount} onChange={handleChange} required min="0.01" step="0.01" className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
                 <div className="mb-2">
                   <label htmlFor="lg_currency_id" className={labelClassNames}>LG Currency {requiredSpan}</label>
-                  <select name="lg_currency_id" id="lg_currency_id" value={formData.lg_currency_id} onChange={handleChange} required className={inputClassNames} disabled={isGracePeriod} > {/* NEW: Disable select input */}
+                  <select name="lg_currency_id" id="lg_currency_id" value={formData.lg_currency_id} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} >
                     <option value="">Select Currency</option>
                     {dropdownData.currencies.map(currency => (
                       <option key={`currency-${currency.id}`} value={String(currency.id)}>{currency.iso_code} - {currency.name}</option>
@@ -685,7 +678,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                 </div>
                 <div className="mb-2">
                   <label htmlFor="lg_payable_currency_id" className={labelClassNames}>LG Payable Currency</label>
-                  <select name="lg_payable_currency_id" id="lg_payable_currency_id" value={formData.lg_payable_currency_id} onChange={handleChange} className={inputClassNames} disabled={isGracePeriod} > {/* NEW: Disable select input */}
+                  <select name="lg_payable_currency_id" id="lg_payable_currency_id" value={formData.lg_payable_currency_id} onChange={handleChange} className={inputClassNames} disabled={isFormDisabled || isGracePeriod} >
                     <option value="">Same as LG Currency</option>
                     {dropdownData.currencies.map(currency => (
                       <option key={`payable-currency-${currency.id}`} value={String(currency.id)}>{currency.iso_code} - {currency.name}</option>
@@ -696,15 +689,15 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
                 <div className="mb-2">
                   <label htmlFor="issuance_date" className={labelClassNames}>Issuance Date {requiredSpan}</label>
-                  <input type="date" name="issuance_date" id="issuance_date" value={formData.issuance_date} onChange={handleChange} required className={inputClassNames} disabled={isGracePeriod} /> {/* NEW: Disable input */}
+                  <input type="date" name="issuance_date" id="issuance_date" value={formData.issuance_date} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
                 </div>
                 <div className="mb-2">
                   <label htmlFor="expiry_date" className={labelClassNames}>Expiry Date {requiredSpan}</label>
-                  <input type="date" name="expiry_date" id="expiry_date" value={formData.expiry_date} onChange={handleChange} required className={inputClassNames} disabled={isGracePeriod} /> {/* NEW: Disable input */}
+                  <input type="date" name="expiry_date" id="expiry_date" value={formData.expiry_date} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
                 </div>
               </div>
               <div className="flex items-center mb-2">
-                <label htmlFor="auto_renewal" className={`relative inline-flex items-center cursor-pointer ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                <label htmlFor="auto_renewal" className={`relative inline-flex items-center cursor-pointer ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}>
                   <input
                     type="checkbox"
                     name="auto_renewal"
@@ -712,7 +705,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                     checked={formData.auto_renewal}
                     onChange={handleChange}
                     className="sr-only peer"
-                    disabled={isGracePeriod} // NEW: Disable checkbox
+                    disabled={isFormDisabled || isGracePeriod}
                   />
                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                   <span className="ml-3 text-sm font-medium text-gray-900">Auto-Renewal</span>
@@ -720,7 +713,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
               </div>
               <div className="mb-2">
                 <label htmlFor="lg_type_id" className={labelClassNames}>LG Type {requiredSpan}</label>
-                <select name="lg_type_id" id="lg_type_id" value={formData.lg_type_id} onChange={handleChange} required className={inputClassNames} disabled={isGracePeriod} > {/* NEW: Disable select input */}
+                <select name="lg_type_id" id="lg_type_id" value={formData.lg_type_id} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} >
                   <option value="">Select LG Type</option>
                   {dropdownData.lgTypes.map(type => (
                     <option key={`lg-type-${type.id}`} value={String(type.id)}>{type.name}</option>
@@ -730,7 +723,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
               {selectedLgType && selectedLgType.name === "Advance Payment LG" && (
                 <div className="mb-2">
                   <label htmlFor="lg_operational_status_id" className={labelClassNames}>Operational Status {requiredSpan}</label>
-                  <select name="lg_operational_status_id" id="lg_operational_status_id" value={formData.lg_operational_status_id} onChange={handleChange} required={selectedLgType.name === "Advance Payment LG"} className={inputClassNames} disabled={isGracePeriod} > {/* NEW: Disable select input */}
+                  <select name="lg_operational_status_id" id="lg_operational_status_id" value={formData.lg_operational_status_id} onChange={handleChange} required={selectedLgType.name === "Advance Payment LG"} className={inputClassNames} disabled={isFormDisabled || isGracePeriod} >
                     <option value="">Select Operational Status</option>
                     {dropdownData.lgOperationalStatuses.map(status => (
                       <option key={`op-status-${status.id}`} value={String(status.id)}>{status.name}</option>
@@ -738,15 +731,15 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                   </select>
                 </div>
               )}
-              {selectedLgType && selectedLgType.name === "Advance Payment LG" && selectedOperationalStatus && selectedOperationalStatus.name === "Non-Operative" && (
-                <div className="md:col-span-2 mb-2">
+              {selectedLgType && selectedLgType.name === "Advance Payment LG" && selectedOperationalStatus && selectedOperationalStatus.name === "None Operative" && (
+                <div className="mb-2">
                   <label htmlFor="payment_conditions" className={labelClassNames}>Payment Conditions {requiredSpan}</label>
-                  <textarea name="payment_conditions" id="payment_conditions" value={formData.payment_conditions} onChange={handleChange} required={selectedLgType.name === "Advance Payment LG" && selectedOperationalStatus.name === "Non-Operative"} maxLength="1024" rows="2" className={inputClassNames} disabled={isGracePeriod}></textarea> {/* NEW: Disable textarea */}
+                  <textarea name="payment_conditions" id="payment_conditions" value={formData.payment_conditions} onChange={handleChange} required={selectedLgType.name === "Advance Payment LG" && selectedOperationalStatus.name === "Non-Operative"} maxLength="1024" rows="1" className={inputClassNames} disabled={isFormDisabled || isGracePeriod}></textarea>
                 </div>
               )}
               <div className="md:col-span-2 mb-2">
                 <label htmlFor="description_purpose" className={labelClassNames}>Description/Purpose {requiredSpan}</label>
-                <textarea name="description_purpose" id="description_purpose" value={formData.description_purpose} onChange={handleChange} required maxLength="516" rows="3" className={inputClassNames} disabled={isGracePeriod}></textarea> {/* NEW: Disable textarea */}
+                <textarea name="description_purpose" id="description_purpose" value={formData.description_purpose} onChange={handleChange} required maxLength="516" rows="3" className={inputClassNames} disabled={isFormDisabled || isGracePeriod}></textarea>
               </div>
             </div>
           )}
@@ -758,15 +751,16 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
             type="button"
             className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 bg-gray-50 rounded-t-lg hover:bg-gray-100 focus:outline-none"
             onClick={() => toggleAccordion('bankData')}
+            disabled={isFormDisabled || isGracePeriod}
           >
             <span>Bank Data</span>
             {accordionsOpen.bankData ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
           </button>
           {accordionsOpen.bankData && (
-            <div className="p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
               <div className="mb-2">
                 <label htmlFor="issuing_bank_id" className={labelClassNames}>Issuing Bank {requiredSpan}</label>
-                <select name="issuing_bank_id" id="issuing_bank_id" value={formData.issuing_bank_id} onChange={handleChange} required className={inputClassNames} disabled={isGracePeriod} > {/* NEW: Disable select input */}
+                <select name="issuing_bank_id" id="issuing_bank_id" value={formData.issuing_bank_id} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} >
                   <option value="">Select Issuing Bank</option>
                   {dropdownData.banks.map(bank => (
                     <option key={`bank-${bank.id}`} value={String(bank.id)}>{bank.name} ({bank.short_name || bank.swift_code})</option>
@@ -775,19 +769,19 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
               </div>
               <div className="mb-2">
                 <label htmlFor="issuing_bank_address" className={labelClassNames}>Issuing Bank Address {requiredSpan}</label>
-                <input type="text" name="issuing_bank_address" id="issuing_bank_address" value={formData.issuing_bank_address} onChange={handleChange} required className={inputClassNames} disabled={isGracePeriod} /> {/* NEW: Disable input */}
+                <input type="text" name="issuing_bank_address" id="issuing_bank_address" value={formData.issuing_bank_address} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
               </div>
               <div className="mb-2">
                 <label htmlFor="issuing_bank_phone" className={labelClassNames}>Issuing Bank Phone {requiredSpan}</label>
-                <input type="text" name="issuing_bank_phone" id="issuing_bank_phone" value={formData.issuing_bank_phone} onChange={handleChange} required className={inputClassNames} disabled={isGracePeriod} /> {/* NEW: Disable input */}
+                <input type="text" name="issuing_bank_phone" id="issuing_bank_phone" value={formData.issuing_bank_phone} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
               </div>
               <div className="mb-2">
                 <label htmlFor="issuing_bank_fax" className={labelClassNames}>Issuing Bank Fax</label>
-                <input type="text" name="issuing_bank_fax" id="issuing_bank_fax" value={formData.issuing_bank_fax} onChange={handleChange} maxLength="18" className={inputClassNames} disabled={isGracePeriod} /> {/* NEW: Disable input */}
+                <input type="text" name="issuing_bank_fax" id="issuing_bank_fax" value={formData.issuing_bank_fax} onChange={handleChange} maxLength="18" className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
               </div>
               <div className="mb-2">
                 <label htmlFor="issuing_method_id" className={labelClassNames}>Issuing Method {requiredSpan}</label>
-                <select name="issuing_method_id" id="issuing_method_id" value={formData.issuing_method_id} onChange={handleChange} required className={inputClassNames} disabled={isGracePeriod} > {/* NEW: Disable select input */}
+                <select name="issuing_method_id" id="issuing_method_id" value={formData.issuing_method_id} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} >
                   <option value="">Select Issuing Method</option>
                   {dropdownData.issuingMethods.map(method => (
                     <option key={`issuing-method-${method.id}`} value={String(method.id)}>{method.name}</option>
@@ -796,7 +790,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
               </div>
               <div className="mb-2">
                 <label htmlFor="applicable_rule_id" className={labelClassNames}>Applicable Rule {requiredSpan}</label>
-                <select name="applicable_rule_id" id="applicable_rule_id" value={formData.applicable_rule_id} onChange={handleChange} required className={inputClassNames} disabled={isGracePeriod} > {/* NEW: Disable select input */}
+                <select name="applicable_rule_id" id="applicable_rule_id" value={formData.applicable_rule_id} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} >
                   <option value="">Select Rule</option>
                   {dropdownData.rules.map(rule => (
                     <option key={`rule-${rule.id}`} value={String(rule.id)}>{rule.name}</option>
@@ -806,12 +800,12 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
               {selectedApplicableRule && selectedApplicableRule.name === "Other" && (
                 <div className="mb-2">
                   <label htmlFor="applicable_rules_text" className={labelClassNames}>Applicable Rules Text {requiredSpan}</label>
-                  <input type="text" name="applicable_rules_text" id="applicable_rules_text" value={formData.applicable_rules_text} onChange={handleChange} required={selectedApplicableRule.name === "Other"} maxLength="64" className={inputClassNames} disabled={isGracePeriod} /> {/* NEW: Disable input */}
+                  <input type="text" name="applicable_rules_text" id="applicable_rules_text" value={formData.applicable_rules_text} onChange={handleChange} required={selectedApplicableRule.name === "Other"} maxLength="64" className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
                 </div>
               )}
               <div className="md:col-span-2 mb-2">
                 <label htmlFor="other_conditions" className={labelClassNames}>Other Conditions</label>
-                <textarea name="other_conditions" id="other_conditions" value={formData.other_conditions} onChange={handleChange} maxLength="8000" rows="2" className={inputClassNames} disabled={isGracePeriod}></textarea> {/* UPDATED: maxLength to 8000 */}
+                <textarea name="other_conditions" id="other_conditions" value={formData.other_conditions} onChange={handleChange} maxLength="8000" rows="2" className={inputClassNames} disabled={isFormDisabled || isGracePeriod}></textarea>
               </div>
             </div>
           )}
@@ -823,12 +817,13 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
             type="button"
             className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 bg-gray-50 rounded-t-lg hover:bg-gray-100 focus:outline-none"
             onClick={() => toggleAccordion('internalData')}
+            disabled={isFormDisabled || isGracePeriod}
           >
             <span>Internal Data</span>
             {accordionsOpen.internalData ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
           </button>
           {accordionsOpen.internalData && (
-            <div className="p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
               <div className="mb-2">
                 <label htmlFor="internal_owner_email" className={labelClassNames}>Internal Owner (Email) {requiredSpan}</label>
                 <input
@@ -840,7 +835,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                     onBlur={handleInternalOwnerEmailLookup}
                     required
 					className={inputClassNames}
-                    disabled={isGracePeriod} // NEW: Disable input
+                    disabled={isFormDisabled || isGracePeriod}
                 />
               </div>
               <div className="mb-2">
@@ -852,8 +847,8 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                   value={formData.internal_owner_phone}
                   onChange={handleChange}
                   required
-                  readOnly={isInternalOwnerFieldsLocked || isGracePeriod} // NEW: Add grace period to readOnly
-                  className={`${inputClassNames} ${isInternalOwnerFieldsLocked || isGracePeriod ? 'bg-gray-200' : ''}`}
+                  readOnly={isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod}
+                  className={`${inputClassNames} ${isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod ? 'bg-gray-200' : ''}`}
                 />
               </div>
               <div className="mb-2">
@@ -865,8 +860,8 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                   value={formData.internal_owner_id}
                   onChange={handleChange}
                   maxLength="10"
-                  readOnly={isInternalOwnerFieldsLocked || isGracePeriod} // NEW: Add grace period to readOnly
-                  className={`${inputClassNames} ${isInternalOwnerFieldsLocked || isGracePeriod ? 'bg-gray-200' : ''}`}
+                  readOnly={isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod}
+                  className={`${inputClassNames} ${isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod ? 'bg-gray-200' : ''}`}
                 />
               </div>
               <div className="mb-2">
@@ -878,14 +873,14 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                   value={formData.internal_owner_manager_email}
                   onChange={handleChange}
                   required
-                  readOnly={isInternalOwnerFieldsLocked || isGracePeriod} // NEW: Add grace period to readOnly
-                  className={`${inputClassNames} ${isInternalOwnerFieldsLocked || isGracePeriod ? 'bg-gray-200' : ''}`}
+                  readOnly={isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod}
+                  className={`${inputClassNames} ${isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod ? 'bg-gray-200' : ''}`}
                 />
               </div>
               <div className="mb-2">
                 <label htmlFor="lg_category_id" className={labelClassNames}>Category {requiredSpan}</label>
                 {dropdownData.lgCategories.length > 0 ? (
-                  <select name="lg_category_id" id="lg_category_id" value={formData.lg_category_id} onChange={handleChange} required className={inputClassNames} disabled={isGracePeriod} > {/* NEW: Disable select input */}
+                  <select name="lg_category_id" id="lg_category_id" value={formData.lg_category_id} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} >
                     <option value="">Select Category</option>
                     {dropdownData.lgCategories.map(cat => (
                       <option key={`lg-category-${cat.type}-${cat.id}`} value={String(cat.id)}>
@@ -910,7 +905,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                     onChange={handleAdditionalFieldChange}
                     required={selectedLGCategory.is_mandatory}
                     className={inputClassNames}
-                    disabled={isGracePeriod} // NEW: Disable input
+                    disabled={isFormDisabled || isGracePeriod}
                   />
                 </div>
               )}
@@ -924,13 +919,13 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                   onChange={handleChange}
                   maxLength="64"
                   className={inputClassNames}
-                  disabled={isGracePeriod} // NEW: Disable input
+                  disabled={isFormDisabled || isGracePeriod}
                 />
               </div>
               <div className="md:col-span-2 mb-2">
                 <label htmlFor="internal_supporting_document_file" className={labelClassNames}>Internal Supporting Document</label>
-                <div className={`flex items-stretch rounded-md shadow-sm border border-gray-300 focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all duration-200 ${isGracePeriod ? 'opacity-50' : ''}`}>
-                  <label htmlFor="internal_supporting_document_file" className={`cursor-pointer bg-gray-50 hover:bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 rounded-l-md flex items-center border-r border-gray-300 ${isGracePeriod ? 'cursor-not-allowed' : ''}`}>
+                <div className={`flex items-stretch rounded-md shadow-sm border border-gray-300 focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all duration-200 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
+                  <label htmlFor="internal_supporting_document_file" className={`cursor-pointer bg-gray-50 hover:bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 rounded-l-md flex items-center border-r border-gray-300 ${isFormDisabled || isGracePeriod ? 'cursor-not-allowed' : ''}`}>
                     Choose File
                   </label>
                   <input
@@ -941,7 +936,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                     onChange={handleFileChange}
                     accept="application/pdf"
                     className="hidden"
-                    disabled={isGracePeriod} // NEW: Disable file input
+                    disabled={isFormDisabled || isGracePeriod}
                   />
                   <div className="flex-grow px-3 py-2 text-sm text-gray-900 bg-white flex items-center truncate">
                     {formData.internal_supporting_document_file ? formData.internal_supporting_document_file.name : 'No file chosen'}
@@ -959,7 +954,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
                   maxLength="1024"
                   rows="3"
                   className={inputClassNames}
-                  disabled={isGracePeriod} // NEW: Disable textarea
+                  disabled={isFormDisabled || isGracePeriod}
                 ></textarea>
               </div>
             </div>
@@ -971,8 +966,8 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
           <button
             type="button"
             onClick={handleClearForm}
-            className={`inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-            disabled={isGracePeriod} // NEW: Disable clear button
+            className={`inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={isFormDisabled || isGracePeriod}
           >
             <XCircle className="h-5 w-5 mr-2" />
             Clear Form
@@ -980,8 +975,8 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePe
           <GracePeriodTooltip isGracePeriod={isGracePeriod}>
             <button
               type="submit"
-              disabled={isSaving || isGracePeriod} // NEW: Disable save button
-              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ease-in-out ${isSaving || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isSaving || isFormDisabled || isGracePeriod}
+              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ease-in-out ${isSaving || isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isSaving ? (
                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />

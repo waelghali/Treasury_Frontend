@@ -39,12 +39,12 @@ const CustomDateInput = React.forwardRef(({ value, onClick, onChange, placeholde
         value={value}
         placeholder={placeholder}
         ref={ref}
-        disabled={disabled} // NEW: Pass the disabled prop to the input
+        disabled={disabled}
     />
 ));
 
 
-function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) { // NEW: Accept isGracePeriod prop
+function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) {
   const [extensionMethod, setExtensionMethod] = useState('date');
   const [specificNewExpiryDateMoment, setSpecificNewExpiryDateMoment] = useState(null);
   const [extensionMonths, setExtensionMonths] = useState('');
@@ -59,28 +59,25 @@ function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) { // NEW
 
   useEffect(() => {
 	if (lgRecord && lgRecord.expiry_date) {
-	  // FIX: Calculate the proposed date based on the LG's period
 	  const proposedDate = moment(lgRecord.expiry_date).add(lgRecord.lg_period_months, 'months');
-	  // FIX: Calculate the absolute minimum valid date (day after current expiry)
 	  const minValidDate = moment(lgRecord.expiry_date).add(1, 'day');
 	  
-	  // FIX: Set the suggested date to the later of the two dates to prevent a clash with minDate
 	  setSpecificNewExpiryDateMoment(proposedDate.isAfter(minValidDate) ? proposedDate : minValidDate);
 
 	  if (lgRecord.lg_period_months) {
-		setExtensionMonths(lgRecord.lg_period_months); // This line now correctly sets the number of months.
+		setExtensionMonths(lgRecord.lg_period_months);
 	  }
 	}
   }, [lgRecord]);
 
   const handleMethodChange = (e) => {
-    if (isGracePeriod) return; // NEW: Guard against change
+    if (isGracePeriod) return;
     setExtensionMethod(e.target.value);
     setError('');
   };
 
   const handleExtensionMonthsChange = (e) => {
-    if (isGracePeriod) return; // NEW: Guard against change
+    if (isGracePeriod) return;
     const value = e.target.value;
     if (value === '' || /^[1-9]\d*$/.test(value)) {
       setExtensionMonths(value);
@@ -104,7 +101,7 @@ function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) { // NEW
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isGracePeriod) { // NEW: Grace period check
+    if (isGracePeriod) {
         toast.warn("This action is disabled during your subscription's grace period.");
         return;
     }
@@ -203,7 +200,7 @@ function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) { // NEW
                   value="date"
                   checked={extensionMethod === 'date'}
                   onChange={handleMethodChange}
-                  disabled={isGracePeriod} // NEW: Disable radio button
+                  disabled={isGracePeriod}
                 />
                 <span className="ml-2 text-gray-700">Select Specific Date</span>
               </label>
@@ -215,7 +212,7 @@ function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) { // NEW
                   value="months"
                   checked={extensionMethod === 'months'}
                   onChange={handleMethodChange}
-                  disabled={isGracePeriod} // NEW: Disable radio button
+                  disabled={isGracePeriod}
                 />
                 <span className="ml-2 text-gray-700">Extend by Months</span>
               </label>
@@ -244,7 +241,7 @@ function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) { // NEW
                 showYearDropdown
                 dropdownMode="select"
                 customInput={<CustomDateInput placeholder={DISPLAY_DATE_FORMAT_DATEFNS.toUpperCase()} disabled={isGracePeriod} />}
-                disabled={isGracePeriod} // NEW: Disable DatePicker
+                disabled={isGracePeriod}
               />
             </div>
           )}
@@ -264,7 +261,7 @@ function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) { // NEW
                 min="1"
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 required
-                disabled={isGracePeriod} // NEW: Disable input
+                disabled={isGracePeriod}
               />
               {extensionMonths && parseInt(extensionMonths, 10) > 0 && (
                 <p className="mt-2 text-sm text-gray-500">
@@ -291,11 +288,11 @@ function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) { // NEW
             </div>
           )}
 
-          <div className="flex justify-end space-x-3">
+          <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
             <button
               type="button"
               onClick={onClose}
-              className={`px-4 py-2 text-sm font-medium rounded-md text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full justify-center px-4 py-2 text-sm font-medium rounded-md text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''} sm:col-start-1`}
               disabled={isLoading}
             >
               Cancel
@@ -303,7 +300,7 @@ function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) { // NEW
             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
               <button
                 type="submit"
-                className={`px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 flex items-center justify-center ${isLoading || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full justify-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 flex items-center justify-center ${isLoading || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''} sm:col-start-2`}
                 disabled={isLoading || isGracePeriod}
               >
                 {isLoading && <Loader2 className="animate-spin h-4 w-4 mr-2" />}

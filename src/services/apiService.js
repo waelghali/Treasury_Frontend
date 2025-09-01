@@ -73,21 +73,25 @@ export const apiRequest = async (url, method = 'GET', data = null, contentType =
     headers['Authorization'] = `Bearer ${token}`;
   }
   
-  if (contentType === 'application/json') {
-    headers['Content-Type'] = 'application/json';
-  }
-
   let body = data;
-  if (contentType === 'application/json' && data !== null) {
-    body = JSON.stringify(data);
+
+  // CRITICAL FIX: Only set Content-Type and stringify the body if it is not FormData.
+  // The browser sets the correct 'multipart/form-data' header for FormData automatically.
+  if (!(data instanceof FormData)) {
+      headers['Content-Type'] = contentType;
+      if (contentType === 'application/json' && data !== null) {
+          body = JSON.stringify(data);
+      }
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}${url}`, {
-      method,
-      headers,
-      body: (method === 'GET' || method === 'HEAD') ? null : body,
-    });
+    const fetchOptions = {
+        method,
+        headers,
+        body: (method === 'GET' || method === 'HEAD') ? null : body,
+    };
+
+    const response = await fetch(`${API_BASE_URL}${url}`, fetchOptions);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -104,10 +108,6 @@ export const apiRequest = async (url, method = 'GET', data = null, contentType =
       throw error;
     }
 
-    // REMOVED: NEW LOGIC to check for a refreshed token
-    // The frontend now handles the inactivity timeout.
-
-    // Check for a 204 No Content response
     const contentTypeHeader = response.headers.get('content-type');
     if (response.status === 204 || !contentTypeHeader) {
       return null;

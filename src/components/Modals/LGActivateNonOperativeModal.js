@@ -1,7 +1,7 @@
 // frontend/src/components/Modals/LGActivateNonOperativeModal.js
 import React, { useState, useEffect, Fragment } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
-import { X, Check, Loader2, AlertCircle } from 'lucide-react';
+import { X, Check, Loader2, AlertCircle, FileText } from 'lucide-react'; // ADDED FileText
 import { toast } from 'react-toastify';
 import moment from 'moment';
 import { apiRequest } from '../../services/apiService';
@@ -19,6 +19,8 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
         payment_reference: '',
         payment_date: moment().format('YYYY-MM-DD'),
     });
+    // NEW: State for the optional supporting document file
+    const [supportingDocument, setSupportingDocument] = useState(null);
     const [dropdownData, setDropdownData] = useState({
         currencies: [],
         banks: [],
@@ -61,6 +63,12 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
         }));
     };
 
+    // NEW: Handler for file input change
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        setSupportingDocument(file);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -76,7 +84,18 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
         }
 
         try {
-            const response = await apiRequest(`/end-user/lg-records/${lgRecord.id}/activate-non-operative`, 'POST', paymentDetails);
+            // FIX: Use FormData to send file and form data together
+            const formData = new FormData();
+            for (const key in paymentDetails) {
+                if (paymentDetails[key]) {
+                    formData.append(key, paymentDetails[key]);
+                }
+            }
+            if (supportingDocument) {
+                formData.append('internal_supporting_document_file', supportingDocument);
+            }
+
+            const response = await apiRequest(`/end-user/lg-records/${lgRecord.id}/activate-non-operative`, 'POST', formData);
             onSuccess(response.lg_record, response.latest_instruction_id);
             toast.success("LG successfully activated!");
             onClose();
@@ -115,7 +134,7 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                             enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                             enterTo="opacity-100 translate-y-0 sm:scale-100"
                             leave="ease-in duration-200"
-                            leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                            leaveFrom="opacity-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
                             <DialogPanel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-xl sm:p-6">
@@ -242,12 +261,37 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                                                         </div>
                                                     </div>
 
+                                                    {/* NEW: Optional supporting document upload */}
+                                                    <div className="border-t pt-4">
+                                                        <label htmlFor="supporting-document-file" className="block text-sm font-medium text-gray-700">
+                                                            Optional Supporting Document
+                                                        </label>
+                                                        <div className="mt-1 flex items-center">
+                                                            <input
+                                                                id="supporting-document-file"
+                                                                name="internal_supporting_document_file"
+                                                                type="file"
+                                                                onChange={handleFileChange}
+                                                                accept=".pdf,image/*"
+                                                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                                disabled={isProcessing}
+                                                            />
+                                                            {supportingDocument && (
+                                                                <span className="ml-3 text-sm text-gray-500">
+                                                                    <FileText className="inline-block h-4 w-4 mr-1" />
+                                                                    {supportingDocument.name}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="mt-2 text-sm text-gray-500">Attach any documents related to this request (e.g., proof of advance payment).</p>
+                                                    </div>
+
                                                     <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
                                                         <button
                                                             type="submit"
                                                             className={classNames(
                                                                 buttonBaseClassNames,
-                                                                "sm:col-start-2 bg-green-600 text-white hover:bg-green-700",
+                                                                "sm:col-start-2 bg-teal-600 text-white hover:bg-teal-700",
                                                                 !isFormValid ? "opacity-50 cursor-not-allowed" : ""
                                                             )}
                                                             disabled={!isFormValid || isProcessing}

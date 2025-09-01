@@ -1,14 +1,15 @@
 // frontend/src/components/Modals/DecreaseAmountModal.js
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
-import { X, MinusCircle, AlertCircle } from 'lucide-react';
+import { X, MinusCircle, AlertCircle, FileText, Loader2 } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
-import *as Yup from 'yup';
+import * as Yup from 'yup';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
+    // ... (GracePeriodTooltip component remains the same)
     if (isGracePeriod) {
         return (
             <div className="relative group inline-block">
@@ -16,7 +17,7 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
                 <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
                     This action is disabled during your subscription's grace period.
                     <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
-                        <polygon className="fill-current" points="0,0 127.5,127.5 255,0"/>
+                        <polygon className="fill-current" points="0,0 127.5,127.5 255,0" />
                     </svg>
                 </div>
             </div>
@@ -27,7 +28,10 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
-const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => { // NEW: Accept isGracePeriod prop
+const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
+    const [supportingDocument, setSupportingDocument] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     const initialValues = {
         decreaseAmount: '',
         reason: '',
@@ -38,24 +42,32 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
             .typeError('Amount to decrease must be a number')
             .required('Amount to decrease is required')
             .positive('Amount to decrease must be positive')
-            .max(lgRecord.lg_amount - 0.01, `Amount to decrease must be less than current LG amount (${lgRecord.lg_amount - 0.01})`),
+            .max(lgRecord.lg_amount - 0.01, `Amount to decrease must be less than current LG amount (${lgRecord.lg_amount})`),
         reason: Yup.string().required('Reason for amount decrease is required').min(10, 'Reason must be at least 10 characters.'),
     });
 
-    const handleSubmit = async (values, { setSubmitting, setErrors }) => {
-        if (isGracePeriod) { // NEW: Grace period check
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        setSupportingDocument(file);
+    };
+
+    const handleSubmit = async (values, { setErrors }) => {
+        if (isGracePeriod) {
             toast.warn("This action is disabled during your subscription's grace period.");
-            setSubmitting(false);
             return;
         }
 
-        try {
-            const payload = {
-                decrease_amount: parseFloat(values.decreaseAmount),
-                reason: values.reason,
-            };
+        setIsSubmitting(true);
 
-            const response = await apiRequest(`/end-user/lg-records/${lgRecord.id}/decrease-amount`, 'POST', payload);
+        try {
+            const formData = new FormData();
+            formData.append('decrease_amount', parseFloat(values.decreaseAmount));
+            formData.append('reason', values.reason);
+            if (supportingDocument) {
+                formData.append('internal_supporting_document_file', supportingDocument);
+            }
+
+            const response = await apiRequest(`/end-user/lg-records/${lgRecord.id}/decrease-amount`, 'POST', formData);
 
             if (response.approval_request_id) {
                 toast.info(`LG Decrease Amount request submitted for approval. Request ID: ${response.approval_request_id}.`);
@@ -69,7 +81,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
             toast.error(`Failed to decrease LG amount: ${error.message || 'An unexpected error occurred.'}`);
             setErrors({ general: error.message || 'An unexpected error occurred.' });
         } finally {
-            setSubmitting(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -124,8 +136,8 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                                                 validationSchema={DecreaseAmountSchema}
                                                 onSubmit={handleSubmit}
                                             >
-                                                {({ isSubmitting, errors, touched }) => (
-                                                    <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
+                                                {({ errors, touched }) => (
+                                                    <Form className={`space-y-4`}>
                                                         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
                                                             Current LG Amount: <strong>{lgRecord.lg_amount} {lgRecord.lg_currency?.iso_code}</strong> | Status: <strong>{lgRecord.lg_status?.name}</strong>
                                                         </div>
@@ -140,7 +152,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                                                                 name="decreaseAmount"
                                                                 step="0.01"
                                                                 className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.decreaseAmount && touched.decreaseAmount ? 'border-red-500' : 'border-gray-300'}`}
-                                                                disabled={isGracePeriod} // NEW: Disable input
+                                                                disabled={isGracePeriod || isSubmitting}
                                                             />
                                                             <ErrorMessage name="decreaseAmount" component="div" className="text-red-600 text-xs mt-1" />
                                                         </div>
@@ -155,9 +167,34 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                                                                 name="reason"
                                                                 rows="3"
                                                                 className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
-                                                                disabled={isGracePeriod} // NEW: Disable textarea
+                                                                disabled={isGracePeriod || isSubmitting}
                                                             />
                                                             <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
+                                                        </div>
+
+                                                        {/* NEW: Optional supporting document upload */}
+                                                        <div className="border-t pt-4">
+                                                            <label htmlFor="supporting-document-file" className="block text-sm font-medium text-gray-700">
+                                                                Optional Supporting Document
+                                                            </label>
+                                                            <div className="mt-1 flex items-center">
+                                                                <input
+                                                                    id="supporting-document-file"
+                                                                    name="internal_supporting_document_file"
+                                                                    type="file"
+                                                                    onChange={handleFileChange}
+                                                                    accept=".pdf,image/*"
+                                                                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                                    disabled={isGracePeriod || isSubmitting}
+                                                                />
+                                                                {supportingDocument && (
+                                                                    <span className="ml-3 text-sm text-gray-500">
+                                                                        <FileText className="inline-block h-4 w-4 mr-1" />
+                                                                        {supportingDocument.name}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="mt-2 text-sm text-gray-500">Attach any documents related to this request (e.g., formal request from beneficiary).</p>
                                                         </div>
 
                                                         {errors.general && (
@@ -174,7 +211,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                                                                     className={`${buttonBaseClassNames} sm:col-start-2 bg-orange-600 text-white hover:bg-orange-700 ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                                     disabled={isSubmitting || isGracePeriod}
                                                                 >
-                                                                    {isSubmitting ? 'Processing...' : <MinusCircle className="h-5 w-5 mr-2" />}
+                                                                    {isSubmitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <MinusCircle className="h-5 w-5 mr-2" />}
                                                                     {isSubmitting ? 'Processing...' : 'Submit Decrease Request'}
                                                                 </button>
                                                             </GracePeriodTooltip>

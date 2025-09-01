@@ -342,7 +342,7 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                                                             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                                 <button
                                                                     type="submit"
-                                                                    className={`${buttonBaseClassNames} sm:col-start-2 bg-blue-600 text-white hover:bg-blue-700 ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    className={`${buttonBaseClassNames} sm:col-start-2 bg-purple-600 text-white hover:bg-purple-700 ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                                     disabled={isSubmitting || isGracePeriod}
                                                                 >
                                                                     {isSubmitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Users className="h-5 w-5 mr-2" />}
