@@ -5,7 +5,7 @@ import { apiRequest } from 'services/apiService.js';
 import { ChevronDown, ChevronUp, Upload, Scan, Save, AlertCircle, XCircle, Loader2, CheckCircle } from 'lucide-react';
 import moment from 'moment';
 
-// NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
+// A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
   if (isGracePeriod) {
     return (
@@ -28,6 +28,12 @@ const formatDateForInput = (dateObj) => {
   if (!dateObj) return '';
   const mDate = moment(dateObj);
   return mDate.isValid() ? mDate.format('YYYY-MM-DD') : '';
+};
+
+// Helper function to find a dropdown item's ID by its name
+const findIdByName = (dataArray, nameToFind) => {
+    const item = dataArray.find(item => item.name === nameToFind);
+    return item ? String(item.id) : '';
 };
 
 const parseDateFromInput = (dateString) => {
@@ -58,7 +64,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
     issuing_bank_address: '',
     issuing_bank_phone: '',
     issuing_bank_fax: '',
-    issuing_method_id: '2',
+    issuing_method_id: '', // Changed to empty string to set dynamically
     applicable_rule_id: '',
     applicable_rules_text: '',
     other_conditions: '',
@@ -101,7 +107,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
   const [aiScanInProgress, setAiScanInProgress] = useState(false);
   const [isInternalOwnerFieldsLocked, setIsInternalOwnerFieldsLocked] = useState(false);
   const [aiScanSuccess, setAiScanSuccess] = useState(false);
-  const [isFormDisabled, setIsFormDisabled] = useState(false); // NEW STATE: For disabling the form
+  const [isFormDisabled, setIsFormDisabled] = useState(false);
 
   const aiFileInputRef = useRef(null);
   const internalDocInputRef = useRef(null);
@@ -130,6 +136,16 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
           customerEntities, currencies, lgTypes, lgStatuses, lgOperationalStatuses,
           banks, issuingMethods, rules, lgCategories
         });
+
+        // Set the default issuing method to "Manual Delivery" after fetching
+        const manualDeliveryId = findIdByName(issuingMethods, 'Manual Delivery');
+        if (manualDeliveryId) {
+            setFormData(prev => ({
+                ...prev,
+                issuing_method_id: manualDeliveryId,
+            }));
+        }
+
       } catch (err) {
         console.error('Failed to fetch dropdown data:', err);
         setError(`Failed to load necessary data for the form. ${err.message || 'An unexpected error occurred.'}`);
@@ -212,7 +228,11 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
   };
 
   const clearFormDirectly = () => {
-    setFormData(initialFormData);
+    const manualDeliveryId = findIdByName(dropdownData.issuingMethods, 'Manual Delivery');
+    setFormData({
+        ...initialFormData,
+        issuing_method_id: manualDeliveryId,
+    });
     setError('');
     setAccordionsOpen({
       mainLGData: true,
@@ -243,7 +263,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
     }
 
     setAiScanInProgress(true);
-    setIsFormDisabled(true); // NEW: Disable the form
+    setIsFormDisabled(true);
     setError('');
     setAiScanSuccess(false);
 
@@ -251,16 +271,18 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
     if (!fileMimeType.startsWith('image/') && fileMimeType !== 'application/pdf') {
       setError("Only image files (JPEG, PNG) or PDF files are supported for AI scanning.");
       setAiScanInProgress(false);
-      setIsFormDisabled(false); // NEW: Re-enable the form
+      setIsFormDisabled(false);
       return;
     }
 
-    // Preserve internal supporting document while clearing other fields
     const internalSupportingDocFile = formData.internal_supporting_document_file;
+    const manualDeliveryId = findIdByName(dropdownData.issuingMethods, 'Manual Delivery');
+
     setFormData(prev => ({
       ...initialFormData,
       ai_scan_file: fileToProcess,
-      internal_supporting_document_file: internalSupportingDocFile
+      internal_supporting_document_file: internalSupportingDocFile,
+      issuing_method_id: manualDeliveryId, // Set default for new form
     }));
 
     try {
@@ -296,7 +318,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
           issuing_bank_address: extractedData.issuing_bank_address || '',
           issuing_bank_phone: extractedData.issuing_bank_phone || '',
           issuing_bank_fax: extractedData.issuing_bank_fax || '',
-          issuing_method_id: extractedData.issuing_method_id ? String(extractedData.issuing_method_id) : '2', // FIX: Set a default value here
+          issuing_method_id: extractedData.issuing_method_id ? String(extractedData.issuing_method_id) : manualDeliveryId, // Use dynamic default
           applicable_rule_id: extractedData.applicable_rule_id ? String(extractedData.applicable_rule_id) : '',
           applicable_rules_text: extractedData.applicable_rules_text || '',
           other_conditions: otherConditionsString,
@@ -321,7 +343,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
       setFormData(prev => ({ ...prev, ai_scan_file: null }));
     } finally {
       setAiScanInProgress(false);
-      setIsFormDisabled(false); // NEW: Re-enable the form
+      setIsFormDisabled(false);
     }
   };
 
@@ -573,7 +595,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
             type="button"
             className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 bg-gray-50 rounded-t-lg hover:bg-gray-100 focus:outline-none"
             onClick={() => toggleAccordion('mainLGData')}
-            disabled={isFormDisabled || isGracePeriod} // NEW: Disable accordion button
+            disabled={isFormDisabled || isGracePeriod}
           >
             <span>Main LG Data</span>
             {accordionsOpen.mainLGData ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
