@@ -1,15 +1,13 @@
 // frontend/src/components/Modals/RecordDeliveryModal.js
-import React, { useState } from 'react';
+import React, { useState, Fragment } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import { X, Truck, AlertCircle} from 'lucide-react';
-import { Formik, Form, ErrorMessage } from 'formik';
+import { Formik, Form, ErrorMessage, Field } from 'formik';
 import * as Yup from 'yup';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
+import moment from 'moment';
 
-// NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     if (isGracePeriod) {
         return (
@@ -29,22 +27,21 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
-const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod }) => { // NEW: Accept isGracePeriod prop
-    const [selectedDeliveryDate, setSelectedDeliveryDate] = useState(new Date());
+const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod }) => {
     const [deliveryFile, setDeliveryFile] = useState(null);
 
     const initialValues = {
-        deliveryDate: new Date(),
+        deliveryDate: moment().format('YYYY-MM-DD'),
     };
 
     const DeliverySchema = Yup.object().shape({
         deliveryDate: Yup.date()
             .required('Delivery date is required')
-            .max(new Date(), 'Delivery date cannot be in the future'),
+            .max(moment().toDate(), 'Delivery date cannot be in the future'),
     });
 
     const handleSubmit = async (values, { setSubmitting, setErrors }) => {
-        if (isGracePeriod) { // NEW: Grace period check
+        if (isGracePeriod) {
             toast.warn("This action is disabled during your subscription's grace period.");
             setSubmitting(false);
             return;
@@ -52,7 +49,7 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod })
 
         try {
             const formData = new FormData();
-            formData.append('delivery_date', values.deliveryDate.toISOString().split('T')[0]);
+            formData.append('delivery_date', values.deliveryDate);
 
             if (deliveryFile) {
                 const documentMetadata = {
@@ -84,10 +81,10 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod })
     };
 
     return (
-        <Transition show={true} as={React.Fragment}>
+        <Transition show={true} as={Fragment}>
             <Dialog as="div" className="relative z-10" onClose={onClose}>
                 <TransitionChild
-                    as={React.Fragment}
+                    as={Fragment}
                     enter="ease-out duration-300"
                     enterFrom="opacity-0"
                     enterTo="opacity-100"
@@ -101,7 +98,7 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod })
                 <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
                     <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
                         <TransitionChild
-                            as={React.Fragment}
+                            as={Fragment}
                             enter="ease-out duration-300"
                             enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                             enterTo="opacity-100 translate-y-0 sm:scale-100"
@@ -134,7 +131,7 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod })
                                                 validationSchema={DeliverySchema}
                                                 onSubmit={handleSubmit}
                                             >
-                                                {({ isSubmitting, errors, touched, setFieldValue }) => (
+                                                {({ isSubmitting, errors, touched }) => (
                                                     <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
                                                         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
                                                             <strong>LG:</strong> {instruction.lg_record?.lg_number || 'N/A'} | <strong>Type:</strong> {instruction.instruction_type} | <strong>Issued:</strong> {new Date(instruction.instruction_date).toLocaleDateString()}
@@ -144,17 +141,13 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod })
                                                             <label htmlFor="deliveryDate" className="block text-sm font-medium text-gray-700">
                                                                 Delivery Date
                                                             </label>
-                                                            <DatePicker
-                                                                selected={selectedDeliveryDate}
-                                                                onChange={(date) => {
-                                                                    setSelectedDeliveryDate(date);
-                                                                    setFieldValue('deliveryDate', date);
-                                                                }}
-                                                                dateFormat="yyyy-MM-dd"
-                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.deliveryDate && touched.deliveryDate ? 'border-red-500' : 'border-gray-300'}`}
-                                                                maxDate={new Date()}
-                                                                popperPlacement="auto"
-                                                                disabled={isGracePeriod} // NEW: Disable DatePicker
+                                                            <Field
+                                                                type="date"
+                                                                id="deliveryDate"
+                                                                name="deliveryDate"
+                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${errors.deliveryDate && touched.deliveryDate ? 'border-red-500' : 'border-gray-300'}`}
+                                                                max={moment().format('YYYY-MM-DD')}
+                                                                disabled={isGracePeriod}
                                                             />
                                                             <ErrorMessage name="deliveryDate" component="div" className="text-red-600 text-xs mt-1" />
                                                         </div>
@@ -175,7 +168,7 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod })
                                                                            file:text-sm file:font-semibold
                                                                            file:bg-blue-50 file:text-blue-700
                                                                            hover:file:bg-blue-100"
-                                                                disabled={isGracePeriod} // NEW: Disable file input
+                                                                disabled={isGracePeriod}
                                                             />
                                                             <p className="mt-1 text-xs text-gray-500">Supported formats: JPG, PNG, PDF. (Max 5MB)</p>
                                                         </div>

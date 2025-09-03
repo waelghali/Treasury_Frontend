@@ -5,14 +5,15 @@ import { apiRequest } from 'services/apiService.js';
 import { XCircle, Loader2, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
+// Note: Removed react-datepicker imports and related code to align with LGAmendModal.js
+// The component now uses a standard HTML input type="date"
 // react-datepicker imports
-import DatePicker, { registerLocale } from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
-import { enGB } from 'date-fns/locale';
+// import DatePicker, { registerLocale } from 'react-datepicker';
+// import 'react-datepicker/dist/react-datepicker.css';
+// import { enGB } from 'date-fns/locale';
+// registerLocale('en-GB', enGB);
 
-registerLocale('en-GB', enGB);
-
-// NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
+// A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     if (isGracePeriod) {
         return (
@@ -30,23 +31,23 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-const CustomDateInput = React.forwardRef(({ value, onClick, onChange, placeholder, className, disabled }, ref) => (
-    <input
-        type="text"
-        className={className}
-        onClick={onClick}
-        onChange={onChange}
-        value={value}
-        placeholder={placeholder}
-        ref={ref}
-        disabled={disabled}
-    />
-));
-
+// No longer needed with standard HTML input
+// const CustomDateInput = React.forwardRef(({ value, onClick, onChange, placeholder, className, disabled }, ref) => (
+//     <input
+//         type="text"
+//         className={className}
+//         onClick={onClick}
+//         onChange={onChange}
+//         value={value}
+//         placeholder={placeholder}
+//         ref={ref}
+//         disabled={disabled}
+//     />
+// ));
 
 function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) {
   const [extensionMethod, setExtensionMethod] = useState('date');
-  const [specificNewExpiryDateMoment, setSpecificNewExpiryDateMoment] = useState(null);
+  const [specificNewExpiryDate, setSpecificNewExpiryDate] = useState('');
   const [extensionMonths, setExtensionMonths] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
@@ -54,15 +55,16 @@ function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) {
   const [successMessage, setSuccessMessage] = useState('');
 
   const DISPLAY_DATE_FORMAT_MOMENT = 'DD-MMM-YYYY';
-  const DISPLAY_DATE_FORMAT_DATEFNS = 'dd-MMM-yyyy';
   const API_DATE_FORMAT = 'YYYY-MM-DD';
 
   useEffect(() => {
 	if (lgRecord && lgRecord.expiry_date) {
-	  const proposedDate = moment(lgRecord.expiry_date).add(lgRecord.lg_period_months, 'months');
-	  const minValidDate = moment(lgRecord.expiry_date).add(1, 'day');
-	  
-	  setSpecificNewExpiryDateMoment(proposedDate.isAfter(minValidDate) ? proposedDate : minValidDate);
+        // Set the initial date in YYYY-MM-DD format for the input field
+        const proposedDate = moment(lgRecord.expiry_date).add(lgRecord.lg_period_months, 'months');
+        const minValidDate = moment(lgRecord.expiry_date).add(1, 'day');
+        
+        const finalProposedDate = proposedDate.isAfter(minValidDate) ? proposedDate : minValidDate;
+        setSpecificNewExpiryDate(finalProposedDate.format(API_DATE_FORMAT));
 
 	  if (lgRecord.lg_period_months) {
 		setExtensionMonths(lgRecord.lg_period_months);
@@ -112,12 +114,13 @@ function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) {
     let finalNewExpiryDateMoment = null;
 
     if (extensionMethod === 'date') {
-      finalNewExpiryDateMoment = specificNewExpiryDateMoment;
-      if (!finalNewExpiryDateMoment || !finalNewExpiryDateMoment.isValid()) {
-        setError('New Expiry Date is required and must be a valid date.');
-        setIsLoading(false);
-        return;
-      }
+        const newDate = specificNewExpiryDate;
+        if (!newDate) {
+            setError('New Expiry Date is required.');
+            setIsLoading(false);
+            return;
+        }
+        finalNewExpiryDateMoment = moment(newDate, API_DATE_FORMAT);
     } else {
       const months = parseInt(extensionMonths, 10);
       if (isNaN(months) || months <= 0) {
@@ -143,8 +146,6 @@ function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) {
       );
       setSuccessMessage(`LG Record ${response.lg_record.lg_number} successfully extended to ${moment(response.lg_record.expiry_date).format(DISPLAY_DATE_FORMAT_MOMENT)}.`);
 
-      setSuccessMessage(`LG Record ${response.lg_record.lg_number} successfully extended to ${moment(response.lg_record.expiry_date).format(DISPLAY_DATE_FORMAT_MOMENT)}.`);
-      
       onSuccess(response.lg_record, response.latest_instruction_id);
       onClose();
       
@@ -224,23 +225,15 @@ function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) {
               <label htmlFor="specificNewExpiryDate" className="block text-sm font-medium text-gray-700 mb-1">
                 New Expiry Date <span className="text-red-500">*</span>
               </label>
-              <DatePicker
-                selected={specificNewExpiryDateMoment ? specificNewExpiryDateMoment.toDate() : null}
-                onChange={(date) => {
-                  const newMoment = moment(date);
-                  setSpecificNewExpiryDateMoment(newMoment.isValid() ? newMoment : null);
-                }}
-                dateFormat={DISPLAY_DATE_FORMAT_DATEFNS}
+              <input
+                type="date"
+                id="specificNewExpiryDate"
+                name="specificNewExpiryDate"
+                value={specificNewExpiryDate}
+                onChange={(e) => setSpecificNewExpiryDate(e.target.value)}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                wrapperClassName="w-full"
-                calendarClassName="shadow-lg rounded-md"
-                placeholderText={DISPLAY_DATE_FORMAT_DATEFNS.toUpperCase()}
                 required
-                minDate={moment(lgRecord.expiry_date).add(1, 'day').toDate()}
-                showMonthDropdown
-                showYearDropdown
-                dropdownMode="select"
-                customInput={<CustomDateInput placeholder={DISPLAY_DATE_FORMAT_DATEFNS.toUpperCase()} disabled={isGracePeriod} />}
+                min={moment(lgRecord.expiry_date).add(1, 'day').format(API_DATE_FORMAT)}
                 disabled={isGracePeriod}
               />
             </div>

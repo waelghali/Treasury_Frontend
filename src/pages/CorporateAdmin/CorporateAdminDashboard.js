@@ -52,7 +52,7 @@ const KPICard = ({ title, value, subValue, subLabel, icon, trend }) => {
   const iconBg = `p-3 rounded-full ${title.includes('Days') ? 'bg-orange-100' : title.includes('LG Mix') ? 'bg-purple-100' : 'bg-blue-100'}`;
 
   return (
-    <div className="card flex items-center p-5 space-x-4">
+    <div className="card flex items-center p-3 space-x-4">
       <div className={`${iconBg} text-blue-600`}>
         <Icon className="h-6 w-6" />
       </div>
@@ -296,7 +296,7 @@ function CorporateAdminDashboard({ isGracePeriod }) {
   return (
     <div>
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative" role="alert">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-2 py-3 rounded-md relative" role="alert">
           <span className="block sm:inline">{error}</span>
         </div>
       )}
@@ -304,17 +304,17 @@ function CorporateAdminDashboard({ isGracePeriod }) {
       {/* Main content grid for the three columns with KPIs and Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* First Column */}
-        <div className="flex flex-col space-y-6">
+        <div className="flex flex-col space-y-2">
           <KPICard
             title="Average Delivery Days"
             value={`${kpiData.avgDeliveryDays !== 'N/A' ? kpiData.avgDeliveryDays : 'N/A'} days`}
             subValue={`Overall: ${kpiData.avgDeliveryDaysOverall !== 'N/A' ? kpiData.avgDeliveryDaysOverall : 'N/A'} days`}
             subLabel=""
             icon={Clock}
-            trend={kpiData.avgDeliveryDays !== 'N/A' && kpiData.avgDeliveryDaysOverall !== 'N/A' ? (parseFloat(kpiData.avgDeliveryDays) < parseFloat(kpiData.avgDeliveryDaysOverall) ? 'down' : 'up') : undefined}
+            trend={kpiData.avgDeliveryDays !== 'N/A' && kpiData.avgDeliveryDaysOverall !== 'N/A' ? (parseFloat(kpiData.avgDeliveryDays) < parseFloat(kpiData.avgDeliveryDaysOverall) ? 'up' : 'down') : undefined}
           />
-          <div className="card h-[320px] flex flex-col">
-            <h3 className="text-lg font-semibold text-gray-800 text-center mb-1">
+          <div className="card h-[360px] flex flex-col">
+            <h3 className="text-lg font-semibold text-gray-800 text-left mb-1">
                 LG Type Mix
                 <span className="text-xs font-normal text-gray-500 ml-2">
                     (Outer: Global | Inner: Your Figures)
@@ -372,7 +372,7 @@ function CorporateAdminDashboard({ isGracePeriod }) {
         </div>
 
         {/* Second Column (now contains Bank Market Share) */}
-        <div className="flex flex-col space-y-6">
+        <div className="flex flex-col space-y-2">
           <KPICard
             title="Avg. Days to Action"
             value={`${kpiData.avgDaysToExpiryAction !== 'N/A' ? kpiData.avgDaysToExpiryAction : 'N/A'} days`}
@@ -381,8 +381,8 @@ function CorporateAdminDashboard({ isGracePeriod }) {
             icon={BarChart}
             trend={kpiData.avgDaysToExpiryAction !== 'N/A' && kpiData.avgDaysToExpiryActionOverall !== 'N/A' ? (parseFloat(kpiData.avgDaysToExpiryAction) > parseFloat(kpiData.avgDaysToExpiryActionOverall) ? 'down' : 'up') : undefined}
           />
-          <div className="card h-[320px] flex flex-col">
-            <h3 className="text-lg font-semibold text-gray-800 text-center mb-1">
+          <div className="card h-[360px] flex flex-col">
+            <h3 className="text-lg font-semibold text-gray-800 text-left mb-1">
               Bank Market Share
               <span className="text-xs font-normal text-gray-500 ml-2">
                 (Outer: Global | Inner: Your Figures)
@@ -440,7 +440,7 @@ function CorporateAdminDashboard({ isGracePeriod }) {
         </div>
 
         {/* Third Column (now contains Average Processing Times by Bank) */}
-        <div className="flex flex-col space-y-6">
+        <div className="flex flex-col space-y-2">
           <KPICard
             title="Total LG Volume"
             value={kpiData.lgVolume}
@@ -449,12 +449,12 @@ function CorporateAdminDashboard({ isGracePeriod }) {
             icon={FolderKanban}
             trend=""
           />
-          <div className="card h-[320px] flex flex-col">
-            <h3 className="text-lg font-semibold text-gray-800 text-center mb-4">Average Processing Times by Bank</h3>
+          <div className="card h-[360px] flex flex-col">
+            <h3 className="text-lg font-semibold text-gray-800 text-left mb-4">Average Processing Times by Bank</h3>
             <div className="flex-1">
               {chartData.bankProcessingTimes.length > 0 ? (
                 <div className="flex flex-col items-center h-full">
-                  <ResponsiveContainer width="85%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%">
                     <RechartsBarChart data={chartData.bankProcessingTimes} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />

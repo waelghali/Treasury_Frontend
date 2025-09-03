@@ -1,13 +1,15 @@
 // frontend/src/components/Modals/RecordBankReplyModal.js
-import React, { useState } from 'react';
+import React, { useState, Fragment } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import { X, Save, Building, AlertCircle } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+// Removed react-datepicker imports
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
+import moment from 'moment';
+
+// Removed CustomDateInput component
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -29,12 +31,11 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
-const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }) => { // NEW: Accept isGracePeriod prop
-    const [selectedReplyDate, setSelectedReplyDate] = useState(new Date());
+const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }) => {
     const [replyFile, setReplyFile] = useState(null);
 
     const initialValues = {
-        bankReplyDate: new Date(),
+        bankReplyDate: moment().format('YYYY-MM-DD'),
         replyDetails: '',
     };
 
@@ -46,7 +47,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
     });
 
     const handleSubmit = async (values, { setSubmitting, setErrors }) => {
-        if (isGracePeriod) { // NEW: Grace period check
+        if (isGracePeriod) {
             toast.warn("This action is disabled during your subscription's grace period.");
             setSubmitting(false);
             return;
@@ -54,7 +55,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
 
         try {
             const formData = new FormData();
-            formData.append('bank_reply_date', values.bankReplyDate.toISOString().split('T')[0]);
+            formData.append('bank_reply_date', values.bankReplyDate);
             formData.append('reply_details', values.replyDetails || '');
             if (replyFile) {
                 const documentMetadata = {
@@ -86,10 +87,10 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
     };
 
     return (
-        <Transition show={true} as={React.Fragment}>
+        <Transition show={true} as={Fragment}>
             <Dialog as="div" className="relative z-10" onClose={onClose}>
                 <TransitionChild
-                    as={React.Fragment}
+                    as={Fragment}
                     enter="ease-out duration-300"
                     enterFrom="opacity-0"
                     enterTo="opacity-100"
@@ -103,7 +104,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
                 <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
                     <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
                         <TransitionChild
-                            as={React.Fragment}
+                            as={Fragment}
                             enter="ease-out duration-300"
                             enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                             enterTo="opacity-100 translate-y-0 sm:scale-100"
@@ -136,7 +137,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
                                                 validationSchema={BankReplySchema}
                                                 onSubmit={handleSubmit}
                                             >
-                                                {({ isSubmitting, errors, touched, setFieldValue }) => (
+                                                {({ isSubmitting, errors, touched }) => (
                                                     <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
                                                         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
                                                             <strong>LG:</strong> {instruction.lg_record?.lg_number || 'N/A'} | <strong>Type:</strong> {instruction.instruction_type} | <strong>Issued:</strong> {new Date(instruction.instruction_date).toLocaleDateString()}
@@ -147,17 +148,13 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
                                                             <label htmlFor="bankReplyDate" className="block text-sm font-medium text-gray-700">
                                                                 Bank Reply Date
                                                             </label>
-                                                            <DatePicker
-                                                                selected={selectedReplyDate}
-                                                                onChange={(date) => {
-                                                                    setSelectedReplyDate(date);
-                                                                    setFieldValue('bankReplyDate', date);
-                                                                }}
-                                                                dateFormat="yyyy-MM-dd"
-                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.bankReplyDate && touched.bankReplyDate ? 'border-red-500' : 'border-gray-300'}`}
-                                                                maxDate={new Date()}
-                                                                popperPlacement="auto"
-                                                                disabled={isGracePeriod} // NEW: Disable DatePicker
+                                                            <Field
+                                                                type="date"
+                                                                id="bankReplyDate"
+                                                                name="bankReplyDate"
+                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${errors.bankReplyDate && touched.bankReplyDate ? 'border-red-500' : 'border-gray-300'}`}
+                                                                max={moment().format('YYYY-MM-DD')}
+                                                                disabled={isGracePeriod}
                                                             />
                                                             <ErrorMessage name="bankReplyDate" component="div" className="text-red-600 text-xs mt-1" />
                                                         </div>
@@ -172,7 +169,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
                                                                 name="replyDetails"
                                                                 rows="3"
                                                                 className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded-md"
-                                                                disabled={isGracePeriod} // NEW: Disable textarea
+                                                                disabled={isGracePeriod}
                                                             />
                                                             <ErrorMessage name="replyDetails" component="div" className="text-red-600 text-xs mt-1" />
                                                         </div>
@@ -194,7 +191,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
                                                                            file:bg-blue-50 file:text-blue-700
                                                                            hover:file:bg-blue-100
                                                                            border border-gray-300 rounded-md"
-                                                                disabled={isGracePeriod} // NEW: Disable file input
+                                                                disabled={isGracePeriod}
                                                             />
                                                             <p className="mt-1 text-xs text-gray-500">Supported formats: JPG, PNG, PDF. (Max 5MB)</p>
                                                         </div>
