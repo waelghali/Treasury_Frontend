@@ -30,24 +30,25 @@ function LandingPage() {
     }
 
     try {
-      // NOTE: The 'http://localhost:8000' URL has been replaced with a production URL.
-      //       **IMPORTANT: Replace this with your actual backend URL.**
-      const productionBackendUrl = 'https://api.growbusinessdevelopment.com'; 
-      const response = await fetch(`${productionBackendUrl}/api/v1/reports/demo-requests`, {
+      // NOTE: Google Form submission URL and field IDs derived from your provided link.
+      const googleFormsUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSdNahdLNZwI1txtvR8kSvEdaJ43hQ7VbcLOIsdC41OQV51Lvw/formResponse';
+      
+      // Map your form fields to the Google Form entry IDs.
+      const data = new URLSearchParams();
+      data.append('entry.1802521990', formData.name); 
+      data.append('entry.1444630562', formData.company);
+      data.append('entry.1205248555', formData.email);
+      data.append('entry.516142759', formData.phone);
+      data.append('entry.1996537751', formData.message);
+
+      const response = await fetch(googleFormsUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+        body: data,
+        mode: 'no-cors', // This allows the browser to send the request without being blocked by CORS.
       });
 
-      if (response.ok) {
-        setFormSubmitted(true);
-        setFormData({ name: '', company: '', email: '', phone: '', message: '' }); // Reset form
-      } else {
-        const errorData = await response.json();
-        setFormError(errorData.detail || 'Failed to submit. Please try again.');
-      }
+      setFormSubmitted(true);
+      setFormData({ name: '', company: '', email: '', phone: '', message: '' }); // Reset form
     } catch (err) {
       console.error('Network or unexpected error:', err);
       setFormError('A network error occurred. Please check your connection.');
