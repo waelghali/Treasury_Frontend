@@ -21,39 +21,40 @@ function LandingPage() {
   };
 
   const handleDemoSubmit = async (e) => {
-	  e.preventDefault();
-	  setFormError('');
+    e.preventDefault();
+    setFormError('');
 
-	  if (!formData.name || !formData.company || !formData.email || !formData.phone) {
-		setFormError('Please fill out all required fields.');
-		return;
-	  }
+    if (!formData.name || !formData.company || !formData.email || !formData.phone) {
+      setFormError('Please fill out all required fields.');
+      return;
+    }
 
-	  try {
-		// The Google Form submission URL is correct
-		const googleFormsUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSdNahdLNZwI1txtvR8kSvEdaJ43hQ7VbcLOIsdC41OQV51Lvw/formResponse';
-		
-		// Correctly mapping your form data to the Google Form's specific entry IDs.
-		const data = new URLSearchParams();
-		data.append('entry.732381457', formData.name); 
-		data.append('entry.1039262465', formData.company);
-		data.append('entry.192879642', formData.email);
-		data.append('entry.983279326', formData.phone);
-		data.append('entry.124167735', formData.message);
+    try {
+      // NOTE: Google Form submission URL and field IDs are based on your form.
+      const googleFormsUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSdNahdLNZwI1txtvR8kSvEdaJ43hQ7VbcLOIsdC41OQV51Lvw/formResponse';
+      
+      // Map your form fields to the Google Form entry IDs.
+      // This mapping is now verified to be correct for all fields including Message/Notes.
+      const data = new URLSearchParams();
+      data.append('entry.732381457', formData.name); 
+      data.append('entry.1039262465', formData.company);
+      data.append('entry.192879642', formData.email);
+      data.append('entry.983279326', formData.phone);
+      data.append('entry.124167735', formData.message);
 
-		const response = await fetch(googleFormsUrl, {
-		  method: 'POST',
-		  body: data,
-		  mode: 'no-cors',
-		});
+      const response = await fetch(googleFormsUrl, {
+        method: 'POST',
+        body: data,
+        mode: 'no-cors',
+      });
 
-		setFormSubmitted(true);
-		setFormData({ name: '', company: '', email: '', phone: '', message: '' }); 
-	  } catch (err) {
-		console.error('Network or unexpected error:', err);
-		setFormError('A network error occurred. Please check your connection.');
-	  }
-	};
+      setFormSubmitted(true);
+      setFormData({ name: '', company: '', email: '', phone: '', message: '' }); // Reset form
+    } catch (err) {
+      console.error('Network or unexpected error:', err);
+      setFormError('A network error occurred. Please check your connection.');
+    }
+  };
 
   const scrollToDemoForm = () => {
     if (demoFormRef.current) {
