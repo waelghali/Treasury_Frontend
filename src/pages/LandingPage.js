@@ -20,43 +20,52 @@ function LandingPage() {
     setFormData({ ...formData, [name]: value });
   };
 
-const handleDemoSubmit = async (e) => {
-  e.preventDefault();
-  setFormError('');
+  const handleDemoSubmit = async (e) => {
+    e.preventDefault();
+    setFormError('');
 
-  if (!formData.name || !formData.company || !formData.email || !formData.phone) {
-    setFormError('Please fill out all required fields.');
-    return;
-  }
+    if (!formData.name || !formData.company || !formData.email || !formData.phone) {
+      setFormError('Please fill out all required fields.');
+      return;
+    }
 
-  try {
-    const googleFormsUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSdNahdLNZwI1txtvR8kSvEdaJ43hQ7VbcLOIsdC41OQV51Lvw/formResponse';
-    
-    // Correctly mapping your form data to the NEW Google Form's specific entry IDs.
-    const data = new URLSearchParams();
-    data.append('entry.1184110141', formData.name); 
-    data.append('entry.1533984093', formData.company);
-    data.append('entry.1421145951', formData.email);
-    data.append('entry.1978314716', formData.phone);
-    data.append('entry.1323929138', formData.message);
+    try {
+      const googleFormsUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSdNahdLNZwI1txtvR8kSvEdaJ43hQ7VbcLOIsdC41OQV51Lvw/formResponse';
+      
+      const data = new URLSearchParams();
+      data.append('entry.1184110141', formData.name); 
+      data.append('entry.1533984093', formData.company);
+      data.append('entry.1421145951', formData.email);
+      data.append('entry.1978314716', formData.phone);
+      data.append('entry.1323929138', formData.message);
 
-    const response = await fetch(googleFormsUrl, {
-      method: 'POST',
-      body: data,
-      mode: 'no-cors',
-    });
+      const response = await fetch(googleFormsUrl, {
+        method: 'POST',
+        body: data,
+        mode: 'no-cors',
+      });
 
-    setFormSubmitted(true);
-    setFormData({ name: '', company: '', email: '', phone: '', message: '' }); 
-  } catch (err) {
-    console.error('Network or unexpected error:', err);
-    setFormError('A network error occurred. Please check your connection.');
-  }
-};
+      setFormSubmitted(true);
+      setFormData({ name: '', company: '', email: '', phone: '', message: '' }); 
+    } catch (err) {
+      console.error('Network or unexpected error:', err);
+      setFormError('A network error occurred. Please check your connection.');
+    }
+  };
+
   const scrollToDemoForm = () => {
     if (demoFormRef.current) {
       demoFormRef.current.scrollIntoView({ behavior: 'smooth' });
     }
+  };
+
+  const handleDownload = () => {
+    const link = document.createElement('a');
+    link.href = '/grow_brochure.pdf'; // Path to the PDF file in the public folder
+    link.download = 'Grow-Brochure.pdf'; // The suggested filename for the download
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -65,7 +74,6 @@ const handleDemoSubmit = async (e) => {
       <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm transition-all duration-300 ease-in-out">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-1 flex items-center justify-between">
           <div className="flex items-center">
-            {/* Replace with your logo image */}
             <img src="/growlogonocircle.png" alt="Grow Business Development Logo" className="h-24" />
           </div>
           <nav className="flex items-center space-x-4">
@@ -81,11 +89,18 @@ const handleDemoSubmit = async (e) => {
             >
               Book a Demo
             </button>
+            {/* New Download Brochure button in the header */}
+            <button
+              onClick={handleDownload}
+              className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+            >
+              Download Brochure
+            </button>
           </nav>
         </div>
       </header>
       
-      <main className="pt-20"> {/* Add padding top for the fixed header */}
+      <main className="pt-20">
         
         {/* Hero Section */}
         <section className="bg-gradient-to-br from-blue-50 via-gray-100 to-blue-200 py-24 md:py-32 relative overflow-hidden">
@@ -96,12 +111,21 @@ const handleDemoSubmit = async (e) => {
             <h2 className="text-xl sm:text-2xl text-gray-600 max-w-3xl mx-auto mb-8">
               Never miss an expiry. Never lose a reply. Always stay in control.
             </h2>
-            <button
-              onClick={scrollToDemoForm}
-              className="px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-lg transform hover:scale-105"
-            >
-              Book a Demo
-            </button>
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={scrollToDemoForm}
+                className="px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-lg transform hover:scale-105"
+              >
+                Book a Demo
+              </button>
+              {/* New Download Brochure button in the hero section */}
+              <button
+                onClick={handleDownload}
+                className="px-8 py-4 text-lg font-bold text-blue-600 bg-white rounded-lg hover:bg-gray-100 transition-colors shadow-lg transform hover:scale-105"
+              >
+                Download Brochure
+              </button>
+            </div>
           </div>
         </section>
 
