@@ -30,8 +30,10 @@ function LandingPage() {
     }
 
     try {
-      // NOTE: Replace 'http://localhost:8000' with your actual backend URL in production
-      const response = await fetch('http://localhost:8000/api/v1/reports/demo-requests', {
+      // NOTE: The 'http://localhost:8000' URL has been replaced with a production URL.
+      //       **IMPORTANT: Replace this with your actual backend URL.**
+      const productionBackendUrl = 'https://api.growbusinessdevelopment.com'; 
+      const response = await fetch(`${productionBackendUrl}/api/v1/reports/demo-requests`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
