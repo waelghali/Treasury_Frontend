@@ -1,5 +1,5 @@
 // frontend/src/App.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 
 import LoginPage from './pages/Auth/LoginPage';
@@ -7,6 +7,7 @@ import ForcePasswordChangePage from './pages/Auth/ForcePasswordChangePage';
 import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/Auth/ResetPasswordPage';
 import LandingPage from './pages/LandingPage';
+import KnowMorePage from './pages/KnowMorePage'; // NEW: Import the new page component
 
 import RenewalPage from './pages/RenewalPage'; 
 
@@ -17,7 +18,7 @@ import SystemOwnerRoutes from './routes/SystemOwnerRoutes.js';
 import CorporateAdminRoutes from './routes/CorporateAdminRoutes.js';
 import EndUserRoutes from './routes/EndUserRoutes.js';
 
-import { getAuthToken, setAuthToken } from './services/apiService';
+import { getAuthToken, setAuthToken, startInactivityTracker, stopInactivityTracker } from './services/apiService';
 import { jwtDecode } from 'jwt-decode';
 
 import { ToastContainer, Flip } from 'react-toastify';
@@ -30,7 +31,7 @@ function AppContent() {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [userId, setUserId] = useState(null);
   const [customerName, setCustomerName] = useState(null);
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Renamed for clarity
 
   // State for subscription status and end date
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
@@ -38,66 +39,76 @@ function AppContent() {
 
   const navigate = useNavigate();
 
-  const initialDecodeRef = useRef(false);
-
-  const decodeTokenAndSetState = () => {
-    const token = getAuthToken();
-    let authStatus = false;
-    let role = null;
-    let mustChange = false;
-    let id = null;
-    let name = null;
-    let status = null;
-    let endDate = null;
-
+  const decodeTokenAndSetState = (token) => {
     if (token) {
       try {
         const decoded = jwtDecode(token);
-        authStatus = true;
-        role = decoded.role;
-        mustChange = decoded.must_change_password || false;
-        id = decoded.user_id;
-        name = decoded.customer_name;
-        status = decoded.subscription_status || 'active';
-        endDate = decoded.subscription_end_date || null;
+        setIsAuthenticated(true);
+        setUserRole(decoded.role);
+        setMustChangePassword(decoded.must_change_password || false);
+        setUserId(decoded.user_id);
+        setCustomerName(decoded.customer_name);
+        setSubscriptionStatus(decoded.subscription_status || 'active');
+        setSubscriptionEndDate(decoded.subscription_end_date || null);
+        return { 
+          isAuthenticated: true,
+          userRole: decoded.role,
+          mustChangePassword: decoded.must_change_password || false,
+          subscriptionStatus: decoded.subscription_status || 'active'
+        };
       } catch (error) {
         console.error("App.js: Failed to decode token:", error);
         setAuthToken(null);
+        setIsAuthenticated(false);
+        setUserRole(null);
       }
+    } else {
+      setIsAuthenticated(false);
+      setUserRole(null);
     }
-
-    setIsAuthenticated(authStatus);
-    setUserRole(role);
-    setMustChangePassword(mustChange);
-    setUserId(id);
-    setCustomerName(name);
-    setSubscriptionStatus(status);
-    setSubscriptionEndDate(endDate);
-
-    return { mustChangePassword: mustChange, userRole: role, isAuthenticated: authStatus, subscriptionStatus: status };
+    return { isAuthenticated: false };
   };
 
   useEffect(() => {
-    if (!initialDecodeRef.current) {
-      decodeTokenAndSetState();
-      setInitialLoadComplete(true);
-      initialDecodeRef.current = true;
+    const token = getAuthToken();
+    const state = decodeTokenAndSetState(token);
+
+    if (state.isAuthenticated && !state.mustChangePassword && state.subscriptionStatus !== 'expired') {
+      startInactivityTracker();
+    } else {
+      stopInactivityTracker();
     }
+
+    setIsLoading(false);
 
     const handleStorageChange = (event) => {
       if (event.key === 'jwt_token') {
-        decodeTokenAndSetState();
+        const newToken = event.newValue;
+        const newState = decodeTokenAndSetState(newToken);
+        if (newState.isAuthenticated && !newState.mustChangePassword && newState.subscriptionStatus !== 'expired') {
+          startInactivityTracker();
+        } else {
+          stopInactivityTracker();
+        }
       }
     };
     window.addEventListener('storage', handleStorageChange);
 
+    // Cleanup function
     return () => {
+      stopInactivityTracker();
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 
   const handleLoginSuccess = () => {
-    const { mustChangePassword: updatedMustChangePassword, userRole: updatedUserRole, isAuthenticated: updatedIsAuthenticated, subscriptionStatus: updatedSubscriptionStatus } = decodeTokenAndSetState();
+    const token = getAuthToken();
+    const { 
+      mustChangePassword: updatedMustChangePassword, 
+      userRole: updatedUserRole, 
+      isAuthenticated: updatedIsAuthenticated, 
+      subscriptionStatus: updatedSubscriptionStatus 
+    } = decodeTokenAndSetState(token);
 
     if (!updatedIsAuthenticated) {
         navigate("/login", { replace: true });
@@ -111,13 +122,14 @@ function AppContent() {
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     setIsAuthenticated(false);
     setUserRole(null);
     setMustChangePassword(false);
     setUserId(null);
     setCustomerName(null);
     setAuthToken(null);
+    stopInactivityTracker(); // Stop tracking on manual logout
     navigate("/login", { replace: true });
   };
 
@@ -133,7 +145,7 @@ function AppContent() {
   };
 
   const renderAppRoutes = () => {
-    if (!initialLoadComplete) {
+    if (isLoading) {
       return (
         <div className="flex justify-center items-center min-h-screen bg-gray-100">
           <p>Loading application and determining access...</p>
@@ -145,6 +157,7 @@ function AppContent() {
       <Routes>
         {/* PUBLIC ROUTES - Outside the AuthWrapper */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/know-more" element={<KnowMorePage />} /> {/* NEW: Add route for KnowMorePage */}
         <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -168,6 +181,7 @@ function AppContent() {
           )}
         </Route>
 
+        {/* Catch-all route for any undefined paths */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );

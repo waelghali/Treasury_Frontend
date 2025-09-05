@@ -77,6 +77,13 @@ function LandingPage() {
             <img src="/growlogonocircle.png" alt="Grow Business Development Logo" className="h-24" />
           </div>
           <nav className="flex items-center space-x-4">
+            {/* New "Know More" link in the header */}
+            <Link 
+              to="/know-more" 
+              className="px-4 py-2 text-sm font-medium text-blue-600 border border-transparent rounded-md hover:bg-blue-50 transition-colors"
+            >
+              Know More
+            </Link>
             <Link 
               to="/login" 
               className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
@@ -89,7 +96,6 @@ function LandingPage() {
             >
               Book a Demo
             </button>
-            {/* New Download Brochure button in the header */}
             <button
               onClick={handleDownload}
               className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
@@ -118,7 +124,13 @@ function LandingPage() {
               >
                 Book a Demo
               </button>
-              {/* New Download Brochure button in the hero section */}
+              {/* New "Know More" link in the hero section */}
+              <Link 
+                to="/know-more" 
+                className="px-8 py-4 text-lg font-bold text-blue-600 bg-white rounded-lg hover:bg-gray-100 transition-colors shadow-lg transform hover:scale-105"
+              >
+                Know More
+              </Link>
               <button
                 onClick={handleDownload}
                 className="px-8 py-4 text-lg font-bold text-blue-600 bg-white rounded-lg hover:bg-gray-100 transition-colors shadow-lg transform hover:scale-105"
@@ -232,7 +244,7 @@ function LandingPage() {
         </section>
 
         {/* Demo Request Section (Form) */}
-        <section ref={demoFormRef} className="bg-white py-16 md:py-24">
+        <section ref={demoFormRef} id="demo-form" className="bg-white py-16 md:py-24">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-2xl">
             <div className="text-center mb-12">
               <h3 className="text-3xl sm:text-4xl font-bold mb-2">See the System in Action</h3>
