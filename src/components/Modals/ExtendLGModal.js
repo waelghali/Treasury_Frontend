@@ -5,15 +5,6 @@ import { apiRequest } from 'services/apiService.js';
 import { XCircle, Loader2, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-// Note: Removed react-datepicker imports and related code to align with LGAmendModal.js
-// The component now uses a standard HTML input type="date"
-// react-datepicker imports
-// import DatePicker, { registerLocale } from 'react-datepicker';
-// import 'react-datepicker/dist/react-datepicker.css';
-// import { enGB } from 'date-fns/locale';
-// registerLocale('en-GB', enGB);
-
-// A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     if (isGracePeriod) {
         return (
@@ -31,132 +22,130 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-// No longer needed with standard HTML input
-// const CustomDateInput = React.forwardRef(({ value, onClick, onChange, placeholder, className, disabled }, ref) => (
-//     <input
-//         type="text"
-//         className={className}
-//         onClick={onClick}
-//         onChange={onChange}
-//         value={value}
-//         placeholder={placeholder}
-//         ref={ref}
-//         disabled={disabled}
-//     />
-// ));
-
 function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) {
-  const [extensionMethod, setExtensionMethod] = useState('date');
-  const [specificNewExpiryDate, setSpecificNewExpiryDate] = useState('');
-  const [extensionMonths, setExtensionMonths] = useState('');
+    const [extensionMethod, setExtensionMethod] = useState('date');
+    const [specificNewExpiryDate, setSpecificNewExpiryDate] = useState('');
+    const [extensionMonths, setExtensionMonths] = useState('');
+    const [notes, setNotes] = useState(''); // NEW: State for notes
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
 
-  const DISPLAY_DATE_FORMAT_MOMENT = 'DD-MMM-YYYY';
-  const API_DATE_FORMAT = 'YYYY-MM-DD';
+    const DISPLAY_DATE_FORMAT_MOMENT = 'DD-MMM-YYYY';
+    const API_DATE_FORMAT = 'YYYY-MM-DD';
 
-  useEffect(() => {
-	if (lgRecord && lgRecord.expiry_date) {
-        // Set the initial date in YYYY-MM-DD format for the input field
-        const proposedDate = moment(lgRecord.expiry_date).add(lgRecord.lg_period_months, 'months');
-        const minValidDate = moment(lgRecord.expiry_date).add(1, 'day');
-        
-        const finalProposedDate = proposedDate.isAfter(minValidDate) ? proposedDate : minValidDate;
-        setSpecificNewExpiryDate(finalProposedDate.format(API_DATE_FORMAT));
+    useEffect(() => {
+        if (lgRecord && lgRecord.expiry_date) {
+            const proposedDate = moment(lgRecord.expiry_date).add(lgRecord.lg_period_months, 'months');
+            const minValidDate = moment(lgRecord.expiry_date).add(1, 'day');
+            
+            const finalProposedDate = proposedDate.isAfter(minValidDate) ? proposedDate : minValidDate;
+            setSpecificNewExpiryDate(finalProposedDate.format(API_DATE_FORMAT));
 
-	  if (lgRecord.lg_period_months) {
-		setExtensionMonths(lgRecord.lg_period_months);
-	  }
-	}
-  }, [lgRecord]);
+            if (lgRecord.lg_period_months) {
+                setExtensionMonths(lgRecord.lg_period_months);
+            }
+        }
+    }, [lgRecord]);
 
-  const handleMethodChange = (e) => {
-    if (isGracePeriod) return;
-    setExtensionMethod(e.target.value);
-    setError('');
-  };
+    const handleMethodChange = (e) => {
+        if (isGracePeriod) return;
+        setExtensionMethod(e.target.value);
+        setError('');
+    };
 
-  const handleExtensionMonthsChange = (e) => {
-    if (isGracePeriod) return;
-    const value = e.target.value;
-    if (value === '' || /^[1-9]\d*$/.test(value)) {
-      setExtensionMonths(value);
-    }
-  };
+    const handleExtensionMonthsChange = (e) => {
+        if (isGracePeriod) return;
+        const value = e.target.value;
+        if (value === '' || /^[1-9]\d*$/.test(value)) {
+            setExtensionMonths(value);
+        }
+    };
+    
+    // NEW: Handler for notes input change
+    const handleNotesChange = (e) => {
+        if (isGracePeriod) return;
+        setNotes(e.target.value);
+    };
 
-  const formatAmount = (amount, currencySymbol) => {
-    if (amount === null || currencySymbol === null || currencySymbol === undefined || isNaN(parseFloat(amount))) {
-      return 'N/A';
-    }
-    try {
-      const num = parseFloat(amount);
-      const formattedNumber = num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const formatAmount = (amount, currencySymbol) => {
+        if (amount === null || currencySymbol === null || currencySymbol === undefined || isNaN(parseFloat(amount))) {
+            return 'N/A';
+        }
+        try {
+            const num = parseFloat(amount);
+            const formattedNumber = num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
-      return `${currencySymbol} ${formattedNumber}`;
-    } catch (e) {
-      console.error("Error formatting currency:", e);
-      return `${currencySymbol} ${parseFloat(amount).toFixed(2)}`;
-    }
-  };
+            return `${currencySymbol} ${formattedNumber}`;
+        } catch (e) {
+            console.error("Error formatting currency:", e);
+            return `${currencySymbol} ${parseFloat(amount).toFixed(2)}`;
+        }
+    };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (isGracePeriod) {
-        toast.warn("This action is disabled during your subscription's grace period.");
-        return;
-    }
-    setError('');
-    setSuccessMessage('');
-    setIsLoading(true);
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (isGracePeriod) {
+            toast.warn("This action is disabled during your subscription's grace period.");
+            return;
+        }
+        setError('');
+        setSuccessMessage('');
+        setIsLoading(true);
 
-    let finalNewExpiryDateMoment = null;
+        let finalNewExpiryDateMoment = null;
 
-    if (extensionMethod === 'date') {
-        const newDate = specificNewExpiryDate;
-        if (!newDate) {
-            setError('New Expiry Date is required.');
+        if (extensionMethod === 'date') {
+            const newDate = specificNewExpiryDate;
+            if (!newDate) {
+                setError('New Expiry Date is required.');
+                setIsLoading(false);
+                return;
+            }
+            finalNewExpiryDateMoment = moment(newDate, API_DATE_FORMAT);
+        } else {
+            const months = parseInt(extensionMonths, 10);
+            if (isNaN(months) || months <= 0) {
+                setError('Number of extension months must be a positive integer.');
+                setIsLoading(false);
+                return;
+            }
+            finalNewExpiryDateMoment = moment(lgRecord.expiry_date).add(months, 'months');
+        }
+
+        const currentExpiryDateActual = moment(lgRecord.expiry_date);
+        if (finalNewExpiryDateMoment.isSameOrBefore(currentExpiryDateActual, 'day')) {
+            setError('New Expiry Date must be after the current Expiry Date.');
             setIsLoading(false);
             return;
         }
-        finalNewExpiryDateMoment = moment(newDate, API_DATE_FORMAT);
-    } else {
-      const months = parseInt(extensionMonths, 10);
-      if (isNaN(months) || months <= 0) {
-        setError('Number of extension months must be a positive integer.');
-        setIsLoading(false);
-        return;
-      }
-      finalNewExpiryDateMoment = moment(lgRecord.expiry_date).add(months, 'months');
-    }
 
-    const currentExpiryDateActual = moment(lgRecord.expiry_date);
-    if (finalNewExpiryDateMoment.isSameOrBefore(currentExpiryDateActual, 'day')) {
-      setError('New Expiry Date must be after the current Expiry Date.');
-      setIsLoading(false);
-      return;
-    }
+        try {
+            // NEW: Include notes in the payload
+            const payload = { 
+                new_expiry_date: finalNewExpiryDateMoment.format(API_DATE_FORMAT),
+                notes: notes || null,
+            };
 
-    try {
-      const response = await apiRequest(
-        `/end-user/lg-records/${lgRecord.id}/extend`,
-        'POST',
-        { new_expiry_date: finalNewExpiryDateMoment.format(API_DATE_FORMAT) }
-      );
-      setSuccessMessage(`LG Record ${response.lg_record.lg_number} successfully extended to ${moment(response.lg_record.expiry_date).format(DISPLAY_DATE_FORMAT_MOMENT)}.`);
+            const response = await apiRequest(
+                `/end-user/lg-records/${lgRecord.id}/extend`,
+                'POST',
+                payload
+            );
+            setSuccessMessage(`LG Record ${response.lg_record.lg_number} successfully extended to ${moment(response.lg_record.expiry_date).format(DISPLAY_DATE_FORMAT_MOMENT)}.`);
 
-      onSuccess(response.lg_record, response.latest_instruction_id);
-      onClose();
-      
-    } catch (err) {
-      console.error('Failed to extend LG:', err);
-      const errorMessage = err.detail || err.message || 'An unexpected error occurred.';
-      setError(`Failed to extend LG. ${errorMessage}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+            onSuccess(response.lg_record, response.latest_instruction_id);
+            onClose();
+            
+        } catch (err) {
+            console.error('Failed to extend LG:', err);
+            const errorMessage = err.detail || err.message || 'An unexpected error occurred.';
+            setError(`Failed to extend LG. ${errorMessage}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
@@ -266,6 +255,21 @@ function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) {
               )}
             </div>
           )}
+          
+          <div className="mb-6">
+            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+                Additional Notes (Optional)
+            </label>
+            <textarea
+                id="notes"
+                name="notes"
+                value={notes}
+                onChange={handleNotesChange}
+                rows="3"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                disabled={isGracePeriod}
+            />
+          </div>
 
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">

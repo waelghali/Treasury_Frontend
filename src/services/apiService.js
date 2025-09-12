@@ -21,18 +21,18 @@ export const getAuthToken = () => {
 
 // NEW: Inactivity Timer Logic
 let inactivityTimer;
-const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
-
-export const resetInactivityTimer = () => {
-    clearTimeout(inactivityTimer);
-    inactivityTimer = setTimeout(logoutUser, INACTIVITY_TIMEOUT);
-};
+const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 export const logoutUser = () => {
     console.log('User logged out due to inactivity.');
     setAuthToken(null);
     stopInactivityTracker();
     window.location.href = '/login';
+};
+
+export const resetInactivityTimer = () => {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(logoutUser, INACTIVITY_TIMEOUT);
 };
 
 export const startInactivityTracker = () => {
@@ -202,4 +202,42 @@ export const getAllRolesForSystemOwner = async () => {
 export const cancelLGInstruction = async (instructionId, reason, declarationConfirmed) => {
   const payload = { reason, declaration_confirmed: declarationConfirmed };
   return apiRequest(`/end-user/lg-records/instructions/${instructionId}/cancel`, 'POST', payload);
+};
+
+// --- NEW ENDPOINTS FOR USER MANAGEMENT ---
+
+/**
+ * Creates a new user for a specific customer.
+ * @param {number} customerId The ID of the customer.
+ * @param {object} userData The user data payload.
+ * @returns {Promise<object>} The newly created user object.
+ */
+export const createCustomerUserBySystemOwner = async (customerId, userData) => {
+  return apiRequest(`/system-owner/customers/${customerId}/users/`, 'POST', userData);
+};
+
+/**
+ * Updates an existing user for a specific customer.
+ * @param {number} userId The ID of the user to update.
+ * @param {object} userData The user data payload.
+ * @returns {Promise<object>} The updated user object.
+ */
+export const updateCustomerUserBySystemOwner = async (userId, userData) => {
+  return apiRequest(`/system-owner/users/${userId}`, 'PUT', userData);
+};
+
+/**
+ * Soft-deletes a user.
+ * @param {number} userId The ID of the user to delete.
+ */
+export const deleteUserBySystemOwner = async (userId) => {
+  return apiRequest(`/system-owner/users/${userId}`, 'DELETE');
+};
+
+/**
+ * Restores a soft-deleted user.
+ * @param {number} userId The ID of the user to restore.
+ */
+export const restoreUserBySystemOwner = async (userId) => {
+  return apiRequest(`/system-owner/users/${userId}/restore`, 'POST');
 };

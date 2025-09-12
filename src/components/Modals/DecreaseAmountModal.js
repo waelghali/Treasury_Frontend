@@ -35,6 +35,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
     const initialValues = {
         decreaseAmount: '',
         reason: '',
+        notes: '', // NEW: Add notes to initial values
     };
 
     const DecreaseAmountSchema = Yup.object().shape({
@@ -44,6 +45,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
             .positive('Amount to decrease must be positive')
             .max(lgRecord.lg_amount - 0.01, `Amount to decrease must be less than current LG amount (${lgRecord.lg_amount})`),
         reason: Yup.string().required('Reason for amount decrease is required').min(10, 'Reason must be at least 10 characters.'),
+        notes: Yup.string().nullable(), // NEW: Add notes validation (optional string)
     });
 
     const handleFileChange = (e) => {
@@ -63,6 +65,9 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
             const formData = new FormData();
             formData.append('decrease_amount', parseFloat(values.decreaseAmount));
             formData.append('reason', values.reason);
+            if (values.notes) { // NEW: Conditionally append notes
+                formData.append('notes', values.notes);
+            }
             if (supportingDocument) {
                 formData.append('internal_supporting_document_file', supportingDocument);
             }
@@ -136,8 +141,8 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                                                 validationSchema={DecreaseAmountSchema}
                                                 onSubmit={handleSubmit}
                                             >
-                                                {({ errors, touched }) => (
-                                                    <Form className={`space-y-4`}>
+                                                {({ errors, touched, values }) => (
+                                                    <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
                                                         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
                                                             Current LG Amount: <strong>{lgRecord.lg_amount} {lgRecord.lg_currency?.iso_code}</strong> | Status: <strong>{lgRecord.lg_status?.name}</strong>
                                                         </div>
@@ -170,6 +175,21 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                                                                 disabled={isGracePeriod || isSubmitting}
                                                             />
                                                             <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
+                                                        </div>
+                                                        
+                                                        {/* NEW: Additional Notes field */}
+                                                        <div>
+                                                            <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
+                                                                Additional Notes (Optional)
+                                                            </label>
+                                                            <Field
+                                                                as="textarea"
+                                                                id="notes"
+                                                                name="notes"
+                                                                rows="3"
+                                                                className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300"
+                                                                disabled={isGracePeriod || isSubmitting}
+                                                            />
                                                         </div>
 
                                                         {/* NEW: Optional supporting document upload */}

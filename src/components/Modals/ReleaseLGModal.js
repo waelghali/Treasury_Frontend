@@ -1,13 +1,12 @@
 // frontend/src/components/Modals/ReleaseLGModal.js
-import React, { useState } from 'react'; // ADDED useState
+import React, { useState } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
-import { X, CheckCircle, FileText, AlertCircle, Loader2 } from 'lucide-react'; // ADDED FileText, Loader2
+import { X, CheckCircle, FileText, AlertCircle, Loader2 } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 
-// NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     if (isGracePeriod) {
         return (
@@ -28,22 +27,23 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
 const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
-    const [supportingDocument, setSupportingDocument] = useState(null); // NEW: State for supporting document
-    const [isSubmitting, setIsSubmitting] = useState(false); // NEW: State for submission status
+    const [supportingDocument, setSupportingDocument] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const initialValues = {
         reason: '',
+        notes: '', // NEW: Add notes to initial values
         totalDocumentsCount: lgRecord.documents ? lgRecord.documents.length : 0,
         pendingRepliesCount: 0,
     };
 
     const ReleaseLgSchema = Yup.object().shape({
         reason: Yup.string().required('Reason for release is required').min(10, 'Reason must be at least 10 characters.'),
+        notes: Yup.string().nullable(), // NEW: Add notes validation (optional string)
         totalDocumentsCount: Yup.number().nullable(),
         pendingRepliesCount: Yup.number().nullable(),
     });
 
-    // NEW: Handler for file input change
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         setSupportingDocument(file);
@@ -58,13 +58,11 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
         setIsSubmitting(true);
 
         try {
-            // FIX: Use FormData to send file and form data together
             const formData = new FormData();
             formData.append('reason', values.reason);
-            // These fields are for display only, not part of the payload, so they are omitted
-            // formData.append('totalDocumentsCount', values.totalDocumentsCount);
-            // formData.append('pendingRepliesCount', values.pendingRepliesCount);
-
+            if (values.notes) { // NEW: Conditionally append notes
+                formData.append('notes', values.notes);
+            }
             if (supportingDocument) {
                 formData.append('internal_supporting_document_file', supportingDocument);
             }
@@ -159,6 +157,21 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                                                             <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
                                                         </div>
                                                         
+                                                        {/* NEW: Additional Notes field */}
+                                                        <div>
+                                                            <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
+                                                                Additional Notes (Optional)
+                                                            </label>
+                                                            <Field
+                                                                as="textarea"
+                                                                id="notes"
+                                                                name="notes"
+                                                                rows="3"
+                                                                className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300"
+                                                                disabled={isGracePeriod}
+                                                            />
+                                                        </div>
+
                                                         <div className="border-t pt-4">
                                                             <label htmlFor="supporting-document-file" className="block text-sm font-medium text-gray-700">
                                                                 Optional Supporting Document

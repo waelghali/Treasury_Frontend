@@ -1,14 +1,14 @@
 // frontend/src/components/Modals/LGActivateNonOperativeModal.js
 import React, { useState, useEffect, Fragment } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
-import { X, Check, Loader2, AlertCircle, FileText } from 'lucide-react'; // ADDED FileText
+import { X, Check, Loader2, AlertCircle, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 import { apiRequest } from '../../services/apiService';
 
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
-const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
+const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [paymentDetails, setPaymentDetails] = useState({
@@ -18,8 +18,8 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
         issuing_bank_id: '',
         payment_reference: '',
         payment_date: moment().format('YYYY-MM-DD'),
+        notes: '',
     });
-    // NEW: State for the optional supporting document file
     const [supportingDocument, setSupportingDocument] = useState(null);
     const [dropdownData, setDropdownData] = useState({
         currencies: [],
@@ -63,7 +63,6 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
         }));
     };
 
-    // NEW: Handler for file input change
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         setSupportingDocument(file);
@@ -71,10 +70,15 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        if (isGracePeriod) {
+            toast.warn("This action is disabled during your subscription's grace period.");
+            return;
+        }
+
         setError('');
         setIsProcessing(true);
 
-        // Frontend validation
         const requiredFields = ['amount', 'payment_method', 'payment_date', 'currency_id', 'issuing_bank_id'];
         const missingFields = requiredFields.filter(field => !paymentDetails[field]);
         if (missingFields.length > 0) {
@@ -84,7 +88,6 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
         }
 
         try {
-            // FIX: Use FormData to send file and form data together
             const formData = new FormData();
             for (const key in paymentDetails) {
                 if (paymentDetails[key]) {
@@ -96,9 +99,16 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
             }
 
             const response = await apiRequest(`/end-user/lg-records/${lgRecord.id}/activate-non-operative`, 'POST', formData);
-            onSuccess(response.lg_record, response.latest_instruction_id);
-            toast.success("LG successfully activated!");
+            
+            if (response.approval_request_id) {
+                toast.info(`LG Activation request submitted for approval. Request ID: ${response.approval_request_id}.`);
+                onSuccess(response.lg_record);
+            } else {
+                toast.success("LG successfully activated!");
+                onSuccess(response.lg_record, response.latest_instruction_id);
+            }
             onClose();
+
         } catch (err) {
             console.error("Failed to activate LG:", err);
             const errorMessage = err.detail || err.message || 'An unexpected error occurred.';
@@ -189,6 +199,7 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                                                                     onChange={handleInputChange}
                                                                     required
                                                                     className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm sm:text-sm p-2"
+                                                                    disabled={isProcessing || isGracePeriod}
                                                                 />
                                                             </div>
                                                             <div>
@@ -200,6 +211,7 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                                                                     onChange={handleSelectChange}
                                                                     required
                                                                     className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm sm:text-sm p-2"
+                                                                    disabled={isProcessing || isGracePeriod}
                                                                 >
                                                                     <option value="">Select Currency</option>
                                                                     {dropdownData.currencies.map(currency => (
@@ -216,6 +228,7 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                                                                     onChange={handleSelectChange}
                                                                     required
                                                                     className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm sm:text-sm p-2"
+                                                                    disabled={isProcessing || isGracePeriod}
                                                                 >
                                                                     <option value="">Select Bank</option>
                                                                     {dropdownData.banks.map(bank => (
@@ -233,6 +246,7 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                                                                     onChange={handleInputChange}
                                                                     required
                                                                     className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm sm:text-sm p-2"
+                                                                    disabled={isProcessing || isGracePeriod}
                                                                 />
                                                             </div>
                                                             <div>
@@ -245,6 +259,8 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                                                                     onChange={handleInputChange}
                                                                     required
                                                                     className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm sm:text-sm p-2"
+                                                                    max={moment().format('YYYY-MM-DD')} // NEW: Added max attribute
+                                                                    disabled={isProcessing || isGracePeriod}
                                                                 />
                                                             </div>
                                                             <div className="md:col-span-2">
@@ -256,9 +272,26 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                                                                     value={paymentDetails.payment_reference}
                                                                     onChange={handleInputChange}
                                                                     className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm sm:text-sm p-2"
+                                                                    disabled={isProcessing || isGracePeriod}
                                                                 />
                                                             </div>
                                                         </div>
+                                                    </div>
+                                                    
+                                                    {/* NEW: Additional Notes field */}
+                                                    <div>
+                                                        <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
+                                                            Additional Notes (Optional)
+                                                        </label>
+                                                        <textarea
+                                                            name="notes"
+                                                            id="notes"
+                                                            rows="3"
+                                                            value={paymentDetails.notes}
+                                                            onChange={handleInputChange}
+                                                            className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300"
+                                                            disabled={isProcessing || isGracePeriod}
+                                                        />
                                                     </div>
 
                                                     {/* NEW: Optional supporting document upload */}
@@ -274,7 +307,7 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                                                                 onChange={handleFileChange}
                                                                 accept=".pdf,image/*"
                                                                 className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                                                disabled={isProcessing}
+                                                                disabled={isProcessing || isGracePeriod}
                                                             />
                                                             {supportingDocument && (
                                                                 <span className="ml-3 text-sm text-gray-500">
@@ -292,9 +325,9 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess }) => {
                                                             className={classNames(
                                                                 buttonBaseClassNames,
                                                                 "sm:col-start-2 bg-teal-600 text-white hover:bg-teal-700",
-                                                                !isFormValid ? "opacity-50 cursor-not-allowed" : ""
+                                                                !isFormValid || isProcessing || isGracePeriod ? "opacity-50 cursor-not-allowed" : ""
                                                             )}
-                                                            disabled={!isFormValid || isProcessing}
+                                                            disabled={!isFormValid || isProcessing || isGracePeriod}
                                                         >
                                                             {isProcessing ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Check className="h-5 w-5 mr-2" />}
                                                             {isProcessing ? 'Activating...' : 'Activate LG'}

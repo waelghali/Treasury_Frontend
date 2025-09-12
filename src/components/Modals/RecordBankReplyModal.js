@@ -207,7 +207,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
                                                             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                                 <button
                                                                     type="submit"
-                                                                    className={`${buttonBaseClassNames} sm:col-start-2 bg-blue-600 text-white hover:bg-blue-700 ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    className={`${buttonBaseClassNames} sm:col-start-2 rounded-md shadow-sm bg-green-100 text-green-700 hover:bg-green-200 ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                                     disabled={isSubmitting || isGracePeriod}
                                                                 >
                                                                     {isSubmitting ? 'Processing...' : <Building className="h-5 w-5 mr-2" />}

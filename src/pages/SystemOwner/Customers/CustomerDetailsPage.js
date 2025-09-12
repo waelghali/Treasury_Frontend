@@ -1,14 +1,267 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { Edit, PlusCircle, Trash, RotateCcw, ToggleLeft, ToggleRight, XCircle } from 'lucide-react';
+import { Edit, PlusCircle, Trash, RotateCcw, Eye, ToggleLeft, ToggleRight, XCircle, Loader2 } from 'lucide-react';
+import { toast } from 'react-toastify';
+
+// Common input field styling classes
+const inputClassNames = "mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200";
+const labelClassNames = "block text-sm font-medium text-gray-700";
+
+// A single form component for adding and editing a user.
+const UserForm = ({ customerId, userToEdit, onUserSaved, onCancel, customerEntities }) => {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    role: 'end_user',
+    has_all_entity_access: true,
+    entity_ids: [],
+    must_change_password: true,
+  });
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
+
+  useEffect(() => {
+    if (userToEdit) {
+      setFormData({
+        email: userToEdit.email,
+        role: userToEdit.role,
+        has_all_entity_access: userToEdit.has_all_entity_access,
+        entity_ids: userToEdit.entities_with_access.map(e => e.id),
+        must_change_password: userToEdit.must_change_password,
+        password: '',
+      });
+      setShowPasswordFields(false);
+    } else {
+      setFormData({
+        email: '',
+        password: '',
+        role: 'end_user',
+        has_all_entity_access: true,
+        entity_ids: [],
+        must_change_password: true,
+      });
+      setShowPasswordFields(true);
+    }
+  }, [userToEdit]);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleEntityAccessChange = (e) => {
+    const { value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      has_all_entity_access: value === 'all',
+      entity_ids: value === 'all' ? [] : prev.entity_ids
+    }));
+  };
+
+  const handleEntitySelection = (e) => {
+    const entityId = parseInt(e.target.value, 10);
+    setFormData(prev => {
+      const newEntityIds = e.target.checked ? [...prev.entity_ids, entityId] : prev.entity_ids.filter(id => id !== entityId);
+      return { ...prev, entity_ids: newEntityIds };
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setError('');
+
+    try {
+      const isNewUser = !userToEdit;
+
+      if (isNewUser && (!formData.email || !formData.role)) {
+        setError('Email and Role are required.');
+        setIsSaving(false);
+        return;
+      }
+      
+      // Password validation for both new and edited users
+      if (showPasswordFields) {
+        if (!formData.password) {
+          setError('Password is required.');
+          setIsSaving(false);
+          return;
+        }
+        if (formData.password.length < 8) {
+          setError('Password must be at least 8 characters long.');
+          setIsSaving(false);
+          return;
+        }
+        if (formData.password !== confirmPassword) {
+          setError('Passwords do not match.');
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      if (!formData.has_all_entity_access && formData.entity_ids.length === 0) {
+        setError('Please select at least one entity or grant access to all entities.');
+        setIsSaving(false);
+        return;
+      }
+
+      const payload = { ...formData };
+      if (!showPasswordFields || !formData.password) {
+        delete payload.password;
+      }
+      if (payload.has_all_entity_access) {
+        delete payload.entity_ids;
+      }
+      
+      if (isNewUser) {
+        await apiRequest(`/system-owner/customers/${customerId}/users/`, 'POST', payload);
+        toast.success('User created successfully!');
+      } else {
+        await apiRequest(`/system-owner/users/${userToEdit.id}`, 'PUT', payload);
+        toast.success('User updated successfully!');
+      }
+      
+      onUserSaved();
+      onCancel();
+    } catch (err) {
+      console.error("Failed to save user:", err);
+      setError(`Failed to save user: ${err.message || 'An unexpected error occurred.'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3 p-4 border border-blue-200 rounded-md bg-blue-50 mb-4">
+      <h4 className="text-md font-semibold text-gray-700 mb-2">{userToEdit ? 'Edit User' : 'Add New User'}</h4>
+      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mt-4">{error}</div>}
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="user-email" className={labelClassNames}>Email</label>
+          <input type="email" name="email" id="user-email" value={formData.email} onChange={handleChange} required className={inputClassNames} disabled={!!userToEdit} />
+        </div>
+        <div>
+          <label htmlFor="user-role" className={labelClassNames}>Role</label>
+          <select name="role" id="user-role" value={formData.role} onChange={handleChange} required className={inputClassNames}>
+            <option value="corporate_admin">Corporate Admin</option>
+            <option value="end_user">End User</option>
+            <option value="checker">Checker</option>
+          </select>
+        </div>
+      </div>
+      
+      {/* Password fields for both new and edited users */}
+      <div className="border-t border-gray-200 pt-4 mt-4">
+        <div className="flex justify-between items-center mb-2">
+            <h4 className="text-md font-semibold text-gray-700">Password</h4>
+            {userToEdit && (
+                <button type="button" onClick={() => setShowPasswordFields(!showPasswordFields)} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                    {showPasswordFields ? 'Hide Password Fields' : 'Change Password'}
+                </button>
+            )}
+        </div>
+
+        {(userToEdit && !showPasswordFields) ? (
+            <p className="text-sm text-gray-500">Password is not being changed.</p>
+        ) : (
+            <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label htmlFor="user-password" className={labelClassNames}>Password</label>
+                        <input type="password" name="password" id="user-password" value={formData.password} onChange={handleChange} required={showPasswordFields} className={inputClassNames} />
+                    </div>
+                    <div>
+                        <label htmlFor="confirm-password" className={labelClassNames}>Confirm Password</label>
+                        <input type="password" name="confirm-password" id="confirm-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required={showPasswordFields} className={inputClassNames} />
+                    </div>
+                </div>
+                <div className="flex items-center mt-3">
+                    <input id="must-change-password" name="must_change_password" type="checkbox" checked={formData.must_change_password} onChange={handleChange} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                    <label htmlFor="must-change-password" className="ml-2 block text-sm text-gray-900">
+                        Require password change on next login
+                    </label>
+                </div>
+            </>
+        )}
+      </div>
+
+      <div className="border-t border-gray-200 pt-4 mt-4">
+        <h4 className="text-md font-semibold text-gray-700 mb-2">Entity Access</h4>
+        <div className="space-y-2">
+            <div className="flex items-center">
+              <input
+                id="access_all_entities"
+                name="entity_access_type"
+                type="radio"
+                value="all"
+                checked={formData.has_all_entity_access}
+                onChange={handleEntityAccessChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+              />
+              <label htmlFor="access_all_entities" className="ml-2 block text-sm text-gray-900">
+                Access all entities
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                id="access_specific_entities"
+                name="entity_access_type"
+                type="radio"
+                value="specific"
+                checked={!formData.has_all_entity_access}
+                onChange={handleEntityAccessChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+              />
+              <label htmlFor="access_specific_entities" className="ml-2 block text-sm text-gray-900">
+                Access specific entities
+              </label>
+            </div>
+          </div>
+        
+        {!formData.has_all_entity_access && (
+          <div className="mt-2 pl-4">
+            {customerEntities.map(entity => (
+              <div key={entity.id} className="flex items-center mt-1">
+                <input
+                  id={`entity-access-${entity.id}`}
+                  type="checkbox"
+                  value={entity.id}
+                  checked={formData.entity_ids.includes(entity.id)}
+                  onChange={handleEntitySelection}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor={`entity-access-${entity.id}`} className="ml-2 text-sm text-gray-900">
+                  {entity.entity_name} ({entity.code})
+                </label>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-end space-x-2 mt-4">
+        <button type="button" onClick={onCancel} className="btn-secondary px-3 py-1.5 text-sm">Cancel</button>
+        <button type="submit" className="btn-primary px-3 py-1.5 text-sm flex items-center">
+          {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          {userToEdit ? 'Update User' : 'Add User'}
+        </button>
+      </div>
+    </form>
+  );
+};
+
 
 function CustomerDetailsPage({ onLogout }) {
-  const { id } = useParams(); // Get customer ID from URL
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [customer, setCustomer] = useState(null);
-  const [entities, setEntities] = useState([]); // Separate state for easier management
+  const [entities, setEntities] = useState([]);
+  const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -32,27 +285,32 @@ function CustomerDetailsPage({ onLogout }) {
     contact_person: '',
     contact_email: '',
     is_active: true,
-    address: '', // New field
-    commercial_register_number: '', // New field
-    tax_id: '', // New field
+    address: '',
+    commercial_register_number: '',
+    tax_id: '',
   });
   const [editingEntityId, setEditingEntityId] = useState(null);
+  const [editingUser, setEditingUser] = useState(null);
+
+  // State for User Management
+  const [showUserForm, setShowUserForm] = useState(false);
 
   // Fetch customer details and entities
   const fetchCustomerDetails = async () => {
     setIsLoading(true);
     setError('');
     try {
-      const response = await apiRequest(`/system-owner/customers/${id}`, 'GET');
-      setCustomer(response);
-      setEntities(response.entities);
-      // Pre-fill customerEditFormData if starting fresh or after an update
+      const customerResponse = await apiRequest(`/system-owner/customers/${id}`, 'GET');
+      setCustomer(customerResponse);
+      setEntities(customerResponse.entities);
+      setUsers(customerResponse.users);
+      
       setCustomerEditFormData({
-        name: response.name,
-        address: response.address || '',
-        contact_email: response.contact_email,
-        contact_phone: response.contact_phone || '',
-        subscription_plan_id: response.subscription_plan?.id || '', // Use optional chaining for safety
+        name: customerResponse.name,
+        address: customerResponse.address || '',
+        contact_email: customerResponse.contact_email,
+        contact_phone: customerResponse.contact_phone || '',
+        subscription_plan_id: customerResponse.subscription_plan?.id || '',
       });
     } catch (err) {
       console.error('Failed to fetch customer details:', err);
@@ -83,6 +341,18 @@ function CustomerDetailsPage({ onLogout }) {
     }
   }, [id]);
 
+  // Handler to initiate edit mode for a user
+  const handleEditUser = (user) => {
+    setEditingUser(user);
+    setShowUserForm(true);
+  };
+  
+  // Handler to clear the user form state
+  const handleCancelUserForm = () => {
+    setShowUserForm(false);
+    setEditingUser(null);
+  };
+
   // Handle change for customer core details form
   const handleCustomerEditFormChange = (e) => {
     const { name, value } = e.target;
@@ -97,9 +367,9 @@ function CustomerDetailsPage({ onLogout }) {
 
     try {
       await apiRequest(`/system-owner/customers/${id}`, 'PUT', customerEditFormData);
-      alert('Customer details updated successfully!');
-      setShowEditCustomerForm(false); // Close the form/modal
-      fetchCustomerDetails(); // Refresh details to show changes
+      toast.success('Customer details updated successfully!');
+      setShowEditCustomerForm(false);
+      fetchCustomerDetails();
     } catch (err) {
       console.error('Error updating customer:', err);
       setError(`Error updating customer: ${err.message || 'An unexpected error occurred.'}`);
@@ -107,7 +377,6 @@ function CustomerDetailsPage({ onLogout }) {
       setIsUpdatingCustomer(false);
     }
   };
-
 
   // Handle form field changes for add/edit entity form
   const handleEntityFormChange = (e) => {
@@ -119,37 +388,32 @@ function CustomerDetailsPage({ onLogout }) {
   };
 
   // Handle Add/Update Entity Submission
-	// Corrected handleAddUpdateEntity function in CustomerDetailsPage.js
 	const handleAddUpdateEntity = async (e) => {
 		e.preventDefault();
 		setError('');
 
-		// --- NEW: Data Cleaning Before Submission ---
-		// Ensure optional string fields are null if empty, to pass Pydantic validation.
 		const cleanedFormData = { ...currentEntityFormData };
 		for (const key of ['contact_person', 'contact_email', 'address', 'commercial_register_number', 'tax_id', 'code']) {
 			if (cleanedFormData[key] === '') {
 				cleanedFormData[key] = null;
 			}
 		}
-		// --- END NEW DATA CLEANING ---
 
-		// Basic validation
 		if (!cleanedFormData.entity_name.trim()) {
 			setError('Entity name cannot be empty.');
 			return;
 		}
-		// Simple email format check (now more robust as it handles nulls)
+
 		if (cleanedFormData.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedFormData.contact_email)) {
 			setError('Invalid contact email format.');
 			return;
 		}
 
 		try {
-			if (editingEntityId) { // Update mode
+			if (editingEntityId) {
 				await apiRequest(`/system-owner/customer-entities/${editingEntityId}`, 'PUT', cleanedFormData);
-				alert('Entity updated successfully!');
-			} else { // Add mode
+				toast.success('Entity updated successfully!');
+			} else {
 				if (customer && !customer.subscription_plan.can_multi_entity) {
 					const activeEntitiesCount = entities.filter(e => !e.is_deleted && e.is_active).length;
 					if (activeEntitiesCount >= 1) {
@@ -157,11 +421,9 @@ function CustomerDetailsPage({ onLogout }) {
 						return;
 					}
 				}
-				// Corrected API call
 				await apiRequest(`/system-owner/customers/${customer.id}/entities/`, 'POST', cleanedFormData);
-				alert('Entity added successfully!');
+				toast.success('Entity added successfully!');
 			}
-			// Reset form and close
 			setCurrentEntityFormData({
 				entity_name: '',
 				code: '',
@@ -174,7 +436,7 @@ function CustomerDetailsPage({ onLogout }) {
 			});
 			setEditingEntityId(null);
 			setShowAddEditEntityForm(false);
-			fetchCustomerDetails(); // Refresh the list
+			fetchCustomerDetails();
 		} catch (err) {
 			console.error('Failed to save entity:', err);
 			setError(`Failed to save entity: ${err.message || 'An unexpected error occurred.'}`);
@@ -190,9 +452,9 @@ function CustomerDetailsPage({ onLogout }) {
       contact_person: entity.contact_person || '',
       contact_email: entity.contact_email || '',
       is_active: entity.is_active,
-      address: entity.address || '', // New field
-      commercial_register_number: entity.commercial_register_number || '', // New field
-      tax_id: entity.tax_id || '', // New field
+      address: entity.address || '',
+      commercial_register_number: entity.commercial_register_number || '',
+      tax_id: entity.tax_id || '',
     });
     setShowAddEditEntityForm(true);
   };
@@ -202,8 +464,8 @@ function CustomerDetailsPage({ onLogout }) {
     if (window.confirm(`Are you sure you want to soft-delete the entity "${entityName}"?`)) {
       try {
         await apiRequest(`/system-owner/customer-entities/${entityId}`, 'DELETE');
-        fetchCustomerDetails(); // Refresh list
-        alert(`Entity "${entityName}" soft-deleted successfully.`);
+        fetchCustomerDetails();
+        toast.success(`Entity "${entityName}" soft-deleted successfully.`);
       } catch (err) {
         console.error('Failed to soft-delete entity:', err);
         setError(`Failed to soft-delete entity "${entityName}". ${err.message || ''}`);
@@ -216,8 +478,8 @@ function CustomerDetailsPage({ onLogout }) {
     if (window.confirm(`Are you sure you want to restore the entity "${entityName}"?`)) {
       try {
         await apiRequest(`/system-owner/customer-entities/${entityId}/restore`, 'POST');
-        fetchCustomerDetails(); // Refresh list
-        alert(`Entity "${entityName}" restored successfully.`);
+        fetchCustomerDetails();
+        toast.success(`Entity "${entityName}" restored successfully.`);
       } catch (err) {
         console.error('Failed to restore entity:', err);
         setError(`Failed to restore entity "${entityName}". ${err.message || ''}`);
@@ -227,7 +489,6 @@ function CustomerDetailsPage({ onLogout }) {
 
   // Handle Toggle Active Status
   const handleToggleActive = async (entityId, entityName, currentStatus) => {
-    // Prevent deactivating the last active entity on single-entity plans
     if (!customer.subscription_plan?.can_multi_entity && currentStatus === true) {
       const activeEntitiesCount = entities.filter(e => !e.is_deleted && e.is_active && e.id !== entityId).length;
       if (activeEntitiesCount === 0) {
@@ -239,8 +500,8 @@ function CustomerDetailsPage({ onLogout }) {
     if (window.confirm(`Are you sure you want to ${currentStatus ? 'deactivate' : 'activate'} the entity "${entityName}"?`)) {
         try {
             await apiRequest(`/system-owner/customer-entities/${entityId}`, 'PUT', { is_active: !currentStatus });
-            alert(`Entity "${entityName}" status updated successfully.`);
-            fetchCustomerDetails(); // Refresh list to reflect new status
+            toast.success(`Entity "${entityName}" status updated successfully.`);
+            fetchCustomerDetails();
         }
         catch (err) {
             console.error('Failed to toggle entity active status:', err);
@@ -249,15 +510,38 @@ function CustomerDetailsPage({ onLogout }) {
     }
   };
 
+  const handleUserAction = async (action, userId, userEmail) => {
+    if (action === 'delete') {
+      if (window.confirm(`Are you sure you want to soft-delete the user "${userEmail}"?`)) {
+        try {
+          await apiRequest(`/system-owner/users/${userId}`, 'DELETE');
+          toast.success(`User "${userEmail}" soft-deleted successfully.`);
+          fetchCustomerDetails();
+        } catch (err) {
+          console.error('Failed to delete user:', err);
+          setError(`Failed to delete user: ${err.message || ''}`);
+        }
+      }
+    } else if (action === 'restore') {
+      if (window.confirm(`Are you sure you want to restore the user "${userEmail}"?`)) {
+        try {
+          await apiRequest(`/system-owner/users/${userId}/restore`, 'POST');
+          toast.success(`User "${userEmail}" restored successfully.`);
+          fetchCustomerDetails();
+        } catch (err) {
+          console.error('Failed to restore user:', err);
+          setError(`Failed to restore user: ${err.message || ''}`);
+        }
+      }
+    }
+  };
+
 
   if (isLoading) {
     return (
       <div onLogout={onLogout}>
         <div className="text-center py-8">
-          <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
+          <Loader2 className="h-8 w-8 text-blue-600 mx-auto animate-spin" />
           <p className="text-gray-600 mt-2">Loading customer details...</p>
         </div>
       </div>
@@ -393,10 +677,7 @@ function CustomerDetailsPage({ onLogout }) {
                 disabled={isUpdatingCustomer}
               >
                 {isUpdatingCustomer && (
-                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin text-white" />
                 )}
                 {isUpdatingCustomer ? 'Updating...' : 'Update Customer'}
               </button>
@@ -420,11 +701,11 @@ function CustomerDetailsPage({ onLogout }) {
       <div className="card mb-6">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-lg font-medium text-gray-800">Customer Entities</h3>
-          {customer.subscription_plan?.can_multi_entity && ( // Only show if multi-entity is allowed by plan
+          {customer.subscription_plan?.can_multi_entity && (
             <button
               onClick={() => {
                 setShowAddEditEntityForm(!showAddEditEntityForm);
-                if (!showAddEditEntityForm) { // If showing form, reset its data and clear editing state
+                if (!showAddEditEntityForm) {
                   setEditingEntityId(null);
                   setCurrentEntityFormData({
                     entity_name: '',
@@ -444,13 +725,11 @@ function CustomerDetailsPage({ onLogout }) {
               {showAddEditEntityForm ? 'Hide Form' : <><PlusCircle className="h-4 w-4 mr-2" /> Add New Entity</>}
             </button>
           )}
-          {/* Message for single-entity plans */}
           {!customer.subscription_plan?.can_multi_entity && (
             <p className="text-sm text-gray-500">Only one active entity allowed per plan.</p>
           )}
         </div>
 
-        {/* Add/Edit Entity Form */}
         {showAddEditEntityForm && (
           <form onSubmit={handleAddUpdateEntity} className="space-y-3 p-4 border border-blue-200 rounded-md bg-blue-50 mb-4">
             <h4 className="text-md font-semibold text-gray-700 mb-2">{editingEntityId ? `Edit Entity: ${currentEntityFormData.entity_name}` : 'Add New Entity'}</h4>
@@ -475,32 +754,10 @@ function CustomerDetailsPage({ onLogout }) {
                   id="code"
                   value={currentEntityFormData.code}
                   onChange={handleEntityFormChange}
+                  maxLength="4"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
                 />
               </div>
-              <div>
-                <label htmlFor="contact_person" className="block text-sm font-medium text-gray-700">Contact Person (Optional)</label>
-                <input
-                  type="text"
-                  name="contact_person"
-                  id="contact_person"
-                  value={currentEntityFormData.contact_person}
-                  onChange={handleEntityFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                />
-              </div>
-              <div>
-                <label htmlFor="contact_email" className="block text-sm font-medium text-gray-700">Contact Email (Optional)</label>
-                <input
-                  type="email"
-                  name="contact_email"
-                  id="contact_email"
-                  value={currentEntityFormData.contact_email}
-                  onChange={handleEntityFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                />
-              </div>
-              {/* New Fields */}
               <div>
                 <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address (Optional)</label>
                 <input
@@ -534,8 +791,29 @@ function CustomerDetailsPage({ onLogout }) {
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
                 />
               </div>
+              <div>
+                <label htmlFor="contact_person" className="block text-sm font-medium text-gray-700">Contact Person (Optional)</label>
+                <input
+                  type="text"
+                  name="contact_person"
+                  id="contact_person"
+                  value={currentEntityFormData.contact_person}
+                  onChange={handleEntityFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="contact_email" className="block text-sm font-medium text-gray-700">Contact Email (Optional)</label>
+                <input
+                  type="email"
+                  name="contact_email"
+                  id="contact_email"
+                  value={currentEntityFormData.contact_email}
+                  onChange={handleEntityFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                />
+              </div>
             </div>
-            {/* is_active checkbox */}
             <div className="flex items-center mt-2">
               <input
                 id="is_active"
@@ -684,10 +962,32 @@ function CustomerDetailsPage({ onLogout }) {
         )}
       </div>
 
-      {/* Customer Users Section (Read-only for System Owner) */}
+      {/* Customer Users Section (with actions) */}
       <div className="card">
-        <h3 className="text-lg font-medium text-gray-800 mb-3">Customer Users ({customer.users.length})</h3>
-        {customer.users.length === 0 ? (
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-lg font-medium text-gray-800">Customer Users ({users.length})</h3>
+          <button
+            onClick={() => {
+              setShowUserForm(!showUserForm);
+              setEditingUser(null);
+            }}
+            className="btn-secondary px-3 py-1.5 text-sm flex items-center"
+          >
+            {showUserForm ? 'Hide Form' : <><PlusCircle className="h-4 w-4 mr-2" /> Add New User</>}
+          </button>
+        </div>
+
+        {showUserForm && (
+          <UserForm 
+            customerId={id} 
+            userToEdit={editingUser}
+            onUserSaved={fetchCustomerDetails} 
+            onCancel={handleCancelUserForm} 
+            customerEntities={entities} 
+          />
+        )}
+        
+        {users.length === 0 && !showUserForm ? (
           <p className="text-gray-500 italic">No users found for this customer.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -701,20 +1001,23 @@ function CustomerDetailsPage({ onLogout }) {
                     Role
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Entity (if any)
+                    Entity Access
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {customer.users.map((user) => (
+                {users.map((user) => (
                   <tr key={user.id} className={user.is_deleted ? 'bg-gray-50 opacity-60' : ''}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{user.role}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.customer_entity ? user.customer_entity.entity_name : 'N/A'}
+                      {user.has_all_entity_access ? 'All Entities' : user.entities_with_access.map(e => e.entity_name).join(', ')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {user.is_deleted ? (
@@ -725,6 +1028,22 @@ function CustomerDetailsPage({ onLogout }) {
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                           Active
                         </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      {user.is_deleted ? (
+                        <button onClick={() => handleUserAction('restore', user.id, user.email)} className="text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-gray-100" title="Restore User">
+                          <RotateCcw className="h-5 w-5" />
+                        </button>
+                      ) : (
+                        <>
+                          <button onClick={() => handleEditUser(user)} className="text-indigo-600 hover:text-indigo-900 mr-3 p-1 rounded-md hover:bg-gray-100" title="Edit User">
+                            <Edit className="h-5 w-5" />
+                          </button>
+                          <button onClick={() => handleUserAction('delete', user.id, user.email)} className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-gray-100" title="Delete User">
+                            <Trash className="h-5 w-5" />
+                          </button>
+                        </>
                       )}
                     </td>
                   </tr>

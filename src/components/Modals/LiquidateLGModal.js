@@ -36,6 +36,7 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
         liquidationType: 'full',
         newAmount: '',
         reason: '',
+		notes: '',
     };
 
     const LiquidateLgSchema = Yup.object().shape({
@@ -69,6 +70,9 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
             const formData = new FormData();
             formData.append('liquidation_type', values.liquidationType);
             formData.append('reason', values.reason);
+	        if (values.notes) {
+				formData.append('notes', values.notes);
+			}
             if (values.liquidationType === 'partial' && values.newAmount) {
                 formData.append('new_amount', values.newAmount);
             }
@@ -120,8 +124,7 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                             leaveFrom="opacity-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
-                            <DialogPanel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                                <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
+<DialogPanel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl sm:p-6">                                <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
                                     <button
                                         type="button"
                                         className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -133,11 +136,11 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                                 </div>
                                 <div className="sm:flex sm:items-start">
                                     <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                                        <DialogTitle as="h3" className="text-xl font-semibold leading-6 text-gray-900 border-b pb-3 mb-4">
+                                        <DialogTitle as="h3" className="text-xl font-semibold leading-6 text-gray-900 border-b pb-3 mb-2">
                                             Liquidate LG: {lgRecord.lg_number}
                                         </DialogTitle>
                                         <div className="mt-2">
-                                            <p className="text-gray-600 mb-4">
+                                            <p className="text-gray-600 text-sm mb-2">
                                                 Choose full or partial liquidation for this LG. This action may require approval.
                                             </p>
                                             <Formik
@@ -200,14 +203,27 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                                                                 as="textarea"
                                                                 id="reason"
                                                                 name="reason"
-                                                                rows="3"
+                                                                rows="1"
                                                                 className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
                                                                 disabled={isGracePeriod}
                                                             />
                                                             <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
                                                         </div>
-                                                        
-                                                        <div className="border-t pt-4">
+                                                        <div className="mt-5">
+															<label htmlFor="notes" className="block text-sm font-medium text-gray-700">
+																Additional Notes (Optional)
+															</label>
+															<Field
+																as="textarea"
+																id="notes"
+																name="notes"
+																rows="3"
+																className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.notes && touched.notes ? 'border-red-500' : 'border-gray-300'}`}
+																disabled={isGracePeriod}
+															/>
+															<p className="mt-2 text-sm text-gray-500">Provide any additional free-text notes for this liquidation.</p>
+														</div>
+                                                        <div className="border-t pt-2">
                                                             <label htmlFor="supporting-document-file" className="block text-sm font-medium text-gray-700">
                                                                 Optional Supporting Document
                                                             </label>
@@ -258,7 +274,7 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                                                                 Cancel
                                                             </button>
                                                         </div>
-                                                    </Form>
+                                                   </Form>
                                                 )}
                                             </Formik>
                                         </div>
