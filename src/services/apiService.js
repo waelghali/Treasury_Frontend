@@ -95,6 +95,12 @@ export const apiRequest = async (url, method = 'GET', data = null, contentType =
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      // MODIFIED: Handle 403 specifically
+      if (response.status === 403) {
+        const forbiddenError = new Error(errorData.detail || 'Access to this resource is forbidden.');
+        forbiddenError.statusCode = 403;
+        throw forbiddenError;
+      }
       if (response.status === 401) {
         setAuthToken(null);
         window.location.href = '/login';

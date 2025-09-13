@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { setAuthToken, API_BASE_URL } from 'services/apiService';
-import { useNavigate, Link } from 'react-router-dom'; // MODIFIED: Import Link
+import { useNavigate, Link } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
 
 function LoginPage({ onLoginSuccess }) {
   const navigate = useNavigate();
@@ -40,7 +41,8 @@ function LoginPage({ onLoginSuccess }) {
       if (response.ok) {
         console.log("Login successful!", data);
         setAuthToken(data.access_token);
-        onLoginSuccess();
+        // NEW LOGIC: Pass the entire response data to onLoginSuccess
+        onLoginSuccess(data);
       } else {
         setError(data.detail || 'Login failed. Please try again.');
         console.error('Login error response:', data);
@@ -58,14 +60,12 @@ function LoginPage({ onLoginSuccess }) {
     <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-2xl p-8 space-y-6 border border-gray-200">
         <img
-  src="/growlogonocircle.png"
-  alt="Grow BD Logo"
-  className="mx-auto mb-4"
-  style={{ width: '400px', height: 'auto' }}
-/>
-
-		<div className="text-center">
-
+          src="/growlogonocircle.png"
+          alt="Grow BD Logo"
+          className="mx-auto mb-4"
+          style={{ width: '400px', height: 'auto' }}
+        />
+        <div className="text-center">
           <p className="text-gray-500">Access the Treasury Management Platform</p>
         </div>
 
@@ -128,7 +128,6 @@ function LoginPage({ onLoginSuccess }) {
         </form>
 
         <div className="text-center text-sm text-gray-600">
-          {/* MODIFIED: Use Link component for proper routing */}
           <Link to="/forgot-password" className="font-medium text-blue-600 hover:text-blue-500">
             Forgot your password?
           </Link>

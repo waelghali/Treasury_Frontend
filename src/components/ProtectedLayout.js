@@ -3,19 +3,15 @@ import { useLocation, Outlet } from 'react-router-dom';
 import SidebarLayout from './Layout/SidebarLayout';
 import CorporateAdminLayout from './Layout/CorporateAdminLayout';
 import EndUserLayout from './Layout/EndUserLayout';
+import ViewerLayout from './Layout/ViewerLayout'; // NEW: Import the new ViewerLayout
 import { fetchActiveSystemNotifications } from '../services/notificationService';
 
-function ProtectedLayout({ onLogout, customerName, subscriptionStatus, subscriptionEndDate }) { // Props from App.js
+function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, subscriptionStatus, subscriptionEndDate }) {
   const location = useLocation();
   const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [headerTitle, setHeaderTitle] = useState('');
   const [systemNotifications, setSystemNotifications] = useState([]);
   
-  // The userRole, userId, and customerName are now passed in directly as props
-  // from App.js. No need to decode the token again.
-  // We'll use location.pathname to infer the userRole for the initial state.
-  const userRole = location.pathname.split('/')[1];
-
   const getActiveState = (currentPath, role) => {
     let activeItem = null;
     let title = '';
@@ -24,8 +20,7 @@ function ProtectedLayout({ onLogout, customerName, subscriptionStatus, subscript
       return { activeItem, title };
     }
     
-    // Logic for System Owner menu items and headers
-    if (role === 'system-owner') {
+    if (role === 'system_owner') {
       if (currentPath.startsWith('/system-owner/dashboard')) { activeItem = 'dashboard'; title = 'Treasury Dashboard'; }
       else if (currentPath.startsWith('/system-owner/customers')) { activeItem = 'customer-management'; title = 'Customer Management'; }
       else if (currentPath.startsWith('/system-owner/subscription-plans')) { activeItem = 'subscription-plans'; title = 'Subscription Plans'; }
@@ -47,8 +42,7 @@ function ProtectedLayout({ onLogout, customerName, subscriptionStatus, subscript
       }
       else { activeItem = 'dashboard'; title = 'Treasury Dashboard'; }
     }
-    // Logic for Corporate Admin menu items and headers
-    else if (role === 'corporate-admin') {
+    else if (role === 'corporate_admin') {
       if (currentPath.startsWith('/corporate-admin/dashboard')) { activeItem = 'corporate-admin-dashboard'; title = 'Corporate Admin Dashboard'; }
       else if (currentPath.startsWith('/corporate-admin/action-center')) { activeItem = 'corporate-admin-action-center'; title = 'Action Center'; }
       else if (currentPath.startsWith('/corporate-admin/lg-categories/new')) { activeItem = 'corporate-admin-lg-categories'; title = 'Create LG Category'; }
@@ -67,12 +61,10 @@ function ProtectedLayout({ onLogout, customerName, subscriptionStatus, subscript
       else if (currentPath.startsWith('/corporate-admin/approval-requests')) { activeItem = 'corporate-admin-approval-requests'; title = 'Pending Approvals'; }
       else if (currentPath.startsWith('/corporate-admin/lg-records/')) { activeItem = 'corporate-admin-lg-records'; title = 'LG Record Details (Read-Only)'; }
       else if (currentPath.startsWith('/corporate-admin/lg-records')) { activeItem = 'corporate-admin-lg-records'; title = 'Manage LG Records (View)'; }
-      // NEW: Add logic for the Migration Hub
       else if (currentPath.startsWith('/corporate-admin/migration-hub')) { activeItem = 'corporate-admin-migration-hub'; title = 'Migration Hub'; }
       else { activeItem = 'corporate-admin-dashboard'; title = 'Corporate Admin Dashboard'; }
     }
-    // Logic for End User / Checker menu items and headers
-    else if (role === 'end-user' || role === 'checker') {
+    else if (['end_user', 'checker'].includes(role)) { // MODIFIED: 'viewer' is now separate
       if (currentPath.startsWith('/end-user/dashboard')) { activeItem = 'end-user-dashboard'; title = 'End User Dashboard'; }
       else if (currentPath.startsWith('/end-user/action-center')) { activeItem = 'end-user-action-center'; title = 'Action Center'; }
       else if (currentPath.startsWith('/end-user/lg-records/new')) { activeItem = 'end-user-record-new-lg'; title = 'Record New LG'; }
@@ -85,49 +77,47 @@ function ProtectedLayout({ onLogout, customerName, subscriptionStatus, subscript
         const reportPath = currentPath.split('/').pop();
         title = `Report: ${reportPath.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}`;
       }
-      else { activeItem = 'end-user-dashboard'; title = 'End User Dashboard'; }
+      else { activeItem = 'end-user-manage-lg-records'; title = 'Manage LG Records'; }
+    }
+    else if (role === 'viewer') { // NEW: Handle viewer role specifically
+      if (currentPath.startsWith('/end-user/lg-records/')) { activeItem = 'lg-records'; title = 'LG Record Details (Read-Only)'; }
+      else if (currentPath.startsWith('/end-user/lg-records')) { activeItem = 'lg-records'; title = 'LG Records (Read-Only)'; }
+      else { activeItem = 'lg-records'; title = 'LG Records (Read-Only)'; }
     }
     
     return { activeItem, title };
   };
 
   useEffect(() => {
-    // This hook now only sets the active menu item and header title.
     const { activeItem, title } = getActiveState(location.pathname, userRole);
     setActiveMenuItem(activeItem);
     setHeaderTitle(title);
   }, [location.pathname, userRole]);
 
   useEffect(() => {
-    // This hook is for fetching notifications, which is independent of auth state.
     const getNotifications = async () => {
-      // The old customerId state is not used anymore since we receive everything as a prop
-      // Let's assume you'll pass customerId as a prop too
-      // if (userRole && userRole !== 'system_owner' && customerId) {
-      if (userRole && userRole !== 'system-owner') {
+      if (userRole && userRole !== 'system_owner') {
         const notifications = await fetchActiveSystemNotifications();
         setSystemNotifications(notifications);
       } else {
         setSystemNotifications([]);
       }
     };
-
     getNotifications();
   }, [userRole]);
 
-  if (userRole === 'system-owner') {
+  if (userRole === 'system_owner') {
     return (
       <SidebarLayout 
         onLogout={onLogout} 
         activeMenuItem={activeMenuItem} 
         headerTitle={headerTitle}
-        userRole={userRole} // FIX: Pass the userRole prop
+        userRole={userRole}
       >
         <Outlet />
       </SidebarLayout>
     );
-  }
-   else if (userRole === 'corporate-admin') {
+  } else if (userRole === 'corporate_admin') {
     return (
       <CorporateAdminLayout
         onLogout={onLogout}
@@ -141,7 +131,7 @@ function ProtectedLayout({ onLogout, customerName, subscriptionStatus, subscript
         <Outlet />
       </CorporateAdminLayout>
     );
-  } else if (userRole === 'end-user' || userRole === 'checker') {
+  } else if (['end_user', 'checker'].includes(userRole)) { // MODIFIED: Handle only end-user and checker
     return (
       <EndUserLayout
         onLogout={onLogout}
@@ -151,9 +141,22 @@ function ProtectedLayout({ onLogout, customerName, subscriptionStatus, subscript
         systemNotifications={systemNotifications}
         subscriptionStatus={subscriptionStatus}
         subscriptionEndDate={subscriptionEndDate}
+        userPermissions={userPermissions}
       >
         <Outlet />
       </EndUserLayout>
+    );
+  } else if (userRole === 'viewer') { // NEW: Handle viewer role separately
+    return (
+      <ViewerLayout
+        onLogout={onLogout}
+        activeMenuItem={activeMenuItem}
+        customerName={customerName}
+        headerTitle={headerTitle}
+        systemNotifications={systemNotifications}
+      >
+        <Outlet />
+      </ViewerLayout>
     );
   } else {
     return (

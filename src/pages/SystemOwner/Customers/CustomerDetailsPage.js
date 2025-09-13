@@ -150,6 +150,7 @@ const UserForm = ({ customerId, userToEdit, onUserSaved, onCancel, customerEntit
             <option value="corporate_admin">Corporate Admin</option>
             <option value="end_user">End User</option>
             <option value="checker">Checker</option>
+            <option value="viewer">Viewer</option>
           </select>
         </div>
       </div>

@@ -213,6 +213,7 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
           >
             <option value="end_user">End User</option>
             <option value="checker">Checker</option>
+            <option value="viewer">Viewer</option>
           </select>
         </div>
 
