@@ -146,13 +146,13 @@ function PendingApprovalsPage({ isGracePeriod }) { // NEW: Accept isGracePeriod 
                             {approvalRequests.map((request) => (
                                 <tr key={request.id}>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        {request.lg_record?.lg_number ? <a href={`/end-user/lg-records/${request.lg_record_id}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{request.lg_record.lg_number}</a> : 'N/A'}
-                                    </td>
+										{request.lg_record?.lg_number ? <a href={`/corporate-admin/lg-records/${request.lg_record.id}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{request.lg_record.lg_number}</a> : 'N/A'}
+									</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatActionType(request.action_type)}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {request.maker_user?.email || 'N/A'}
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{moment(request.timestamp).format('DD-MMM-YYYY HH:mm')}</td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{moment(request.created_at).format('DD-MMM-YYYY HH:mm')}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm">
                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                             request.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :

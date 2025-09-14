@@ -1,10 +1,14 @@
 // frontend/src/components/Modals/ExtendLGModal.js
 import React, { useState, useEffect } from 'react';
 import moment from 'moment';
-import { apiRequest } from 'services/apiService.js';
-import { XCircle, Loader2, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
+import { apiRequest } from '../../services/apiService';
+import { Formik, Form, Field, ErrorMessage } from 'formik';
+import * as Yup from 'yup';
+import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
+import { X, Calendar, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
+// Reusable component for tooltip during grace period, as seen in the first modal
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     if (isGracePeriod) {
         return (
@@ -13,7 +17,7 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
                 <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
                     This action is disabled during your subscription's grace period.
                     <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
-                        <polygon className="fill-current" points="0,0 127.5,127.5 255,0"/>
+                        <polygon className="fill-current" points="0,0 127.5,127.5 255,0" />
                     </svg>
                 </div>
             </div>
@@ -22,293 +26,277 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-function ExtendLGModal({ lgRecord, onClose, onSuccess, isGracePeriod }) {
-    const [extensionMethod, setExtensionMethod] = useState('date');
-    const [specificNewExpiryDate, setSpecificNewExpiryDate] = useState('');
-    const [extensionMonths, setExtensionMonths] = useState('');
-    const [notes, setNotes] = useState(''); // NEW: State for notes
+const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [successMessage, setSuccessMessage] = useState('');
+const DISPLAY_DATE_FORMAT_MOMENT = 'DD-MMM-YYYY';
+const API_DATE_FORMAT = 'YYYY-MM-DD';
 
-    const DISPLAY_DATE_FORMAT_MOMENT = 'DD-MMM-YYYY';
-    const API_DATE_FORMAT = 'YYYY-MM-DD';
+const ExtendLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const initialValues = {
+        extensionMethod: 'date',
+        specificNewExpiryDate: '',
+        extensionMonths: '',
+        notes: '',
+    };
+
+    const ExtensionSchema = Yup.object().shape({
+        extensionMethod: Yup.string().oneOf(['date', 'months']).required('Extension method is required.'),
+        specificNewExpiryDate: Yup.string().when('extensionMethod', {
+            is: 'date',
+            then: (schema) => schema
+                .required('New Expiry Date is required.')
+                .test('is-after-current', 'New Expiry Date must be after the current one.', (value) => {
+                    const currentExpiry = moment(lgRecord.expiry_date);
+                    return moment(value, API_DATE_FORMAT).isAfter(currentExpiry, 'day');
+                }),
+            otherwise: (schema) => schema.nullable(),
+        }),
+        extensionMonths: Yup.number().when('extensionMethod', {
+            is: 'months',
+            then: (schema) => schema
+                .typeError('Number of months must be a number.')
+                .required('Number of months is required.')
+                .positive('Number of months must be a positive integer.'),
+            otherwise: (schema) => schema.nullable(),
+        }),
+        notes: Yup.string().nullable(),
+    });
 
     useEffect(() => {
-        if (lgRecord && lgRecord.expiry_date) {
-            const proposedDate = moment(lgRecord.expiry_date).add(lgRecord.lg_period_months, 'months');
-            const minValidDate = moment(lgRecord.expiry_date).add(1, 'day');
-            
-            const finalProposedDate = proposedDate.isAfter(minValidDate) ? proposedDate : minValidDate;
-            setSpecificNewExpiryDate(finalProposedDate.format(API_DATE_FORMAT));
+        // Set initial specificNewExpiryDate based on a reasonable default
+        const proposedDate = moment(lgRecord.expiry_date).add(1, 'day');
+        initialValues.specificNewExpiryDate = proposedDate.format(API_DATE_FORMAT);
 
-            if (lgRecord.lg_period_months) {
-                setExtensionMonths(lgRecord.lg_period_months);
-            }
+        // Set initial extensionMonths to lg_period_months if available
+        if (lgRecord.lg_period_months) {
+            initialValues.extensionMonths = lgRecord.lg_period_months;
         }
     }, [lgRecord]);
 
-    const handleMethodChange = (e) => {
-        if (isGracePeriod) return;
-        setExtensionMethod(e.target.value);
-        setError('');
-    };
-
-    const handleExtensionMonthsChange = (e) => {
-        if (isGracePeriod) return;
-        const value = e.target.value;
-        if (value === '' || /^[1-9]\d*$/.test(value)) {
-            setExtensionMonths(value);
-        }
-    };
-    
-    // NEW: Handler for notes input change
-    const handleNotesChange = (e) => {
-        if (isGracePeriod) return;
-        setNotes(e.target.value);
-    };
-
-    const formatAmount = (amount, currencySymbol) => {
-        if (amount === null || currencySymbol === null || currencySymbol === undefined || isNaN(parseFloat(amount))) {
-            return 'N/A';
-        }
-        try {
-            const num = parseFloat(amount);
-            const formattedNumber = num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
-            return `${currencySymbol} ${formattedNumber}`;
-        } catch (e) {
-            console.error("Error formatting currency:", e);
-            return `${currencySymbol} ${parseFloat(amount).toFixed(2)}`;
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async (values, { setErrors }) => {
         if (isGracePeriod) {
             toast.warn("This action is disabled during your subscription's grace period.");
             return;
         }
-        setError('');
-        setSuccessMessage('');
-        setIsLoading(true);
+
+        setIsSubmitting(true);
 
         let finalNewExpiryDateMoment = null;
 
-        if (extensionMethod === 'date') {
-            const newDate = specificNewExpiryDate;
-            if (!newDate) {
-                setError('New Expiry Date is required.');
-                setIsLoading(false);
-                return;
-            }
-            finalNewExpiryDateMoment = moment(newDate, API_DATE_FORMAT);
+        if (values.extensionMethod === 'date') {
+            finalNewExpiryDateMoment = moment(values.specificNewExpiryDate, API_DATE_FORMAT);
         } else {
-            const months = parseInt(extensionMonths, 10);
-            if (isNaN(months) || months <= 0) {
-                setError('Number of extension months must be a positive integer.');
-                setIsLoading(false);
-                return;
-            }
+            const months = parseInt(values.extensionMonths, 10);
             finalNewExpiryDateMoment = moment(lgRecord.expiry_date).add(months, 'months');
         }
 
-        const currentExpiryDateActual = moment(lgRecord.expiry_date);
-        if (finalNewExpiryDateMoment.isSameOrBefore(currentExpiryDateActual, 'day')) {
-            setError('New Expiry Date must be after the current Expiry Date.');
-            setIsLoading(false);
-            return;
-        }
-
         try {
-            // NEW: Include notes in the payload
-            const payload = { 
+            const payload = {
                 new_expiry_date: finalNewExpiryDateMoment.format(API_DATE_FORMAT),
-                notes: notes || null,
+                notes: values.notes || null,
             };
 
-            const response = await apiRequest(
-                `/end-user/lg-records/${lgRecord.id}/extend`,
-                'POST',
-                payload
-            );
-            setSuccessMessage(`LG Record ${response.lg_record.lg_number} successfully extended to ${moment(response.lg_record.expiry_date).format(DISPLAY_DATE_FORMAT_MOMENT)}.`);
+            const response = await apiRequest(`/end-user/lg-records/${lgRecord.id}/extend`, 'POST', payload);
 
+            toast.success(`LG Record ${response.lg_record.lg_number} successfully extended to ${moment(response.lg_record.expiry_date).format(DISPLAY_DATE_FORMAT_MOMENT)}.`);
             onSuccess(response.lg_record, response.latest_instruction_id);
             onClose();
-            
-        } catch (err) {
-            console.error('Failed to extend LG:', err);
-            const errorMessage = err.detail || err.message || 'An unexpected error occurred.';
-            setError(`Failed to extend LG. ${errorMessage}`);
+
+        } catch (error) {
+            console.error('Failed to extend LG:', error);
+            const errorMessage = error.message || 'An unexpected error occurred.';
+            toast.error(`Failed to extend LG: ${errorMessage}`);
+            setErrors({ general: errorMessage });
         } finally {
-            setIsLoading(false);
+            setIsSubmitting(false);
         }
     };
 
-  return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 relative">
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100 transition-colors"
-          title="Close"
-        >
-          <XCircle className="h-6 w-6" />
-        </button>
+    return (
+        <Transition show={true} as={React.Fragment}>
+            <Dialog as="div" className="relative z-10" onClose={onClose}>
+                <TransitionChild
+                    as={React.Fragment}
+                    enter="ease-out duration-300"
+                    enterFrom="opacity-0"
+                    enterTo="opacity-100"
+                    leave="ease-in duration-200"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                >
+                    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+                </TransitionChild>
 
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4">Extend Letter of Guarantee</h2>
-        <p className="text-gray-600 mb-6">
-          Extend the expiry date for LG Number: <span className="font-medium text-gray-900">{lgRecord.lg_number}</span>
-        </p>
-        <p className="text-gray-600 mb-6">
-          LG Amount: <span className="font-medium text-gray-900">{formatAmount(lgRecord.lg_amount, lgRecord.lg_currency.symbol)}</span>
-        </p>
+                <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
+                    <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                        <TransitionChild
+                            as={React.Fragment}
+                            enter="ease-out duration-300"
+                            enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                            enterTo="opacity-100 translate-y-0 sm:scale-100"
+                            leave="ease-in duration-200"
+                            leaveFrom="opacity-100"
+                            leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                        >
+                            <DialogPanel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-xl sm:p-6">
+                                <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
+                                    <button
+                                        type="button"
+                                        className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                        onClick={onClose}
+                                    >
+                                        <span className="sr-only">Close</span>
+                                        <X className="h-6 w-6" aria-hidden="true" />
+                                    </button>
+                                </div>
+                                <div className="sm:flex sm:items-start">
+                                    <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
+                                        <DialogTitle as="h3" className="text-xl font-semibold leading-6 text-gray-900 border-b pb-3 mb-4">
+                                            Extend Letter of Guarantee: {lgRecord.lg_number}
+                                        </DialogTitle>
+                                        <div className="mt-2">
+                                            <p className="text-gray-600 mb-4">
+                                                Extend the expiry date for this LG.
+                                            </p>
+                                            <Formik
+                                                initialValues={initialValues}
+                                                validationSchema={ExtensionSchema}
+                                                onSubmit={handleSubmit}
+                                            >
+                                                {({ errors, touched, values }) => (
+                                                    <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
+                                                        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
+                                                            Current Expiry Date: <strong>{moment(lgRecord.expiry_date).format(DISPLAY_DATE_FORMAT_MOMENT)}</strong> | Current LG Amount: <strong>{Number(lgRecord.lg_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {lgRecord.lg_currency?.iso_code}</strong>
+                                                        </div>
 
-        <div className="mb-4">
-          <label htmlFor="currentExpiryDate" className="block text-sm font-medium text-gray-700 mb-1">
-            Current Expiry Date
-          </label>
-          <div className="mt-1 flex items-center border border-gray-300 rounded-md shadow-sm p-2 bg-gray-50 text-gray-700">
-            <Calendar className="h-5 w-5 text-gray-400 mr-2" />
-            <span>{moment(lgRecord.expiry_date).format(DISPLAY_DATE_FORMAT_MOMENT)}</span>
-          </div>
-        </div>
+                                                        <div className="mb-6">
+                                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                                Extension Method <span className="text-red-500">*</span>
+                                                            </label>
+                                                            <div className="flex items-center space-x-4">
+                                                                <label className="inline-flex items-center">
+                                                                    <Field
+                                                                        type="radio"
+                                                                        className="form-radio text-blue-600"
+                                                                        name="extensionMethod"
+                                                                        value="date"
+                                                                        disabled={isGracePeriod || isSubmitting}
+                                                                    />
+                                                                    <span className="ml-2 text-gray-700">Select Specific Date</span>
+                                                                </label>
+                                                                <label className="inline-flex items-center">
+                                                                    <Field
+                                                                        type="radio"
+                                                                        className="form-radio text-blue-600"
+                                                                        name="extensionMethod"
+                                                                        value="months"
+                                                                        disabled={isGracePeriod || isSubmitting}
+                                                                    />
+                                                                    <span className="ml-2 text-gray-700">Extend by Months</span>
+                                                                </label>
+                                                            </div>
+                                                            <ErrorMessage name="extensionMethod" component="div" className="text-red-600 text-xs mt-1" />
+                                                        </div>
 
-        <form onSubmit={handleSubmit} className={isGracePeriod ? 'opacity-50' : ''}>
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Extension Method <span className="text-red-500">*</span>
-            </label>
-            <div className="flex items-center space-x-4">
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  className="form-radio text-blue-600"
-                  name="extensionMethod"
-                  value="date"
-                  checked={extensionMethod === 'date'}
-                  onChange={handleMethodChange}
-                  disabled={isGracePeriod}
-                />
-                <span className="ml-2 text-gray-700">Select Specific Date</span>
-              </label>
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  className="form-radio text-blue-600"
-                  name="extensionMethod"
-                  value="months"
-                  checked={extensionMethod === 'months'}
-                  onChange={handleMethodChange}
-                  disabled={isGracePeriod}
-                />
-                <span className="ml-2 text-gray-700">Extend by Months</span>
-              </label>
-            </div>
-          </div>
+                                                        {values.extensionMethod === 'date' && (
+                                                            <div className="mb-6">
+                                                                <label htmlFor="specificNewExpiryDate" className="block text-sm font-medium text-gray-700 mb-1">
+                                                                    New Expiry Date <span className="text-red-500">*</span>
+                                                                </label>
+                                                                <Field
+                                                                    type="date"
+                                                                    id="specificNewExpiryDate"
+                                                                    name="specificNewExpiryDate"
+                                                                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none ${errors.specificNewExpiryDate && touched.specificNewExpiryDate ? 'border-red-500' : 'border-gray-300'}`}
+                                                                    min={moment(lgRecord.expiry_date).add(1, 'day').format(API_DATE_FORMAT)}
+                                                                    disabled={isGracePeriod || isSubmitting}
+                                                                />
+                                                                <ErrorMessage name="specificNewExpiryDate" component="div" className="text-red-600 text-xs mt-1" />
+                                                            </div>
+                                                        )}
 
-          {extensionMethod === 'date' && (
-            <div className="mb-6">
-              <label htmlFor="specificNewExpiryDate" className="block text-sm font-medium text-gray-700 mb-1">
-                New Expiry Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                id="specificNewExpiryDate"
-                name="specificNewExpiryDate"
-                value={specificNewExpiryDate}
-                onChange={(e) => setSpecificNewExpiryDate(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                required
-                min={moment(lgRecord.expiry_date).add(1, 'day').format(API_DATE_FORMAT)}
-                disabled={isGracePeriod}
-              />
-            </div>
-          )}
+                                                        {values.extensionMethod === 'months' && (
+                                                            <div className="mb-6">
+                                                                <label htmlFor="extensionMonths" className="block text-sm font-medium text-gray-700 mb-1">
+                                                                    Number of Months to Extend <span className="text-red-500">*</span>
+                                                                </label>
+                                                                <Field
+                                                                    type="number"
+                                                                    id="extensionMonths"
+                                                                    name="extensionMonths"
+                                                                    placeholder="e.g., 3, 6, 12"
+                                                                    min="1"
+                                                                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none ${errors.extensionMonths && touched.extensionMonths ? 'border-red-500' : 'border-gray-300'}`}
+                                                                    disabled={isGracePeriod || isSubmitting}
+                                                                />
+                                                                <ErrorMessage name="extensionMonths" component="div" className="text-red-600 text-xs mt-1" />
+                                                                {values.extensionMonths && parseInt(values.extensionMonths, 10) > 0 && (
+                                                                    <p className="mt-2 text-sm text-gray-500">
+                                                                        New Expiry Date will be approximately:{' '}
+                                                                        <span className="font-medium">
+                                                                            {moment(lgRecord.expiry_date).add(parseInt(values.extensionMonths, 10), 'months').format(DISPLAY_DATE_FORMAT_MOMENT)}
+                                                                        </span>
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        )}
 
-          {extensionMethod === 'months' && (
-            <div className="mb-6">
-              <label htmlFor="extensionMonths" className="block text-sm font-medium text-gray-700 mb-1">
-                Number of Months to Extend <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                id="extensionMonths"
-                name="extensionMonths"
-                value={extensionMonths}
-                onChange={handleExtensionMonthsChange}
-                placeholder="e.g., 3, 6, 12"
-                min="1"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                required
-                disabled={isGracePeriod}
-              />
-              {extensionMonths && parseInt(extensionMonths, 10) > 0 && (
-                <p className="mt-2 text-sm text-gray-500">
-                  New Expiry Date will be approximately:{' '}
-                  <span className="font-medium">
-                    {moment(lgRecord.expiry_date).add(parseInt(extensionMonths, 10), 'months').format(DISPLAY_DATE_FORMAT_MOMENT)}
-                  </span>
-                </p>
-              )}
-            </div>
-          )}
-          
-          <div className="mb-6">
-            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-                Additional Notes (Optional)
-            </label>
-            <textarea
-                id="notes"
-                name="notes"
-                value={notes}
-                onChange={handleNotesChange}
-                rows="3"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                disabled={isGracePeriod}
-            />
-          </div>
+                                                        <div className="mb-6">
+                                                            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+                                                                Additional Notes (Optional)
+                                                            </label>
+                                                            <Field
+                                                                as="textarea"
+                                                                id="notes"
+                                                                name="notes"
+                                                                rows="3"
+                                                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                                                disabled={isGracePeriod || isSubmitting}
+                                                            />
+                                                        </div>
 
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
-              <AlertCircle className="h-5 w-5 mr-2" />
-              <span className="block sm:inline">{error}</span>
-            </div>
-          )}
+                                                        {errors.general && (
+                                                            <div className="text-red-600 text-sm mt-2">
+                                                                <AlertCircle className="inline h-4 w-4 mr-1" />
+                                                                {errors.general}
+                                                            </div>
+                                                        )}
 
-          {successMessage && (
-            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
-              <CheckCircle className="h-5 w-5 mr-2" />
-              <span className="block sm:inline">{successMessage}</span>
-            </div>
-          )}
-
-          <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className={`w-full justify-center px-4 py-2 text-sm font-medium rounded-md text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''} sm:col-start-1`}
-              disabled={isLoading}
-            >
-              Cancel
-            </button>
-            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-              <button
-                type="submit"
-                className={`w-full justify-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 flex items-center justify-center ${isLoading || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''} sm:col-start-2`}
-                disabled={isLoading || isGracePeriod}
-              >
-                {isLoading && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
-                Extend LG
-              </button>
-            </GracePeriodTooltip>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
+                                                        <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
+                                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                                <button
+                                                                    type="submit"
+                                                                    className={`${buttonBaseClassNames} sm:col-start-2 bg-blue-600 text-white hover:bg-blue-700 ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    disabled={isSubmitting || isGracePeriod}
+                                                                >
+                                                                    {isSubmitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Calendar className="h-5 w-5 mr-2" />}
+                                                                    {isSubmitting ? 'Processing...' : 'Extend LG'}
+                                                                </button>
+                                                            </GracePeriodTooltip>
+                                                            <button
+                                                                type="button"
+                                                                className={`${buttonBaseClassNames} sm:col-start-1 bg-gray-200 text-gray-700 hover:bg-gray-300`}
+                                                                onClick={onClose}
+                                                                disabled={isSubmitting}
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    </Form>
+                                                )}
+                                            </Formik>
+                                        </div>
+                                    </div>
+                                </div>
+                            </DialogPanel>
+                        </TransitionChild>
+                    </div>
+                </div>
+            </Dialog>
+        </Transition>
+    );
+};
 
 export default ExtendLGModal;

@@ -116,7 +116,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                             leaveFrom="opacity-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
-                            <DialogPanel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+                            <DialogPanel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-xl sm:p-6">
                                 <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
                                     <button
                                         type="button"
@@ -144,12 +144,12 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                                                 {({ errors, touched, values }) => (
                                                     <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
                                                         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
-                                                            Current LG Amount: <strong>{lgRecord.lg_amount} {lgRecord.lg_currency?.iso_code}</strong> | Status: <strong>{lgRecord.lg_status?.name}</strong>
+															Current LG Amount: <strong>{Number(lgRecord.lg_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {lgRecord.lg_currency?.iso_code}</strong> | Status: <strong>{lgRecord.lg_status?.name}</strong>
                                                         </div>
 
                                                         <div>
                                                             <label htmlFor="decreaseAmount" className="block text-sm font-medium text-gray-700">
-                                                                Amount to Decrease ({lgRecord.lg_currency?.iso_code})
+                                                                Amount to be Decreased ({lgRecord.lg_currency?.iso_code})
                                                             </label>
                                                             <Field
                                                                 type="number"
@@ -170,7 +170,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                                                                 as="textarea"
                                                                 id="reason"
                                                                 name="reason"
-                                                                rows="3"
+                                                                rows="1"
                                                                 className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
                                                                 disabled={isGracePeriod || isSubmitting}
                                                             />
@@ -186,7 +186,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                                                                 as="textarea"
                                                                 id="notes"
                                                                 name="notes"
-                                                                rows="3"
+                                                                rows="2	"
                                                                 className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300"
                                                                 disabled={isGracePeriod || isSubmitting}
                                                             />

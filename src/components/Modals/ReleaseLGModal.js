@@ -111,7 +111,7 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                             leaveFrom="opacity-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
-                            <DialogPanel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+                            <DialogPanel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl sm:p-6">
                                 <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
                                     <button
                                         type="button"
@@ -128,7 +128,7 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                                             Release LG: {lgRecord.lg_number}
                                         </DialogTitle>
                                         <div className="mt-2">
-                                            <p className="text-gray-600 mb-4">
+                                            <p className="text-gray-600 mb-2 text-sm">
                                                 Confirm release of this LG. This action will change the LG status to "Released" and may require approval.
                                             </p>
                                             <Formik
@@ -138,26 +138,23 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                                             >
                                                 {({ errors, touched }) => (
                                                     <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
-                                                        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
-                                                            Current LG Amount: <strong>{lgRecord.lg_amount} {lgRecord.lg_currency?.iso_code}</strong> | Status: <strong>{lgRecord.lg_status?.name}</strong>
+                                                        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm ">
+                                                            Current LG Amount: <strong>{Number(lgRecord.lg_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {lgRecord.lg_currency?.iso_code}</strong> | Status: <strong>{lgRecord.lg_status?.name}</strong>
                                                         </div>
-
                                                         <div>
-                                                            <label htmlFor="reason" className="block text-sm font-medium text-gray-700">
+                                                            <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-2">
                                                                 Reason for Release
                                                             </label>
                                                             <Field
                                                                 as="textarea"
                                                                 id="reason"
                                                                 name="reason"
-                                                                rows="3"
+                                                                rows="1"
                                                                 className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
                                                                 disabled={isGracePeriod}
                                                             />
                                                             <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
                                                         </div>
-                                                        
-                                                        {/* NEW: Additional Notes field */}
                                                         <div>
                                                             <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
                                                                 Additional Notes (Optional)
@@ -166,12 +163,11 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                                                                 as="textarea"
                                                                 id="notes"
                                                                 name="notes"
-                                                                rows="3"
+                                                                rows="2"
                                                                 className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300"
                                                                 disabled={isGracePeriod}
                                                             />
                                                         </div>
-
                                                         <div className="border-t pt-4">
                                                             <label htmlFor="supporting-document-file" className="block text-sm font-medium text-gray-700">
                                                                 Optional Supporting Document
@@ -203,7 +199,7 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                                                                 type="number"
                                                                 id="totalDocumentsCount"
                                                                 name="totalDocumentsCount"
-                                                                className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 bg-gray-100 cursor-not-allowed"
+                                                                className="mt-1 block w-full px-3 py-1 rounded-md border border-gray-300 bg-gray-100 cursor-not-allowed"
                                                                 disabled
                                                             />
                                                         </div>
@@ -213,7 +209,7 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                                                                 type="number"
                                                                 id="pendingRepliesCount"
                                                                 name="pendingRepliesCount"
-                                                                className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 bg-gray-100 cursor-not-allowed"
+                                                                className="mt-1 block w-full px-3 py-1 rounded-md border border-gray-300 bg-gray-100 cursor-not-allowed"
                                                                 disabled
                                                             />
                                                         </div>
