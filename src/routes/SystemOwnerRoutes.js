@@ -1,3 +1,5 @@
+// frontend/src/routes/SystemOwnerRoutes.js
+
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 
@@ -8,6 +10,7 @@ import SubscriptionPlanForm from 'pages/SystemOwner/SubscriptionPlans/Subscripti
 import CustomerList from 'pages/SystemOwner/Customers/CustomerList';
 import CustomerOnboardingForm from 'pages/SystemOwner/Customers/CustomerOnboardingForm';
 import CustomerDetailsPage from 'pages/SystemOwner/Customers/CustomerDetailsPage';
+import TrialRegistrationList from 'pages/SystemOwner/Customers/TrialRegistrationList.js'; // NEW IMPORT
 import GlobalConfigurationList from 'pages/SystemOwner/GlobalConfigurations/GlobalConfigurationList';
 import GlobalConfigurationForm from 'pages/SystemOwner/GlobalConfigurations/GlobalConfigurationForm';
 import CommonListManagementPage from 'pages/SystemOwner/GlobalConfigurations/CommonListManagementPage';
@@ -56,6 +59,8 @@ function SystemOwnerRoutes({ onLogout }) {
       <Route path="customers" element={<CustomerList onLogout={onLogout} />} />
       <Route path="customers/onboard" element={<CustomerOnboardingForm onLogout={onLogout} />} />
       <Route path="customers/:id/details" element={<CustomerDetailsPage onLogout={onLogout} />} />
+      {/* NEW ROUTE: Trial Registrations List */}
+      <Route path="customers/trial-registrations" element={<TrialRegistrationList onLogout={onLogout} />} />
 
       {/* Global Configurations */}
       <Route path="global-configurations" element={<GlobalConfigurationList onLogout={onLogout} />} />

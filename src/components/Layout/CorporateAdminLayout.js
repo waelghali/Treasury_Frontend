@@ -1,7 +1,7 @@
 // src/components/Layout/CorporateAdminLayout.js
 import React from 'react';
 import { Link, Outlet } from 'react-router-dom';
-import { Home, Users, FolderKanban, LogOut, Settings, FileText, BarChart, Hourglass, ListTodo, ClipboardList, DatabaseZap } from 'lucide-react'; // NEW: Import DatabaseZap for migration icon
+import { Home, Users, FolderKanban, LogOut, Settings, FileText, BarChart, Hourglass, ListTodo, ClipboardList, DatabaseZap } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner';
 
@@ -12,20 +12,21 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       <aside className="w-72 bg-white shadow-lg border-r border-gray-200 flex flex-col flex-shrink-0">
-        <div className="py-4 px-6 border-b border-gray-200">
-        <div className="flex items-center justify-center space-x-2">
-		  <img
-			src="/growlogonleaf.png"
-			alt="Grow BD Logo"
-			style={{ width: '80px', height: 'auto' }}
-		  />
-		  <h1 className="text-xl font-bold text-gray-800">Treasury Platform</h1>
-		</div>          
-
+        {/* Header Section: Logo and title */}
+        <div className="py-4 px-6 border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center justify-center space-x-2">
+            <img
+              src="/growlogonleaf.png"
+              alt="Grow BD Logo"
+              style={{ width: '80px', height: 'auto' }}
+            />
+            <h1 className="text-xl font-bold text-gray-800">Treasury Platform</h1>
+          </div>
           <p className="text-sm text-gray-500">Corporate Edition</p>
         </div>
 
-        <nav className="flex-grow p-4 space-y-2">
+        {/* Navigation Section: This section will scroll */}
+        <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
           <Link
             to="/corporate-admin/dashboard"
             className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
@@ -116,7 +117,7 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
             Audit Log
           </Link>
 
-          {/* NEW: Navigation link for the migration hub */}
+          {/* Navigation link for the migration hub */}
           <Link
             to="/corporate-admin/migration-hub"
             className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
@@ -128,6 +129,7 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
           </Link>
         </nav>
 
+        {/* User Info and Sign Out Section: This section will be fixed at the bottom */}
         <div className="p-4 border-t border-gray-200 flex-shrink-0">
           <div className="flex items-center mb-1">
             <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white text-sm font-semibold">
@@ -148,6 +150,7 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
         </div>
       </aside>
 
+      {/* Main Content Area */}
       <main className="flex-1 p-8 overflow-y-auto">
         <header className="flex justify-between items-center pb-6 border-b border-gray-200 mb-4">
           <h1 className="text-2xl font-semibold text-gray-800">

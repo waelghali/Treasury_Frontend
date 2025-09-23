@@ -8,6 +8,7 @@ import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/Auth/ResetPasswordPage';
 import LandingPage from './pages/LandingPage';
 import KnowMorePage from './pages/KnowMorePage';
+import FreeTrialRegistration from './pages/Public/FreeTrialRegistration'; // NEW IMPORT
 
 import RenewalPage from './pages/RenewalPage'; 
 
@@ -39,7 +40,6 @@ function AppContent() {
   const [subscriptionEndDate, setSubscriptionEndDate] = useState(null);
   const [userPermissions, setUserPermissions] = useState([]);
 
-  // 🐛 FIX: This state variable explicitly controls when the modal is shown.
   const [showLegalModal, setShowLegalModal] = useState(false);
 
   const navigate = useNavigate();
@@ -89,7 +89,6 @@ function AppContent() {
       stopInactivityTracker();
     }
     
-    // 🐛 FIX: Check if the modal should be shown on initial load
     if (state.isAuthenticated && state.mustAcceptPolicies) {
         setShowLegalModal(true);
     }
@@ -125,7 +124,6 @@ function AppContent() {
       subscriptionStatus: updatedSubscriptionStatus 
     } = decodeTokenAndSetState(response.access_token);
 
-    // 🐛 FIX: Instead of navigating to a new route, just set the state to show the modal.
     if (updatedMustAcceptPolicies) {
         setShowLegalModal(true);
     } else if (!updatedIsAuthenticated) {
@@ -149,7 +147,6 @@ function AppContent() {
       subscriptionStatus: updatedSubscriptionStatus 
     } = decodeTokenAndSetState(token);
     
-    // 🐛 FIX: Hide the modal after successful acceptance, then proceed with normal navigation.
     setShowLegalModal(false);
 
     if (updatedMustChangePassword) {
@@ -186,9 +183,6 @@ function AppContent() {
     return "/login";
   };
   
-  // 🐛 FIX: The `renderAppRoutes` function is now much cleaner.
-  // The `Routes` component is always rendered.
-  // The `LegalArtifactModal` is rendered conditionally on top of everything else.
   const renderAppRoutes = () => {
     if (isLoading) {
       return (
@@ -204,6 +198,7 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/know-more" element={<KnowMorePage />} />
+          <Route path="/free-trial-register" element={<FreeTrialRegistration />} />
           <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />

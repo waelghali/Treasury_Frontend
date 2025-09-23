@@ -201,6 +201,7 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
 						<h4 className="font-semibold text-blue-800 mb-2">Decrease Amount Request Details:</h4>
 						<p><strong>Amount to Decrease:</strong> {formatAmount(details.decrease_amount, request.lg_record?.lg_currency?.iso_code)}</p>
 						<p><strong>Reason:</strong> {details.reason || 'No reason provided'}</p>
+						<p><strong>Additional Notes:</strong> {details.notes || 'No notes provided'}</p>
 						{/* FIX: Add conditional rendering for the supporting document */}
 						{details.supporting_document_id && (
 							<p className="mt-2">
@@ -224,6 +225,7 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
 							<p><strong>New Amount (for partial):</strong> {formatAmount(details.new_amount, request.lg_record?.lg_currency?.iso_code)}</p>
 						)}
 						<p><strong>Reason:</strong> {details.reason || 'No reason provided'}</p>
+						<p><strong>Additional Notes:</strong> {details.notes || 'No notes provided'}</p>
 						{/* FIX: Add conditional rendering for the supporting document */}
 						{details.supporting_document_id && (
 							<p className="mt-2">
@@ -243,6 +245,7 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
 					<div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
 						<h4 className="font-semibold text-blue-800 mb-2">LG Release Request Details:</h4>
 						<p><strong>Reason:</strong> {details.reason || 'No reason provided'}</p>
+						<p><strong>Additional Notes:</strong> {details.notes || 'No notes provided'}</p>
 						{/* FIX: Add conditional rendering for the supporting document */}
 						{details.supporting_document_id && (
 							<p className="mt-2">
@@ -303,6 +306,7 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                         <p><strong>Payment Reference:</strong> {details.payment_reference || 'N/A'}</p>
                         <p><strong>Issuing Bank ID:</strong> {details.issuing_bank_id || 'N/A'}</p>
                         <p><strong>Payment Date:</strong> {formatDate(details.payment_date) || 'N/A'}</p>
+						<p><strong>Additional Notes:</strong> {details.notes || 'No notes provided'}</p>
                         {/* FIX: Add conditional rendering for the supporting document */}
                         {details.supporting_document_id && (
                             <p className="mt-2">

@@ -16,19 +16,19 @@ function KnowMorePage() {
           <nav className="flex items-center space-x-4">
             <Link 
               to="/" 
-              className="px-4 py-2 text-sm font-medium text-blue-600 border border-transparent rounded-md hover:bg-blue-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
             >
               Home
             </Link>
-            <Link 
-              to="/login" 
+            <Link
+              to="/free-trial-register"
               className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
             >
-              Login
+              Start Free Trial
             </Link>
             <Link
               to="/#demo-form"
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors shadow-md"
+              className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
             >
               Book a Demo
             </Link>
@@ -39,6 +39,12 @@ function KnowMorePage() {
             >
               Download Brochure
             </a>
+            <Link 
+              to="/login" 
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors shadow-md"
+            >
+              Login
+            </Link>
           </nav>
         </div>
       </header>
@@ -54,12 +60,20 @@ function KnowMorePage() {
             <h2 className="text-xl sm:text-2xl text-gray-600 max-w-3xl mx-auto mb-8">
               A powerful custody and treasury management system, crafted to prevent risks, simplify operations, and help businesses grow.
             </h2>
-            <Link
-              to="/#demo-form"
-              className="px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-lg transform hover:scale-105"
-            >
-              Request a Demo
-            </Link>
+            <div className="flex justify-center space-x-4">
+              <Link
+                to="/free-trial-register"
+                className="px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-lg transform hover:scale-105"
+              >
+                Start Free Trial
+              </Link>
+              <Link
+                to="/#demo-form"
+                className="px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-lg transform hover:scale-105"
+              >
+                Request a Demo
+              </Link>
+            </div>
           </div>
         </section>
 
@@ -216,6 +230,7 @@ function KnowMorePage() {
             <p className="text-xl mb-8">
               LG management can be simple, secure, and smart. See for yourself how a system built by treasurers can transform your operations and empower your growth.
             </p>
+
             <Link
               to="/#demo-form"
               className="px-8 py-3 text-lg font-bold text-blue-600 bg-white rounded-lg hover:bg-gray-100 transition-colors shadow-lg"

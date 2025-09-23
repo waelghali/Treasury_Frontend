@@ -1,7 +1,7 @@
 // src/components/SidebarLayout.js
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Home, Users, Briefcase, Settings, FileText, BarChart, LogOut, DollarSign, List, Gavel, File, HardDrive, LayoutDashboard, Clock, BookOpen } from 'lucide-react';
+import { Home, Users, Briefcase, Settings, FileText, BarChart, LogOut, DollarSign, List, Gavel, File, HardDrive, LayoutDashboard, Clock, BookOpen, UserPlus } from 'lucide-react'; // NEW IMPORT: UserPlus
 
 function SidebarLayout({ onLogout, headerTitle }) {
   const [showGlobalConfigSubMenu, setShowGlobalConfigSubMenu] = useState(false);
@@ -51,16 +51,29 @@ function SidebarLayout({ onLogout, headerTitle }) {
             <Briefcase className="h-5 w-5 mr-3" />
             Subscription Plans
           </Link>
-
+          
+          {/* Main Customer Management Link */}
           <Link
             to="/system-owner/customers"
             className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${
-              isLinkActive('/system-owner/customers') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
+              isLinkActive('/system-owner/customers') && !isLinkActive('/system-owner/customers/trial-registrations') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
             <Users className="h-5 w-5 mr-3" />
             Customer Management
           </Link>
+
+          {/* NEW: Trial Registrations Sub-Link */}
+          <Link
+            to="/system-owner/customers/trial-registrations"
+            className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ml-6 ${
+              isLinkActive('/system-owner/customers/trial-registrations') ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Trial Registrations
+          </Link>
+
           <Link
             to="/system-owner/system-notifications"
             className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${

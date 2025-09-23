@@ -331,9 +331,11 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     const filteredRecords = lgRecords.filter(record => {
       const matchesSearchTerm = (
         record.lg_number.toLowerCase().includes(lowerCaseSearchTerm) ||
-        (record.issuer_name || '').toLowerCase().includes(lowerCaseSearchTerm) || // NEW: Add issuer_name to search filter
+        (record.issuer_name || '').toLowerCase().includes(lowerCaseSearchTerm) || 
         (record.beneficiary_corporate?.entity_name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
+        // Check for both Issuing Bank name and Foreign Bank name in the search filter
         (record.issuing_bank?.name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
+        (record.foreign_bank_name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
         (record.lg_category?.name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
         formatAmount(record.lg_amount, record.lg_currency?.iso_code).toLowerCase().includes(lowerCaseSearchTerm) ||
         formatDate(record.expiry_date).toLowerCase().includes(lowerCaseSearchTerm)
@@ -369,8 +371,11 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
           bValue = parseFloat(b.lg_amount || 0);
           break;
         case 'issuing_bank':
-          aValue = a.issuing_bank?.name || '';
-          bValue = b.issuing_bank?.name || '';
+          // Special sorting logic for the "issuing_bank" column
+          const aBankName = (a.issuing_bank?.name === 'Foreign Bank' ? a.foreign_bank_name : a.issuing_bank?.name) || '';
+          const bBankName = (b.issuing_bank?.name === 'Foreign Bank' ? b.foreign_bank_name : b.issuing_bank?.name) || '';
+          aValue = aBankName;
+          bValue = bBankName;
           break;
         case 'lg_category':
             aValue = a.lg_category?.name || '';
@@ -409,7 +414,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
       'Beneficiary': record.beneficiary_corporate?.entity_name || 'N/A',
       'Amount': record.lg_amount,
       'Currency': record.lg_currency?.iso_code || 'N/A',
-      'Issuing Bank': record.issuing_bank?.name || 'N/A',
+      'Issuing Bank': record.issuing_bank?.name === 'Foreign Bank' ? record.foreign_bank_name : record.issuing_bank?.name || 'N/A',
       'Category': record.lg_category?.name || 'N/A',
       'Expiry Date': formatDate(record.expiry_date),
       'Status': record.lg_status?.name || 'N/A',
@@ -705,7 +710,10 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
                       {formatAmount(record.lg_amount, record.lg_currency?.iso_code)}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{record.issuing_bank?.name || 'N/A'}</td>
+                    {/* Conditional rendering for the 'Issuing Bank' column */}
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
+                      {record.issuing_bank?.name === 'Foreign Bank' ? record.foreign_bank_name || 'N/A' : record.issuing_bank?.name || 'N/A'}
+                    </td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{record.lg_category?.name || 'N/A'}</td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{formatDate(record.expiry_date)}</td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm">

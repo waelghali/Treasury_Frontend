@@ -67,6 +67,9 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
     const [showAmendModal, setShowAmendModal] = useState(false);
     const [showActivateModal, setShowActivateModal] = useState(false);
 
+    // NEW: State for all banks
+    const [allBanks, setAllBanks] = useState([]);
+
     const fetchLgRecord = useCallback(async (isBackgroundRefresh = false) => {
         if (!isBackgroundRefresh) {
             setIsInitialLoading(true);
@@ -98,11 +101,20 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
         }
     }, [id]);
 
+    // NEW: Fetch all banks on component mount
     useEffect(() => {
-        if (id) {
-            fetchLgRecord(false);
-        }
-    }, [id, fetchLgRecord]);
+        const fetchBanks = async () => {
+            try {
+                const banks = await apiRequest('/end-user/banks/', 'GET');
+                setAllBanks(banks);
+            } catch (err) {
+                console.error("Failed to fetch banks:", err);
+            }
+        };
+
+        fetchBanks();
+        fetchLgRecord(false);
+    }, [fetchLgRecord]);
 
     const getLatestInstruction = useCallback((record) => {
         if (!record || !record.instructions || record.instructions.length === 0) {
@@ -418,6 +430,14 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 
     const gridColumnsClass = `md:grid-cols-${numberOfButtons}`;
 
+    // NEW: Find the communication bank details using the fetched banks list
+    const communicationBank = lgRecord.communication_bank_id 
+        ? allBanks.find(bank => bank.id === lgRecord.communication_bank_id) 
+        : null;
+
+    // Determine if the bank name is "Foreign Bank"
+    const isForeignBank = lgRecord.issuing_bank?.name === 'Foreign Bank';
+
     return (
         <div className="container mx-auto p-6 bg-white rounded-lg shadow-xl my-8 relative">
             {isRefreshing && (
@@ -619,12 +639,30 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                         <div className="col-span-2 mt-6">
                             <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Bank & Rule Information</h2>
                         </div>
-                        <p><strong>Issuing Bank:</strong> {lgRecord.issuing_bank?.name || 'N/A'}</p>
-                        <p><strong>Bank Address:</strong> {lgRecord.issuing_bank_address || 'N/A'}</p>
-                        <p><strong>Bank Phone:</strong> {lgRecord.issuing_bank_phone || 'N/A'}</p>
+                        {/* Conditional display for Issuing Bank and its details */}
+                        <p>
+                            <strong>Issuing Bank:</strong> 
+                            {isForeignBank ? lgRecord.foreign_bank_name || 'N/A' : lgRecord.issuing_bank?.name || 'N/A'}
+                        </p>
+                        <p>
+                            <strong>Bank Address:</strong> 
+                            {isForeignBank ? lgRecord.foreign_bank_address || 'N/A' : lgRecord.issuing_bank_address || 'N/A'}
+                        </p>
+                        <p>
+                            <strong>Bank Phone:</strong> 
+                            {isForeignBank ? lgRecord.foreign_bank_country || 'N/A' : lgRecord.issuing_bank_phone || 'N/A'}
+                        </p>
                         <p><strong>Issuing Method:</strong> {lgRecord.issuing_method?.name || 'N/A'}</p>
                         <p><strong>Applicable Rule:</strong> {lgRecord.applicable_rule?.name || 'N/A'}</p>
                         <p><strong>Rules Text:</strong> {lgRecord.applicable_rules_text || 'N/A'}</p>
+                        {/* NEW: Display Advising Status */}
+                        <p><strong>Advising Status:</strong> {lgRecord.advising_status || 'N/A'}</p>
+                        {/* NEW: Conditionally display Advising Bank */}
+                        {(lgRecord.advising_status === 'Advised' || lgRecord.advising_status === 'Confirmed') && (
+                            <p>
+                                <strong>Advising Bank:</strong> {communicationBank?.name || 'N/A'}
+                            </p>
+                        )}
                         <p><strong>Other Conditions:</strong> {lgRecord.other_conditions || 'N/A'}</p>
 
                         <div className="col-span-2 mt-6">

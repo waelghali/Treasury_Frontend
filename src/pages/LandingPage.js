@@ -77,22 +77,21 @@ function LandingPage() {
             <img src="/growlogonocircle.png" alt="Grow Business Development Logo" className="h-24" />
           </div>
           <nav className="flex items-center space-x-4">
-            {/* New "Know More" link in the header */}
             <Link 
               to="/know-more" 
-              className="px-4 py-2 text-sm font-medium text-blue-600 border border-transparent rounded-md hover:bg-blue-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
             >
               Know More
             </Link>
-            <Link 
-              to="/login" 
+            <Link
+              to="/free-trial-register"
               className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
             >
-              Login
+              Start Free Trial
             </Link>
             <button 
               onClick={scrollToDemoForm}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors shadow-md"
+              className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
             >
               Book a Demo
             </button>
@@ -102,6 +101,12 @@ function LandingPage() {
             >
               Download Brochure
             </button>
+            <Link 
+              to="/login" 
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors shadow-md"
+            >
+              Login
+            </Link>
           </nav>
         </div>
       </header>
@@ -118,6 +123,12 @@ function LandingPage() {
               Never miss an expiry. Never lose a reply. Always stay in control.
             </h2>
             <div className="flex justify-center space-x-4">
+              <Link
+                to="/free-trial-register"
+                className="px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-lg transform hover:scale-105"
+              >
+                Start Free Trial
+              </Link>
               <button
                 onClick={scrollToDemoForm}
                 className="px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-lg transform hover:scale-105"
@@ -127,13 +138,13 @@ function LandingPage() {
               {/* New "Know More" link in the hero section */}
               <Link 
                 to="/know-more" 
-                className="px-8 py-4 text-lg font-bold text-blue-600 bg-white rounded-lg hover:bg-gray-100 transition-colors shadow-lg transform hover:scale-105"
+                className="px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-lg transform hover:scale-105"
               >
                 Know More
               </Link>
               <button
                 onClick={handleDownload}
-                className="px-8 py-4 text-lg font-bold text-blue-600 bg-white rounded-lg hover:bg-gray-100 transition-colors shadow-lg transform hover:scale-105"
+                className="px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-lg transform hover:scale-105"
               >
                 Download Brochure
               </button>
@@ -303,9 +314,15 @@ function LandingPage() {
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <h3 className="text-3xl sm:text-4xl font-bold mb-4">Ready to take control of your LGs?</h3>
             <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4">
-              <button
+			  <Link
+                to="/free-trial-register"
+                className="px-8 py-3 text-lg font-bold text-white border-2 border-white rounded-lg hover:bg-white hover:text-blue-600 transition-colors"
+              >
+                Start Free Trial
+              </Link>
+			  <button
                 onClick={scrollToDemoForm}
-                className="px-8 py-3 text-lg font-bold text-blue-600 bg-white rounded-lg hover:bg-gray-100 transition-colors shadow-lg"
+                className="px-8 py-3 text-lg font-bold text-white border-2 border-white rounded-lg hover:bg-white hover:text-blue-600 transition-colors"
               >
                 Book a Demo Today
               </button>

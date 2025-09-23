@@ -33,13 +33,12 @@ const API_DATE_FORMAT = 'YYYY-MM-DD';
 
 const ExtendLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const initialValues = {
+    const [initialValues, setInitialValues] = useState({
         extensionMethod: 'date',
         specificNewExpiryDate: '',
-        extensionMonths: '',
+        extensionMonths: '', 
         notes: '',
-    };
+    });
 
     const ExtensionSchema = Yup.object().shape({
         extensionMethod: Yup.string().oneOf(['date', 'months']).required('Extension method is required.'),
@@ -65,13 +64,18 @@ const ExtendLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
     });
 
     useEffect(() => {
-        // Set initial specificNewExpiryDate based on a reasonable default
-        const proposedDate = moment(lgRecord.expiry_date).add(1, 'day');
-        initialValues.specificNewExpiryDate = proposedDate.format(API_DATE_FORMAT);
+        if (lgRecord) {
+            // Use lgRecord.lg_period_months to calculate the proposed date.
+            // Default to a sensible value like 12 if not available.
+            const monthsToExtend = lgRecord.lg_period_months || 12;
+            const proposedDate = moment(lgRecord.expiry_date).add(monthsToExtend, 'months');
+            const newExpiryDate = proposedDate.format(API_DATE_FORMAT);
 
-        // Set initial extensionMonths to lg_period_months if available
-        if (lgRecord.lg_period_months) {
-            initialValues.extensionMonths = lgRecord.lg_period_months;
+            setInitialValues(prevValues => ({
+                ...prevValues,
+                specificNewExpiryDate: newExpiryDate,
+                extensionMonths: lgRecord.lg_period_months ? lgRecord.lg_period_months.toString() : '12'
+            }));
         }
     }, [lgRecord]);
 
@@ -164,6 +168,7 @@ const ExtendLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                                                 initialValues={initialValues}
                                                 validationSchema={ExtensionSchema}
                                                 onSubmit={handleSubmit}
+                                                enableReinitialize={true} 
                                             >
                                                 {({ errors, touched, values }) => (
                                                     <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>

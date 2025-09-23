@@ -64,6 +64,14 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
     issuing_bank_address: '',
     issuing_bank_phone: '',
     issuing_bank_fax: '',
+    // NEW from Phase 1
+    foreign_bank_name: '',
+    foreign_bank_country: '',
+    foreign_bank_address: '',
+    foreign_bank_swift_code: '',
+    // NEW from Phase 2
+    advising_status: 'Not Advised',
+    communication_bank_id: '',
     issuing_method_id: '', // Changed to empty string to set dynamically
     applicable_rule_id: '',
     applicable_rules_text: '',
@@ -108,6 +116,11 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
   const [isInternalOwnerFieldsLocked, setIsInternalOwnerFieldsLocked] = useState(false);
   const [aiScanSuccess, setAiScanSuccess] = useState(false);
   const [isFormDisabled, setIsFormDisabled] = useState(false);
+  // NEW: State to track foreign bank for conditional rendering
+  const [isForeignBankSelected, setIsForeignBankSelected] = useState(false);
+  const [foreignBankId, setForeignBankId] = useState(null);
+  const [advisingStatusOptions, setAdvisingStatusOptions] = useState([]);
+  const [communicationBanks, setCommunicationBanks] = useState([]);
 
   const aiFileInputRef = useRef(null);
   const internalDocInputRef = useRef(null);
@@ -145,6 +158,21 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                 issuing_method_id: manualDeliveryId,
             }));
         }
+        
+        // NEW: Set up advising status options and communication banks
+        setAdvisingStatusOptions([
+          { value: 'Not Advised', label: 'Not Advised' },
+          { value: 'Advised', label: 'Advised' },
+          { value: 'Confirmed', label: 'Confirmed' },
+        ]);
+        const foreignBank = banks.find(bank => bank.name === 'Foreign Bank');
+        if (foreignBank) {
+          setForeignBankId(foreignBank.id);
+          const otherBanks = banks.filter(bank => bank.id !== foreignBank.id);
+          setCommunicationBanks(otherBanks);
+        } else {
+          setCommunicationBanks(banks); // If no foreign bank exists, all are comm banks
+        }
 
       } catch (err) {
         console.error('Failed to fetch dropdown data:', err);
@@ -158,30 +186,67 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
   }, []);
 
   useEffect(() => {
+    if (!dropdownData.lgTypes || !dropdownData.lgOperationalStatuses || !dropdownData.rules || !dropdownData.lgCategories) {
+      return;
+    }
+    
     setSelectedLgType(dropdownData.lgTypes.find(type => type.id === parseInt(formData.lg_type_id)));
     setSelectedOperationalStatus(dropdownData.lgOperationalStatuses.find(status => status.id === parseInt(formData.lg_operational_status_id)));
     setSelectedApplicableRule(dropdownData.rules.find(rule => rule.id === parseInt(formData.applicable_rule_id)));
     setSelectedLGCategory(dropdownData.lgCategories.find(cat => cat.id === parseInt(formData.lg_category_id)));
   }, [formData.lg_type_id, formData.lg_operational_status_id, formData.applicable_rule_id, formData.lg_category_id, dropdownData]);
 
+  // UPDATED: useEffect hook for conditional bank fields
   useEffect(() => {
-    const selectedBank = dropdownData.banks.find(bank => bank.id === parseInt(formData.issuing_bank_id));
-    if (selectedBank) {
-      setFormData(prev => ({
-        ...prev,
-        issuing_bank_address: selectedBank.address || '',
-        issuing_bank_phone: selectedBank.phone_number || '',
-        issuing_bank_fax: selectedBank.fax || '',
-      }));
-    } else {
+    if (!dropdownData.banks || dropdownData.banks.length === 0) {
+      return;
+    }
+    
+    const selectedBank = dropdownData.banks.find(bank => String(bank.id) === String(formData.issuing_bank_id));
+    const foreignBank = dropdownData.banks.find(bank => bank.name === 'Foreign Bank');
+
+    if (selectedBank && foreignBank && selectedBank.id === foreignBank.id) {
+      setIsForeignBankSelected(true);
+      // If 'Foreign Bank' is selected, keep its fields, and clear local bank fields
       setFormData(prev => ({
         ...prev,
         issuing_bank_address: '',
         issuing_bank_phone: '',
         issuing_bank_fax: '',
       }));
+    } else if (selectedBank) {
+      setIsForeignBankSelected(false);
+      // If a regular bank is selected, populate local bank fields and clear foreign bank fields
+      setFormData(prev => ({
+        ...prev,
+        issuing_bank_address: selectedBank.address || '',
+        issuing_bank_phone: selectedBank.phone_number || '',
+        issuing_bank_fax: selectedBank.fax || '',
+        foreign_bank_name: '',
+        foreign_bank_country: '',
+        foreign_bank_address: '',
+        foreign_bank_swift_code: '',
+        advising_status: 'Not Advised', // NEW: Reset advising status
+        communication_bank_id: '', // NEW: Clear communication bank
+      }));
+    } else {
+      setIsForeignBankSelected(false);
+      // If no bank is selected, clear all bank-related fields
+      setFormData(prev => ({
+        ...prev,
+        issuing_bank_address: '',
+        issuing_bank_phone: '',
+        issuing_bank_fax: '',
+        foreign_bank_name: '',
+        foreign_bank_country: '',
+        foreign_bank_address: '',
+        foreign_bank_swift_code: '',
+        advising_status: 'Not Advised', // NEW: Reset advising status
+        communication_bank_id: '', // NEW: Clear communication bank
+      }));
     }
-  }, [formData.issuing_bank_id, dropdownData.banks]);
+  }, [formData.issuing_bank_id, dropdownData.banks, foreignBankId]);
+
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -194,7 +259,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
       }
       if (['beneficiary_corporate_id', 'lg_currency_id', 'lg_payable_currency_id', 'lg_type_id',
 			 'lg_operational_status_id', 'issuing_bank_id', 'issuing_method_id', 'applicable_rule_id',
-			 'lg_category_id'].includes(name)) {
+			 'lg_category_id', 'communication_bank_id'].includes(name)) {
 		  const parsedValue = parseInt(value, 10);
 		  return { ...prevData, [name]: value === '' ? null : String(parsedValue) };
 		}
@@ -241,6 +306,8 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
     });
     setIsInternalOwnerFieldsLocked(false);
     setAiScanSuccess(false);
+    // NEW: Reset states for conditional fields
+    setIsForeignBankSelected(false);
     if (aiFileInputRef.current) {
       aiFileInputRef.current.value = '';
     }
@@ -277,6 +344,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
 
     const internalSupportingDocFile = formData.internal_supporting_document_file;
     const manualDeliveryId = findIdByName(dropdownData.issuingMethods, 'Manual Delivery');
+    const foreignBank = dropdownData.banks.find(b => b.name === "Foreign Bank");
 
     setFormData(prev => ({
       ...initialFormData,
@@ -298,6 +366,36 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
           otherConditionsString = extractedData.other_conditions;
         }
 
+        let issuingBankId = extractedData.issuing_bank_id ? String(extractedData.issuing_bank_id) : '';
+        let foreignBankName = extractedData.foreign_bank_name || '';
+        let foreignBankCountry = extractedData.foreign_bank_country || '';
+        let foreignBankAddress = extractedData.foreign_bank_address || '';
+        let foreignBankSwiftCode = extractedData.foreign_bank_swift_code || '';
+        let issuingBankAddress = extractedData.issuing_bank_address || '';
+        let issuingBankPhone = extractedData.issuing_bank_phone || '';
+        let issuingBankFax = extractedData.issuing_bank_fax || '';
+        let advisingStatus = extractedData.advising_status || 'Not Advised';
+        let communicationBankId = extractedData.communication_bank_id ? String(extractedData.communication_bank_id) : '';
+
+        // If a foreign bank ID is matched by name or if the AI returns foreign bank details,
+        // use the foreign bank ID and populate the new fields.
+        if ((foreignBank && String(issuingBankId) === String(foreignBank.id)) || foreignBankName) {
+            if (foreignBank) {
+                issuingBankId = String(foreignBank.id);
+                issuingBankAddress = '';
+                issuingBankPhone = '';
+                issuingBankFax = '';
+            }
+        } else {
+            // Otherwise, clear foreign bank fields and advising status fields
+            foreignBankName = '';
+            foreignBankCountry = '';
+            foreignBankAddress = '';
+            foreignBankSwiftCode = '';
+            advisingStatus = 'Not Advised';
+            communicationBankId = '';
+        }
+
         const newFormData = {
           ...prev,
           beneficiary_corporate_id: extractedData.beneficiary_corporate_id ? String(extractedData.beneficiary_corporate_id) : '',
@@ -314,10 +412,16 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
           lg_operational_status_id: extractedData.lg_operational_status_id ? String(extractedData.lg_operational_status_id) : null,
           payment_conditions: extractedData.payment_conditions || '',
           description_purpose: extractedData.description_purpose || '',
-          issuing_bank_id: extractedData.issuing_bank_id ? String(extractedData.issuing_bank_id) : '',
-          issuing_bank_address: extractedData.issuing_bank_address || '',
-          issuing_bank_phone: extractedData.issuing_bank_phone || '',
-          issuing_bank_fax: extractedData.issuing_bank_fax || '',
+          issuing_bank_id: issuingBankId,
+          issuing_bank_address: issuingBankAddress,
+          issuing_bank_phone: issuingBankPhone,
+          issuing_bank_fax: issuingBankFax,
+          foreign_bank_name: foreignBankName,
+          foreign_bank_country: foreignBankCountry,
+          foreign_bank_address: foreignBankAddress,
+          foreign_bank_swift_code: foreignBankSwiftCode,
+          advising_status: advisingStatus,
+          communication_bank_id: communicationBankId,
           issuing_method_id: extractedData.issuing_method_id ? String(extractedData.issuing_method_id) : manualDeliveryId, // Use dynamic default
           applicable_rule_id: extractedData.applicable_rule_id ? String(extractedData.applicable_rule_id) : '',
           applicable_rules_text: extractedData.applicable_rules_text || '',
@@ -443,9 +547,26 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
     if (!formData.expiry_date) errors.push("Expiry Date is mandatory.");
     if (!formData.lg_type_id) errors.push("LG Type is mandatory.");
     if (!formData.description_purpose) errors.push("Description/Purpose is mandatory.");
+    
+    // UPDATED: Conditional validation for foreign banks
+    const foreignBankId = dropdownData.banks.find(bank => bank.name === 'Foreign Bank')?.id;
     if (!formData.issuing_bank_id) errors.push("Issuing Bank is mandatory.");
-    if (!formData.issuing_bank_address) errors.push("Issuing Bank Address is mandatory.");
-    if (!formData.issuing_bank_phone) errors.push("Issuing Bank Phone is mandatory.");
+    else if (parseInt(formData.issuing_bank_id, 10) === foreignBankId) {
+      if (!formData.foreign_bank_name) errors.push("Foreign Bank Name is mandatory.");
+      if (!formData.foreign_bank_country) errors.push("Foreign Bank Country is mandatory.");
+      if (!formData.foreign_bank_address) errors.push("Foreign Bank Address is mandatory.");
+      if (!formData.foreign_bank_swift_code) errors.push("Foreign Bank SWIFT Code is mandatory.");
+      // NEW: Add validation for Advising/Confirming Bank
+      if (formData.advising_status === 'Advised' || formData.advising_status === 'Confirmed') {
+        if (!formData.communication_bank_id) {
+          errors.push(`A Communication Bank is mandatory when Advising Status is '${formData.advising_status}'.`);
+        }
+      }
+    } else {
+      if (!formData.issuing_bank_address) errors.push("Issuing Bank Address is mandatory.");
+      if (!formData.issuing_bank_phone) errors.push("Issuing Bank Phone is mandatory.");
+    }
+
     if (!formData.issuing_method_id) errors.push("Issuing Method is mandatory.");
     if (!formData.applicable_rule_id) errors.push("Applicable Rule is mandatory.");
     if (!formData.internal_owner_email) errors.push("Internal Owner Email is mandatory.");
@@ -495,7 +616,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
       setIsSaving(false);
       setAccordionsOpen({
         mainLGData: errors.some(e => ['Beneficiary Corporate', 'Issuer Name', 'LG Number', 'LG Amount', 'LG Currency', 'Issuance Date', 'Expiry Date', 'LG Type', 'Operational Status', 'Payment Conditions', 'Description/Purpose'].some(field => e.includes(field))),
-        bankData: errors.some(e => ['Issuing Bank', 'Issuing Bank Address', 'Issuing Bank Phone', 'Issuing Method', 'Applicable Rule', 'Applicable Rules Text'].some(field => e.includes(field))),
+        bankData: errors.some(e => ['Issuing Bank', 'Issuing Bank Address', 'Issuing Bank Phone', 'Issuing Method', 'Applicable Rule', 'Applicable Rules Text', 'Foreign Bank Name', 'Foreign Bank Country', 'Foreign Bank Address', 'Advising Status', 'Communication Bank'].some(field => e.includes(field))),
         internalData: errors.some(e => ['Internal Owner', 'Category', 'Custom field'].some(field => e.includes(field))),
       });
       return;
@@ -523,6 +644,18 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
             document_type: 'INTERNAL_SUPPORTING',
         } : null,
         manager_email: formData.internal_owner_manager_email,
+        // NEW: Conditionally include foreign bank details
+        foreign_bank_name: isForeignBankSelected ? formData.foreign_bank_name : null,
+        foreign_bank_country: isForeignBankSelected ? formData.foreign_bank_country : null,
+        foreign_bank_address: isForeignBankSelected ? formData.foreign_bank_address : null,
+        foreign_bank_swift_code: isForeignBankSelected ? formData.foreign_bank_swift_code : null,
+        // NEW: Conditionally include advising status fields
+        advising_status: isForeignBankSelected ? formData.advising_status : null,
+        communication_bank_id: isForeignBankSelected ? formData.communication_bank_id : null,
+        // NEW: Ensure local bank fields are nullified if foreign bank is selected.
+        issuing_bank_address: isForeignBankSelected ? null : formData.issuing_bank_address,
+        issuing_bank_phone: isForeignBankSelected ? null : formData.issuing_bank_phone,
+        issuing_bank_fax: isForeignBankSelected ? null : formData.issuing_bank_fax,
     };
 
     const formDataToSend = new FormData();
@@ -576,6 +709,8 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
       </div>
     );
   }
+  
+  const isAdvisingOrConfirmed = formData.advising_status === 'Advised' || formData.advising_status === 'Confirmed';
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
@@ -785,22 +920,91 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                 <select name="issuing_bank_id" id="issuing_bank_id" value={formData.issuing_bank_id} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} >
                   <option value="">Select Issuing Bank</option>
                   {dropdownData.banks.map(bank => (
-                    <option key={`bank-${bank.id}`} value={String(bank.id)}>{bank.name} ({bank.short_name || bank.swift_code})</option>
+                    <option 
+                      key={`bank-${bank.id}`} 
+                      value={String(bank.id)} 
+                      className={bank.name === 'Foreign Bank' ? 'text-red-500 font-bold' : ''}
+                    >
+                      {bank.name} ({bank.short_name || bank.swift_code})
+                    </option>
                   ))}
                 </select>
               </div>
-              <div className="mb-2">
-                <label htmlFor="issuing_bank_address" className={labelClassNames}>Issuing Bank Address {requiredSpan}</label>
-                <input type="text" name="issuing_bank_address" id="issuing_bank_address" value={formData.issuing_bank_address} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
-              </div>
-              <div className="mb-2">
-                <label htmlFor="issuing_bank_phone" className={labelClassNames}>Issuing Bank Phone {requiredSpan}</label>
-                <input type="text" name="issuing_bank_phone" id="issuing_bank_phone" value={formData.issuing_bank_phone} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
-              </div>
-              <div className="mb-2">
-                <label htmlFor="issuing_bank_fax" className={labelClassNames}>Issuing Bank Fax</label>
-                <input type="text" name="issuing_bank_fax" id="issuing_bank_fax" value={formData.issuing_bank_fax} onChange={handleChange} maxLength="18" className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
-              </div>
+              {/* NEW: Conditional fields for Foreign Bank */}
+              {isForeignBankSelected ? (
+                <>
+                  <div className="mb-2">
+                    <label htmlFor="foreign_bank_name" className={labelClassNames}>Bank Name {requiredSpan}</label>
+                    <input type="text" name="foreign_bank_name" id="foreign_bank_name" value={formData.foreign_bank_name} onChange={handleChange} required={isForeignBankSelected} className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
+                  </div>
+                  <div className="mb-2">
+                    <label htmlFor="foreign_bank_country" className={labelClassNames}>Country {requiredSpan}</label>
+                    <input type="text" name="foreign_bank_country" id="foreign_bank_country" value={formData.foreign_bank_country} onChange={handleChange} required={isForeignBankSelected} className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
+                  </div>
+                  <div className="mb-2">
+                    <label htmlFor="foreign_bank_address" className={labelClassNames}>Address {requiredSpan}</label>
+                    <input type="text" name="foreign_bank_address" id="foreign_bank_address" value={formData.foreign_bank_address} onChange={handleChange} required={isForeignBankSelected} className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
+                  </div>
+                  <div className="mb-2">
+                    <label htmlFor="foreign_bank_swift_code" className={labelClassNames}>SWIFT Code {requiredSpan}</label>
+                    <input type="text" name="foreign_bank_swift_code" id="foreign_bank_swift_code" value={formData.foreign_bank_swift_code} onChange={handleChange} required={isForeignBankSelected} className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
+                  </div>
+                  {/* NEW: Advising Status and Communication Bank fields */}
+                  <div className="mb-2">
+                    <label htmlFor="advising_status" className={labelClassNames}>Advising Status {requiredSpan}</label>
+                    <select
+                      name="advising_status"
+                      id="advising_status"
+                      value={formData.advising_status}
+                      onChange={handleChange}
+                      required={isForeignBankSelected}
+                      className={inputClassNames}
+                      disabled={isFormDisabled || isGracePeriod}
+                    >
+                      {advisingStatusOptions.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {(formData.advising_status === 'Advised' || formData.advising_status === 'Confirmed') && (
+                    <div className="mb-2">
+                      <label htmlFor="communication_bank_id" className={labelClassNames}>
+                        {formData.advising_status === 'Advised' ? 'Advising Bank' : 'Confirming Bank'} {requiredSpan}
+                      </label>
+                      <select
+                        name="communication_bank_id"
+                        id="communication_bank_id"
+                        value={formData.communication_bank_id}
+                        onChange={handleChange}
+                        required
+                        className={inputClassNames}
+                        disabled={isFormDisabled || isGracePeriod}
+                      >
+                        <option value="">Select Communication Bank</option>
+                        {communicationBanks.map(bank => (
+                          <option key={`comm-bank-${bank.id}`} value={String(bank.id)}>{bank.name} ({bank.short_name})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="mb-2">
+                    <label htmlFor="issuing_bank_address" className={labelClassNames}>Issuing Bank Address {requiredSpan}</label>
+                    <input type="text" name="issuing_bank_address" id="issuing_bank_address" value={formData.issuing_bank_address} onChange={handleChange} required={!isForeignBankSelected} readOnly className={`${inputClassNames} bg-gray-100`} />
+                  </div>
+                  <div className="mb-2">
+                    <label htmlFor="issuing_bank_phone" className={labelClassNames}>Issuing Bank Phone {requiredSpan}</label>
+                    <input type="text" name="issuing_bank_phone" id="issuing_bank_phone" value={formData.issuing_bank_phone} onChange={handleChange} required={!isForeignBankSelected} readOnly className={`${inputClassNames} bg-gray-100`} />
+                  </div>
+                  <div className="mb-2">
+                    <label htmlFor="issuing_bank_fax" className={labelClassNames}>Issuing Bank Fax</label>
+                    <input type="text" name="issuing_bank_fax" id="issuing_bank_fax" value={formData.issuing_bank_fax} onChange={handleChange} maxLength="18" readOnly className={`${inputClassNames} bg-gray-100`} />
+                  </div>
+                </>
+              )}
+              {/* END NEW: Conditional fields for Foreign Bank */}
               <div className="mb-2">
                 <label htmlFor="issuing_method_id" className={labelClassNames}>Issuing Method {requiredSpan}</label>
                 <select name="issuing_method_id" id="issuing_method_id" value={formData.issuing_method_id} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} >

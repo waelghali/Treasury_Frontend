@@ -237,32 +237,34 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) { // NEW: Accept isGrac
       ) : (
         <div className="overflow-x-auto rounded-lg shadow">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User ID</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action Type</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity Type</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity ID</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {logs.map((log) => (
-                <tr key={log.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatTimestamp(log.timestamp)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.user_id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.action_type}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_type}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_id || 'N/A'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {renderDetails(log.details)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.ip_address || 'N/A'}</td>
-                </tr>
-              ))}
-            </tbody>
+			<thead className="bg-gray-50">
+			  <tr>
+				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Name</th>
+				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action Type</th>
+				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity Type</th>
+				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity Name</th>
+				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LG Number</th>
+				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
+			  </tr>
+			</thead>
+			<tbody className="bg-white divide-y divide-gray-200">
+			  {logs.map((log) => (
+				<tr key={log.id}>
+				  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatTimestamp(log.timestamp)}</td>
+				  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.user_name || 'System'}</td>
+				  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.action_type}</td>
+				  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_type}</td>
+				  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_name || 'N/A'}</td>
+				  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.lg_number || 'N/A'}</td>
+				  <td className="px-6 py-4 text-sm text-gray-900">
+					{renderDetails(log.details)}
+				  </td>
+				  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.ip_address || 'N/A'}</td>
+				</tr>
+			  ))}
+			</tbody>
           </table>
         </div>
       )}

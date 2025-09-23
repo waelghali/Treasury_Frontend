@@ -418,14 +418,7 @@ function EndUserActionCenter({ isGracePeriod }) { // NEW: Accept isGracePeriod p
                                 Instructions Awaiting Delivery Confirmation ({instructionsUndelivered.length})
                             </h2>
                             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                <button 
-                                    onClick={() => toast.info("Generate Undelivered Report (PDF) functionality coming soon!")}
-                                    className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm bg-blue-100 text-blue-700 hover:bg-blue-200 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    disabled={isGracePeriod}
-                                >
-                                    <FileText className="h-5 w-5 mr-2" />
-                                    Generate Undelivered Report
-                                </button>
+                                
                             </GracePeriodTooltip>
                         </div>
                         {instructionsUndelivered.length > 0 ? (

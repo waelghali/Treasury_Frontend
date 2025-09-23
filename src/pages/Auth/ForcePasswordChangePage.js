@@ -8,7 +8,7 @@ import { AlertCircle, Lock } from 'lucide-react';
 function ForcePasswordChangePage({ onPasswordChangeSuccess }) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState(''); // Corrected state variable
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,28 +57,27 @@ function ForcePasswordChangePage({ onPasswordChangeSuccess }) {
     setIsLoading(true);
     console.log("ForcePasswordChangePage: Submitting password change...");
     try {
-      const response = await apiRequest(
-        `/change-password`,
-        'POST',
-        {
+      // CRITICAL FIX: Use the centralized apiRequest function and include the missing 'confirm_new_password' field.
+      const data = await apiRequest('/change-password', 'POST', {
           current_password: currentPassword,
           new_password: newPassword,
-          confirm_new_password: confirmNewPassword // ADDED: Send confirm_new_password to backend
-        }
-      );
+          confirm_new_password: confirmNewPassword
+      });
 
-      if (response && response.access_token) {
-        setAuthToken(response.access_token);
+      // No need to check response.ok, as apiRequest handles non-2xx statuses by throwing an error.
+      if (data && data.access_token) {
+        setAuthToken(data.access_token);
         console.log("ForcePasswordChangePage: New token received and set in localStorage.");
       } else {
-        throw new Error("No new token received after password change. Please log in again.");
+        // Fallback if token is not in response, which shouldn't happen with the new backend.
+        console.warn("No new token received, but password change was successful.");
       }
-
+      
       setSuccessMessage('Password changed successfully! Redirecting to your dashboard...');
 
       if (onPasswordChangeSuccess) {
         console.log("ForcePasswordChangePage: Calling onPasswordChangeSuccess prop.");
-        onPasswordChangeSuccess();
+        onPasswordChangeSuccess(data);
       }
 
     } catch (err) {

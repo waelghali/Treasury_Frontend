@@ -131,6 +131,56 @@ export const apiRequest = async (url, method = 'GET', data = null, contentType =
   }
 };
 
+/**
+ * A centralized function to make public (unauthenticated) API requests.
+ * @param {string} url The URL path for the API endpoint.
+ * @param {string} method The HTTP method (GET, POST).
+ * @param {object} data The request body data (optional).
+ * @param {object} customHeaders The custom headers for the request (optional).
+ * @returns {Promise<any>} A promise that resolves to the response data.
+ * @throws {Error} Throws an error for non-2xx responses or network issues.
+ */
+export const publicApiRequest = async (url, method = 'GET', data = null, customHeaders = {}) => {
+  let body = data;
+  const headers = customHeaders;
+
+  if (!(data instanceof FormData)) {
+    headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+    if (headers['Content-Type'] === 'application/json' && data !== null) {
+      body = JSON.stringify(data);
+    }
+  }
+
+  try {
+    const fetchOptions = {
+      method,
+      headers,
+      body: (method === 'GET' || method === 'HEAD') ? null : body,
+    };
+
+    const response = await fetch(`${API_BASE_URL}${url}`, fetchOptions);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.detail || errorData.message || response.statusText;
+      const error = new Error(errorMessage);
+      error.statusCode = response.status;
+      throw error;
+    }
+
+    const contentTypeHeader = response.headers.get('content-type');
+    if (response.status === 204 || !contentTypeHeader) {
+      return null;
+    }
+    
+    return await response.json();
+
+  } catch (error) {
+    console.error('Public API Request Failed:', error);
+    throw error;
+  }
+};
+
 // --- System Owner Endpoints for Notifications ---
 
 /**
@@ -170,16 +220,6 @@ export const restoreSystemNotification = async (id) => {
 export const fetchActiveSystemNotifications = async () => {
   return apiClient.get('/end-user/system-notifications/');
 };
-
-//**
-// * Logs a user's dismissal of a specific notification.
-// * @param {number} id The ID of the notification to dismiss.
-// * @returns {Promise<object>} The updated notification object.
- 
-//export const dismissSystemNotification = async (id) => {
-//  return apiClient.post(`/end-user/system-notifications/${id}/dismiss`);
-//}; 
-
 
 // --- NEW PHASE 2 HELPER FUNCTIONS ---
 /**
