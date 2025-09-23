@@ -1,4 +1,3 @@
-// frontend/src/components/Modals/BulkRemindersModal.js
 import React, { useState } from 'react';
 import { X, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
@@ -54,17 +53,18 @@ const BulkRemindersModal = ({ onClose, onSuccess, isGracePeriod }) => {
                 const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
                 const pdfUrl = URL.createObjectURL(pdfBlob);
 
-                const newWindow = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
-            
-                if (newWindow) {
-                    toast.info("Generating and opening consolidated reminder PDF in a new tab. Please ensure pop-ups are allowed.");
-                    setTimeout(() => {
-                        onSuccess();
-                    }, 1000);
-                } else {
-                    setProcessError("Failed to open new tab. Please ensure your browser allows pop-ups.");
-                    toast.error("Failed to open new tab. Check pop-up blocker.");
-                }
+                // Use an anchor tag for a more reliable download/open experience
+                const link = document.createElement('a');
+                link.href = pdfUrl;
+                link.download = 'Bank_Reminders.pdf'; // Optional: suggests a filename for download
+                link.target = '_blank';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(pdfUrl);
+
+                toast.info("Generating and opening consolidated reminder PDF in a new tab. Please ensure pop-ups are allowed.");
+                onSuccess();
             } else {
                  setProcessError("No eligible reminders found to generate a PDF.");
                  toast.error("No eligible reminders found.");
