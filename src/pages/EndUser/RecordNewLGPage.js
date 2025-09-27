@@ -1,8 +1,8 @@
 // frontend/src/pages/EndUser/RecordNewLGPage.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { ChevronDown, ChevronUp, Upload, Scan, Save, AlertCircle, XCircle, Loader2, CheckCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, Upload, Scan, Save, AlertCircle, XCircle, Loader2, CheckCircle, Search } from 'lucide-react';
 import moment from 'moment';
 
 // A reusable component to provide a tooltip for disabled elements during the grace period.
@@ -41,6 +41,210 @@ const parseDateFromInput = (dateString) => {
   const mDate = moment(dateString);
   return mDate.isValid() ? mDate.toDate() : null;
 };
+
+// =========================================================
+// UPDATED: Searchable Select Component (Generic)
+// Now handles the "mistaken selection" issue by showing all options on focus/clear.
+// =========================================================
+const SearchableBankSelect = ({ name, id, value, onChange, options, placeholder, required, className, disabled, labelClassNames }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const wrapperRef = useRef(null);
+  const inputRef = useRef(null);
+  
+  const selectedOption = options.find(opt => String(opt.value) === String(value));
+  
+  // Logic: Show all options if searchTerm is empty or exactly matches the selected option's label.
+  // Otherwise, filter based on the search term.
+  const isSearchActive = searchTerm.length > 0 && !(selectedOption && selectedOption.label === searchTerm);
+
+  const filteredOptions = isSearchActive
+    ? options.filter(option => 
+        option.label.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : options; // Show all options if search term is empty or matches selected
+
+  // Handles selection and sends the correct synthetic event back to parent's handleChange
+  const handleSelect = (option) => {
+    // Create a synthetic event object to match the native select/input behavior
+    const syntheticEvent = {
+      target: {
+        name: name,
+        value: option.value,
+        type: 'select-one', // Mimic select behavior for type
+      },
+      preventDefault: () => {},
+      stopPropagation: () => {},
+    };
+    onChange(syntheticEvent);
+    setSearchTerm(option.label); // Set search term to selected label
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+    inputRef.current.focus(); // Re-focus on input for better UX
+  };
+  
+  const handleInputChange = (e) => {
+    const newTerm = e.target.value;
+    setSearchTerm(newTerm);
+    setIsOpen(true);
+    setHighlightedIndex(-1);
+    
+    // Clear the form value if the user starts typing over a previously selected value
+    if (String(value).length > 0 && (selectedOption ? selectedOption.label !== newTerm : true)) {
+        const syntheticEvent = {
+            target: {
+                name: name,
+                value: '', // Clear the selection
+                type: 'select-one',
+            },
+        };
+        onChange(syntheticEvent);
+    }
+  };
+
+  const handleBlur = () => {
+    setTimeout(() => {
+        if (wrapperRef.current && !wrapperRef.current.contains(document.activeElement)) {
+            setIsOpen(false);
+            // If no option is selected, clear the search term, otherwise reset to selected label
+            if (selectedOption) {
+                setSearchTerm(selectedOption.label);
+            } else {
+                setSearchTerm('');
+            }
+        }
+    }, 150);
+  };
+
+  const handleFocus = () => {
+    setIsOpen(true);
+    // If an item is selected, set search term to its label (already done in useEffect)
+    // If no item is selected, clear the search input to encourage typing
+    if (!selectedOption) {
+        setSearchTerm('');
+    }
+  };
+
+  const handleKeyDown = useCallback((e) => {
+    if (!isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex(prev => (prev < filteredOptions.length - 1 ? prev + 1 : 0));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex(prev => (prev > 0 ? prev - 1 : filteredOptions.length - 1));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
+          handleSelect(filteredOptions[highlightedIndex]);
+        } else if (filteredOptions.length === 1 && filteredOptions[0].label.toLowerCase() === searchTerm.toLowerCase()) {
+          // Auto-select if a perfect match remains after filtering
+          handleSelect(filteredOptions[0]);
+        } else if (selectedOption && selectedOption.label === searchTerm) {
+          // If Enter is pressed on the input with a selected value
+          setIsOpen(false);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsOpen(false);
+        break;
+      default:
+        break;
+    }
+  }, [isOpen, highlightedIndex, filteredOptions, handleSelect, selectedOption, searchTerm]);
+
+
+  // Effect to handle clicking outside the component
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [wrapperRef]);
+  
+  // Set initial search term to selected label when 'value' changes
+  useEffect(() => {
+    if (selectedOption) {
+        setSearchTerm(selectedOption.label);
+    } else {
+        setSearchTerm('');
+    }
+  }, [value, selectedOption]);
+
+  const inputClasses = `${className} pl-10`; // Add padding left for search icon
+
+  return (
+    <div className="relative" ref={wrapperRef}>
+      <div className={`relative ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+        <input
+          type="text"
+          ref={inputRef}
+          id={id}
+          name={name}
+          value={searchTerm}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          required={required}
+          className={inputClasses}
+          disabled={disabled}
+          autoComplete="off"
+        />
+        <ChevronDown className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </div>
+      
+      {isOpen && filteredOptions.length > 0 && (
+        <ul className="absolute z-50 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto">
+          {filteredOptions.map((option, index) => (
+            <li
+              key={option.value}
+              onMouseDown={(e) => { // Use onMouseDown to prevent onBlur from firing first
+                e.preventDefault(); // Crucial: prevents input losing focus
+                handleSelect(option);
+              }}
+              className={`px-3 py-2 cursor-pointer transition-all duration-100 ${
+                index === highlightedIndex ? 'bg-blue-100' : 'hover:bg-gray-100'
+              } ${String(option.value) === String(value) ? 'bg-blue-50 font-semibold' : ''} ${
+                option.isForeign ? 'text-red-500 font-bold' : 'text-gray-900'
+              }`}
+            >
+              {option.label}
+            </li>
+          ))}
+        </ul>
+      )}
+      {isOpen && filteredOptions.length === 0 && (
+        <div className="absolute z-50 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 px-3 py-2 text-sm text-gray-500">
+          No matches found for "{searchTerm}".
+        </div>
+      )}
+    </div>
+  );
+};
+// =========================================================
+// END: Searchable Select Component
+// =========================================================
+
 
 function RecordNewLGPage({ onLogout, isGracePeriod }) {
   const navigate = useNavigate();
@@ -261,7 +465,8 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
 			 'lg_operational_status_id', 'issuing_bank_id', 'issuing_method_id', 'applicable_rule_id',
 			 'lg_category_id', 'communication_bank_id'].includes(name)) {
 		  const parsedValue = parseInt(value, 10);
-		  return { ...prevData, [name]: value === '' ? null : String(parsedValue) };
+		  // Handles the case where the select/searchable is cleared (value is '')
+		  return { ...prevData, [name]: value === '' ? '' : String(parsedValue) };
 		}
       return { ...prevData, [name]: value };
     });
@@ -711,6 +916,21 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
   }
   
   const isAdvisingOrConfirmed = formData.advising_status === 'Advised' || formData.advising_status === 'Confirmed';
+  
+  // Prepare bank options for the new searchable select component
+  const bankOptions = dropdownData.banks.map(bank => ({
+    value: String(bank.id),
+    label: `${bank.name} (${bank.short_name || bank.swift_code || 'N/A'})`,
+    isForeign: bank.name === 'Foreign Bank',
+  }));
+  
+  // Prepare communication bank options (excluding Foreign Bank, if it exists)
+  const communicationBankOptions = communicationBanks.map(bank => ({
+    value: String(bank.id),
+    label: `${bank.name} (${bank.short_name || bank.swift_code || 'N/A'})`,
+    isForeign: false,
+  }));
+
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
@@ -917,18 +1137,17 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
             <div className={`p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
               <div className="mb-2">
                 <label htmlFor="issuing_bank_id" className={labelClassNames}>Issuing Bank {requiredSpan}</label>
-                <select name="issuing_bank_id" id="issuing_bank_id" value={formData.issuing_bank_id} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} >
-                  <option value="">Select Issuing Bank</option>
-                  {dropdownData.banks.map(bank => (
-                    <option 
-                      key={`bank-${bank.id}`} 
-                      value={String(bank.id)} 
-                      className={bank.name === 'Foreign Bank' ? 'text-red-500 font-bold' : ''}
-                    >
-                      {bank.name} ({bank.short_name || bank.swift_code})
-                    </option>
-                  ))}
-                </select>
+                <SearchableBankSelect
+                    name="issuing_bank_id"
+                    id="issuing_bank_id"
+                    value={formData.issuing_bank_id}
+                    onChange={handleChange}
+                    options={bankOptions}
+                    placeholder="Type to search Issuing Bank"
+                    required
+                    className={inputClassNames}
+                    disabled={isFormDisabled || isGracePeriod}
+                />
               </div>
               {/* NEW: Conditional fields for Foreign Bank */}
               {isForeignBankSelected ? (
@@ -949,7 +1168,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                     <label htmlFor="foreign_bank_swift_code" className={labelClassNames}>SWIFT Code {requiredSpan}</label>
                     <input type="text" name="foreign_bank_swift_code" id="foreign_bank_swift_code" value={formData.foreign_bank_swift_code} onChange={handleChange} required={isForeignBankSelected} className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
                   </div>
-                  {/* NEW: Advising Status and Communication Bank fields */}
+                  {/* UPDATED: Advising Status and Communication Bank fields */}
                   <div className="mb-2">
                     <label htmlFor="advising_status" className={labelClassNames}>Advising Status {requiredSpan}</label>
                     <select
@@ -971,20 +1190,18 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                       <label htmlFor="communication_bank_id" className={labelClassNames}>
                         {formData.advising_status === 'Advised' ? 'Advising Bank' : 'Confirming Bank'} {requiredSpan}
                       </label>
-                      <select
-                        name="communication_bank_id"
-                        id="communication_bank_id"
-                        value={formData.communication_bank_id}
-                        onChange={handleChange}
-                        required
-                        className={inputClassNames}
-                        disabled={isFormDisabled || isGracePeriod}
-                      >
-                        <option value="">Select Communication Bank</option>
-                        {communicationBanks.map(bank => (
-                          <option key={`comm-bank-${bank.id}`} value={String(bank.id)}>{bank.name} ({bank.short_name})</option>
-                        ))}
-                      </select>
+                      {/* NOW USING SearchableBankSelect for consistency */}
+                      <SearchableBankSelect
+                          name="communication_bank_id"
+                          id="communication_bank_id"
+                          value={formData.communication_bank_id}
+                          onChange={handleChange}
+                          options={communicationBankOptions}
+                          placeholder={`Type to search ${formData.advising_status === 'Advised' ? 'Advising Bank' : 'Confirming Bank'}`}
+                          required
+                          className={inputClassNames}
+                          disabled={isFormDisabled || isGracePeriod}
+                      />
                     </div>
                   )}
                 </>
@@ -992,11 +1209,11 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                 <>
                   <div className="mb-2">
                     <label htmlFor="issuing_bank_address" className={labelClassNames}>Issuing Bank Address {requiredSpan}</label>
-                    <input type="text" name="issuing_bank_address" id="issuing_bank_address" value={formData.issuing_bank_address} onChange={handleChange} required={!isForeignBankSelected} readOnly className={`${inputClassNames} bg-gray-100`} />
+                    <input type="text" name="issuing_bank_address" id="issuing_bank_address" value={formData.issuing_bank_address} onChange={handleChange} required={!isForeignBankSelected && formData.issuing_bank_id !== ''} readOnly className={`${inputClassNames} bg-gray-100`} />
                   </div>
                   <div className="mb-2">
                     <label htmlFor="issuing_bank_phone" className={labelClassNames}>Issuing Bank Phone {requiredSpan}</label>
-                    <input type="text" name="issuing_bank_phone" id="issuing_bank_phone" value={formData.issuing_bank_phone} onChange={handleChange} required={!isForeignBankSelected} readOnly className={`${inputClassNames} bg-gray-100`} />
+                    <input type="text" name="issuing_bank_phone" id="issuing_bank_phone" value={formData.issuing_bank_phone} onChange={handleChange} required={!isForeignBankSelected && formData.issuing_bank_id !== ''} readOnly className={`${inputClassNames} bg-gray-100`} />
                   </div>
                   <div className="mb-2">
                     <label htmlFor="issuing_bank_fax" className={labelClassNames}>Issuing Bank Fax</label>

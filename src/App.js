@@ -178,7 +178,8 @@ function AppContent() {
     } else if (role === 'corporate_admin') {
       return "/corporate-admin/dashboard";
     } else if (role === 'end_user' || role === 'checker' || role === 'viewer') {
-      return "/end-user/lg-records";
+      // FIX: Changed default redirect from 'lg-records' to 'action-center'
+      return "/end-user/action-center"; 
     }
     return "/login";
   };
@@ -226,10 +227,12 @@ function AppContent() {
                 <Route path="system-owner/*" element={<SystemOwnerRoutes onLogout={handleLogout} />} />
                 <Route path="corporate-admin/*" element={<CorporateAdminRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} />} />
                 <Route path="end-user/*" element={<EndUserRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} />} />
+                {/* Fallback route inside protected area */}
                 <Route path="*" element={<Navigate to={getDefaultRedirectPath(userRole)} replace />} />
               </Route>
             )}
           </Route>
+          {/* Fallback route for unauthenticated users */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </>
