@@ -125,11 +125,19 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     setSelectedLgRecordForActivate(null);
 
     setLgRecords(prevRecords => {
+        // Ensure the record we are trying to update exists and has an ID
+        if (!updatedRecordFromBackend || !updatedRecordFromBackend.id) {
+            console.error("Action success handler called without a valid updated LG record from backend.");
+            return prevRecords; // Return original records to avoid state corruption
+        }
+
         return prevRecords.map(rec => {
-            if (!rec) {
-                console.warn("--- WARNING: handleActionSuccess found null/undefined record in prevRecords. Skipping update for this item.", rec);
+            // CRITICAL CHECK: Ensure the current record in the array is valid
+            if (!rec || typeof rec.id === 'undefined') {
+                console.warn("--- WARNING: handleActionSuccess found null/undefined record or record without ID in prevRecords. Skipping this item.", rec);
                 return rec;
             }
+            // If valid, perform the update
             return rec.id === updatedRecordFromBackend.id ? updatedRecordFromBackend : rec;
         });
     });
