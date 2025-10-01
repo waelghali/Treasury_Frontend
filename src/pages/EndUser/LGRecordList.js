@@ -76,6 +76,9 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState([]);
 
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTypes, setSelectedTypes] = useState([]);
+
   const [allLgRecords, setAllLgRecords] = useState([]);
 
   const fetchLgRecords = useCallback(async (isBackgroundRefresh = false) => {
@@ -315,10 +318,11 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     }
   };
 
-  // NEW: Function to clear both search and status filters
   const handleClearFilters = () => {
     setSearchTerm('');
     setSelectedStatuses([]);
+    setSelectedDate('');
+    setSelectedTypes([]);
   };
 
   const uniqueStatuses = useMemo(() => {
@@ -331,28 +335,45 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     return Array.from(statuses).sort();
   }, [lgRecords]);
 
+  const uniqueTypes = useMemo(() => {
+    const types = new Set();
+    lgRecords.forEach(record => {
+      if (record.lg_type?.name) {
+        types.add(record.lg_type.name);
+      }
+    });
+    return Array.from(types).sort();
+  }, [lgRecords]);
+
   const filteredAndSortedRecords = useMemo(() => {
     if (!lgRecords || lgRecords.length === 0) return [];
 
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
 
     const filteredRecords = lgRecords.filter(record => {
-      const matchesSearchTerm = (
-        record.lg_number.toLowerCase().includes(lowerCaseSearchTerm) ||
-        (record.issuer_name || '').toLowerCase().includes(lowerCaseSearchTerm) || 
-        (record.beneficiary_corporate?.entity_name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
-        // Check for both Issuing Bank name and Foreign Bank name in the search filter
-        (record.issuing_bank?.name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
-        (record.foreign_bank_name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
-        (record.lg_category?.name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
-        formatAmount(record.lg_amount, record.lg_currency?.iso_code).toLowerCase().includes(lowerCaseSearchTerm) ||
-        formatDate(record.expiry_date).toLowerCase().includes(lowerCaseSearchTerm)
-      );
+        const matchesSearchTerm = (
+          record.lg_number.toLowerCase().includes(lowerCaseSearchTerm) ||
+          (record.issuer_name || '').toLowerCase().includes(lowerCaseSearchTerm) || 
+          (record.beneficiary_corporate?.entity_name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
+          (record.issuing_bank?.name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
+          (record.foreign_bank_name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
+          (record.lg_category?.name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
+          formatAmount(record.lg_amount, record.lg_currency?.iso_code).toLowerCase().includes(lowerCaseSearchTerm) ||
+          formatDate(record.expiry_date).toLowerCase().includes(lowerCaseSearchTerm)
+        );
 
-      const matchesStatus = selectedStatuses.length === 0 ||
-                            (record.lg_status?.name && selectedStatuses.includes(record.lg_status.name));
+        const matchesStatus = selectedStatuses.length === 0 ||
+                              (record.lg_status?.name && selectedStatuses.includes(record.lg_status.name));
+        
+        const matchesDate = !selectedDate || 
+            (record.issuance_date && record.expiry_date && 
+             new Date(record.issuance_date) < new Date(selectedDate) && 
+             new Date(selectedDate) < new Date(record.expiry_date));
 
-      return matchesSearchTerm && matchesStatus;
+        const matchesType = selectedTypes.length === 0 ||
+                            (record.lg_type?.name && selectedTypes.includes(record.lg_type.name));
+
+        return matchesSearchTerm && matchesStatus && matchesDate && matchesType;
     });
 
     const sortableRecords = [...filteredRecords];
@@ -379,7 +400,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
           bValue = parseFloat(b.lg_amount || 0);
           break;
         case 'issuing_bank':
-          // Special sorting logic for the "issuing_bank" column
           const aBankName = (a.issuing_bank?.name === 'Foreign Bank' ? a.foreign_bank_name : a.issuing_bank?.name) || '';
           const bBankName = (b.issuing_bank?.name === 'Foreign Bank' ? b.foreign_bank_name : b.issuing_bank?.name) || '';
           aValue = aBankName;
@@ -414,7 +434,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     });
 
     return sortableRecords;
-  }, [lgRecords, sortColumn, sortDirection, searchTerm, selectedStatuses]);
+  }, [lgRecords, sortColumn, sortDirection, searchTerm, selectedStatuses, selectedDate, selectedTypes]);
 
   const handleExportToExcel = (dataToExport) => {
     const exportData = dataToExport.map(record => ({
@@ -452,17 +472,15 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
             {filterByOwnerId ? `LGs for Owner ID: ${filterByOwnerId}` : `Manage LG Records`}
         </h2>
         <div className="flex space-x-3">
-            {/* Conditional Clear Filter Button */}
-            {(searchTerm.length > 0 || selectedStatuses.length > 0) && (
-                <button
-                    onClick={handleClearFilters}
-                    className={`${buttonBaseClassNames} bg-gray-600 text-white hover:bg-gray-700`}
-                >
-                    <XCircle className="h-5 w-5 mr-2" />
-                    Clear Filters
-                </button>
+            {(searchTerm.length > 0 || selectedStatuses.length > 0 || selectedDate || selectedTypes.length > 0) && (
+              <button
+                  onClick={handleClearFilters}
+                  className={`${buttonBaseClassNames} bg-gray-600 text-white hover:bg-gray-700`}
+              >
+                  <XCircle className="h-5 w-5 mr-2" />
+                  Clear Filters
+              </button>
             )}
-            {/* NEW: Export Button with Dropdown */}
             <Menu as="div" className="relative inline-block text-left">
               <Menu.Button className={`${buttonBaseClassNames} bg-teal-600 text-white hover:bg-teal-700`}>
                 <Download className="h-5 w-5 mr-2" />
@@ -545,7 +563,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
         </div>
       ) : (
         <>
-          <div className="mb-4 flex items-center justify-between space-x-4">
+          <div className="mb-4 flex items-center justify-between space-x-4 flex-wrap gap-2">
             <input
               type="text"
               placeholder="Search by LG No., Issuer, Beneficiary, Bank, Category..."
@@ -553,6 +571,17 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+
+            <div className="relative w-64 shrink-0">
+              <input
+                type="date"
+                className="mt-1 w-full cursor-pointer rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-md"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                placeholder="Filter by date"
+                title="Show LGs where: Issuance Date < Selected Date < Expiry Date"
+              />
+            </div>
 
             <Listbox value={selectedStatuses} onChange={setSelectedStatuses} multiple>
               {({ open }) => (
@@ -592,6 +621,66 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                             <>
                               <span className={`block truncate ${selected ? 'font-semibold' : 'font-normal'}`}>
                                 {status}
+                              </span>
+                              {selected ? (
+                                <span
+                                  className={`absolute inset-y-0 left-0 flex items-center pl-1.5 ${
+                                    active ? 'text-white' : 'text-blue-600'
+                                  }`}
+                                >
+                                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.052-.143z" clipRule="evenodd" />
+                                  </svg>
+                                </span>
+                              ) : null}
+                            </>
+                          )}
+                        </Listbox.Option>
+                      ))}
+                    </Listbox.Options>
+                  </Transition>
+                </div>
+              )}
+            </Listbox>
+
+            <Listbox value={selectedTypes} onChange={setSelectedTypes} multiple>
+              {({ open }) => (
+                <div className="relative w-64 shrink-0">
+                  <Listbox.Button className="mt-1 w-full cursor-default rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-md">
+                    <span className="block truncate text-md">
+                      {selectedTypes.length === 0
+                        ? 'Filter by Type'
+                        : selectedTypes.length === uniqueTypes.length
+                          ? 'All Types'
+                          : selectedTypes.join(', ')}
+                    </span>
+                    <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                      <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                    </span>
+                  </Listbox.Button>
+
+                  <Transition
+                    show={open}
+                    as={Fragment}
+                    leave="transition ease-in duration-100"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                  >
+                    <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                      {uniqueTypes.map((type) => (
+                        <Listbox.Option
+                          key={type}
+                          className={({ active }) =>
+                            `relative cursor-default select-none py-2 pl-8 pr-4 ${
+                              active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                            }`
+                          }
+                          value={type}
+                        >
+                          {({ selected, active }) => (
+                            <>
+                              <span className={`block truncate ${selected ? 'font-semibold' : 'font-normal'}`}>
+                                {type}
                               </span>
                               {selected ? (
                                 <span
@@ -718,7 +807,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
                       {formatAmount(record.lg_amount, record.lg_currency?.iso_code)}
                     </td>
-                    {/* Conditional rendering for the 'Issuing Bank' column */}
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
                       {record.issuing_bank?.name === 'Foreign Bank' ? record.foreign_bank_name || 'N/A' : record.issuing_bank?.name || 'N/A'}
                     </td>
