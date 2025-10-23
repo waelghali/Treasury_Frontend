@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { apiRequest } from 'services/apiService.js';
-import { RefreshCcw, Filter, XCircle, ChevronDown, ChevronUp, Loader2, AlertCircle } from 'lucide-react';
-import moment from 'moment'; // Ensure moment is imported
+// --- CORRECTED IMPORT: Added API_BASE_URL ---
+import { apiRequest, API_BASE_URL } from 'services/apiService.js';
+// --- END CORRECTION ---
+import { RefreshCcw, Filter, XCircle, ChevronDown, ChevronUp, Loader2, AlertCircle, Download } from 'lucide-react';
+import moment from 'moment';
+import { toast } from 'react-toastify';
 
-function AuditLogs() { // Removed onLogout as it's not used here
+function AuditLogs() {
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -14,8 +17,10 @@ function AuditLogs() { // Removed onLogout as it's not used here
     entity_id: '',
     start_date: '',
     end_date: '',
+    customer_id: '', // Added customer_id filter for System Owner
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [isExporting, setIsExporting] = useState(false); // Export loading state
 
   const fetchAuditLogs = async () => {
     setIsLoading(true);
@@ -27,6 +32,7 @@ function AuditLogs() { // Removed onLogout as it's not used here
           queryParams.append(key, filters[key]);
         }
       }
+      // Assuming apiRequest correctly prepends the base URL
       const fetchedLogs = await apiRequest(`/system-owner/audit-logs/?${queryParams.toString()}`, 'GET');
       setLogs(fetchedLogs);
     } catch (err) {
@@ -54,21 +60,85 @@ function AuditLogs() { // Removed onLogout as it's not used here
       entity_id: '',
       start_date: '',
       end_date: '',
+      customer_id: '', // Reset customer_id filter
     });
   };
 
+  const handleExportCSV = async () => {
+    setIsExporting(true);
+    try {
+      const queryParams = new URLSearchParams();
+      for (const key in filters) {
+        if (filters[key]) {
+          queryParams.append(key, filters[key]);
+        }
+      }
+
+      const token = localStorage.getItem('jwt_token');
+
+      if (!token) {
+          toast.error('Authentication token not found. Please log in again.');
+          setIsExporting(false);
+          return;
+      }
+
+      // --- CORRECTED URL CONSTRUCTION ---
+      const exportPath = `/system-owner/audit-logs/export-csv?${queryParams.toString()}`;
+      const fullUrl = `${API_BASE_URL}${exportPath}`; // Prepend the base URL
+      // --- END CORRECTION ---
+
+
+      const response = await fetch(
+        fullUrl, // Use the full URL
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'text/csv',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        let errorMsg = `Failed to download file (${response.status})`;
+        try {
+          const errData = await response.json();
+          errorMsg = errData.detail || errorMsg;
+        } catch (e) {
+          errorMsg = response.statusText || errorMsg;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `system_audit_logs_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Export started successfully.');
+
+    } catch (err) {
+      console.error('Failed to export audit logs:', err);
+      toast.error(`Export failed. ${err.message || 'An unexpected error occurred.'}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const formatTimestamp = (timestamp) => {
-    // Audit log timestamps from backend are ISO strings, moment handles them well
     return moment(timestamp).format('YYYY-MM-DD HH:mm:ss');
   };
 
   const renderDetails = (details) => {
     if (!details) return 'N/A';
     try {
-      // Parse the JSON string if it's a string, otherwise use directly
       const parsedDetails = typeof details === 'string' ? JSON.parse(details) : details;
-      
-      // Display AI token usage if available
+
       if (parsedDetails.ai_token_usage) {
         const usage = parsedDetails.ai_token_usage;
         return (
@@ -83,7 +153,6 @@ function AuditLogs() { // Removed onLogout as it's not used here
           </div>
         );
       }
-      // Fallback for other audit log details
       return (
         <pre className="text-xs bg-gray-50 p-2 rounded-md overflow-auto max-h-24">
           {JSON.stringify(parsedDetails, null, 2)}
@@ -91,7 +160,7 @@ function AuditLogs() { // Removed onLogout as it's not used here
       );
     } catch (e) {
       console.error("Failed to parse audit log details:", e, details);
-      return String(details); // Return as string if parsing fails
+      return String(details);
     }
   };
 
@@ -122,7 +191,7 @@ function AuditLogs() { // Removed onLogout as it's not used here
             <div>
               <label htmlFor="user_id" className="block text-sm font-medium text-gray-700">User ID</label>
               <input
-                type="text" // Changed to text as user_id might not always be numeric
+                type="text"
                 name="user_id"
                 id="user_id"
                 value={filters.user_id}
@@ -158,7 +227,7 @@ function AuditLogs() { // Removed onLogout as it's not used here
             <div>
               <label htmlFor="entity_id" className="block text-sm font-medium text-gray-700">Entity ID</label>
               <input
-                type="text" // Changed to text as entity_id might not always be numeric
+                type="text"
                 name="entity_id"
                 id="entity_id"
                 value={filters.entity_id}
@@ -189,6 +258,19 @@ function AuditLogs() { // Removed onLogout as it's not used here
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
             </div>
+            {/* Customer ID Filter for System Owner */}
+            <div>
+              <label htmlFor="customer_id" className="block text-sm font-medium text-gray-700">Customer ID</label>
+              <input
+                type="text"
+                name="customer_id"
+                id="customer_id"
+                value={filters.customer_id}
+                onChange={handleFilterChange}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                placeholder="e.g., 2"
+              />
+            </div>
           </div>
         )}
 
@@ -205,9 +287,24 @@ function AuditLogs() { // Removed onLogout as it's not used here
           <button
             onClick={fetchAuditLogs}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            disabled={isLoading} // Disable while loading
           >
             <RefreshCcw className="h-5 w-5 mr-2" />
             Apply Filters
+          </button>
+
+          {/* --- EXPORT BUTTON --- */}
+          <button
+            onClick={handleExportCSV}
+            className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-5 w-5 mr-2" />
+            )}
+            Export to CSV
           </button>
         </div>
       </div>
@@ -228,9 +325,11 @@ function AuditLogs() { // Removed onLogout as it's not used here
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User ID</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer ID</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action Type</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity Type</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity ID</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LG Number</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
               </tr>
@@ -239,10 +338,12 @@ function AuditLogs() { // Removed onLogout as it's not used here
               {logs.map((log) => (
                 <tr key={log.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatTimestamp(log.timestamp)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.user_id}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.user_id || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.customer_id || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.action_type}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_type}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_id || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.lg_number || 'N/A'}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {renderDetails(log.details)}
                   </td>

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { apiRequest } from 'services/apiService.js';
-import { RefreshCcw, Filter, XCircle, ChevronDown, ChevronUp, Loader2, AlertCircle } from 'lucide-react';
+// --- CORRECTED IMPORT: Added API_BASE_URL ---
+import { apiRequest, API_BASE_URL } from 'services/apiService.js';
+// --- END CORRECTION ---
+import { RefreshCcw, Filter, XCircle, ChevronDown, ChevronUp, Loader2, AlertCircle, Download } from 'lucide-react';
 import moment from 'moment';
 import { toast } from 'react-toastify';
 
-// NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
+// A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
   if (isGracePeriod) {
     return (
@@ -22,7 +24,7 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
   return children;
 };
 
-function AuditLogsCorporate({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod prop
+function AuditLogsCorporate({ onLogout, isGracePeriod }) {
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,6 +37,7 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) { // NEW: Accept isGrac
     end_date: '',
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [isExporting, setIsExporting] = useState(false); // Export loading state
 
   const fetchAuditLogs = async () => {
     setIsLoading(true);
@@ -57,8 +60,6 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) { // NEW: Accept isGrac
   };
 
   useEffect(() => {
-    // Only fetch logs if not in grace period, to prevent unnecessary API calls if filters are disabled.
-    // However, the initial fetch should still happen to show the logs.
     fetchAuditLogs();
   }, [filters]);
 
@@ -86,6 +87,76 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) { // NEW: Accept isGrac
     });
   };
 
+  const handleExportCSV = async () => {
+    if (isGracePeriod) {
+      toast.warn("Exporting is disabled during your subscription's grace period.");
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const queryParams = new URLSearchParams();
+      for (const key in filters) {
+        if (filters[key]) {
+          queryParams.append(key, filters[key]);
+        }
+      }
+
+      const token = localStorage.getItem('jwt_token');
+
+      if (!token) {
+          toast.error('Authentication token not found. Please log in again.');
+          setIsExporting(false);
+          return;
+      }
+
+      // --- CORRECTED URL CONSTRUCTION ---
+      const exportPath = `/corporate-admin/audit-logs/export-csv?${queryParams.toString()}`;
+      const fullUrl = `${API_BASE_URL}${exportPath}`; // Prepend the base URL
+      // --- END CORRECTION ---
+
+      const response = await fetch(
+        fullUrl, // Use the full URL
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'text/csv',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        let errorMsg = `Failed to download file (${response.status})`;
+        try {
+          const errData = await response.json();
+          errorMsg = errData.detail || errorMsg;
+        } catch (e) {
+          errorMsg = response.statusText || errorMsg;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `corporate_audit_logs_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Export started successfully.');
+
+    } catch (err) {
+      console.error('Failed to export audit logs:', err);
+      toast.error(`Export failed. ${err.message || 'An unexpected error occurred.'}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const formatTimestamp = (timestamp) => {
     return moment(timestamp).format('YYYY-MM-DD HH:mm:ss');
   };
@@ -94,7 +165,7 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) { // NEW: Accept isGrac
     if (!details) return 'N/A';
     try {
       const parsedDetails = typeof details === 'string' ? JSON.parse(details) : details;
-      
+
       if (parsedDetails.ai_token_usage) {
         const usage = parsedDetails.ai_token_usage;
         return (
@@ -109,7 +180,7 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) { // NEW: Accept isGrac
           </div>
         );
       }
-      
+
       return (
         <pre className="text-xs bg-gray-50 p-2 rounded-md overflow-auto max-h-24">
           {JSON.stringify(parsedDetails, null, 2)}
@@ -154,7 +225,7 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) { // NEW: Accept isGrac
                 onChange={handleFilterChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., 1"
-                disabled={isGracePeriod} // NEW: Disable input
+                disabled={isGracePeriod}
               />
             </div>
             <div>
@@ -167,7 +238,7 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) { // NEW: Accept isGrac
                 onChange={handleFilterChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., CREATE_BY_CA"
-                disabled={isGracePeriod} // NEW: Disable input
+                disabled={isGracePeriod}
               />
             </div>
             <div>
@@ -180,7 +251,7 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) { // NEW: Accept isGrac
                 onChange={handleFilterChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., User"
-                disabled={isGracePeriod} // NEW: Disable input
+                disabled={isGracePeriod}
               />
             </div>
             <div>
@@ -193,9 +264,34 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) { // NEW: Accept isGrac
                 onChange={handleFilterChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 placeholder="e.g., 5"
-                disabled={isGracePeriod} // NEW: Disable input
+                disabled={isGracePeriod}
               />
             </div>
+             {/* Date filters */}
+             <div>
+               <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">Start Date</label>
+               <input
+                 type="date"
+                 name="start_date"
+                 id="start_date"
+                 value={filters.start_date}
+                 onChange={handleFilterChange}
+                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                 disabled={isGracePeriod}
+               />
+             </div>
+             <div>
+               <label htmlFor="end_date" className="block text-sm font-medium text-gray-700">End Date</label>
+               <input
+                 type="date"
+                 name="end_date"
+                 id="end_date"
+                 value={filters.end_date}
+                 onChange={handleFilterChange}
+                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                 disabled={isGracePeriod}
+               />
+             </div>
           </div>
         )}
 
@@ -205,7 +301,7 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) { // NEW: Accept isGrac
               <button
                 onClick={handleClearFilters}
                 className={`inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                disabled={isGracePeriod} // NEW: Disable button
+                disabled={isGracePeriod}
               >
                 <XCircle className="h-5 w-5 mr-2" />
                 Clear Filters
@@ -215,11 +311,27 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) { // NEW: Accept isGrac
           <GracePeriodTooltip isGracePeriod={isGracePeriod}>
             <button
               onClick={fetchAuditLogs}
-              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={isGracePeriod} // NEW: Disable button
+              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isGracePeriod || isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isGracePeriod || isLoading}
             >
               <RefreshCcw className="h-5 w-5 mr-2" />
               Apply Filters
+            </button>
+          </GracePeriodTooltip>
+
+          {/* --- EXPORT BUTTON --- */}
+          <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+            <button
+              onClick={handleExportCSV}
+              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${isGracePeriod || isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isGracePeriod || isExporting}
+            >
+              {isExporting ? (
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-5 w-5 mr-2" />
+              )}
+              Export to CSV
             </button>
           </GracePeriodTooltip>
         </div>
@@ -237,34 +349,34 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) { // NEW: Accept isGrac
       ) : (
         <div className="overflow-x-auto rounded-lg shadow">
           <table className="min-w-full divide-y divide-gray-200">
-			<thead className="bg-gray-50">
-			  <tr>
-				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
-				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Name</th>
-				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action Type</th>
-				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity Type</th>
-				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity Name</th>
-				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LG Number</th>
-				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
-				<th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
-			  </tr>
-			</thead>
-			<tbody className="bg-white divide-y divide-gray-200">
-			  {logs.map((log) => (
-				<tr key={log.id}>
-				  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatTimestamp(log.timestamp)}</td>
-				  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.user_name || 'System'}</td>
-				  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.action_type}</td>
-				  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_type}</td>
-				  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_name || 'N/A'}</td>
-				  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.lg_number || 'N/A'}</td>
-				  <td className="px-6 py-4 text-sm text-gray-900">
-					{renderDetails(log.details)}
-				  </td>
-				  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.ip_address || 'N/A'}</td>
-				</tr>
-			  ))}
-			</tbody>
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Name</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action Type</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity Type</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity Name</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LG Number</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {logs.map((log) => (
+                <tr key={log.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatTimestamp(log.timestamp)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.user_name || 'System'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.action_type}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_type}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_name || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.lg_number || 'N/A'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {renderDetails(log.details)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.ip_address || 'N/A'}</td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
       )}
