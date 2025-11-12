@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Mail, AlertCircle, Loader2 } from 'lucide-react';
-import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
+import { X, Mail, Loader2 } from 'lucide-react';
+import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
@@ -21,7 +21,7 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
+// const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
 const BulkRemindersModal = ({ onClose, onSuccess, isGracePeriod }) => {
     const [isProcessing, setIsProcessing] = useState(false);

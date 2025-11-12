@@ -1,8 +1,8 @@
 // LegalArtifactModal.js
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../services/apiService';
-import { getAuthToken, API_BASE_URL } from '../services/apiService'; // Import API_BASE_URL here
-import { jwtDecode } from 'jwt-decode';
+import { API_BASE_URL } from '../services/apiService'; // Removed getAuthToken
+// Removed: import { jwtDecode } from 'jwt-decode';
 import { toast } from 'react-toastify';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileContract, faUserShield, faCheckCircle, faSpinner } from '@fortawesome/free-solid-svg-icons';
@@ -69,7 +69,8 @@ function LegalArtifactModal({ onAcceptSuccess, onLogout }) {
   const handleAccept = async () => {
     setIsAccepting(true);
     try {
-      const response = await apiRequest(
+      // Removed 'const response ='
+      await apiRequest(
         '/policies/accept', 
         'POST',
         {

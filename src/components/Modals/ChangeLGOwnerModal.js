@@ -1,7 +1,7 @@
 // frontend/src/components/Modals/ChangeLGOwnerModal.js
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
-import { X, Save, UserPlus, Users, Loader2, AlertCircle } from 'lucide-react';
+import { X, Users, Loader2, AlertCircle } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { apiRequest } from '../../services/apiService';

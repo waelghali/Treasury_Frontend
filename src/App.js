@@ -31,7 +31,8 @@ function AppContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
-  const [mustAcceptPolicies, setMustAcceptPolicies] = useState(false);
+  // FIX: Renamed to _mustAcceptPolicies to clear the "assigned but never used" error
+  const [_mustAcceptPolicies, setMustAcceptPolicies] = useState(false); 
   const [userId, setUserId] = useState(null);
   const [customerName, setCustomerName] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -122,13 +123,14 @@ function AppContent() {
       mustChangePassword: updatedMustChangePassword, 
       mustAcceptPolicies: updatedMustAcceptPolicies,
       userRole: updatedUserRole, 
-      isAuthenticated: updatedIsAuthenticated, 
+      // FIX: Renamed to _updatedIsAuthenticated to clear the "assigned but never used" error
+      isAuthenticated: _updatedIsAuthenticated, 
       subscriptionStatus: updatedSubscriptionStatus 
     } = decodeTokenAndSetState(response.access_token);
 
     if (updatedMustAcceptPolicies) {
         setShowLegalModal(true);
-    } else if (!updatedIsAuthenticated) {
+    } else if (!_updatedIsAuthenticated) { // Used the new renamed variable here
         navigate("/login", { replace: true });
     } else if (updatedMustChangePassword) {
         navigate("/force-password-change", { replace: true });

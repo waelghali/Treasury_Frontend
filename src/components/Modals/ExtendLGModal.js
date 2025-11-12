@@ -5,7 +5,7 @@ import { apiRequest } from '../../services/apiService';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
-import { X, Calendar, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, Calendar, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 // Reusable component for tooltip during grace period, as seen in the first modal

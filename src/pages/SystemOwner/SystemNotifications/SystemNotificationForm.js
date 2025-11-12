@@ -8,7 +8,7 @@ import {
   apiRequest,
   getAllUsersForSystemOwner,
 } from '../../../services/apiService';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import clsx from 'clsx'; // For conditional class names
 

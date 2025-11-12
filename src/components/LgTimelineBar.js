@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import moment from 'moment';
-import { Loader2, AlertCircle, CheckCircle, Repeat, Mail, Truck, Building, Clock, FileMinus, MinusCircle } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { apiRequest } from '../services/apiService';
 import {
     getEventIcon,
     formatActionTypeLabel,
-    formatEventDetails,
     getExpiryBarProps
 } from '../utils/timelineHelpers'; 
 

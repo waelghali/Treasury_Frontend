@@ -1,7 +1,7 @@
 // frontend/src/components/Modals/RecordBankReplyModal.js
 import React, { useState, Fragment } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
-import { X, Save, Building, AlertCircle } from 'lucide-react';
+import { X, Building, AlertCircle } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 // Removed react-datepicker imports
