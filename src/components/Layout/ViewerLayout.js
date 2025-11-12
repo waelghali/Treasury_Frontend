@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, Outlet } from 'react-router-dom';
-import { Home, FileText, PlusCircle, BarChart, LogOut, FolderKanban, Users, ListTodo } from 'lucide-react';
+import { Home, LogOut, FolderKanban, Users } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner'; // NEW: Import the subscription banner
 
