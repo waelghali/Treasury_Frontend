@@ -252,7 +252,7 @@ function KnowMorePage() {
               <ul className="space-y-2">
                 <li>Phone: <a href="tel:+201200557551" className="hover:text-white transition-colors">+201200557551</a></li>
                 <li>WhatsApp: <a href="https://wa.me/201200557551" className="hover:text-white transition-colors">+201200557551</a></li>
-                <li>Email: <a href="mailto:LG_Custody@growbusinessdevelopment.com" className="hover:text-white transition-colors">info@growbusinessdevelopment.com</a></li>
+                <li>Email: <a href="mailto:lg_custody@growbusinessdevelopment.com" className="hover:text-white transition-colors">lg_custody@growbusinessdevelopment.com</a></li>
                 <li>Address: 100 El Merghany St., Heliopolis, Cairo, Egypt</li>
               </ul>
             </div>
