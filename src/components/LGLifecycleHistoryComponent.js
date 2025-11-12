@@ -1,8 +1,8 @@
 // frontend/src/components/LGLifecycleHistoryComponent.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { apiRequest, API_BASE_URL, getAuthToken } from '../services/apiService';
+import { apiRequest, getAuthToken } from '../services/apiService';
 import { format, differenceInDays } from 'date-fns';
-import { Loader, AlertCircle, Clock, Info, CheckCircle, Edit, Repeat, Truck, Building, User, RotateCcw, FileText, ChevronDown, Download, Mail, Eye, FileMinus, MinusCircle, Users } from 'lucide-react';
+import { Loader, AlertCircle, Truck, Building, RotateCcw, FileText, ChevronDown, Download, Mail, Eye } from 'lucide-react';
 import CancelInstructionModal from 'components/Modals/CancelInstructionModal';
 import { toast } from 'react-toastify';
 import { getEventIcon, formatActionTypeLabel } from '../utils/timelineHelpers';
@@ -72,15 +72,6 @@ const LGLifecycleHistoryComponent = ({
     }, [lgInstructions]);
 
     const latestCancellableInstruction = findLatestCancellableInstruction();
-
-	const findDocumentForInstruction = useCallback((instruction, documentType) => {
-		if (!instruction || !instruction.documents) return null;
-		return instruction.documents.find(doc =>
-			doc.document_type === documentType &&
-			doc.lg_instruction_id === instruction.id &&
-			!doc.is_deleted
-		);
-	}, []);
 
     const fetchLifecycleHistoryAndConfig = useCallback(async () => {
         setIsLoading(true);
@@ -469,7 +460,7 @@ const LGLifecycleHistoryComponent = ({
             {filteredEvents.map((eventItem, index) => {
                 const instruction = getInstructionForEvent(eventItem);
                 
-                const isInstructionIssued = instruction && isActionableInstructionType(instruction.instruction_type);
+                // Removed: const isInstructionIssued = instruction && isActionableInstructionType(instruction.instruction_type);
                 
                 const deliveryDoc = instruction ? instruction.documents?.find(doc =>
                     doc.document_type === 'DELIVERY_PROOF' && doc.lg_instruction_id === instruction.id
