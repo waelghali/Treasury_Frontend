@@ -7,7 +7,10 @@ import { API_BASE_URL } from 'services/apiService';
 function TrialRegistrationDetailsModal({ registration, onClose }) {
   if (!registration) return null;
 
-  const documentUrl = `${API_BASE_URL}/public/documents/?file_path=${encodeURIComponent(registration.commercial_register_document_path)}`;
+  // *** UPDATED: Point to the new, secure System Owner endpoint for GCS access ***
+  // Assuming API_BASE_URL resolves to the root/api/v1 of the server.
+  const documentUrl = `${API_BASE_URL}/system-owner/trial/download-register-document/?gcs_uri=${encodeURIComponent(registration.commercial_register_document_path)}`;
+  
   const registeredDate = new Date(registration.accepted_terms_at).toLocaleString();
 
   return (
