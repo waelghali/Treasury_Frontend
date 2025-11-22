@@ -1,9 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from 'services/apiService.js';
-import { Edit, Save, XCircle, Loader2, AlertCircle, Mail, Trash2, Globe, Tag, Plus, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, XCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-// NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
+// NEW: Usage Progress Bar Component (Local definition to avoid new files)
+const UsageProgressBar = ({ current, max, label, icon: Icon }) => {
+  // Avoid division by zero
+  const percentage = max > 0 ? Math.min((current / max) * 100, 100) : 0;
+  
+  // Color logic: Green (<75%), Yellow (75-90%), Red (>90%)
+  let barColor = "bg-blue-500";
+  if (percentage > 90) barColor = "bg-red-500";
+  else if (percentage > 75) barColor = "bg-yellow-500";
+
+  return (
+    <div className="mb-4">
+      <div className="flex justify-between mb-1">
+        <span className="text-sm font-medium text-gray-700 flex items-center">
+          {Icon && <Icon className="h-4 w-4 mr-2 text-gray-500" />}
+          {label}
+        </span>
+        <span className="text-sm font-medium text-gray-700">
+          {current} / {max} ({Math.round(percentage)}%)
+        </span>
+      </div>
+      <div className="w-full bg-gray-200 rounded-full h-2.5">
+        <div 
+          className={`${barColor} h-2.5 rounded-full transition-all duration-500`} 
+          style={{ width: `${percentage}%` }}
+        ></div>
+      </div>
+    </div>
+  );
+};
+
+// Grace Period Tooltip Component
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     if (isGracePeriod) {
         return (
@@ -26,7 +57,8 @@ const inputClassNames = "mt-1 block w-full text-base px-3 py-2 rounded-md border
 const labelClassNames = "block text-sm font-medium text-gray-700";
 const buttonBaseClassNames = "px-3 py-1 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
-function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod prop
+function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { 
+  // --- Existing State ---
   const [configurations, setConfigurations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,6 +67,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
+  // --- Email Settings State ---
   const [showEmailSettingsModal, setShowEmailSettingsModal] = useState(false);
   const [emailSettings, setEmailSettings] = useState(null);
   const [isEmailSettingsLoading, setIsEmailSettingsLoading] = useState(true);
@@ -52,16 +85,23 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
   const [isNewSettings, setIsNewSettings] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // --- Email List Modal State ---
   const [showEmailListModal, setShowEmailListModal] = useState(false);
   const [editEmailList, setEditEmailList] = useState([]);
   const [newEmail, setNewEmail] = useState('');
   const [emailListError, setEmailListError] = useState('');
   const [currentConfigToEdit, setCurrentConfigToEdit] = useState(null);
 
+  // --- Sort/Filter State ---
   const [sortKey, setSortKey] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
   const [filterText, setFilterText] = useState('');
 
+  // --- NEW: Subscription State ---
+  const [subscriptionData, setSubscriptionData] = useState(null);
+  const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(true);
+
+  // --- Fetch Logic ---
   const fetchConfigurations = async () => {
     setIsLoading(true);
     setError('');
@@ -81,22 +121,19 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
     setEmailSettingsError('');
     try {
       const response = await apiRequest('/corporate-admin/email-settings/', 'GET');
-      
-      // NEW: A simpler check. If a response exists at all, use it.
       if (response) {
         setEmailSettings(response);
         setEmailSettingsForm({
           smtp_host: response.smtp_host,
           smtp_port: response.smtp_port,
           smtp_username: response.smtp_username,
-          smtp_password: '', // Password field is never returned, so it's empty
+          smtp_password: '', 
           sender_email: response.sender_email,
           sender_display_name: response.sender_display_name || '',
           is_active: response.is_active,
         });
         setIsNewSettings(false);
       } else {
-        // If the response is null (meaning no record exists), prepare for a new creation.
         setEmailSettings(null);
         setIsNewSettings(true);
         setEmailSettingsForm({
@@ -117,11 +154,28 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
     }
   };
 
+  // NEW: Fetch Subscription Data
+  const fetchSubscription = async () => {
+    setIsSubscriptionLoading(true);
+    try {
+      const response = await apiRequest('/corporate-admin/my-subscription', 'GET');
+      setSubscriptionData(response);
+    } catch (err) {
+      console.error("Failed to fetch subscription details:", err);
+      // We won't block the page load if this fails, just show an error section
+    } finally {
+      setIsSubscriptionLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchConfigurations();
     fetchEmailSettings();
+    fetchSubscription(); // Trigger the new fetch
   }, []);
 
+
+  // ... [Keep existing handler functions: handleEditClick, handleSave, handleEmailSettings, etc.] ...
   const handleEditClick = (config) => {
     if (isGracePeriod) {
         toast.warn("This action is disabled during your subscription's grace period.");
@@ -353,16 +407,8 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
     return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />;
   };
 
-  if (isLoading) {
-    return (
-      <div className="text-center py-8">
-        <Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto" />
-        <p className="text-gray-600 mt-2">Loading configurations...</p>
-      </div>
-    );
-  }
-
-  const getEffectiveValue = (config) => {
+  // ... [Helpers like getEffectiveValue, getPlaceholderText, etc.] ...
+    const getEffectiveValue = (config) => {
     if (config.global_config_key === 'COMMON_COMMUNICATION_LIST') {
       try {
         const parsed = JSON.parse(config.effective_value);
@@ -404,197 +450,273 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) { // N
     });
 
 
-  return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-800">Module Settings (Customer Configurations)</h2>
-        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-            <button
-              onClick={() => setShowEmailSettingsModal(true)}
-              className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isGracePeriod}
-            >
-              <Mail className="h-4 w-4 mr-2" />
-              Manage Email Settings
-            </button>
-        </GracePeriodTooltip>
+  // Helper for formatting dates
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-8">
+        <Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto" />
+        <p className="text-gray-600 mt-2">Loading settings...</p>
       </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
       
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
-          <AlertCircle className="h-5 w-5 mr-2" />
-          <span className="block sm:inline">{error}</span>
+      {/* --- NEW: Subscription & Usage Section --- */}
+      {subscriptionData && (
+        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                <Activity className="h-5 w-5 mr-2 text-blue-600" />
+                Subscription & Usage
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Plan: <span className="font-semibold text-gray-700">{subscriptionData.subscription_plan.name}</span>
+              </p>
+            </div>
+            <div className="text-right">
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                subscriptionData.status === 'active' ? 'bg-green-100 text-green-800' : 
+                subscriptionData.status === 'grace' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+              }`}>
+                {subscriptionData.status.toUpperCase()}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Period Info */}
+            <div className="bg-gray-50 p-4 rounded-md">
+               <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center">
+                 <Calendar className="h-4 w-4 mr-2" /> Current Term
+               </h4>
+               <div className="space-y-2 text-sm">
+                 <div className="flex justify-between">
+                   <span className="text-gray-600">Start Date:</span>
+                   <span className="font-medium text-gray-900">{formatDate(subscriptionData.start_date)}</span>
+                 </div>
+                 <div className="flex justify-between">
+                   <span className="text-gray-600">Renewal Date:</span>
+                   <span className={`font-medium ${new Date(subscriptionData.end_date) < new Date() ? 'text-red-600' : 'text-gray-900'}`}>
+                     {formatDate(subscriptionData.end_date)}
+                   </span>
+                 </div>
+               </div>
+            </div>
+
+            {/* Usage Limits */}
+            <div className="bg-gray-50 p-4 rounded-md">
+               <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3">Usage Limits</h4>
+               <UsageProgressBar 
+                  current={subscriptionData.active_user_count} 
+                  max={subscriptionData.subscription_plan.max_users} 
+                  label="Active Users" 
+                  icon={User}
+               />
+               <UsageProgressBar 
+                  current={subscriptionData.active_lg_count} 
+                  max={subscriptionData.subscription_plan.max_records} 
+                  label="Active LG Records" 
+                  icon={FileText}
+               />
+            </div>
+          </div>
         </div>
       )}
       
-      <div className="mb-4">
-        <div className="flex items-center space-x-2">
-          <Filter className="h-5 w-5 text-gray-500" />
-          <input
-            type="text"
-            placeholder="Filter by setting, description, or value..."
-            value={filterText}
-            onChange={handleFilterChange}
-            className={`${inputClassNames} flex-1 max-w-sm`}
-            disabled={isGracePeriod}
-          />
+      {/* --- EXISTING: Configuration Settings Section --- */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-semibold text-gray-800">Module Settings (Customer Configurations)</h2>
+          <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+              <button
+                onClick={() => setShowEmailSettingsModal(true)}
+                className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isGracePeriod}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Manage Email Settings
+              </button>
+          </GracePeriodTooltip>
         </div>
-      </div>
-
-
-      {configurations.length === 0 && !isLoading ? (
-        <div className="bg-gray-50 p-6 rounded-lg text-center border border-gray-200">
-          <p className="text-gray-500">No configurable settings found for your customer.</p>
+        
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
+            <AlertCircle className="h-5 w-5 mr-2" />
+            <span className="block sm:inline">{error}</span>
+          </div>
+        )}
+        
+        <div className="mb-4">
+          <div className="flex items-center space-x-2">
+            <Filter className="h-5 w-5 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Filter by setting, description, or value..."
+              value={filterText}
+              onChange={handleFilterChange}
+              className={`${inputClassNames} flex-1 max-w-sm`}
+              disabled={isGracePeriod}
+            />
+          </div>
         </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_config_key')}>
-                  <div className="flex items-center">
-                    Setting
-                    {getSortIcon('global_config_key')}
-                  </div>
-                </th>
-                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_description')}>
-                  <div className="flex items-center">
-                    Description
-                    {getSortIcon('global_description')}
-                  </div>
-                </th>
-                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_min')}>
-                  <div className="flex items-center">
-                    Min Value
-                    {getSortIcon('global_value_min')}
-                  </div>
-                </th>
-                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_max')}>
-                  <div className="flex items-center">
-                    Max Value
-                    {getSortIcon('global_value_max')}
-                  </div>
-                </th>
-                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_default')}>
-                  <div className="flex items-center">
-                    Default Value
-                    {getSortIcon('global_value_default')}
-                  </div>
-                </th>
-                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('effective_value')}>
-                  <div className="flex items-center">
-                    Current Value
-                    {getSortIcon('effective_value')}
-                  </div>
-                </th>
-                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_unit')}>
-                  <div className="flex items-center">
-                    Unit
-                    {getSortIcon('global_unit')}
-                  </div>
-                </th>
-                <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredAndSortedConfigurations.map((config) => (
-                <tr key={config.global_config_id}>
-                  <td className="px-3 py-2 text-sm font-medium text-gray-900">
-                    {config.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
-                  </td>
-                  <td className="px-3 py-2 text-sm text-gray-500 max-w-xs" title={config.global_description}>
-                    {config.global_description || 'N/A'}
-                  </td>
-                  <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                    {config.global_value_min !== null ? config.global_value_min : 'N/A'}
-                  </td>
-                  <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                    {config.global_value_max !== null ? config.global_value_max : 'N/A'}
-                  </td>
-                  <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                    {config.global_value_default !== null ? config.global_value_default : 'N/A'}
-                  </td>
-                  <td className="px-3 py-2 text-sm text-gray-900 text-center">
-                    {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' ? (
-                      config.global_unit === 'boolean' ? (
-                        <select
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          className={`${inputClassNames} w-24 text-center`}
-                          autoFocus
-                          disabled={isGracePeriod}
-                        >
-                          <option value="true">True</option>
-                          <option value="false">False</option>
-                        </select>
+
+        {configurations.length === 0 && !isLoading ? (
+          <div className="bg-gray-50 p-6 rounded-lg text-center border border-gray-200">
+            <p className="text-gray-500">No configurable settings found for your customer.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_config_key')}>
+                    <div className="flex items-center">
+                      Setting
+                      {getSortIcon('global_config_key')}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_description')}>
+                    <div className="flex items-center">
+                      Description
+                      {getSortIcon('global_description')}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_min')}>
+                    <div className="flex items-center">
+                      Min Value
+                      {getSortIcon('global_value_min')}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_max')}>
+                    <div className="flex items-center">
+                      Max Value
+                      {getSortIcon('global_value_max')}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_default')}>
+                    <div className="flex items-center">
+                      Default Value
+                      {getSortIcon('global_value_default')}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('effective_value')}>
+                    <div className="flex items-center">
+                      Current Value
+                      {getSortIcon('effective_value')}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_unit')}>
+                    <div className="flex items-center">
+                      Unit
+                      {getSortIcon('global_unit')}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredAndSortedConfigurations.map((config) => (
+                  <tr key={config.global_config_id}>
+                    <td className="px-3 py-2 text-sm font-medium text-gray-900">
+                      {config.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-500 max-w-xs" title={config.global_description}>
+                      {config.global_description || 'N/A'}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                      {config.global_value_min !== null ? config.global_value_min : 'N/A'}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                      {config.global_value_max !== null ? config.global_value_max : 'N/A'}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                      {config.global_value_default !== null ? config.global_value_default : 'N/A'}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-900 text-center">
+                      {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' ? (
+                        config.global_unit === 'boolean' ? (
+                          <select
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className={`${inputClassNames} w-24 text-center`}
+                            autoFocus
+                            disabled={isGracePeriod}
+                          >
+                            <option value="true">True</option>
+                            <option value="false">False</option>
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className={`${inputClassNames} w-24 text-center`}
+                            placeholder={getPlaceholderText(config)}
+                            autoFocus
+                            disabled={isGracePeriod}
+                          />
+                        )
                       ) : (
-                        <input
-                          type="text"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          className={`${inputClassNames} w-24 text-center`}
-                          placeholder={getPlaceholderText(config)}
-                          autoFocus
-                          disabled={isGracePeriod}
-                        />
-                      )
-                    ) : (
-                      <span className="font-semibold">{getEffectiveValue(config)}</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                    {config.global_unit || 'N/A'}
-                  </td>
-                  <td className="px-3 py-2 text-right text-sm font-medium">
-                    {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' ? (
-                      <div className="flex items-center justify-end space-x-1">
+                        <span className="font-semibold">{getEffectiveValue(config)}</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                      {config.global_unit || 'N/A'}
+                    </td>
+                    <td className="px-3 py-2 text-right text-sm font-medium">
+                      {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' ? (
+                        <div className="flex items-center justify-end space-x-1">
+                          <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                            <button
+                              type="button"
+                              onClick={() => handleSave(config)}
+                              className={`${buttonBaseClassNames} bg-green-600 text-white hover:bg-green-700 ${isSaving || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              disabled={isSaving || isGracePeriod}
+                            >
+                              {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
+                            </button>
+                          </GracePeriodTooltip>
+                          <button
+                            type="button"
+                            onClick={handleCancelEdit}
+                            className={`${buttonBaseClassNames} bg-gray-200 text-gray-700 hover:bg-gray-300 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={isSaving}
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                           <button
                             type="button"
-                            onClick={() => handleSave(config)}
-                            className={`${buttonBaseClassNames} bg-green-600 text-white hover:bg-green-700 ${isSaving || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            disabled={isSaving || isGracePeriod}
+                            onClick={() => handleEditClick(config)}
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={isGracePeriod}
                           >
-                            {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
+                            <Edit className="h-4 w-4" />
                           </button>
                         </GracePeriodTooltip>
-                        <button
-                          type="button"
-                          onClick={handleCancelEdit}
-                          className={`${buttonBaseClassNames} bg-gray-200 text-gray-700 hover:bg-gray-300 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          disabled={isSaving}
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                        <button
-                          type="button"
-                          onClick={() => handleEditClick(config)}
-                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={isGracePeriod}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      </GracePeriodTooltip>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {saveError && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mt-4 flex items-center" role="alert">
-              <AlertCircle className="h-5 w-5 mr-2" />
-              <span className="block sm:inline">{saveError}</span>
-            </div>
-          )}
-        </div>
-      )}
-
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      
+      {/* Modals (kept same as before) */}
       {showEmailListModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
           <div className="relative bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
