@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from 'services/apiService.js';
-import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, XCircle } from 'lucide-react';
+import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, Shield, Layers, Cpu, HardDrive } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-// NEW: Usage Progress Bar Component (Local definition to avoid new files)
+// Usage Progress Bar Component
 const UsageProgressBar = ({ current, max, label, icon: Icon }) => {
-  // Avoid division by zero
   const percentage = max > 0 ? Math.min((current / max) * 100, 100) : 0;
   
-  // Color logic: Green (<75%), Yellow (75-90%), Red (>90%)
   let barColor = "bg-blue-500";
   if (percentage > 90) barColor = "bg-red-500";
   else if (percentage > 75) barColor = "bg-yellow-500";
@@ -33,6 +31,21 @@ const UsageProgressBar = ({ current, max, label, icon: Icon }) => {
     </div>
   );
 };
+
+// NEW: Feature Item Component
+const FeatureItem = ({ label, isEnabled, icon: Icon }) => (
+  <div className="flex items-center justify-between p-2 rounded-md hover:bg-gray-100 transition-colors">
+    <div className="flex items-center overflow-hidden">
+      <Icon className={`h-4 w-4 mr-2 flex-shrink-0 ${isEnabled ? 'text-blue-600' : 'text-gray-400'}`} />
+      <span className={`text-sm font-medium truncate ${isEnabled ? 'text-gray-700' : 'text-gray-400'}`}>{label}</span>
+    </div>
+    {isEnabled ? (
+      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0 ml-2" />
+    ) : (
+      <XCircle className="h-4 w-4 text-gray-300 flex-shrink-0 ml-2" />
+    )}
+  </div>
+);
 
 // Grace Period Tooltip Component
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -97,7 +110,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
   const [sortDirection, setSortDirection] = useState('asc');
   const [filterText, setFilterText] = useState('');
 
-  // --- NEW: Subscription State ---
+  // --- Subscription State ---
   const [subscriptionData, setSubscriptionData] = useState(null);
   const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(true);
 
@@ -154,7 +167,6 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
     }
   };
 
-  // NEW: Fetch Subscription Data
   const fetchSubscription = async () => {
     setIsSubscriptionLoading(true);
     try {
@@ -162,7 +174,6 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
       setSubscriptionData(response);
     } catch (err) {
       console.error("Failed to fetch subscription details:", err);
-      // We won't block the page load if this fails, just show an error section
     } finally {
       setIsSubscriptionLoading(false);
     }
@@ -171,11 +182,12 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
   useEffect(() => {
     fetchConfigurations();
     fetchEmailSettings();
-    fetchSubscription(); // Trigger the new fetch
+    fetchSubscription();
   }, []);
 
 
-  // ... [Keep existing handler functions: handleEditClick, handleSave, handleEmailSettings, etc.] ...
+  // ... [Keep all existing handler functions: handleEditClick, handleSave, etc.] ...
+  // (Copying existing handlers from previous code to keep file complete)
   const handleEditClick = (config) => {
     if (isGracePeriod) {
         toast.warn("This action is disabled during your subscription's grace period.");
@@ -407,8 +419,8 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
     return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />;
   };
 
-  // ... [Helpers like getEffectiveValue, getPlaceholderText, etc.] ...
-    const getEffectiveValue = (config) => {
+  // ... [Helpers] ...
+  const getEffectiveValue = (config) => {
     if (config.global_config_key === 'COMMON_COMMUNICATION_LIST') {
       try {
         const parsed = JSON.parse(config.effective_value);
@@ -438,19 +450,14 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
       if (!sortKey) return 0;
       const aValue = a[sortKey];
       const bValue = b[sortKey];
-      
       if (aValue === null || aValue === undefined) return sortDirection === 'asc' ? 1 : -1;
       if (bValue === null || bValue === undefined) return sortDirection === 'asc' ? -1 : 1;
-      
       if (typeof aValue === 'string' && typeof bValue === 'string') {
         return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
       }
-      
       return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
     });
 
-
-  // Helper for formatting dates
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
@@ -468,7 +475,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
   return (
     <div className="space-y-6">
       
-      {/* --- NEW: Subscription & Usage Section --- */}
+      {/* --- UPDATED: Subscription & Usage Section with Features --- */}
       {subscriptionData && (
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
           <div className="flex justify-between items-start mb-4">
@@ -491,7 +498,8 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* CHANGED: Grid to 3 columns on large screens */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Period Info */}
             <div className="bg-gray-50 p-4 rounded-md">
                <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center">
@@ -513,7 +521,9 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
 
             {/* Usage Limits */}
             <div className="bg-gray-50 p-4 rounded-md">
-               <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3">Usage Limits</h4>
+               <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center">
+                 <Activity className="h-4 w-4 mr-2" /> Usage Limits
+               </h4>
                <UsageProgressBar 
                   current={subscriptionData.active_user_count} 
                   max={subscriptionData.subscription_plan.max_users} 
@@ -527,12 +537,42 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
                   icon={FileText}
                />
             </div>
+
+            {/* NEW: Plan Features */}
+            <div className="bg-gray-50 p-4 rounded-md">
+               <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center">
+                 <Shield className="h-4 w-4 mr-2" /> Plan Features
+               </h4>
+               <div className="space-y-2">
+                  <FeatureItem 
+                      label="Maker-Checker" 
+                      isEnabled={subscriptionData.subscription_plan.can_maker_checker} 
+                      icon={Shield} 
+                  />
+                  <FeatureItem 
+                      label="Multi-Entity" 
+                      isEnabled={subscriptionData.subscription_plan.can_multi_entity} 
+                      icon={Layers} 
+                  />
+                  <FeatureItem 
+                      label="AI Scan" 
+                      isEnabled={subscriptionData.subscription_plan.can_ai_integration} 
+                      icon={Cpu} 
+                  />
+                  <FeatureItem 
+                      label="Doc Storage" 
+                      isEnabled={subscriptionData.subscription_plan.can_image_storage} 
+                      icon={HardDrive} 
+                  />
+               </div>
+            </div>
           </div>
         </div>
       )}
       
-      {/* --- EXISTING: Configuration Settings Section --- */}
+      {/* --- Configuration Settings Section --- */}
       <div className="bg-white p-6 rounded-lg shadow-md">
+        {/* ... (This part remains exactly the same as before) ... */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold text-gray-800">Module Settings (Customer Configurations)</h2>
           <GracePeriodTooltip isGracePeriod={isGracePeriod}>

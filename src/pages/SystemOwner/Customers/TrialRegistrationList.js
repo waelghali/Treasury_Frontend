@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from 'services/apiService.js';
 import { toast } from 'react-toastify';
-import { Eye, CheckCircle, XCircle } from 'lucide-react';
-import TrialRegistrationDetailsModal from './TrialRegistrationDetailsModal'; // NEW IMPORT
+import { Eye, CheckCircle, XCircle, FileText } from 'lucide-react'; // Added FileText import
+import TrialRegistrationDetailsModal from './TrialRegistrationDetailsModal';
 
 const statusColors = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -23,7 +23,7 @@ function TrialRegistrationList() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('pending');
-  const [selectedRegistration, setSelectedRegistration] = useState(null); // NEW STATE for modal
+  const [selectedRegistration, setSelectedRegistration] = useState(null);
 
   const fetchRegistrations = async (statusFilter) => {
     setIsLoading(true);
@@ -57,6 +57,34 @@ function TrialRegistrationList() {
     } catch (err) {
       console.error(`Failed to ${action} registration:`, err);
       toast.error(`Failed to ${action} registration: ${err.message || ''}`);
+    }
+  };
+
+  // --- NEW FUNCTION TO HANDLE DOCUMENT VIEWING ---
+  const handleViewDocument = async (gcsPath) => {
+    if (!gcsPath) {
+        toast.error("No document path available.");
+        return;
+    }
+
+    try {
+      // 1. Call backend securely to get the signed URL
+      // We use encodeURIComponent to ensure the gs:// path passes safely in the URL
+      // Note: The backend endpoint must match '/system-owner/trial/get-document-url/'
+      const response = await apiRequest(
+        `/system-owner/trial/get-document-url/?gcs_uri=${encodeURIComponent(gcsPath)}`, 
+        'GET'
+      );
+      
+      // 2. Open the signed URL (which doesn't need our App's auth) in a new tab
+      if (response && response.url) {
+        window.open(response.url, '_blank');
+      } else {
+        toast.error("Failed to retrieve document URL.");
+      }
+    } catch (err) {
+      console.error("Error fetching document URL:", err);
+      toast.error(`Error opening document: ${err.message}`);
     }
   };
 
@@ -125,6 +153,15 @@ function TrialRegistrationList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(reg.accepted_terms_at).toLocaleDateString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      {/* --- NEW DOCUMENT BUTTON --- */}
+                      <button 
+                        onClick={() => handleViewDocument(reg.commercial_register_document_path)} 
+                        className="text-blue-600 hover:text-blue-900 mr-4" 
+                        title="View Commercial Register"
+                      >
+                        <FileText className="h-5 w-5 inline" />
+                      </button>
+                      
                       <button onClick={() => handleViewDetails(reg)} className="text-gray-600 hover:text-gray-900 mr-4" title="View Details"><Eye className="h-5 w-5 inline" /></button>
                       {reg.status === 'pending' && (
                         <>

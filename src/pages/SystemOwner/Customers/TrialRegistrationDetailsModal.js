@@ -2,16 +2,43 @@
 
 import React from 'react';
 import { X } from 'lucide-react';
-import { API_BASE_URL } from 'services/apiService';
+// import { API_BASE_URL } from 'services/apiService'; // No longer needed
+import { apiRequest } from 'services/apiService'; // ADDED: For authenticated API call
+import { toast } from 'react-toastify'; // ADDED: For user feedback
 
 function TrialRegistrationDetailsModal({ registration, onClose }) {
   if (!registration) return null;
 
-  // *** UPDATED: Point to the new, secure System Owner endpoint for GCS access ***
-  // Assuming API_BASE_URL resolves to the root/api/v1 of the server.
-  const documentUrl = `${API_BASE_URL}/system-owner/trial/download-register-document/?gcs_uri=${encodeURIComponent(registration.commercial_register_document_path)}`;
+  // The direct link logic is removed as it causes the "Could not validate credentials" error.
   
   const registeredDate = new Date(registration.accepted_terms_at).toLocaleString();
+
+  // --- NEW FUNCTION TO HANDLE SECURE DOCUMENT VIEWING ---
+  const handleViewDocument = async (gcsPath) => {
+    if (!gcsPath) {
+        toast.error("No document path available.");
+        return;
+    }
+
+    try {
+      // 1. Call backend securely to get the signed URL
+      // This uses apiRequest() which includes the Authorization header
+      const response = await apiRequest(
+        `/system-owner/trial/get-document-url/?gcs_uri=${encodeURIComponent(gcsPath)}`, 
+        'GET'
+      );
+      
+      // 2. Open the signed URL (which is temporary and self-authenticating) in a new tab
+      if (response && response.url) {
+        window.open(response.url, '_blank');
+      } else {
+        toast.error("Failed to retrieve document URL.");
+      }
+    } catch (err) {
+      console.error("Error fetching document URL:", err);
+      toast.error(`Error opening document: ${err.message}`);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
@@ -74,14 +101,13 @@ function TrialRegistrationDetailsModal({ registration, onClose }) {
             <div className="col-span-2">
               <p className="text-sm font-medium text-gray-500">Commercial Register Document</p>
               {registration.commercial_register_document_path ? (
-                <a 
-                  href={documentUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="text-blue-600 hover:underline text-sm"
+                // Replaced the <a> tag with a <button> for secure, authenticated access
+                <button 
+                  onClick={() => handleViewDocument(registration.commercial_register_document_path)} 
+                  className="text-blue-600 hover:underline text-sm font-medium hover:text-blue-800"
                 >
-                  View Document
-                </a>
+                  View Document (Securely)
+                </button>
               ) : (
                 <p className="text-sm text-gray-500 italic">No document uploaded.</p>
               )}
