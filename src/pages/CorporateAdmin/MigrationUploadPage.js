@@ -1,7 +1,7 @@
 // frontend/src/pages/CorporateAdmin/MigrationUploadPage.js
 
 import React, { useState, useEffect } from 'react';
-import { Upload, Loader2, CheckCircle, XCircle, Eye, AlertCircle, Zap, Edit, Save, Trash2, RotateCcw, CloudUpload, Filter, TrendingUp, History, X } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, XCircle, Eye, AlertCircle, Zap, Edit, Save, Trash2, RotateCcw, CloudUpload, Filter, TrendingUp, History, X, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // IMPORTING THE CENTRALIZED API SERVICE
@@ -473,6 +473,10 @@ function MigrationUploadPage() {
     // NEW: State for the history preview modal
     const [previewModalOpen, setPreviewModalOpen] = useState(false);
     const [previewModalData, setPreviewModalData] = useState(null);
+
+    // NEW: State for AI Audit
+    const [isAuditing, setIsAuditing] = useState(false);
+    const [auditReport, setAuditReport] = useState(null);
     
     // NEW: Helper function to map currency ID to ISO code for display
     const getCurrencyCodeById = (id) => {
@@ -876,6 +880,28 @@ function MigrationUploadPage() {
         }
     };
     
+    // NEW: Function to Run AI Audit
+    const handleRunAudit = async () => {
+        setIsAuditing(true);
+        setAuditReport(null); // Clear previous results
+        try {
+            // Using the centralized apiRequest instead of raw fetch
+            const result = await apiRequest('/corporate-admin/migration/staged/audit', 'POST');
+            setAuditReport(result);
+          
+            // If issues found, they will be displayed in the red box
+            if (!result.audit_summary || result.audit_summary.length === 0) {
+                alert("✅ AI Audit Complete: No discrepancies found!");
+            }
+
+        } catch (error) {
+            console.error("Audit error:", error);
+            alert(`Failed to run AI Audit: ${error.message || 'An unexpected error occurred.'}`);
+        } finally {
+            setIsAuditing(false);
+        }
+    };
+
     // Close the preview modal
     const closePreviewModal = () => {
         setPreviewModalOpen(false);
@@ -975,7 +1001,7 @@ function MigrationUploadPage() {
                 )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-8 mt-4">
                 {/* Combined Data Intake Section */}
                 <div className="p-6 bg-gray-50 rounded-xl border border-gray-200 flex flex-col justify-between">
                     <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center space-x-2">
@@ -1102,11 +1128,11 @@ function MigrationUploadPage() {
                  </h3>
                  <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 mb-8">
                      {/* NEW: Filters Section */}
-                     <div className="flex space-x-2 w-full md:w-auto">
+                     <div className="flex space-x-4 w-full md:w-auto">
                         <select 
                             value={filterStatus} 
                             onChange={(e) => setFilterStatus(e.target.value)}
-                            className="w-full md:w-48 text-sm p-2  px-4 py-3 border border-gray-300 rounded-lg"
+                            className="w-full md:w-36 text-sm p-2  px-4 py-2 border border-gray-300 rounded-lg"
                         >
                             <option value="">All Statuses</option>
                             <option value="PENDING">PENDING</option>
@@ -1122,14 +1148,14 @@ function MigrationUploadPage() {
                             placeholder="Filter by File Name"
                             value={filterFileName}
                             onChange={(e) => setFilterFileName(e.target.value)}
-                            className="w-full md:w-48 text-sm p-2  px-4 py-3 border border-gray-300 rounded-lg"
+                            className="w-full md:w-36 text-sm p-2  px-4 py-3 border border-gray-300 rounded-lg"
                         />
                         <input
                             type="text"
                             placeholder="Filter by LG Number"
                             value={filterLGNumber}
                             onChange={(e) => setFilterLGNumber(e.target.value)}
-                            className="w-full md:w-48 text-sm p-2  px-4 py-3 border border-gray-300 rounded-lg"
+                            className="w-full md:w-36 text-sm p-2  px-4 py-3 border border-gray-300 rounded-lg"
                         />
                      </div>
                     <button
@@ -1142,7 +1168,7 @@ function MigrationUploadPage() {
                         }`}
                     >
                         {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-                        View All Staged Records
+						View All Staged Records
                     </button>
                  {/* NEW: Bulk Action Buttons */}
                  <div className="flex space-x-4 mb-4">
@@ -1155,7 +1181,7 @@ function MigrationUploadPage() {
                                  : 'bg-purple-600 text-white hover:bg-purple-700 hover:shadow-lg'
                          }`}
                      >
-                         <RotateCcw className="w-4 h-4 mr-2" />
+                         <RotateCcw className="w-6 h-4 mr-2" />
                          Re-Validate Selected ({selectedRecords.length})
                      </button>
                      <button
@@ -1167,12 +1193,55 @@ function MigrationUploadPage() {
                                  : 'bg-red-600 text-white hover:bg-red-700 hover:shadow-lg'
                          }`}
                      >
-                         <Trash2 className="w-4 h-4 mr-2" />
+                         <Trash2 className="w-6 h-4 mr-2" />
                          Delete Selected ({selectedRecords.length})
                      </button>
+                     {/* --- AI AUDIT BUTTON --- */}
+                     <button
+                        onClick={handleRunAudit}
+                        disabled={isAuditing || stagedRecords.length === 0}
+                        className={`flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg shadow-md transition-all duration-200 ${
+                            isAuditing || stagedRecords.length === 0
+                                ? 'bg-indigo-100 text-indigo-400 cursor-not-allowed'
+                                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+                        }`}
+                    >
+                        {isAuditing ? (
+                            <Loader2 className="w-6 h-4 animate-spin mr-2" />
+                        ) : (
+                            <ShieldCheck className="w-6 h-4 mr-2" />
+                        )}
+                        {isAuditing ? 'Scanning Docs...' : 'Run AI Audit'}
+                    </button>
                  </div>
                  </div>
             </div>
+            
+            {/* --- AI AUDIT RESULTS SECTION --- */}
+            {auditReport && auditReport.audit_summary && auditReport.audit_summary.length > 0 && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg animate-fade-in">
+                    <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="w-5 h-5 text-red-600" />
+                        <h3 className="font-bold text-red-800">AI Audit Warnings</h3>
+                    </div>
+                    <p className="text-sm text-red-600 mb-3">
+                        The AI found discrepancies between your Excel data and the attached documents. 
+                        Please check the records below:
+                    </p>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                        {auditReport.audit_summary.map((item, idx) => (
+                            <div key={idx} className="bg-white p-3 rounded border border-red-100 text-sm shadow-sm">
+                                <span className="font-bold text-gray-800">{item.lg_number}:</span>
+                                <ul className="list-disc list-inside ml-2 mt-1 text-gray-600">
+                                    {item.issues.map((issue, i) => (
+                                        <li key={i}>{issue}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
             
             {stagedRecords.length > 0 && (
                 <div className="mt-8">

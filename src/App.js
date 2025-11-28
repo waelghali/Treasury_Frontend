@@ -8,7 +8,8 @@ import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/Auth/ResetPasswordPage';
 import LandingPage from './pages/LandingPage';
 import KnowMorePage from './pages/KnowMorePage';
-import FreeTrialRegistration from './pages/Public/FreeTrialRegistration'; // NEW IMPORT
+import FreeTrialRegistration from './pages/Public/FreeTrialRegistration'; 
+import PublicIssuancePortal from './pages/Public/PublicIssuancePortal'; // NEW IMPORT
 
 import RenewalPage from './pages/RenewalPage'; 
 
@@ -201,15 +202,19 @@ function AppContent() {
       <>
         {showLegalModal && <LegalArtifactModal onAcceptSuccess={handleAcceptSuccess} onLogout={handleLogout} />}
         <Routes>
+          {/* PUBLIC ROUTES */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/know-more" element={<KnowMorePage />} />
           <Route path="/free-trial-register" element={<FreeTrialRegistration />} />
+          <Route path="/portal/issuance" element={<PublicIssuancePortal />} /> 
+          
           <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/force-password-change" element={<ForcePasswordChangePage onPasswordChangeSuccess={handleLoginSuccess} />} />
           <Route path="/renewal" element={<RenewalPage />} />
           
+          {/* PROTECTED ROUTES */}
           <Route element={<AuthWrapper isAuthenticated={isAuthenticated} userRole={userRole} onLogout={handleLogout} />}>
             {mustChangePassword ? (
               <Route path="*" element={<Navigate to="/force-password-change" replace />} />

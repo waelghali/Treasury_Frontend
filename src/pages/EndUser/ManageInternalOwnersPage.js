@@ -274,8 +274,28 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                         <tbody className="bg-white divide-y divide-gray-200">
                             {filteredAndSortedOwners.map((owner) => (
                                 <tr key={owner.id}>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{owner.email}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{owner.phone_number || 'N/A'}</td>
+                                    {/* UPDATED: Email Column with mailto: link */}
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                                        <a 
+                                            href={`mailto:${owner.email}`} 
+                                            className="text-blue-600 hover:text-blue-800 hover:underline"
+                                            title={`Send email to ${owner.email}`}
+                                        >
+                                            {owner.email}
+                                        </a>
+                                    </td>
+                                    {/* UPDATED: Phone Column with tel: link */}
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {owner.phone_number ? (
+                                            <a 
+                                                href={`tel:${owner.phone_number}`} 
+                                                className="hover:text-blue-600 hover:underline"
+                                                title={`Call ${owner.phone_number}`}
+                                            >
+                                                {owner.phone_number}
+                                            </a>
+                                        ) : 'N/A'}
+                                    </td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{owner.internal_id || 'N/A'}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{owner.manager_email || 'N/A'}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-500">

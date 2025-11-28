@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
-import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, CheckCircle, MinusCircle, Eye, Edit, PlayCircle } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, CheckCircle, MinusCircle, Eye, Edit, PlayCircle, Copy } from 'lucide-react';
 import moment from 'moment';
 import LGLifecycleHistoryComponent from '../../components/LGLifecycleHistoryComponent';
 import ChangeLGOwnerModal from '../../components/Modals/ChangeLGOwnerModal';
@@ -438,6 +438,13 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
     // Determine if the bank name is "Foreign Bank"
     const isForeignBank = lgRecord.issuing_bank?.name === 'Foreign Bank';
 
+	const handleCopyLgNumber = () => {
+			if (lgRecord?.lg_number) {
+				navigator.clipboard.writeText(lgRecord.lg_number);
+				toast.success("LG Number copied to clipboard!");
+			}
+		};
+
     return (
         <div className="container mx-auto p-6 bg-white rounded-lg shadow-xl my-8 relative">
             {isRefreshing && (
@@ -550,7 +557,16 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                     <ArrowLeft className="h-5 w-5 mr-1" />
                     <span className="text-sm font-medium">Back to LG Records</span>
                 </button>
-                <h1 className="text-3xl font-bold text-gray-800 flex-grow text-center">LG Record: {lgRecord.lg_number}</h1>
+                <h1 className="text-3xl font-bold text-gray-800 flex-grow text-center flex items-center justify-center gap-3">
+					LG Record: {lgRecord.lg_number}
+					<button
+						onClick={handleCopyLgNumber}
+						className="p-1.5 rounded-full hover:bg-gray-200 text-gray-500 hover:text-blue-600 transition-colors duration-200"
+						title="Copy LG Number"
+					>
+						<Copy className="h-5 w-5" />
+					</button>
+				</h1>
                 <div className="flex-shrink-0 w-auto">
                 </div>
             </div>
@@ -671,7 +687,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                         <p><strong>Internal Owner:</strong> {lgRecord.internal_owner_contact?.email || 'N/A'}</p>
                         <p><strong>Owner Phone:</strong> {lgRecord.internal_owner_contact?.phone_number || 'N/A'}</p>
                         <p><strong>Owner Manager:</strong> {lgRecord.internal_owner_contact?.manager_email || 'N/A'}</p>
-                        <p><strong>LG Category:</strong> {lgRecord.lg_category?.category_name || 'N/A'}</p>
+                        <p><strong>LG Category:</strong> {lgRecord.lg_category?.name || 'N/A'}</p>
                         {lgRecord.lg_category?.extra_field_name && (
                              <p><strong>{lgRecord.lg_category.extra_field_name}:</strong> {lgRecord.additional_field_values?.[lgRecord.lg_category.extra_field_name] || 'N/A'}</p>
                         )}

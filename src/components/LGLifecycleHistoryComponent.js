@@ -161,6 +161,8 @@ const LGLifecycleHistoryComponent = ({
 
     const formatEventDetails = (actionType, details, userEmail) => {
         let detailString = '';
+
+        // Helper to format currency
         const formatAmount = (amount, currencyCode) => {
             if (amount === null || currencyCode === null || currencyCode === undefined || isNaN(parseFloat(amount))) {
                 return 'N/A';
@@ -174,7 +176,7 @@ const LGLifecycleHistoryComponent = ({
             }
         };
 
-
+        // Helper to format dates
         const formatDate = (dateString) => {
             if (!dateString) return 'N/A';
             try {
@@ -184,21 +186,62 @@ const LGLifecycleHistoryComponent = ({
             }
         };
 
-
         switch (actionType) {
+            // --- NEW: Handle Migration Events ---
+            case 'MIGRATION_IMPORT_RECORD':
+                detailString = `Record imported from legacy system.`;
+                if (details.initial_values) {
+                    const iv = details.initial_values;
+                    if (iv.expiry_date) detailString += ` Initial Expiry: ${formatDate(iv.expiry_date)}.`;
+                    if (iv.amount) detailString += ` Amount: ${formatAmount(iv.amount, iv.currency)}.`;
+                }
+                break;
+
             case 'LG_CREATED':
                 detailString = `Created LG #${details.lg_number || 'N/A'} for ${details.beneficiary || 'N/A'}. Amount: ${formatAmount(details.amount, details.currency)}.`;
                 break;
             case 'LG_EXTENDED':
                 detailString = `Extended expiry from ${formatDate(details.old_expiry_date)} to ${formatDate(details.new_expiry_date)}. Instruction Serial: ${details.instruction_serial || 'N/A'}.`;
                 break;
+
+            // --- UPDATED: Handle Amendments and Migration Diffs ---
             case 'LG_AMENDED':
-                detailString = `LG amended. Reason: ${details.reason || 'N/A'}. Instruction Serial: ${details.instruction_serial_number || details.instruction_serial || 'N/A'}.`;
-                if (details.amended_fields) {
-                    const fields = Object.keys(details.amended_fields).map(key => formatActionTypeLabel(key)).join(', ');
-                    detailString += ` Fields changed: ${fields}.`;
+            case 'AUDIT_ACTION_TYPE_LG_AMENDED':
+                // Fix for your concern: Distinguish real amendments from migration adjustments
+                if (details.note === 'Applied historical amendment') {
+                    detailString = `Historical Adjustment.`;
+                } else {
+                    detailString = `LG amended.`;
+                    if (details.reason) detailString += ` Reason: ${details.reason}.`;
+                }
+
+                if (details.instruction_serial || details.instruction_serial_number) {
+                    detailString += ` Instruction Serial: ${details.instruction_serial || details.instruction_serial_number}.`;
+                }
+
+                // Logic to display the "Old vs New" diffs cleanly
+                const changes = details.amended_fields || details.diff || details.changes;
+                if (changes) {
+                    const changeDescriptions = Object.entries(changes).map(([field, val]) => {
+                        // Convert field name (e.g., expiry_date) to readable label
+                        // If formatActionTypeLabel doesn't handle fields, we fallback to the key
+                        const label = formatActionTypeLabel(field) === field ? field.replace(/_/g, ' ').toUpperCase() : formatActionTypeLabel(field);
+
+                        // Check if it's a diff object {old: ..., new: ...}
+                        if (val && typeof val === 'object' && ('old' in val || 'new' in val)) {
+                            const oldVal = val.old ? (field.includes('date') ? formatDate(val.old) : val.old) : 'N/A';
+                            const newVal = val.new ? (field.includes('date') ? formatDate(val.new) : val.new) : 'N/A';
+                            return `${label}: ${oldVal} → ${newVal}`;
+                        } else {
+                            return label;
+                        }
+                    });
+                    if (changeDescriptions.length > 0) {
+                        detailString += ` Changes: ${changeDescriptions.join(', ')}.`;
+                    }
                 }
                 break;
+
             case 'LG_RELEASED':
             case 'LG_RELEASE':
                 detailString = `LG released. Instruction Serial: ${details.instruction_serial || details.serial_number || 'N/A'}. Approved by ${details.approved_by_user_email || 'N/A'}.`;

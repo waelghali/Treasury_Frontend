@@ -167,6 +167,23 @@ function EndUserActionCenter({ isGracePeriod }) { // NEW: Accept isGracePeriod p
         return moment(dateString).format('DD-MMM-YYYY');
     };
 
+    // Helper function for conditional color formatting
+    const getUrgencyClass = (days, type) => {
+        if (type === 'expiry') {
+            // Urgency increases as days decrease
+            if (days <= 0) return 'text-red-600 font-bold'; // Expired
+            if (days <= 30) return 'text-orange-600 font-semibold'; // Warning
+            return 'text-green-600 font-medium'; // Safe
+        }
+        if (type === 'undelivered') {
+            // Urgency increases as days increase (stuck items)
+            if (days > 7) return 'text-red-600 font-bold'; // Critical delay
+            if (days > 3) return 'text-orange-600 font-semibold'; // Warning
+            return 'text-gray-600';
+        }
+        return 'text-gray-500';
+    };
+
     const handlePrintApprovedLetter = async (instructionId, lgNumber) => {
         if (isGracePeriod) { // NEW: Grace period check
             toast.warn("This action is disabled during your subscription's grace period.");
@@ -378,9 +395,15 @@ function EndUserActionCenter({ isGracePeriod }) { // NEW: Accept isGracePeriod p
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{lg.issuer_name || 'N/A'}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(lg.expiry_date)}</td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {moment(lg.expiry_date).diff(moment(), 'days')}
-                                                </td>
+                                                {/* Applied Conditional Formatting */}
+                                                {(() => {
+                                                    const daysLeft = moment(lg.expiry_date).diff(moment(), 'days');
+                                                    return (
+                                                        <td className={`px-4 py-4 whitespace-nowrap text-sm ${getUrgencyClass(daysLeft, 'expiry')}`}>
+                                                            {daysLeft} Days
+                                                        </td>
+                                                    );
+                                                })()}
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatAmount(lg.lg_amount, lg.lg_currency?.iso_code)}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                     <GracePeriodTooltip isGracePeriod={isGracePeriod}>
@@ -446,9 +469,15 @@ function EndUserActionCenter({ isGracePeriod }) { // NEW: Accept isGracePeriod p
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatActionTypeLabel(inst.instruction_type)}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{inst.serial_number}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(inst.instruction_date)}</td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {moment().diff(moment(inst.instruction_date), 'days')}
-                                                </td>
+                                                {/* Applied Conditional Formatting */}
+                                                {(() => {
+                                                    const daysStuck = moment().diff(moment(inst.instruction_date), 'days');
+                                                    return (
+                                                        <td className={`px-4 py-4 whitespace-nowrap text-sm ${getUrgencyClass(daysStuck, 'undelivered')}`}>
+                                                            {daysStuck} Days
+                                                        </td>
+                                                    );
+                                                })()}
                                                 <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                     <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                         <button 

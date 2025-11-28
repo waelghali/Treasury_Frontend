@@ -245,6 +245,21 @@ const SearchableBankSelect = ({ name, id, value, onChange, options, placeholder,
 // END: Searchable Select Component
 // =========================================================
 
+// =========================================================
+// NEW: Character Counter Component
+// =========================================================
+const CharCounter = ({ currentLength, maxLength }) => {
+  const isNearLimit = currentLength > maxLength * 0.9;
+  return (
+    <div className={`text-xs text-right mt-1 ${isNearLimit ? 'text-orange-500 font-medium' : 'text-gray-400'}`}>
+      {currentLength} / {maxLength} characters
+    </div>
+  );
+};
+// =========================================================
+// END: Character Counter Component
+// =========================================================
+
 
 function RecordNewLGPage({ onLogout, isGracePeriod }) {
   const navigate = useNavigate();
@@ -1112,11 +1127,13 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                 <div className="mb-2">
                   <label htmlFor="payment_conditions" className={labelClassNames}>Payment Conditions {requiredSpan}</label>
                   <textarea name="payment_conditions" id="payment_conditions" value={formData.payment_conditions} onChange={handleChange} required={selectedLgType.name === "Advance Payment LG" && selectedOperationalStatus.name === "Non-Operative"} maxLength="1024" rows="1" className={inputClassNames} disabled={isFormDisabled || isGracePeriod}></textarea>
+                  <CharCounter currentLength={(formData.payment_conditions || '').length} maxLength={1024} />
                 </div>
               )}
               <div className="md:col-span-2 mb-2">
                 <label htmlFor="description_purpose" className={labelClassNames}>Description/Purpose {requiredSpan}</label>
                 <textarea name="description_purpose" id="description_purpose" value={formData.description_purpose} onChange={handleChange} required maxLength="516" rows="3" className={inputClassNames} disabled={isFormDisabled || isGracePeriod}></textarea>
+                <CharCounter currentLength={formData.description_purpose.length} maxLength={516} />
               </div>
             </div>
           )}
@@ -1249,6 +1266,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
               <div className="md:col-span-2 mb-2">
                 <label htmlFor="other_conditions" className={labelClassNames}>Other Conditions</label>
                 <textarea name="other_conditions" id="other_conditions" value={formData.other_conditions} onChange={handleChange} maxLength="8000" rows="2" className={inputClassNames} disabled={isFormDisabled || isGracePeriod}></textarea>
+                <CharCounter currentLength={(formData.other_conditions || '').length} maxLength={8000} />
               </div>
             </div>
           )}
@@ -1399,6 +1417,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                   className={inputClassNames}
                   disabled={isFormDisabled || isGracePeriod}
                 ></textarea>
+                <CharCounter currentLength={(formData.notes || '').length} maxLength={1024} />
               </div>
             </div>
           )}
