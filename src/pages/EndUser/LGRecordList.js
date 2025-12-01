@@ -4,7 +4,8 @@
 import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from 'services/apiService.js';
-import { PlusCircle, Edit, Eye, Loader2, AlertCircle, CalendarPlus, ChevronUp, ChevronDown, Users, FileText, Filter as FilterIcon, Download, XCircle } from 'lucide-react';
+// Added History to the lucide-react import
+import { PlusCircle, Edit, Eye, Loader2, AlertCircle, CalendarPlus, ChevronUp, ChevronDown, Users, FileText, Filter as FilterIcon, Download, XCircle, History } from 'lucide-react';
 import moment from 'moment';
 import ExtendLGModal from 'components/Modals/ExtendLGModal';
 import ChangeLGOwnerModal from 'components/Modals/ChangeLGOwnerModal';
@@ -17,8 +18,10 @@ import LGActivateNonOperativeModal from 'components/Modals/LGActivateNonOperativ
 import { Switch } from '@headlessui/react';
 import { toast } from 'react-toastify';
 import { Listbox, Transition, Menu } from '@headlessui/react';
-
 import * as XLSX from 'xlsx';
+
+// Added HistoryExportModal import
+import HistoryExportModal from 'components/Modals/HistoryExportModal';
 
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
   if (isGracePeriod) {
@@ -48,6 +51,9 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
+
+  // Added state for History Modal
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [selectedLgRecordForExtension, setSelectedLgRecordForExtension] = useState(null);
@@ -128,19 +134,15 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     setSelectedLgRecordForActivate(null);
 
     setLgRecords(prevRecords => {
-        // Ensure the record we are trying to update exists and has an ID
         if (!updatedRecordFromBackend || !updatedRecordFromBackend.id) {
             console.error("Action success handler called without a valid updated LG record from backend.");
-            return prevRecords; // Return original records to avoid state corruption
+            return prevRecords;
         }
 
         return prevRecords.map(rec => {
-            // CRITICAL CHECK: Ensure the current record in the array is valid
             if (!rec || typeof rec.id === 'undefined') {
-                console.warn("--- WARNING: handleActionSuccess found null/undefined record or record without ID in prevRecords. Skipping this item.", rec);
                 return rec;
             }
-            // If valid, perform the update
             return rec.id === updatedRecordFromBackend.id ? updatedRecordFromBackend : rec;
         });
     });
@@ -158,6 +160,12 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   const handleViewDetails = (lgRecordId) => {
     const detailsPath = isCorporateAdminView ? `/corporate-admin/lg-records/${lgRecordId}` : `/end-user/lg-records/${lgRecordId}`;
     navigate(detailsPath);
+  };
+
+  // Helper to stop propagation for interactive elements inside the clickable row
+  const handleInteractiveClick = (e, callback) => {
+    e.stopPropagation();
+    if (callback) callback();
   };
 
   const handleExtend = (record) => {
@@ -437,25 +445,68 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   }, [lgRecords, sortColumn, sortDirection, searchTerm, selectedStatuses, selectedDate, selectedTypes]);
 
   const handleExportToExcel = (dataToExport) => {
-    const exportData = dataToExport.map(record => ({
-      'LG Number': record.lg_number,
-      'Beneficiary': record.beneficiary_corporate?.entity_name || 'N/A',
-      'Amount': record.lg_amount,
-      'Currency': record.lg_currency?.iso_code || 'N/A',
-      'Issuing Bank': record.issuing_bank?.name === 'Foreign Bank' ? record.foreign_bank_name : record.issuing_bank?.name || 'N/A',
-      'Category': record.lg_category?.name || 'N/A',
-      'Expiry Date': formatDate(record.expiry_date),
-      'Status': record.lg_status?.name || 'N/A',
-      'Auto Renewal': record.auto_renewal ? 'Yes' : 'No',
-      'Internal Owner Email': record.internal_owner_contact?.email || 'N/A',
-      'Description': record.description_purpose,
-      'Issuance Date': formatDate(record.issuance_date),
-    }));
+    const exportData = dataToExport.map(record => {
+      // Logic to determine Bank Details (Foreign vs Local) based on LGDetailsPage logic
+      const isForeignBank = record.issuing_bank?.name === 'Foreign Bank';
+      const bankName = isForeignBank ? record.foreign_bank_name : record.issuing_bank?.name;
+      const bankAddress = isForeignBank ? record.foreign_bank_address : record.issuing_bank_address;
+      const bankPhoneOrCountry = isForeignBank ? record.foreign_bank_country : record.issuing_bank_phone;
+
+      // Logic for Dynamic Category Extra Field
+      const extraFieldName = record.lg_category?.extra_field_name;
+      const extraFieldValue = extraFieldName && record.additional_field_values 
+        ? record.additional_field_values[extraFieldName] 
+        : 'N/A';
+
+      return {
+        // --- Core Information ---
+        'LG Number': record.lg_number,
+        'Issuer Name': record.issuer_name || 'N/A',
+        'Beneficiary': record.beneficiary_corporate?.entity_name || 'N/A',
+        'Amount': record.lg_amount,
+        'Currency': record.lg_currency?.iso_code || 'N/A',
+        'LG Type': record.lg_type?.name || 'N/A',
+        'Status': record.lg_status?.name || 'N/A',
+        'Operational Status': record.lg_operational_status?.name || 'N/A',
+        'Issuance Date': formatDate(record.issuance_date),
+        'Expiry Date': formatDate(record.expiry_date),
+        'Period (Months)': record.lg_period_months || 'N/A',
+        'Auto Renewal': record.auto_renewal ? 'Yes' : 'No',
+        'Purpose': record.description_purpose || 'N/A',
+
+        // --- Bank & Rules Information ---
+        'Issuing Bank': bankName || 'N/A',
+        'Bank Address': bankAddress || 'N/A',
+        'Bank Phone/Country': bankPhoneOrCountry || 'N/A',
+        'Issuing Method': record.issuing_method?.name || 'N/A',
+        'Applicable Rule': record.applicable_rule?.name || 'N/A',
+        'Rules Text': record.applicable_rules_text || 'N/A',
+        'Advising Status': record.advising_status || 'N/A',
+        // Note: Advising Bank Name requires a separate lookup not present in the list view, 
+        // so we export the ID if available or the raw field.
+        'Communication Bank ID': record.communication_bank_id || 'N/A', 
+        'Other Conditions': record.other_conditions || 'N/A',
+
+        // --- Internal & Category Details ---
+        'Category': record.lg_category?.name || 'N/A',
+        'Category Extra Field Name': extraFieldName || 'N/A',
+        'Category Extra Field Value': extraFieldValue,
+        'Internal Project ID': record.internal_contract_project_id || 'N/A',
+        'Internal Owner Email': record.internal_owner_contact?.email || 'N/A',
+        'Internal Owner Phone': record.internal_owner_contact?.phone_number || 'N/A',
+        'Internal Owner Manager': record.internal_owner_contact?.manager_email || 'N/A',
+        'Notes': record.notes || 'N/A'
+      };
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
+    // Auto-adjust column width (optional, but makes the excel nicer)
+    const wscols = Object.keys(exportData[0] || {}).map(() => ({ wch: 20 }));
+    worksheet['!cols'] = wscols;
+
     XLSX.utils.book_append_sheet(workbook, worksheet, "LG Records");
-    XLSX.writeFile(workbook, "LG_Records.xlsx");
+    XLSX.writeFile(workbook, `LG_Records_Export_${moment().format('YYYY-MM-DD')}.xlsx`);
   };
 
   const renderSortIcon = (column) => {
@@ -495,7 +546,8 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                 leaveFrom="transform opacity-100 scale-100"
                 leaveTo="transform opacity-0 scale-95"
               >
-                <Menu.Items className="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                {/* FIX: Added z-50 to ensure dropdown appears above sticky table content */}
+                <Menu.Items className="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                   <div className="py-1">
                     <Menu.Item>
                       {({ active }) => (
@@ -529,6 +581,16 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                 </Menu.Items>
               </Transition>
             </Menu>
+
+            {/* ADDED: Action History Button */}
+            <button
+                onClick={() => setShowHistoryModal(true)}
+                className={`${buttonBaseClassNames} bg-indigo-600 text-white hover:bg-indigo-700 ml-2`}
+                title="Export full audit history of actions"
+            >
+                <History className="h-5 w-5 mr-2" />
+                Action History
+            </button>
 
             {!isCorporateAdminView && (
               <GracePeriodTooltip isGracePeriod={isGracePeriod}>
@@ -606,7 +668,8 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                   >
-                    <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                     {/* FIX: Added z-50 to ensure dropdown appears above sticky table content */}
+                    <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
                       {uniqueStatuses.map((status) => (
                         <Listbox.Option
                           key={status}
@@ -666,7 +729,8 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                   >
-                    <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                     {/* FIX: Added z-50 to ensure dropdown appears above sticky table content */}
+                    <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
                       {uniqueTypes.map((type) => (
                         <Listbox.Option
                           key={type}
@@ -713,93 +777,46 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
-                    onClick={() => handleSort('lg_number')}
-                  >
-                    <div className="flex items-center">
-                      LG Number {renderSortIcon('lg_number')}
-                    </div>
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
-                    onClick={() => handleSort('issuer_name')}
-                  >
-                    <div className="flex items-center">
-                      Issuer Name {renderSortIcon('issuer_name')}
-                    </div>
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
-                    onClick={() => handleSort('beneficiary_corporate')}
-                  >
-                    <div className="flex items-center">
-                      Beneficiary {renderSortIcon('beneficiary_corporate')}
-                    </div>
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
-                    onClick={() => handleSort('lg_amount')}
-                  >
-                    <div className="flex items-center">
-                      Amount {renderSortIcon('lg_amount')}
-                    </div>
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
-                    onClick={() => handleSort('issuing_bank')}
-                  >
-                    <div className="flex items-center">
-                      Issuing Bank {renderSortIcon('issuing_bank')}
-                    </div>
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
-                    onClick={() => handleSort('lg_category')}
-                  >
-                    <div className="flex items-center">
-                      Category {renderSortIcon('lg_category')}
-                    </div>
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
-                    onClick={() => handleSort('expiry_date')}
-                  >
-                    <div className="flex items-center">
-                      Expiry Date {renderSortIcon('expiry_date')}
-                    </div>
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-pointer select-none"
-                    onClick={() => handleSort('lg_status')}
-                  >
-                    <div className="flex items-center">
-                      Status {renderSortIcon('lg_status')}
-                    </div>
-                  </th>
+                  {/* Standard Headers */}
+                  {[
+                      { key: 'lg_number', label: 'LG Number' },
+                      { key: 'issuer_name', label: 'Issuer Name' },
+                      { key: 'beneficiary_corporate', label: 'Beneficiary' },
+                      { key: 'lg_amount', label: 'Amount' },
+                      { key: 'issuing_bank', label: 'Issuing Bank' },
+                      { key: 'lg_category', label: 'Category' },
+                      { key: 'expiry_date', label: 'Expiry Date' },
+                      { key: 'lg_status', label: 'Status' },
+                  ].map((header) => (
+                    <th
+                      key={header.key}
+                      scope="col"
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100"
+                      onClick={() => handleSort(header.key)}
+                    >
+                      <div className="flex items-center">
+                        {header.label} {renderSortIcon(header.key)}
+                      </div>
+                    </th>
+                  ))}
+                  
                   {!isCorporateAdminView && (
                     <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Auto Renew
                     </th>
                   )}
-                  <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  {/* STICKY ACTION HEADER */}
+                  <th scope="col" className="sticky right-0 z-10 bg-gray-50 border-l border-gray-200 px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider shadow-sm">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredAndSortedRecords.map((record) => (
-                  <tr key={record.id} className={record.is_deleted ? 'bg-gray-50 opacity-60' : ''}>
-                    <td
-                      className="px-3 py-3 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer"
+                  <tr 
+                      key={record.id} 
+                      className={`group hover:bg-blue-50 transition-colors cursor-pointer ${record.is_deleted ? 'bg-gray-50 opacity-60' : ''}`}
                       onClick={() => handleViewDetails(record.id)}
-                    >
+                  >
+                    <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-blue-600">
                       {record.lg_number}
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{record.issuer_name || 'N/A'}</td>
@@ -824,45 +841,54 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                     {!isCorporateAdminView && (
                       <td className="px-3 py-3 whitespace-nowrap text-center text-sm">
                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                          <Switch
-                              checked={record.auto_renewal}
-                              onChange={(newStatus) => handleToggleAutoRenewal(record, newStatus)}
-                              disabled={isGracePeriod}
-                              className={`${
-                                  record.auto_renewal ? 'bg-blue-600' : 'bg-gray-200'
-                              } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          >
-                              <span className="sr-only">Enable auto-renewal</span>
-                              <span
+                          <div onClick={(e) => handleInteractiveClick(e)}>
+                              <Switch
+                                  checked={record.auto_renewal}
+                                  onChange={(newStatus) => handleToggleAutoRenewal(record, newStatus)}
+                                  disabled={isGracePeriod}
                                   className={`${
-                                      record.auto_renewal ? 'translate-x-6' : 'translate-x-1'
-                                  } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
-                              />
-                          </Switch>
+                                      record.auto_renewal ? 'bg-blue-600' : 'bg-gray-200'
+                                  } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              >
+                                  <span className="sr-only">Enable auto-renewal</span>
+                                  <span
+                                      className={`${
+                                          record.auto_renewal ? 'translate-x-6' : 'translate-x-1'
+                                      } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                                  />
+                              </Switch>
+                          </div>
                         </GracePeriodTooltip>
                       </td>
                     )}
-                    <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleViewLetter(record)}
-                        className="text-teal-600 hover:text-teal-900 mr-2 p-1 rounded-md hover:bg-gray-100"
-                        title="View Latest Letter"
-                      >
-                        <FileText className="h-5 w-5" />
-                      </button>
-                      {!isCorporateAdminView && !isGracePeriod && (
-                          <LGActionsMenu
-                              lgRecord={record}
-                              onExtend={handleExtend}
-                              onChangeOwner={handleChangeOwner}
-                              onRelease={handleRelease}
-                              onLiquidate={handleLiquidate}
-                              onDecreaseAmount={handleDecreaseAmount}
-                              onViewDetails={handleViewDetails}
-                              onAmend={handleAmend}
-                              onActivate={handleActivate}
-                          />
-                      )}
+                    
+                    {/* STICKY ACTION COLUMN */}
+                    <td className="sticky right-0 z-10 bg-white group-hover:bg-blue-50 border-l border-gray-200 px-4 py-4 whitespace-nowrap text-right text-sm font-medium transition-colors shadow-sm">
+                      <div className="flex justify-end items-center">
+                          <button
+                            onClick={(e) => handleInteractiveClick(e, () => handleViewLetter(record))}
+                            className="text-teal-600 hover:text-teal-900 mr-2 p-1 rounded-md hover:bg-white"
+                            title="View Latest Letter"
+                          >
+                            <FileText className="h-5 w-5" />
+                          </button>
+                          
+                          {!isCorporateAdminView && !isGracePeriod && (
+                              <div onClick={(e) => handleInteractiveClick(e)}>
+                                  <LGActionsMenu
+                                      lgRecord={record}
+                                      onExtend={handleExtend}
+                                      onChangeOwner={handleChangeOwner}
+                                      onRelease={handleRelease}
+                                      onLiquidate={handleLiquidate}
+                                      onDecreaseAmount={handleDecreaseAmount}
+                                      onViewDetails={handleViewDetails}
+                                      onAmend={handleAmend}
+                                      onActivate={handleActivate}
+                                  />
+                              </div>
+                          )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -876,6 +902,13 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
           </div>
         </>
       )}
+
+      {/* Added HistoryExportModal Rendering */}
+      <HistoryExportModal 
+          isOpen={showHistoryModal} 
+          onClose={() => setShowHistoryModal(false)}
+          filteredLgIds={filteredAndSortedRecords.map(r => r.id)} 
+      />
 
       {!isCorporateAdminView && (
         <>
