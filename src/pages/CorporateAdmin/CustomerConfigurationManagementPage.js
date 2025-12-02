@@ -1,7 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from 'services/apiService.js';
-import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, Shield, Layers, Cpu, HardDrive } from 'lucide-react';
+import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, Shield, Layers, Cpu, HardDrive, Settings, Clock, Server, Lock, MessageSquare } from 'lucide-react';
 import { toast } from 'react-toastify';
+
+// --- REVISED: Configuration Groupings Mapping (Pattern-Based) ---
+// This map defines the logical groups and their icons.
+const settingGroups = {
+    'Security & Authentication': { icon: Lock },
+    'System Limits & Timers': { icon: Clock },
+    'Communication & Alerts': { icon: MessageSquare },
+    'General': { icon: Settings }
+};
+
+// Helper function to dynamically determine a config's group based on keywords
+const getGroupKey = (configKey) => {
+    const key = configKey.toUpperCase();
+    
+    // Group 1: Security & Authentication
+    if (key.includes('PASSWORD') || key.includes('AUTH') || key.includes('LOCKOUT') || key.includes('LOGIN') || key.includes('ENFORCE') || key.includes('ACCOUNT_LOCKOUT')) {
+        return 'Security & Authentication';
+    }
+
+    // Group 2: System Limits & Timers
+    if (key.includes('MAX') || key.includes('LIMIT') || key.includes('TIMEOUT') || key.includes('IDLE') || key.includes('EXPIRY') || key.includes('DURATION') || key.includes('FREQUENCY')) {
+        return 'System Limits & Timers';
+    }
+    
+    // Group 3: Communication & Alerts
+    if (key.includes('EMAIL') || key.includes('COMMUNICATION') || key.includes('NOTIFICATION') || key.includes('SENDER')) {
+        return 'Communication & Alerts';
+    }
+
+    // Default Group
+    return 'General';
+};
+// --- END: Configuration Groupings Mapping ---
 
 // Usage Progress Bar Component
 const UsageProgressBar = ({ current, max, label, icon: Icon }) => {
@@ -109,6 +142,8 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
   const [sortKey, setSortKey] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
   const [filterText, setFilterText] = useState('');
+  // NEW: Group Filter State
+  const [selectedGroup, setSelectedGroup] = useState('All Groups');
 
   // --- Subscription State ---
   const [subscriptionData, setSubscriptionData] = useState(null);
@@ -120,7 +155,12 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
     setError('');
     try {
       const response = await apiRequest('/corporate-admin/customer-configurations/', 'GET');
-      setConfigurations(response);
+      // Assign group to each config for easier filtering/sorting using the new logic
+      const groupedConfigurations = response.map(config => ({
+          ...config,
+          group: getGroupKey(config.global_config_key)
+      }));
+      setConfigurations(groupedConfigurations);
     } catch (err) {
       console.error('Failed to fetch customer configurations:', err);
       setError(`Failed to load configurations. ${err.message || 'An unexpected error occurred.'}`);
@@ -235,7 +275,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
       valueToSave = JSON.stringify(editEmailList);
     } else {
       valueToSave = editValue;
-      if (config.global_unit === 'days' || config.global_unit === 'percentage') {
+      if (config.global_unit === 'days' || config.global_unit === 'percentage' || config.global_unit === 'minutes' || config.global_unit === 'hours') {
         const parsedValue = parseFloat(editValue);
         if (isNaN(parsedValue)) {
           setSaveError('Value must be a valid number.');
@@ -269,7 +309,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
       await apiRequest(`/corporate-admin/customer-configurations/${config.global_config_key}`, 'PUT', {
         configured_value: valueToSave,
       });
-      alert(`Configuration "${config.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}" updated successfully!`);
+      toast.success(`Configuration "${config.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}" updated successfully!`);
       setEditingConfigId(null);
       setEditValue('');
       setEditEmailList([]);
@@ -307,7 +347,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
         : { ...emailSettingsForm, smtp_password: null };
 
       await apiRequest(url, method, payload);
-      alert('Email settings saved successfully!');
+      toast.success('Email settings saved successfully!');
       setShowEmailSettingsModal(false);
       fetchEmailSettings();
     } catch (err) {
@@ -330,7 +370,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
     setEmailSettingsError('');
     try {
       await apiRequest(`/corporate-admin/email-settings/${emailSettings.id}`, 'DELETE');
-      alert('Email settings deleted successfully! The system will now use global settings.');
+      toast.info('Email settings deleted successfully! The system will now use global settings.');
       setShowEmailSettingsModal(false);
       fetchEmailSettings();
     } catch (err) {
@@ -385,7 +425,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
       await apiRequest(`/corporate-admin/customer-configurations/${currentConfigToEdit.global_config_key}`, 'PUT', {
         configured_value: JSON.stringify(editEmailList),
       });
-      alert(`Configuration "${currentConfigToEdit.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}" updated successfully!`);
+      toast.success(`Configuration "${currentConfigToEdit.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}" updated successfully!`);
       setShowEmailListModal(false);
       setEditEmailList([]);
       setNewEmail('');
@@ -437,26 +477,46 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
       if (config.global_unit === 'boolean') return "true or false";
       if (config.global_unit === 'days') return "e.g., 30";
       if (config.global_unit === 'percentage') return "e.g., 10";
+      if (config.global_unit === 'minutes') return "e.g., 60";
+      if (config.global_unit === 'hours') return "e.g., 24";
       return "";
   };
+  
+  // NEW: Memoize the grouped and sorted configurations
+  const groupedAndSortedConfigurations = useMemo(() => {
+    let filtered = [...configurations]
+        .filter(config => 
+            (selectedGroup === 'All Groups' || config.group === selectedGroup) && // Group Filter
+            (config.global_config_key.toLowerCase().includes(filterText.toLowerCase()) ||
+            (config.global_description && config.global_description.toLowerCase().includes(filterText.toLowerCase())) ||
+            (config.effective_value && String(config.effective_value).toLowerCase().includes(filterText.toLowerCase()))) // Text Filter
+        )
+        .sort((a, b) => {
+            if (!sortKey) return 0;
+            const aValue = a[sortKey];
+            const bValue = b[sortKey];
+            if (aValue === null || aValue === undefined) return sortDirection === 'asc' ? 1 : -1;
+            if (bValue === null || bValue === undefined) return sortDirection === 'asc' ? -1 : 1;
+            if (typeof aValue === 'string' && typeof bValue === 'string') {
+                return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+            }
+            return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        });
 
-  const filteredAndSortedConfigurations = [...configurations]
-    .filter(config => 
-      config.global_config_key.toLowerCase().includes(filterText.toLowerCase()) ||
-      (config.global_description && config.global_description.toLowerCase().includes(filterText.toLowerCase())) ||
-      (config.effective_value && String(config.effective_value).toLowerCase().includes(filterText.toLowerCase()))
-    )
-    .sort((a, b) => {
-      if (!sortKey) return 0;
-      const aValue = a[sortKey];
-      const bValue = b[sortKey];
-      if (aValue === null || aValue === undefined) return sortDirection === 'asc' ? 1 : -1;
-      if (bValue === null || bValue === undefined) return sortDirection === 'asc' ? -1 : 1;
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-      }
-      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+    // Group the filtered and sorted list
+    const grouped = {};
+    // Use the explicit keys from settingGroups for consistent display order
+    const groupKeys = Object.keys(settingGroups); 
+    
+    groupKeys.forEach(groupKey => {
+        const configsInGroup = filtered.filter(config => config.group === groupKey);
+        if (configsInGroup.length > 0) {
+            grouped[groupKey] = configsInGroup;
+        }
     });
+
+    return grouped;
+  }, [configurations, filterText, sortKey, sortDirection, selectedGroup]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -572,13 +632,12 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
       
       {/* --- Configuration Settings Section --- */}
       <div className="bg-white p-6 rounded-lg shadow-md">
-        {/* ... (This part remains exactly the same as before) ... */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold text-gray-800">Module Settings (Customer Configurations)</h2>
           <GracePeriodTooltip isGracePeriod={isGracePeriod}>
               <button
                 onClick={() => setShowEmailSettingsModal(true)}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isGracePeriod}
               >
                 <Mail className="h-4 w-4 mr-2" />
@@ -594,164 +653,205 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
           </div>
         )}
         
-        <div className="mb-4">
-          <div className="flex items-center space-x-2">
+        {/* UPDATED: Combined Filters */}
+        <div className="mb-6 flex flex-col sm:flex-row sm:space-x-4 space-y-3 sm:space-y-0">
+          <div className="flex items-center space-x-2 w-full sm:w-auto">
             <Filter className="h-5 w-5 text-gray-500" />
             <input
               type="text"
               placeholder="Filter by setting, description, or value..."
               value={filterText}
               onChange={handleFilterChange}
-              className={`${inputClassNames} flex-1 max-w-sm`}
+              className={`${inputClassNames} flex-1`}
               disabled={isGracePeriod}
             />
           </div>
+          
+          <div className="flex items-center space-x-2 w-full sm:w-auto">
+             <Settings className="h-5 w-5 text-gray-500" />
+             <select
+                value={selectedGroup}
+                onChange={(e) => setSelectedGroup(e.target.value)}
+                className={`${inputClassNames} flex-1`}
+                disabled={isGracePeriod}
+             >
+                <option value="All Groups">All Groups</option>
+                {Object.keys(settingGroups).map(groupName => (
+                    <option key={groupName} value={groupName}>{groupName}</option>
+                ))}
+             </select>
+          </div>
         </div>
 
-        {configurations.length === 0 && !isLoading ? (
+        {Object.keys(groupedAndSortedConfigurations).length === 0 && !isLoading ? (
           <div className="bg-gray-50 p-6 rounded-lg text-center border border-gray-200">
-            <p className="text-gray-500">No configurable settings found for your customer.</p>
+            <p className="text-gray-500">No configurable settings found matching your filters.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_config_key')}>
-                    <div className="flex items-center">
-                      Setting
-                      {getSortIcon('global_config_key')}
-                    </div>
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_description')}>
-                    <div className="flex items-center">
-                      Description
-                      {getSortIcon('global_description')}
-                    </div>
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_min')}>
-                    <div className="flex items-center">
-                      Min Value
-                      {getSortIcon('global_value_min')}
-                    </div>
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_max')}>
-                    <div className="flex items-center">
-                      Max Value
-                      {getSortIcon('global_value_max')}
-                    </div>
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_default')}>
-                    <div className="flex items-center">
-                      Default Value
-                      {getSortIcon('global_value_default')}
-                    </div>
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('effective_value')}>
-                    <div className="flex items-center">
-                      Current Value
-                      {getSortIcon('effective_value')}
-                    </div>
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_unit')}>
-                    <div className="flex items-center">
-                      Unit
-                      {getSortIcon('global_unit')}
-                    </div>
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredAndSortedConfigurations.map((config) => (
-                  <tr key={config.global_config_id}>
-                    <td className="px-3 py-2 text-sm font-medium text-gray-900">
-                      {config.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
-                    </td>
-                    <td className="px-3 py-2 text-sm text-gray-500 max-w-xs" title={config.global_description}>
-                      {config.global_description || 'N/A'}
-                    </td>
-                    <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                      {config.global_value_min !== null ? config.global_value_min : 'N/A'}
-                    </td>
-                    <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                      {config.global_value_max !== null ? config.global_value_max : 'N/A'}
-                    </td>
-                    <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                      {config.global_value_default !== null ? config.global_value_default : 'N/A'}
-                    </td>
-                    <td className="px-3 py-2 text-sm text-gray-900 text-center">
-                      {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' ? (
-                        config.global_unit === 'boolean' ? (
-                          <select
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            className={`${inputClassNames} w-24 text-center`}
-                            autoFocus
-                            disabled={isGracePeriod}
-                          >
-                            <option value="true">True</option>
-                            <option value="false">False</option>
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            className={`${inputClassNames} w-24 text-center`}
-                            placeholder={getPlaceholderText(config)}
-                            autoFocus
-                            disabled={isGracePeriod}
-                          />
-                        )
-                      ) : (
-                        <span className="font-semibold">{getEffectiveValue(config)}</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                      {config.global_unit || 'N/A'}
-                    </td>
-                    <td className="px-3 py-2 text-right text-sm font-medium">
-                      {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' ? (
-                        <div className="flex items-center justify-end space-x-1">
-                          <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                            <button
-                              type="button"
-                              onClick={() => handleSave(config)}
-                              className={`${buttonBaseClassNames} bg-green-600 text-white hover:bg-green-700 ${isSaving || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              disabled={isSaving || isGracePeriod}
-                            >
-                              {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
-                            </button>
-                          </GracePeriodTooltip>
-                          <button
-                            type="button"
-                            onClick={handleCancelEdit}
-                            className={`${buttonBaseClassNames} bg-gray-200 text-gray-700 hover:bg-gray-300 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            disabled={isSaving}
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </button>
+          <div className="space-y-8">
+            {Object.keys(groupedAndSortedConfigurations).map(groupName => {
+                const configs = groupedAndSortedConfigurations[groupName];
+                const GroupIcon = settingGroups[groupName]?.icon || Settings;
+                return (
+                    <div key={groupName} className="border border-gray-200 rounded-lg shadow-sm">
+                        <div className="bg-gray-100 px-4 py-3 rounded-t-lg flex items-center">
+                            <GroupIcon className="h-5 w-5 mr-2 text-gray-600" />
+                            <h3 className="text-lg font-semibold text-gray-800">{groupName} ({configs.length})</h3>
                         </div>
-                      ) : (
-                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                          <button
-                            type="button"
-                            onClick={() => handleEditClick(config)}
-                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={isGracePeriod}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                        </GracePeriodTooltip>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
+                                {/* NEW: Enforce fixed column widths for perfect alignment */}
+                                <colgroup>
+                                    <col style={{ width: '21%' }} /> {/* Setting (3 units) */}
+                                    <col style={{ width: '28%' }} /> {/* Description (4 units) */}
+                                    <col style={{ width: '7%' }} />  {/* Min Value (1 unit) */}
+                                    <col style={{ width: '7%' }} />  {/* Max Value (1 unit) */}
+                                    <col style={{ width: '7%' }} />  {/* Default Value (1 unit) */}
+                                    <col style={{ width: '14%' }} /> {/* Current Value (2 units) */}
+                                    <col style={{ width: '7%' }} />  {/* Unit (1 unit) */}
+                                    <col style={{ width: '9%' }} />  {/* Actions (1 unit) */}
+                                </colgroup>
+                                <thead className="bg-white">
+                                    <tr>
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_config_key')}>
+                                            <div className="flex items-center">
+                                                Setting
+                                                {getSortIcon('global_config_key')}
+                                            </div>
+                                        </th>
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_description')}>
+                                            <div className="flex items-center">
+                                                Description
+                                                {getSortIcon('global_description')}
+                                            </div>
+                                        </th>
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_min')}>
+                                            <div className="flex items-center">
+                                                Min Value
+                                                {getSortIcon('global_value_min')}
+                                            </div>
+                                        </th>
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_max')}>
+                                            <div className="flex items-center">
+                                                Max Value
+                                                {getSortIcon('global_value_max')}
+                                            </div>
+                                        </th>
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_default')}>
+                                            <div className="flex items-center">
+                                                Default Value
+                                                {getSortIcon('global_value_default')}
+                                            </div>
+                                        </th>
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('effective_value')}>
+                                            <div className="flex items-center">
+                                                Current Value
+                                                {getSortIcon('effective_value')}
+                                            </div>
+                                        </th>
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_unit')}>
+                                            <div className="flex items-center">
+                                                Unit
+                                                {getSortIcon('global_unit')}
+                                            </div>
+                                        </th>
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {configs.map((config) => (
+                                      <tr key={config.global_config_id} className="hover:bg-gray-50">
+                                        <td className="px-3 py-2 text-sm font-medium text-gray-900">
+                                          {config.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-gray-500 max-w-xs" title={config.global_description}>
+                                          {config.global_description || 'N/A'}
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                                          {config.global_value_min !== null ? config.global_value_min : 'N/A'}
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                                          {config.global_value_max !== null ? config.global_value_max : 'N/A'}
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                                          {config.global_value_default !== null ? config.global_value_default : 'N/A'}
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-gray-900 text-center">
+                                          {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' ? (
+                                            config.global_unit === 'boolean' ? (
+                                              <select
+                                                value={editValue}
+                                                onChange={(e) => setEditValue(e.target.value)}
+                                                className={`${inputClassNames} w-24 text-center`}
+                                                autoFocus
+                                                disabled={isGracePeriod}
+                                              >
+                                                <option value="true">True</option>
+                                                <option value="false">False</option>
+                                              </select>
+                                            ) : (
+                                              <input
+                                                type="text"
+                                                value={editValue}
+                                                onChange={(e) => setEditValue(e.target.value)}
+                                                className={`${inputClassNames} w-24 text-center`}
+                                                placeholder={getPlaceholderText(config)}
+                                                autoFocus
+                                                disabled={isGracePeriod}
+                                              />
+                                            )
+                                          ) : (
+                                            <span className="font-semibold">{getEffectiveValue(config)}</span>
+                                          )}
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                                          {config.global_unit || 'N/A'}
+                                        </td>
+                                        <td className="px-3 py-2 text-right text-sm font-medium">
+                                          {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' ? (
+                                            <div className="flex items-center justify-end space-x-1">
+                                              <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleSave(config)}
+                                                  className={`${buttonBaseClassNames} bg-green-600 text-white hover:bg-green-700 ${isSaving || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                  disabled={isSaving || isGracePeriod}
+                                                >
+                                                  {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
+                                                </button>
+                                              </GracePeriodTooltip>
+                                              <button
+                                                type="button"
+                                                onClick={handleCancelEdit}
+                                                className={`${buttonBaseClassNames} bg-gray-200 text-gray-700 hover:bg-gray-300 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                disabled={isSaving}
+                                              >
+                                                <XCircle className="h-4 w-4" />
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleEditClick(config)}
+                                                className="inline-flex items-center px-2 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                disabled={isGracePeriod}
+                                              >
+                                                <Edit className="h-4 w-4" />
+                                              </button>
+                                            </GracePeriodTooltip>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                );
+            })}
           </div>
         )}
       </div>

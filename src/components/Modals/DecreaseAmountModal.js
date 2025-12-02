@@ -195,7 +195,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                                                         {/* NEW: Optional supporting document upload */}
                                                         <div className="border-t pt-4">
                                                             <label htmlFor="supporting-document-file" className="block text-sm font-medium text-gray-700">
-                                                                Optional Supporting Document
+                                                                Supporting Document
                                                             </label>
                                                             <div className="mt-1 flex items-center">
                                                                 <input

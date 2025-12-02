@@ -6,6 +6,46 @@ import { RefreshCcw, Filter, XCircle, ChevronDown, ChevronUp, Loader2, AlertCirc
 import moment from 'moment';
 import { toast } from 'react-toastify';
 
+// --- NEW: Masking Logic Helper ---
+const maskSensitiveData = (obj) => {
+    if (typeof obj !== 'object' || obj === null) {
+        return obj;
+    }
+
+    const sensitiveKeys = [
+        'name', 'first_name', 'last_name', 'full_name', // Names
+        'email', 'sender_email', 'recipient_email', // Emails
+        'amount', 'value', 'price', 'fee', // Amounts/Values
+        'password', 'token', 'secret', // Credentials
+        'address', 'account_number', 'phone', // Personal/Financial identifiers
+        'configured_value', // Often holds sensitive configuration data
+    ];
+
+    const maskedObj = Array.isArray(obj) ? [] : {};
+
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            const lowerKey = key.toLowerCase();
+            const value = obj[key];
+
+            if (sensitiveKeys.includes(lowerKey)) {
+                // Mask the value directly
+                maskedObj[key] = '***MASKED***';
+            } else if (typeof value === 'object' && value !== null) {
+                // Recurse into nested objects/arrays
+                maskedObj[key] = maskSensitiveData(value);
+            } else {
+                // Keep non-sensitive data as is
+                maskedObj[key] = value;
+            }
+        }
+    }
+
+    return maskedObj;
+};
+// --- END NEW MASKING LOGIC ---
+
+
 function AuditLogs() {
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -138,26 +178,33 @@ function AuditLogs() {
     if (!details) return 'N/A';
     try {
       const parsedDetails = typeof details === 'string' ? JSON.parse(details) : details;
+      
+      // --- START NEW MASKING AND RENDERING LOGIC ---
+      const maskedDetails = maskSensitiveData(parsedDetails);
 
-      if (parsedDetails.ai_token_usage) {
-        const usage = parsedDetails.ai_token_usage;
+      if (maskedDetails.ai_token_usage) {
+        const usage = maskedDetails.ai_token_usage;
         return (
           <div className="text-xs bg-gray-50 p-2 rounded-md font-mono">
-            <p><strong>Action:</strong> {parsedDetails.action_type || 'N/A'}</p>
-            {parsedDetails.file_name && <p><strong>File:</strong> {parsedDetails.file_name}</p>}
+            <p><strong>Action:</strong> {maskedDetails.action_type || 'N/A'}</p>
+            {maskedDetails.file_name && <p><strong>File:</strong> {maskedDetails.file_name}</p>}
             <p><strong>OCR Chars:</strong> {usage.ocr_characters}</p>
             <p><strong>Gemini Prompt:</strong> {usage.gemini_prompt_tokens} tokens</p>
             <p><strong>Gemini Completion:</strong> {usage.gemini_completion_tokens} tokens</p>
             {usage.total_pages_processed > 0 && <p><strong>Pages:</strong> {usage.total_pages_processed}</p>}
-            {parsedDetails.reason && <p className="text-red-600"><strong>Reason:</strong> {parsedDetails.reason}</p>}
+            {maskedDetails.reason && <p className="text-red-600"><strong>Reason:</strong> {maskedDetails.reason}</p>}
           </div>
         );
       }
+      
+      // Default JSON rendering path uses masked data
       return (
         <pre className="text-xs bg-gray-50 p-2 rounded-md overflow-auto max-h-24">
-          {JSON.stringify(parsedDetails, null, 2)}
+          {JSON.stringify(maskedDetails, null, 2)}
         </pre>
       );
+      // --- END NEW MASKING AND RENDERING LOGIC ---
+
     } catch (e) {
       console.error("Failed to parse audit log details:", e, details);
       return String(details);

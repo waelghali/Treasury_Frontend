@@ -33,6 +33,9 @@ const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-me
 
 const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }) => {
     const [replyFile, setReplyFile] = useState(null);
+    
+    // --- NEW: Calculate Instruction Issue Date ---
+    const instructionIssueDate = moment(instruction.instruction_date).format('YYYY-MM-DD');
 
     const initialValues = {
         bankReplyDate: moment().format('YYYY-MM-DD'),
@@ -42,7 +45,9 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
     const BankReplySchema = Yup.object().shape({
         bankReplyDate: Yup.date()
             .required('Bank reply date is required')
-            .max(new Date(), 'Bank reply date cannot be in the future'),
+            .max(new Date(), 'Bank reply date cannot be in the future')
+            // --- NEW VALIDATION: Must be on or after instruction issue date ---
+            .min(instructionIssueDate, 'Bank reply date cannot be earlier than the instruction issue date'),
         replyDetails: Yup.string().nullable().max(500, 'Reply details cannot exceed 500 characters'),
     });
 
@@ -154,6 +159,8 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
                                                                 name="bankReplyDate"
                                                                 className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${errors.bankReplyDate && touched.bankReplyDate ? 'border-red-500' : 'border-gray-300'}`}
                                                                 max={moment().format('YYYY-MM-DD')}
+                                                                // --- NEW: HTML min attribute added ---
+                                                                min={instructionIssueDate}
                                                                 disabled={isGracePeriod}
                                                             />
                                                             <ErrorMessage name="bankReplyDate" component="div" className="text-red-600 text-xs mt-1" />
