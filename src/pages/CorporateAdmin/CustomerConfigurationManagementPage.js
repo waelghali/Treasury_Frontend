@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from 'services/apiService.js';
-import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, Shield, Layers, Cpu, HardDrive, Settings, Clock, Server, Lock, MessageSquare } from 'lucide-react';
+import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, Shield, Layers, Cpu, HardDrive, Settings, Clock, Server, Lock, MessageSquare, FileCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-// --- REVISED: Configuration Groupings Mapping (Pattern-Based) ---
-// This map defines the logical groups and their icons.
+// --- REVISED: Configuration Groupings Mapping ---
 const settingGroups = {
     'Security & Authentication': { icon: Lock },
     'System Limits & Timers': { icon: Clock },
     'Communication & Alerts': { icon: MessageSquare },
+    'Document Compliance & Requirements': { icon: FileCheck }, // NEW GROUP
     'General': { icon: Settings }
 };
 
@@ -17,18 +17,24 @@ const getGroupKey = (configKey) => {
     const key = configKey.toUpperCase();
     
     // Group 1: Security & Authentication
-    if (key.includes('PASSWORD') || key.includes('AUTH') || key.includes('LOCKOUT') || key.includes('LOGIN') || key.includes('ENFORCE') || key.includes('ACCOUNT_LOCKOUT')) {
+    if (key.includes('PASSWORD') || key.includes('AUTH') || key.includes('LOCKOUT') || key.includes('LOGIN') || key.includes('ENFORCE') || key.includes('ACCOUNT_LOCKOUT') || key.includes('SESSION')) {
         return 'Security & Authentication';
     }
 
     // Group 2: System Limits & Timers
-    if (key.includes('MAX') || key.includes('LIMIT') || key.includes('TIMEOUT') || key.includes('IDLE') || key.includes('EXPIRY') || key.includes('DURATION') || key.includes('FREQUENCY')) {
+    if (key.includes('TIMEOUT') || key.includes('IDLE') || key.includes('EXPIRY') || key.includes('DURATION') || key.includes('FREQUENCY') || key.includes('RETENTION') || key.includes('MAX') || key.includes('LIMIT') || key.includes('COUNT')) {
         return 'System Limits & Timers';
     }
     
     // Group 3: Communication & Alerts
-    if (key.includes('EMAIL') || key.includes('COMMUNICATION') || key.includes('NOTIFICATION') || key.includes('SENDER')) {
+    if (key.includes('EMAIL') || key.includes('COMMUNICATION') || key.includes('NOTIFICATION') || key.includes('SENDER') || key.includes('SMS')) {
         return 'Communication & Alerts';
+    }
+
+    // Group 4: Document Compliance & Requirements (NEW)
+    // Catches settings related to docs, mandatory/optional flags, and attachments
+    if (key.includes('REQUIRED') || key.includes('MANDATORY') || key.includes('OPTIONAL') || key.includes('DOC') || key.includes('ATTACHMENT') || key.includes('FILE')) {
+        return 'Document Compliance & Requirements';
     }
 
     // Default Group
@@ -65,7 +71,7 @@ const UsageProgressBar = ({ current, max, label, icon: Icon }) => {
   );
 };
 
-// NEW: Feature Item Component
+// Feature Item Component
 const FeatureItem = ({ label, isEnabled, icon: Icon }) => (
   <div className="flex items-center justify-between p-2 rounded-md hover:bg-gray-100 transition-colors">
     <div className="flex items-center overflow-hidden">
@@ -142,12 +148,13 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
   const [sortKey, setSortKey] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
   const [filterText, setFilterText] = useState('');
-  // NEW: Group Filter State
   const [selectedGroup, setSelectedGroup] = useState('All Groups');
 
   // --- Subscription State ---
   const [subscriptionData, setSubscriptionData] = useState(null);
   const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(true);
+  // State to toggle subscription section visibility
+  const [isSubscriptionExpanded, setIsSubscriptionExpanded] = useState(false);
 
   // --- Fetch Logic ---
   const fetchConfigurations = async () => {
@@ -226,8 +233,6 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
   }, []);
 
 
-  // ... [Keep all existing handler functions: handleEditClick, handleSave, etc.] ...
-  // (Copying existing handlers from previous code to keep file complete)
   const handleEditClick = (config) => {
     if (isGracePeriod) {
         toast.warn("This action is disabled during your subscription's grace period.");
@@ -482,7 +487,6 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
       return "";
   };
   
-  // NEW: Memoize the grouped and sorted configurations
   const groupedAndSortedConfigurations = useMemo(() => {
     let filtered = [...configurations]
         .filter(config => 
@@ -535,98 +539,124 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
   return (
     <div className="space-y-6">
       
-      {/* --- UPDATED: Subscription & Usage Section with Features --- */}
+      {/* --- UPDATED: Subscription & Usage Section (Collapsible) --- */}
       {subscriptionData && (
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
-          <div className="flex justify-between items-start mb-4">
+        <div className="bg-white rounded-lg shadow-md border-l-4 border-blue-500 overflow-hidden transition-all duration-300">
+          {/* Header - Clickable to Toggle */}
+          <div 
+            className="p-6 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => setIsSubscriptionExpanded(!isSubscriptionExpanded)}
+          >
             <div>
               <h3 className="text-lg font-semibold text-gray-800 flex items-center">
                 <Activity className="h-5 w-5 mr-2 text-blue-600" />
                 Subscription & Usage
               </h3>
-              <p className="text-sm text-gray-500 mt-1">
-                Plan: <span className="font-semibold text-gray-700">{subscriptionData.subscription_plan.name}</span>
-              </p>
+              {/* Show a small summary line if collapsed */}
+              {!isSubscriptionExpanded && (
+                <p className="text-sm text-gray-500 mt-1">
+                  {subscriptionData.subscription_plan.name} • <span className={subscriptionData.status === 'active' ? 'text-green-600' : 'text-red-600'}>{subscriptionData.status.toUpperCase()}</span>
+                </p>
+              )}
+              {isSubscriptionExpanded && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Plan: <span className="font-semibold text-gray-700">{subscriptionData.subscription_plan.name}</span>
+                </p>
+              )}
             </div>
-            <div className="text-right">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                subscriptionData.status === 'active' ? 'bg-green-100 text-green-800' : 
-                subscriptionData.status === 'grace' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-              }`}>
-                {subscriptionData.status.toUpperCase()}
-              </span>
+
+            <div className="flex items-center space-x-4">
+               {/* Status Badge (Only show when expanded to avoid clutter when closed) */}
+               {isSubscriptionExpanded && (
+                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                    subscriptionData.status === 'active' ? 'bg-green-100 text-green-800' : 
+                    subscriptionData.status === 'grace' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {subscriptionData.status.toUpperCase()}
+                  </span>
+               )}
+               {/* Toggle Icon */}
+               {isSubscriptionExpanded ? (
+                 <ChevronUp className="h-5 w-5 text-gray-400" />
+               ) : (
+                 <ChevronDown className="h-5 w-5 text-gray-400" />
+               )}
             </div>
           </div>
 
-          {/* CHANGED: Grid to 3 columns on large screens */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Period Info */}
-            <div className="bg-gray-50 p-4 rounded-md">
-               <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center">
-                 <Calendar className="h-4 w-4 mr-2" /> Current Term
-               </h4>
-               <div className="space-y-2 text-sm">
-                 <div className="flex justify-between">
-                   <span className="text-gray-600">Start Date:</span>
-                   <span className="font-medium text-gray-900">{formatDate(subscriptionData.start_date)}</span>
-                 </div>
-                 <div className="flex justify-between">
-                   <span className="text-gray-600">Renewal Date:</span>
-                   <span className={`font-medium ${new Date(subscriptionData.end_date) < new Date() ? 'text-red-600' : 'text-gray-900'}`}>
-                     {formatDate(subscriptionData.end_date)}
-                   </span>
-                 </div>
-               </div>
-            </div>
+          {/* Collapsible Content */}
+          {isSubscriptionExpanded && (
+            <div className="px-6 pb-6 pt-0 border-t border-gray-100 mt-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
+                {/* Period Info */}
+                <div className="bg-gray-50 p-4 rounded-md">
+                   <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center">
+                     <Calendar className="h-4 w-4 mr-2" /> Current Term
+                   </h4>
+                   <div className="space-y-2 text-sm">
+                     <div className="flex justify-between">
+                       <span className="text-gray-600">Start Date:</span>
+                       <span className="font-medium text-gray-900">{formatDate(subscriptionData.start_date)}</span>
+                     </div>
+                     <div className="flex justify-between">
+                       <span className="text-gray-600">Renewal Date:</span>
+                       <span className={`font-medium ${new Date(subscriptionData.end_date) < new Date() ? 'text-red-600' : 'text-gray-900'}`}>
+                         {formatDate(subscriptionData.end_date)}
+                       </span>
+                     </div>
+                   </div>
+                </div>
 
-            {/* Usage Limits */}
-            <div className="bg-gray-50 p-4 rounded-md">
-               <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center">
-                 <Activity className="h-4 w-4 mr-2" /> Usage Limits
-               </h4>
-               <UsageProgressBar 
-                  current={subscriptionData.active_user_count} 
-                  max={subscriptionData.subscription_plan.max_users} 
-                  label="Active Users" 
-                  icon={User}
-               />
-               <UsageProgressBar 
-                  current={subscriptionData.active_lg_count} 
-                  max={subscriptionData.subscription_plan.max_records} 
-                  label="Active LG Records" 
-                  icon={FileText}
-               />
-            </div>
+                {/* Usage Limits */}
+                <div className="bg-gray-50 p-4 rounded-md">
+                   <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center">
+                     <Activity className="h-4 w-4 mr-2" /> Usage Limits
+                   </h4>
+                   <UsageProgressBar 
+                      current={subscriptionData.active_user_count} 
+                      max={subscriptionData.subscription_plan.max_users} 
+                      label="Active Users" 
+                      icon={User}
+                   />
+                   <UsageProgressBar 
+                      current={subscriptionData.active_lg_count} 
+                      max={subscriptionData.subscription_plan.max_records} 
+                      label="Active LG Records" 
+                      icon={FileText}
+                   />
+                </div>
 
-            {/* NEW: Plan Features */}
-            <div className="bg-gray-50 p-4 rounded-md">
-               <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center">
-                 <Shield className="h-4 w-4 mr-2" /> Plan Features
-               </h4>
-               <div className="space-y-2">
-                  <FeatureItem 
-                      label="Maker-Checker" 
-                      isEnabled={subscriptionData.subscription_plan.can_maker_checker} 
-                      icon={Shield} 
-                  />
-                  <FeatureItem 
-                      label="Multi-Entity" 
-                      isEnabled={subscriptionData.subscription_plan.can_multi_entity} 
-                      icon={Layers} 
-                  />
-                  <FeatureItem 
-                      label="AI Scan" 
-                      isEnabled={subscriptionData.subscription_plan.can_ai_integration} 
-                      icon={Cpu} 
-                  />
-                  <FeatureItem 
-                      label="Doc Storage" 
-                      isEnabled={subscriptionData.subscription_plan.can_image_storage} 
-                      icon={HardDrive} 
-                  />
-               </div>
+                {/* Plan Features */}
+                <div className="bg-gray-50 p-4 rounded-md">
+                   <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center">
+                     <Shield className="h-4 w-4 mr-2" /> Plan Features
+                   </h4>
+                   <div className="space-y-2">
+                      <FeatureItem 
+                          label="Maker-Checker" 
+                          isEnabled={subscriptionData.subscription_plan.can_maker_checker} 
+                          icon={Shield} 
+                      />
+                      <FeatureItem 
+                          label="Multi-Entity" 
+                          isEnabled={subscriptionData.subscription_plan.can_multi_entity} 
+                          icon={Layers} 
+                      />
+                      <FeatureItem 
+                          label="AI Scan" 
+                          isEnabled={subscriptionData.subscription_plan.can_ai_integration} 
+                          icon={Cpu} 
+                      />
+                      <FeatureItem 
+                          label="Doc Storage" 
+                          isEnabled={subscriptionData.subscription_plan.can_image_storage} 
+                          icon={HardDrive} 
+                      />
+                   </div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
       
@@ -700,7 +730,6 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
                         </div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
-                                {/* NEW: Enforce fixed column widths for perfect alignment */}
                                 <colgroup>
                                     <col style={{ width: '21%' }} /> {/* Setting (3 units) */}
                                     <col style={{ width: '28%' }} /> {/* Description (4 units) */}
