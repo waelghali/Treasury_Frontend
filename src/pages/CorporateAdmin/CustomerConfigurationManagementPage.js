@@ -8,7 +8,7 @@ const settingGroups = {
     'Security & Authentication': { icon: Lock },
     'System Limits & Timers': { icon: Clock },
     'Communication & Alerts': { icon: MessageSquare },
-    'Document Compliance & Requirements': { icon: FileCheck }, // NEW GROUP
+    'Document Compliance & Requirements': { icon: FileCheck },
     'General': { icon: Settings }
 };
 
@@ -31,8 +31,7 @@ const getGroupKey = (configKey) => {
         return 'Communication & Alerts';
     }
 
-    // Group 4: Document Compliance & Requirements (NEW)
-    // Catches settings related to docs, mandatory/optional flags, and attachments
+    // Group 4: Document Compliance & Requirements
     if (key.includes('REQUIRED') || key.includes('MANDATORY') || key.includes('OPTIONAL') || key.includes('DOC') || key.includes('ATTACHMENT') || key.includes('FILE')) {
         return 'Document Compliance & Requirements';
     }
@@ -40,7 +39,31 @@ const getGroupKey = (configKey) => {
     // Default Group
     return 'General';
 };
-// --- END: Configuration Groupings Mapping ---
+
+// --- Toggle Switch Component ---
+const ToggleSwitch = ({ checked, onChange, disabled }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    onClick={onChange}
+    disabled={disabled}
+    className={`
+      relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent 
+      transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+      ${checked ? 'bg-blue-600' : 'bg-gray-200'}
+      ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+    `}
+  >
+    <span
+      className={`
+        pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 
+        transition duration-200 ease-in-out
+        ${checked ? 'translate-x-5' : 'translate-x-0'}
+      `}
+    />
+  </button>
+);
 
 // Usage Progress Bar Component
 const UsageProgressBar = ({ current, max, label, icon: Icon }) => {
@@ -153,16 +176,15 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
   // --- Subscription State ---
   const [subscriptionData, setSubscriptionData] = useState(null);
   const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(true);
-  // State to toggle subscription section visibility
   const [isSubscriptionExpanded, setIsSubscriptionExpanded] = useState(false);
 
   // --- Fetch Logic ---
-  const fetchConfigurations = async () => {
-    setIsLoading(true);
+  // UPDATED: Now accepts 'isBackground' to prevent showing the loading spinner on updates
+  const fetchConfigurations = async (isBackground = false) => {
+    if (!isBackground) setIsLoading(true);
     setError('');
     try {
       const response = await apiRequest('/corporate-admin/customer-configurations/', 'GET');
-      // Assign group to each config for easier filtering/sorting using the new logic
       const groupedConfigurations = response.map(config => ({
           ...config,
           group: getGroupKey(config.global_config_key)
@@ -172,7 +194,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
       console.error('Failed to fetch customer configurations:', err);
       setError(`Failed to load configurations. ${err.message || 'An unexpected error occurred.'}`);
     } finally {
-      setIsLoading(false);
+      if (!isBackground) setIsLoading(false);
     }
   };
 
@@ -227,7 +249,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
   };
 
   useEffect(() => {
-    fetchConfigurations();
+    fetchConfigurations(); // Initial load (shows spinner)
     fetchEmailSettings();
     fetchSubscription();
   }, []);
@@ -261,7 +283,8 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
     setEditEmailList([]);
   };
 
-  const handleSave = async (config) => {
+  // UPDATED: handleSave now accepts a second argument 'directValue' for toggles
+  const handleSave = async (config, directValue = null) => {
     if (isGracePeriod) {
         toast.warn("This action is disabled during your subscription's grace period.");
         return;
@@ -271,7 +294,12 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
 
     let valueToSave;
 
-    if (config.global_config_key === 'COMMON_COMMUNICATION_LIST') {
+    // Logic for direct toggle save (Boolean Switch)
+    if (directValue !== null) {
+      valueToSave = String(directValue).toLowerCase();
+    } 
+    // Logic for standard edit mode (Input/Select)
+    else if (config.global_config_key === 'COMMON_COMMUNICATION_LIST') {
       if (editEmailList.length === 0) {
         setSaveError('The communication list cannot be empty.');
         setIsSaving(false);
@@ -299,6 +327,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
         }
         valueToSave = String(parsedValue);
       } else if (config.global_unit === 'boolean') {
+        // Fallback validation for standard edits
         if (!['true', 'false'].includes(String(editValue).toLowerCase())) {
           setSaveError('Value must be either "true" or "false".');
           setIsSaving(false);
@@ -314,11 +343,19 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
       await apiRequest(`/corporate-admin/customer-configurations/${config.global_config_key}`, 'PUT', {
         configured_value: valueToSave,
       });
-      toast.success(`Configuration "${config.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}" updated successfully!`);
+      
+      const readableName = config.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+      const msg = directValue !== null 
+        ? `${readableName} set to ${valueToSave}!`
+        : `${readableName} updated successfully!`;
+
+      toast.success(msg);
       setEditingConfigId(null);
       setEditValue('');
       setEditEmailList([]);
-      fetchConfigurations();
+      
+      // UPDATED: Trigger background refresh (keeps scroll position)
+      fetchConfigurations(true);
     } catch (err) {
       console.error('Failed to save configuration:', err);
       setSaveError(err.message || 'Failed to save configuration.');
@@ -435,7 +472,9 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
       setEditEmailList([]);
       setNewEmail('');
       setCurrentConfigToEdit(null);
-      fetchConfigurations();
+      
+      // UPDATED: Trigger background refresh (keeps scroll position)
+      fetchConfigurations(true);
     } catch (err) {
       console.error('Failed to save configuration:', err);
       setEmailListError(err.message || 'Failed to save configuration.');
@@ -496,7 +535,13 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
             (config.effective_value && String(config.effective_value).toLowerCase().includes(filterText.toLowerCase()))) // Text Filter
         )
         .sort((a, b) => {
-            if (!sortKey) return 0;
+            const aHasUnit = a.global_unit !== null && a.global_unit !== undefined && a.global_unit !== '';
+            const bHasUnit = b.global_unit !== null && b.global_unit !== undefined && b.global_unit !== '';
+
+            if (aHasUnit && !bHasUnit) return -1; // 'a' has a unit, so it goes up
+            if (!aHasUnit && bHasUnit) return 1;  // 'b' has a unit, so it goes up
+			
+			if (!sortKey) return 0;
             const aValue = a[sortKey];
             const bValue = b[sortKey];
             if (aValue === null || aValue === undefined) return sortDirection === 'asc' ? 1 : -1;
@@ -552,7 +597,6 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
                 <Activity className="h-5 w-5 mr-2 text-blue-600" />
                 Subscription & Usage
               </h3>
-              {/* Show a small summary line if collapsed */}
               {!isSubscriptionExpanded && (
                 <p className="text-sm text-gray-500 mt-1">
                   {subscriptionData.subscription_plan.name} • <span className={subscriptionData.status === 'active' ? 'text-green-600' : 'text-red-600'}>{subscriptionData.status.toUpperCase()}</span>
@@ -566,7 +610,6 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
             </div>
 
             <div className="flex items-center space-x-4">
-               {/* Status Badge (Only show when expanded to avoid clutter when closed) */}
                {isSubscriptionExpanded && (
                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                     subscriptionData.status === 'active' ? 'bg-green-100 text-green-800' : 
@@ -575,7 +618,6 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
                     {subscriptionData.status.toUpperCase()}
                   </span>
                )}
-               {/* Toggle Icon */}
                {isSubscriptionExpanded ? (
                  <ChevronUp className="h-5 w-5 text-gray-400" />
                ) : (
@@ -683,7 +725,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
           </div>
         )}
         
-        {/* UPDATED: Combined Filters */}
+        {/* Combined Filters */}
         <div className="mb-6 flex flex-col sm:flex-row sm:space-x-4 space-y-3 sm:space-y-0">
           <div className="flex items-center space-x-2 w-full sm:w-auto">
             <Filter className="h-5 w-5 text-gray-500" />
@@ -784,43 +826,40 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
                                                 {getSortIcon('global_unit')}
                                             </div>
                                         </th>
-                                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        {/* CHANGED: 'text-left' to 'text-center' for Actions header */}
+                                        <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Actions
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {configs.map((config) => (
-                                      <tr key={config.global_config_id} className="hover:bg-gray-50">
-                                        <td className="px-3 py-2 text-sm font-medium text-gray-900">
-                                          {config.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
-                                        </td>
-                                        <td className="px-3 py-2 text-sm text-gray-500 max-w-xs" title={config.global_description}>
-                                          {config.global_description || 'N/A'}
-                                        </td>
-                                        <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                                          {config.global_value_min !== null ? config.global_value_min : 'N/A'}
-                                        </td>
-                                        <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                                          {config.global_value_max !== null ? config.global_value_max : 'N/A'}
-                                        </td>
-                                        <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                                          {config.global_value_default !== null ? config.global_value_default : 'N/A'}
-                                        </td>
-                                        <td className="px-3 py-2 text-sm text-gray-900 text-center">
-                                          {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' ? (
-                                            config.global_unit === 'boolean' ? (
-                                              <select
-                                                value={editValue}
-                                                onChange={(e) => setEditValue(e.target.value)}
-                                                className={`${inputClassNames} w-24 text-center`}
-                                                autoFocus
-                                                disabled={isGracePeriod}
-                                              >
-                                                <option value="true">True</option>
-                                                <option value="false">False</option>
-                                              </select>
-                                            ) : (
+                                    {configs.map((config) => {
+                                      // Determine if this config is a boolean and check its state
+                                      const isBoolean = config.global_unit === 'boolean';
+                                      const isChecked = String(config.effective_value).toLowerCase() === 'true';
+
+                                      return (
+                                        <tr key={config.global_config_id} className="hover:bg-gray-50">
+                                          <td className="px-3 py-2 text-sm font-medium text-gray-900">
+                                            {config.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                                          </td>
+                                          <td className="px-3 py-2 text-sm text-gray-500 max-w-xs" title={config.global_description}>
+                                            {config.global_description || 'N/A'}
+                                          </td>
+                                          <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                                            {config.global_value_min !== null ? config.global_value_min : 'N/A'}
+                                          </td>
+                                          <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                                            {config.global_value_max !== null ? config.global_value_max : 'N/A'}
+                                          </td>
+                                          <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                                            {config.global_value_default !== null ? config.global_value_default : 'N/A'}
+                                          </td>
+                                          
+                                          {/* --- Current Value Column (Always Text) --- */}
+                                          <td className="px-3 py-2 text-sm text-gray-900 text-center">
+                                            {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' && !isBoolean ? (
+                                              /* EDIT MODE (TEXT INPUT) - Only for non-boolean */
                                               <input
                                                 type="text"
                                                 value={editValue}
@@ -830,51 +869,77 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
                                                 autoFocus
                                                 disabled={isGracePeriod}
                                               />
-                                            )
-                                          ) : (
-                                            <span className="font-semibold">{getEffectiveValue(config)}</span>
-                                          )}
-                                        </td>
-                                        <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                                          {config.global_unit || 'N/A'}
-                                        </td>
-                                        <td className="px-3 py-2 text-right text-sm font-medium">
-                                          {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' ? (
-                                            <div className="flex items-center justify-end space-x-1">
-                                              <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                            ) : (
+                                              /* VIEW MODE (TEXT) - For ALL types, including boolean */
+                                              <span className={`font-semibold ${isBoolean ? (isChecked ? 'text-green-600' : 'text-red-600') : ''}`}>
+                                                {getEffectiveValue(config)}
+                                              </span>
+                                            )}
+                                          </td>
+
+                                          <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                                            {config.global_unit || 'N/A'}
+                                          </td>
+
+                                          {/* --- Actions Column (Edit Btn OR Toggle) --- */}
+                                          {/* CHANGED: 'text-right' to 'text-center' to center content in cell */}
+                                          <td className="px-3 py-2 text-center text-sm font-medium">
+                                            {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' ? (
+                                              /* SAVE/CANCEL Buttons (Only for non-booleans in edit mode) */
+                                              /* CHANGED: 'justify-end' to 'justify-center' */
+                                              <div className="flex items-center justify-center space-x-1">
+                                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleSave(config)}
+                                                    className={`${buttonBaseClassNames} bg-green-600 text-white hover:bg-green-700 ${isSaving || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    disabled={isSaving || isGracePeriod}
+                                                  >
+                                                    {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
+                                                  </button>
+                                                </GracePeriodTooltip>
                                                 <button
                                                   type="button"
-                                                  onClick={() => handleSave(config)}
-                                                  className={`${buttonBaseClassNames} bg-green-600 text-white hover:bg-green-700 ${isSaving || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                  disabled={isSaving || isGracePeriod}
+                                                  onClick={handleCancelEdit}
+                                                  className={`${buttonBaseClassNames} bg-gray-200 text-gray-700 hover:bg-gray-300 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                  disabled={isSaving}
                                                 >
-                                                  {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
+                                                  <XCircle className="h-4 w-4" />
                                                 </button>
-                                              </GracePeriodTooltip>
-                                              <button
-                                                type="button"
-                                                onClick={handleCancelEdit}
-                                                className={`${buttonBaseClassNames} bg-gray-200 text-gray-700 hover:bg-gray-300 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                disabled={isSaving}
-                                              >
-                                                <XCircle className="h-4 w-4" />
-                                              </button>
-                                            </div>
-                                          ) : (
-                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleEditClick(config)}
-                                                className="inline-flex items-center px-2 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                disabled={isGracePeriod}
-                                              >
-                                                <Edit className="h-4 w-4" />
-                                              </button>
-                                            </GracePeriodTooltip>
-                                          )}
-                                        </td>
-                                      </tr>
-                                    ))}
+                                              </div>
+                                            ) : isBoolean ? (
+                                              /* TOGGLE SWITCH - For Boolean types (Replaces Edit Button) */
+                                              /* CHANGED: 'justify-end' to 'justify-center' */
+                                              <div className="flex justify-center">
+                                                  <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                    <ToggleSwitch 
+                                                      checked={isChecked}
+                                                      onChange={() => handleSave(config, !isChecked)}
+                                                      disabled={isGracePeriod || isSaving}
+                                                    />
+                                                  </GracePeriodTooltip>
+                                              </div>
+                                            ) : (
+                                              /* EDIT BUTTON - For Non-Boolean types */
+                                              /* CONDITION UPDATED: && config.global_unit - if unit is null/missing, button is hidden */
+                                              config.global_unit && (
+                                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleEditClick(config)}
+                                                    /* UPDATED: px-4 for wider button */
+                                                    className="inline-flex items-center justify-center px-4 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    disabled={isGracePeriod}
+                                                  >
+                                                    <Edit className="h-4 w-4" />
+                                                  </button>
+                                                </GracePeriodTooltip>
+                                              )
+                                            )}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -885,7 +950,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod }) {
         )}
       </div>
       
-      {/* Modals (kept same as before) */}
+      {/* Modals */}
       {showEmailListModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
           <div className="relative bg-white p-6 rounded-lg shadow-xl max-w-md w-full">

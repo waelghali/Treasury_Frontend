@@ -1,12 +1,36 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { Home, FileText, PlusCircle, BarChart, LogOut, FolderKanban, Users, ListTodo } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
-import SubscriptionBanner from '../SubscriptionBanner'; // NEW: Import the subscription banner
+import SubscriptionBanner from '../SubscriptionBanner'; 
+// Use the service function for fetching end-user notifications
+import { fetchActiveSystemNotifications } from '../../services/notificationService'; // Assumed correct path
 
-function EndUserLayout({ onLogout, activeMenuItem, customerName, headerTitle, systemNotifications, subscriptionStatus, subscriptionEndDate }) { // NEW: Receive subscription props
+// REMOVED 'systemNotifications' from props
+function EndUserLayout({ onLogout, activeMenuItem, customerName, headerTitle, subscriptionStatus, subscriptionEndDate }) { 
+  // ADDED state to manage notifications and their loading status
+  const [notifications, setNotifications] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // ADDED useEffect to fetch notifications on mount
+  useEffect(() => {
+    async function loadNotifications() {
+      try {
+        const activeNotifs = await fetchActiveSystemNotifications(); // Fetch the data
+        setNotifications(activeNotifs);
+      } catch (error) {
+        console.error('Failed to load end-user notifications:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    // Ensure this runs only once on component mount
+    loadNotifications();
+  }, []); 
+
   const isDashboard = activeMenuItem === 'end-user-dashboard';
-  const isGracePeriod = subscriptionStatus === 'grace'; // NEW: Check for grace status
+  const isGracePeriod = subscriptionStatus === 'grace';
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
@@ -121,7 +145,12 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, headerTitle, sy
             {headerTitle}
           </h1>
         </header>
-        {isDashboard && <NotificationBanner notifications={systemNotifications} />}
+        {/* MODIFIED: Renders UNCONDITIONALLY if notifications are loaded and present */}
+        {!isLoading && notifications.length > 0 && (
+          <div className="mb-4">
+            <NotificationBanner notifications={notifications} />
+          </div>
+        )}
         {isGracePeriod && <SubscriptionBanner subscriptionEndDate={subscriptionEndDate} />}
         <Outlet />
       </main>
