@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { 
   Home, Users, FolderKanban, LogOut, Settings, FileText, 
@@ -6,30 +6,9 @@ import {
 } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner';
-// Import the Corporate Admin specific service function
-import { fetchActiveCorporateAdminNotifications } from '../../services/notificationService'; // Assumed correct path
 
-// REMOVED 'systemNotifications' from props
-function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTitle, subscriptionStatus, subscriptionEndDate }) {
-  const [notifications, setNotifications] = useState([]); // <-- ADDED State
-  const [isLoading, setIsLoading] = useState(true);   // <-- ADDED State
+function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTitle, systemNotifications, subscriptionStatus, subscriptionEndDate }) {
   const isDashboard = activeMenuItem === 'corporate-admin-dashboard';
-
-  // ADDED useEffect to fetch notifications on mount
-  useEffect(() => {
-    async function loadNotifications() {
-      try {
-        // Use the Corporate Admin specific fetching function
-        const activeNotifs = await fetchActiveCorporateAdminNotifications(); 
-        setNotifications(activeNotifs);
-      } catch (error) {
-        console.error('Failed to load Corporate Admin notifications:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadNotifications();
-  }, []);
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
@@ -43,90 +22,83 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
           <p className="text-sm text-gray-500 text-center mt-1">Corporate Admin</p>
         </div>
 
-        {/* Navigation Menu (Unchanged) */}
-        <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
-          <Link
-            to="/corporate-admin/dashboard"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
-              activeMenuItem === 'corporate-admin-dashboard' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Home className="h-5 w-5 mr-3" />
-            Dashboard
-          </Link>
+        {/* Navigation Menu */}
+        <nav className="flex-grow p-4 space-y-1 overflow-y-auto">
           
-          <Link
-            to="/corporate-admin/customer-entities"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
-              activeMenuItem === 'corporate-admin-customer-entities' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Building className="h-5 w-5 mr-3" />
-            Customer Entities
-          </Link>
+          <div className="pb-2">
+            <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Overview</p>
+            <Link to="/corporate-admin/dashboard" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'corporate-admin-dashboard' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+              <Home className="h-5 w-5 mr-3" />
+              Dashboard
+            </Link>
+          </div>
 
-          <Link
-            to="/corporate-admin/manage-users"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
-              activeMenuItem === 'corporate-admin-manage-users' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Users className="h-5 w-5 mr-3" />
-            Manage Users
-          </Link>
-          
-          <Link
-            to="/corporate-admin/lg-records"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
-              activeMenuItem === 'corporate-admin-manage-lg-records' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <FolderKanban className="h-5 w-5 mr-3" />
-            Manage LG Records
-          </Link>
+          {/* --- ISSUANCE MODULE SECTION --- */}
+          <div className="pb-2">
+             <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Issuance</p>
+             <Link to="/corporate-admin/issuance/requests" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'issuance-requests' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+               <Send className="h-5 w-5 mr-3" />
+               Requests Inbox
+             </Link>
+             {/* NEW LINK: Bank Facilities */}
+             <Link to="/corporate-admin/issuance/facilities" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'issuance-facilities' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+               <Building className="h-5 w-5 mr-3" />
+               Bank Facilities
+             </Link>
+          </div>
+          {/* ------------------------------- */}
 
-          <Link
-            to="/corporate-admin/pending-approvals"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
-              activeMenuItem === 'corporate-admin-pending-approvals' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <FileText className="h-5 w-5 mr-3" />
-            Pending Approvals
-          </Link>
+          <div className="pb-2">
+            <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">LG Management</p>
+            <Link to="/corporate-admin/lg-records" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'lg-records' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+              <FolderKanban className="h-5 w-5 mr-3" />
+              All LG Records
+            </Link>
+            <Link to="/corporate-admin/approval-requests" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'pending-approvals' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+              <Hourglass className="h-5 w-5 mr-3" />
+              Pending Approvals
+            </Link>
+            <Link to="/corporate-admin/action-center" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'action-center' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+              <ClipboardList className="h-5 w-5 mr-3" />
+              Action Center
+            </Link>
+          </div>
+
+          <div className="pb-2">
+            <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Configuration</p>
+            <Link to="/corporate-admin/users" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'user-management' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+              <Users className="h-5 w-5 mr-3" />
+              User Management
+            </Link>
+             <Link to="/corporate-admin/module-configs" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'module-configs' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+              <Settings className="h-5 w-5 mr-3" />
+              Settings
+            </Link>
+             <Link to="/corporate-admin/lg-categories" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'lg-categories' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+              <FileText className="h-5 w-5 mr-3" />
+              LG Categories
+            </Link>
+          </div>
           
-          <Link
-            to="/corporate-admin/action-center"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
-              activeMenuItem === 'corporate-admin-action-center' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <ClipboardList className="h-5 w-5 mr-3" />
-            Action Center
-          </Link>
-          
-          <Link
-            to="/corporate-admin/reports"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
-              activeMenuItem === 'corporate-admin-reports' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <BarChart className="h-5 w-5 mr-3" />
-            Reports
-          </Link>
-          
-          <Link
-            to="/corporate-admin/configuration"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
-              activeMenuItem === 'corporate-admin-configuration' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Settings className="h-5 w-5 mr-3" />
-            Configuration
-          </Link>
+           <div className="pb-2">
+            <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">System</p>
+            <Link to="/corporate-admin/audit-logs" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'audit-logs' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+              <FileText className="h-5 w-5 mr-3" />
+              Audit Logs
+            </Link>
+             <Link to="/corporate-admin/reports" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'reports' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+              <BarChart className="h-5 w-5 mr-3" />
+              Reports
+            </Link>
+             <Link to="/corporate-admin/migration-hub" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'migration-hub' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+              <DatabaseZap className="h-5 w-5 mr-3" />
+              Migration Hub
+            </Link>
+          </div>
 
         </nav>
-        
+
+        {/* Footer */}
         <div className="p-4 border-t border-gray-200 flex-shrink-0">
           <div className="flex items-center mb-1">
             <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white text-sm font-semibold">CA</span>
@@ -148,15 +120,12 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
           <h1 className="text-2xl font-semibold text-gray-800">{headerTitle}</h1>
         </header>
 
-        {/* MODIFIED: Move NotificationBanner to an unconditional position */}
-        <div className="mb-6 space-y-4">
-          {/* Render UNCONDITIONALLY if notifications are loaded and present */}
-          {!isLoading && notifications.length > 0 && (
-            <NotificationBanner notifications={notifications} />
-          )}
-          
-          <SubscriptionBanner status={subscriptionStatus} endDate={subscriptionEndDate} />
-        </div>
+        {isDashboard && (
+          <div className="mb-6 space-y-4">
+             <SubscriptionBanner status={subscriptionStatus} endDate={subscriptionEndDate} />
+            {systemNotifications && systemNotifications.length > 0 && <NotificationBanner notifications={systemNotifications} />}
+          </div>
+        )}
         
         <Outlet />
       </main>
