@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react'; // <-- ADDED useRef
+import React, { useState, useEffect, useRef } from 'react';
 import { Info, AlertTriangle, Newspaper, Building2, Megaphone, X, CheckCircle } from 'lucide-react';
-import { apiRequest } from '../services/apiService'; // Kept for existing uses
-// NEW: Import the notification service functions
 import { acknowledgeSystemNotification, logNotificationView } from '../services/notificationService'; 
 
 const animationStyles = `
@@ -50,8 +48,7 @@ const NotificationWithViewLog = ({ notification, onDismiss, getTypeConfig, anima
     
     // CRITICAL FIX: Use a Ref to track if the API call was made in the current mount cycle
     const hasLoggedViewRef = useRef(false); 
-    const userId = getCurrentUserId();
-
+    
     // EFFECT: Log the view when this specific notification component mounts (is displayed)
     useEffect(() => {
         const freq = notification.display_frequency;
@@ -62,7 +59,6 @@ const NotificationWithViewLog = ({ notification, onDismiss, getTypeConfig, anima
         if (requiresTracking) {
             
             // 2. CHECK REF: If the view has already been logged by this specific component instance, skip.
-            // This prevents the double-log caused by React's Strict Mode.
             if (hasLoggedViewRef.current) {
                 return; 
             }
@@ -88,13 +84,44 @@ const NotificationWithViewLog = ({ notification, onDismiss, getTypeConfig, anima
 
     return (
         <div key={notification.id} className={`relative border-l-4 p-4 rounded-md shadow-sm flex items-start ${config.colorClasses} ${animationClass}`} role="alert">
-          <div className="flex-shrink-0 mt-0.5"><IconComponent className={`h-5 w-5 ${iconClass}`} /></div>
-          <div className="ml-3 flex-1 pr-6">
-            <p className="font-bold text-sm uppercase tracking-wide opacity-90">{config.defaultTitle}</p>
-            <p className="text-sm mt-1">{notification.content}</p>
-            {notification.link && <a href={notification.link} className="text-sm font-semibold underline mt-2 block opacity-90 hover:opacity-100" target="_blank" rel="noopener noreferrer">Learn More &rarr;</a>}
+          
+          {/* Icon */}
+          <div className="flex-shrink-0 mt-0.5">
+            <IconComponent className={`h-5 w-5 ${iconClass}`} />
           </div>
-          {/* Dismiss button calls the main NotificationBanner handler */}
+
+          <div className="ml-3 flex-1 pr-6">
+            <p className="font-bold text-sm uppercase tracking-wide opacity-90 mb-1">{config.defaultTitle}</p>
+            
+            {/* UPDATED: Flex container for Image + Text */}
+            <div className="flex flex-col sm:flex-row gap-3">
+                {notification.image_url && (
+                    <div className="flex-shrink-0">
+                        <img 
+                            src={notification.image_url} 
+                            alt="Thumbnail" 
+                            className="h-16 w-24 object-cover rounded-md border border-black/10" 
+                        />
+                    </div>
+                )}
+                
+                <div className="text-sm">
+                    {/* Content Text */}
+                    <p>{notification.content}</p>
+                    
+                    {/* Link */}
+                    {notification.link && (
+                        <div className="mt-2">
+                             <a href={notification.link} className="font-semibold underline opacity-90 hover:opacity-100" target="_blank" rel="noopener noreferrer">
+                                Learn More &rarr;
+                             </a>
+                        </div>
+                    )}
+                </div>
+            </div>
+          </div>
+
+          {/* Dismiss button */}
           <button onClick={() => onDismiss(notification)} className="absolute top-2 right-2 p-1 rounded-full hover:bg-black/10 transition-colors" title="Dismiss">
             <X className="h-4 w-4 opacity-60 hover:opacity-100" />
           </button>
@@ -161,7 +188,7 @@ function NotificationBanner({ notifications }) {
         else if (freq === 'once-per-login') sessionStorage.setItem(storageKey, 'true');
     }
 
-    // 3. Server-Side Tracking (Calls the ACKNOWLEDGE endpoint to mark as dismissed/increment count)
+    // 3. Server-Side Tracking
     try {
         await acknowledgeSystemNotification(notification.id);
     } catch (err) {
@@ -182,7 +209,7 @@ function NotificationBanner({ notifications }) {
       system_info: { colorClasses: "bg-blue-50 border-blue-400 text-blue-800", iconColor: "text-blue-500", icon: Info, defaultTitle: "System Announcement" },
       system_critical: { colorClasses: "bg-red-50 border-red-500 text-red-900", iconColor: "text-red-600", icon: AlertTriangle, defaultTitle: "Critical Alert" },
       news: { colorClasses: "bg-green-50 border-green-400 text-green-800", iconColor: "text-green-500", icon: Newspaper, defaultTitle: "Latest News" },
-      cbe: { colorClasses: "cbe-colors", iconColor: "cbe-icon", icon: Building2, defaultTitle: "CBE Regulation Update" },
+      cbe: { colorClasses: "cbe-colors", iconColor: "cbe-icon", icon: Building2, defaultTitle: "CBE Update" },
       ad: { colorClasses: "bg-purple-50 border-purple-400 text-purple-800", iconColor: "text-purple-500", icon: Megaphone, defaultTitle: "Sponsored" }
     };
     return configs[typeKey] || configs.system_info;
@@ -200,7 +227,7 @@ function NotificationBanner({ notifications }) {
     <>
       <style>{animationStyles}</style>
       
-      {/* MODALS (Logic remains the same as dismissal is manual) */}
+      {/* MODALS */}
       {modals.map((notification, idx) => {
         const config = getTypeConfig(notification);
         const IconComponent = config.icon;
@@ -210,10 +237,23 @@ function NotificationBanner({ notifications }) {
         return (
           <div key={notification.id} className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" style={{ zIndex }}>
             <div className={`bg-white rounded-lg shadow-2xl max-w-lg w-full overflow-hidden animate-zoom-in`}>
+              
+              {/* UPDATED: Hero Image for Popup */}
+              {notification.image_url && (
+                  <div className="w-full h-48 bg-gray-100 relative">
+                      <img 
+                          src={notification.image_url} 
+                          alt="Notification" 
+                          className="w-full h-full object-cover" 
+                      />
+                  </div>
+              )}
+
               <div className={`p-4 border-b flex items-center ${config.colorClasses.split(' ')[0]}`}>
                  <IconComponent className={`h-6 w-6 mr-3 ${iconClass}`} />
                  <h3 className={`text-lg font-bold uppercase tracking-wide ${config.colorClasses.split(' ')[2]}`}>{config.defaultTitle}</h3>
               </div>
+              
               <div className="p-6 space-y-4">
                  <p className="text-gray-800 text-base leading-relaxed whitespace-pre-wrap">{notification.content}</p>
                  {notification.link && (
@@ -222,6 +262,7 @@ function NotificationBanner({ notifications }) {
                     </div>
                  )}
               </div>
+              
               <div className="p-4 bg-gray-50 border-t flex justify-end">
                  <button
                    onClick={() => handleDismiss(notification)}
@@ -236,13 +277,13 @@ function NotificationBanner({ notifications }) {
         );
       })}
 
-      {/* BANNERS (Modified to use wrapper component for automatic view logging) */}
+      {/* BANNERS */}
       <div className="space-y-4 mb-6 relative z-0">
         {banners.map((notification) => (
           <NotificationWithViewLog 
             key={notification.id} 
             notification={notification} 
-            onDismiss={handleDismiss} // Pass the dismiss handler down
+            onDismiss={handleDismiss} 
             getTypeConfig={getTypeConfig}
             animationClassMap={animationClassMap}
           />

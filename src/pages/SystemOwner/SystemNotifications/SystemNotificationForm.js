@@ -8,7 +8,8 @@ import {
   apiRequest,
   getAllUsersForSystemOwner,
 } from '../../../services/apiService';
-import { Loader2 } from 'lucide-react';
+// UPDATED: Added UploadCloud and X icons
+import { Loader2, UploadCloud, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import clsx from 'clsx';
 
@@ -55,6 +56,7 @@ function SystemNotificationForm() {
     const [formData, setFormData] = useState({
         content: '',
         link: '',
+        image_url: '', // UPDATED: Initialized image_url
         notification_type: 'system_info', 
         start_date: '',
         end_date: '',
@@ -65,10 +67,13 @@ function SystemNotificationForm() {
         target_customer_ids: [],
         target_user_ids: [],
         target_roles: [],
-		is_popup: false,
+        is_popup: false,
         popup_action_label: 'Acknowledge',
     });
     
+    // UPDATED: Upload loading state
+    const [uploading, setUploading] = useState(false);
+
     const [customers, setCustomers] = useState([]);
     const [users, setUsers] = useState([]);
     const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
@@ -129,12 +134,13 @@ function SystemNotificationForm() {
             setFormData({
                 ...data,
                 notification_type: incomingType, 
+                image_url: data.image_url || '', // UPDATED: Map existing image URL
                 start_date: format(parseISO(data.start_date), "yyyy-MM-dd'T'HH:mm"),
                 end_date: format(parseISO(data.end_date), "yyyy-MM-dd'T'HH:mm"),
                 target_customer_ids: data.target_customer_ids || [],
                 target_user_ids: data.target_user_ids || [],
                 target_roles: data.target_roles || [],
-				is_popup: data.is_popup || false,
+                is_popup: data.is_popup || false,
                 popup_action_label: data.popup_action_label || 'Acknowledge',
             });
         } catch (err) {
@@ -169,7 +175,50 @@ function SystemNotificationForm() {
         }
     };
 
-    // --- UPDATED LOGIC: Case-Insensitive Role Filtering ---
+    // UPDATED: Image Upload Handler
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            toast.error("Please upload an image file.");
+            return;
+        }
+
+        setUploading(true);
+        const uploadData = new FormData();
+        uploadData.append('file', file);
+
+        try {
+            // FIX 1: URL comes first, then 'post'
+            // FIX 2: Removed manual 'Content-Type' header so browser handles the boundary
+            const response = await apiRequest(
+                '/system-owner/system-notifications/upload-image', 
+                'post', 
+                uploadData
+            );
+            
+            // Handle response (assuming apiRequest returns the parsed JSON body directly)
+            // If apiRequest returns the full response object, use response.data.image_url
+            const imageUrl = response.image_url || response.data?.image_url;
+
+            if (imageUrl) {
+                setFormData(prev => ({ ...prev, image_url: imageUrl }));
+                toast.success("Image uploaded successfully!");
+            } else {
+                throw new Error("No image URL returned");
+            }
+
+        } catch (error) {
+            console.error("Upload failed", error);
+            toast.error("Failed to upload image.");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    // --- Case-Insensitive Role Filtering ---
     const filteredUsers = useMemo(() => {
         if (!users || users.length === 0) return [];
         
@@ -206,6 +255,7 @@ function SystemNotificationForm() {
         const payload = {
             ...formData,
             link: formData.link || null,
+            image_url: formData.image_url || null, // Ensure image_url is sent
             max_display_count: formData.display_frequency === 'repeat-x-times' ? formData.max_display_count : null,
         };
         
@@ -248,7 +298,7 @@ function SystemNotificationForm() {
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             
-                            {/* ... Type, Content, Link inputs ... */}
+                            {/* ... Type, Content ... */}
                              <div className="md:col-span-2">
                                 <Label htmlFor="notification_type">Notification Type</Label>
                                 <Select id="notification_type" value={formData.notification_type} onChange={handleChange}>
@@ -265,12 +315,57 @@ function SystemNotificationForm() {
                                 <Textarea id="content" value={formData.content} onChange={handleChange} required />
                             </div>
                             
+                            {/* UPDATED: Image Upload Section */}
+                            <div className="md:col-span-2">
+                                <label className={labelClassNames}>Notification Image (Optional)</label>
+                                <div className="mt-1 flex items-start space-x-4">
+                                    {formData.image_url ? (
+                                        <div className="relative group">
+                                            <div className="h-24 w-24 rounded-md border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
+                                                {/* We can't easily preview the GCS URI until it's signed, 
+                                                    so we show a generic placeholder or just the file status 
+                                                    unless you want to fetch the signed URL immediately. 
+                                                    For simplicity, we show a success state here. */}
+                                                <span className="text-xs text-green-600 font-medium p-2 text-center">Image Attached</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData(prev => ({ ...prev, image_url: '' }))}
+                                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-sm hover:bg-red-600"
+                                                title="Remove image"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <label className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                            {uploading ? (
+                                                <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                                            ) : (
+                                                <UploadCloud className="h-4 w-4 mr-2" />
+                                            )}
+                                            {uploading ? 'Uploading...' : 'Upload Image'}
+                                            <input 
+                                                type="file" 
+                                                className="hidden" 
+                                                accept="image/*" 
+                                                onChange={handleImageUpload} 
+                                                disabled={uploading} 
+                                            />
+                                        </label>
+                                    )}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    This image will appear as a banner thumbnail or a hero image in popups.
+                                </p>
+                            </div>
+
                             <div className="mb-2">
                                 <Label htmlFor="link">Link (Optional)</Label>
                                 <Input id="link" type="url" value={formData.link} onChange={handleChange} />
                             </div>
 
-                            {/* --- NEW: Popup Configuration --- */}
+                            {/* --- Popup Configuration --- */}
                             <div className="md:col-span-2 bg-gray-50 p-4 rounded-md border border-gray-200">
                                 <h4 className="font-medium text-gray-800 mb-2">Display Style</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -342,7 +437,7 @@ function SystemNotificationForm() {
                             
                              <hr className="md:col-span-2 my-2 border-gray-200" />
 
-                            {/* ... Targeting Selects (Customer, Role, User) - Keep your existing code here ... */}
+                            {/* ... Targeting Selects (Customer, Role, User) ... */}
                             <div className="mb-2">
                                 <Label htmlFor="target_customer_ids">Target Customer(s) (Optional)</Label>
                                 <select id="target_customer_ids" multiple value={getMultiSelectValue('target_customer_ids')} onChange={(e) => handleMultiSelectChange(e, 'target_customer_ids')} className={clsx(inputClassNames, "h-32")} disabled={isLoadingCustomers}>
