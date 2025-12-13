@@ -28,6 +28,13 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
+// Helper function for formatting currency
+const formatCurrency = (amount, currencyCode) => {
+    if (isNaN(amount) || amount === null) return `0.00 ${currencyCode || ''}`;
+    return `${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currencyCode || ''}`;
+};
+
+
 const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
     const [supportingDocument, setSupportingDocument] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,7 +42,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
     const initialValues = {
         decreaseAmount: '',
         reason: '',
-        notes: '', // NEW: Add notes to initial values
+        notes: '',
     };
 
     const DecreaseAmountSchema = Yup.object().shape({
@@ -45,7 +52,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
             .positive('Amount to decrease must be positive')
             .max(lgRecord.lg_amount - 0.01, `Amount to decrease must be less than current LG amount (${lgRecord.lg_amount})`),
         reason: Yup.string().required('Reason for amount decrease is required').min(10, 'Reason must be at least 10 characters.'),
-        notes: Yup.string().nullable(), // NEW: Add notes validation (optional string)
+        notes: Yup.string().nullable(),
     });
 
     const handleFileChange = (e) => {
@@ -65,7 +72,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
             const formData = new FormData();
             formData.append('decrease_amount', parseFloat(values.decreaseAmount));
             formData.append('reason', values.reason);
-            if (values.notes) { // NEW: Conditionally append notes
+            if (values.notes) {
                 formData.append('notes', values.notes);
             }
             if (supportingDocument) {
@@ -141,111 +148,129 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                                                 validationSchema={DecreaseAmountSchema}
                                                 onSubmit={handleSubmit}
                                             >
-                                                {({ errors, touched, values }) => (
-                                                    <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
-                                                        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
-															Current LG Amount: <strong>{Number(lgRecord.lg_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {lgRecord.lg_currency?.iso_code}</strong> | Status: <strong>{lgRecord.lg_status?.name}</strong>
-                                                        </div>
+                                                {({ errors, touched, values }) => {
+                                                    // Calculate new remaining amount live
+                                                    const currentAmount = parseFloat(lgRecord.lg_amount) || 0;
+                                                    const decreaseAmount = parseFloat(values.decreaseAmount) || 0;
+                                                    const newAmount = currentAmount - decreaseAmount;
+                                                    const currencyCode = lgRecord.lg_currency?.iso_code;
 
-                                                        <div>
-                                                            <label htmlFor="decreaseAmount" className="block text-sm font-medium text-gray-700">
-                                                                Amount to be Decreased ({lgRecord.lg_currency?.iso_code})
-                                                            </label>
-                                                            <Field
-                                                                type="number"
-                                                                id="decreaseAmount"
-                                                                name="decreaseAmount"
-                                                                step="0.01"
-                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.decreaseAmount && touched.decreaseAmount ? 'border-red-500' : 'border-gray-300'}`}
-                                                                disabled={isGracePeriod || isSubmitting}
-                                                            />
-                                                            <ErrorMessage name="decreaseAmount" component="div" className="text-red-600 text-xs mt-1" />
-                                                        </div>
+                                                    return (
+                                                        <Form className={classNames('space-y-4', isGracePeriod ? 'opacity-50' : '')}>
+                                                            <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
+                                                                Current LG Amount: <strong>{formatCurrency(currentAmount, currencyCode)}</strong> | Status: <strong>{lgRecord.lg_status?.name}</strong>
+                                                            </div>
 
-                                                        <div>
-                                                            <label htmlFor="reason" className="block text-sm font-medium text-gray-700">
-                                                                Reason for Amount Decrease
-                                                            </label>
-                                                            <Field
-                                                                as="textarea"
-                                                                id="reason"
-                                                                name="reason"
-                                                                rows="1"
-                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
-                                                                disabled={isGracePeriod || isSubmitting}
-                                                            />
-                                                            <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
-                                                        </div>
-                                                        
-                                                        {/* NEW: Additional Notes field */}
-                                                        <div>
-                                                            <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
-                                                                Additional Notes (Optional)
-                                                            </label>
-                                                            <Field
-                                                                as="textarea"
-                                                                id="notes"
-                                                                name="notes"
-                                                                rows="2	"
-                                                                className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300"
-                                                                disabled={isGracePeriod || isSubmitting}
-                                                            />
-                                                        </div>
-
-                                                        {/* NEW: Optional supporting document upload */}
-                                                        <div className="border-t pt-4">
-                                                            <label htmlFor="supporting-document-file" className="block text-sm font-medium text-gray-700">
-                                                                Supporting Document
-                                                            </label>
-                                                            <div className="mt-1 flex items-center">
-                                                                <input
-                                                                    id="supporting-document-file"
-                                                                    name="internal_supporting_document_file"
-                                                                    type="file"
-                                                                    onChange={handleFileChange}
-                                                                    accept=".pdf,image/*"
-                                                                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                            <div>
+                                                                <label htmlFor="decreaseAmount" className="block text-sm font-medium text-gray-700">
+                                                                    Amount to be Decreased ({currencyCode})
+                                                                </label>
+                                                                <Field
+                                                                    type="number"
+                                                                    id="decreaseAmount"
+                                                                    name="decreaseAmount"
+                                                                    step="0.01"
+                                                                    className={classNames('mt-1 block w-full px-3 py-2 rounded-md border', errors.decreaseAmount && touched.decreaseAmount ? 'border-red-500' : 'border-gray-300')}
                                                                     disabled={isGracePeriod || isSubmitting}
                                                                 />
-                                                                {supportingDocument && (
-                                                                    <span className="ml-3 text-sm text-gray-500">
-                                                                        <FileText className="inline-block h-4 w-4 mr-1" />
-                                                                        {supportingDocument.name}
-                                                                    </span>
-                                                                )}
+                                                                <ErrorMessage name="decreaseAmount" component="div" className="text-red-600 text-xs mt-1" />
+                                                                
+                                                                {/* Live Calculation Display */}
+                                                                <div className="mt-3 p-3 bg-gray-100 border border-gray-200 rounded-md">
+                                                                    <p className="text-sm font-semibold text-gray-700">
+                                                                        New Remaining LG Amount: 
+                                                                        <span className={classNames('ml-2', newAmount >= 0 ? 'text-blue-600' : 'text-red-600')}>
+                                                                            {formatCurrency(newAmount, currencyCode)}
+                                                                        </span>
+                                                                    </p>
+                                                                </div>
                                                             </div>
-                                                            <p className="mt-2 text-sm text-gray-500">Attach any documents related to this request (e.g., formal request from beneficiary).</p>
-                                                        </div>
 
-                                                        {errors.general && (
-                                                            <div className="text-red-600 text-sm mt-2">
-                                                                <AlertCircle className="inline h-4 w-4 mr-1" />
-                                                                {errors.general}
+                                                            <div>
+                                                                <label htmlFor="reason" className="block text-sm font-medium text-gray-700">
+                                                                    Reason for Amount Decrease
+                                                                </label>
+                                                                <Field
+                                                                    as="textarea"
+                                                                    id="reason"
+                                                                    name="reason"
+                                                                    rows="1"
+                                                                    className={classNames('mt-1 block w-full px-3 py-2 rounded-md border', errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300')}
+                                                                    disabled={isGracePeriod || isSubmitting}
+                                                                />
+                                                                <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
                                                             </div>
-                                                        )}
+                                                            
+                                                            {/* Additional Notes field */}
+                                                            <div>
+                                                                <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
+                                                                    Additional Notes (Optional)
+                                                                </label>
+                                                                <Field
+                                                                    as="textarea"
+                                                                    id="notes"
+                                                                    name="notes"
+                                                                    rows="2"
+                                                                    className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300"
+                                                                    disabled={isGracePeriod || isSubmitting}
+                                                                />
+                                                            </div>
 
-                                                        <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
-                                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                            {/* Optional supporting document upload */}
+                                                            <div className="border-t pt-4">
+                                                                <label htmlFor="supporting-document-file" className="block text-sm font-medium text-gray-700">
+                                                                    Supporting Document
+                                                                </label>
+                                                                <div className="mt-1 flex items-center">
+                                                                    <input
+                                                                        id="supporting-document-file"
+                                                                        name="internal_supporting_document_file"
+                                                                        type="file"
+                                                                        onChange={handleFileChange}
+                                                                        accept=".pdf,image/*"
+                                                                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                                        disabled={isGracePeriod || isSubmitting}
+                                                                    />
+                                                                    {supportingDocument && (
+                                                                        <span className="ml-3 text-sm text-gray-500">
+                                                                            <FileText className="inline-block h-4 w-4 mr-1" />
+                                                                            {supportingDocument.name}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="mt-2 text-sm text-gray-500">Attach any documents related to this request (e.g., formal request from beneficiary).</p>
+                                                            </div>
+
+                                                            {errors.general && (
+                                                                <div className="text-red-600 text-sm mt-2">
+                                                                    <AlertCircle className="inline h-4 w-4 mr-1" />
+                                                                    {errors.general}
+                                                                </div>
+                                                            )}
+
+                                                            <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
+                                                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                                    <button
+                                                                        type="submit"
+                                                                        className={classNames(buttonBaseClassNames, 'sm:col-start-2 bg-orange-600 text-white hover:bg-orange-700 font-bold shadow-md', isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : '')}
+                                                                        disabled={isSubmitting || isGracePeriod}
+                                                                    >
+                                                                        {isSubmitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <MinusCircle className="h-5 w-5 mr-2" />}
+                                                                        {isSubmitting ? 'Processing...' : 'Submit Decrease Request'}
+                                                                    </button>
+                                                                </GracePeriodTooltip>
                                                                 <button
-                                                                    type="submit"
-                                                                    className={`${buttonBaseClassNames} sm:col-start-2 bg-orange-600 text-white hover:bg-orange-700 ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                                    disabled={isSubmitting || isGracePeriod}
+                                                                    type="button"
+                                                                    className={classNames(buttonBaseClassNames, 'sm:col-start-1 bg-gray-200 text-gray-700 hover:bg-gray-300')}
+                                                                    onClick={onClose}
+                                                                    disabled={isSubmitting}
                                                                 >
-                                                                    {isSubmitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <MinusCircle className="h-5 w-5 mr-2" />}
-                                                                    {isSubmitting ? 'Processing...' : 'Submit Decrease Request'}
+                                                                    Cancel
                                                                 </button>
-                                                            </GracePeriodTooltip>
-                                                            <button
-                                                                type="button"
-                                                                className={`${buttonBaseClassNames} sm:col-start-1 bg-gray-200 text-gray-700 hover:bg-gray-300`}
-                                                                onClick={onClose}
-                                                                disabled={isSubmitting}
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                        </div>
-                                                    </Form>
-                                                )}
+                                                            </div>
+                                                        </Form>
+                                                    );
+                                                }}
                                             </Formik>
                                         </div>
                                     </div>
@@ -258,5 +283,9 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
         </Transition>
     );
 };
+
+function classNames(...classes) {
+    return classes.filter(Boolean).join(' ');
+}
 
 export default DecreaseAmountModal;

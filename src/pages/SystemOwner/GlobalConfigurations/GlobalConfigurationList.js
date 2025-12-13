@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
 import { 
-  PlusCircle, Edit, Trash, RotateCcw, Search, Filter, Settings, 
+  PlusCircle, Edit, RotateCcw, Search, Filter, Settings, 
   ChevronUp, ChevronDown, Lock, Clock, MessageSquare, FileCheck 
 } from 'lucide-react';
 
@@ -41,6 +41,7 @@ function GlobalConfigurationList({ onLogout }) {
   const [configs, setConfigs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [updatingId, setUpdatingId] = useState(null); 
   const navigate = useNavigate();
 
   // --- Sort/Filter/Group State ---
@@ -80,19 +81,41 @@ function GlobalConfigurationList({ onLogout }) {
     navigate(`/system-owner/global-configurations/edit/${configId}`);
   };
 
-  // Handle Delete (Soft Delete) action
-  const handleDelete = async (configId, configKey) => {
-    if (window.confirm(`Are you sure you want to soft-delete the configuration "${configKey}"?`)) {
-      try {
-        setIsLoading(true);
-        await apiRequest(`/system-owner/global-configurations/${configId}`, 'DELETE');
-        fetchGlobalConfigurations(); 
-        alert(`Global configuration "${configKey}" soft-deleted successfully.`);
-      } catch (err) {
-        console.error('Failed to soft-delete global configuration:', err);
-        setError(`Failed to soft-delete configuration "${configKey}". ${err.message || ''}`);
-        setIsLoading(false);
-      }
+  // Helper to check if a config is boolean
+  const isBooleanConfig = (config) => {
+    if (config.data_type === 'BOOLEAN') return true;
+    const val = String(config.value_default).toLowerCase();
+    return val === 'true' || val === 'false';
+  };
+
+  // Handle Inline Toggle for Boolean values
+  const handleToggleUpdate = async (config) => {
+    setUpdatingId(config.id);
+    try {
+      const currentValString = String(config.value_default).toLowerCase();
+      const isCurrentlyTrue = currentValString === 'true';
+      
+      const newValue = typeof config.value_default === 'boolean' 
+        ? !config.value_default 
+        : (isCurrentlyTrue ? 'false' : 'true');
+
+      // Optimistic update
+      const updatedConfigs = configs.map(c => 
+        c.id === config.id ? { ...c, value_default: newValue } : c
+      );
+      setConfigs(updatedConfigs);
+
+      await apiRequest(`/system-owner/global-configurations/${config.id}`, 'PUT', {
+        ...config,
+        value_default: newValue
+      });
+      
+    } catch (err) {
+      console.error('Failed to update toggle:', err);
+      setError(`Failed to update ${config.key}.`);
+      fetchGlobalConfigurations(); 
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -161,7 +184,7 @@ function GlobalConfigurationList({ onLogout }) {
         }
     });
     
-    // Catch-all for anything that didn't match specific keys but is in "General" or others not explicitly ordered
+    // Catch-all
     const remainingConfigs = filtered.filter(config => !groupKeys.includes(config.group));
     if (remainingConfigs.length > 0) {
         if (grouped['General']) {
@@ -288,16 +311,25 @@ function GlobalConfigurationList({ onLogout }) {
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Unit
                                     </th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Status
-                                    </th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    {/* Status Column Removed */}
+                                    <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Actions
                                     </th>
                                 </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                {configsInGroup.map((config) => (
+                                {configsInGroup.map((config) => {
+                                    const isBool = isBooleanConfig(config);
+                                    const valStr = String(config.value_default).toLowerCase();
+                                    const isOn = valStr === 'true';
+
+                                    // Determine text color for value column
+                                    let valueTextColor = "text-gray-900";
+                                    if (isBool) {
+                                        valueTextColor = isOn ? "text-green-600" : "text-red-600";
+                                    }
+
+                                    return (
                                     <tr key={config.id} className={`hover:bg-gray-50 ${config.is_deleted ? 'bg-gray-50 opacity-60' : ''}`}>
                                         <td className="px-6 py-4 text-sm font-medium text-gray-900 break-all w-[30%]">
                                             {config.key}
@@ -305,49 +337,53 @@ function GlobalConfigurationList({ onLogout }) {
                                         <td className="px-6 py-4 text-sm text-gray-500 w-[25%]">{config.description || 'N/A'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{config.value_min || '-'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{config.value_max || '-'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">{config.value_default || 'N/A'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{config.unit || 'N/A'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {config.is_deleted ? (
-                                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                                Deleted
-                                            </span>
-                                            ) : (
-                                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                Active
-                                            </span>
-                                            )}
+                                        
+                                        {/* Value Default Column with Color Coding */}
+                                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${valueTextColor}`}>
+                                            {config.value_default || 'N/A'}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{config.unit || 'N/A'}</td>
+                                        {/* Status Column Removed */}
+                                        
+                                        {/* Actions Column - Centered */}
+                                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                             {config.is_deleted ? (
-                                            <button
-                                                onClick={() => handleRestore(config.id, config.key)}
-                                                className="text-green-600 hover:text-green-900 mr-3 p-1 rounded-md hover:bg-gray-200"
-                                                title="Restore Configuration"
-                                            >
-                                                <RotateCcw className="h-5 w-5" />
-                                            </button>
+                                                <button
+                                                    onClick={() => handleRestore(config.id, config.key)}
+                                                    className="text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-gray-200"
+                                                    title="Restore Configuration"
+                                                >
+                                                    <RotateCcw className="h-5 w-5" />
+                                                </button>
                                             ) : (
-                                            <>
-                                                <button
-                                                onClick={() => handleEdit(config.id)}
-                                                className="text-indigo-600 hover:text-indigo-900 mr-3 p-1 rounded-md hover:bg-gray-200"
-                                                title="Edit Configuration"
-                                                >
-                                                <Edit className="h-5 w-5" />
-                                                </button>
-                                                <button
-                                                onClick={() => handleDelete(config.id, config.key)}
-                                                className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-gray-200"
-                                                title="Delete Configuration"
-                                                >
-                                                <Trash className="h-5 w-5" />
-                                                </button>
-                                            </>
+                                                <>
+                                                    {isBool ? (
+                                                        <button 
+                                                            onClick={() => handleToggleUpdate(config)}
+                                                            disabled={updatingId === config.id}
+                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isOn ? 'bg-blue-600' : 'bg-gray-300'} ${updatingId === config.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                            title="Toggle On/Off"
+                                                        >
+                                                            <span className="sr-only">Toggle setting</span>
+                                                            <span
+                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out ${isOn ? 'translate-x-6' : 'translate-x-1'}`}
+                                                            />
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => handleEdit(config.id)}
+                                                            className="text-indigo-600 hover:text-indigo-900 p-1 rounded-md hover:bg-gray-200"
+                                                            title="Edit Configuration"
+                                                        >
+                                                            <Edit className="h-5 w-5" />
+                                                        </button>
+                                                    )}
+                                                </>
                                             )}
                                         </td>
                                     </tr>
-                                ))}
+                                )})}
                                 </tbody>
                             </table>
                         </div>

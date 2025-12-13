@@ -163,9 +163,20 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
         try {
             const response = await apiRequest(`/end-user/lg-records/${lgRecord.id}/amend`, 'POST', formData);
             
+            // --- FIX START: Implement conditional toasts based on approval status ---
+            if (response.approval_request_id) {
+                // Scenario 1: Request requires approval
+                toast.info(`LG Amendment request submitted for approval. Request ID: ${response.approval_request_id}.`);
+            } else {
+                // Scenario 2: Direct amendment or approval not required
+                // We rely on the parent component's onSuccess to show the final success toast (Fix for the duplicate toast).
+            }
+
+            // Call parent success handler and close the modal
             onSuccess(response.lg_record, response.latest_instruction_id);
-            toast.success("LG record amended successfully!");
             onClose();
+            // --- FIX END ---
+            
         } catch (err) {
             console.error("Failed to amend LG:", err);
             const errorMessage = err.message || 'An unexpected error occurred.';
@@ -255,7 +266,7 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
                             enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                             enterTo="opacity-100 translate-y-0 sm:scale-100"
                             leave="ease-in duration-200"
-                            leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                            leaveFrom="opacity-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
                             <DialogPanel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-3xl sm:p-6">
@@ -308,7 +319,7 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
                                                         value={reason}
                                                         onChange={(e) => setReason(e.target.value)}
                                                         required
-                                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+														className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 : 'border-gray-300'}`}
                                                     />
                                                 </div>
                                                 <div className="border-t pt-4">

@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { 
-  getSystemNotificationById, 
-  createSystemNotification, 
-  updateSystemNotification, 
+import {
+  getSystemNotificationById,
+  createSystemNotification,
+  updateSystemNotification,
   apiRequest,
   getAllUsersForSystemOwner,
 } from '../../../services/apiService';
-// UPDATED: Added UploadCloud and X icons
 import { Loader2, UploadCloud, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import clsx from 'clsx';
@@ -56,7 +55,9 @@ function SystemNotificationForm() {
     const [formData, setFormData] = useState({
         content: '',
         link: '',
-        image_url: '', // UPDATED: Initialized image_url
+        image_url: '', // For display purposes (preview URL)
+        _gcs_uri: '', // The permanent gs:// URI to submit
+        _original_gcs_uri: '', // Store the original GCS URI from backend
         notification_type: 'system_info', 
         start_date: '',
         end_date: '',
@@ -71,9 +72,7 @@ function SystemNotificationForm() {
         popup_action_label: 'Acknowledge',
     });
     
-    // UPDATED: Upload loading state
     const [uploading, setUploading] = useState(false);
-
     const [customers, setCustomers] = useState([]);
     const [users, setUsers] = useState([]);
     const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
@@ -131,10 +130,16 @@ function SystemNotificationForm() {
             let incomingType = data.notification_type || data.type || 'system_info'; 
             if (incomingType === 'system') incomingType = 'system_info';
 
+            // FIXED: Store both the signed URL (for display) and extract the original GCS URI
+            const imageUrl = data.image_url || '';
+            const originalGcsUri = extractGcsUriFromSignedUrl(imageUrl);
+
             setFormData({
                 ...data,
                 notification_type: incomingType, 
-                image_url: data.image_url || '', // UPDATED: Map existing image URL
+                image_url: imageUrl, // Signed URL for display
+                _gcs_uri: '', // Empty initially (will be set if user uploads new image)
+                _original_gcs_uri: originalGcsUri, // Store the permanent URI
                 start_date: format(parseISO(data.start_date), "yyyy-MM-dd'T'HH:mm"),
                 end_date: format(parseISO(data.end_date), "yyyy-MM-dd'T'HH:mm"),
                 target_customer_ids: data.target_customer_ids || [],
@@ -149,6 +154,26 @@ function SystemNotificationForm() {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    // ADDED: Helper function to extract gs:// URI from signed URL
+    const extractGcsUriFromSignedUrl = (url) => {
+        if (!url) return '';
+        
+        // If already a gs:// URI, return it
+        if (url.startsWith('gs://')) return url;
+        
+        // Try to extract from signed URL
+        // Pattern: .../BUCKET_NAME/path/to/file.ext?...
+        const bucketPattern = /\/lg_custody_bucket\/([^?]+)/;
+        const match = url.match(bucketPattern);
+        
+        if (match && match[1]) {
+            return `gs://lg_custody_bucket/${match[1]}`;
+        }
+        
+        // If we can't extract, return empty (safer than returning the signed URL)
+        return '';
     };
 
     const handleChange = (e) => {
@@ -175,72 +200,65 @@ function SystemNotificationForm() {
         }
     };
 
-    // UPDATED: Image Upload Handler
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            toast.error("Please upload an image file.");
-            return;
-        }
 
         setUploading(true);
         const uploadData = new FormData();
         uploadData.append('file', file);
 
         try {
-            // FIX 1: URL comes first, then 'post'
-            // FIX 2: Removed manual 'Content-Type' header so browser handles the boundary
             const response = await apiRequest(
-                '/system-owner/system-notifications/upload-image', 
-                'post', 
+                '/system-owner/system-notifications/upload-image',
+                'post',
                 uploadData
             );
             
-            // Handle response (assuming apiRequest returns the parsed JSON body directly)
-            // If apiRequest returns the full response object, use response.data.image_url
-            const imageUrl = response.image_url || response.data?.image_url;
+            const data = response.data || response;
 
-            if (imageUrl) {
-                setFormData(prev => ({ ...prev, image_url: imageUrl }));
-                toast.success("Image uploaded successfully!");
+            // ADDED: Console logs for debugging
+            console.log('=== UPLOAD RESPONSE ===');
+            console.log('gcs_uri:', data.gcs_uri);
+            console.log('image_url (signed):', data.image_url);
+
+            if (data.gcs_uri && data.image_url) {
+                setFormData(prev => ({ 
+                    ...prev, 
+                    image_url: data.image_url, // Signed URL for preview
+                    _gcs_uri: data.gcs_uri, // Permanent URI for submission
+                    _original_gcs_uri: data.gcs_uri // Update original as well since it's new
+                }));
+                toast.success("Image uploaded successfully");
             } else {
-                throw new Error("No image URL returned");
+                // ADDED: Error log for missing fields
+                console.error('Missing gcs_uri or image_url in response:', data);
+                toast.error("Upload response missing required fields");
             }
 
         } catch (error) {
             console.error("Upload failed", error);
-            toast.error("Failed to upload image.");
+            toast.error("Failed to upload image");
         } finally {
             setUploading(false);
         }
     };
 
-    // --- Case-Insensitive Role Filtering ---
     const filteredUsers = useMemo(() => {
         if (!users || users.length === 0) return [];
         
         return users.filter(user => {
-            // 1. Filter by Customer (Number/String safe comparison)
             if (formData.target_customer_ids && formData.target_customer_ids.length > 0) {
                 const userCustId = String(user.customer_id);
                 const isMatch = formData.target_customer_ids.some(id => String(id) === userCustId);
                 if (!isMatch) return false;
             }
 
-            // 2. Filter by Role (Case-Insensitive)
             if (formData.target_roles && formData.target_roles.length > 0) {
-                // Normalize user role to uppercase string for comparison
                 const userRole = String(user.role).toUpperCase();
-                
-                // formData.target_roles contains the IDs from 'availableRoles' (e.g., 'CORPORATE_ADMIN')
-                // Check if ANY selected role matches the user's role
                 const isRoleMatch = formData.target_roles.some(targetRole => 
                    String(targetRole).toUpperCase() === userRole
                 );
-                
                 if (!isRoleMatch) return false;
             }
 
@@ -248,29 +266,83 @@ function SystemNotificationForm() {
         });
     }, [users, formData.target_customer_ids, formData.target_roles]);
     
+    // FIXED: Proper handling of image URL in submission
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        if (!formData.content) {
+             toast.error("Content is required");
+             return;
+        }
+
         setIsSubmitting(true);
         
-        const payload = {
-            ...formData,
-            link: formData.link || null,
-            image_url: formData.image_url || null, // Ensure image_url is sent
-            max_display_count: formData.display_frequency === 'repeat-x-times' ? formData.max_display_count : null,
-        };
-        
+        // ADDED: Console logs for debugging
+        console.log('=== BEFORE SUBMIT ===');
+        console.log('formData.image_url:', formData.image_url);
+        console.log('formData._gcs_uri:', formData._gcs_uri);
+        console.log('formData._original_gcs_uri:', formData._original_gcs_uri);
+
         try {
-            if (isEditMode) {
-                await updateSystemNotification(id, payload);
-                toast.success('Notification updated successfully.');
+            const payload = { ...formData };
+            
+            // DECISION LOGIC:
+            // 1. If user uploaded a new image (_gcs_uri is set), use that
+            // 2. Otherwise, use the original GCS URI (not the signed URL)
+            // 3. If neither exists, set to empty string
+            if (payload._gcs_uri) {
+                // New upload - use the new permanent URI
+                payload.image_url = payload._gcs_uri;
+                console.log('✅ Using NEW upload URI:', payload.image_url);
+            } else if (payload._original_gcs_uri) {
+                // Existing image - use the original permanent URI
+                payload.image_url = payload._original_gcs_uri;
+                console.log('✅ Using ORIGINAL URI:', payload.image_url);
             } else {
-                await createSystemNotification(payload);
-                toast.success('Notification created successfully.');
+                // No image at all
+                payload.image_url = '';
+                console.log('⚠️ No image URI available');
             }
-            navigate('/system-owner/system-notifications');
+            
+            // ADDED: Validation check
+            if (payload.image_url && !payload.image_url.startsWith('gs://')) {
+                console.error('❌ ERROR: About to submit non-GCS URI:', payload.image_url);
+                toast.error('Invalid image URI format. Please re-upload the image.');
+                setIsSubmitting(false);
+                return;
+            }
+
+            // Clean up temporary fields
+            delete payload._gcs_uri;
+            delete payload._original_gcs_uri;
+            
+            // ADDED: Console logs for debugging
+            console.log('=== SUBMITTING PAYLOAD ===');
+            console.log('payload.image_url:', payload.image_url);
+            console.log('Full payload:', JSON.stringify(payload, null, 2));
+
+            if (isEditMode) {
+                const response = await updateSystemNotification(id, payload);
+                // ADDED: Console logs for debugging
+                console.log('=== UPDATE RESPONSE ===');
+                console.log('Returned image_url:', response.image_url);
+                
+                toast.success('Notification updated successfully.');
+                // Refresh to get fresh signed URLs
+                navigate('/system-owner/system-notifications');
+            } else {
+                const response = await createSystemNotification(payload);
+                // ADDED: Console logs for debugging
+                console.log('=== CREATE RESPONSE ===');
+                console.log('Returned image_url:', response.image_url);
+                
+                toast.success('Notification created successfully.');
+                navigate('/system-owner/system-notifications');
+            }
         } catch (err) {
-            toast.error(`Failed to ${isEditMode ? 'update' : 'create'} notification.`);
-            console.error(err);
+            console.error("Submission failed", err);
+            const errorMessage = err.response?.data?.detail || err.response?.data?.message || 'An unexpected error occurred during submission.';
+            toast.error(`Submission failed: ${errorMessage}`);
         } finally {
             setIsSubmitting(false);
         }
@@ -291,15 +363,13 @@ function SystemNotificationForm() {
 
     return (
         <div>
-            {/* Header ... */}
             <Card>
-                <CardHeader><CardTitle>Notification Details</CardTitle></CardHeader>
+                <CardHeader><CardTitle>{isEditMode ? 'Edit' : 'Create'} System Notification</CardTitle></CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             
-                            {/* ... Type, Content ... */}
-                             <div className="md:col-span-2">
+                            <div className="md:col-span-2">
                                 <Label htmlFor="notification_type">Notification Type</Label>
                                 <Select id="notification_type" value={formData.notification_type} onChange={handleChange}>
                                     <option value="system_info">System Announcement (Blue)</option>
@@ -315,22 +385,26 @@ function SystemNotificationForm() {
                                 <Textarea id="content" value={formData.content} onChange={handleChange} required />
                             </div>
                             
-                            {/* UPDATED: Image Upload Section */}
                             <div className="md:col-span-2">
                                 <label className={labelClassNames}>Notification Image (Optional)</label>
                                 <div className="mt-1 flex items-start space-x-4">
                                     {formData.image_url ? (
                                         <div className="relative group">
                                             <div className="h-24 w-24 rounded-md border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
-                                                {/* We can't easily preview the GCS URI until it's signed, 
-                                                    so we show a generic placeholder or just the file status 
-                                                    unless you want to fetch the signed URL immediately. 
-                                                    For simplicity, we show a success state here. */}
-                                                <span className="text-xs text-green-600 font-medium p-2 text-center">Image Attached</span>
+                                                <img 
+                                                    src={formData.image_url} 
+                                                    alt="Notification Preview" 
+                                                    className="object-cover h-full w-full"
+                                                />
                                             </div>
                                             <button
                                                 type="button"
-                                                onClick={() => setFormData(prev => ({ ...prev, image_url: '' }))}
+                                                onClick={() => setFormData(prev => ({ 
+                                                    ...prev, 
+                                                    image_url: '', 
+                                                    _gcs_uri: '',
+                                                    _original_gcs_uri: ''
+                                                }))}
                                                 className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-sm hover:bg-red-600"
                                                 title="Remove image"
                                             >
@@ -365,7 +439,6 @@ function SystemNotificationForm() {
                                 <Input id="link" type="url" value={formData.link} onChange={handleChange} />
                             </div>
 
-                            {/* --- Popup Configuration --- */}
                             <div className="md:col-span-2 bg-gray-50 p-4 rounded-md border border-gray-200">
                                 <h4 className="font-medium text-gray-800 mb-2">Display Style</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -393,19 +466,6 @@ function SystemNotificationForm() {
                                     )}
                                 </div>
                             </div>
-
-                            {/* ... Rest of the form (Dates, Frequencies, Targeting) ... */}
-                            <div className="mb-2">
-                                <Label htmlFor="animation_type">Animation Type</Label>
-                                <Select id="animation_type" value={formData.animation_type} onChange={handleChange}>
-                                    <option value="fade">Fade In</option>
-                                    <option value="slide-left">Slide In (Left)</option>
-                                    <option value="scroll-left">Slide In (Right)</option>
-                                    <option value="zoom">Zoom In</option>
-                                    <option value="bounce">Bounce In</option>
-                                </Select>
-                            </div>
-
                             <div className="mb-2">
                                 <Label htmlFor="start_date">Start Date <span className="text-red-500">*</span></Label>
                                 <Input id="start_date" type="datetime-local" value={formData.start_date} onChange={handleChange} required />
@@ -416,6 +476,16 @@ function SystemNotificationForm() {
                             </div>
 
                             <div className="mb-2">
+                                <Label htmlFor="animation_type">Animation Type</Label>
+                                <Select id="animation_type" value={formData.animation_type} onChange={handleChange}>
+                                    <option value="fade">Fade In</option>
+                                    <option value="slide-left">Slide In (Left)</option>
+                                    <option value="scroll-left">Slide In (Right)</option>
+                                    <option value="zoom">Zoom In</option>
+                                    <option value="bounce">Bounce In</option>
+                                </Select>
+                            </div>
+                            <div className="mb-2">
                                 <Label htmlFor="display_frequency">Display Frequency</Label>
                                 <Select id="display_frequency" value={formData.display_frequency} onChange={handleChange}>
                                     <option value="once">Once</option>
@@ -423,7 +493,8 @@ function SystemNotificationForm() {
                                     <option value="repeat-x-times">Repeat Up to X Times</option>
                                 </Select>
                             </div>
-                            
+
+
                             {formData.display_frequency === 'repeat-x-times' && (
                                 <div className="mb-2">
                                     <Label htmlFor="max_display_count">Max Display Count</Label>
@@ -435,9 +506,8 @@ function SystemNotificationForm() {
                                 <ToggleSwitch id="is_active" name="is_active" checked={formData.is_active} onChange={handleChange} label="Active Status" />
                             </div>
                             
-                             <hr className="md:col-span-2 my-2 border-gray-200" />
+                            <hr className="md:col-span-2 my-2 border-gray-200" />
 
-                            {/* ... Targeting Selects (Customer, Role, User) ... */}
                             <div className="mb-2">
                                 <Label htmlFor="target_customer_ids">Target Customer(s) (Optional)</Label>
                                 <select id="target_customer_ids" multiple value={getMultiSelectValue('target_customer_ids')} onChange={(e) => handleMultiSelectChange(e, 'target_customer_ids')} className={clsx(inputClassNames, "h-32")} disabled={isLoadingCustomers}>
@@ -445,14 +515,14 @@ function SystemNotificationForm() {
                                     {customers.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
                                 </select>
                             </div>
-                             <div className="mb-2">
+                            <div className="mb-2">
                                 <Label htmlFor="target_roles">Target Role(s) (Optional)</Label>
                                 <select id="target_roles" multiple value={getMultiSelectValue('target_roles')} onChange={(e) => handleMultiSelectChange(e, 'target_roles')} className={clsx(inputClassNames, "h-32")}>
                                     <option value="">All Roles</option>
                                     {availableRoles.map((r) => (<option key={r.id} value={r.id}>{r.name}</option>))}
                                 </select>
                             </div>
-                             <div className="mb-2">
+                            <div className="mb-2">
                                 <Label htmlFor="target_user_ids">Target User(s) (Optional)</Label>
                                 <div className="text-xs text-gray-500 mb-1">Showing {filteredUsers.length} users based on current filters.</div>
                                 <select id="target_user_ids" multiple value={getMultiSelectValue('target_user_ids')} onChange={(e) => handleMultiSelectChange(e, 'target_user_ids')} className={clsx(inputClassNames, "h-32")} disabled={isLoadingUsers}>

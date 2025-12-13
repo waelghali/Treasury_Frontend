@@ -4,10 +4,11 @@ import { toast } from 'react-toastify';
 import { 
   getSystemNotifications, 
   deleteSystemNotification, 
-  restoreSystemNotification 
+  restoreSystemNotification,
+  updateSystemNotification // Reusing update function to toggle status
 } from '../../../services/apiService';
 import { format } from 'date-fns';
-import { PlusCircle, Edit, Trash, RotateCcw, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash, RotateCcw, Loader2, ToggleRight, ToggleLeft } from 'lucide-react';
 import clsx from 'clsx';
 
 // Inlined UI Components (Updated Button)
@@ -25,6 +26,7 @@ const Button = ({ children, className, variant = 'default', size = 'default', ..
     "p-1 rounded-md text-blue-600 hover:bg-blue-100": variant === 'icon-blue',
     "p-1 rounded-md text-red-600 hover:bg-red-100": variant === 'icon-red',
     "p-1 rounded-md text-green-600 hover:bg-green-100": variant === 'icon-green',
+    "p-1 rounded-md text-yellow-600 hover:bg-yellow-100": variant === 'icon-yellow', // Added for visibility
     "hover:bg-gray-100": variant === 'ghost',
     "text-blue-600 underline-offset-4 hover:underline": variant === 'link',
   });
@@ -99,7 +101,8 @@ const TableHead = ({ children, className, ...props }) => (
 );
 
 const TableCell = ({ children, className, ...props }) => (
-  <td className={clsx("px-6 py-4 whitespace-nowrap text-sm text-gray-500", className)} {...props}>
+  // CHANGED: px-6 to px-4
+  <td className={clsx("px-4 py-4 whitespace-nowrap text-sm text-gray-500", className)} {...props}>
     {children}
   </td>
 );
@@ -119,7 +122,7 @@ const Badge = ({ children, className, variant = 'default', ...props }) => {
 };
 
 // No changes needed for AlertDialog logic here, it remains self-contained.
-const AlertDialog = ({ title, description, onConfirm, onCancel, ...props }) => {
+const AlertDialog = ({ title, description, onConfirm, onCancel, confirmText = 'Continue', ...props }) => {
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-600 bg-opacity-75 flex items-center justify-center transition-opacity">
       <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-auto">
@@ -127,7 +130,7 @@ const AlertDialog = ({ title, description, onConfirm, onCancel, ...props }) => {
         <p className="mt-2 text-sm text-gray-500">{description}</p>
         <div className="mt-4 flex justify-end space-x-2">
           <Button variant="outline" onClick={onCancel}>Cancel</Button>
-          <Button variant="destructive" onClick={onConfirm}>Continue</Button>
+          <Button variant="destructive" onClick={onConfirm}>{confirmText}</Button>
         </div>
       </div>
     </div>
@@ -142,6 +145,7 @@ function SystemNotificationList({ onLogout }) {
   const [error, setError] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+  const [showToggleConfirm, setShowToggleConfirm] = useState(false); // NEW STATE
   const [selectedNotification, setSelectedNotification] = useState(null);
 
   useEffect(() => {
@@ -200,6 +204,33 @@ function SystemNotificationList({ onLogout }) {
       toast.error('Failed to restore notification.');
     } finally {
       setShowRestoreConfirm(false);
+      setSelectedNotification(null);
+    }
+  };
+  
+  // NEW LOGIC for Active Status Toggle
+  const handleConfirmToggleActive = (notification) => {
+    setSelectedNotification(notification);
+    setShowToggleConfirm(true);
+  };
+  
+  const handleToggleActive = async () => {
+    if (!selectedNotification) return;
+    const newStatus = !selectedNotification.is_active;
+    
+    try {
+      // Re-use the existing update API call, sending only the ID and new status
+      await updateSystemNotification(selectedNotification.id, { 
+        is_active: newStatus 
+      });
+      
+      toast.success(`Notification successfully ${newStatus ? 'activated' : 'deactivated'}.`);
+      fetchNotifications(); // Refresh the list
+    } catch (err) {
+      console.error("Toggle active status failed", err);
+      toast.error(`Failed to ${newStatus ? 'activate' : 'deactivate'} notification.`);
+    } finally {
+      setShowToggleConfirm(false);
       setSelectedNotification(null);
     }
   };
@@ -272,7 +303,7 @@ function SystemNotificationList({ onLogout }) {
               <TableHead>Status</TableHead>
               <TableHead>Start Date</TableHead>
               <TableHead>End Date</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </tr>
           </TableHeader>
           <TableBody>
@@ -286,7 +317,23 @@ function SystemNotificationList({ onLogout }) {
                 <TableCell>{format(new Date(notification.start_date), 'MMM dd, yyyy HH:mm')}</TableCell>
                 <TableCell>{format(new Date(notification.end_date), 'MMM dd, yyyy HH:mm')}</TableCell>
                 <TableCell className="text-right text-sm font-medium">
-                  <div className="flex justify-end space-x-2">
+                  <div className="flex justify-end space-x-0">
+                    
+                    {/* NEW: Toggle Active Status Button */}
+                    {!notification.is_deleted && (
+                      <Button
+                        variant={notification.is_active ? "icon-yellow" : "icon-green"}
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); handleConfirmToggleActive(notification); }}
+                        title={notification.is_active ? "Deactivate" : "Activate"}
+                      >
+                        {notification.is_active ? 
+                          <ToggleRight className="h-6 w-6" /> : 
+                          <ToggleLeft className="h-6 w-6" />
+                        }
+                      </Button>
+                    )}
+                    
                     {!notification.is_deleted && (
                       <>
                         <Button
@@ -331,6 +378,7 @@ function SystemNotificationList({ onLogout }) {
           description="This action will soft-delete the notification. It can be restored later."
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
+          confirmText="Delete"
         />
       )}
 
@@ -340,6 +388,20 @@ function SystemNotificationList({ onLogout }) {
           description="This action will restore the deleted notification. It will be active again if it's within the date range."
           onConfirm={handleRestore}
           onCancel={() => setShowRestoreConfirm(false)}
+          confirmText="Restore"
+        />
+      )}
+
+      {/* NEW: Toggle Status Confirmation Dialog */}
+      {showToggleConfirm && selectedNotification && (
+        <AlertDialog
+          title={selectedNotification.is_active ? "Deactivate Notification?" : "Activate Notification?"}
+          description={selectedNotification.is_active 
+            ? "This will immediately hide the notification from all users, regardless of its date range."
+            : "This will make the notification visible, provided it is within its start and end dates."}
+          onConfirm={handleToggleActive}
+          onCancel={() => setShowToggleConfirm(false)}
+          confirmText={selectedNotification.is_active ? "Deactivate" : "Activate"}
         />
       )}
     </div>
