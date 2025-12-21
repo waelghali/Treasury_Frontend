@@ -28,7 +28,10 @@ const maskSensitiveData = (obj) => {
             const lowerKey = key.toLowerCase();
             const value = obj[key];
 
-            if (sensitiveKeys.includes(lowerKey)) {
+            // Explicitly exempt the 'reason' field from masking
+            if (lowerKey === 'reason') {
+                maskedObj[key] = value;
+            } else if (sensitiveKeys.includes(lowerKey)) {
                 // Mask the value directly
                 maskedObj[key] = '***MASKED***';
             } else if (typeof value === 'object' && value !== null) {
@@ -196,7 +199,21 @@ function AuditLogs() {
           </div>
         );
       }
-      
+      // New: Display Failure Reason for Notifications or other non-AI events
+      if (maskedDetails.reason && !maskedDetails.ai_token_usage) {
+        return (
+          <div className="text-xs bg-gray-50 p-2 rounded-md font-mono border-l-4 border-red-500">
+            <p className="text-red-600 font-bold uppercase text-[10px] mb-1">Failure Reason:</p>
+            <p className="text-red-800 italic mb-2">{maskedDetails.reason}</p>
+            <div className="mt-2 pt-2 border-t border-gray-200">
+              <p className="text-[10px] text-gray-400 font-semibold mb-1">Log Metadata:</p>
+              <pre className="text-[10px] overflow-auto max-h-20 opacity-60">
+                {JSON.stringify(maskedDetails, null, 2)}
+              </pre>
+            </div>
+          </div>
+        );
+      }
       // Default JSON rendering path uses masked data
       return (
         <pre className="text-xs bg-gray-50 p-2 rounded-md overflow-auto max-h-24">
