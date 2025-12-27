@@ -116,10 +116,6 @@ function CorporateAdminLayout({ activeMenuItem, onLogout, customerName, headerTi
 
       {/* Main Content Area */}
       <main className="flex-1 p-8 overflow-y-auto">
-        <header className="flex justify-between items-center pb-6 border-b border-gray-200 mb-4">
-          <h1 className="text-2xl font-semibold text-gray-800">{headerTitle}</h1>
-        </header>
-
         {isDashboard && (
           <div className="mb-6 space-y-4">
              <SubscriptionBanner status={subscriptionStatus} endDate={subscriptionEndDate} />

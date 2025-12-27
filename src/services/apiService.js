@@ -210,6 +210,14 @@ export const restoreSystemNotification = async (id) => {
   return apiRequest(`/system-owner/system-notifications/${id}/restore`, 'POST');
 };
 
+/**
+ * Fetches analytics data for a specific system notification.
+ * @param {number} id The ID of the notification.
+ */
+export const getSystemNotificationAnalytics = async (id) => {
+  return apiRequest(`/system-owner/system-notifications/${id}/analytics`, 'GET');
+};
+
 // --- NEW: General Notifications Endpoints for All Users ---
 
 /**

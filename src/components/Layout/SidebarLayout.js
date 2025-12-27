@@ -253,12 +253,6 @@ function SidebarLayout({ onLogout, headerTitle }) {
       </aside>
 
       <main className="flex-1 p-8 overflow-y-auto">
-        <header className="flex justify-between items-center pb-6 border-b border-gray-200 mb-6">
-          <h1 className="text-2xl font-semibold text-gray-800">
-            {headerTitle}
-          </h1>
-        </header>
-
         <Outlet />
       </main>
     </div>

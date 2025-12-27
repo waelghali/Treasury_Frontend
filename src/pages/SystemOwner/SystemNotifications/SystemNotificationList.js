@@ -5,13 +5,15 @@ import {
   getSystemNotifications, 
   deleteSystemNotification, 
   restoreSystemNotification,
-  updateSystemNotification // Reusing update function to toggle status
+  updateSystemNotification,
+  getSystemNotificationAnalytics
 } from '../../../services/apiService';
 import { format } from 'date-fns';
-import { PlusCircle, Edit, Trash, RotateCcw, Loader2, ToggleRight, ToggleLeft } from 'lucide-react';
+import { PlusCircle, Edit, Trash, RotateCcw, Loader2, ToggleRight, ToggleLeft, BarChart2, X, Eye } from 'lucide-react';
 import clsx from 'clsx';
 
-// Inlined UI Components (Updated Button)
+// --- UI COMPONENTS ---
+
 const Button = ({ children, className, variant = 'default', size = 'default', ...props }) => {
   const baseClass = "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 disabled:pointer-events-none disabled:opacity-50";
   const sizeClass = size === 'sm' ? "h-8 px-3 text-xs" : size === 'lg' ? "h-10 px-8" : "h-9 px-4 py-2";
@@ -21,12 +23,12 @@ const Button = ({ children, className, variant = 'default', size = 'default', ..
     "bg-red-600 text-white shadow-sm hover:bg-red-700": variant === 'destructive',
     "border border-gray-300 bg-white shadow-sm hover:bg-gray-100": variant === 'outline',
     "bg-gray-200 text-gray-900 shadow-sm hover:bg-gray-300": variant === 'secondary',
-    // New icon variants for text color and hover background
     "p-1 rounded-md text-gray-600 hover:bg-gray-100": variant === 'icon-default',
     "p-1 rounded-md text-blue-600 hover:bg-blue-100": variant === 'icon-blue',
+    "p-1 rounded-md text-purple-600 hover:bg-purple-100": variant === 'icon-purple',
     "p-1 rounded-md text-red-600 hover:bg-red-100": variant === 'icon-red',
     "p-1 rounded-md text-green-600 hover:bg-green-100": variant === 'icon-green',
-    "p-1 rounded-md text-yellow-600 hover:bg-yellow-100": variant === 'icon-yellow', // Added for visibility
+    "p-1 rounded-md text-yellow-600 hover:bg-yellow-100": variant === 'icon-yellow',
     "hover:bg-gray-100": variant === 'ghost',
     "text-blue-600 underline-offset-4 hover:underline": variant === 'link',
   });
@@ -37,30 +39,6 @@ const Button = ({ children, className, variant = 'default', size = 'default', ..
     </button>
   );
 };
-
-const Card = ({ children, className, ...props }) => (
-  <div className={clsx("bg-white p-6 rounded-lg shadow-md", className)} {...props}>
-    {children}
-  </div>
-);
-
-const CardHeader = ({ children, ...props }) => (
-  <div className="border-b border-gray-200 pb-4 mb-4" {...props}>
-    {children}
-  </div>
-);
-
-const CardTitle = ({ children, ...props }) => (
-  <h3 className="text-lg font-medium text-gray-800" {...props}>
-    {children}
-  </h3>
-);
-
-const CardContent = ({ children, ...props }) => (
-  <div className="space-y-4" {...props}>
-    {children}
-  </div>
-);
 
 const Table = ({ children, className, ...props }) => (
   <div className="overflow-x-auto bg-white rounded-lg shadow-md">
@@ -86,7 +64,7 @@ const TableRow = ({ children, className, isDeleted, ...props }) => (
   <tr 
     className={clsx(
       "cursor-pointer hover:bg-gray-50",
-      isDeleted && "opacity-60",
+      isDeleted && "opacity-60 bg-gray-50",
       className
     )} 
     {...props}>
@@ -101,7 +79,6 @@ const TableHead = ({ children, className, ...props }) => (
 );
 
 const TableCell = ({ children, className, ...props }) => (
-  // CHANGED: px-6 to px-4
   <td className={clsx("px-4 py-4 whitespace-nowrap text-sm text-gray-500", className)} {...props}>
     {children}
   </td>
@@ -113,6 +90,7 @@ const Badge = ({ children, className, variant = 'default', ...props }) => {
     "bg-red-600 text-white": variant === 'destructive',
     "bg-gray-200 text-gray-900": variant === 'secondary',
     "border border-gray-300 text-gray-700": variant === 'outline',
+    "bg-green-500 text-white": variant === 'success',
   });
   return (
     <span className={clsx("ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full", variantClass, className)} {...props}>
@@ -121,7 +99,6 @@ const Badge = ({ children, className, variant = 'default', ...props }) => {
   );
 };
 
-// No changes needed for AlertDialog logic here, it remains self-contained.
 const AlertDialog = ({ title, description, onConfirm, onCancel, confirmText = 'Continue', ...props }) => {
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-600 bg-opacity-75 flex items-center justify-center transition-opacity">
@@ -137,16 +114,148 @@ const AlertDialog = ({ title, description, onConfirm, onCancel, confirmText = 'C
   );
 };
 
+// --- UPDATED ANALYTICS DIALOG COMPONENT ---
+const AnalyticsDialog = ({ isOpen, onClose, data, isLoading, notificationTitle }) => {
+  if (!isOpen) return null;
+
+  // Calculate max views to scale the bars
+  const maxViews = data?.logs?.reduce((max, log) => Math.max(max, log.view_count), 0) || 1;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-50 flex items-center justify-center transition-opacity backdrop-blur-sm">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-auto flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+        
+        {/* Header */}
+        <div className="flex justify-between items-center p-6 border-b border-gray-100">
+          <div>
+            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <BarChart2 className="h-6 w-6 text-blue-600" />
+              Analytics Report
+            </h3>
+            <p className="text-sm text-gray-500 mt-1 max-w-md truncate">
+              {notificationTitle || "System Notification"}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
+          {isLoading ? (
+             <div className="flex flex-col justify-center items-center h-64 space-y-4">
+               <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
+               <p className="text-sm text-gray-500">Gathering insights...</p>
+             </div>
+          ) : !data ? (
+            <div className="text-center py-12">
+              <BarChart2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No analytics data available.</p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Views</p>
+                    <p className="text-4xl font-extrabold text-blue-600 mt-2">{data.total_views}</p>
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded-full">
+                    <Eye className="h-6 w-6 text-blue-600" />
+                  </div>
+                </div>
+                
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Unique Viewers</p>
+                    <p className="text-4xl font-extrabold text-purple-600 mt-2">{data.unique_viewers}</p>
+                  </div>
+                  <div className="p-3 bg-purple-50 rounded-full">
+                    <BarChart2 className="h-6 w-6 text-purple-600" />
+                  </div>
+                </div>
+              </div>
+
+              {/* View Logs Table with Visuals */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100">
+                  <h4 className="text-base font-semibold text-gray-800">Viewer Engagement</h4>
+                </div>
+                
+                {data.logs && data.logs.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-100">
+                      <thead className="bg-gray-50/50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">User</th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase w-1/3">Engagement (Views)</th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Last Interaction</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-100">
+                        {data.logs.map((log) => (
+                          <tr key={log.id} className="hover:bg-blue-50/30 transition-colors">
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                              {log.user_email || `User ID: ${log.user_id}`}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm font-bold text-gray-700 w-6">{log.view_count}</span>
+                                {/* VISUAL BAR CHART */}
+                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden max-w-[150px]">
+                                  <div 
+                                    className="h-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
+                                    style={{ width: `${(log.view_count / maxViews) * 100}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-500">
+                              {format(new Date(log.last_viewed_at), 'MMM dd, HH:mm')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-gray-500 italic">No views recorded yet.</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Footer */}
+        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end rounded-b-xl">
+          <Button variant="outline" onClick={onClose}>Close Report</Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- MAIN COMPONENT ---
 
 function SystemNotificationList({ onLogout }) {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Dialog States
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
-  const [showToggleConfirm, setShowToggleConfirm] = useState(false); // NEW STATE
+  const [showToggleConfirm, setShowToggleConfirm] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState(null);
+
+  // Analytics States
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
   useEffect(() => {
     fetchNotifications();
@@ -208,7 +317,6 @@ function SystemNotificationList({ onLogout }) {
     }
   };
   
-  // NEW LOGIC for Active Status Toggle
   const handleConfirmToggleActive = (notification) => {
     setSelectedNotification(notification);
     setShowToggleConfirm(true);
@@ -219,19 +327,35 @@ function SystemNotificationList({ onLogout }) {
     const newStatus = !selectedNotification.is_active;
     
     try {
-      // Re-use the existing update API call, sending only the ID and new status
       await updateSystemNotification(selectedNotification.id, { 
         is_active: newStatus 
       });
-      
       toast.success(`Notification successfully ${newStatus ? 'activated' : 'deactivated'}.`);
-      fetchNotifications(); // Refresh the list
+      fetchNotifications();
     } catch (err) {
       console.error("Toggle active status failed", err);
       toast.error(`Failed to ${newStatus ? 'activate' : 'deactivate'} notification.`);
     } finally {
       setShowToggleConfirm(false);
       setSelectedNotification(null);
+    }
+  };
+
+  // --- ANALYTICS HANDLER ---
+  const handleShowAnalytics = async (notification) => {
+    setSelectedNotification(notification);
+    setShowAnalyticsModal(true);
+    setAnalyticsData(null); 
+    setIsLoadingAnalytics(true);
+
+    try {
+      const data = await getSystemNotificationAnalytics(notification.id);
+      setAnalyticsData(data);
+    } catch (err) {
+      console.error("Failed to fetch analytics", err);
+      toast.error("Failed to load analytics data.");
+    } finally {
+      setIsLoadingAnalytics(false);
     }
   };
 
@@ -252,7 +376,7 @@ function SystemNotificationList({ onLogout }) {
     if (now > endDate) {
       return <Badge variant="secondary">Expired</Badge>;
     }
-    return <Badge className="bg-green-500 text-white">Active</Badge>;
+    return <Badge variant="success">Active</Badge>;
   };
   
   const getTargetText = (notification) => {
@@ -317,9 +441,9 @@ function SystemNotificationList({ onLogout }) {
                 <TableCell>{format(new Date(notification.start_date), 'MMM dd, yyyy HH:mm')}</TableCell>
                 <TableCell>{format(new Date(notification.end_date), 'MMM dd, yyyy HH:mm')}</TableCell>
                 <TableCell className="text-right text-sm font-medium">
-                  <div className="flex justify-end space-x-0">
+                  <div className="flex justify-end space-x-0.75">
                     
-                    {/* NEW: Toggle Active Status Button */}
+                    {/* Toggle Active Status Button */}
                     {!notification.is_deleted && (
                       <Button
                         variant={notification.is_active ? "icon-yellow" : "icon-green"}
@@ -364,6 +488,16 @@ function SystemNotificationList({ onLogout }) {
                         <RotateCcw className="h-5 w-5" />
                       </Button>
                     )}
+
+                    {/* Analytics Button - Moved to end for consistent positioning */}
+                    <Button
+                      variant="icon-purple"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); handleShowAnalytics(notification); }}
+                      title="View Analytics"
+                    >
+                      <BarChart2 className="h-5 w-5" />
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -372,6 +506,7 @@ function SystemNotificationList({ onLogout }) {
         </Table>
       )}
 
+      {/* Confirmation Dialogs */}
       {showDeleteConfirm && selectedNotification && (
         <AlertDialog
           title="Are you sure you want to delete this notification?"
@@ -392,7 +527,6 @@ function SystemNotificationList({ onLogout }) {
         />
       )}
 
-      {/* NEW: Toggle Status Confirmation Dialog */}
       {showToggleConfirm && selectedNotification && (
         <AlertDialog
           title={selectedNotification.is_active ? "Deactivate Notification?" : "Activate Notification?"}
@@ -404,6 +538,15 @@ function SystemNotificationList({ onLogout }) {
           confirmText={selectedNotification.is_active ? "Deactivate" : "Activate"}
         />
       )}
+
+      {/* Analytics Dialog */}
+      <AnalyticsDialog
+        isOpen={showAnalyticsModal}
+        onClose={() => setShowAnalyticsModal(false)}
+        data={analyticsData}
+        isLoading={isLoadingAnalytics}
+        notificationTitle={selectedNotification?.content}
+      />
     </div>
   );
 }
