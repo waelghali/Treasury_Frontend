@@ -1,7 +1,7 @@
 // frontend/src/pages/CorporateAdmin/MigrationUploadPage.js
 
 import React, { useState, useEffect } from 'react';
-import { Upload, Loader2, CheckCircle, XCircle, Eye, AlertCircle, Zap, Edit, Save, Trash2, RotateCcw, CloudUpload, Filter, TrendingUp, History, X, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Upload, Layers, Clock, CalendarX, Copy, Loader2, CheckCircle, XCircle, Eye, AlertCircle, Zap, Edit, Save, Trash2, RotateCcw, CloudUpload, Filter, TrendingUp, History, X, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // IMPORTING THE CENTRALIZED API SERVICE
@@ -10,6 +10,16 @@ import { apiRequest } from 'services/apiService';
 // =====================================================================
 // NEW: History Preview Modal Component
 // =====================================================================
+	const StatusTile = ({ label, count, colorClass, icon: Icon }) => (
+		<div className={`flex-1 min-w-[130px] p-4 rounded-xl border ${colorClass} shadow-sm flex flex-col items-center justify-center transition-all hover:scale-105 hover:shadow-md`}>
+			<div className="flex items-center gap-2 mb-2 opacity-80">
+				<Icon size={16} />
+				<span className="text-xs font-bold uppercase tracking-wider">{label}</span>
+			</div>
+			<span className="text-2xl font-black">{count || 0}</span>
+		</div>
+	);
+
 const HistoryPreviewModal = ({ lgHistory, onClose }) => {
     if (!lgHistory) return null;
 
@@ -92,11 +102,13 @@ const HistoryPreviewModal = ({ lgHistory, onClose }) => {
 // Component to display a single validation log entry as a card.
 const ValidationLogCard = ({ field, message }) => {
     return (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start space-x-2 text-xs shadow-sm">
-            <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+        <div className="group bg-white border-l-4 border-red-500 rounded-r-lg p-3 flex items-start space-x-3 text-xs shadow-sm hover:shadow-md transition-all mb-2 border-y border-r border-gray-100">
+            <div className="bg-red-100 p-1 rounded-full group-hover:bg-red-200 transition-colors">
+                <AlertCircle className="h-3.5 w-3.5 text-red-600" />
+            </div>
             <div className="flex-1">
-                <p className="font-semibold text-gray-800">{field}</p>
-                <p className="text-red-600 mt-0.5">{message}</p>
+                <p className="font-bold text-gray-700 uppercase tracking-wide text-[10px]">{field}</p>
+                <p className="text-gray-600 mt-0.5 font-medium">{message}</p>
             </div>
         </div>
     );
@@ -204,10 +216,12 @@ const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordD
         return "N/A";
     };
 
+
+
     return (
-        <div className="overflow-x-auto relative shadow-lg rounded-xl">
+        <div className="overflow-auto relative shadow-xl rounded-xl border border-gray-200 bg-white max-h-[75vh]">
             <table className="w-full text-sm text-left text-gray-500">
-                <thead className="text-xs text-gray-700 uppercase bg-gray-100">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 z-20 shadow-sm backdrop-blur-sm bg-opacity-95">	
                     <tr>
                          <th scope="col" className="py-3 px-3">
                             <input
@@ -966,39 +980,56 @@ function MigrationUploadPage() {
                     <span>Migration Report & Batches</span>
                 </h3>
                 {reportSummary ? (
-                    <div className="flex flex-wrap justify-between items-center gap-2 text-center">
-                        <div className="flex-1 min-w-0 p-3 bg-white rounded-lg border">
-                            <p className="text-blue-500 text-sm font-medium">TOTAL STAGED</p>
-                            <p className="text-xl font-bold text-blue-600">{reportSummary.total_staged_records}</p>
-                        </div>
-                        <div className="flex-1 min-w-0 p-3 bg-white rounded-lg border">
-                            <p className="text-green-500 text-sm font-medium">IMPORTED</p>
-                            <p className="text-xl font-bold text-green-600">{reportSummary.summary_by_status.IMPORTED}</p>
-                        </div>
-                        <div className="flex-1 min-w-0 p-3 bg-white rounded-lg border">
-                            <p className="text-green-500 text-sm font-medium">READY</p>
-                            <p className="text-xl font-bold text-green-600">{reportSummary.summary_by_status.READY_FOR_IMPORT}</p>
-                        </div>
-                        <div className="flex-1 min-w-0 p-3 bg-white rounded-lg border">
-                            <p className="text-yellow-500 text-sm font-medium">PENDING</p>
-                            <p className="text-xl font-bold text-yellow-600">{reportSummary.summary_by_status.PENDING}</p>
-                        </div>
-                        <div className="flex-1 min-w-0 p-3 bg-white rounded-lg border">
-                            <p className="text-red-500 text-sm font-medium">ERROR</p>
-                            <p className="text-xl font-bold text-red-600">{reportSummary.summary_by_status.ERROR}</p>
-                        </div>
-                        <div className="flex-1 min-w-0 p-3 bg-white rounded-lg border">
-                            <p className="text-red-500 text-sm font-medium">EXPIRED</p>
-                            <p className="text-xl font-bold text-red-600">{reportSummary.summary_by_status.EXPIRED}</p>
-                        </div>
-                        <div className="flex-1 min-w-0 p-3 bg-white rounded-lg border">
-                            <p className="text-red-500 text-sm font-medium">DUPLICATE</p>
-                            <p className="text-xl font-bold text-red-600">{reportSummary.summary_by_status.DUPLICATE}</p>
-                        </div>
-                    </div>
-                ) : (
-                    <p className="text-gray-500 text-center">Loading report...</p>
-                )}
+                <div className="flex flex-wrap gap-3 mb-6">
+                    <StatusTile 
+                        label="Total Staged" 
+                        count={reportSummary.total_staged_records} 
+                        colorClass="bg-gray-50 text-gray-700 border-gray-200" 
+                        icon={Layers} 
+                    />
+                    <StatusTile 
+                        label="Imported" 
+                        count={reportSummary.summary_by_status.IMPORTED} 
+                        colorClass="bg-green-50 text-green-700 border-green-200" 
+                        icon={CheckCircle} 
+                    />
+                    <StatusTile 
+                        label="Ready" 
+                        count={reportSummary.summary_by_status.READY_FOR_IMPORT} 
+                        colorClass="bg-emerald-50 text-emerald-700 border-emerald-200" 
+                        icon={ShieldCheck} 
+                    />
+                    <StatusTile 
+                        label="Pending" 
+                        count={reportSummary.summary_by_status.PENDING} 
+                        colorClass="bg-amber-50 text-amber-700 border-amber-200" 
+                        icon={Loader2} 
+                    />
+                    <StatusTile 
+                        label="Errors" 
+                        count={reportSummary.summary_by_status.ERROR} 
+                        colorClass="bg-red-50 text-red-700 border-red-200" 
+                        icon={XCircle} 
+                    />
+                    <StatusTile 
+                        label="Expired" 
+                        count={reportSummary.summary_by_status.EXPIRED} 
+                        colorClass="bg-orange-50 text-orange-700 border-orange-200" 
+                        icon={CalendarX} 
+                    />
+                    <StatusTile 
+                        label="Duplicates" 
+                        count={reportSummary.summary_by_status.DUPLICATE} 
+                        colorClass="bg-purple-50 text-purple-700 border-purple-200" 
+                        icon={Copy} 
+                    />
+                </div>
+            ) : (
+                <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-xl border border-dashed">
+                    <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-2" />
+                    <p className="text-sm text-gray-500">Loading report statistics...</p>
+                </div>
+            )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-8 mt-4">

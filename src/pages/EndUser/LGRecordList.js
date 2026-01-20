@@ -768,7 +768,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
             </Listbox>
           </div>
 
-          <div className="overflow-x-auto rounded-lg shadow relative">
+          <div className="overflow-auto rounded-lg shadow relative max-h-[75vh]">
             {isRefreshing && (
                 <div className="absolute inset-x-0 top-0 flex items-center justify-center py-1 bg-blue-100 text-blue-700 text-sm font-medium z-10 rounded-t-lg">
                   <Loader2 className="animate-spin h-4 w-4 mr-2" /> Refreshing data...
@@ -791,7 +791,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                     <th
                       key={header.key}
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100"
+                      className="sticky top-0 z-20 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100"
                       onClick={() => handleSort(header.key)}
                     >
                       <div className="flex items-center">
@@ -801,12 +801,12 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                   ))}
                   
                   {!isCorporateAdminView && (
-                    <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Auto Renew
-                    </th>
+                    <th scope="col" className="sticky top-0 z-20 bg-gray-50 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+					  Auto Renew
+					</th>
                   )}
                   {/* STICKY ACTION HEADER */}
-                  <th scope="col" className="sticky right-0 z-10 bg-gray-50 border-l border-gray-200 px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider shadow-sm">Actions</th>
+				  <th scope="col" className="sticky top-0 right-0 z-30 bg-gray-50 border-l border-gray-200 px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider shadow-sm">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
