@@ -254,7 +254,8 @@ function AppContent() {
 function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-100 font-sans text-gray-800 antialiased">
+      {/* UPDATED LINE BELOW: Added dark:bg-gray-900 and dark:text-gray-100 */}
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-100 antialiased transition-colors duration-200">
         <AppContent />
         <ToastContainer
           position="top-right"
