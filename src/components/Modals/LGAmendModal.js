@@ -360,7 +360,7 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
                                                             "sm:col-start-2 bg-yellow-600 text-white hover:bg-yellow-700",
                                                             !hasChanges || !amendmentFile || !reason || !isAmendable ? "opacity-50 cursor-not-allowed" : ""
                                                         )}
-                                                        disabled={isProcessing || !amendmentFile || !reason || !isAmendable}
+                                                        disabled={isProcessing || !amendmentFile || !reason}
                                                     >
                                                         {isProcessing ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Save className="h-5 w-5 mr-2" />}
                                                         {isProcessing ? 'Amending...' : 'Submit Amendment'}
