@@ -698,22 +698,26 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 				{activeTab === 'documents' && (
 					<div className="p-4 bg-gray-50 rounded-lg">
 						<h2 className="text-xl font-semibold text-gray-800 mb-4">Associated Documents</h2>
-						{lgRecord.documents && lgRecord.documents.length > 0 ? (
+						{/* Filter out documents where is_deleted is true */}
+						{lgRecord.documents && lgRecord.documents.filter(doc => !doc.is_deleted).length > 0 ? (
 							<ul className="list-disc list-inside space-y-2">
-								{lgRecord.documents.map(doc => (
-									<li key={doc.id} className="text-gray-700 flex items-center justify-between">
-										<span>
-											{doc.file_name} ({doc.document_type})
-										</span>
-										<button
-											onClick={() => handleViewInstructionDocument(doc.id)}
-											className="ml-4 px-3 py-1 text-sm font-medium rounded-md shadow-sm text-blue-600 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center"
-											title="View Document Securely"
-										>
-											<Eye className="h-4 w-4 mr-1" /> View
-										</button>
-									</li>
-								))}
+								{lgRecord.documents
+									.filter(doc => !doc.is_deleted) // Apply the filter here
+									.map(doc => (
+										<li key={doc.id} className="text-gray-700 flex items-center justify-between">
+											<span>
+												{doc.file_name} ({doc.document_type})
+											</span>
+											<button
+												onClick={() => handleViewInstructionDocument(doc.id)}
+												className="ml-4 px-3 py-1 text-sm font-medium rounded-md shadow-sm text-blue-600 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center"
+												title="View Document Securely"
+											>
+												<Eye className="h-4 w-4 mr-1" /> View
+											</button>
+										</li>
+									))
+								}
 							</ul>
 						) : (
 							<p className="text-gray-500">No documents associated with this LG record.</p>
