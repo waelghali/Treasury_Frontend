@@ -29,7 +29,7 @@ import LGCategoryForm from 'pages/CorporateAdmin/LGCategoryForm';
 
 // NEW: Import the generic ReportsPage and the single report component for this role
 import ReportsPage from 'pages/Reports/ReportsPage';
-import SystemUsageOverviewReport from 'pages/Reports/SystemUsageOverviewReport';
+import CustomerLGPerformanceReport from 'pages/Reports/CustomerLGPerformanceReport';
 
 // Define the single report for the System Owner role
 const systemOwnerReports = [
@@ -89,7 +89,7 @@ function SystemOwnerRoutes({ onLogout }) {
       <Route path="reports" element={<ReportsPage reports={systemOwnerReports} />}>
         {/* The index route navigates directly to the single report page */}
         <Route index element={<Navigate to="system-usage-overview" replace />} />
-        <Route path="system-usage-overview" element={<SystemUsageOverviewReport />} />
+        <Route path="system-usage-overview" element={<CustomerLGPerformanceReport />} />
       </Route>
 
       {/* Fallback for any unmatched path within /system-owner/* */}

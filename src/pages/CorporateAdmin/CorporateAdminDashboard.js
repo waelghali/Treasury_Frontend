@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { FolderKanban, Users, Settings, TrendingUp, TrendingDown, Clock, BarChart, Banknote } from 'lucide-react';
+import { FolderKanban, Users, Settings, TrendingUp, TrendingDown, Clock, BarChart } from 'lucide-react';
 import { apiRequest } from 'services/apiService.js';
 import { toast } from 'react-toastify';
 import {
@@ -10,14 +10,17 @@ import {
 
 const COLORS = ['#0088FE', '#00C49F', '#C0C0C0', '#ff2bbcd0', '#8884d8', '#82ca9d', '#ffc658'];
 
-// A function to create a consistent color map for chart data based on item names.
 const createColorMap = (allData) => {
   const colorMap = {};
   const allItems = new Set();
-  allData.forEach(dataset => {
-    dataset.forEach(item => {
-      allItems.add(item.name);
-    });
+  const datasets = Array.isArray(allData) ? allData : [];
+  
+  datasets.forEach(dataset => {
+    if (dataset) {
+      dataset.forEach(item => {
+        allItems.add(item.name);
+      });
+    }
   });
   
   Array.from(allItems).sort().forEach((name, index) => {
@@ -26,7 +29,6 @@ const createColorMap = (allData) => {
   
   return colorMap;
 };
-
 
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     if (isGracePeriod) {
@@ -69,14 +71,13 @@ const KPICard = ({ title, value, subValue, subLabel, icon, trend }) => {
   );
 };
 
-// Unified legend to display unique keys from all pie charts
-const CustomUnifiedLegend = ({ allData }) => {
-    const colorMap = createColorMap(allData);
+const CustomUnifiedLegend = ({ allData, colorMapping = null }) => {
+    const colorMap = colorMapping || createColorMap(allData);
     const uniqueValues = new Set();
     const uniquePayload = allData
-      .flatMap(data => data) // Flatten the array of arrays
+      .flatMap(data => data || [])
       .filter(entry => {
-        if (!uniqueValues.has(entry.name)) {
+        if (entry && !uniqueValues.has(entry.name)) {
           uniqueValues.add(entry.name);
           return true;
         }
@@ -99,45 +100,25 @@ const CustomUnifiedLegend = ({ allData }) => {
     );
 };
 
-// Custom tooltip component with a ring-aware percentage calculation
 const CustomMultiPieTooltip = ({ active, payload, allData, chartType }) => {
     if (active && payload && payload.length) {
       const hoveredSlice = payload[0];
       const sliceName = hoveredSlice?.name;
-
       if (!sliceName) return null;
-
-      const customerData = allData.customerData;
-      const globalData = allData.globalData;
-
-      // Find the corresponding data for both rings
+      const { customerData, globalData } = allData;
       const customerSlice = customerData.find(d => d.name === sliceName);
       const globalSlice = globalData.find(d => d.name === sliceName);
-
-      // Calculate totals
       const customerTotal = customerData.reduce((sum, entry) => sum + entry.value, 0);
       const globalTotal = globalData.reduce((sum, entry) => sum + entry.value, 0);
-
-      const customerPercentage = customerSlice && customerTotal > 0
-        ? ((customerSlice.value / customerTotal) * 100).toFixed(1)
-        : null;
-
-      const globalPercentage = globalSlice && globalTotal > 0
-        ? ((globalSlice.value / globalTotal) * 100).toFixed(1)
-        : null;
-
+      const customerPercentage = customerSlice && customerTotal > 0 ? ((customerSlice.value / customerTotal) * 100).toFixed(1) : null;
+      const globalPercentage = globalSlice && globalTotal > 0 ? ((globalSlice.value / globalTotal) * 100).toFixed(1) : null;
       const chartTitle = chartType === 'lgTypeMix' ? 'LG Type Mix' : 'Bank Market Share';
-
       return (
         <div className="bg-white p-2 border border-gray-300 rounded shadow-md text-sm">
           <p className="font-semibold">{chartTitle}</p>
           <p className="font-medium text-gray-800">{`${sliceName}`}</p>
-          {customerPercentage !== null && (
-              <p className="text-gray-600">Your Figures: {customerPercentage}%</p>
-          )}
-          {globalPercentage !== null && (
-              <p className="text-gray-600">Global: {globalPercentage}%</p>
-          )}
+          {customerPercentage !== null && <p className="text-gray-600">Your Figures: {customerPercentage}%</p>}
+          {globalPercentage !== null && <p className="text-gray-600">Global: {globalPercentage}%</p>}
         </div>
       );
     }
@@ -146,38 +127,55 @@ const CustomMultiPieTooltip = ({ active, payload, allData, chartType }) => {
 
 function CorporateAdminDashboard({ isGracePeriod }) {
   const [kpiData, setKpiData] = useState({
-    avgDeliveryDays: 'N/A',
-    avgDeliveryDaysOverall: 'N/A',
-    avgDaysToExpiryAction: 'N/A',
-    avgDaysToExpiryActionOverall: 'N/A',
+    avgDeliveryDays: 'N/A', avgDeliveryDaysOverall: 'N/A',
+    avgDaysToExpiryAction: 'N/A', avgDaysToExpiryActionOverall: 'N/A',
     lgVolume: 'N/A',
   });
+
   const [chartData, setChartData] = useState({
-    lgTypeMix: {
-      customer_lg_type_mix: [],
-      global_lg_type_mix: [],
-    },
+    lgTypeMix: { customer_lg_type_mix: [], global_lg_type_mix: [] },
     bankProcessingTimes: [],
     bankMarketShare: {
       customer_market_share: [],
       global_market_share: [],
+      colorMapping: {}
     },
-    bankMarketShareTrend: [],
   });
+
   const [isLoading, setIsLoading] = useState(true);
+  const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState('');
+
+  const processMarketShareData = (globalData, customerData, limit = 7) => {
+    const sortedGlobal = [...globalData].sort((a, b) => b.value - a.value);
+    const topBanks = sortedGlobal.slice(0, limit).map(b => b.name);
+    const palette = ['#2563EB', '#7C3AED', '#DB2777', '#EA580C', '#0891B2', '#16A34A', '#4F46E5'];
+    const colorMapping = {};
+    topBanks.forEach((name, i) => { colorMapping[name] = palette[i]; });
+    colorMapping['Others'] = '#94A3B8';
+    const group = (data) => {
+      const grouped = data.reduce((acc, item) => {
+        if (topBanks.includes(item.name)) acc.push({ ...item });
+        else {
+          const otherIdx = acc.findIndex(i => i.name === 'Others');
+          if (otherIdx > -1) acc[otherIdx].value += item.value;
+          else acc.push({ name: 'Others', value: item.value });
+        }
+        return acc;
+      }, []);
+      return grouped.sort((a, b) => b.value - a.value);
+    };
+    return {
+      groupedGlobal: group(globalData),
+      groupedCustomer: group(customerData),
+      colorMapping
+    };
+  };
 
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
-      
-      const [
-        lgTypeMixResponse,
-        avgDeliveryDaysResponse, 
-        avgDaysToExpiryActionResponse,
-        bankProcessingTimesResponse,
-        bankMarketShareResponse 
-      ] = await Promise.all([
+      const [lgTypeMixResponse, avgDeliveryDaysResponse, avgDaysToExpiryActionResponse, bankProcessingTimesResponse, bankMarketShareResponse] = await Promise.all([
         apiRequest('/reports/customer-lg-type-mix', 'GET'),
         apiRequest('/reports/avg-delivery-days', 'GET'), 
         apiRequest('/reports/avg-days-to-action', 'GET'),
@@ -185,30 +183,32 @@ function CorporateAdminDashboard({ isGracePeriod }) {
         apiRequest('/reports/bank-market-share', 'GET'),
       ]);
 
-      // Handle potentially null data before calling toFixed()
-      const customerAvgDeliveryDays = typeof avgDeliveryDaysResponse?.customer_avg === 'number' ? avgDeliveryDaysResponse.customer_avg.toFixed(0) : 'N/A';
-      const overallAvgDeliveryDays = typeof avgDeliveryDaysResponse?.overall_avg === 'number' ? avgDeliveryDaysResponse.overall_avg.toFixed(0) : 'N/A';
-      const customerAvgDaysToExpiryAction = typeof avgDaysToExpiryActionResponse?.customer_avg === 'number' ? avgDaysToExpiryActionResponse.customer_avg.toFixed(0) : 'N/A';
-      const overallAvgDaysToExpiryAction = typeof avgDaysToExpiryActionResponse?.overall_avg === 'number' ? avgDaysToExpiryActionResponse.overall_avg.toFixed(0) : 'N/A';
-      
-      const lgVolume = lgTypeMixResponse?.data?.customer_lg_type_mix.reduce((sum, item) => sum + item.value, 0) ?? 'N/A';
+      const marketShareResult = processMarketShareData(
+        bankMarketShareResponse?.data?.global_market_share || [],
+        bankMarketShareResponse?.data?.customer_market_share || [],
+        7
+      );
 
       setKpiData({
-        avgDeliveryDays: customerAvgDeliveryDays,
-        avgDeliveryDaysOverall: overallAvgDeliveryDays,
-        avgDaysToExpiryAction: customerAvgDaysToExpiryAction,
-        avgDaysToExpiryActionOverall: overallAvgDaysToExpiryAction,
-        lgVolume: lgVolume,
+        avgDeliveryDays: typeof avgDeliveryDaysResponse?.customer_avg === 'number' ? avgDeliveryDaysResponse.customer_avg.toFixed(0) : 'N/A',
+        avgDeliveryDaysOverall: typeof avgDeliveryDaysResponse?.overall_avg === 'number' ? avgDeliveryDaysResponse.overall_avg.toFixed(0) : 'N/A',
+        avgDaysToExpiryAction: typeof avgDaysToExpiryActionResponse?.customer_avg === 'number' ? avgDaysToExpiryActionResponse.customer_avg.toFixed(0) : 'N/A',
+        avgDaysToExpiryActionOverall: typeof avgDaysToExpiryActionResponse?.overall_avg === 'number' ? avgDaysToExpiryActionResponse.overall_avg.toFixed(0) : 'N/A',
+        lgVolume: lgTypeMixResponse?.data?.customer_lg_type_mix.reduce((sum, item) => sum + item.value, 0) ?? 'N/A',
       });
 
       setChartData({
         lgTypeMix: lgTypeMixResponse?.data || { customer_lg_type_mix: [], global_lg_type_mix: [] },
         bankProcessingTimes: bankProcessingTimesResponse?.data || [],
-        bankMarketShare: bankMarketShareResponse?.data || { customer_market_share: [], global_market_share: [] },
+        bankMarketShare: {
+          customer_market_share: marketShareResult.groupedCustomer,
+          global_market_share: marketShareResult.groupedGlobal,
+          colorMapping: marketShareResult.colorMapping
+        },
       });
-
+      
+      setTimeout(() => setIsReady(true), 150);
     } catch (err) {
-      console.error('Failed to fetch dashboard data:', err);
       setError(`Failed to load dashboard data. ${err.message || 'An unexpected error occurred.'}`);
       toast.error('Failed to load dashboard data.');
     } finally {
@@ -216,41 +216,17 @@ function CorporateAdminDashboard({ isGracePeriod }) {
     }
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const quickActions = [
-    {
-      id: 1,
-      title: 'Manage LG Categories',
-      description: 'Create and organize customer-specific LG categories',
-      icon: FolderKanban,
-      link: '/corporate-admin/lg-categories',
-      isWriteAction: true,
-    },
-    {
-      id: 2,
-      title: 'Manage Users',
-      description: 'Add, edit, and deactivate users for your organization',
-      icon: Users,
-      link: '/corporate-admin/users',
-      isWriteAction: true,
-    },
-    {
-      id: 3,
-      title: 'Module Configurations',
-      description: 'Adjust settings for subscribed modules (e.g., LG Custody)',
-      icon: Settings,
-      link: '/corporate-admin/module-configs',
-      isWriteAction: true,
-    },
+    { id: 1, title: 'Manage LG Categories', description: 'Create and organize customer-specific LG categories', icon: FolderKanban, link: '/corporate-admin/lg-categories', isWriteAction: true },
+    { id: 2, title: 'Manage Users', description: 'Add, edit, and deactivate users for your organization', icon: Users, link: '/corporate-admin/users', isWriteAction: true },
+    { id: 3, title: 'Module Configurations', description: 'Adjust settings for subscribed modules (e.g., LG Custody)', icon: Settings, link: '/corporate-admin/module-configs', isWriteAction: true },
   ];
 
   const renderQuickAction = (action) => {
     const isActionDisabled = action.isWriteAction && isGracePeriod;
     const Icon = action.icon;
-    
     const actionCard = (
         <div className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${isActionDisabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-50 hover:bg-gray-100'}`}>
             <Icon className={`h-5 w-5 mr-3 ${isActionDisabled ? 'text-gray-400' : 'text-blue-600'}`} />
@@ -260,20 +236,7 @@ function CorporateAdminDashboard({ isGracePeriod }) {
             </div>
         </div>
     );
-
-    if (isActionDisabled) {
-      return (
-        <GracePeriodTooltip key={action.id} isGracePeriod={true}>
-          {actionCard}
-        </GracePeriodTooltip>
-      );
-    } else {
-      return (
-        <Link key={action.id} to={action.link}>
-          {actionCard}
-        </Link>
-      );
-    }
+    return isActionDisabled ? <GracePeriodTooltip key={action.id} isGracePeriod={true}>{actionCard}</GracePeriodTooltip> : <Link key={action.id} to={action.link}>{actionCard}</Link>;
   };
 
   if (isLoading) {
@@ -287,198 +250,148 @@ function CorporateAdminDashboard({ isGracePeriod }) {
       </div>
     );
   }
-  
-  // Create color maps based on all available data points
-  const lgTypeColorMap = createColorMap([chartData.lgTypeMix.customer_lg_type_mix, chartData.lgTypeMix.global_lg_type_mix]);
-  const bankColorMap = createColorMap([chartData.bankMarketShare.customer_market_share, chartData.bankMarketShare.global_market_share]);
 
+  const lgTypeColorMap = createColorMap([chartData.lgTypeMix.customer_lg_type_mix, chartData.lgTypeMix.global_lg_type_mix]);
 
   return (
     <div>
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-2 py-3 rounded-md relative" role="alert">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-6" role="alert">
           <span className="block sm:inline">{error}</span>
         </div>
       )}
 
-      {/* Main content grid for the three columns with KPIs and Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* First Column */}
-        <div className="flex flex-col space-y-2">
-          <KPICard
-            title="Average Delivery Days"
-            value={`${kpiData.avgDeliveryDays !== 'N/A' ? kpiData.avgDeliveryDays : 'N/A'} days`}
-            subValue={`Overall: ${kpiData.avgDeliveryDaysOverall !== 'N/A' ? kpiData.avgDeliveryDaysOverall : 'N/A'} days`}
-            subLabel=""
-            icon={Clock}
-            trend={kpiData.avgDeliveryDays !== 'N/A' && kpiData.avgDeliveryDaysOverall !== 'N/A' ? (parseFloat(kpiData.avgDeliveryDays) < parseFloat(kpiData.avgDeliveryDaysOverall) ? 'up' : 'down') : undefined}
-          />
-          <div className="card h-[360px] flex flex-col">
-            <h3 className="text-lg font-semibold text-gray-800 text-left mb-1">
-                LG Type Mix
-                <span className="text-xs font-normal text-gray-500 ml-2">
-                    (Outer: Global | Inner: Your Figures)
-                </span>
-            </h3>
-            <div className="flex-1 flex flex-col items-center justify-center">
-              {chartData.lgTypeMix.global_lg_type_mix.length > 0 ? (
-                <div className="flex w-full h-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                      {/* Outer Donut for Global LG Type Mix */}
-                      <Pie
-                        data={chartData.lgTypeMix.global_lg_type_mix}
-                        cx="40%"
-                        cy="50%"
-                        innerRadius={55}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                        nameKey="name"
-                        animationDuration={500}
-                      >
-                        {chartData.lgTypeMix.global_lg_type_mix.map((entry, index) => (
-                          <Cell key={`cell-global-${index}`} fill={lgTypeColorMap[entry.name]} />
-                        ))}
-                      </Pie>
-                      {/* Inner Donut for Customer LG Type Mix */}
-                      <Pie
-                        data={chartData.lgTypeMix.customer_lg_type_mix}
-                        cx="80%"
-                        cy="85%"
-                        innerRadius={20}
-                        outerRadius={40}
-                        paddingAngle={5}
-                        dataKey="value"
-                        nameKey="name"
-                        animationDuration={500}
-                      >
-                        {chartData.lgTypeMix.customer_lg_type_mix.map((entry, index) => (
-                          <Cell key={`cell-customer-${index}`} fill={lgTypeColorMap[entry.name]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        content={<CustomMultiPieTooltip chartType="lgTypeMix" allData={{ customerData: chartData.lgTypeMix.customer_lg_type_mix, globalData: chartData.lgTypeMix.global_lg_type_mix }} />}
-                      />
-                      <Legend content={<CustomUnifiedLegend allData={[chartData.lgTypeMix.customer_lg_type_mix, chartData.lgTypeMix.global_lg_type_mix]} />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center italic">No LG Type Mix data available.</p>
-              )}
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+        
+		{/* Column 1: Average Delivery Days & LG Type Mix */}
+		<div className="flex flex-col space-y-6">
+		  <KPICard 
+			title="Average Delivery Days" 
+			value={`${kpiData.avgDeliveryDays} days`} 
+			subValue={`Overall: ${kpiData.avgDeliveryDaysOverall} days`} 
+			icon={Clock}
+			trend={kpiData.avgDeliveryDays !== 'N/A' && kpiData.avgDeliveryDaysOverall !== 'N/A' ? (parseFloat(kpiData.avgDeliveryDays) <= parseFloat(kpiData.avgDeliveryDaysOverall) ? 'up' : 'down') : undefined}
+		  />
 
-        {/* Second Column (now contains Bank Market Share) */}
-        <div className="flex flex-col space-y-2">
-          <KPICard
-            title="Avg. Days to Action"
-            value={`${kpiData.avgDaysToExpiryAction !== 'N/A' ? kpiData.avgDaysToExpiryAction : 'N/A'} days`}
-            subValue={`Overall: ${kpiData.avgDaysToExpiryActionOverall !== 'N/A' ? kpiData.avgDaysToExpiryActionOverall : 'N/A'} days`}
-            subLabel=""
-            icon={BarChart}
-            trend={kpiData.avgDaysToExpiryAction !== 'N/A' && kpiData.avgDaysToExpiryActionOverall !== 'N/A' ? (parseFloat(kpiData.avgDaysToExpiryAction) > parseFloat(kpiData.avgDaysToExpiryActionOverall) ? 'down' : 'up') : undefined}
-          />
-          <div className="card h-[360px] flex flex-col">
-            <h3 className="text-lg font-semibold text-gray-800 text-left mb-1">
-              Bank Market Share
-              <span className="text-xs font-normal text-gray-500 ml-2">
-                (Outer: Global | Inner: Your Figures)
-              </span>
-            </h3>
-            <div className="flex-1 flex items-center justify-center">
-              {chartData.bankMarketShare.global_market_share.length > 0 ? (
-                <div className="flex w-full h-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                      <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                        {/* Outer Donut for Global Market Share */}
-                        <Pie
-                          data={chartData.bankMarketShare.global_market_share}
-                          cx="40%"
-                          cy="50%"
-                          innerRadius={55}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                          nameKey="name"
-                          animationDuration={500}
-                        >
-                          {chartData.bankMarketShare.global_market_share.map((entry, index) => (
-                            <Cell key={`cell-global-${index}`} fill={bankColorMap[entry.name]} />
-                          ))}
-                        </Pie>
-                        {/* Inner Donut for Customer Market Share */}
-                        <Pie
-                          data={chartData.bankMarketShare.customer_market_share}
-                          cx="80%"
-                          cy="85%"
-                          innerRadius={20}
-                          outerRadius={40}
-                          paddingAngle={5}
-                          dataKey="value"
-                          nameKey="name"
-                          animationDuration={500}
-                        >
-                          {chartData.bankMarketShare.customer_market_share.map((entry, index) => (
-                            <Cell key={`cell-customer-${index}`} fill={bankColorMap[entry.name]} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          content={<CustomMultiPieTooltip chartType="bankMarketShare" allData={{ customerData: chartData.bankMarketShare.customer_market_share, globalData: chartData.bankMarketShare.global_market_share }} />}
-                        />
-                        <Legend content={<CustomUnifiedLegend allData={[chartData.bankMarketShare.customer_market_share, chartData.bankMarketShare.global_market_share]} />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center italic">No Bank Market Share data available.</p>
-              )}
-            </div>
-          </div>
-        </div>
+		  {/* Main Card Wrapper: Holds everything together visually */}
+		  <div className="bg-white rounded-xl shadow-sm border border-gray-100 h-[420px] flex flex-col overflow-hidden">
+			
+			{/* Part 1: Header & Chart Area (Flexible space) */}
+			<div className="p-6 pb-0 flex-1 min-h-0 flex flex-col">
+			  <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-6">
+				  LG Type Mix
+				  <span className="text-[10px] font-normal text-gray-400 ml-2 normal-case tracking-normal">
+					  (Outer: Global | Inner: Your Figures)
+				  </span>
+			  </h3>
+			  
+			  <div className="flex-1 min-h-0">
+				{isReady && chartData.lgTypeMix.global_lg_type_mix.length > 0 ? (
+				  <ResponsiveContainer width="100%" height="100%">
+					<PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+					  <Pie data={chartData.lgTypeMix.global_lg_type_mix} cx="35%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="value" nameKey="name" animationDuration={1000}>
+						{chartData.lgTypeMix.global_lg_type_mix.map((entry, i) => <Cell key={i} fill={lgTypeColorMap[entry.name]} />)}
+					  </Pie>
+					  <Pie data={chartData.lgTypeMix.customer_lg_type_mix} cx="80%" cy="75%" innerRadius={25} outerRadius={40} paddingAngle={2} dataKey="value" nameKey="name" animationDuration={1000}>
+						{chartData.lgTypeMix.customer_lg_type_mix.map((entry, i) => <Cell key={i} fill={lgTypeColorMap[entry.name]} />)}
+					  </Pie>
+					  <Tooltip content={<CustomMultiPieTooltip chartType="lgTypeMix" allData={{ customerData: chartData.lgTypeMix.customer_lg_type_mix, globalData: chartData.lgTypeMix.global_lg_type_mix }} />} />
+					  {/* Internal Legend removed to separate it below */}
+					</PieChart>
+				  </ResponsiveContainer>
+				) : (
+				  <div className="h-full flex items-center justify-center text-gray-400 italic text-sm">No data available.</div>
+				)}
+			  </div>
+			</div>
 
-        {/* Third Column (now contains Average Processing Times by Bank) */}
-        <div className="flex flex-col space-y-2">
-          <KPICard
-            title="Total LG Volume"
-            value={kpiData.lgVolume}
-            subValue=""
-            subLabel="LG Records"
-            icon={FolderKanban}
-            trend=""
-          />
-          <div className="card h-[360px] flex flex-col">
-            <h3 className="text-lg font-semibold text-gray-800 text-left mb-4">Average Processing Times by Bank</h3>
-            <div className="flex-1">
-              {chartData.bankProcessingTimes.length > 0 ? (
-                <div className="flex flex-col items-center h-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsBarChart data={chartData.bankProcessingTimes} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#8884d8" />
-                    </RechartsBarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center italic">No data available for Bank Processing Times.</p>
-              )}
+			{/* Part 2: Separate Legend Area (Fixed at the bottom) */}
+			<div className="p-6 pt-2">
+			   <CustomUnifiedLegend 
+				  allData={[chartData.lgTypeMix.customer_lg_type_mix, chartData.lgTypeMix.global_lg_type_mix]} 
+			   />
+			</div>
+
+		  </div>
+		</div>
+
+		{/* Column 2: Avg Days to Action & Market Share */}
+		<div className="flex flex-col space-y-6">
+		  <KPICard 
+			title="Avg. Days to Action" 
+			value={`${kpiData.avgDaysToExpiryAction} days`} 
+			subValue={`Overall: ${kpiData.avgDaysToExpiryActionOverall} days`} 
+			icon={BarChart}
+			trend={kpiData.avgDaysToExpiryAction !== 'N/A' && kpiData.avgDaysToExpiryActionOverall !== 'N/A' ? (parseFloat(kpiData.avgDaysToExpiryAction) <= parseFloat(kpiData.avgDaysToExpiryActionOverall) ? 'up' : 'down') : undefined}
+		  />
+
+		  {/* Container for the Chart and Legend - looks like one card to the user */}
+		  <div className="bg-white rounded-xl shadow-sm border border-gray-100 h-[420px] flex flex-col overflow-hidden">
+			
+			{/* Part 1: Header & Chart Area */}
+			<div className="p-6 pb-0 flex-1 min-h-0 flex flex-col">
+			  <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-6">
+				  Bank Market Share
+				  <span className="text-[10px] font-normal text-gray-400 ml-2 normal-case tracking-normal">
+					  (Outer: Global | Inner: Your Figures)
+				  </span>
+			  </h3>
+			  <div className="flex-1 min-h-0">
+				{isReady && chartData.bankMarketShare.global_market_share.length > 0 ? (
+				  <ResponsiveContainer width="100%" height="100%">
+					  <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+						<Pie data={chartData.bankMarketShare.global_market_share} cx="35%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="value" nameKey="name" animationDuration={1000}>
+						  {chartData.bankMarketShare.global_market_share.map((entry, i) => <Cell key={i} fill={chartData.bankMarketShare.colorMapping[entry.name]} />)}
+						</Pie>
+						<Pie data={chartData.bankMarketShare.customer_market_share} cx="80%" cy="75%" innerRadius={25} outerRadius={40} paddingAngle={2} dataKey="value" nameKey="name" animationDuration={1000}>
+						  {chartData.bankMarketShare.customer_market_share.map((entry, i) => <Cell key={i} fill={chartData.bankMarketShare.colorMapping[entry.name]} />)}
+						</Pie>
+						<Tooltip content={<CustomMultiPieTooltip chartType="bankMarketShare" allData={{ customerData: chartData.bankMarketShare.customer_market_share, globalData: chartData.bankMarketShare.global_market_share }} />} />
+						{/* Legend is removed from here */}
+					  </PieChart>
+				  </ResponsiveContainer>
+				) : <div className="h-full flex items-center justify-center text-gray-400 italic text-sm">No data available.</div>}
+			  </div>
+			</div>
+
+			{/* Part 2: Separate Legend Area */}
+			<div className="p-6 pt-2">
+			   <CustomUnifiedLegend 
+				  allData={[chartData.bankMarketShare.customer_market_share, chartData.bankMarketShare.global_market_share]} 
+				  colorMapping={chartData.bankMarketShare.colorMapping} 
+			   />
+			</div>
+
+		  </div>
+		</div>
+        {/* Column 3: Total Volume & Processing Times */}
+        <div className="flex flex-col space-y-6">
+          <KPICard title="Total LG Volume" value={kpiData.lgVolume} subLabel="LG Records" icon={FolderKanban} />
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-[420px] flex flex-col">
+            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-6">
+                Average Processing Times by Bank
+            </h3>
+            <div className="flex-1 min-h-0">
+              {isReady && chartData.bankProcessingTimes.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsBarChart data={chartData.bankProcessingTimes} margin={{ top: 10, right: 10, bottom: 20, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 12 }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+                  <Tooltip cursor={{ fill: '#F9FAFB' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value) => [Number(value).toFixed(2), "Days"]}/>
+                  <Bar dataKey="value" fill="#2563EB" radius={[4, 4, 0, 0]} barSize={40} animationDuration={1500} />
+                </RechartsBarChart>
+              </ResponsiveContainer>
+              ) : <div className="h-full flex items-center justify-center text-gray-400 italic text-sm">No data available.</div>}
             </div>
           </div>
         </div>
       </div>
       
-      {/* Quick Actions Row */}
-      <div className="mt-4">
-        <div className="card">
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">Quick Actions</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {quickActions.map(action => renderQuickAction(action))}
-          </div>
+      <div className="mt-4 card">
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">Quick Actions</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {quickActions.map(action => renderQuickAction(action))}
         </div>
       </div>
     </div>

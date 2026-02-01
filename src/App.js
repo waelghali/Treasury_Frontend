@@ -224,7 +224,6 @@ function AppContent() {
                 element={
                   <ProtectedLayout 
                     onLogout={handleLogout} 
-                    key={userId} 
                     userRole={userRole}
                     userPermissions={userPermissions}
                     customerName={customerName} 

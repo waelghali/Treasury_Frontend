@@ -123,7 +123,7 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeri
 
     return (
         <Transition show={true} as={Fragment}>
-            <Dialog as="div" className="relative z-10" onClose={onClose}>
+            <Dialog as="div" className="relative z-[100]" onClose={onClose}>
                 <TransitionChild
                     as={Fragment}
                     enter="ease-out duration-300"

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
 import { 
     Loader2, AlertCircle, Clock, FileText, Repeat, CalendarPlus, 
-    Truck, Building, Mail, Printer, Eye, CheckCircle2, ArrowRight 
+    Truck, Building, Mail, Printer, CheckCircle2, ArrowRight, Eye 
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
@@ -16,7 +16,6 @@ import BulkRemindersModal from '../../components/Modals/BulkRemindersModal';
 import RunAutoRenewalModal from '../../components/Modals/RunAutoRenewalModal';
 
 // --- UI COMPONENTS ---
-
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     if (!isGracePeriod) return children;
     return (
@@ -58,8 +57,7 @@ const StatCard = ({ title, count, icon: Icon, colorClass, bgClass, onClick }) =>
 );
 
 const StatusBadge = ({ children, type }) => {
-    let classes = "bg-gray-100 text-gray-800"; // Default
-    
+    let classes = "bg-gray-100 text-gray-800"; 
     if (type === 'critical') classes = "bg-red-100 text-red-700 border border-red-200";
     if (type === 'warning') classes = "bg-orange-100 text-orange-800 border border-orange-200";
     if (type === 'success') classes = "bg-green-100 text-green-700 border border-green-200";
@@ -74,7 +72,7 @@ const StatusBadge = ({ children, type }) => {
 
 // --- MAIN COMPONENT ---
 
-function EndUserActionCenter({ isGracePeriod }) {
+function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -93,8 +91,6 @@ function EndUserActionCenter({ isGracePeriod }) {
     const [selectedInstructionForReply, setSelectedInstructionForReply] = useState(null);
     const [showBulkRemindersModal, setShowBulkRemindersModal] = useState(false);
     const [showRunAutoRenewalModal, setShowRunAutoRenewalModal] = useState(false);
-
-    // --- Helpers ---
 
     const scrollToSection = (id) => {
         const element = document.getElementById(id);
@@ -138,7 +134,9 @@ function EndUserActionCenter({ isGracePeriod }) {
     const handleViewLetter = useCallback(async (instructionId, lgNumber = 'N/A') => {
         if (!instructionId) return toast.error('Instruction ID is missing.');
         try {
-            await apiRequest(`/end-user/lg-records/instructions/${instructionId}/mark-as-accessed-for-print`, 'POST');
+            if (!isCorporateAdminView) {
+                await apiRequest(`/end-user/lg-records/instructions/${instructionId}/mark-as-accessed-for-print`, 'POST');
+            }
             toast.success(`Opening letter for LG ${lgNumber}...`);
             const authToken = getAuthToken();
             let letterUrl = `${API_BASE_URL}/end-user/lg-records/instructions/${instructionId}/view-letter`;
@@ -148,31 +146,49 @@ function EndUserActionCenter({ isGracePeriod }) {
             console.error(error);
             toast.error(`Error opening letter: ${error.message}`);
         }
-    }, []);
+    }, [isCorporateAdminView]);
 
-    // UPDATED: Added isBackground parameter (default false)
-    // If true, we do NOT set isLoading, preserving the user's scroll position
     const fetchAllActionCenterData = useCallback(async (isBackground = false) => {
         if (!isBackground) setIsLoading(true);
         setError('');
         try {
+            // FIX: Explicitly define URLs because naming conventions differ between endpoints
+            const urls = {
+                renewal: isCorporateAdminView 
+                    ? '/corporate-admin/action-center/lg-for-renewal' 
+                    : '/end-user/action-center/lg-for-renewal',
+                
+                undelivered: isCorporateAdminView 
+                    ? '/corporate-admin/action-center/instructions/undelivered' 
+                    : '/end-user/action-center/instructions-undelivered', // Note: dash vs slash
+                
+                awaitingReply: isCorporateAdminView 
+                    ? '/corporate-admin/action-center/instructions/awaiting-reply' 
+                    : '/end-user/action-center/instructions-awaiting-reply', // Note: dash vs slash
+                
+                pendingPrint: isCorporateAdminView 
+                    ? '/corporate-admin/action-center/requests/pending-print' 
+                    : '/end-user/action-center/approved-requests-pending-print' // Note: completely different name
+            };
+
             const [renewal, undelivered, noReply, pendingPrints] = await Promise.all([
-                apiRequest('/end-user/action-center/lg-for-renewal', 'GET'),
-                apiRequest('/end-user/action-center/instructions-undelivered', 'GET'),
-                apiRequest('/end-user/action-center/instructions-awaiting-reply', 'GET'),
-                apiRequest('/end-user/action-center/approved-requests-pending-print', 'GET')
+                apiRequest(urls.renewal, 'GET'),
+                apiRequest(urls.undelivered, 'GET'),
+                apiRequest(urls.awaitingReply, 'GET'),
+                apiRequest(urls.pendingPrint, 'GET')
             ]);
+            
             setLgRenewalList(renewal);
             setInstructionsUndelivered(undelivered);
             setInstructionsNoReply(noReply);
-            setApprovedPendingPrints(pendingPrints);
+            setApprovedPendingPrints(pendingPrints); 
         } catch (err) {
             console.error(err);
             setError(`Failed to load tasks: ${err.message}`);
         } finally {
             if (!isBackground) setIsLoading(false);
         }
-    }, []);
+    }, [isCorporateAdminView]);
 
     const handleActionSuccess = useCallback((updatedRecord = null, latestInstructionId = null) => {
         setShowExtendModal(false); setSelectedLgRecordForExtend(null);
@@ -180,7 +196,6 @@ function EndUserActionCenter({ isGracePeriod }) {
         setShowRecordBankReplyModal(false); setSelectedInstructionForReply(null);
         setShowBulkRemindersModal(false); setShowRunAutoRenewalModal(false);
         
-        // UPDATED: Pass true to background refresh without spinner
         fetchAllActionCenterData(true); 
 
         if (latestInstructionId) {
@@ -190,16 +205,19 @@ function EndUserActionCenter({ isGracePeriod }) {
     }, [fetchAllActionCenterData, selectedLgRecordForExtend, handleViewLetter]);
 
     useEffect(() => {
-        // Initial load: isBackground is undefined/false, so we show spinner
         fetchAllActionCenterData();
     }, [fetchAllActionCenterData]);
 
-    const handleViewDetails = (lgRecordId) => navigate(`/end-user/lg-records/${lgRecordId}`);
+    const handleViewDetails = (lgRecordId) => {
+        const path = isCorporateAdminView 
+            ? `/corporate-admin/lg-records/${lgRecordId}` 
+            : `/end-user/lg-records/${lgRecordId}`;
+        navigate(path);
+    };
 
     const handlePrintApprovedLetter = async (instructionId, lgNumber) => {
         if (isGracePeriod) return toast.warn("Subscription Grace Period: Action disabled.");
         await handleViewLetter(instructionId, lgNumber);
-        // UPDATED: Background refresh
         fetchAllActionCenterData(true);
     };
 
@@ -215,7 +233,6 @@ function EndUserActionCenter({ isGracePeriod }) {
                     newWindow.document.write(response);
                     newWindow.document.close();
                     toast.info(`Reminder generated for #${serialNumber}.`);
-                    // UPDATED: Background refresh
                     setTimeout(() => fetchAllActionCenterData(true), 1000);
                 } else {
                     toast.error("Popup blocked.");
@@ -225,11 +242,7 @@ function EndUserActionCenter({ isGracePeriod }) {
             }
         } catch (error) {
             console.error(error);
-            if (error.message && error.message.includes("Unexpected token '<'")) {
-                toast.error("Server error. Please try again.");
-            } else {
-                toast.error(`Failed to send reminder: ${error.message}`);
-            }
+            toast.error(`Failed to send reminder: ${error.message}`);
         }
     };
 
@@ -240,7 +253,9 @@ function EndUserActionCenter({ isGracePeriod }) {
             
             {/* Header Section */}
             <div className="mb-8">
-                <h1 className="text-2xl font-bold text-gray-900">Action Center</h1>
+                <h1 className="text-2xl font-bold text-gray-900">
+                    Action Center {isCorporateAdminView && <span className="text-sm font-normal text-gray-500 ml-2">(Read Only)</span>}
+                </h1>
                 <p className="mt-1 text-sm text-gray-500">Overview of pending tasks, renewals, and bank communications.</p>
             </div>
 
@@ -306,7 +321,8 @@ function EndUserActionCenter({ isGracePeriod }) {
                                     <div className="p-2 bg-purple-100 rounded-lg"><Printer className="h-5 w-5 text-purple-600" /></div>
                                     <h2 className="text-lg font-semibold text-gray-900">Approved Requests Pending Print</h2>
                                 </div>
-                                {approvedPendingPrints.length > 0 && (
+                                {/* Hide Bulk Print for Admin */}
+                                {!isCorporateAdminView && approvedPendingPrints.length > 0 && (
                                     <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                         <button 
                                             onClick={() => toast.info("Bulk Print functionality coming soon!")}
@@ -329,7 +345,8 @@ function EndUserActionCenter({ isGracePeriod }) {
                                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">LG Number</th>
                                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type & Maker</th>
                                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Approval Date</th>
-                                                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                                                {/* Only show Action column for End User */}
+                                                {!isCorporateAdminView && <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>}
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
@@ -349,17 +366,19 @@ function EndUserActionCenter({ isGracePeriod }) {
                                                         <div className="text-xs text-gray-500">{req.maker_user?.email}</div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(req.updated_at)}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                            <button 
-                                                                onClick={() => req.related_instruction?.id && req.lg_record?.lg_number ? handlePrintApprovedLetter(req.related_instruction.id, req.lg_record.lg_number) : toast.error("Data missing.")}
-                                                                disabled={isGracePeriod}
-                                                                className={`inline-flex items-center px-3 py-1.5 border border-purple-200 text-sm font-medium rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                            >
-                                                                <Printer className="h-4 w-4 mr-1.5" /> Print Letter
-                                                            </button>
-                                                        </GracePeriodTooltip>
-                                                    </td>
+                                                    {!isCorporateAdminView && (
+                                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                                <button 
+                                                                    onClick={() => req.related_instruction?.id && req.lg_record?.lg_number ? handlePrintApprovedLetter(req.related_instruction.id, req.lg_record.lg_number) : toast.error("Data missing.")}
+                                                                    disabled={isGracePeriod}
+                                                                    className={`inline-flex items-center px-3 py-1.5 border border-purple-200 text-sm font-medium rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                >
+                                                                    <Printer className="h-4 w-4 mr-1.5" /> Print Letter
+                                                                </button>
+                                                            </GracePeriodTooltip>
+                                                        </td>
+                                                    )}
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -375,15 +394,17 @@ function EndUserActionCenter({ isGracePeriod }) {
                                     <div className="p-2 bg-orange-100 rounded-lg"><Clock className="h-5 w-5 text-orange-600" /></div>
                                     <h2 className="text-lg font-semibold text-gray-900">Approaching Expiry / Renewal</h2>
                                 </div>
-                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                    <button 
-                                        onClick={() => setShowRunAutoRenewalModal(true)}
-                                        disabled={isGracePeriod}
-                                        className={`mt-2 sm:mt-0 inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-orange-600 hover:bg-orange-700 shadow-sm transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    >
-                                        <Repeat className="h-4 w-4 mr-2" /> Auto Renewal
-                                    </button>
-                                </GracePeriodTooltip>
+                                {!isCorporateAdminView && (
+                                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                        <button 
+                                            onClick={() => setShowRunAutoRenewalModal(true)}
+                                            disabled={isGracePeriod}
+                                            className={`mt-2 sm:mt-0 inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-orange-600 hover:bg-orange-700 shadow-sm transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        >
+                                            <Repeat className="h-4 w-4 mr-2" /> Auto Renewal
+                                        </button>
+                                    </GracePeriodTooltip>
+                                )}
                             </div>
 
                             {lgRenewalList.length === 0 ? (
@@ -396,7 +417,7 @@ function EndUserActionCenter({ isGracePeriod }) {
                                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">LG Details</th>
                                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Expiry</th>
                                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                                                {!isCorporateAdminView && <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>}
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
@@ -421,20 +442,22 @@ function EndUserActionCenter({ isGracePeriod }) {
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             <StatusBadge type={urgencyStatus}>{daysLeft} Days Left</StatusBadge>
                                                         </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        if (!isGracePeriod) { setSelectedLgRecordForExtend(lg); setShowExtendModal(true); } 
-                                                                        else { toast.warn("Action disabled during grace period."); }
-                                                                    }}
-                                                                    disabled={isGracePeriod}
-                                                                    className={`inline-flex items-center px-3 py-1.5 border border-indigo-200 text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                                >
-                                                                    <CalendarPlus className="h-4 w-4 mr-1.5" /> Renew
-                                                                </button>
-                                                            </GracePeriodTooltip>
-                                                        </td>
+                                                        {!isCorporateAdminView && (
+                                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            if (!isGracePeriod) { setSelectedLgRecordForExtend(lg); setShowExtendModal(true); } 
+                                                                            else { toast.warn("Action disabled during grace period."); }
+                                                                        }}
+                                                                        disabled={isGracePeriod}
+                                                                        className={`inline-flex items-center px-3 py-1.5 border border-indigo-200 text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    >
+                                                                        <CalendarPlus className="h-4 w-4 mr-1.5" /> Renew
+                                                                    </button>
+                                                                </GracePeriodTooltip>
+                                                            </td>
+                                                        )}
                                                     </tr>
                                                 );
                                             })}
@@ -461,12 +484,12 @@ function EndUserActionCenter({ isGracePeriod }) {
                                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Instruction</th>
                                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Dates</th>
                                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Delay</th>
-                                                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                                                {!isCorporateAdminView && <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>}
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
                                             {instructionsUndelivered.map((inst) => {
-                                                const daysStuck = moment().diff(moment(inst.instruction_date), 'days');
+                                                const daysStuck = Math.round(moment().diff(moment(inst.instruction_date), 'days', true));
                                                 const urgencyStatus = getUrgencyStatus(daysStuck, 'undelivered');
                                                 return (
                                                     <tr key={inst.id} className="hover:bg-gray-50 transition-colors">
@@ -481,20 +504,22 @@ function EndUserActionCenter({ isGracePeriod }) {
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             <StatusBadge type={urgencyStatus}>{daysStuck} Days Pending</StatusBadge>
                                                         </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        if (!isGracePeriod) { setSelectedInstructionForDelivery(inst); setShowRecordDeliveryModal(true); } 
-                                                                        else { toast.warn("Action disabled during grace period."); }
-                                                                    }}
-                                                                    disabled={isGracePeriod}
-                                                                    className={`inline-flex items-center px-3 py-1.5 border border-blue-200 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                                >
-                                                                    <CheckCircle2 className="h-4 w-4 mr-1.5" /> Confirm Delivery
-                                                                </button>
-                                                            </GracePeriodTooltip>
-                                                        </td>
+                                                        {!isCorporateAdminView && (
+                                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            if (!isGracePeriod) { setSelectedInstructionForDelivery(inst); setShowRecordDeliveryModal(true); } 
+                                                                            else { toast.warn("Action disabled during grace period."); }
+                                                                        }}
+                                                                        disabled={isGracePeriod}
+                                                                        className={`inline-flex items-center px-3 py-1.5 border border-blue-200 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    >
+                                                                        <CheckCircle2 className="h-4 w-4 mr-1.5" /> Confirm Delivery
+                                                                    </button>
+                                                                </GracePeriodTooltip>
+                                                            </td>
+                                                        )}
                                                     </tr>
                                                 );
                                             })}
@@ -511,15 +536,17 @@ function EndUserActionCenter({ isGracePeriod }) {
                                     <div className="p-2 bg-teal-100 rounded-lg"><Building className="h-5 w-5 text-teal-600" /></div>
                                     <h2 className="text-lg font-semibold text-gray-900">Awaiting Bank Reply</h2>
                                 </div>
-                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                    <button 
-                                        onClick={() => setShowBulkRemindersModal(true)}
-                                        disabled={isGracePeriod}
-                                        className={`mt-2 sm:mt-0 inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-colors active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    >
-                                        <Mail className="h-4 w-4 mr-2" /> Bulk Reminders
-                                    </button>
-                                </GracePeriodTooltip>
+                                {!isCorporateAdminView && (
+                                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                        <button 
+                                            onClick={() => setShowBulkRemindersModal(true)}
+                                            disabled={isGracePeriod}
+                                            className={`mt-2 sm:mt-0 inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-colors active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        >
+                                            <Mail className="h-4 w-4 mr-2" /> Bulk Reminders
+                                        </button>
+                                    </GracePeriodTooltip>
+                                )}
                             </div>
 
                             {instructionsNoReply.length === 0 ? (
@@ -532,7 +559,7 @@ function EndUserActionCenter({ isGracePeriod }) {
                                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">LG Number</th>
                                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Instruction</th>
                                                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Timeline</th>
-                                                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                                {!isCorporateAdminView && <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>}
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
@@ -556,39 +583,41 @@ function EndUserActionCenter({ isGracePeriod }) {
                                                             {inst.delivery_date && <span className="text-green-600 flex items-center"><CheckCircle2 className="w-3 h-3 mr-1"/> Delivered: {formatDate(inst.delivery_date)}</span>}
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                            <button 
-                                                                onClick={() => {
-                                                                    if (!isGracePeriod) { setSelectedInstructionForReply(inst); setShowRecordBankReplyModal(true); } 
-                                                                    else { toast.warn("Action disabled during grace period."); }
-                                                                }}
-                                                                disabled={isGracePeriod}
-                                                                className={`inline-flex items-center px-3 py-1.5 border border-green-200 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                            >
-                                                                <ArrowRight className="h-4 w-4 mr-1.5" /> Record Reply
-                                                            </button>
-                                                        </GracePeriodTooltip>
-                                                        
-                                                        {inst.has_reminder_sent ? (
-                                                            <button 
-                                                                onClick={() => handleViewLetter(inst.id, inst.lg_record?.lg_number || 'N/A')}
-                                                                className="inline-flex items-center px-3 py-1.5 border border-yellow-200 text-sm font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 transition-all active:scale-95"
-                                                            >
-                                                                <Eye className="h-4 w-4 mr-1.5" /> View Reminder
-                                                            </button>
-                                                        ) : (
+                                                    {!isCorporateAdminView && (
+                                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                                             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                                 <button 
-                                                                    onClick={() => handleSendReminder(inst.id, inst.serial_number)}
+                                                                    onClick={() => {
+                                                                        if (!isGracePeriod) { setSelectedInstructionForReply(inst); setShowRecordBankReplyModal(true); } 
+                                                                        else { toast.warn("Action disabled during grace period."); }
+                                                                    }}
                                                                     disabled={isGracePeriod}
-                                                                    className={`inline-flex items-center px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md text-gray-700 bg-gray-50 hover:bg-gray-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    className={`inline-flex items-center px-3 py-1.5 border border-green-200 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                                 >
-                                                                    <Mail className="h-4 w-4 mr-1.5" /> Remind
+                                                                    <ArrowRight className="h-4 w-4 mr-1.5" /> Record Reply
                                                                 </button>
                                                             </GracePeriodTooltip>
-                                                        )}
-                                                    </td>
+                                                            
+                                                            {inst.has_reminder_sent ? (
+                                                                <button 
+                                                                    onClick={() => handleViewLetter(inst.id, inst.lg_record?.lg_number || 'N/A')}
+                                                                    className="inline-flex items-center px-3 py-1.5 border border-yellow-200 text-sm font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 transition-all active:scale-95"
+                                                                >
+                                                                    <Eye className="h-4 w-4 mr-1.5" /> View Reminder
+                                                                </button>
+                                                            ) : (
+                                                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                                    <button 
+                                                                        onClick={() => handleSendReminder(inst.id, inst.serial_number)}
+                                                                        disabled={isGracePeriod}
+                                                                        className={`inline-flex items-center px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md text-gray-700 bg-gray-50 hover:bg-gray-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    >
+                                                                        <Mail className="h-4 w-4 mr-1.5" /> Remind
+                                                                    </button>
+                                                                </GracePeriodTooltip>
+                                                            )}
+                                                        </td>
+                                                    )}
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -600,44 +629,48 @@ function EndUserActionCenter({ isGracePeriod }) {
                 </>
             )}
 
-            {/* Modals - Logic preserved completely */}
-            {showExtendModal && selectedLgRecordForExtend && (
-                <ExtendLGModal
-                    lgRecord={selectedLgRecordForExtend}
-                    onClose={() => setShowExtendModal(false)}
-                    onSuccess={handleActionSuccess}
-                    isGracePeriod={isGracePeriod}
-                />
-            )}
-            {showRecordDeliveryModal && selectedInstructionForDelivery && (
-                <RecordDeliveryModal
-                    instruction={selectedInstructionForDelivery}
-                    onClose={() => setShowRecordDeliveryModal(false)}
-                    onSuccess={handleActionSuccess}
-                    isGracePeriod={isGracePeriod}
-                />
-            )}
-            {showRecordBankReplyModal && selectedInstructionForReply && (
-                <RecordBankReplyModal
-                    instruction={selectedInstructionForReply}
-                    onClose={() => setShowRecordBankReplyModal(false)}
-                    onSuccess={handleActionSuccess}
-                    isGracePeriod={isGracePeriod}
-                />
-            )}
-            {showBulkRemindersModal && (
-                <BulkRemindersModal
-                    onClose={() => setShowBulkRemindersModal(false)}
-                    onSuccess={handleActionSuccess}
-                    isGracePeriod={isGracePeriod}
-                />
-            )}
-            {showRunAutoRenewalModal && (
-                <RunAutoRenewalModal
-                    onClose={() => setShowRunAutoRenewalModal(false)}
-                    onSuccess={handleActionSuccess}
-                    isGracePeriod={isGracePeriod}
-                />
+            {/* Modals - Only render if NOT corporate admin view */}
+            {!isCorporateAdminView && (
+                <>
+                    {showExtendModal && selectedLgRecordForExtend && (
+                        <ExtendLGModal
+                            lgRecord={selectedLgRecordForExtend}
+                            onClose={() => setShowExtendModal(false)}
+                            onSuccess={handleActionSuccess}
+                            isGracePeriod={isGracePeriod}
+                        />
+                    )}
+                    {showRecordDeliveryModal && selectedInstructionForDelivery && (
+                        <RecordDeliveryModal
+                            instruction={selectedInstructionForDelivery}
+                            onClose={() => setShowRecordDeliveryModal(false)}
+                            onSuccess={handleActionSuccess}
+                            isGracePeriod={isGracePeriod}
+                        />
+                    )}
+                    {showRecordBankReplyModal && selectedInstructionForReply && (
+                        <RecordBankReplyModal
+                            instruction={selectedInstructionForReply}
+                            onClose={() => setShowRecordBankReplyModal(false)}
+                            onSuccess={handleActionSuccess}
+                            isGracePeriod={isGracePeriod}
+                        />
+                    )}
+                    {showBulkRemindersModal && (
+                        <BulkRemindersModal
+                            onClose={() => setShowBulkRemindersModal(false)}
+                            onSuccess={handleActionSuccess}
+                            isGracePeriod={isGracePeriod}
+                        />
+                    )}
+                    {showRunAutoRenewalModal && (
+                        <RunAutoRenewalModal
+                            onClose={() => setShowRunAutoRenewalModal(false)}
+                            onSuccess={handleActionSuccess}
+                            isGracePeriod={isGracePeriod}
+                        />
+                    )}
+                </>
             )}
         </div>
     );

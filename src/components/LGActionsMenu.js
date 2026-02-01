@@ -9,7 +9,7 @@ import moment from 'moment';
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
   if (isGracePeriod) {
     return (
-      <div className="relative group inline-block">
+      <div className="relative z-[100] group inline-block">
         {children}
         <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
           This action is disabled during your subscription's grace period.
@@ -50,7 +50,7 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
   };
 
   return (
-    <Menu as="div" className="relative inline-block text-left">
+    <Menu as="div" className="relative z-[100] inline-block text-left">
       <div>
         <MenuButton className="inline-flex justify-center w-full rounded-md p-1 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-blue-500">
           <EllipsisVertical className="h-5 w-5" aria-hidden="true" />

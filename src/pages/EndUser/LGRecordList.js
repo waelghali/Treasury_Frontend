@@ -865,13 +865,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                     {/* STICKY ACTION COLUMN */}
                     <td className="sticky right-0 z-10 bg-white group-hover:bg-blue-50 border-l border-gray-200 px-4 py-4 whitespace-nowrap text-right text-sm font-medium transition-colors shadow-sm">
                       <div className="flex justify-end items-center">
-                          <button
-                            onClick={(e) => handleInteractiveClick(e, () => handleViewLetter(record))}
-                            className="text-teal-600 hover:text-teal-900 mr-2 p-1 rounded-md hover:bg-white"
-                            title="View Latest Letter"
-                          >
-                            <FileText className="h-5 w-5" />
-                          </button>
                           
                           {!isCorporateAdminView && !isGracePeriod && (
                               <div onClick={(e) => handleInteractiveClick(e)}>
@@ -888,6 +881,13 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                                   />
                               </div>
                           )}
+                          <button
+                            onClick={(e) => handleInteractiveClick(e, () => handleViewLetter(record))}
+                            className="text-teal-600 hover:text-teal-900 mr-2 p-1 rounded-md hover:bg-white"
+                            title="View Latest Letter"
+                          >
+                            <FileText className="h-5 w-5" />
+                          </button>
                       </div>
                     </td>
                   </tr>

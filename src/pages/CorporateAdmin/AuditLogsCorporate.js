@@ -365,7 +365,7 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) {
               {logs.map((log) => (
                 <tr key={log.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatTimestamp(log.timestamp)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.user_name || 'System'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.user_name || log.user_id || 'System'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.action_type}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_type}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_name || 'N/A'}</td>

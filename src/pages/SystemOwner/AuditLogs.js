@@ -388,7 +388,7 @@ function AuditLogs() {
             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User ID</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Name</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer ID</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action Type</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity Type</th>
@@ -402,7 +402,7 @@ function AuditLogs() {
               {logs.map((log) => (
                 <tr key={log.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatTimestamp(log.timestamp)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.user_id || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.user_name || log.user_id || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.customer_id || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.action_type}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_type}</td>
