@@ -152,7 +152,7 @@ function FreeTrialRegistration() {
           {/* Left Column: Marketing & Benefits (75% height of the right column) */}
           <div className="lg:col-span-1 bg-white p-8 rounded-lg shadow-xl h-fit sticky top-28 border border-blue-100">
             <h2 className="text-2xl font-bold text-blue-600 mb-4">
-              Start Your 3-Month Free Trial
+              Start Your 1-Month Free Trial
             </h2>
             <p className="mt-2 text-gray-600 border-b pb-4 mb-4">
               Access the full LG Management System and transform your treasury operations immediately. No credit card required.

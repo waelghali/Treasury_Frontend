@@ -1,11 +1,21 @@
 // src/services/apiService.js
-// Centralized service for making API calls to the backend.
-
 import apiClient from './apiClient';
-
+import { v4 as uuidv4 } from 'uuid';
 export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
 
-// Function to store the access token
+/**
+ * Auth Token Management
+ */
+
+export const getOrCreateDeviceId = () => {
+  let deviceId = localStorage.getItem('device_id');
+  if (!deviceId) {
+    deviceId = uuidv4();
+    localStorage.setItem('device_id', deviceId);
+  }
+  return deviceId;
+};
+
 export const setAuthToken = (token) => {
   if (token) {
     localStorage.setItem('jwt_token', token);
@@ -14,284 +24,167 @@ export const setAuthToken = (token) => {
   }
 };
 
-// Function to get the current access token
 export const getAuthToken = () => {
   return localStorage.getItem('jwt_token');
 };
 
-// NEW: Inactivity Timer Logic
-let inactivityTimer;
-const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
+/**
+ * Inactivity & Session Timer Logic
+ */
+let sessionWarningTimer;
+let sessionExpiryTimer;
+
+// TOTAL_SESSION_MS: Total time before logout
+// WARNING_BUFFER_MS: How long the "warning modal" stays up before the end
+const TOTAL_SESSION_MS = 20 * 60 * 1000;    // 30 Seconds Total (Testing)
+export const WARNING_BUFFER_MS = 1 * 60 * 1000;  // 10 Seconds (Exported for UI)
 
 export const logoutUser = () => {
-    console.log('User logged out due to inactivity.');
+    console.log('User logged out due to inactivity or session expiry.');
     setAuthToken(null);
     stopInactivityTracker();
+    clearSessionTimers();
     window.location.href = '/login';
 };
 
-export const resetInactivityTimer = () => {
-    clearTimeout(inactivityTimer);
-    inactivityTimer = setTimeout(logoutUser, INACTIVITY_TIMEOUT);
+export const clearSessionTimers = () => {
+    clearTimeout(sessionWarningTimer);
+    clearTimeout(sessionExpiryTimer);
 };
 
-export const startInactivityTracker = () => {
-    if (typeof window !== 'undefined') { // Check if running in a browser environment
-        window.addEventListener('mousemove', resetInactivityTimer);
-        window.addEventListener('keydown', resetInactivityTimer);
-        window.addEventListener('click', resetInactivityTimer);
-        window.addEventListener('scroll', resetInactivityTimer);
-        resetInactivityTimer();
-    }
+export const startSessionTimers = (onWarning) => {
+    clearSessionTimers();
+
+    // Trigger the UI warning modal
+    sessionWarningTimer = setTimeout(() => {
+        if (onWarning) onWarning(); 
+    }, TOTAL_SESSION_MS - WARNING_BUFFER_MS);
+
+    // Final logout timer
+    sessionExpiryTimer = setTimeout(() => {
+        logoutUser();
+    }, TOTAL_SESSION_MS);
 };
 
-export const stopInactivityTracker = () => {
-    if (typeof window !== 'undefined') {
-        clearTimeout(inactivityTimer);
-        window.removeEventListener('mousemove', resetInactivityTimer);
-        window.removeEventListener('keydown', resetInactivityTimer);
-        window.removeEventListener('click', resetInactivityTimer);
-        window.removeEventListener('scroll', resetInactivityTimer);
+export const handleUserActivity = async (onWarning) => {
+    startSessionTimers(onWarning); 
+};
+
+// Compatibility stubs for App.js logic
+export const resetInactivityTimer = () => {}; 
+export const startInactivityTracker = () => {};
+export const stopInactivityTracker = () => clearSessionTimers();
+
+/**
+ * Session Extension (Token Refresh)
+ */
+export const extendSession = async () => {
+    try {
+        const data = await apiRequest('/refresh-token', 'POST');
+        if (data && data.access_token) {
+            setAuthToken(data.access_token);
+            return true;
+        }
+    } catch (err) {
+        console.error("Extension failed", err);
     }
+    return false;
 };
 
 /**
- * A centralized function to make authenticated API requests.
- * @param {string} url The URL path for the API endpoint.
- * @param {string} method The HTTP method (GET, POST, PUT, DELETE).
- * @param {object} data The request body data (optional).
- * @param {string} contentType The Content-Type header (e.g., 'application/json', 'multipart/form-data').
- * @param {string} responseType The expected response type (e.g., 'json', 'text'). Defaults to 'json'.
- * @returns {Promise<any>} A promise that resolves to the response data.
- * @throws {Error} Throws an error for non-2xx responses or network issues.
+ * Centralized API Request Handlers
  */
 export const apiRequest = async (url, method = 'GET', data = null, contentType = 'application/json', responseType = 'json') => {
   const token = getAuthToken();
   const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
   let body = data;
-
-  // CRITICAL FIX: Only set Content-Type and stringify the body if it is not FormData.
-  // The browser sets the correct 'multipart/form-data' header for FormData automatically.
   if (!(data instanceof FormData)) {
       headers['Content-Type'] = contentType;
-      if (contentType === 'application/json' && data !== null) {
-          body = JSON.stringify(data);
-      }
+      if (contentType === 'application/json' && data !== null) body = JSON.stringify(data);
   }
 
   try {
-    const fetchOptions = {
-        method,
-        headers,
-        body: (method === 'GET' || method === 'HEAD') ? null : body,
-    };
-
+    const fetchOptions = { method, headers, body: (method === 'GET' || method === 'HEAD') ? null : body };
     const response = await fetch(`${API_BASE_URL}${url}`, fetchOptions);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      // MODIFIED: Handle 403 specifically
       if (response.status === 403) {
         const forbiddenError = new Error(errorData.detail || 'Access to this resource is forbidden.');
         forbiddenError.statusCode = 403;
         throw forbiddenError;
       }
       if (response.status === 401) {
-        setAuthToken(null);
-        window.location.href = '/login';
-        const authError = new Error('Authentication required or session expired. Please log in again.');
+        logoutUser(); 
+        const authError = new Error('Authentication required or session expired.');
         authError.statusCode = 401;
         throw authError;
       }
-      const errorMessage = errorData.detail || errorData.message || response.statusText;
-      const error = new Error(errorMessage);
+      const error = new Error(errorData.detail || errorData.message || response.statusText);
       error.statusCode = response.status;
       throw error;
     }
 
     const contentTypeHeader = response.headers.get('content-type');
-    if (response.status === 204 || !contentTypeHeader) {
-      return null;
-    }
-    
-    if (responseType === 'text') {
-      return await response.text();
-    }
-
-    return await response.json();
-
+    if (response.status === 204 || !contentTypeHeader) return null;
+    return responseType === 'text' ? await response.text() : await response.json();
   } catch (error) {
     console.error('API Request Failed:', error);
     throw error;
   }
 };
 
-/**
- * A centralized function to make public (unauthenticated) API requests.
- * @param {string} url The URL path for the API endpoint.
- * @param {string} method The HTTP method (GET, POST).
- * @param {object} data The request body data (optional).
- * @param {object} customHeaders The custom headers for the request (optional).
- * @returns {Promise<any>} A promise that resolves to the response data.
- * @throws {Error} Throws an error for non-2xx responses or network issues.
- */
 export const publicApiRequest = async (url, method = 'GET', data = null, customHeaders = {}) => {
   let body = data;
-  const headers = customHeaders;
-
+  const headers = { ...customHeaders };
   if (!(data instanceof FormData)) {
     headers['Content-Type'] = headers['Content-Type'] || 'application/json';
-    if (headers['Content-Type'] === 'application/json' && data !== null) {
-      body = JSON.stringify(data);
-    }
+    if (headers['Content-Type'] === 'application/json' && data !== null) body = JSON.stringify(data);
   }
 
   try {
-    const fetchOptions = {
-      method,
-      headers,
-      body: (method === 'GET' || method === 'HEAD') ? null : body,
-    };
-
+    const fetchOptions = { method, headers, body: (method === 'GET' || method === 'HEAD') ? null : body };
     const response = await fetch(`${API_BASE_URL}${url}`, fetchOptions);
-
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.detail || errorData.message || response.statusText;
-      const error = new Error(errorMessage);
+      const error = new Error(errorData.detail || errorData.message || response.statusText);
       error.statusCode = response.status;
       throw error;
     }
-
     const contentTypeHeader = response.headers.get('content-type');
-    if (response.status === 204 || !contentTypeHeader) {
-      return null;
-    }
-    
-    return await response.json();
-
+    return (response.status === 204 || !contentTypeHeader) ? null : await response.json();
   } catch (error) {
     console.error('Public API Request Failed:', error);
     throw error;
   }
 };
 
-// --- System Owner Endpoints for Notifications ---
-
 /**
- * @deprecated Use the more generic fetchSystemNotificationsForUser in notificationService.js
+ * Endpoint Specific Functions
  */
-export const getSystemNotifications = async () => {
-  return apiRequest('/system-owner/system-notifications/');
-};
 
-export const getSystemNotificationById = async (id) => {
-  return apiRequest(`/system-owner/system-notifications/${id}`, 'GET');
-};
+// System Notifications
+export const getSystemNotifications = async () => apiRequest('/system-owner/system-notifications/');
+export const getSystemNotificationById = async (id) => apiRequest(`/system-owner/system-notifications/${id}`, 'GET');
+export const createSystemNotification = async (notificationData) => apiRequest('/system-owner/system-notifications/', 'POST', notificationData);
+export const updateSystemNotification = async (id, notificationData) => apiRequest(`/system-owner/system-notifications/${id}`, 'PUT', notificationData);
+export const deleteSystemNotification = async (id) => apiRequest(`/system-owner/system-notifications/${id}`, 'DELETE');
+export const restoreSystemNotification = async (id) => apiRequest(`/system-owner/system-notifications/${id}/restore`, 'POST');
+export const getSystemNotificationAnalytics = async (id) => apiRequest(`/system-owner/system-notifications/${id}/analytics`, 'GET');
+export const fetchActiveSystemNotifications = async () => apiClient.get('/end-user/system-notifications/');
 
-export const createSystemNotification = async (notificationData) => {
-  return apiRequest('/system-owner/system-notifications/', 'POST', notificationData);
-};
+// User & Role Management
+export const getAllUsersForSystemOwner = async () => apiRequest('/system-owner/users/');
+export const getAllRolesForSystemOwner = async () => ['System Owner', 'Corporate Admin', 'End User'];
+export const createCustomerUserBySystemOwner = async (customerId, userData) => apiRequest(`/system-owner/customers/${customerId}/users/`, 'POST', userData);
+export const updateCustomerUserBySystemOwner = async (userId, userData) => apiRequest(`/system-owner/users/${userId}`, 'PUT', userData);
+export const deleteUserBySystemOwner = async (userId) => apiRequest(`/system-owner/users/${userId}`, 'DELETE');
+export const restoreUserBySystemOwner = async (userId) => apiRequest(`/system-owner/users/${userId}/restore`, 'POST');
 
-export const updateSystemNotification = async (id, notificationData) => {
-  return apiRequest(`/system-owner/system-notifications/${id}`, 'PUT', notificationData);
-};
-
-export const deleteSystemNotification = async (id) => {
-  return apiRequest(`/system-owner/system-notifications/${id}`, 'DELETE');
-};
-
-export const restoreSystemNotification = async (id) => {
-  return apiRequest(`/system-owner/system-notifications/${id}/restore`, 'POST');
-};
-
-/**
- * Fetches analytics data for a specific system notification.
- * @param {number} id The ID of the notification.
- */
-export const getSystemNotificationAnalytics = async (id) => {
-  return apiRequest(`/system-owner/system-notifications/${id}/analytics`, 'GET');
-};
-
-// --- NEW: General Notifications Endpoints for All Users ---
-
-/**
- * Fetches all active system notifications relevant to the current user.
- * This includes global notifications and those targeted at the user's customer.
- * @returns {Array} An array of active system notification objects.
- */
-export const fetchActiveSystemNotifications = async () => {
-  return apiClient.get('/end-user/system-notifications/');
-};
-
-// --- NEW PHASE 2 HELPER FUNCTIONS ---
-/**
- * Fetches all users for the System Owner to target notifications.
- */
-export const getAllUsersForSystemOwner = async () => {
-  return apiRequest('/system-owner/users/');
-};
-
-/**
- * Fetches all available user roles for the System Owner to target notifications.
- */
-export const getAllRolesForSystemOwner = async () => {
-  // This endpoint might not exist, so we mock a list of roles.
-  // In a real app, this would be a backend call to /roles or similar.
-  return ['System Owner', 'Corporate Admin', 'End User'];
-};
-
-/**
- * Sends a cancellation request for an LG instruction.
- * @param {number} instructionId The ID of the instruction to cancel.
- * @param {string} reason The reason for the cancellation.
- * @param {boolean} declarationConfirmed Whether the user has confirmed the declaration.
- * @returns {Promise<object>} The response data, including the updated instruction and LG record.
- */
+// LG Specific
 export const cancelLGInstruction = async (instructionId, reason, declarationConfirmed) => {
   const payload = { reason, declaration_confirmed: declarationConfirmed };
   return apiRequest(`/end-user/lg-records/instructions/${instructionId}/cancel`, 'POST', payload);
-};
-
-// --- NEW ENDPOINTS FOR USER MANAGEMENT ---
-
-/**
- * Creates a new user for a specific customer.
- * @param {number} customerId The ID of the customer.
- * @param {object} userData The user data payload.
- * @returns {Promise<object>} The newly created user object.
- */
-export const createCustomerUserBySystemOwner = async (customerId, userData) => {
-  return apiRequest(`/system-owner/customers/${customerId}/users/`, 'POST', userData);
-};
-
-/**
- * Updates an existing user for a specific customer.
- * @param {number} userId The ID of the user to update.
- * @param {object} userData The user data payload.
- * @returns {Promise<object>} The updated user object.
- */
-export const updateCustomerUserBySystemOwner = async (userId, userData) => {
-  return apiRequest(`/system-owner/users/${userId}`, 'PUT', userData);
-};
-
-/**
- * Soft-deletes a user.
- * @param {number} userId The ID of the user to delete.
- */
-export const deleteUserBySystemOwner = async (userId) => {
-  return apiRequest(`/system-owner/users/${userId}`, 'DELETE');
-};
-
-/**
- * Restores a soft-deleted user.
- * @param {number} userId The ID of the user to restore.
- */
-export const restoreUserBySystemOwner = async (userId) => {
-  return apiRequest(`/system-owner/users/${userId}/restore`, 'POST');
 };

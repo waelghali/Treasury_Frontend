@@ -39,7 +39,6 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, su
        if (currentPath.startsWith('/corporate-admin/dashboard')) { activeItem = 'corporate-admin-dashboard'; title = 'Dashboard'; }
        else if (currentPath.startsWith('/corporate-admin/issuance')) { activeItem = 'issuance-requests'; title = 'LG Issuance'; }
        else if (currentPath.startsWith('/corporate-admin/lg-records')) { activeItem = 'lg-records'; title = 'All LG Records'; }
-       // This matches the "Pending Approvals" tab you modified
        else if (currentPath.startsWith('/corporate-admin/approval-requests')) { activeItem = 'pending-approvals'; title = 'Pending Approvals'; }
        else if (currentPath.startsWith('/corporate-admin/action-center')) { activeItem = 'action-center'; title = 'Action Center'; }
        else if (currentPath.startsWith('/corporate-admin/users')) { activeItem = 'user-management'; title = 'User Management'; }
@@ -77,9 +76,8 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, su
 
   // --- 2. NOTIFICATIONS LOGIC ---
   useEffect(() => {
-    // Optimization: End Users fetch their own notifications in EndUserLayout.js.
-    // We skip it here to avoid double API calls for End Users.
-    if (userRole === 'end_user') return;
+    // Optimization: End Users AND Corporate Admins fetch their own notifications in their layouts.
+    if (userRole === 'end_user' || userRole === 'corporate_admin') return;
 
     const loadNotifications = async () => {
         try {
@@ -92,7 +90,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, su
     loadNotifications();
   }, [userRole]);
 
-  // --- 3. RENDERING (CLEAN - NO THEME WRAPPERS) ---
+  // --- 3. RENDERING ---
   if (userRole === 'system_owner') {
     return (
       <SidebarLayout
@@ -111,7 +109,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, su
             activeMenuItem={activeMenuItem}
             customerName={customerName}
             headerTitle={headerTitle}
-            systemNotifications={systemNotifications}
+            // CorporateAdminLayout fetches its own notifications now
             subscriptionStatus={subscriptionStatus} 
             subscriptionEndDate={subscriptionEndDate}
         >
@@ -125,7 +123,6 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, su
             activeMenuItem={activeMenuItem}
             customerName={customerName}
             headerTitle={headerTitle}
-            // EndUserLayout fetches its own notifications now, so we don't pass systemNotifications
             subscriptionStatus={subscriptionStatus}
             subscriptionEndDate={subscriptionEndDate}
             userPermissions={userPermissions}
@@ -146,7 +143,6 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, su
         </ViewerLayout>
     );
   } else {
-    // Loading State
     return (
       <div className="text-center py-8">
         <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

@@ -17,8 +17,14 @@ function SidebarLayout({ onLogout, headerTitle }) {
   const isLinkActive = (path) => location.pathname.startsWith(path);
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
-      <aside className="w-72 bg-white shadow-lg border-r border-gray-200 flex flex-col flex-shrink-0">
+    <div className="relative flex h-screen bg-[#f8fafc] overflow-hidden">
+      {/* BACKGROUND BLOBS & ORBS FROM LOGIN */}
+      <div className="fixed top-[-10%] right-[-5%] w-[500px] h-[500px] bg-blue-500 rounded-full blur-[140px] opacity-20 animate-pulse pointer-events-none"></div>
+      <div className="fixed bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-blue-700 rounded-full blur-[140px] opacity-20 animate-pulse pointer-events-none" style={{ animationDelay: '3s' }}></div>
+      <div className="hidden lg:block fixed top-1/4 left-10 w-32 h-32 bg-gradient-to-tr from-blue-400 to-blue-600 rounded-full opacity-10 animate-float pointer-events-none"></div>
+      <div className="hidden lg:block fixed bottom-1/3 right-12 w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full opacity-10 animate-float-delayed pointer-events-none"></div>
+
+      <aside className="w-72 bg-white/80 backdrop-blur-md shadow-lg border-r border-gray-200 flex flex-col flex-shrink-0 relative z-10">
         <div className="p-6 border-b border-gray-200">
 		<div className="flex items-center justify-center space-x-2">
 		  <img
@@ -67,7 +73,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
           <Link
             to="/system-owner/customers/trial-registrations"
             className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ml-6 ${
-              isLinkActive('/system-owner/customers/trial-registrations') ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'
+              isLinkActive('/system-owner/customers/trial-registrations') ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-0'
             }`}
           >
             <UserPlus className="h-4 w-4 mr-2" />
@@ -252,9 +258,16 @@ function SidebarLayout({ onLogout, headerTitle }) {
         </div>
       </aside>
 
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="flex-1 p-8 overflow-y-auto relative z-10">
         <Outlet />
       </main>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes float { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-40px) scale(1.05); } }
+        @keyframes float-delayed { 0%, 100% { transform: translateY(0) scale(1.05); } 50% { transform: translateY(40px) scale(1); } }
+        .animate-float { animation: float 10s ease-in-out infinite; }
+        .animate-float-delayed { animation: float-delayed 12s ease-in-out infinite; }
+      `}} />
     </div>
   );
 }

@@ -1,22 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet } from 'react-router-dom';
-import { Home, FileText, PlusCircle, BarChart, LogOut, FolderKanban, Users, ListTodo } from 'lucide-react';
+import { 
+  Home, FileText, PlusCircle, BarChart, LogOut, 
+  FolderKanban, Users, ListTodo, ChevronLeft, ChevronRight 
+} from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner'; 
-// Use the service function for fetching end-user notifications
-import { fetchActiveSystemNotifications } from '../../services/notificationService'; // Assumed correct path
+import { fetchActiveSystemNotifications } from '../../services/notificationService';
 
-// REMOVED 'systemNotifications' from props
 function EndUserLayout({ onLogout, activeMenuItem, customerName, headerTitle, subscriptionStatus, subscriptionEndDate }) { 
-  // ADDED state to manage notifications and their loading status
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false); // New state for shrinking
 
-  // ADDED useEffect to fetch notifications on mount
   useEffect(() => {
     async function loadNotifications() {
       try {
-        const activeNotifs = await fetchActiveSystemNotifications(); // Fetch the data
+        const activeNotifs = await fetchActiveSystemNotifications();
         setNotifications(activeNotifs);
       } catch (error) {
         console.error('Failed to load end-user notifications:', error);
@@ -24,8 +24,6 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, headerTitle, su
         setIsLoading(false);
       }
     }
-    
-    // Ensure this runs only once on component mount
     loadNotifications();
   }, []); 
 
@@ -33,114 +31,150 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, headerTitle, su
   const isGracePeriod = subscriptionStatus === 'grace';
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
-      <aside className="w-72 bg-white shadow-lg border-r border-gray-200 flex flex-col flex-shrink-0">
-        <div className="p-6 border-b border-gray-200">
-		<div className="flex items-center justify-center space-x-2">
-		  <img
-			src="/growlogonleaf.png"
-			alt="Grow BD Logo"
-			style={{ width: '80px', height: 'auto' }}
-		  />
-		  <h1 className="text-xl font-bold text-gray-800">Treasury Platform</h1>
-		</div>          
-          <p className="text-sm text-gray-500">End User Edition</p>
+    <div className="relative flex h-screen bg-[#f8fafc] overflow-hidden">
+      {/* BACKGROUND BLOBS & ORBS FROM LOGIN */}
+      <div className="fixed top-[-10%] right-[-5%] w-[500px] h-[500px] bg-blue-500 rounded-full blur-[140px] opacity-20 animate-pulse pointer-events-none"></div>
+      <div className="fixed bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-blue-700 rounded-full blur-[140px] opacity-20 animate-pulse pointer-events-none" style={{ animationDelay: '3s' }}></div>
+      <div className="hidden lg:block fixed top-1/4 left-10 w-32 h-32 bg-gradient-to-tr from-blue-400 to-blue-600 rounded-full opacity-10 animate-float pointer-events-none"></div>
+      <div className="hidden lg:block fixed bottom-1/3 right-12 w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full opacity-10 animate-float-delayed pointer-events-none"></div>
+
+      {/* SIDEBAR: Dynamic width based on isCollapsed state */}
+      <aside 
+        className={`${
+          isCollapsed ? 'w-20' : 'w-72'
+        } bg-white/80 backdrop-blur-md shadow-lg border-r border-gray-200 flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out relative z-10`}
+      >
+        {/* Toggle Button */}
+        <button 
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="absolute -right-3 top-12 bg-white border border-gray-200 rounded-full p-1 shadow-md hover:text-blue-600 z-50 transition-colors"
+        >
+          {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+
+        <div className="py-6 px-4 border-b border-gray-200 flex-shrink-0">
+          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start ml-2'} space-x-2`}>
+            <img src="/growlogonleaf.png" alt="Logo" style={{ width: '40px', height: 'auto' }} />
+            {!isCollapsed && (
+              <h1 className="text-xl font-bold text-gray-800 whitespace-nowrap overflow-hidden">
+                Treasury
+              </h1>
+            )}
+          </div>
+          {!isCollapsed && <p className="text-xs text-gray-500 text-center mt-2 font-medium uppercase tracking-wider">End User Edition</p>}
         </div>
 
         <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
+          {/* Dashboard */}
           <Link
             to="/end-user/dashboard"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            title={isCollapsed ? "Dashboard" : ""}
+            className={`flex items-center px-3 py-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'end-user-dashboard' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <Home className="h-5 w-5 mr-3" />
-            Dashboard
+            <Home className="h-5 w-5 flex-shrink-0" />
+            {!isCollapsed && <span className="ml-3 text-sm">Dashboard</span>}
           </Link>
 
+          {/* Action Center */}
           <Link
             to="/end-user/action-center"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            title={isCollapsed ? "Action Center" : ""}
+            className={`flex items-center px-3 py-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'end-user-action-center' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <ListTodo className="h-5 w-5 mr-3" />
-            Action Center
+            <ListTodo className="h-5 w-5 flex-shrink-0" />
+            {!isCollapsed && <span className="ml-3 text-sm">Action Center</span>}
           </Link>
 
+          {/* Record New LG */}
           <Link
             to="/end-user/lg-records/new"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            title={isCollapsed ? "Record New LG" : ""}
+            className={`flex items-center px-3 py-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'end-user-record-new-lg' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <PlusCircle className="h-5 w-5 mr-3" />
-            Record New LG
+            <PlusCircle className="h-5 w-5 flex-shrink-0" />
+            {!isCollapsed && <span className="ml-3 text-sm">Record New LG</span>}
           </Link>
 
+          {/* Manage LG Records */}
           <Link
             to="/end-user/lg-records"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            title={isCollapsed ? "Manage LG Records" : ""}
+            className={`flex items-center px-3 py-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'end-user-manage-lg-records' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <FolderKanban className="h-5 w-5 mr-3" />
-            Manage LG Records
+            <FolderKanban className="h-5 w-5 flex-shrink-0" />
+            {!isCollapsed && <span className="ml-3 text-sm">Manage LG Records</span>}
           </Link>
 
+          {/* Withdraw Request */}
           <Link
             to="/end-user/pending-approvals"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            title={isCollapsed ? "Withdraw Request" : ""}
+            className={`flex items-center px-3 py-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'end-user-pending-approvals' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <FileText className="h-5 w-5 mr-3" />
-            Withdraw Request for Approval
+            <FileText className="h-5 w-5 flex-shrink-0" />
+            {!isCollapsed && <span className="ml-3 text-sm">Withdraw Request</span>}
           </Link>
 
+          {/* Internal Owners */}
           <Link
             to="/end-user/internal-owners"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            title={isCollapsed ? "Manage Internal Owners" : ""}
+            className={`flex items-center px-3 py-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'end-user-internal-owners' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <Users className="h-5 w-5 mr-3" />
-            Manage Internal Owners
+            <Users className="h-5 w-5 flex-shrink-0" />
+            {!isCollapsed && <span className="ml-3 text-sm">Internal Owners</span>}
           </Link>
 
+          {/* Reports */}
           <Link
             to="/end-user/reports"
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            title={isCollapsed ? "Reports" : ""}
+            className={`flex items-center px-3 py-3 rounded-lg transition-colors duration-200 ${
               activeMenuItem === 'end-user-reports' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <BarChart className="h-5 w-5 mr-3" />
-            Reports
+            <BarChart className="h-5 w-5 flex-shrink-0" />
+            {!isCollapsed && <span className="ml-3 text-sm">Reports</span>}
           </Link>
         </nav>
 
+        {/* User Profile Footer */}
         <div className="p-4 border-t border-gray-200 flex-shrink-0">
-          <div className="flex items-center mb-3">
-            <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white text-sm font-semibold">
+          <div className={`flex items-center mb-4 ${isCollapsed ? 'justify-center' : 'ml-2'}`}>
+            <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-500 text-white text-xs font-bold flex-shrink-0">
               EU
             </span>
-            <div className="ml-3">
-              <p className="text-sm font-semibold text-gray-800">End User</p>
-              <p className="text-xs text-gray-500">Org: {customerName}</p>
-            </div>
+            {!isCollapsed && (
+              <div className="ml-3 overflow-hidden">
+                <p className="text-sm font-semibold text-gray-800 truncate">End User</p>
+                <p className="text-[10px] text-gray-500 truncate">Org: {customerName}</p>
+              </div>
+            )}
           </div>
           <button
             onClick={onLogout}
-            className="w-full flex items-center justify-center p-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
+            title={isCollapsed ? "Sign Out" : ""}
+            className="w-full flex items-center justify-center p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
           >
-            <LogOut className="h-5 w-5 mr-2" />
-            Sign Out
+            <LogOut className="h-5 w-5 flex-shrink-0" />
+            {!isCollapsed && <span className="ml-2 text-sm font-medium">Sign Out</span>}
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 p-8 overflow-y-auto">
-        {/* MODIFIED: Renders UNCONDITIONALLY if notifications are loaded and present */}
+      <main className="flex-1 p-8 overflow-y-auto relative z-10">
         {!isLoading && notifications.length > 0 && (
           <div className="mb-4">
             <NotificationBanner notifications={notifications} />
@@ -149,6 +183,13 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, headerTitle, su
         {isGracePeriod && <SubscriptionBanner subscriptionEndDate={subscriptionEndDate} />}
         <Outlet />
       </main>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes float { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-40px) scale(1.05); } }
+        @keyframes float-delayed { 0%, 100% { transform: translateY(0) scale(1.05); } 50% { transform: translateY(40px) scale(1); } }
+        .animate-float { animation: float 10s ease-in-out infinite; }
+        .animate-float-delayed { animation: float-delayed 12s ease-in-out infinite; }
+      `}} />
     </div>
   );
 }
