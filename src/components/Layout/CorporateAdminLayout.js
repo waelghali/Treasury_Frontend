@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { 
   Home, Users, FolderKanban, LogOut, Settings, FileText, 
@@ -9,15 +9,14 @@ import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner';
 import { apiRequest } from '../../services/apiService';
 import { fetchActiveSystemNotifications } from '../../services/notificationService';
+import { parseISO } from 'date-fns';
 
-// --- BEYOND REACT: INSTANT CACHE READ ---
 const getInitialCount = () => {
   try {
     const saved = localStorage.getItem('sidebar_pending_count');
     return saved ? parseInt(saved, 10) : 0;
   } catch { return 0; }
 };
-const initialValue = getInitialCount();
 
 function CorporateAdminLayout({ 
   activeMenuItem, 
@@ -26,12 +25,32 @@ function CorporateAdminLayout({
   subscriptionStatus, 
   subscriptionEndDate 
 }) {
-  const [pendingCount, setPendingCount] = useState(initialValue);
+  const [pendingCount, setPendingCount] = useState(getInitialCount());
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [isLoadingNotifs, setIsLoadingNotifs] = useState(true);
 
-  // Fetch notifications for Corporate Admin (Similar to EndUser logic)
+  const isExpired = subscriptionStatus === 'expired';
+  const isGrace = subscriptionStatus === 'grace';
+
+  // Memoized Growth logic to ensure it recalculates correctly
+  const growthRatio = useMemo(() => {
+    if (!subscriptionEndDate) return 0;
+    const endDate = typeof subscriptionEndDate === 'string' ? parseISO(subscriptionEndDate) : new Date(subscriptionEndDate);
+    const today = new Date();
+    const diffMs = endDate.getTime() - today.getTime();
+    const daysRemaining = diffMs / (1000 * 60 * 60 * 24);
+    
+    if (isExpired || isGrace) {
+      const graceDaysElapsed = Math.abs(daysRemaining);
+      return Math.min(0.5 + (graceDaysElapsed / 30) * 0.5, 1.0);
+    } else {
+      if (daysRemaining > 30) return 0;
+      if (daysRemaining <= 0) return 0.5;
+      return (30 - daysRemaining) / 30 * 0.5;
+    }
+  }, [subscriptionEndDate, isExpired, isGrace]);
+
   useEffect(() => {
     async function loadNotifications() {
       try {
@@ -63,20 +82,14 @@ function CorporateAdminLayout({
     const interval = setInterval(fetchPendingCount, 300000);
     return () => clearInterval(interval);
   }, [fetchPendingCount]);
-  
-  const isDashboard = activeMenuItem === 'corporate-admin-dashboard';
 
   return (
     <div className="relative flex h-screen bg-[#f8fafc] overflow-hidden">
-      {/* BACKGROUND BLOBS & ORBS FROM LOGIN */}
+      {/* BACKGROUND BLOBS */}
       <div className="fixed top-[-10%] right-[-5%] w-[500px] h-[500px] bg-blue-500 rounded-full blur-[140px] opacity-20 animate-pulse pointer-events-none"></div>
-      <div className="fixed bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-blue-700 rounded-full blur-[140px] opacity-20 animate-pulse pointer-events-none" style={{ animationDelay: '3s' }}></div>
-      <div className="hidden lg:block fixed top-1/4 left-10 w-32 h-32 bg-gradient-to-tr from-blue-400 to-blue-600 rounded-full opacity-10 animate-float pointer-events-none"></div>
-      <div className="hidden lg:block fixed bottom-1/3 right-12 w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full opacity-10 animate-float-delayed pointer-events-none"></div>
+      <div className="fixed bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-blue-700 rounded-full blur-[140px] opacity-20 animate-pulse pointer-events-none"></div>
 
       <aside className={`${isCollapsed ? 'w-20' : 'w-72'} bg-white/80 backdrop-blur-md shadow-lg border-r border-gray-200 flex flex-col flex-shrink-0 transition-all duration-300 relative z-10`}>
-        
-        {/* Collapse Toggle Button */}
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="absolute -right-3 top-10 bg-white border border-gray-200 rounded-full p-1 shadow-md z-10 hover:bg-gray-50"
@@ -86,7 +99,7 @@ function CorporateAdminLayout({
 
         <div className="py-4 px-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-center space-x-2">
-            <img src="/growlogonleaf.png" alt="Grow BD Logo" style={{ width: isCollapsed ? '40px' : '80px', height: 'auto' }} />
+            <img src="/growlogonleaf.png" alt="Logo" style={{ width: isCollapsed ? '40px' : '80px', height: 'auto' }} />
             {!isCollapsed && <h1 className="text-xl font-bold text-gray-800">Treasury Platform</h1>}
           </div>
           {!isCollapsed && <p className="text-sm text-gray-500 text-center mt-1">Corporate Admin</p>}
@@ -96,7 +109,7 @@ function CorporateAdminLayout({
           {/* Overview */}
           <div className="pb-2">
             {!isCollapsed && <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Overview</p>}
-            <Link title="Dashboard" to="/corporate-admin/dashboard" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'corporate-admin-dashboard' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+            <Link to="/corporate-admin/dashboard" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeMenuItem === 'corporate-admin-dashboard' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
               <Home className={`h-5 w-5 ${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
               {!isCollapsed && <span>Dashboard</span>}
             </Link>
@@ -105,80 +118,73 @@ function CorporateAdminLayout({
           {/* Issuance */}
           <div className="pb-2">
              {!isCollapsed && <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Issuance</p>}
-             <Link title="Requests Inbox" to="/corporate-admin/issuance/requests" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'issuance-requests' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+             <Link to="/corporate-admin/issuance/requests" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${activeMenuItem === 'issuance-requests' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
                <Send className={`h-5 w-5 ${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
                {!isCollapsed && <span>Requests Inbox</span>}
              </Link>
-             <Link title="Bank Facilities" to="/corporate-admin/issuance/facilities" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'issuance-facilities' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+             <Link to="/corporate-admin/issuance/facilities" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${activeMenuItem === 'issuance-facilities' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
                <Building className={`h-5 w-5 ${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
                {!isCollapsed && <span>Bank Facilities</span>}
              </Link>
           </div>
 
+          {/* LG Management */}
           <div className="pb-2">
             {!isCollapsed && <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">LG Management</p>}
-            <Link title="All LG Records" to="/corporate-admin/lg-records" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'lg-records' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+            <Link to="/corporate-admin/lg-records" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${activeMenuItem === 'lg-records' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
               <FolderKanban className={`h-5 w-5 ${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
               {!isCollapsed && <span>All LG Records</span>}
             </Link>
             
-            <Link 
-              title="Pending Approvals"
-              to="/corporate-admin/approval-requests" 
-              className={`flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'pending-approvals' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
-            >
+            <Link to="/corporate-admin/approval-requests" className={`flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md ${activeMenuItem === 'pending-approvals' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
               <div className={`flex items-center ${isCollapsed ? 'mx-auto' : ''}`}>
                 <Hourglass className={`h-5 w-5 ${isCollapsed ? '' : 'mr-3'}`} />
                 {!isCollapsed && <span>Pending Approvals</span>}
               </div>
-              
-              {!isCollapsed && (
-                <span 
-                  className="inline-flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full text-[10px] font-bold transition-opacity duration-200"
-                  style={{
-                    backgroundColor: pendingCount > 0 ? '#ef4444' : 'transparent',
-                    color: pendingCount > 0 ? 'white' : 'transparent',
-                    opacity: pendingCount > 0 ? 1 : 0
-                  }}
-                >
-                  {pendingCount > 9 ? '9+' : (pendingCount || 0)}
+              {!isCollapsed && pendingCount > 0 && (
+                <span className="inline-flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
+                  {pendingCount > 9 ? '9+' : pendingCount}
                 </span>
               )}
             </Link>
 
-            <Link title="Action Center" to="/corporate-admin/action-center" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'action-center' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+            <Link to="/corporate-admin/action-center" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${activeMenuItem === 'action-center' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
               <ClipboardList className={`h-5 w-5 ${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
               {!isCollapsed && <span>Action Center</span>}
             </Link>
           </div>
 
+          {/* Configuration */}
+          {!isExpired && (
+            <div className="pb-2">
+              {!isCollapsed && <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Configuration</p>}
+              <Link to="/corporate-admin/users" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${activeMenuItem === 'user-management' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+                <Users className={`h-5 w-5 ${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
+                {!isCollapsed && <span>User Management</span>}
+              </Link>
+              <Link to="/corporate-admin/module-configs" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${activeMenuItem === 'module-configs' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+                <Settings className={`h-5 w-5 ${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
+                {!isCollapsed && <span>Settings</span>}
+              </Link>
+              <Link to="/corporate-admin/lg-categories" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${activeMenuItem === 'lg-categories' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+                <FileText className={`h-5 w-5 ${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
+                {!isCollapsed && <span>LG Categories</span>}
+              </Link>
+            </div>
+          )}
+
+          {/* System */}
           <div className="pb-2">
-            {!isCollapsed && <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Configuration</p>}
-            <Link title="User Management" to="/corporate-admin/users" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'user-management' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
-              <Users className={`h-5 w-5 ${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
-              {!isCollapsed && <span>User Management</span>}
-            </Link>
-             <Link title="Settings" to="/corporate-admin/module-configs" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'module-configs' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
-              <Settings className={`h-5 w-5 ${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
-              {!isCollapsed && <span>Settings</span>}
-            </Link>
-             <Link title="LG Categories" to="/corporate-admin/lg-categories" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'lg-categories' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
-              <FileText className={`h-5 w-5 ${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
-              {!isCollapsed && <span>LG Categories</span>}
-            </Link>
-          </div>
-          
-           <div className="pb-2">
             {!isCollapsed && <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">System</p>}
-            <Link title="Audit Logs" to="/corporate-admin/audit-logs" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'audit-logs' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+            <Link to="/corporate-admin/audit-logs" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${activeMenuItem === 'audit-logs' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
               <FileText className={`h-5 w-5 ${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
               {!isCollapsed && <span>Audit Logs</span>}
             </Link>
-             <Link title="Reports" to="/corporate-admin/reports" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'reports' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+            <Link to="/corporate-admin/reports" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${activeMenuItem === 'reports' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
               <BarChart className={`h-5 w-5 ${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
               {!isCollapsed && <span>Reports</span>}
             </Link>
-             <Link title="Migration Hub" to="/corporate-admin/migration-hub" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeMenuItem === 'migration-hub' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+            <Link to="/corporate-admin/migration-hub" className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${activeMenuItem === 'migration-hub' ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
               <DatabaseZap className={`h-5 w-5 ${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
               {!isCollapsed && <span>Migration Hub</span>}
             </Link>
@@ -195,35 +201,41 @@ function CorporateAdminLayout({
               </div>
             )}
           </div>
-          <button onClick={onLogout} className={`w-full flex items-center justify-center p-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200`}>
+          <button onClick={onLogout} className="w-full flex items-center justify-center p-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
             <LogOut className={`h-5 w-5 ${isCollapsed ? '' : 'mr-2'}`} />
             {!isCollapsed && <span>Sign Out</span>}
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 p-8 overflow-y-auto relative z-10">
-        {/* Notifications appear on ALL pages now */}
-        {!isLoadingNotifs && notifications.length > 0 && (
-          <div className="mb-4">
-            <NotificationBanner notifications={notifications} />
+      <main className="flex-1 overflow-y-auto relative z-10">
+        {(isGrace || isExpired) && (
+          <div className="sticky top-0 z-20">
+            <SubscriptionBanner 
+              subscriptionEndDate={subscriptionEndDate} 
+              isExpired={isExpired}
+              growthRatio={growthRatio}
+            />
           </div>
         )}
 
-        {isDashboard && (
-          <div className="mb-6 space-y-4">
-             <SubscriptionBanner status={subscriptionStatus} endDate={subscriptionEndDate} />
-          </div>
-        )}
-        <Outlet />
+        <div className="p-8">
+          {!isLoadingNotifs && notifications.length > 0 && (
+            <div className="mb-4">
+              <NotificationBanner notifications={notifications} />
+            </div>
+          )}
+
+          {isExpired ? (
+            <div className="flex flex-col items-center justify-center h-64 bg-white/50 backdrop-blur-sm rounded-xl border border-red-200 shadow-sm">
+              <h2 className="text-xl font-bold text-gray-800">Account Restricted</h2>
+              <p className="text-gray-600">Your subscription has expired. Please renew to restore full access.</p>
+            </div>
+          ) : (
+            <Outlet />
+          )}
+        </div>
       </main>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes float { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-40px) scale(1.05); } }
-        @keyframes float-delayed { 0%, 100% { transform: translateY(0) scale(1.05); } 50% { transform: translateY(40px) scale(1); } }
-        .animate-float { animation: float 10s ease-in-out infinite; }
-        .animate-float-delayed { animation: float-delayed 12s ease-in-out infinite; }
-      `}} />
     </div>
   );
 }

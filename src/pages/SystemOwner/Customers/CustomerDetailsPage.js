@@ -329,7 +329,7 @@ function CustomerDetailsPage({ onLogout }) {
 
   // NEW: State for Renewal
   const [isRenewing, setIsRenewing] = useState(false);
-
+  const [customExpiryDate, setCustomExpiryDate] = useState('');
   const fetchCustomerDetails = async () => {
     setIsLoading(true);
     setError('');
@@ -570,16 +570,23 @@ function CustomerDetailsPage({ onLogout }) {
     }
   };
 
-  // --- NEW: Handle Renewal ---
   const handleRenewSubscription = async () => {
-    if (!window.confirm(`Are you sure you want to renew the subscription for ${customer.name}? This will extend their current plan duration.`)) {
-      return;
-    }
+    const confirmMsg = customExpiryDate 
+      ? `Are you sure you want to set the expiry date to ${customExpiryDate}?` 
+      : `Are you sure you want to renew for ${customer.subscription_plan.duration_months} months?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
     setIsRenewing(true);
     try {
-      await apiRequest(`/system-owner/customers/${id}/renew`, 'POST');
-      toast.success('Subscription renewed successfully!');
-      fetchCustomerDetails(); // Refresh data to show new dates
+      // Send the date using the key 'new_subscription_end_date' to match backend RenewRequest
+      await apiRequest(`/system-owner/customers/${id}/renew`, 'POST', {
+        new_subscription_end_date: customExpiryDate || null
+      });
+      
+      toast.success('Subscription updated successfully!');
+      setCustomExpiryDate(''); // Reset the input
+      fetchCustomerDetails(); 
     } catch (err) {
       console.error('Renew failed:', err);
       toast.error(`Renewal failed: ${err.message}`);
@@ -686,22 +693,38 @@ function CustomerDetailsPage({ onLogout }) {
               </span>
             </div>
             
-            {/* Renew Button */}
+			{/* Renew & Custom Expiry UI */}
             <div className="mt-4 pt-3 border-t border-gray-200">
+              <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wider">
+                Custom Expiry Date (Optional)
+              </label>
+              <input 
+                type="date" 
+                value={customExpiryDate}
+                onChange={(e) => setCustomExpiryDate(e.target.value)}
+                className="w-full mb-3 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                min={new Date().toISOString().split("T")[0]} 
+              />
+              
               <button
                 onClick={handleRenewSubscription}
                 disabled={isRenewing}
                 className="w-full btn-primary py-2 flex items-center justify-center"
               >
                 {isRenewing ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Renewing...</>
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
                 ) : (
-                  <><RefreshCw className="h-4 w-4 mr-2" /> Renew Subscription</>
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" /> 
+                    {customExpiryDate ? 'Set Custom Expiry' : 'Renew Standard Duration'}
+                  </>
                 )}
               </button>
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                Extends for {customer.subscription_plan.duration_months} months from current end date.
-              </p>
+              {!customExpiryDate && (
+                <p className="text-xs text-gray-500 mt-2 text-center italic">
+                  No date selected: will extend for {customer.subscription_plan.duration_months} months.
+                </p>
+              )}
             </div>
           </div>
 

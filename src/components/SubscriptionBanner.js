@@ -1,36 +1,59 @@
 import React from 'react';
-import { AlertTriangle, Clock } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { differenceInDays } from 'date-fns';
+import { differenceInDays, parseISO } from 'date-fns';
 
-function SubscriptionBanner({ subscriptionEndDate }) {
-  if (!subscriptionEndDate) {
-    return null;
-  }
+function SubscriptionBanner({ subscriptionEndDate, isExpired, growthRatio }) {
+  if (!subscriptionEndDate) return null;
 
-  const endDate = new Date(subscriptionEndDate);
+  // Ensure date parsing is robust
+  const endDate = typeof subscriptionEndDate === 'string' 
+    ? parseISO(subscriptionEndDate) 
+    : new Date(subscriptionEndDate);
   const today = new Date();
-  const daysRemaining = differenceInDays(endDate, today);
+  
+  // Calculate absolute days for the display text
+  const daysDiff = differenceInDays(endDate, today);
+  const displayDays = Math.abs(daysDiff);
 
-  if (daysRemaining < 0) {
-    return null; // Should be handled by route guard, but a safe check
-  }
+  // Scaling internal elements
+  const fontSize = 1 + (growthRatio * 3); // 1rem to 3rem
+  const iconSize = 12 + (growthRatio * 60); // 24px to 84px
+  const verticalPadding = 0 + (growthRatio * 10); // 1.5rem to 5.5rem
 
   return (
-    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md shadow-sm mb-6 flex justify-between items-center animate-fade-in-down">
-      <div className="flex items-center">
-        <AlertTriangle className="h-6 w-6 text-yellow-500 flex-shrink-0" />
-        <div className="ml-3 text-sm text-yellow-800">
-          <p className="font-semibold">Your subscription has expired.</p>
-          <p>You have **{daysRemaining} days** remaining in your read-only grace period. Please renew to regain full access.</p>
-        </div>
+    <div 
+      className={`w-full flex flex-col items-center justify-center border-b-8 transition-all duration-700 ease-in-out ${
+        isExpired ? 'bg-red-600 text-white border-red-900' : 'bg-yellow-400 text-black border-yellow-600'
+      }`}
+      style={{ padding: `${verticalPadding}rem 1.5rem` }}
+    >
+      <AlertTriangle 
+        style={{ width: iconSize, height: iconSize }} 
+        className="mb-4 animate-bounce shrink-0" 
+      />
+      <div className="text-center px-4 max-w-5xl">
+        <h2 
+          className="font-black uppercase tracking-tighter leading-none transition-all" 
+          style={{ fontSize: `${fontSize}rem` }}
+        >
+          {isExpired ? 'SUBSCRIPTION EXPIRED' : 'RENEWAL REQUIRED'}
+        </h2>
+        <p 
+          className="font-bold mt-4 transition-all" 
+          style={{ fontSize: `${0.9 + (growthRatio * 0.6)}rem` }}
+        >
+          {isExpired 
+            ? `Grace period: ${Math.max(0, 30 - displayDays)} days remaining until total lockout.` 
+            : `ATTENTION: Your subscription expired since ${displayDays} days.`}
+        </p>
+        <Link
+          to="/renewal"
+          className="mt-8 inline-block bg-white text-black font-black py-4 px-12 rounded-full shadow-2xl hover:scale-110 transition-transform text-xl"
+        >
+          RENEW NOW
+        </Link>
       </div>
-      <Link
-        to="/renewal"
-        className="ml-4 flex-shrink-0 bg-yellow-400 hover:bg-yellow-500 text-white font-medium py-2 px-4 rounded-md text-sm transition-colors duration-200"
-      >
-        Renew Now
-      </Link>
     </div>
   );
 }

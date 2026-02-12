@@ -10,12 +10,12 @@ function RenewalPage() {
         <div className="space-y-2">
           <h1 className="text-4xl font-extrabold text-red-600">Account Expired</h1>
           <p className="mt-2 text-lg text-gray-600">Your subscription has expired and access to the platform has been disabled.</p>
-          <p className="text-gray-500">To regain access and continue using the service, please contact your System Owner or our sales team to renew your subscription.</p>
+          <p className="text-gray-500">To regain access and continue using the service, please contact our sales team to renew your subscription.</p>
         </div>
         <div className="mt-6">
           <h2 className="text-xl font-bold text-gray-700">Contact Information</h2>
-          <p className="mt-2 text-gray-500">Email: sales@treasury-platform.com</p>
-          <p className="text-gray-500">Phone: +1 (555) 123-4567</p>
+          <p className="mt-2 text-gray-500">Email: lg_custody@growbusinessdevelopment.com</p>
+          <p className="text-gray-500">Phone: +20 (012) 0099-0030</p>
         </div>
         <div className="mt-8">
           <button
