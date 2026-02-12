@@ -240,14 +240,14 @@ function NotificationBanner({ notifications }) {
               
               {/* UPDATED: Hero Image for Popup */}
               {notification.image_url && (
-                  <div className="w-full h-48 bg-gray-100 relative">
-                      <img 
-                          src={notification.image_url} 
-                          alt="Notification" 
-                          className="w-full h-full object-cover" 
-                      />
-                  </div>
-              )}
+					<div className="w-full bg-gray-100 relative">
+						<img 
+							src={notification.image_url} 
+							alt="Notification" 
+							className="w-full h-auto max-h-[50vh] object-contain" 
+						/>
+					</div>
+				)}
 
               <div className={`p-4 border-b flex items-center ${config.colorClasses.split(' ')[0]}`}>
                  <IconComponent className={`h-6 w-6 mr-3 ${iconClass}`} />
