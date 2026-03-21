@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js'; // Use absolute path
 import { PlusCircle, Edit, Trash, RotateCcw, Eye } from 'lucide-react'; // Added Eye icon
@@ -9,6 +9,7 @@ function CustomerList({ onLogout }) { // onLogout is passed from the parent Layo
   const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showDeleted, setShowDeleted] = useState(false);
   const [error, setError] = useState('');
 
   const fetchCustomers = async () => {
@@ -64,6 +65,13 @@ function CustomerList({ onLogout }) { // onLogout is passed from the parent Layo
     navigate(`/system-owner/customers/${customerId}/details`);
   };
 
+  const filteredCustomers = useMemo(() => {
+    if (showDeleted) return customers;
+    return customers.filter(c => !c.is_deleted);
+  }, [customers, showDeleted]);
+
+  const deletedCount = useMemo(() => customers.filter(c => c.is_deleted).length, [customers]);
+
   if (isLoading) {
     return (
       <div className="text-center py-8">
@@ -80,12 +88,24 @@ function CustomerList({ onLogout }) { // onLogout is passed from the parent Layo
     <div> {/* Root div, no Layout wrapper here */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold text-gray-800">Customer Management</h2>
-        <button
-          onClick={() => navigate('/system-owner/customers/onboard')}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-        >
-          <PlusCircle className="h-5 w-5 mr-2" /> Onboard New Customer
-        </button>
+        <div className="flex items-center gap-4">
+          {deletedCount > 0 && (
+            <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
+              <div className="relative">
+                <input type="checkbox" className="sr-only" checked={showDeleted} onChange={() => setShowDeleted(!showDeleted)} />
+                <div className={`w-9 h-5 rounded-full transition-colors ${showDeleted ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+                <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showDeleted ? 'translate-x-4' : ''}`}></div>
+              </div>
+              Show Deleted ({deletedCount})
+            </label>
+          )}
+          <button
+            onClick={() => navigate('/system-owner/customers/onboard')}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+          >
+            <PlusCircle className="h-5 w-5 mr-2" /> Onboard New Customer
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -94,7 +114,7 @@ function CustomerList({ onLogout }) { // onLogout is passed from the parent Layo
         </div>
       )}
 
-      {customers.length === 0 && !isLoading ? (
+      {filteredCustomers.length === 0 && !isLoading ? (
         <div className="bg-white p-6 rounded-lg shadow-md text-center">
           <p className="text-gray-500">No customers found. Click "Onboard New Customer" to get started.</p>
         </div>
@@ -124,7 +144,7 @@ function CustomerList({ onLogout }) { // onLogout is passed from the parent Layo
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {customers.map((customer) => (
+              {filteredCustomers.map((customer) => (
                 <tr 
                   key={customer.id} 
                   className={`cursor-pointer hover:bg-blue-50 ${customer.is_deleted ? 'bg-gray-50 opacity-60' : ''}`}

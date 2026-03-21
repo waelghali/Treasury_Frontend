@@ -89,7 +89,7 @@ const CustomerLGPerformanceReport = () => {
 
   // --- 2. SURGICAL SAFETY CHECK ---
   // If reportData is null, we provide empty objects so the code doesn't crash while loading
-  const { flow, pipeline, risks, efficiency } = reportData || { 
+  const { flow, pipeline, risks, efficiency, ai_usage } = reportData || { 
     flow: {}, 
     pipeline: {}, 
     risks: { expiry_critical_list: [], stalled_internal_list: [], bank_ghosting_list: [] }, 
@@ -101,7 +101,8 @@ const CustomerLGPerformanceReport = () => {
       lifetime_bank_days: 0,
       lifetime_approval_days: 0, // Add this
       internal_change_pct: 0 
-    } 
+    } ,
+	ai_usage: []
   };
   const renderTrend = (current, lifetime) => {
 	if (!lifetime || lifetime === 0) return null;
@@ -349,6 +350,48 @@ const CustomerLGPerformanceReport = () => {
               </div>
             </div>
           </div>
+
+			{/* --- AI CO-PILOT ENGAGEMENT (New Section) --- */}
+			<div className="mt-8">
+			  <h3 className="text-sm font-bold text-indigo-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+				<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+				AI Co-Pilot Engagement
+			  </h3>
+			  <div className="bg-white rounded-xl shadow-sm border border-indigo-100 overflow-hidden">
+				<table className="min-w-full text-sm text-left">
+				  <thead className="text-xs text-indigo-700 uppercase bg-indigo-50">
+					<tr>
+					  <th className="px-6 py-3 text-center">Requests</th>
+					  <th className="px-6 py-3 text-center">Total Tokens</th>
+					  <th className="px-6 py-3">Activity Level</th>
+					</tr>
+				  </thead>
+				  <tbody className="divide-y divide-gray-100">
+					{(ai_usage || []).map((usage, idx) => (
+					  <tr key={idx} className="hover:bg-indigo-50/30 transition-colors">
+						<td className="px-6 py-4 text-center text-gray-600">{usage.request_count}</td>
+						<td className="px-6 py-4 text-center text-gray-600">{(usage.total_tokens || 0).toLocaleString()}</td>
+						<td className="px-6 py-4">
+						  <div className="w-full bg-gray-100 rounded-full h-1.5 max-w-[100px]">
+							<div 
+							  className="bg-indigo-500 h-1.5 rounded-full" 
+							  style={{ width: `${Math.min(((usage.total_tokens || 0) / 50000) * 100, 100)}%` }}
+							></div>
+						  </div>
+						</td>
+					  </tr>
+					))}
+					{(!ai_usage || ai_usage.length === 0) && (
+					  <tr>
+						<td colSpan="4" className="px-6 py-10 text-center text-gray-400 italic">
+						  No AI usage data found for this period.
+						</td>
+					  </tr>
+					)}
+				  </tbody>
+				</table>
+			  </div>
+			</div>
 
           {/* --- RISK ALERTS --- */}
           <div>

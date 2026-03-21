@@ -42,6 +42,13 @@ function SubscriptionPlanForm({ onLogout }) {
     can_multi_entity: false,
     can_ai_integration: false,
     can_image_storage: false,
+    // Module Access
+    has_custody_module: true,
+    has_issuance_module: false,
+    // Limits
+    max_checker_users: 0,
+    max_issuance_records: 0,
+    grace_period_days: 30,
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -70,6 +77,13 @@ function SubscriptionPlanForm({ onLogout }) {
             can_multi_entity: plan.can_multi_entity || false,
             can_ai_integration: plan.can_ai_integration || false,
             can_image_storage: plan.can_image_storage || false,
+            // Module Access
+            has_custody_module: plan.has_custody_module !== undefined ? plan.has_custody_module : true,
+            has_issuance_module: plan.has_issuance_module || false,
+            // Limits
+            max_checker_users: plan.max_checker_users || 0,
+            max_issuance_records: plan.max_issuance_records || 0,
+            grace_period_days: plan.grace_period_days !== undefined ? plan.grace_period_days : 30,
           });
         } catch (err) {
           console.error('Failed to fetch plan for editing:', err);
@@ -133,7 +147,7 @@ function SubscriptionPlanForm({ onLogout }) {
   return (
     <div>
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">{formTitle}</h2>
-      
+
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
           <span className="block sm:inline">{error}</span>
@@ -281,6 +295,65 @@ function SubscriptionPlanForm({ onLogout }) {
               onChange={handleChange}
               label="Image Storage"
             />
+          </div>
+
+          {/* Module Access Section */}
+          <div className="border border-blue-200 rounded-md p-4 space-y-2 bg-blue-50">
+            <p className="text-base font-medium text-blue-800 mb-2">Module Access</p>
+            <ToggleSwitch
+              id="has_custody_module"
+              name="has_custody_module"
+              checked={formData.has_custody_module}
+              onChange={handleChange}
+              label="LG Custody Module (Phase 1)"
+            />
+            <ToggleSwitch
+              id="has_issuance_module"
+              name="has_issuance_module"
+              checked={formData.has_issuance_module}
+              onChange={handleChange}
+              label="LG Issuance Module (Phase 2)"
+            />
+          </div>
+
+          {/* Additional Limits */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="mb-2">
+              <label htmlFor="max_checker_users" className={labelClassNames}>Max Checker Users</label>
+              <input
+                type="number"
+                name="max_checker_users"
+                id="max_checker_users"
+                value={formData.max_checker_users}
+                onChange={handleChange}
+                min="0"
+                className={inputClassNames}
+              />
+            </div>
+            <div className="mb-2">
+              <label htmlFor="max_issuance_records" className={labelClassNames}>Max Issuance Records</label>
+              <input
+                type="number"
+                name="max_issuance_records"
+                id="max_issuance_records"
+                value={formData.max_issuance_records}
+                onChange={handleChange}
+                min="0"
+                className={inputClassNames}
+              />
+            </div>
+            <div className="mb-2">
+              <label htmlFor="grace_period_days" className={labelClassNames}>Grace Period (Days)</label>
+              <input
+                type="number"
+                name="grace_period_days"
+                id="grace_period_days"
+                value={formData.grace_period_days}
+                onChange={handleChange}
+                min="0"
+                className={inputClassNames}
+              />
+            </div>
           </div>
 
           {/* Action Buttons */}

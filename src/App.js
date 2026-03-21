@@ -1,6 +1,7 @@
 // frontend/src/App.js
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 
 import LoginPage from './pages/Auth/LoginPage';
 import ForcePasswordChangePage from './pages/Auth/ForcePasswordChangePage';
@@ -8,9 +9,12 @@ import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/Auth/ResetPasswordPage';
 import LandingPage from './pages/LandingPage';
 import KnowMorePage from './pages/KnowMorePage';
-import FreeTrialRegistration from './pages/Public/FreeTrialRegistration'; 
+import FreeTrialRegistration from './pages/Public/FreeTrialRegistration';
 import PublicIssuancePortal from './pages/Public/PublicIssuancePortal';
-import RenewalPage from './pages/RenewalPage'; 
+import PublicIssuanceForm from './pages/Public/PublicIssuanceForm';
+import RequestorDashboard from './pages/Public/RequestorDashboard';
+import QuotationBankOfferPage from './pages/Public/QuotationBankOfferPage';
+import RenewalPage from './pages/RenewalPage';
 
 import AuthWrapper from './components/AuthWrapper';
 import ProtectedLayout from './components/ProtectedLayout';
@@ -18,19 +22,20 @@ import LegalArtifactModal from './components/LegalArtifactModal';
 
 import SystemOwnerRoutes from './routes/SystemOwnerRoutes.js';
 import CorporateAdminRoutes from './routes/CorporateAdminRoutes.js';
+import CheckerRoutes from './routes/CheckerRoutes.js';
 import EndUserRoutes from './routes/EndUserRoutes.js';
 
-import { 
-  getAuthToken, 
-  setAuthToken, 
-  startInactivityTracker, 
+import {
+  getAuthToken,
+  setAuthToken,
+  resetTokenRefreshTime,
   stopInactivityTracker,
   startSessionTimers,
   clearSessionTimers,
   extendSession,
   logoutUser,
   handleUserActivity,
-  WARNING_BUFFER_MS 
+  WARNING_BUFFER_MS
 } from './services/apiService';
 import { jwtDecode } from 'jwt-decode';
 
@@ -46,17 +51,20 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
-  const [_mustAcceptPolicies, setMustAcceptPolicies] = useState(false); 
+  const [_mustAcceptPolicies, setMustAcceptPolicies] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [customerId, setCustomerId] = useState(null);
   const [customerName, setCustomerName] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [subscriptionEndDate, setSubscriptionEndDate] = useState(null);
   const [userPermissions, setUserPermissions] = useState([]);
   const [showLegalModal, setShowLegalModal] = useState(false);
+  const [hasCustodyModule, setHasCustodyModule] = useState(true);
+  const [hasIssuanceModule, setHasIssuanceModule] = useState(false);
 
   const navigate = useNavigate();
-  
+
   // Ref to track modal state inside event listeners without triggering re-renders
   const modalOpenRef = useRef(showSessionModal);
 
@@ -70,7 +78,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
 
   const initTrackers = (state) => {
     if (state.isAuthenticated && !state.mustChangePassword && !state.mustAcceptPolicies && state.subscriptionStatus !== 'expired') {
-      startInactivityTracker();
+      resetTokenRefreshTime();
       startSessionTimers(onIdleWarning);
     } else {
       stopInactivityTracker();
@@ -87,11 +95,14 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
         setMustChangePassword(decoded.must_change_password || false);
         setMustAcceptPolicies(decoded.must_accept_policies || false);
         setUserId(decoded.user_id);
+        setCustomerId(decoded.customer_id || null);
         setCustomerName(decoded.customer_name);
         setSubscriptionStatus(decoded.subscription_status || 'active');
         setSubscriptionEndDate(decoded.subscription_end_date || null);
         setUserPermissions(decoded.permissions || []);
-        return { 
+        setHasCustodyModule(decoded.has_custody_module !== undefined ? decoded.has_custody_module : true);
+        setHasIssuanceModule(decoded.has_issuance_module !== undefined ? decoded.has_issuance_module : false);
+        return {
           isAuthenticated: true,
           userRole: decoded.role,
           mustChangePassword: decoded.must_change_password || false,
@@ -114,7 +125,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
   useEffect(() => {
     const token = getAuthToken();
     const state = decodeTokenAndSetState(token);
-    
+
     if (state.isAuthenticated && !modalOpenRef.current) initTrackers(state);
     if (state.isAuthenticated && state.mustAcceptPolicies) setShowLegalModal(true);
 
@@ -128,7 +139,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     window.addEventListener('storage', handleStorageChange);
     setIsLoading(false);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, []); 
+  }, []);
 
   // User Activity Tracking
   useEffect(() => {
@@ -157,8 +168,8 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     else if (state.mustChangePassword) navigate("/force-password-change", { replace: true });
     else if (state.subscriptionStatus === 'expired') navigate("/renewal", { replace: true });
     else {
-        initTrackers(state);
-        navigate(getDefaultRedirectPath(state.userRole), { replace: true });
+      initTrackers(state);
+      navigate(getDefaultRedirectPath(state.userRole), { replace: true });
     }
   };
 
@@ -183,10 +194,11 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
   const getDefaultRedirectPath = (role) => {
     if (role === 'system_owner') return "/system-owner/dashboard";
     if (role === 'corporate_admin') return "/corporate-admin/dashboard";
-    if (role === 'end_user' || role === 'checker' || role === 'viewer') return "/end-user/action-center";
+    if (role === 'checker') return "/checker/approval-inbox";
+    if (role === 'end_user' || role === 'viewer') return "/end-user/action-center";
     return "/login";
   };
-  
+
   const renderAppRoutes = () => {
     if (isLoading) return <div className="flex justify-center items-center min-h-screen bg-gray-100"><p>Loading application...</p></div>;
     return (
@@ -196,7 +208,10 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
           <Route path="/" element={<LandingPage />} />
           <Route path="/know-more" element={<KnowMorePage />} />
           <Route path="/free-trial-register" element={<FreeTrialRegistration />} />
-          <Route path="/portal/issuance" element={<PublicIssuancePortal />} /> 
+          <Route path="/portal/issuance" element={<PublicIssuancePortal />} />
+          <Route path="/public-issuance/dashboard" element={<RequestorDashboard />} />
+          <Route path="/public-issuance/form" element={<PublicIssuanceForm />} />
+          <Route path="/public-quotation/:token" element={<QuotationBankOfferPage />} />
           <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -206,10 +221,11 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
             {mustChangePassword ? (
               <Route path="*" element={<Navigate to="/force-password-change" replace />} />
             ) : (
-              <Route path="/*" element={<ProtectedLayout onLogout={handleLogout} userRole={userRole} userPermissions={userPermissions} customerName={customerName} subscriptionStatus={subscriptionStatus} subscriptionEndDate={subscriptionEndDate} />}>
+              <Route path="/*" element={<ProtectedLayout onLogout={handleLogout} userRole={userRole} userPermissions={userPermissions} customerName={customerName} customerId={customerId} subscriptionStatus={subscriptionStatus} subscriptionEndDate={subscriptionEndDate} hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} />}>
                 <Route path="system-owner/*" element={<SystemOwnerRoutes onLogout={handleLogout} />} />
-                <Route path="corporate-admin/*" element={<CorporateAdminRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} />} />
-                <Route path="end-user/*" element={<EndUserRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} />} />
+                <Route path="corporate-admin/*" element={<CorporateAdminRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} hasIssuanceModule={hasIssuanceModule} hasCustodyModule={hasCustodyModule} />} />
+                <Route path="checker/*" element={<CheckerRoutes />} />
+                <Route path="end-user/*" element={<EndUserRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} />} />
                 <Route path="*" element={<Navigate to={getDefaultRedirectPath(userRole)} replace />} />
               </Route>
             )}
@@ -247,7 +263,7 @@ function App() {
     if (success) {
       setShowSessionModal(false);
       // Restart timers for the next cycle
-      startSessionTimers(() => setShowSessionModal(true)); 
+      startSessionTimers(() => setShowSessionModal(true));
     } else {
       setShowSessionModal(false);
       logoutUser();
@@ -260,66 +276,68 @@ function App() {
   };
 
   return (
+    <HelmetProvider>
     <BrowserRouter>
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-100 antialiased transition-colors duration-200">
-        <AppContent 
+        <AppContent
           showSessionModal={showSessionModal}
-          onShowSessionWarning={() => setShowSessionModal(true)} 
+          onShowSessionWarning={() => setShowSessionModal(true)}
           onHideSessionModal={() => setShowSessionModal(false)}
         />
-				
-		{showSessionModal && (
-		  <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-			{/* Backdrop with Blur */}
-			<div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" />
 
-			{/* Modal Card */}
-			<div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 animate-in fade-in zoom-in duration-300">
-			  
-			  {/* Top Accent Bar (Red/Orange for Urgency) */}
-			  <div className="h-2 bg-gradient-to-r from-blue-400 to-red-500" />
+        {showSessionModal && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            {/* Backdrop with Blur */}
+            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" />
 
-			  <div className="p-8 text-center">
-				{/* Warning Icon Circle */}
-				<div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-				  <svg className="h-8 w-8 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-					<path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-				  </svg>
-				</div>
+            {/* Modal Card */}
+            <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 animate-in fade-in zoom-in duration-300">
 
-				<h3 className="mb-2 text-2xl font-bold text-gray-900 dark:text-white">
-				  Session Expiring
-				</h3>
-				
-				<p className="mb-8 text-gray-600 dark:text-gray-300">
-				  For your security, you will be logged out in:
-				  <span className="block mt-2 text-4xl font-mono font-extrabold text-red-500 tabular-nums">
-					0:{timeLeft < 10 ? `0${timeLeft}` : timeLeft}
-				  </span>
-				</p>
+              {/* Top Accent Bar (Red/Orange for Urgency) */}
+              <div className="h-2 bg-gradient-to-r from-blue-400 to-red-500" />
 
-				{/* Action Buttons */}
-				<div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-				  <button
-					className="w-full sm:w-auto px-6 py-3 rounded-xl bg-blue-600 font-semibold text-white shadow-lg shadow-blue-500/30 hover:bg-blue-700 hover:-translate-y-0.5 transition-all duration-200"
-					onClick={handleExtend}
-				  >
-					Stay Logged In
-				  </button>
-				  <button
-					className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gray-100 font-semibold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
-					onClick={handleCloseAndLogout}
-				  >
-					Logout
-				  </button>
-				</div>
-			  </div>
-			</div>
-		  </div>
-		)}
+              <div className="p-8 text-center">
+                {/* Warning Icon Circle */}
+                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+                  <svg className="h-8 w-8 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+
+                <h3 className="mb-2 text-2xl font-bold text-gray-900 dark:text-white">
+                  Session Expiring
+                </h3>
+
+                <p className="mb-8 text-gray-600 dark:text-gray-300">
+                  For your security, you will be logged out in:
+                  <span className="block mt-2 text-4xl font-mono font-extrabold text-red-500 tabular-nums">
+                    0:{timeLeft < 10 ? `0${timeLeft}` : timeLeft}
+                  </span>
+                </p>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                  <button
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-blue-600 font-semibold text-white shadow-lg shadow-blue-500/30 hover:bg-blue-700 hover:-translate-y-0.5 transition-all duration-200"
+                    onClick={handleExtend}
+                  >
+                    Stay Logged In
+                  </button>
+                  <button
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gray-100 font-semibold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
+                    onClick={handleCloseAndLogout}
+                  >
+                    Logout
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <ToastContainer position="top-right" autoClose={2500} transition={Flip} />
       </div>
     </BrowserRouter>
+    </HelmetProvider>
   );
 }
 

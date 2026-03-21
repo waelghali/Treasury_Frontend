@@ -1,0 +1,2800 @@
+{
+  "common": {
+    "login": "تسجيل الدخول",
+    "logout": "تسجيل الخروج",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "submit": "إرسال",
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "confirm": "تأكيد",
+    "back": "رجوع",
+    "actions": "الإجراءات",
+    "status": "الحالة",
+    "loading": "جاري التحميل...",
+    "success": "نجاح",
+    "error": "خطأ",
+    "warning": "تحذير",
+    "search": "بحث",
+    "filter": "تصفية",
+    "clear": "مسح",
+    "home": "الرئيسية",
+    "knowMore": "اعرف المزيد",
+    "select": "اختر...",
+    "to": "To",
+    "days": "Days",
+    "items": "Items",
+    "refresh": "Refresh",
+    "delete": "Delete",
+    "or": "Or",
+    "unexpectedError": "Unexpected Error",
+    "na": "Na",
+    "unknownError": "Unknown Error",
+    "selected": "Selected",
+    "submitting": "Submitting",
+    "no": "No",
+    "edit": "Edit",
+    "yes": "Yes"
+  },
+  "treasury": {
+    "lg": "خطاب ضمان",
+    "lgs": "خطابات الضمان",
+    "issue": "إصدار",
+    "amend": "تعديل",
+    "extend": "مد فترة",
+    "cancel": "إلغاء خطاب الضمان",
+    "amount": "مبلغ الضمان",
+    "currency": "العملة",
+    "beneficiary": "المستفيد",
+    "applicant": "طالب الإصدار",
+    "bank": "البنك",
+    "issueDate": "تاريخ الإصدار",
+    "expiryDate": "تاريخ الانتهاء",
+    "reference": "رقم المرجع",
+    "dashboard": "لوحة المتابعة",
+    "actionCenter": "مركز الإجراءات",
+    "active": "ساري",
+    "expired": "منتهي",
+    "pending": "قيد الانتظار",
+    "approved": "معتمد",
+    "rejected": "مرفوض",
+    "draft": "مسودة"
+  },
+  "auth": {
+    "renewal": {
+      "title": "انتهت صلاحية الحساب",
+      "expiredMessage": "لقد انتهت صلاحية اشتراكك وتم تعطيل الوصول إلى المنصة.",
+      "contactSales": "لاستعادة الوصول ومواصلة الخدمة، يرجى الاتصال بفريق المبيعات.",
+      "contactInfo": "معلومات الاتصال",
+      "email": "البريد",
+      "phone": "الهاتف",
+      "returnToLogin": "العودة لتسجيل الدخول"
+    },
+    "stayLoggedIn": "البقاء مسجلاً",
+    "sessionExpiring": "الجلسة على وشك الانتهاء",
+    "logoutIn": "سيتم تسجيل خروجك خلال:",
+    "verifySecurity": "تأكيد الأمان",
+    "signIn": "تسجيل الدخول",
+    "signInButton": "تسجيل الدخول",
+    "codeSent": "تم إرسال رمز التحقق إلى بريدك الإلكتروني",
+    "treasuryPlatform": "منصة إدارة الخزانة",
+    "signingIn": "جاري تسجيل الدخول...",
+    "enter6DigitCode": "أدخل الرمز المكون من 6 أرقام",
+    "trustDevice": "الوثوق بهذا الجهاز في المستقبل",
+    "didNotReceiveCode": "لم تستلم الرمز؟",
+    "resendCodeIn": "إعادة الإرسال خلال {{time}} ثانية",
+    "resendNewCode": "إرسال رمز جديد",
+    "verifying": "جاري التحقق...",
+    "verifyAccess": "التحقق والدخول للمنصة",
+    "backToSignIn": "العودة لتسجيل الدخول",
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "backToHome": "العودة للصفحة الرئيسية",
+    "networkError": "حدث خطأ في الشبكة. يرجى التحقق من اتصالك.",
+    "verificationFailed": "فشل التحقق. يرجى المحاولة مرة أخرى.",
+    "loginFailed": "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى."
+  },
+  "legal": {
+    "reviewAccept": "مراجعة وقبول السياسات",
+    "policyDesc": "للاستمرار في استخدام المنصة، يجب عليك قبول أحدث الشروط والأحكام وسياسة الخصوصية.",
+    "terms": "الشروط والأحكام (v{{version}})",
+    "privacy": "سياسة الخصوصية (v{{version}})",
+    "loading": "جاري تحميل السياسات...",
+    "accepting": "جاري القبول...",
+    "acceptButton": "أوافق على السياسات"
+  },
+  "layout": {
+    "treasury": "الخزانة",
+    "endUserEdition": "نسخة المستخدم",
+    "dashboard": "لوحة المتابعة",
+    "actionCenter": "مركز الإجراءات",
+    "recordNewLg": "تسجيل خطاب ضمان جديد",
+    "manageLgRecords": "إدارة خطابات الضمان",
+    "withdrawRequest": "طلب استرداد",
+    "internalOwners": "المسؤولون الداخليون",
+    "reports": "التقارير",
+    "euBadge": "م.ن",
+    "endUser": "مستخدم نهائي",
+    "org": "المؤسسة: {{name}}",
+    "signOut": "تسجيل الخروج",
+    "accountRestricted": "الحساب مقيد",
+    "subscriptionExpired": "لقد انتهت صلاحية اشتراكك. يرجى الاتصال بالمسؤول لاستعادة الوصول."
+  },
+  "resetPassword": {
+    "resetPassword": "إعادة ضبط كلمة المرور",
+    "enterNewPassword": "أدخل كلمة المرور الجديدة أدناه.",
+    "newPassword": "كلمة المرور الجديدة",
+    "confirmNewPassword": "تأكيد كلمة المرور الجديدة",
+    "newPasswordPlaceholder": "أدخل كلمة المرور الجديدة",
+    "confirmNewPasswordPlaceholder": "تأكيد كلمة المرور الجديدة",
+    "resetting": "جاري إعادة الضبط...",
+    "resetPasswordButton": "إعادة ضبط كلمة المرور",
+    "backToLogin": "العودة لتسجيل الدخول",
+    "missingTokenUrl": "رمز إعادة ضبط كلمة المرور مفقود من الرابط.",
+    "missingToken": "رمز إعادة ضبط كلمة المرور مفقود.",
+    "noResetTokenFound": "لم يتم العثور على رمز إعادة الضبط. يرجى استخدام الرابط المرسل لبريدك الإلكتروني.",
+    "passwordsDoNotMatch": "كلمة المرور الجديدة وتأكيدها غير متطابقين.",
+    "passwordTooShort": "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.",
+    "passwordNoUppercase": "يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل.",
+    "passwordNoLowercase": "يجب أن تحتوي كلمة المرور على حرف صغير واحد على الأقل.",
+    "passwordNoDigit": "يجب أن تحتوي كلمة المرور على رقم واحد على الأقل.",
+    "resetSuccess": "تم إعادة ضبط كلمة المرور بنجاح. يرجى تسجيل الدخول بكلمة المرور الجديدة.",
+    "resetRedirecting": "تم إعادة ضبط كلمة المرور بنجاح. جاري التوجيه إلى صفحة تسجيل الدخول...",
+    "resetFailed": "فشل إعادة ضبط كلمة المرور. قد يكون الرمز غير صالح أو منتهي الصلاحية.",
+    "unexpectedError": "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى."
+  },
+  "pages": {
+    "corporateAdminDashboard": {
+      "avgDeliveryDays": "متوسط أيام التسليم",
+      "days": "أيام",
+      "overall": "الإجمالي",
+      "lgTypeMix": "مزيج أنواع الضمان",
+      "outerGlobalInnerYours": "(الخارجي: عالمي، الداخلي: خاص بك)",
+      "loading": "جاري تحميل بيانات لوحة المتابعة...",
+      "noDataAvailable": "لا توجد بيانات متاحة",
+      "avgDaysToAction": "متوسط الأيام للإجراء",
+      "bankMarketShare": "الحصة السوقية للبنوك",
+      "totalLgVolume": "إجمالي حجم الضمانات",
+      "lgRecords": "سجلات الضمان",
+      "avgProcessingTimesByBank": "متوسط أوقات المعالجة حسب البنك",
+      "quickActions": "إجراءات سريعة",
+      "quickActionsList": {
+        "manageLgCategories": "إدارة فئات الضمان",
+        "manageLgCategoriesDesc": "تكوين فئات الضمان العامة.",
+        "manageUsers": "إدارة المستخدمين",
+        "manageUsersDesc": "إدارة مستخدمي الشركة وأدوارهم.",
+        "moduleConfigs": "إعدادات الوحدات",
+        "moduleConfigsDesc": "تكوين إعدادات وحدات الشركة."
+      }
+    },
+    "systemOwnerDashboard": {
+      "metrics": {
+        "activeCustomers": "العملاء النشطون",
+        "activeUsers": "المستخدمون النشطون",
+        "expiringSoon": "ينتهي قريبا",
+        "next30Days": "الـ 30 يوما القادمة",
+        "totalValue": "القيمة الإجمالية"
+      },
+      "quickActions": {
+        "title": "إجراءات سريعة",
+        "addCustomer": {
+          "title": "إضافة عميل",
+          "description": "إلحاق عميل جديد"
+        },
+        "addSubscription": {
+          "title": "إضافة خطة اشتراك",
+          "description": "إنشاء خطة اشتراك جديدة"
+        },
+        "addTemplate": {
+          "title": "إضافة قالب",
+          "description": "إنشاء قالب مستند جديد"
+        },
+        "setGlobal": {
+          "title": "الإعدادات العامة",
+          "description": "تكوين إعدادات النظام العامة"
+        }
+      },
+      "recentActivity": {
+        "title": "النشاط الأخير",
+        "empty": "لا يوجد نشاط أخير لعرضه."
+      },
+      "systemUsage": {
+        "title": "نظرة عامة على استخدام النظام",
+        "description": "نظرة عامة رفيعة المستوى على استخدام النظام.",
+        "totalCustomers": "إجمالي العملاء",
+        "totalUsers": "إجمالي المستخدمين",
+        "totalLgs": "إجمالي الضمانات المدارة",
+        "instructionsIssued": "التعليمات الصادرة",
+        "emailsSent": "رسائل البريد الإلكتروني المرسلة",
+        "empty": "لا تتوفر بيانات عن استخدام النظام."
+      }
+    },
+    "systemNotifications": {
+      "title": "إشعارات النظام",
+      "buttons": {
+        "create": "إنشاء إشعار",
+        "continue": "متابعة",
+        "cancel": "إلغاء",
+        "closeReport": "إغلاق التقرير",
+        "update": "Update"
+      },
+      "table": {
+        "content": "المحتوى",
+        "target": "الجمهور المستهدف",
+        "status": "الحالة",
+        "startDate": "تاريخ البدء",
+        "endDate": "تاريخ الانتهاء",
+        "actions": "إجراءات",
+        "tooltips": {
+          "deactivate": "تعطيل الإشعار",
+          "activate": "تفعيل الإشعار",
+          "edit": "تعديل الإشعار",
+          "delete": "حذف الإشعار",
+          "restore": "استعادة الإشعار",
+          "analytics": "عرض التحليلات"
+        }
+      },
+      "status": {
+        "deleted": "محذوف",
+        "inactive": "غير نشط",
+        "scheduled": "مجدول",
+        "expired": "منتهي",
+        "active": "نشط",
+        "activated": "تم تفعيله",
+        "deactivated": "تم تعطيله",
+        "activate": "تفعيل",
+        "deactivate": "تعطيل"
+      },
+      "form": {
+        "targetText": {
+          "customers": "{{count}} عملاء",
+          "users": "{{count}} مستخدمين",
+          "roles": "{{count}} أدوار",
+          "allUsers": "جميع المستخدمين"
+        },
+        "targetCustomers": "Target Customers",
+        "imageNote": "Image Note",
+        "actionLabel": "Action Label",
+        "frequencies": {
+          "repeat": "Repeat",
+          "oncePerLogin": "Once Per Login",
+          "once": "Once"
+        },
+        "allCustomers": "All Customers",
+        "types": {
+          "ad": "Ad",
+          "news": "News",
+          "systemCritical": "System Critical",
+          "cbe": "Cbe",
+          "systemInfo": "System Info"
+        },
+        "animations": {
+          "fade": "Fade",
+          "zoom": "Zoom",
+          "bounce": "Bounce",
+          "scrollLeft": "Scroll Left",
+          "slideLeft": "Slide Left"
+        },
+        "displayStyle": "Display Style",
+        "actionLabelPlaceholder": "Action Label Placeholder",
+        "startDate": "Start Date",
+        "uploadImage": "Upload Image",
+        "targetRoles": "Target Roles",
+        "uploading": "Uploading",
+        "targetUsers": "Target Users",
+        "activeStatus": "Active Status",
+        "animationType": "Animation Type",
+        "showingUsers": "Showing Users",
+        "displayFrequency": "Display Frequency",
+        "maxDisplayCount": "Max Display Count",
+        "showAsModal": "Show As Modal",
+        "defaultActionLabel": "Default Action Label",
+        "link": "Link",
+        "notificationType": "Notification Type",
+        "allUsers": "All Users",
+        "removeImage": "Remove Image",
+        "content": "Content",
+        "imageLabel": "Image Label",
+        "allRoles": "All Roles",
+        "endDate": "End Date"
+      },
+      "messages": {
+        "loadError": "فشل تحميل الإشعارات.",
+        "deleteSuccess": "تم حذف الإشعار بنجاح.",
+        "deleteError": "فشل في حذف الإشعار.",
+        "restoreSuccess": "تم استعادة الإشعار بنجاح.",
+        "restoreError": "فشل استعادة الإشعار.",
+        "toggleSuccess": "تم {{status}} الإشعار بنجاح.",
+        "toggleError": "فشل في {{status}} الإشعار.",
+        "analyticsError": "فشل في جلب التحليلات.",
+        "loading": "جاري تحميل الإشعارات...",
+        "noNotifications": "لم يتم العثور على إشعارات.",
+        "gatheringInsights": "جمع الرؤى...",
+        "noAnalytics": "لا تتوفر بيانات تحليلات حتى الآن.",
+        "noViews": "لم يتم تسجيل أي مشاهدات حتى الآن.",
+        "uploadFailed": "Upload Failed",
+        "uploadSuccess": "Upload Success",
+        "submitFailed": "Submit Failed",
+        "uploadMissingFields": "Upload Missing Fields",
+        "loadCustomersError": "Load Customers Error",
+        "createSuccess": "Create Success",
+        "updateSuccess": "Update Success",
+        "invalidUri": "Invalid Uri",
+        "contentRequired": "Content Required",
+        "loadDetailsError": "Load Details Error"
+      },
+      "dialogs": {
+        "deleteTitle": "حذف الإشعار",
+        "deleteDesc": "هل أنت متأكد أنك تريد حذف هذا الإشعار؟",
+        "confirmDelete": "حذف",
+        "restoreTitle": "استعادة الإشعار",
+        "restoreDesc": "هل أنت متأكد أنك تريد استعادة هذا الإشعار؟",
+        "confirmRestore": "استعادة",
+        "deactivateTitle": "تعطيل الإشعار",
+        "activateTitle": "تفعيل الإشعار",
+        "deactivateDesc": "هل أنت متأكد أنك تريد تعطيل هذا الإشعار؟",
+        "activateDesc": "هل أنت متأكد أنك تريد تفعيل هذا الإشعار؟",
+        "confirmDeactivate": "تعطيل",
+        "confirmActivate": "تفعيل"
+      },
+      "analytics": {
+        "title": "تحليلات الإشعارات",
+        "totalViews": "إجمالي المشاهدات",
+        "uniqueViewers": "المشاهدون الفريدون",
+        "engagementTitle": "تفاعل المشاهدين",
+        "user": "المستخدم",
+        "engagementViews": "المشاركة والمشاهدات",
+        "lastInteraction": "آخر تفاعل",
+        "userId": "معرف المستخدم: {{id}}"
+      },
+      "formTitleEdit": "Form Title Edit",
+      "formTitleNew": "Form Title New"
+    },
+    "publicPortal": {
+      "title": "الوصول إلى بوابة الإصدار",
+      "subtitle": "أدخل بريدك الإلكتروني الخاص بالعمل لاستلام رمز الوصول الآمن",
+      "emailPlaceholder": "work@company.com",
+      "requestAccessBtn": "طلب رمز الوصول",
+      "codeSent": "تم إرسال رمز مكون من 6 أرقام إلى بريدك الإلكتروني.",
+      "enterCode": "أدخل الرمز المرسل إلى",
+      "verifyBtn": "التحقق والمتابعة",
+      "messages": {
+        "linkExpired": "انتهت صلاحية رابط الدعوة هذا أو أنه غير صالح.",
+        "orgNotRecognized": "لم يتم التعرف على المؤسسة. يرجى استخدام بريد العمل الخاص بك.",
+        "invalidCode": "رمز التحقق غير صالح أو منتهي الصلاحية.",
+        "codeSent": "Code Sent"
+      }
+    },
+    "publicIssuanceForm": {
+      "externalTitle": "طلب إصدار خطاب ضمان",
+      "internalTitle": "طلب إصدار جديد",
+      "subtitle": "يرجى تقديم تفاصيل طلب خطاب الضمان الخاص بك.",
+      "successTitle": "تم تقديم الطلب بنجاح",
+      "successMessage": "تم إرسال طلبك للمراجعة الداخلية. ستتلقى تحديثاً عبر البريد الإلكتروني بمجرد معالجته.",
+      "returnHomeBtn": "العودة إلى لوحة التحكم",
+      "submitBtn": "تقديم الطلب",
+      "saveDraftBtn": "حفظ كمسودة",
+      "financialRiskData": "بيانات المخاطر المالية",
+      "sections": {
+        "issuingEntity": "1. جهة الإصدار",
+        "requestorDetails": "2. تفاصيل مقدم الطلب",
+        "underlyingReference": "3. المرجع الأساسي / العقد",
+        "lgDetails": "4. تفاصيل خطاب الضمان",
+        "beneficiaryDetails": "5. تفاصيل المستفيد",
+        "specialConditions": "6. شروط خاصة",
+        "additionalInfo": "7. معلومات إضافية"
+      },
+      "fields": {
+        "selectEntity": "اختر جهة الإصدار",
+        "fullName": "الاسم الكامل",
+        "workEmail": "بريد العمل",
+        "department": "الإدارة",
+        "jobTitle": "المسمى الوظيفي",
+        "phoneNumber": "رقم الهاتف",
+        "employeeId": "الرقم الوظيفي",
+        "managerEmail": "بريد المدير",
+        "secondLineManagerEmail": "بريد المدير المباشر الثاني",
+        "referenceType": "نوع المرجع (مثال: عقد، أمر شراء)",
+        "referenceNumber": "رقم المرجع",
+        "referenceAmount": "مبلغ المرجع",
+        "referenceCurrency": "عملة المرجع",
+        "startDate": "تاريخ البدء",
+        "endDate": "تاريخ الانتهاء",
+        "lgType": "نوع خطاب الضمان",
+        "lgAmount": "مبلغ خطاب الضمان",
+        "lgCurrency": "عملة خطاب الضمان",
+        "payableCurrency": "عملة الدفع لخطاب الضمان",
+        "payableCurrencyHint": "يتم ضبطها تلقائياً لعملة خطاب الضمان ما لم يتم تغييرها",
+        "lgPurpose": "الغرض من خطاب الضمان",
+        "suggestedIssueDate": "تاريخ الإصدار المقترح",
+        "maturityDate": "تاريخ الاستحقاق (الانتهاء)",
+        "advancePaymentOpStatus": "الحالة التشغيلية للدفعة المقدمة",
+        "selectStatus": "اختر الحالة...",
+        "operative": "فعال (قياسي)",
+        "nonOperative": "غير فعال (يتطلب تدفقاً مطابقاً)",
+        "beneficiaryName": "اسم المستفيد",
+        "country": "الدولة",
+        "fullAddress": "العنوان الكامل",
+        "contactPerson": "الشخص المسؤول",
+        "emailAddress": "البريد الإلكتروني",
+        "isThirdParty": "إصدار لصالح طرف ثالث",
+        "thirdPartyName": "اسم الطرف الثالث",
+        "relationship": "العلاقة بطالب الإصدار",
+        "thirdPartyAddress": "عنوان الطرف الثالث",
+        "isCrossBorder": "إصدار عبر الحدود / دولي",
+        "issuingCountry": "دولة الإصدار (إذا كانت مختلفة)",
+        "requiresSpecialWording": "يتطلب صيغة خاصة / غير معيارية",
+        "uploadTemplateNote": "يرجى إرسال القالب المفضل لديك إلى إدارة الخزانة بعد التقديم."
+      },
+      "messages": {
+        "sessionExpired": "انتهت صلاحية جلستك. يرجى طلب رمز وصول جديد.",
+        "loadFailed": "فشل تحميل إعدادات النموذج.",
+        "previousDataLoaded": "تم تحميل بيانات الطلب السابق — يرجى المراجعة",
+        "requestSubmitted": "تم تقديم الطلب بنجاح!",
+        "draftSaved": "تم حفظ المسودة بنجاح.",
+        "validationError": "يرجى التحقق من الأخطاء في النموذج."
+      }
+    },
+    "customerDetails": {
+      "basicInfo": {
+        "fields": {
+          "email": "Email",
+          "mainEntity": "Main Entity",
+          "cancel": "Cancel",
+          "maxUsers": "Max Users",
+          "adminPassword": "Admin Password",
+          "orgName": "Org Name",
+          "multiEntity": "Multi Entity",
+          "yes": "Yes",
+          "taxId": "Tax Id",
+          "contactPerson": "Contact Person",
+          "plan": "Plan",
+          "phone": "Phone",
+          "entityName": "Entity Name",
+          "commercialRegister": "Commercial Register",
+          "maxRecords": "Max Records",
+          "contactEmailOpt": "Contact Email Opt",
+          "address": "Address",
+          "no": "No",
+          "code": "Code",
+          "adminEmail": "Admin Email"
+        },
+        "customerInfo": "Customer Info",
+        "editButton": "Edit Button",
+        "initialAdmin": "Initial Admin",
+        "entitiesRule": "Entities Rule",
+        "onboardPageTitle": "Onboard Page Title",
+        "title": "Title",
+        "onboardTitle": "Onboard Title",
+        "addEntity": "Add Entity",
+        "editTitle": "Edit Title",
+        "onboarding": "Onboarding",
+        "customerEntities": "Customer Entities",
+        "hideEdit": "Hide Edit",
+        "oneEntityLimit": "One Entity Limit",
+        "note": "Note"
+      },
+      "subscriptionHealth": {
+        "customExpiry": "Custom Expiry",
+        "renewStandard": "Renew Standard",
+        "setCustom": "Set Custom",
+        "activeUsers": "Active Users",
+        "currentPlan": "Current Plan",
+        "activeCheckers": "Active Checkers",
+        "expiryDate": "Expiry Date",
+        "activeRecords": "Active Records",
+        "defaultExtend": "Default Extend",
+        "title": "Title",
+        "usageLimits": "Usage Limits",
+        "processing": "Processing",
+        "startDate": "Start Date",
+        "periodDetails": "Period Details"
+      },
+      "messages": {
+        "updateSuccess": "Update Success",
+        "updateFailed": "Update Failed",
+        "renewConfirmStandard": "Renew Confirm Standard",
+        "renewSuccess": "Renew Success",
+        "renewFailed": "Renew Failed",
+        "renewConfirmCustom": "Renew Confirm Custom"
+      },
+      "back": "Back",
+      "title": "Title",
+      "notFound": "Not Found"
+    },
+    "userForm": {
+      "errors": {
+        "passwordLength": "Password Length",
+        "passwordRequired": "Password Required",
+        "emailRoleRequired": "Email Role Required",
+        "entitySelectionRequired": "Entity Selection Required"
+      },
+      "roles": {
+        "viewer": "Viewer",
+        "checker": "Checker",
+        "end_user": "End_User"
+      },
+      "loading": "Loading",
+      "selectEntities": "Select Entities",
+      "noEntities": "No Entities",
+      "createUser": "Create User",
+      "entityAccessSection": "Entity Access Section",
+      "changePassword": "Change Password",
+      "passwordSection": "Password Section",
+      "requirePasswordChange": "Require Password Change",
+      "accessSpecificEntities": "Access Specific Entities",
+      "hidePassword": "Hide Password",
+      "titleEdit": "Title Edit",
+      "accessAllEntities": "Access All Entities",
+      "passwordLabel": "Password Label",
+      "gracePeriodDisabled": "Grace Period Disabled",
+      "emailLabel": "Email Label",
+      "updateUser": "Update User",
+      "confirmPasswordLabel": "Confirm Password Label",
+      "cancel": "Cancel",
+      "roleLabel": "Role Label",
+      "titleCreate": "Title Create"
+    },
+    "pendingApprovals": {
+      "searchPlaceholder": "Search Placeholder",
+      "loading": "Loading",
+      "tableHeaders": {
+        "actions": "Actions",
+        "authRejBy": "Auth Rej By",
+        "requestedBy": "Requested By",
+        "status": "Status",
+        "lgNumber": "Lg Number",
+        "actionType": "Action Type",
+        "requestedOn": "Requested On"
+      },
+      "noRequests": "No Requests",
+      "reject": "Reject",
+      "exportAll": "Export All",
+      "na": "Na",
+      "confirmReject": "Confirm Reject",
+      "to": "To",
+      "allStatuses": "All Statuses",
+      "from": "From",
+      "clearFilters": "Clear Filters",
+      "confirmApprove": "Confirm Approve",
+      "filterStatus": "Filter Status",
+      "export": "Export",
+      "approve": "Approve",
+      "viewDetails": "View Details",
+      "exportFiltered": "Export Filtered",
+      "title": "Title",
+      "gracePeriodDisabled": "Grace Period Disabled"
+    },
+    "customerManagement": {
+      "table": {
+        "actions": "Actions",
+        "plan": "Plan",
+        "customerName": "Customer Name",
+        "entities": "Entities",
+        "users": "Users",
+        "contactEmail": "Contact Email"
+      },
+      "messages": {
+        "deletedSuccess": "Deleted Success",
+        "restoreFailed": "Restore Failed",
+        "deleteFailed": "Delete Failed",
+        "restoredSuccess": "Restored Success"
+      },
+      "title": "Title",
+      "onboardButton": "Onboard Button",
+      "empty": "Empty",
+      "confirmations": {
+        "restore": "Restore",
+        "delete": "Delete"
+      },
+      "tooltips": {
+        "viewDetails": "View Details",
+        "delete": "Delete",
+        "restore": "Restore"
+      },
+      "badges": {
+        "deleted": "Deleted"
+      }
+    },
+    "freeTrial": {
+      "benefits": {
+        "shield": {
+          "title": "Title",
+          "description": "Description"
+        },
+        "trending": {
+          "description": "Description",
+          "title": "Title"
+        },
+        "zap": {
+          "title": "Title",
+          "description": "Description"
+        }
+      },
+      "startTrial": "Start Trial",
+      "submitBtn": "Submit Btn",
+      "entityOptions": {
+        "one": "One",
+        "multiple": "Multiple"
+      },
+      "messages": {
+        "unexpectedError": "Unexpected Error",
+        "termsLoadFailed": "Terms Load Failed",
+        "termsLoadError": "Terms Load Error",
+        "registrationFailed": "Registration Failed",
+        "registrationSuccess": "Registration Success",
+        "commercialRegisterNeeded": "Commercial Register Needed",
+        "acceptTermsNeeded": "Accept Terms Needed"
+      },
+      "fields": {
+        "commercialRegister": "Commercial Register",
+        "contactAdminName": "Contact Admin Name",
+        "organizationName": "Organization Name",
+        "entitiesCount": "Entities Count",
+        "organizationAddress": "Organization Address",
+        "adminEmail": "Admin Email",
+        "contactPhone": "Contact Phone"
+      },
+      "submitNote": "Submit Note",
+      "trialDescription": "Trial Description",
+      "footerCopy": "Footer Copy",
+      "fileSelected": "File Selected",
+      "formTitle": "Form Title",
+      "termsTitle": "Terms Title",
+      "termsCheckbox": "Terms Checkbox"
+    },
+    "facilities": {
+      "title": "التسهيلات البنكية",
+      "subtitle": "خطوط الائتمان العالمية وحوكمة الإصدار",
+      "hideArchived": "إخفاء المؤرشف",
+      "showArchived": "إظهار المؤرشف",
+      "createFacility": "إنشاء تسهيل",
+      "totalExposure": "إجمالي الانكشاف",
+      "egpEq": "معادل جنيه مصري",
+      "activeLines": "خطوط نشطة",
+      "facilities": "تسهيلات",
+      "multiCurrency": "متعدد العملات",
+      "enabled": "مفعل",
+      "syncingData": "جاري مزامنة بيانات التسهيلات...",
+      "noFacilities": "لم يتم العثور على تسهيلات. ابدأ بإنشاء خط ائتمان جديد.",
+      "utilization": "الاستخدام",
+      "limit": "الحد",
+      "crossBorder": "عابر للحدود",
+      "fxProtection": "حماية صرف العملات",
+      "nextReview": "المراجعة القادمة",
+      "subLimitAllocation": "تخصيص الحد الفرعي",
+      "generalAllocation": "تخصيص عام",
+      "moreAllocations": "+{{count}} تخصيصات إضافية",
+      "facilityInactive": "التسهيل غير نشط / مؤرشف"
+    },
+    "auditLogsCorporate": {
+      "tableCols": {
+        "timestamp": "Timestamp",
+        "lgNumber": "Lg Number",
+        "details": "Details",
+        "actionType": "Action Type",
+        "entityType": "Entity Type",
+        "userName": "User Name",
+        "ipAddress": "Ip Address",
+        "entityName": "Entity Name"
+      },
+      "exportToCsv": "Export To Csv",
+      "system": "System",
+      "entityId": "Entity Id",
+      "hideFilters": "Hide Filters",
+      "showFilters": "Show Filters",
+      "noLogsFound": "No Logs Found",
+      "loading": "Loading",
+      "title": "Title",
+      "endDate": "End Date",
+      "entityType": "Entity Type",
+      "na": "Na",
+      "userId": "User Id",
+      "clearFilters": "Clear Filters",
+      "actionType": "Action Type",
+      "startDate": "Start Date",
+      "applyFilters": "Apply Filters"
+    },
+    "recordNewLg": {
+      "fields": {
+        "operationalStatus": "Operational Status",
+        "foreignBankAddress": "Foreign Bank Address",
+        "foreignBankCountry": "Foreign Bank Country",
+        "supportingDocument": "Supporting Document",
+        "internalOwnerEmail": "Internal Owner Email",
+        "notes": "Notes",
+        "rulesText": "Rules Text",
+        "issuingBankPhone": "Issuing Bank Phone",
+        "internalProjectId": "Internal Project Id",
+        "category": "Category",
+        "issuerName": "Issuer Name",
+        "payableCurrency": "Payable Currency",
+        "advisingBank": "Advising Bank",
+        "issueDate": "Issue Date",
+        "otherConditions": "Other Conditions",
+        "ownerManagerEmail": "Owner Manager Email",
+        "lgNumber": "Lg Number",
+        "issuingBankFax": "Issuing Bank Fax",
+        "foreignBankSwift": "Foreign Bank Swift",
+        "applicableRule": "Applicable Rule",
+        "lgType": "Lg Type",
+        "internalOwnerId": "Internal Owner Id",
+        "internalOwnerPhone": "Internal Owner Phone",
+        "issuingBankAddress": "Issuing Bank Address",
+        "foreignBankName": "Foreign Bank Name",
+        "advisingStatus": "Advising Status",
+        "issuingBank": "Issuing Bank",
+        "paymentConditions": "Payment Conditions",
+        "purpose": "Purpose",
+        "issuingMethod": "Issuing Method",
+        "beneficiary": "Beneficiary",
+        "currency": "Currency",
+        "amount": "Amount",
+        "expiryDate": "Expiry Date",
+        "autoRenewal": "Auto Renewal",
+        "issuerId": "Issuer Id"
+      },
+      "sections": {
+        "core": "Core",
+        "bank": "Bank",
+        "internal": "Internal"
+      },
+      "messages": {
+        "submitSuccess": "Submit Success",
+        "uploadSuccess": "Upload Success",
+        "ownerNotFound": "Owner Not Found",
+        "uploadTypeError": "Upload Type Error",
+        "uploadError": "Upload Error",
+        "lookupFailed": "Lookup Failed",
+        "emailFormatError": "Email Format Error",
+        "warnGraceDisabled": "Warn Grace Disabled",
+        "uploadFailed": "Upload Failed",
+        "submitError": "Submit Error",
+        "clearConfirm": "Clear Confirm"
+      },
+      "gracePeriodTooltip": "Grace Period Tooltip",
+      "title": "Title",
+      "placeholders": {
+        "selectStatus": "Select Status",
+        "selectBank": "Select Bank",
+        "selectLgType": "Select Lg Type",
+        "selectCategory": "Select Category",
+        "selectMethod": "Select Method",
+        "selectCurrency": "Select Currency",
+        "selectRule": "Select Rule",
+        "selectBeneficiary": "Select Beneficiary"
+      },
+      "buttons": {
+        "save": "Save",
+        "clear": "Clear"
+      },
+      "aiScan": {
+        "selectFile": "Select File",
+        "description": "Description",
+        "button": "Button",
+        "title": "Title",
+        "processing": "Processing"
+      }
+    },
+    "commonListManagement": {
+      "table": {
+        "actions": "Actions",
+        "status": "Status"
+      },
+      "messages": {
+        "deleteSuccess": "Delete Success",
+        "restoreSuccess": "Restore Success",
+        "confirmDelete": "Confirm Delete",
+        "noItemsFound": "No Items Found",
+        "loadError": "Load Error",
+        "saveError": "Save Error",
+        "templateNote": "Template Note",
+        "deleteError": "Delete Error",
+        "updateSuccess": "Update Success",
+        "confirmRestore": "Confirm Restore",
+        "invalidListType": "Invalid List Type",
+        "createSuccess": "Create Success",
+        "templateNote2": "Template Note2",
+        "unknownListType": "Unknown List Type",
+        "loading": "Loading",
+        "restoreError": "Restore Error"
+      },
+      "buttons": {
+        "create": "Create",
+        "addNew": "Add New",
+        "delete": "Delete",
+        "cancel": "Cancel",
+        "restore": "Restore",
+        "update": "Update",
+        "edit": "Edit"
+      },
+      "note": "Note",
+      "tabs": {
+        "issuing-methods": "Issuing-Methods",
+        "lg-operational-statuses": "Lg-Operational-Statuses",
+        "rules": "Rules",
+        "banks": "Banks",
+        "currencies": "Currencies",
+        "lg-statuses": "Lg-Statuses",
+        "lg-types": "Lg-Types"
+      },
+      "templatesTitle": "Templates Title",
+      "status": {
+        "active": "Active",
+        "deleted": "Deleted"
+      },
+      "errors": {
+        "unknownListTitle": "Unknown List Title"
+      }
+    },
+    "endUserLgDetails": {
+      "buttons": {
+        "extend": "Extend",
+        "liquidateTooltip": "Liquidate Tooltip",
+        "activate": "Activate",
+        "back": "Back",
+        "view": "View",
+        "viewTooltip": "View Tooltip",
+        "liquidate": "Liquidate",
+        "activateTooltip": "Activate Tooltip",
+        "changeOwner": "Change Owner",
+        "release": "Release",
+        "decrease": "Decrease",
+        "copy": "Copy",
+        "releaseTooltip": "Release Tooltip",
+        "amendTooltip": "Amend Tooltip",
+        "amend": "Amend",
+        "changeOwnerTooltip": "Change Owner Tooltip",
+        "decreaseTooltip": "Decrease Tooltip",
+        "extendTooltip": "Extend Tooltip"
+      },
+      "fields": {
+        "notes": "Notes",
+        "beneficiary": "Beneficiary",
+        "operationalStatus": "Operational Status",
+        "bankPhone": "Bank Phone",
+        "bankAddress": "Bank Address",
+        "lgType": "Lg Type",
+        "autoRenewal": "Auto Renewal",
+        "lgNumber": "Lg Number",
+        "period": "Period",
+        "amount": "Amount",
+        "rulesText": "Rules Text",
+        "issuerName": "Issuer Name",
+        "advisingStatus": "Advising Status",
+        "purpose": "Purpose",
+        "issuingMethod": "Issuing Method",
+        "applicableRule": "Applicable Rule",
+        "advisingBank": "Advising Bank",
+        "category": "Category",
+        "issuanceDate": "Issuance Date",
+        "status": "Status",
+        "expiryDate": "Expiry Date",
+        "otherConditions": "Other Conditions",
+        "internalOwner": "Internal Owner",
+        "ownerManager": "Owner Manager",
+        "internalProjectId": "Internal Project Id",
+        "issuingBank": "Issuing Bank",
+        "ownerPhone": "Owner Phone"
+      },
+      "messages": {
+        "na": "Na",
+        "copySuccess": "Copy Success",
+        "sendReminderError": "Send Reminder Error",
+        "sendReminderSuccess": "Send Reminder Success",
+        "refreshing": "Refreshing",
+        "autoRenewalSuccess": "Auto Renewal Success",
+        "warnGraceDisabled": "Warn Grace Disabled",
+        "actionSuccess": "Action Success",
+        "noDocuments": "No Documents",
+        "openingLetter": "Opening Letter",
+        "autoRenewalError": "Auto Renewal Error",
+        "noLetter": "No Letter",
+        "errorOpeningLetter": "Error Opening Letter",
+        "documentError": "Document Error"
+      },
+      "gracePeriodTooltip": "Grace Period Tooltip",
+      "tabs": {
+        "details": "Details",
+        "documents": "Documents",
+        "history": "History"
+      },
+      "sections": {
+        "bankInfo": "Bank Info",
+        "coreInfo": "Core Info",
+        "internalInfo": "Internal Info",
+        "documents": "Documents"
+      },
+      "errorLoading": "Error Loading",
+      "loading": "Loading",
+      "notFound": "Not Found"
+    },
+    "issuanceFormConfig": {
+      "title": "تكوين نموذج الإصدار",
+      "subtitle": "تحكم في الحقول المرئية أو الإلزامية للمستخدمين عند طلب خطاب ضمان.",
+      "saveLayout": "حفظ التخطيط",
+      "strictGovernanceRule": "قاعدة الحوكمة الصارمة:",
+      "ruleDescription": "الحقول المالية الأساسية (المبلغ، العملة، تاريخ الاستحقاق، المستفيد، نوع خطاب الضمان، الكيان المصدر) مقفلة بواسطة النظام ولا يمكن إخفاؤها. هذا يضمن عمل تقييمات المصفوفة وحسابات التعرض بشكل صحيح دائمًا.",
+      "visible": "مرئي",
+      "mandatory": "إلزامي",
+      "customFieldsTitle": "حقول مخصصة (بحد أقصى 2)",
+      "enable": "تمكين",
+      "fieldLabel": "تسمية الحقل (مثل مركز التكلفة)",
+      "dataType": "نوع البيانات",
+      "text": "نص",
+      "number": "رقم",
+      "date": "تاريخ"
+    },
+    "lgCategoryList": {
+      "tableHeaders": {
+        "extraFieldName": "Extra Field Name",
+        "status": "Status",
+        "code": "Code",
+        "communicationList": "Communication List",
+        "appliesToEntities": "Applies To Entities",
+        "type": "Type",
+        "mandatory": "Mandatory",
+        "categoryName": "Category Name",
+        "actions": "Actions"
+      },
+      "universalCategories": "Universal Categories",
+      "showDeleted": "Show Deleted",
+      "gracePeriodDisabled": "Grace Period Disabled",
+      "deleted": "Deleted",
+      "active": "Active",
+      "restoreAction": "Restore Action",
+      "confirmSoftDelete": "Confirm Soft Delete",
+      "addNewLgCategory": "Add New Lg Category",
+      "lgCategories": "Lg Categories",
+      "universalCategoryItem": "Universal Category Item",
+      "softDeleteSuccess": "Soft Delete Success",
+      "editAction": "Edit Action",
+      "confirmRestore": "Confirm Restore",
+      "na": "Na",
+      "lgCategoryItem": "Lg Category Item",
+      "no": "No",
+      "addNewUniversalCategory": "Add New Universal Category",
+      "systemDefaultNoDelete": "System Default No Delete",
+      "customerSpecificType": "Customer Specific Type",
+      "systemDefaultStatus": "System Default Status",
+      "allEntities": "All Entities",
+      "systemDefaultNoRestore": "System Default No Restore",
+      "systemDefaultNoEdit": "System Default No Edit",
+      "yes": "Yes",
+      "noCategoriesFound": "No Categories Found",
+      "universalType": "Universal Type",
+      "deleteAction": "Delete Action",
+      "restoreSuccess": "Restore Success"
+    },
+    "templateList": {
+      "table": {
+        "no": "No",
+        "global": "Global",
+        "deleteTooltip": "Delete Tooltip",
+        "name": "Name",
+        "type": "Type",
+        "templateId": "Template Id",
+        "yes": "Yes",
+        "active": "Active",
+        "restoreTooltip": "Restore Tooltip",
+        "editTooltip": "Edit Tooltip",
+        "na": "Na",
+        "status": "Status",
+        "actionType": "Action Type",
+        "actions": "Actions",
+        "deleted": "Deleted",
+        "customerId": "Customer Id"
+      },
+      "messages": {
+        "deleteConfirm": "Delete Confirm",
+        "restoreConfirm": "Restore Confirm",
+        "loading": "Loading",
+        "deleteError": "Delete Error",
+        "loadError": "Load Error",
+        "restoreError": "Restore Error"
+      },
+      "filters": {
+        "customerOnly": "Customer Only",
+        "globalAndCustomer": "Global And Customer",
+        "globalOnly": "Global Only",
+        "searchPlaceholder": "Search Placeholder",
+        "allActionTypes": "All Action Types"
+      },
+      "title": "Title",
+      "buttons": {
+        "addNew": "Add New"
+      }
+    },
+    "trialRegistrations": {
+      "detailsModal": {
+        "title": "Title",
+        "orgName": "Org Name",
+        "registrationIp": "Registration Ip",
+        "viewDocSecurely": "View Doc Securely",
+        "docTitle": "Doc Title",
+        "entitiesCount": "Entities Count",
+        "adminEmail": "Admin Email",
+        "close": "Close",
+        "registeredAt": "Registered At",
+        "na": "Na",
+        "status": "Status",
+        "orgAddress": "Org Address",
+        "noDocUploaded": "No Doc Uploaded",
+        "superAdminName": "Super Admin Name",
+        "contactPhone": "Contact Phone"
+      },
+      "messages": {
+        "actionError": "Action Error",
+        "docOpenError": "Doc Open Error",
+        "docUrlFailed": "Doc Url Failed",
+        "noDoc": "No Doc",
+        "loadError": "Load Error",
+        "noRegistrations": "No Registrations",
+        "rejectSuccess": "Reject Success",
+        "loading": "Loading",
+        "approveSuccess": "Approve Success"
+      },
+      "table": {
+        "actions": "Actions",
+        "adminEmail": "Admin Email",
+        "registeredAt": "Registered At",
+        "orgName": "Org Name",
+        "status": "Status",
+        "entities": "Entities"
+      },
+      "title": "Title",
+      "tabs": {
+        "rejected": "Rejected",
+        "pending": "Pending",
+        "approved": "Approved"
+      },
+      "tooltips": {
+        "viewDetails": "View Details",
+        "viewDoc": "View Doc",
+        "reject": "Reject",
+        "approve": "Approve"
+      },
+      "status": {
+        "pendingReview": "Pending Review"
+      }
+    },
+    "templateForm": {
+      "fields": {
+        "name": "Name",
+        "selectCustomer": "Select Customer",
+        "content": "Content",
+        "selectType": "Select Type",
+        "templateType": "Template Type",
+        "subjectPlaceholder": "Subject Placeholder",
+        "globalTemplate": "Global Template",
+        "actionType": "Action Type",
+        "emailSubject": "Email Subject",
+        "customer": "Customer",
+        "selectAction": "Select Action"
+      },
+      "messages": {
+        "saveSuccess": "Save Success",
+        "loading": "Loading",
+        "metaLoadError": "Meta Load Error",
+        "saveError": "Save Error",
+        "loadError": "Load Error",
+        "customerLoadError": "Customer Load Error"
+      },
+      "placeholdersInfo": {
+        "title": "Title",
+        "instruction": "Instruction",
+        "emptyText": "Empty Text"
+      },
+      "formTitles": {
+        "create": "Create",
+        "edit": "Edit"
+      },
+      "buttons": {
+        "create": "Create",
+        "update": "Update",
+        "cancel": "Cancel"
+      }
+    },
+    "manageInternalOwners": {
+      "na": "Na",
+      "messages": {
+        "warnGraceDisabled": "Warn Grace Disabled",
+        "loadError": "Load Error",
+        "noOwners": "No Owners",
+        "deleteError": "Delete Error",
+        "deleteSuccess": "Delete Success",
+        "noSearchMatch": "No Search Match",
+        "deleteConfirm": "Delete Confirm"
+      },
+      "gracePeriodTooltip": "Grace Period Tooltip",
+      "headers": {
+        "actions": "Actions",
+        "internalId": "Internal Id",
+        "phone": "Phone",
+        "email": "Email",
+        "managerEmail": "Manager Email",
+        "viewLgs": "View Lgs"
+      },
+      "tooltips": {
+        "viewAllLgs": "View All Lgs",
+        "deleteOwner": "Delete Owner",
+        "call": "Call",
+        "reassignLgs": "Reassign Lgs",
+        "editOwner": "Edit Owner",
+        "noLgs": "No Lgs",
+        "sendEmail": "Send Email"
+      },
+      "buttons": {
+        "addNew": "Add New",
+        "addFirst": "Add First"
+      },
+      "searchPlaceholder": "Search Placeholder",
+      "loading": "Loading",
+      "title": "Title"
+    },
+    "migrationUpload": {
+      "conflictDetected": "Conflict Detected",
+      "id": "Id",
+      "baseRecordDescription": "Base Record Description",
+      "paymentConditions": "Payment Conditions",
+      "dataIntakeFailed": "Data Intake Failed",
+      "bankPhone": "Bank Phone",
+      "uploadOrEnterRecord": "Upload Or Enter Record",
+      "statusImported": "Status Imported",
+      "imported": "Imported",
+      "validationLog": "Validation Log",
+      "noStagedRecordsFound": "No Staged Records Found",
+      "selectRule": "Select Rule",
+      "issuanceDate": "Issuance Date",
+      "issuerId": "Issuer Id",
+      "additionalFields": "Additional Fields",
+      "deleteSelected": "Delete Selected",
+      "conflictMessage": "Conflict Message",
+      "expiryDate": "Expiry Date",
+      "historicalMigrationNote": "Historical Migration Note",
+      "noRecordsSelectedForDeletion": "No Records Selected For Deletion",
+      "operationalStatus": "Operational Status",
+      "payableCurrency": "Payable Currency",
+      "allStatuses": "All Statuses",
+      "migrationReportAndBatches": "Migration Report And Batches",
+      "manualEntryFailed": "Manual Entry Failed",
+      "statusError": "Status Error",
+      "selectEntity": "Select Entity",
+      "auditFailed": "Audit Failed",
+      "issuerName": "Issuer Name",
+      "selectBank": "Select Bank",
+      "finalizeMigrationDescription": "Finalize Migration Description",
+      "revalidateSelectedFailed": "Revalidate Selected Failed",
+      "issuingBank": "Issuing Bank",
+      "selectFile": "Select File",
+      "manualEntryPlaceholder": "Manual Entry Placeholder",
+      "duplicates": "Duplicates",
+      "issuingMethod": "Issuing Method",
+      "contractId": "Contract Id",
+      "uploadSuccessWithIssues": "Upload Success With Issues",
+      "totalStaged": "Total Staged",
+      "fileName": "File Name",
+      "migrationType": "Migration Type",
+      "bankAddress": "Bank Address",
+      "deleteAllFailed": "Delete All Failed",
+      "lgNumber": "Lg Number",
+      "amount": "Amount",
+      "selectLgType": "Select Lg Type",
+      "close": "Close",
+      "filterByFileName": "Filter By File Name",
+      "finalizeMigration": "Finalize Migration",
+      "selectCurrency": "Select Currency",
+      "viewAllStagedRecords": "View All Staged Records",
+      "confirmDeleteAll": "Confirm Delete All",
+      "otherConditions": "Other Conditions",
+      "noStagedRecords": "No Staged Records",
+      "errors": "Errors",
+      "confirmFinalize": "Confirm Finalize",
+      "recordsDeletedSuccessfully": "Records Deleted Successfully",
+      "deleteSelectedFailed": "Delete Selected Failed",
+      "pending": "Pending",
+      "autoRenewal": "Auto Renewal",
+      "noIssues": "No Issues",
+      "loadingReportStatistics": "Loading Report Statistics",
+      "runAiAudit": "Run Ai Audit",
+      "readyForImportError": "Ready For Import Error",
+      "selectStatus": "Select Status",
+      "allRecordsDeletedSuccessfully": "All Records Deleted Successfully",
+      "uploadSuccess": "Upload Success",
+      "newLgRecords": "New Lg Records",
+      "lgType": "Lg Type",
+      "statusDuplicate": "Status Duplicate",
+      "actions": "Actions",
+      "statusReadyForImport": "Status Ready For Import",
+      "confirmDelete": "Confirm Delete",
+      "selectFileOrRecord": "Select File Or Record",
+      "viewStagedRecords": "View Staged Records",
+      "ownerEmail": "Owner Email",
+      "bankFax": "Bank Fax",
+      "stageRecords": "Stage Records",
+      "finalMigrationFailed": "Final Migration Failed",
+      "status": "Status",
+      "initialRecord": "Initial Record",
+      "finalMigrationComplete": "Final Migration Complete",
+      "revalidationComplete": "Revalidation Complete",
+      "updateRecordFailed": "Update Record Failed",
+      "noRecordsReadyForImport": "No Records Ready For Import",
+      "currency": "Currency",
+      "foundStagedRecords": "Found Staged Records",
+      "lgInstructions": "Lg Instructions",
+      "scanningDocs": "Scanning Docs",
+      "ruleText": "Rule Text",
+      "historyPreviewFailed": "History Preview Failed",
+      "ready": "Ready",
+      "manualEntrySuccess": "Manual Entry Success",
+      "confirmRevalidate": "Confirm Revalidate",
+      "amendment": "Amendment",
+      "selectCategory": "Select Category",
+      "historyPreviewTitle": "History Preview Title",
+      "rule": "Rule",
+      "beneficiary": "Beneficiary",
+      "selectMethod": "Select Method",
+      "filterByLgNumber": "Filter By Lg Number",
+      "finalizeMigrationAndImport": "Finalize Migration And Import",
+      "revalidateSelected": "Revalidate Selected",
+      "noRecordsSelectedForRevalidation": "No Records Selected For Revalidation",
+      "changesFromPreviousVersion": "Changes From Previous Version",
+      "category": "Category",
+      "fetchStagedRecordsFailed": "Fetch Staged Records Failed",
+      "noLgNumbersFound": "No Lg Numbers Found",
+      "processDeprecated": "Process Deprecated",
+      "recordUpdated": "Record Updated",
+      "noHistorySnapshotsFound": "No History Snapshots Found",
+      "deleteRecordFailed": "Delete Record Failed",
+      "confirmDeleteSelected": "Confirm Delete Selected",
+      "notes": "Notes",
+      "expired": "Expired",
+      "statusExpired": "Status Expired",
+      "noLgWithHistoryFound": "No Lg With History Found",
+      "statusPending": "Status Pending",
+      "purpose": "Purpose",
+      "recordDeleted": "Record Deleted",
+      "auditCompleteNoDiscrepancies": "Audit Complete No Discrepancies",
+      "enterSingleRecord": "Enter Single Record",
+      "previewHistoricalImport": "Preview Historical Import"
+    },
+    "globalConfigurationForm": {
+      "labels": {
+        "description": "Description",
+        "valueMax": "Value Max",
+        "key": "Key",
+        "valueDefault": "Value Default",
+        "valueMin": "Value Min",
+        "unit": "Unit"
+      },
+      "buttons": {
+        "creating": "Creating",
+        "updating": "Updating",
+        "update": "Update",
+        "cancel": "Cancel",
+        "create": "Create"
+      },
+      "messages": {
+        "updateSuccess": "Update Success",
+        "createSuccess": "Create Success",
+        "loadError": "Load Error",
+        "saveError": "Save Error"
+      },
+      "loading": "Loading",
+      "titleEdit": "Title Edit",
+      "titleCreate": "Title Create"
+    },
+    "endUserActionCenter": {
+      "replies": {
+        "issued": "Issued",
+        "headers": {
+          "instruction": "Instruction",
+          "lgNumber": "Lg Number",
+          "actions": "Actions",
+          "timeline": "Timeline"
+        },
+        "delivered": "Delivered",
+        "remind": "Remind",
+        "emptyTitle": "Empty Title",
+        "emptyDesc": "Empty Desc",
+        "recordReply": "Record Reply",
+        "title": "Title",
+        "bulkReminders": "Bulk Reminders",
+        "viewReminder": "View Reminder"
+      },
+      "messages": {
+        "errorOpeningLetter": "Error Opening Letter",
+        "failedToLoadTasks": "Failed To Load Tasks",
+        "noContent": "No Content",
+        "actionDisabledGrace": "Action Disabled Grace",
+        "openingLetter": "Opening Letter",
+        "popupBlocked": "Popup Blocked",
+        "dataMissing": "Data Missing",
+        "authRequired": "Auth Required",
+        "reminderGenerated": "Reminder Generated",
+        "failedToSendReminder": "Failed To Send Reminder",
+        "instructionIdMissing": "Instruction Id Missing",
+        "warnGraceDisabled": "Warn Grace Disabled"
+      },
+      "delivery": {
+        "confirmDelivery": "Confirm Delivery",
+        "emptyTitle": "Empty Title",
+        "headers": {
+          "instruction": "Instruction",
+          "dates": "Dates",
+          "delay": "Delay",
+          "action": "Action"
+        },
+        "emptyDesc": "Empty Desc",
+        "issued": "Issued",
+        "daysPending": "Days Pending",
+        "title": "Title"
+      },
+      "readOnly": "Read Only",
+      "printing": {
+        "headers": {
+          "typeMaker": "Type Maker",
+          "action": "Action",
+          "lgNumber": "Lg Number",
+          "approvalDate": "Approval Date"
+        },
+        "emptyTitle": "Empty Title",
+        "title": "Title",
+        "bulkPrintSoon": "Bulk Print Soon",
+        "bulkPrint": "Bulk Print",
+        "emptyDesc": "Empty Desc",
+        "printLetter": "Print Letter",
+        "ref": "Ref"
+      },
+      "gracePeriodTooltip": "Grace Period Tooltip",
+      "renewals": {
+        "title": "Title",
+        "headers": {
+          "status": "Status",
+          "expiry": "Expiry",
+          "lgDetails": "Lg Details",
+          "action": "Action"
+        },
+        "emptyTitle": "Empty Title",
+        "emptyDesc": "Empty Desc",
+        "autoRenewal": "Auto Renewal",
+        "daysLeft": "Days Left",
+        "renew": "Renew"
+      },
+      "stats": {
+        "bankReplies": "Bank Replies",
+        "awaitingDelivery": "Awaiting Delivery",
+        "dueRenewals": "Due Renewals",
+        "pendingPrints": "Pending Prints"
+      },
+      "subtitle": "Subtitle",
+      "title": "Title",
+      "errorLoading": "Error Loading",
+      "syncing": "Syncing"
+    },
+    "issuanceRequests": {
+      "title": "طلبات الإصدار",
+      "testPathB": "اختبار مسار ب: إنشاء دعوة",
+      "searchPlaceholder": "البحث عن مستفيد أو طالب...",
+      "allStatuses": "جميع الحالات",
+      "draft": "مسودة",
+      "pendingApproval": "في انتظار الموافقة",
+      "readyForBank": "جاهز للبنك",
+      "issued": "مُصدر",
+      "rejected": "مرفوض",
+      "tableHeaders": {
+        "idRequestor": "الرقم / الطالب",
+        "beneficiary": "المستفيد",
+        "amount": "المبلغ",
+        "status": "الحالة",
+        "actions": "الإجراءات"
+      },
+      "noRequests": "لم يتم العثور على طلبات تطابق عوامل التصفية الخاصة بك.",
+      "generateModalTitle": "إنشاء رابط دعوة فريد",
+      "requestorEmail": "البريد الإلكتروني للطالب",
+      "linkHint": "سيعمل الرابط فقط لنطاق البريد الإلكتروني هذا.",
+      "assignDepartment": "تخصيص للقسم",
+      "createLinkBtn": "إنشاء رابط مشفر",
+      "secureInviteUrl": "رابط دعوة آمن",
+      "copyToTest": "نسخ للاختبار",
+      "back": "رجوع",
+      "pasteHint": "الصق هذا في علامة تبويب متصفح جديدة لاختبار الوصول المباشر للنموذج."
+    },
+    "endUserLgListExtra": {
+      "messages": {
+        "viewLetter": "View Letter",
+        "openingLetter": "Opening Letter",
+        "autoRenewalError": "Auto Renewal Error",
+        "errorOpeningLetter": "Error Opening Letter",
+        "noLetter": "No Letter",
+        "warnGraceDisabled": "Warn Grace Disabled",
+        "noSelection": "No Selection",
+        "loadError": "Load Error",
+        "actionSuccess": "Action Success"
+      },
+      "gracePeriodTooltip": "Grace Period Tooltip"
+    },
+    "endUserPendingApprovals": {
+      "messages": {
+        "decodeFailed": "Decode Failed",
+        "withdrawSuccess": "Withdraw Success",
+        "actionDisabledGrace": "Action Disabled Grace",
+        "confirmWithdraw": "Confirm Withdraw",
+        "fetchFailed": "Fetch Failed",
+        "withdrawFailed": "Withdraw Failed"
+      },
+      "headers": {
+        "requestedOn": "Requested On",
+        "actions": "Actions",
+        "status": "Status",
+        "requestedBy": "Requested By",
+        "actionType": "Action Type",
+        "lgNumber": "Lg Number"
+      },
+      "noActions": "No Actions",
+      "withdrawRequest": "Withdraw Request",
+      "gracePeriodTooltip": "Grace Period Tooltip",
+      "viewDetails": "View Details",
+      "loading": "Loading",
+      "title": "Title",
+      "empty": "Empty"
+    },
+    "customerConfigurationManagement": {
+      "makerChecker": "Maker Checker",
+      "loading": "Loading",
+      "activeUsers": "Active Users",
+      "planFeatures": "Plan Features",
+      "multiEntity": "Multi Entity",
+      "activeLgRecords": "Active Lg Records",
+      "subscriptionAndUsage": "Subscription And Usage",
+      "activeCheckers": "Active Checkers",
+      "renewalDate": "Renewal Date",
+      "plan": "Plan",
+      "docStorage": "Doc Storage",
+      "usageLimits": "Usage Limits",
+      "title": "Title",
+      "aiScan": "Ai Scan",
+      "startDate": "Start Date",
+      "currentTerm": "Current Term",
+      "manageEmailSettings": "Manage Email Settings"
+    },
+    "lgCategoryForm": {
+      "createUniversal": "إنشاء فئة عامة جديدة",
+      "createLg": "إنشاء فئة خطاب ضمان جديدة",
+      "editUniversal": "تعديل فئة عامة",
+      "editLg": "تعديل فئة خطاب ضمان",
+      "universalWarning": "أنت تقوم بتعديل فئة على مستوى النظام (عامة). ستؤثر التغييرات على جميع العملاء.",
+      "categoryName": "اسم الفئة",
+      "code": "الكود (1-2 أحرف أبجدية رقمية)",
+      "extraFieldName": "اسم الحقل الإضافي (مثل 'كود المشروع')",
+      "isExtraMandatory": "هل الحقل الإضافي إلزامي؟",
+      "communicationList": "قائمة الاتصال (رسائل بريد إلكتروني مفصولة بفواصل)",
+      "communicationHint": "رسائل البريد الإلكتروني في هذه القائمة ستتلقى إشعارات لخطابات الضمان في هذه الفئة.",
+      "appliesToAll": "ينطبق على جميع كيانات هذا العميل",
+      "selectEntities": "تحديد كيانات محددة (اتركه غير محدد للتطبيق على الجميع)",
+      "noEntities": "لم يتم العثور على كيانات لهذا العميل. ستنطبق جميع الفئات على جميع الكيانات افتراضيًا.",
+      "cancel": "إلغاء",
+      "updating": "جاري التحديث...",
+      "updateLgCategory": "تحديث فئة خطاب الضمان",
+      "creating": "جاري الإنشاء...",
+      "createLgCategory": "إنشاء فئة خطاب الضمان"
+    },
+    "globalConfigurationList": {
+      "table": {
+        "actions": "Actions",
+        "min": "Min",
+        "default": "Default",
+        "max": "Max",
+        "toggleTooltip": "Toggle Tooltip",
+        "description": "Description",
+        "na": "Na",
+        "key": "Key",
+        "unit": "Unit",
+        "editTooltip": "Edit Tooltip",
+        "restoreTooltip": "Restore Tooltip"
+      },
+      "title": "Title",
+      "messages": {
+        "restoreSuccess": "Restore Success",
+        "noItems": "No Items",
+        "loadError": "Load Error",
+        "loading": "Loading",
+        "restoreConfirm": "Restore Confirm"
+      },
+      "filters": {
+        "compliance": "Compliance",
+        "security": "Security",
+        "filterPlaceholder": "Filter Placeholder",
+        "communication": "Communication",
+        "allGroups": "All Groups",
+        "limits": "Limits",
+        "general": "General"
+      },
+      "buttons": {
+        "addNew": "Add New"
+      }
+    }
+  },
+  "forgotPassword": {
+    "forgotPassword": "نسيت كلمة المرور",
+    "enterEmailInstruction": "أدخل بريدك الإلكتروني لاستلام رابط إعادة ضبط كلمة المرور.",
+    "emailAddress": "البريد الإلكتروني",
+    "emailPlaceholder": "you@example.com",
+    "sending": "جاري الإرسال...",
+    "sendResetLink": "إرسال رابط استعادة كلمة المرور",
+    "rememberPassword": "هل تتذكر كلمة المرور؟",
+    "backToLogin": "العودة لتسجيل الدخول",
+    "missingEmail": "يرجى إدخال عنوان بريدك الإلكتروني.",
+    "successMessage": "إذا كان هناك حساب مرتبط بهذا البريد، فقد تم الإرسال بنجاح.",
+    "unexpectedError": "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى."
+  },
+  "forcePasswordChange": {
+    "changePassword": "تغيير كلمة المرور",
+    "requiredToChange": "يجب عليك تغيير كلمة المرور الخاصة بك قبل المتابعة.",
+    "currentPassword": "كلمة المرور الحالية",
+    "newPassword": "كلمة المرور الجديدة",
+    "confirmNewPassword": "تأكيد كلمة المرور الجديدة",
+    "passwordsDoNotMatch": "كلمة المرور الجديدة وتأكيدها غير متطابقين.",
+    "passwordTooShort": "يجب أن تتكون كلمة المرور الجديدة من 8 أحرف على الأقل.",
+    "changing": "جاري التغيير...",
+    "changePasswordButton": "تغيير كلمة المرور",
+    "successMessage": "تم تغيير كلمة المرور بنجاح! جاري التوجيه إلى لوحة المتابعة...",
+    "unexpectedError": "حدث خطأ غير متوقع أثناء تغيير كلمة المرور."
+  },
+  "dashboard": {
+    "welcome": "مرحباً بك في لوحة المتابعة الخاصة بك",
+    "activeLgs": "خطابات الضمان السارية",
+    "lgsForRenewal": "خطابات الضمان المستحقة للتجديد",
+    "pendingPrints": "إجراءات الطباعة المعلقة",
+    "quickActions": "إجراءات سريعة",
+    "recentActivity": "أحدث أنشطة خطابات الضمان",
+    "comingSoonActivity": "قريباً: قائمة بأحدث سجلات وإجراءات خطابات الضمان الخاصة بك.",
+    "loadingData": "جاري تحميل بيانات لوحة المتابعة...",
+    "failedToLoad": "فشل تحميل بيانات لوحة المتابعة: {{error}}",
+    "gracePeriodDisabled": "هذا الإجراء معطل خلال فترة السماح لاشتراكك.",
+    "recordNewLgTitle": "تسجيل خطاب ضمان جديد",
+    "recordNewLgDesc": "بدء عملية تسجيل خطاب ضمان جديد.",
+    "viewMyLgsTitle": "عرض خطابات الضمان الخاصة بي",
+    "viewMyLgsDesc": "الوصول وإدارة خطابات الضمان السارية الخاصة بك.",
+    "viewReportsTitle": "عرض التقارير",
+    "viewReportsDesc": "الوصول إلى التقارير والتحليلات المختلفة المتعلقة بخطابات الضمان."
+  },
+  "lgList": {
+    "titleOwner": "خطابات الضمان للمالك، معرف: {{id}}",
+    "titleManage": "إدارة سجلات خطابات الضمان",
+    "clearFilters": "مسح الفلاتر",
+    "export": "تصدير",
+    "exportFiltered": "تصدير البيانات المفلترة ({{count}})",
+    "exportAll": "تصدير كل البيانات ({{count}})",
+    "actionHistory": "سجل الإجراءات",
+    "recordNewLg": "تسجيل خطاب ضمان جديد",
+    "loading": "جاري تحميل سجلات خطابات الضمان...",
+    "noLgsFound": "لم يتم العثور على سجلات خطابات ضمان لعميلك.",
+    "searchPlaceholder": "بحث برقم الخطاب، المُصدر، المستفيد، البنك، الفئة...",
+    "filterDate": "تصفية حسب التاريخ",
+    "filterStatus": "تصفية حسب الحالة",
+    "allStatuses": "جميع الحالات",
+    "filterType": "تصفية حسب النوع",
+    "allTypes": "جميع الأنواع",
+    "refreshing": "جاري تحديث البيانات...",
+    "headers": {
+      "lgNumber": "رقم خطاب الضمان",
+      "issuerName": "اسم المُصدر",
+      "beneficiary": "المستفيد",
+      "amount": "المبلغ",
+      "issuingBank": "البنك المُصدر",
+      "category": "الفئة",
+      "expiryDate": "تاريخ الانتهاء",
+      "status": "الحالة",
+      "actions": "الإجراءات",
+      "autoRenewal": "تجديد تلقائي"
+    },
+    "toggleAutoRenewalOn": "تبديل التجديد التلقائي (الحالي: مُفعل)",
+    "toggleAutoRenewalOff": "تبديل التجديد التلقائي (الحالي: معُطل)"
+  },
+  "sidebar": {
+    "overview": "نظرة عامة",
+    "dashboard": "لوحة المتابعة",
+    "issuance": "الإصدار",
+    "requestsInbox": "صندوق الطلبات",
+    "bankFacilities": "التسهيلات البنكية",
+    "lgManagement": "إدارة الضمانات",
+    "allLgs": "جميع السجلات",
+    "pendingApprovals": "الموافقات المعلقة",
+    "actionCenter": "مركز الإجراءات",
+    "configuration": "الإعدادات",
+    "userManagement": "إدارة المستخدمين",
+    "issuanceConfig": "إعداد نموذج الإصدار",
+    "settings": "إعدادات النظام",
+    "lgCategories": "فئات الضمان",
+    "system": "النظام",
+    "auditLogs": "سجلات التدقيق",
+    "reports": "التقارير",
+    "migrationHub": "مركز الترحيل",
+    "signOut": "تسجيل الخروج",
+    "corporateAdmin": "مسؤول الشركة",
+    "org": "المؤسسة: {{name}}"
+  },
+  "userManagement": {
+    "title": "المنظمة والفرق",
+    "tabs": {
+      "users": "المستخدمون",
+      "departments": "الأقسام",
+      "groups": "مجموعات الموافقة"
+    },
+    "tooltips": {
+      "gracePeriod": "هذا الإجراء معطل خلال فترة السماح لاشتراكك."
+    },
+    "buttons": {
+      "addUser": "إضافة مستخدم",
+      "addDepartment": "إضافة قسم",
+      "addGroup": "إضافة مجموعة",
+      "cancel": "إلغاء",
+      "save": "حفظ",
+      "edit": "تعديل",
+      "delete": "حذف",
+      "restore": "استعادة"
+    },
+    "users": {
+      "email": "البريد الإلكتروني",
+      "role": "الدور",
+      "status": "الحالة",
+      "actions": "الإجراءات",
+      "active": "نشط",
+      "deleted": "محذوف",
+      "confirmDelete": "هل أنت متأكد أنك تريد حذف المستخدم: {{email}}؟",
+      "confirmRestore": "هل أنت متأكد أنك تريد استعادة المستخدم: {{email}}؟",
+      "deleteSuccess": "تم حذف المستخدم '{{email}}' بنجاح.",
+      "restoreSuccess": "تمت استعادة المستخدم '{{email}}' بنجاح.",
+      "cannotDeleteSelf": "لا يمكنك حذف حسابك الخاص."
+    },
+    "departments": {
+      "name": "اسم القسم",
+      "manager": "المدير",
+      "noManager": "لم يتم تعيين مدير",
+      "empty": "لم يتم إعداد أي أقسام.",
+      "modalTitleNew": "قسم جديد",
+      "modalTitleEdit": "تعديل القسم",
+      "selectManager": "-- اختر المدير --",
+      "confirmDelete": "حذف هذا القسم؟",
+      "createSuccess": "تم إنشاء القسم.",
+      "updateSuccess": "تم تحديث القسم.",
+      "deleteSuccess": "تم حذف القسم."
+    },
+    "groups": {
+      "name": "اسم المجموعة",
+      "members": "الأعضاء",
+      "emptyRow": "مجموعة فارغة",
+      "empty": "لم يتم إعداد أي مجموعات موافقة.",
+      "modalTitleNew": "مجموعة موافقة جديدة",
+      "modalTitleEdit": "تعديل مجموعة الموافقة",
+      "selectMembers": "اختيار الأعضاء",
+      "confirmDelete": "حذف هذه المجموعة؟",
+      "createSuccess": "تم إنشاء المجموعة.",
+      "updateSuccess": "تم تحديث المجموعة.",
+      "deleteSuccess": "تم حذف المجموعة."
+    }
+  },
+  "customerUserManagement": {
+    "title": "مستخدمي العميل",
+    "buttons": {
+      "cancel": "إلغاء",
+      "addNewUser": "إضافة مستخدم جديد",
+      "updateUser": "تحديث المستخدم",
+      "createUser": "إنشاء مستخدم"
+    },
+    "messages": {
+      "loadError": "فشل في جلب المستخدمين. ",
+      "confirmDelete": "هل أنت متأكد أنك تريد الحذف الاسترجاعي للمستخدم {{email}}؟",
+      "deleteSuccess": "تم الحذف الاسترجاعي للمستخدم {{email}} بنجاح.",
+      "deleteError": "فشل في حذف المستخدم {{email}}. ",
+      "confirmRestore": "هل أنت متأكد أنك تريد استعادة المستخدم {{email}}؟",
+      "restoreSuccess": "تم استعادة المستخدم {{email}} بنجاح.",
+      "restoreError": "فشل استعادة المستخدم {{email}}. ",
+      "noUsersFound": "لم يتم العثور على مستخدمين لهذا العميل."
+    },
+    "form": {
+      "editUser": "تعديل المستخدم",
+      "addNewUser": "إضافة مستخدم جديد",
+      "email": "عنوان البريد الإلكتروني",
+      "role": "الدور",
+      "password": "كلمة المرور",
+      "roles": {
+        "corporate_admin": "مسؤول الشركة",
+        "end_user": "مستخدم نهائي"
+      }
+    },
+    "table": {
+      "email": "البريد الإلكتروني",
+      "role": "الدور",
+      "status": "الحالة",
+      "actions": "إجراءات",
+      "deleted": "محذوف",
+      "active": "نشط",
+      "tooltips": {
+        "restore": "استعادة المستخدم",
+        "edit": "تعديل المستخدم",
+        "delete": "حذف استرجاعي للمستخدم"
+      }
+    }
+  },
+  "auditLogs": {
+    "title": "سجلات التدقيق",
+    "buttons": {
+      "showFilters": "إظهار الفلاتر",
+      "hideFilters": "إخفاء الفلاتر",
+      "clearFilters": "مسح الفلاتر",
+      "applyFilters": "تطبيق الفلاتر",
+      "exportToCSV": "تصدير إلى CSV"
+    },
+    "filters": {
+      "userId": "معرف المستخدم",
+      "actionType": "نوع الإجراء",
+      "entityType": "نوع الكيان",
+      "entityId": "معرف الكيان",
+      "startDate": "تاريخ البدء",
+      "endDate": "تاريخ الانتهاء",
+      "customerId": "معرف العميل"
+    },
+    "placeholders": {
+      "userId": "مثال: 1",
+      "actionType": "مثال: تسجيل_الدخول_بنجاح",
+      "entityType": "مثال: عميل",
+      "entityId": "مثال: 5",
+      "customerId": "مثال: 2"
+    },
+    "messages": {
+      "loadError": "فشل في تحميل سجلات التدقيق. ",
+      "exportStarted": "بدأ التصدير بنجاح.",
+      "exportFailed": "فشل التصدير. ",
+      "loading": "جاري تحميل سجلات التدقيق...",
+      "noLogsFound": "لم يتم العثور على سجلات تدقيق للفلاتر المحددة.",
+      "notAuth": "لم يتم العثور على رمز المصادقة. يرجى تسجيل الدخول مرة أخرى.",
+      "unexpected": "حدث خطأ غير متوقع."
+    },
+    "table": {
+      "timestamp": "الطابع الزمني",
+      "userName": "اسم المستخدم",
+      "customerId": "معرف العميل",
+      "actionType": "نوع الإجراء",
+      "entityType": "نوع الكيان",
+      "entityId": "معرف الكيان",
+      "lgNumber": "رقم خطاب الضمان",
+      "details": "التفاصيل",
+      "ipAddress": "عنوان IP"
+    },
+    "details": {
+      "na": "غير متوفر",
+      "action": "الإجراء",
+      "file": "الملف",
+      "ocrChars": "أحرف تقنية التعرف الضوئي (OCR)",
+      "geminiPrompt": "استعلام متدرب Gemini",
+      "geminiCompletion": "اكتساب متدرب Gemini",
+      "tokens": "الرموز",
+      "pages": "الصفحات",
+      "reason": "السبب",
+      "failureReason": "سبب الفشل",
+      "logMetadata": "البيانات الوصفية للسجل"
+    }
+  },
+  "reports": {
+    "opsHealth": {
+      "title": "صحة العمليات والإنتاجية",
+      "subtitle": "تحليل كفاءة أداء محفظة الضمانات",
+      "noData": "لا توجد بيانات متاحة لهذا التقرير.",
+      "table": {
+        "reference": "المرجع",
+        "triggerDate": "تاريخ البدء",
+        "detail": "التفصيل",
+        "requests": "طلبات",
+        "tokens": "استهلاك (Tokens)",
+        "activityLevel": "مستوى النشاط"
+      },
+      "messages": {
+        "loadError": "خطأ في تحميل البيانات",
+        "noAiData": "لا توجد بيانات مسجلة لمساعد الذكاء الاصطناعي."
+      },
+      "trends": {
+        "faster": "أسرع",
+        "slower": "أبطأ"
+      },
+      "sections": {
+        "periodActivity": "النشاط خلال الفترة",
+        "efficiency": "الكفاءة (الحالية والتاريخية)",
+        "pipeline": "مؤشر الأعمال المتراكمة",
+        "aiCopilot": "استخدام الذكاء الاصطناعي",
+        "riskAlerts": "إنذارات محرك المخاطر"
+      },
+      "kpis": {
+        "netVolume": "صافي التغير في الحجم"
+      },
+      "flow": {
+        "newLGs": "خطابات جديدة",
+        "extensions": "تمديدات",
+        "reductions": "تخفيضات",
+        "amendments": "تعديلات",
+        "activations": "تفعيلات",
+        "releases": "إلغاءات",
+        "liquidations": "تسييل",
+        "reminders": "تذكيرات مرسلة للبنوك"
+      },
+      "charts": {
+        "activityTrend": "اتجاه النشاط الشهري",
+        "portfolioStatus": "حالة التدفق للمحفظة"
+      },
+      "efficiency": {
+        "approvalTime": "متوسط وقت الاستجابة (موافقة/إجراء)",
+        "history": "المتوسط التاريخي",
+        "internalTurnaround": "متوسط وقت الإنجاز الداخلي",
+        "bankResponseTime": "متوسط وقت رد البنك"
+      },
+      "pipeline": {
+        "actionable": "قابلة للتنفيذ حالياً / قريبة الانتهاء (30 يوماً)",
+        "allBacklog": "جميع الأعمال المتراكمة المفتوحة",
+        "internalBacklog": "الأعمال الداخلية المتراكمة",
+        "internalTotalDesc": "إجمالي الإجراءات المفتوحة التي تتطلب موافقة داخلية.",
+        "internalActionableDesc": "الإجراءات المتعلقة بالخطابات قريبة الانتهاء.",
+        "bankBacklog": "تأخر ردود البنوك",
+        "bankTotalDesc": "إجمالي الطلبات المرسلة إلى البنوك وبانتظار الرد.",
+        "bankActionableDesc": "الطلبات بانتظار رد والمرتبطة بانتهاء صلاحية قريب.",
+        "completedRecently": "الإجراءات المكتملة مؤخراً",
+        "completedDesc": "إجمالي الإجراءات المكتملة كلياً خلال الـ 14 يوماً الماضية."
+      },
+      "risk": {
+        "allNominal": "جميع المعايير طبيعية",
+        "noRisks": "لم يكتشف نظام المخاطر أية تهديدات تشغيلية مباشرة.",
+        "criticalExpiry": "مخاطر انتهاء حرجة",
+        "noExpiryRisks": "لا توجد خطابات ذات مخاطر انتهاء حرجة.",
+        "unresponsiveBanks": "بنوك غير مستجيبة",
+        "banksHealthy": "لا توجد بنوك مُدرجة كغير مستجيبة حالياً.",
+        "stalledInternal": "إجراءات داخلية معطلة",
+        "internalHealthy": "لا توجد إجراءات معطلة داخلياً."
+      }
+    },
+    "dashboard": {
+      "title": "لوحة تحكم التقارير",
+      "noReports": "لا توجد تقارير متاحة لدورك.",
+      "selectReport": "حدد تقريرا لعرض الرؤى التفصيلية."
+    },
+    "myLGDashboard": {
+      "title": "لوحة تحكم خطابات الضمان الخاصة بي",
+      "description": "نظرة عامة مخصصة على خطابات الضمان المعينة لك والمهام المعلقة.",
+      "kpis": {
+        "myLGs": "خطابات الضمان الخاصة بي",
+        "lgsNearExpiry": "خطابات ضمان تقترب من الانتهاء",
+        "undeliveredInstructions": "تعليمات غير مسلمة"
+      },
+      "recentActions": {
+        "title": "الإجراءات الأخيرة",
+        "noneFound": "لم يتم العثور على إجراءات حديثة."
+      },
+      "messages": {
+        "loadSuccess": "تم تحميل بيانات التقرير بنجاح!",
+        "loadError": "خطأ في جلب التقرير: ",
+        "noData": "لا تتوفر بيانات تقرير."
+      }
+    }
+  },
+  "modals": {
+    "approvalMatrixModal": {
+      "title": "مصفوفة الاعتماد",
+      "subtitle": "تحديد تسلسل الاعتماد الآلي لطلبات إصدار خطابات الضمان.",
+      "createStep": "1. إنشاء خطوة قاعدة",
+      "triggerCondition": "حالة التشغيل",
+      "triggerOptions": {
+        "always": "تشغيل دائم (أي طلب)",
+        "amountRange": "نطاق مبلغ محدد (بما يعادل الجنيه المصري)",
+        "amountOver": "المبلغ يتجاوز...",
+        "anyDepartment": "أي إدارة (منشئة)",
+        "deptMatch": "لإدارة محددة",
+        "crossBorder": "عبر الحدود / دولي"
+      },
+      "minAmount": "الحد الأدنى (مثل 500)",
+      "to": "إلى",
+      "maxAmount": "الحد الأقصى (مثل 1000)",
+      "ccy": "العملة",
+      "selectDepartment": "اختر الإدارة...",
+      "anyDeptNote": "تنطبق هذه القاعدة على جميع الطلبات. عادة ما تقترن بمدير إدارة مقدم الطلب.",
+      "crossBorderNote": "سيتم تشغيل هذه القاعدة لأي طلب يتضمن بنوكًا أو عملات أجنبية.",
+      "whoApproves": "2. من يعتمد؟",
+      "approverOptions": {
+        "deptHead": "مدير إدارة مقدم الطلب",
+        "group": "مجموعة اعتماد مخصصة",
+        "users": "أفراد محددون"
+      },
+      "noGroupsFound": "لم يتم العثور على مجموعات. قم بإنشائها في قسم المنظمة والفرق.",
+      "noUsersFound": "لم يتم العثور على مستخدمين نشطين.",
+      "members": "أعضاء",
+      "signaturesRequired": "3. التوقيعات المطلوبة",
+      "signaturesSub": "يجب على المُعتمد(ين) توقيع هذه الخطوة.",
+      "insertSequence": "إدراج في التسلسل",
+      "liveSequence": "تسلسل الاعتماد الحي",
+      "noRulesDefined": "لم يتم تعريف قواعد بعد.",
+      "approversText": "المعتمدون:",
+      "reqSigs": "التوقيعات المطلوبة:",
+      "saveMatrix": "حفظ المصفوفة النشطة"
+    },
+    "approvalRequestDetailsModal": {
+      "gracePeriodTitle": "هذا الإجراء معطل خلال فترة السماح لاشتراكك.",
+      "title": "مراجعة طلب الموافقة:",
+      "status": {
+        "pending": "قيد الانتظار",
+        "approved": "تمت الموافقة",
+        "rejected": "مرفوض"
+      },
+      "reviewNote": "راجع التفاصيل أدناه. تستند البيانات المقدمة إلى أحدث المعلومات المتاحة، بدلاً من البيانات في وقت تقديم الطلب.",
+      "requestInfo": "معلومات الطلب:",
+      "actionType": "نوع الإجراء:",
+      "requestedBy": "مقدم الطلب:",
+      "requestedOn": "تاريخ الطلب:",
+      "rejectionReason": "سبب الرفض:",
+      "approvedBy": "تمت الموافقة بواسطة:",
+      "on": "في",
+      "autoStatusNote": "تم أتمتة حالة هذا الطلب إلى",
+      "lgRecordSnapshotTitle": "تفاصيل سجل خطاب الضمان (اللقطة مقابل الحالي)",
+      "loadingDetails": "جاري تحميل تفاصيل سجل خطاب الضمان...",
+      "compareError": "معرف الكيان مفقود أو غير متطابق.",
+      "changed": "تم التغيير",
+      "na": "غير متوفر",
+      "decreaseAmountTitle": "تفاصيل طلب تخفيض المبلغ:",
+      "amountToDecrease": "المبلغ المراد تخفيضه:",
+      "reason": "السبب:",
+      "additionalNotes": "ملاحظات إضافية:",
+      "noReasonProvided": "لم يتم تقديم سبب",
+      "noNotesProvided": "لم يتم تقديم ملاحظات",
+      "viewSupportingDoc": "عرض المستند الداعم",
+      "liquidationTitle": "تفاصيل طلب تسييل خطاب الضمان:",
+      "liquidationType": "نوع التسييل:",
+      "newAmountPartial": "المبلغ الجديد (للجزئي):",
+      "releaseTitle": "تفاصيل طلب الإفراج عن خطاب الضمان:",
+      "amendmentTitle": "تفاصيل طلب تعديل خطاب الضمان:",
+      "requestedAmendments": "التعديلات المطلوبة:",
+      "viewAmendmentLetter": "عرض خطاب التعديل",
+      "activationTitle": "تفاصيل طلب تفعيل خطاب الضمان:",
+      "paymentMethod": "طريقة الدفع:",
+      "amount": "المبلغ:",
+      "paymentReference": "الرقم المرجعي للدفع:",
+      "issuingBankId": "معرف البنك المصدر:",
+      "paymentDate": "تاريخ الدفع:",
+      "updateOwnerTitle": "تحديث تفاصيل المالك الداخلي:",
+      "oldEmail": "البريد الإلكتروني القديم:",
+      "newEmail": "البريد الإلكتروني الجديد:",
+      "newPhone": "رقم الهاتف الجديد:",
+      "newManagerEmail": "البريد الإلكتروني للمدير الجديد:",
+      "changeScope": "نطاق التغيير:",
+      "oldOwnerId": "معرف المالك القديم:",
+      "newOwnerId": "معرف المالك الجديد:",
+      "newOwnerEmailIfNew": "البريد الإلكتروني للمالك الجديد (إذا كان جديداً):",
+      "affectedLgRecordId": "معرف سجل خطاب الضمان المتأثر:",
+      "affectedLgs": "خطابات الضمان المتأثرة:",
+      "genericActionDetails": "تفاصيل الإجراء العامة:",
+      "noSpecificDetails": "لا تتوفر تفاصيل إجراء محددة لهذا النوع.",
+      "buttons": {
+        "withdraw": "سحب الطلب",
+        "withdrawing": "جاري السحب...",
+        "approve": "موافقة",
+        "approving": "جاري الموافقة...",
+        "reject": "رفض",
+        "rejecting": "جاري الرفض...",
+        "rejectionPlaceholder": "سبب الرفض (اختياري)",
+        "noActionsAvailable": "لا توجد إجراءات متاحة لهذا الطلب (الحالة هي"
+      }
+    },
+    "bulkChangeLGOwnerModal": {
+      "title": "تغيير المالك الداخلي بشكل جماعي من: {{email}}",
+      "currentOwnerDetails": "تفاصيل المالك الحالي:",
+      "email": "البريد الإلكتروني:",
+      "phone": "الهاتف:",
+      "manager": "المدير:",
+      "na": "غير متوفر",
+      "lgsToBeReassigned": "خطابات الضمان المراد إعادة تعيينها ({{count}}):",
+      "loadingLgs": "جاري تحميل خطابات الضمان...",
+      "exp": "انتهاء: {{date}}",
+      "createNewOwner": "إنشاء جهة اتصال لمالك داخلي جديد",
+      "newOwnerContactDetails": "تفاصيل جهة اتصال المالك الجديد:",
+      "internalIdOptional": "المعرف الداخلي (اختياري)",
+      "selectExistingOwner": "اختيار مالك موجود",
+      "loadingOwners": "جاري تحميل الملاك...",
+      "selectAnOwner": "-- اختر مالك --",
+      "reasonForChange": "سبب التغيير",
+      "processing": "جاري المعالجة...",
+      "submitBulkChange": "تأكيد التغيير الجماعي",
+      "cancel": "إلغاء"
+    },
+    "bulkRemindersModal": {
+      "title": "إنشاء تذكيرات بنكية جماعية",
+      "description1": "سيقوم هذا الإجراء تلقائياً بتحديد كافة تعليمات خطابات الضمان المؤهلة لتذكير بنكي، والتي قد تمتد أبعد من القائمة أدناه. سيقوم بعدها بإنشاء مستند PDF موحد يحتوي على كافة هذه التذكيرات. سيتم فتح ملف الـ PDF في علامة تبويب جديدة للطباعة.",
+      "description2": "التعليمات المؤهلة هي تلك التي لم يُسجل لها رد من البنك، وتقع ضمن الحدود الزمنية المُعدة (مثل عدد الأيام منذ الإصدار/التسليم).",
+      "cancel": "إلغاء",
+      "generating": "جاري الإنشاء...",
+      "generateAndPrint": "إنشاء وطباعة التذكيرات"
+    },
+    "cancelInstructionModal": {
+      "title": "إلغاء التعليمة الأخيرة",
+      "warningText": "أنت على وشك إلغاء التعليمة التالية. هذا الإجراء سيقوم بإرجاع خطاب الضمان إلى حالته السابقة.",
+      "instructionType": "نوع التعليمة:",
+      "instructionSerial": "الرقم التسلسلي للتعليمة:",
+      "lgNumber": "رقم خطاب الضمان:",
+      "issuedOn": "تاريخ الإصدار:",
+      "na": "غير متوفر",
+      "timeLeft": "الوقت المتبقي للإلغاء: {{time}}",
+      "loading": "جاري التحميل...",
+      "reasonForCancellation": "سبب الإلغاء",
+      "reasonPlaceholder": "مثلاً، تم إدخال مبلغ غير صحيح",
+      "declaration": "أؤكد أن هذه التعليمة تعتبر لاغية وباطلة، وأنها لم تُسلم للبنك، أو في حالة تسليمها، فقد تم إتخاذ كافة الخطوات اللازمة لإيقاف استخدامها، بما في ذلك إتلاف النسخ الورقية وضمان عدم استخدامها بأي شكل. أتحمل المسؤولية الكاملة عن هذا الإجراء.",
+      "confirmCancellation": "تأكيد الإلغاء",
+      "back": "عودة"
+    },
+    "changeLGOwnerModal": {
+      "title": "تغيير المالك الداخلي لخطاب الضمان: {{lgNumber}}",
+      "currentOwnerDetails": "تفاصيل المالك الحالي:",
+      "email": "البريد الإلكتروني:",
+      "phone": "الهاتف:",
+      "manager": "المدير:",
+      "na": "غير متوفر",
+      "createNewOwner": "إنشاء جهة اتصال لمالك داخلي جديد",
+      "newOwnerContactDetails": "تفاصيل جهة اتصال المالك الجديد:",
+      "internalIdOptional": "المعرف الداخلي (اختياري)",
+      "selectExistingOwner": "اختيار مالك موجود",
+      "loadingOwners": "جاري تحميل الملاك...",
+      "selectAnOwner": "-- اختر مالك --",
+      "reasonForChange": "سبب التغيير",
+      "processing": "جاري المعالجة...",
+      "submitChangeRequest": "تقديم طلب التغيير",
+      "cancel": "إلغاء"
+    },
+    "decreaseAmountModal": {
+      "title": "تخفيض قيمة خطاب الضمان: {{lgNumber}}",
+      "description": "تقليل قيمة هذا الخطاب. قد يتطلب هذا الإجراء موافقة.",
+      "currentAmount": "القيمة الحالية للخطاب",
+      "status": "الحالة",
+      "amountToDecrease": "القيمة المراد تخفيضها ({{currencyCode}})",
+      "newRemainingAmount": "القيمة المتبقية الجديدة للخطاب:",
+      "reasonForDecrease": "سبب تخفيض القيمة",
+      "additionalNotes": "ملاحظات إضافية (اختياري)",
+      "supportingDocument": "المستند الداعم",
+      "attachDocumentsDescription": "أرفق أي مستندات متعلقة بهذا الطلب (مثال: طلب رسمي من المستفيد).",
+      "processing": "جارٍ المعالجة...",
+      "submitDecreaseRequest": "تقديم طلب التخفيض",
+      "cancel": "إلغاء",
+      "gracePeriodWarning": "هذا الإجراء معطل خلال فترة السماح لاشتراكك.",
+      "successMessageApproval": "تم إرسال طلب تخفيض قيمة الخطاب للموافقة. رقم الطلب: {{id}}.",
+      "successMessageDirect": "تم تخفيض قيمة الخطاب {{lgNumber}} بنجاح!",
+      "validationAmountRequired": "قيمة التخفيض مطلوبة",
+      "validationAmountPositive": "يجب أن تكون قيمة التخفيض موجبة",
+      "validationAmountMax": "يجب أن تكون قيمة التخفيض أقل من القيمة الحالية للخطاب ({{currentAmount}})",
+      "validationReasonRequired": "سبب التخفيض مطلوب",
+      "validationReasonLength": "يجب أن يكون السبب 10 أحرف على الأقل."
+    },
+    "extendLGModal": {
+      "title": "تمديد خطاب الضمان: {{lgNumber}}",
+      "description": "تاريخ انتهاء الصلاحية لخطاب الضمان هذا.",
+      "currentExpiryDate": "تاريخ الانتهاء الحالي",
+      "currentAmount": "القيمة الحالية للخطاب",
+      "extensionMethod": "طريقة التمديد",
+      "selectSpecificDate": "تحديد تاريخ معين",
+      "extendByMonths": "تمديد بالأشهر",
+      "newExpiryDate": "تاريخ الانتهاء الجديد",
+      "numberOfMonths": "عدد أشهر التمديد",
+      "newExpiryDateApprox": "سيكون تاريخ الانتهاء الجديد تقريبًا:",
+      "additionalNotes": "ملاحظات إضافية (اختياري)",
+      "processing": "جارٍ المعالجة...",
+      "extendLG": "تمديد خطاب الضمان",
+      "cancel": "إلغاء",
+      "gracePeriodWarning": "هذا الإجراء معطل خلال فترة السماح لاشتراكك.",
+      "successMessage": "تم تمديد سجل خطاب الضمان {{lgNumber}} بنجاح إلى {{date}}.",
+      "validationMethodRequired": "طريقة التمديد مطلوبة.",
+      "validationDateRequired": "تاريخ الانتهاء الجديد مطلوب.",
+      "validationDateAfterCurrent": "يجب أن يكون تاريخ الانتهاء الجديد بعد التاريخ الحالي.",
+      "validationMonthsRequired": "عدد الأشهر مطلوب.",
+      "validationMonthsPositive": "يجب أن يكون عدد الأشهر عددًا صحيحًا موجبًا."
+    },
+    "facilityFormModal": {
+      "createTitle": "إنشاء تسهيل إصدار",
+      "updateTitle": "تحديث التسهيل",
+      "modelVersion": "إصدار النموذج: إصدار-v2.1 (مفعل بعملات متعددة)",
+      "tabs": {
+        "basicInfo": "المعلومات الأساسية",
+        "riskGovernance": "المخاطر والحوكمة",
+        "subLimitsPricing": "الحدود الفرعية والتسعير"
+      },
+      "basicInfo": {
+        "permittedCustomerEntities": "كيانات العملاء المسموح بها (اختيار متعدد)",
+        "facilityAttachment": "مرفق التسهيل",
+        "changeFile": "تغيير الملف",
+        "chooseFile": "اختيار ملف",
+        "existingAttachment": "تم حفظ المرفق الحالي",
+        "noFileSelected": "لم يتم تحديد ملف",
+        "facilityName": "اسم التسهيل *",
+        "facilityNamePlaceholder": "مثال: التسهيل الرئيسي",
+        "totalFacilityAmount": "إجمالي قيمة التسهيل *",
+        "facilityTenor": "المدة الزمنية للتسهيل *",
+        "months": "أشهر",
+        "bankPartner": "البنك الشريك *",
+        "selectBank": "اختر البنك...",
+        "baseCurrency": "العملة الأساسية *",
+        "selectCurrency": "اختر العملة...",
+        "status": "الحالة",
+        "statusActive": "مفعل",
+        "statusSuspended": "موقوف",
+        "referenceNumber": "الرقم المرجعي #",
+        "startDate": "تاريخ البدء",
+        "expiryDate": "تاريخ الانتهاء",
+        "nextReview": "المراجعة التالية",
+        "foreignCorrespondentDetails": "تفاصيل المراسل الأجنبي",
+        "bankName": "اسم البنك",
+        "swift": "سويفت الدفع",
+        "country": "الدولة",
+        "fullAddress": "العنوان الكامل",
+        "selectCcy": "Select Ccy"
+      },
+      "riskGovernance": {
+        "riskSettings": "إعدادات المخاطر والعملات المتعددة",
+        "riskMultiCurrencySettings": "إعدادات المخاطر والعملات المتعددة",
+        "multiCurrencyAllowed": "السماح بالعملات المتعددة",
+        "multiCurrencyDesc": "تفعيل الإصدار بعملات غير العملة الأساسية",
+        "multiCurrencyAllowedDescription": "تفعيل الإصدار بعملات غير العملة الأساسية",
+        "fxBreachAutoSuspend": "التعليق التلقائي لاختراق الصرف",
+        "fxBreachDesc": "قفل التسهيل إذا تجاوزت إعادة تقييم العملة الحد الإجمالي",
+        "fxBreachAutoSuspendDescription": "قفل التسهيل إذا تجاوزت إعادة تقييم العملة الحد الإجمالي",
+        "marginReducesExposure": "الهامش يقلل الانكشاف",
+        "marginReducesDesc": "خصم الهامش النقدي من الحد المستخدم",
+        "marginReducesExposureDescription": "خصم الهامش النقدي من الحد المستخدم",
+        "governanceSLA": "الحوكمة واتفاقية مستوى الخدمة",
+        "slaAgreementDays": "أيام اتفاقية مستوى الخدمة",
+        "marginLeadTimeDays": "المهلة الزمنية للهامش (أيام)",
+        "allowCrossBorder": "السماح عبر الحدود",
+        "allowCrossBorderDesc": "المفتاح الرئيسي لإصدار المستفيد من دول متعددة",
+        "allowCrossBorderDescription": "المفتاح الرئيسي لإصدار المستفيد من دول متعددة",
+        "allowThirdPartyIssuance": "السماح بإصدار طرف ثالث",
+        "allowThirdPartyDesc": "السماح بالإصدار نيابة عن أطراف ثالثة",
+        "allowThirdPartyIssuanceDescription": "السماح بالإصدار نيابة عن أطراف ثالثة",
+        "internalNotes": "ملاحظات داخلية وشروط خاصة",
+        "internalNotesSpecialConditions": "ملاحظات داخلية وشروط خاصة",
+        "internalNotesPlaceholder": "الصق ملاحظات موافقة لجنة الائتمان العالي..."
+      },
+      "subLimits": {
+        "allocationTitle": "تخصيص الحدود الفرعية",
+        "newAllocation": "+ تخصيص جديد",
+        "lgTypes": "أنواع خطابات الضمان",
+        "limitAmount": "مبلغ الحد",
+        "allocationLabel": "تسمية التخصيص",
+        "allocationLabelPlaceholder": "أدخل التسمية...",
+        "commissionStructure": "هيكل العمولة",
+        "commRate": "معدل العمولة (%)",
+        "commissionRate": "معدل العمولة (%)",
+        "minFees": "الحد الأدنى للرسوم",
+        "flatProcessingFee": "رسوم معالجة ثابتة",
+        "rules": "القواعد",
+        "cashMargin": "الهامش النقدي (%)",
+        "maxTenor": "أقصى مدة (أيام)",
+        "allowsConfirm": "يسمح بالتأكيد.",
+        "allowsConfirmation": "يسمح بالتأكيد",
+        "geography": "الجغرافيا",
+        "allowOnly": "السماح فقط (+)",
+        "excludeThese": "استبعاد هذه (-)",
+        "isoCodesPlaceholder": "رموز ISO: UAE, SA, EG...",
+        "crossBorderOff": "مفتاح مبادلة التسهيل الإقليمي مغلق.",
+        "crossBorderSwitchOff": "مفتاح مبادلة التسهيل الإقليمي مغلق."
+      },
+      "footer": {
+        "schemaCompliant": "متوافق مع مخطط الإصدار v2.1",
+        "discard": "تجاهل",
+        "uploading": "جارٍ الرفع...",
+        "authorizeUpdate": "تصريح وتحديث التسهيل",
+        "authorizeSave": "تصريح وحفظ التسهيل"
+      }
+    },
+    "historyExportModal": {
+      "title": "تصدير سجل إجراءات خطاب الضمان",
+      "from": "من",
+      "to": "إلى",
+      "includeActions": "تضمين الإجراءات:",
+      "cancel": "إلغاء",
+      "exportHistory": "تصدير السجل",
+      "noHistoryFound": "لم يتم العثور على سجل للمعايير المحددة.",
+      "successExport": "تم تصدير {{count}} أحداث بنجاح.",
+      "errorExport": "فشل تصدير السجل. يرجى التأكد من أنك قيد تسجيل الدخول وإمكانية الوصول إلى البيانات."
+    },
+    "internalOwnerFormModal": {
+      "editTitle": "تعديل تفاصيل المالك الداخلي",
+      "addTitle": "إضافة مالك داخلي جديد",
+      "saveChanges": "حفظ التغييرات",
+      "addOwner": "إضافة مالك",
+      "email": "البريد الإلكتروني",
+      "phoneNumber": "رقم الهاتف",
+      "internalId": "المعرف الداخلي (اختياري)",
+      "managerEmail": "البريد الإلكتروني للمدير",
+      "processing": "جاري المعالجة...",
+      "cancel": "إلغاء",
+      "gracePeriodWarning": "هذا الإجراء معطل خلال فترة السماح لاشتراكك."
+    },
+    "issuanceExecutionModal": {
+      "title": "تحديث الإصدار (الوضع الذكي)",
+      "beneficiary": "المستفيد:",
+      "requestAmount": "مبلغ الطلب",
+      "selectBestBankOption": "اختر أفضل خيار بنكي",
+      "analyzingRates": "جاري تحليل أفضل الأسعار...",
+      "noSufficientLimits": "لم يتم العثور على حدود كافية.",
+      "bestPrice": "أفضل سعر",
+      "avail": "متاح:",
+      "commission": "العمولة:",
+      "cashMargin": "التغطية النقدية:",
+      "zeroMargin": "بدون تغطية",
+      "bankRefNumber": "الرقم المرجعي للبنك",
+      "issueDate": "تاريخ الإصدار",
+      "confirmIssuance": "تأكيد الإصدار",
+      "placeholderBankRef": "مثال: LG-2025-001"
+    },
+    "lgActivateNonOperativeModal": {
+      "title": "تفعيل خطاب الضمان:",
+      "loadingData": "جاري تحميل البيانات...",
+      "lgDetails": "تفاصيل خطاب الضمان",
+      "type": "النوع:",
+      "status": "الحالة:",
+      "paymentInformation": "معلومات الدفع",
+      "paymentAmount": "مبلغ الدفع*",
+      "currency": "العملة*",
+      "selectCurrency": "اختر العملة",
+      "issuingBank": "البنك المصدر*",
+      "selectBank": "اختر البنك",
+      "paymentMethod": "طريقة الدفع*",
+      "paymentDate": "تاريخ الدفع*",
+      "paymentReference": "الرقم المرجعي للدفع",
+      "additionalNotes": "ملاحظات إضافية (اختياري)",
+      "supportingDocument": "مستند داعم",
+      "attachDocumentsRelated": "قم بإرفاق أي مستندات متعلقة بهذا الطلب (مثال: إثبات الدفع المقدم).",
+      "activateLg": "تفعيل",
+      "activating": "جاري التفعيل...",
+      "cancel": "إلغاء"
+    },
+    "lgAmendModal": {
+      "title": "تعديل خطاب الضمان:",
+      "lgNumber": "رقم خطاب الضمان",
+      "beneficiary": "المستفيد",
+      "issuanceDate": "تاريخ الإصدار",
+      "expiryDate": "تاريخ الانتهاء",
+      "lgAmount": "مبلغ خطاب الضمان",
+      "autoRenewal": "تجديد تلقائي",
+      "paymentConditions": "شروط الدفع",
+      "purpose": "الغرض",
+      "otherConditions": "شروط أخرى",
+      "notes": "ملاحظات",
+      "reasonForAmendment": "سبب التعديل",
+      "amendmentLetterFromBank": "خطاب التعديل من البنك",
+      "scanCopyMandatory": "يجب إرفاق نسخة ضوئية من خطاب التعديل البنكي.",
+      "submitAmendment": "تقديم التعديل",
+      "amending": "جاري التعديل...",
+      "cancel": "إلغاء",
+      "amended": "معدل"
+    },
+    "liquidateLgModal": {
+      "title": "تسييل خطاب الضمان:",
+      "chooseLiquidationText": "اختر تسييل كلي أو جزئي لخطاب الضمان. قد يتطلب هذا الإجراء موافقة.",
+      "currentLgAmount": "مبلغ خطاب الضمان الحالي:",
+      "liquidationType": "نوع التسييل",
+      "fullLiquidation": "تسييل كلي (يصبح المبلغ 0)",
+      "partialLiquidation": "تسييل جزئي (تخفيض المبلغ)",
+      "newAmountAfterPartial": "مبلغ خطاب الضمان الجديد بعد التسييل الجزئي",
+      "reasonForLiquidation": "سبب التسييل",
+      "additionalNotes": "ملاحظات إضافية (اختياري)",
+      "additionalNotesHint": "قدم أي ملاحظات نصية حرة إضافية لهذا التسييل.",
+      "supportingDocument": "مستند داعم",
+      "attachDocumentsRelated": "أرفق أي مستندات متعلقة بهذا الطلب (مثل طلب رسمي من المستفيد).",
+      "submitLiquidation": "تقديم طلب التسييل",
+      "processing": "جاري المعالجة...",
+      "cancel": "إلغاء",
+      "disabledGracePeriod": "هذا الإجراء معطل خلال فترة السماح لاشتراكك."
+    },
+    "recordBankReplyModal": {
+      "title": "تسجيل رد البنك للتعليمات:",
+      "instructionText": "سجل رد البنك على هذه التعليمات.",
+      "lg": "خطاب الضمان:",
+      "type": "النوع:",
+      "issued": "تاريخ الإصدار:",
+      "delivered": "تاريخ التسليم:",
+      "bankReplyDate": "تاريخ رد البنك",
+      "replyDetails": "تفاصيل الرد (اختياري)",
+      "bankReplyDocument": "مستند رد البنك (اختياري)",
+      "supportedFormats": "التنسيقات المدعومة: JPG, PNG, PDF. (كحد أقصى 5 ميغابايت)",
+      "recordReply": "تسجيل الرد",
+      "processing": "جاري المعالجة...",
+      "cancel": "إلغاء"
+    },
+    "recordDeliveryModal": {
+      "title": "تسجيل التسليم للتعليمات:",
+      "instructionText": "قم بتأكيد تاريخ تسليم هذه التعليمات للبنك وأرفق أي دليل داعم.",
+      "lg": "خطاب الضمان:",
+      "type": "النوع:",
+      "issued": "تاريخ الإصدار:",
+      "deliveryDate": "تاريخ التسليم",
+      "deliveryDocument": "مستند التسليم",
+      "supportedFormats": "التنسيقات المدعومة: JPG, PNG, PDF. (كحد أقصى 5 ميغابايت)",
+      "recordDelivery": "تسجيل التسليم",
+      "processing": "جاري المعالجة...",
+      "cancel": "إلغاء"
+    },
+    "releaseLgModal": {
+      "title": "إلغاء خطاب الضمان:",
+      "instructionText": "قم بتأكيد إلغاء خطاب الضمان هذا. سيؤدي هذا الإجراء إلى تغيير حالة خطاب الضمان إلى \"ملغى\" وقد يتطلب الموافقة.",
+      "currentLgAmount": "مبلغ خطاب الضمان الحالي:",
+      "status": "الحالة:",
+      "reasonForRelease": "سبب الإلغاء",
+      "additionalNotes": "ملاحظات إضافية (اختياري)",
+      "supportingDocument": "مستند داعم",
+      "attachDocumentsRelated": "أرفق أي مستندات متعلقة بهذا الطلب (مثل طلب رسمي من المستفيد).",
+      "totalDocuments": "إجمالي المستندات المسجلة",
+      "pendingReplies": "ردود البنك المعلقة",
+      "submitRelease": "تقديم طلب الإلغاء",
+      "processing": "جاري المعالجة...",
+      "cancel": "إلغاء"
+    },
+    "runAutoRenewalModal": {
+      "title": "تشغيل التجديد التلقائي/الإجباري لخطابات الضمان",
+      "messageEligible": "ستحدد هذه العملية جميع خطابات الضمان المؤهلة للتجديد التلقائي وللتجديد الإجباري.",
+      "messageDetailed": "لكل خطاب ضمان مؤهل (والذي قد يختلف عن القائمة الموضحة أدناه)، سيقوم النظام تلقائيًا بتمديد تاريخ انتهاء صلاحيته، وإنشاء خطاب تعليمات فردي، وإرسال إشعار بريد إلكتروني فردي. سيتم توفير ملف PDF واحد مجمع يحتوي على جميع خطابات التعليمات المنشأة للتنزيل.",
+      "successfullyRenewed": "تم التجديد بنجاح:",
+      "lgs": "خطابات ضمان",
+      "close": "إغلاق",
+      "confirmAndRun": "تأكيد وتشغيل التجديد",
+      "processing": "جاري المعالجة...",
+      "cancel": "إلغاء"
+    }
+  },
+  "subscriptionPlans": {
+    "title": "خطط الاشتراك",
+    "buttons": {
+      "addNew": "إضافة خطة جديدة",
+      "cancel": "إلغاء",
+      "create": "إنشاء خطة",
+      "update": "تحديث الخطة",
+      "creating": "جاري الإنشاء...",
+      "updating": "جاري التحديث..."
+    },
+    "messages": {
+      "loadError": "فشل في تحميل خطط الاشتراك. يرجى المحاولة مرة أخرى.",
+      "loadFormError": "فشل في تحميل تفاصيل الخطة للتعديل. يرجى المحاولة مرة أخرى.",
+      "confirmDelete": "هل أنت متأكد أنك تريد الحذف الاسترجاعي للخطة \"{{name}}\"؟",
+      "deleteSuccess": "تم الحذف الاسترجاعي لخطة الاشتراك \"{{name}}\" بنجاح.",
+      "deleteError": "فشل الحذف الاسترجاعي للخطة \"{{name}}\".",
+      "confirmRestore": "هل أنت متأكد أنك تريد استعادة الخطة \"{{name}}\"؟",
+      "restoreSuccess": "تم استعادة خطة الاشتراك \"{{name}}\" بنجاح.",
+      "restoreError": "فشل استعادة الخطة \"{{name}}\".",
+      "createSuccess": "تم إنشاء خطة الاشتراك بنجاح!",
+      "updateSuccess": "تم تحديث خطة الاشتراك بنجاح!",
+      "saveError": "خطأ في حفظ الخطة:",
+      "loading": "جاري تحميل الخطط...",
+      "loadingData": "جاري تحميل بيانات الخطة...",
+      "noPlans": "لم يتم العثور على خطط اشتراك. انقر على \"إضافة خطة جديدة\" للبدء."
+    },
+    "table": {
+      "planName": "اسم الخطة",
+      "duration": "المدة",
+      "monthlyPrice": "السعر الشهري",
+      "annualPrice": "السعر السنوي",
+      "maxUsers": "الحد الأقصى للمستخدمين",
+      "maxRecords": "إجمالي الضمانات (استلام)",
+      "maxIssuanceRecords": "إجمالي الضمانات (إصدار)",
+      "maxCheckerUsers": "الحد الأقصى للمدققين",
+      "features": "المميزات",
+      "actions": "الإجراءات",
+      "deleted": "محذوف",
+      "tooltips": {
+        "restore": "استعادة الخطة",
+        "edit": "تعديل الخطة",
+        "delete": "حذف الخطة"
+      },
+      "featuresList": {
+        "makerChecker": "صانع-مدقق",
+        "multiEntity": "متعدد الكيانات",
+        "aiIntegration": "تكامل الذكاء الاصطناعي",
+        "imageStorage": "تخزين المستندات",
+        "custodyModule": "استلام الضمانات",
+        "issuanceModule": "إصدار الضمانات"
+      }
+    },
+    "formTitleNew": "إنشاء خطة اشتراك جديدة",
+    "formTitleEdit": "تعديل خطة الاشتراك",
+    "form": {
+      "name": "اسم الخطة",
+      "description": "الوصف",
+      "duration": "المدة (بالأشهر)",
+      "monthlyPrice": "السعر الشهري ($)",
+      "annualPrice": "السعر السنوي ($)",
+      "maxUsers": "الحد الأقصى للمستخدمين",
+      "maxRecords": "الحد الأقصى للسجلات (استلام)",
+      "maxIssuanceRecords": "الحد الأقصى للسجلات (إصدار)",
+      "maxCheckerUsers": "الحد الأقصى للمدققين",
+      "featuresTitle": "مميزات الخطة",
+      "featuresList": {
+        "makerChecker": "تفعيل صانع-مدقق",
+        "multiEntity": "السماح بالكيانات المتعددة",
+        "aiIntegration": "تفعيل الذكاء الاصطناعي",
+        "imageStorage": "السماح برفع المستندات",
+        "custodyModule": "تفعيل الاستلام",
+        "issuanceModule": "تفعيل الإصدار"
+      }
+    }
+  },
+  "public": {
+    "landing": {
+      "errors": {
+        "fillRequired": "يرجى ملء جميع الحقول المطلوبة.",
+        "networkError": "حدث خطأ في الشبكة. يرجى التحقق من اتصالك."
+      },
+      "nav": {
+        "issuanceRequest": "طلب إصدار",
+        "knowMore": "اعرف المزيد",
+        "startFreeTrial": "ابدأ التجربة المجانية",
+        "bookDemo": "احجز عرضاً توضيحياً",
+        "downloadBrochure": "تحميل الكتيب",
+        "login": "تسجيل الدخول"
+      },
+      "hero": {
+        "title": "نظام إدارة خطابات الضمان الذي يعمل كأذكى عضو في فريقك",
+        "subtitle": "لا تفوت انتهاء صلاحية أبدًا. لا تفقد ردًا. ابق دائمًا متحكمًا.",
+        "startFreeTrial": "ابدأ التجربة المجانية",
+        "bookDemo": "احجز عرضاً توضيحياً",
+        "knowMore": "اعرف المزيد",
+        "downloadBrochure": "تحميل الكتيب"
+      },
+      "problems": {
+        "title": "الصراعات اليومية مع خطابات الضمان",
+        "expiry": {
+          "title": "تجاوز أو التسرع عند الانتهاء",
+          "desc": "التبع اليدوي يؤدي إلى التوتر في اللحظات الأخيرة والمخاطر المالية."
+        },
+        "replies": {
+          "title": "ضياع ردود البنك في المتابعات",
+          "desc": "متابعة التواصل والردود عبر قنوات مختلفة يمثل تحديًا يوميًا."
+        },
+        "files": {
+          "title": "ملفات متناثرة وحالة غير واضحة",
+          "desc": "مستندات الخطابات وحالاتها متناثرة عبر رسائل البريد وجداول البيانات."
+        },
+        "audits": {
+          "title": "الضغط عندما يطلب المدققون التفاصيل",
+          "desc": "إعداد التقارير للتدقيق هو عملية يدوية مستهلكة للوقت."
+        }
+      },
+      "solution": {
+        "title": "مساعدك لإدارة خطابات الضمان",
+        "tracking": {
+          "title": "تتبع شامل للخطابات",
+          "desc": "جميع الخطابات في مكان واحد — واضحة ومنظمة ومحدثة دائمًا."
+        },
+        "alerts": {
+          "title": "تنبيهات استباقية",
+          "desc": "تذكيرات تلقائية بالانتهاء، التجديدات، والردود المتأخرة."
+        },
+        "control": {
+          "title": "تحكم بسيط",
+          "desc": "لوحات معلومات، وإجراءات بنقرة واحدة، وموافقات صانع ومدقق."
+        },
+        "insights": {
+          "title": "رؤى البيانات — قوتك وتحكمك",
+          "desc": "بياناتك تبقى آمنة وخاصة. ينظمها النظام في عرض أوسع."
+        }
+      },
+      "whyUs": {
+        "title": "مبني بواسطة أمناء الخزينة، لأمناء الخزينة",
+        "point1": "تم تصميمه بناءً على الاحتياجات التشغيلية الحقيقية.",
+        "point2": "يحمي بياناتك — تبقى دائمًا مسيطراً.",
+        "point3": "يركز على الكفاءة والدقة وراحة البال.",
+        "point4": "يتوسع ليصبح منصة خزينة كاملة في المستقبل."
+      },
+      "vision": {
+        "quote": "نحن نبني أكثر من مجرد نظام. نحن نبني مساعد خزينتك المستقبلي."
+      },
+      "demo": {
+        "title": "رؤية النظام في العمل",
+        "subtitle": "اطلب عرضًا توضيحيًا واكتشف كيف يمكنه تحويل إدارة الخطابات.",
+        "success": "شكراً لك! سنتواصل معك قريباً لتحديد موعد العرض.",
+        "name": "الاسم",
+        "company": "الشركة",
+        "email": "البريد الإلكتروني",
+        "phone": "الهاتف",
+        "message": "رسالة/ملاحظات (اختياري)",
+        "submit": "طلب عرض"
+      },
+      "cta": {
+        "title": "هل أنت مستعد للتحكم بخطاباتك؟",
+        "startFreeTrial": "ابدأ التجربة المجانية",
+        "bookDemo": "احجز عرضاً اليوم",
+        "login": "تسجيل الدخول إلى حسابك"
+      }
+    },
+    "footer": {
+      "companyName": "Grow تطوير الأعمال",
+      "companyDesc": "نظام إدارة الخطابات المصمم لتمكين عمليات خزينتك.",
+      "contactInfo": "معلومات الاتصال",
+      "quickLinks": "روابط سريعة",
+      "terms": "الشروط والأحكام",
+      "privacy": "سياسة الخصوصية",
+      "copyright": "Grow للبرمجيات. جميع الحقوق محفوظة."
+    },
+    "knowMore": {
+      "nav": {
+        "home": "الرئيسية"
+      },
+      "hero": {
+        "title": "مبني للخزينة، مصمم للنمو",
+        "subtitle": "نظام شامل للمحفظة، مصمم لمنع المخاطر وتبسيط العمليات.",
+        "startFreeTrial": "ابدأ التجربة",
+        "requestDemo": "طلب عرض"
+      },
+      "whatWeDo": {
+        "title": "ما نفعله",
+        "desc": "نوفر منصة مخصصة لضمان عدم ضياع أي تفاصيل."
+      },
+      "problems": {
+        "title": "المشاكل التي نحلها",
+        "expiry": {
+          "title": "التجديدات الفائتة.",
+          "desc": "التتبع اليدوي يعرضك لمخاطر."
+        },
+        "communication": {
+          "title": "تواصل غير متسق.",
+          "desc": "صعوبة متابعة البنوك."
+        },
+        "transparency": {
+          "title": "نقص الشفافية.",
+          "desc": "الملفات المتفرقة."
+        },
+        "manual": {
+          "title": "متابعة يدوية.",
+          "desc": "إرهاق عمليات التدقيق."
+        }
+      },
+      "howItWorks": {
+        "title": "كيف يعمل",
+        "desc": "نظامنا يحول الفوضى إلى سير عمل متحكم به.",
+        "step1": {
+          "title": "1. تسجيل خطاب جديد",
+          "desc": "إدخال سريع باستخدام أداة الذكاء الاصطناعي.",
+          "point1": "رفع واستخراج تلقائي.",
+          "point2": "إضافة السياق الداخلي.",
+          "point3": "تخزين آمن."
+        },
+        "step2": {
+          "title": "2. تذكيرات ذكية",
+          "desc": "النظام يراقب ويبقيك على اطلاع.",
+          "alerts": {
+            "title": "تنبيهات",
+            "desc": "للجميعيات المهمة."
+          },
+          "renewals": {
+            "title": "تجديد آلي",
+            "desc": "نقرة واحدة للخطابات."
+          },
+          "templates": {
+            "title": "مكتبة القوالب",
+            "desc": "استخدم قوالب مدمجة."
+          }
+        },
+        "step3": {
+          "title": "3. دورة الحياة ومركز الإجراءات",
+          "desc": "رؤية موحدة لكل محفظتك.",
+          "lifecycle": {
+            "title": "دورة حياة",
+            "desc": "لرؤية كافة الإجراءات."
+          },
+          "actionCenter": {
+            "title": "مركز الإجراءات",
+            "desc": "محور التحكم اليومي."
+          }
+        },
+        "step4": {
+          "title": "4. اتخاذ الإجراءات",
+          "desc": "تزويدك بأدوات لإنجاز العمل بأمان.",
+          "point1": "يدعم التسييل، التخفيض والمزيد.",
+          "point2": "موافقات صانع ومدقق قوية."
+        },
+        "step5": {
+          "title": "5. التواصل البنكي",
+          "desc": "تحكم ومتابعة.",
+          "point1": "تتبع كل شيء والإشعارات.",
+          "point2": "توثيق فوري."
+        },
+        "step6": {
+          "title": "6. مبني لعملك",
+          "desc": "مرونة تامة.",
+          "flexibility": {
+            "title": "التحكم",
+            "desc": "يمكنك تحديد القواعد والإعدادات."
+          },
+          "audit": {
+            "title": "مسار التدقيق",
+            "desc": "كل حركة مسجلة."
+          }
+        }
+      },
+      "cta": {
+        "title": "جاهز للتحكم؟",
+        "desc": "الإدارة يمكن أن تكون بسيطة وذكية.",
+        "requestDemo": "اطلب عرض اليوم"
+      }
+    }
+  },
+  "/corporate-admin/approval-requests/": "/Corporate-Admin/Approval-Requests/",
+  "/corporate-admin/my-subscription": "/Corporate-Admin/My-Subscription",
+  "Failed to configure bank": {
+    " It may already exist for this trade type": {
+      "": ""
+    }
+  },
+  "/corporate-admin/email-settings/": "/Corporate-Admin/Email-Settings/",
+  "The window for this quotation has already closed": {
+    " It cannot be approved": {
+      "": ""
+    }
+  },
+  "/end-user/quotations/": "/End-User/Quotations/",
+  "/public-issuance/generate-invite": "/Public-Issuance/Generate-Invite",
+  "template_type": "Template_Type",
+  "value_default": "Value_Default",
+  "LG Category updated successfully!": "L G  Category Updated Successfully!",
+  "Reason": "Reason",
+  "/system-owner/users/": "/System-Owner/Users/",
+  "debit_amount": "Debit_Amount",
+  "/corporate-admin/migration/staged/re-validate-multiple": "/Corporate-Admin/Migration/Staged/Re-Validate-Multiple",
+  "/end-user/currencies": "/End-User/Currencies",
+  "/facilities/upload-attachment": "/Facilities/Upload-Attachment",
+  "booking_date": "Booking_Date",
+  "raw_description": "Raw_Description",
+  "/public/register-free-trial/": "/Public/Register-Free-Trial/",
+  "Subject": "Subject",
+  "/reports/system-owner/system-usage-overview": "/Reports/System-Owner/System-Usage-Overview",
+  "/end-user/banks/": "/End-User/Banks/",
+  "/system-owner/scheduler/jobs": "/System-Owner/Scheduler/Jobs",
+  "New Amount": "New  Amount",
+  "T": "T",
+  "/system-owner/global-configurations": "/System-Owner/Global-Configurations",
+  "Bidding link copied to clipboard!": "Bidding Link Copied To Clipboard!",
+  "style": "Style",
+  "running_balance": "Running_Balance",
+  "Customer onboarded successfully!": "Customer Onboarded Successfully!",
+  "/corporate-admin/customer-entities/": "/Corporate-Admin/Customer-Entities/",
+  "": {
+    "": ""
+  },
+  "/end-user/currencies/": "/End-User/Currencies/",
+  "/reports/avg-bank-processing-time": "/Reports/Avg-Bank-Processing-Time",
+  "Failed to delete statement": {
+    " ": ""
+  },
+  ") ": ")",
+  "Amount": "Amount",
+  "/public/legal-content/terms_and_conditions": "/Public/Legal-Content/Terms_And_Conditions",
+  "Days until expiry": "Days Until Expiry",
+  "/reports/avg-delivery-days": "/Reports/Avg-Delivery-Days",
+  "/reports/customer-lg-type-mix": "/Reports/Customer-Lg-Type-Mix",
+  "/end-user/quotations/notifications": "/End-User/Quotations/Notifications",
+  "Result emails have been sent successfully": {
+    "": ""
+  },
+  "YYYYMMDD": "Y Y Y Y M M D D",
+  "global_config_key": "Global_Config_Key",
+  "Failed to archive facility": "Failed To Archive Facility",
+  "token": "Token",
+  "/system-owner/customers/onboard": "/System-Owner/Customers/Onboard",
+  "Link copied to clipboard": "Link Copied To Clipboard",
+  "/end-user/users/me_dashboard_info": "/End-User/Users/Me_Dashboard_Info",
+  "/corporate-admin/banks": "/Corporate-Admin/Banks",
+  "a": "A",
+  "/corporate-admin/migration/batches": "/Corporate-Admin/Migration/Batches",
+  "/reconciliation/statements/upload": "/Reconciliation/Statements/Upload",
+  "/reports/bank-market-share": "/Reports/Bank-Market-Share",
+  "global_description": "Global_Description",
+  "/system-owner/subscription-plans": "/System-Owner/Subscription-Plans",
+  "/corporate-admin/users": "/Corporate-Admin/Users",
+  "is-after-current": "Is-After-Current",
+  "name": "Name",
+  "Approved by": "Approved By",
+  "Recipients": "Recipients",
+  "/system-owner/template-metadata": "/System-Owner/Template-Metadata",
+  "/end-user/internal-owner-contacts/with-lg-count": "/End-User/Internal-Owner-Contacts/With-Lg-Count",
+  "/reconciliation/rules": "/Reconciliation/Rules",
+  "id": "Id",
+  "YYYY-MM-DD HH:mm:ss": "Y Y Y Y- M M- D D  H H:Mm:Ss",
+  "Failed to restore facility": "Failed To Restore Facility",
+  "/corporate-admin/migration/preview-history": "/Corporate-Admin/Migration/Preview-History",
+  "Document stored": "Document Stored",
+  "/issuance/requests/": "/Issuance/Requests/",
+  "Details": "Details",
+  "Failed to save rule": {
+    "": ""
+  },
+  "/system-owner/templates": "/System-Owner/Templates",
+  "/corporate-admin/migration/staged/delete-all": "/Corporate-Admin/Migration/Staged/Delete-All",
+  "/reconciliation/statements": "/Reconciliation/Statements",
+  "/corporate-admin/approval-groups/": "/Corporate-Admin/Approval-Groups/",
+  "/corporate-admin/departments/": "/Corporate-Admin/Departments/",
+  "Beneficiary": "Beneficiary",
+  "global_value_max": "Global_Value_Max",
+  "/end-user/system-notifications/": "/End-User/System-Notifications/",
+  "phone_number": "Phone_Number",
+  "/end-user/rules/": "/End-User/Rules/",
+  "/end-user/issuing-methods/": "/End-User/Issuing-Methods/",
+  "/corporate-admin/quotations/pending-approvals": "/Corporate-Admin/Quotations/Pending-Approvals",
+  "/end-user/approval-requests/my-pending": "/End-User/Approval-Requests/My-Pending",
+  "To": "To",
+  "/end-user/customer-configurations/MAX_DAYS_FOR_LAST_INSTRUCTION_CANCELLATION": "/End-User/Customer-Configurations/ M A X_ D A Y S_ F O R_ L A S T_ I N S T R U C T I O N_ C A N C E L L A T I O N",
+  "YYYYMMDD_HHmmss": "Y Y Y Y M M D D_ H Hmmss",
+  "manager_email": "Manager_Email",
+  "global_value_min": "Global_Value_Min",
+  "key": "Key",
+  "/reports/end-user/my-lg-dashboard": "/Reports/End-User/My-Lg-Dashboard",
+  "DD-MMM-YYYY HH:mm": "D D- M M M- Y Y Y Y  H H:Mm",
+  "/reconciliation/detect-relationships": "/Reconciliation/Detect-Relationships",
+  "/issuance/form-config": "/Issuance/Form-Config",
+  "email": "Email",
+  "terms_and_conditions": "Terms_And_Conditions",
+  "/corporate-admin/migration/report": "/Corporate-Admin/Migration/Report",
+  "LG Category created successfully!": "L G  Category Created Successfully!",
+  "/reports/avg-days-to-action": "/Reports/Avg-Days-To-Action",
+  "/end-user/lg-records/scan-file/": "/End-User/Lg-Records/Scan-File/",
+  "global_value_default": "Global_Value_Default",
+  "/end-user/lg-types/": "/End-User/Lg-Types/",
+  "ownerId": "Owner Id",
+  "privacy_policy": "Privacy_Policy",
+  "/system-owner/customers": "/System-Owner/Customers",
+  "Delivered on": "Delivered On",
+  "content-type": "Content-Type",
+  "rfq_id": "Rfq_Id",
+  "action_type": "Action_Type",
+  "Replied on": "Replied On",
+  "/change-password": "/Change-Password",
+  "/end-user/quotations/banks": "/End-User/Quotations/Banks",
+  "/corporate-admin/customer-configurations/": "/Corporate-Admin/Customer-Configurations/",
+  "/end-user/customer-entities/": "/End-User/Customer-Entities/",
+  "_": "_",
+  ",": ",",
+  "Initial Expiry": "Initial  Expiry",
+  "/issuance/workflow-policies": "/Issuance/Workflow-Policies",
+  "Serial": "Serial",
+  "/corporate-admin/migration/import-history": "/Corporate-Admin/Migration/Import-History",
+  "/corporate-admin/migration/staged/audit": "/Corporate-Admin/Migration/Staged/Audit",
+  "Failed to update approval status": {
+    " ": ""
+  },
+  "/end-user/lg-statuses/": "/End-User/Lg-Statuses/",
+  "effective_value": "Effective_Value",
+  "/public-issuance/verify-otp": "/Public-Issuance/Verify-Otp",
+  "/end-user/lg-operational-statuses/": "/End-User/Lg-Operational-Statuses/",
+  "Instruction Serial": "Instruction  Serial",
+  "/end-user/lg-records/run-auto-renewal": "/End-User/Lg-Records/Run-Auto-Renewal",
+  "global_unit": "Global_Unit",
+  "/end-user/lg-records/change-owner": "/End-User/Lg-Records/Change-Owner",
+  "/end-user/quotations/stats": "/End-User/Quotations/Stats",
+  "description": "Description",
+  "DD-MMM-YYYY": "D D- M M M- Y Y Y Y",
+  "/refresh-token": "/Refresh-Token",
+  "Failed to delete rule": {
+    "": ""
+  },
+  "/end-user/lg-categories/": "/End-User/Lg-Categories/",
+  "/system-owner/customers/": "/System-Owner/Customers/",
+  "Failed to remove bank configuration": {
+    "": ""
+  },
+  "YYYY-MM-DD HH:mm:ss z": "Y Y Y Y- M M- D D  H H:Mm:Ss Z",
+  "/issuance/currencies": "/Issuance/Currencies",
+  "MMM Do, YYYY": "M M M  Do,  Y Y Y Y",
+  "/corporate-admin/system-notifications/": "/Corporate-Admin/System-Notifications/",
+  "YYYY-MM-DD": "Y Y Y Y- M M- D D",
+  "/corporate-admin/users/": "/Corporate-Admin/Users/",
+  " ": "",
+  "/public-issuance/verify-domain": "/Public-Issuance/Verify-Domain",
+  "/corporate-admin/migration/manual-entry": "/Corporate-Admin/Migration/Manual-Entry",
+  "/end-user/lg-records/": "/End-User/Lg-Records/",
+  "Please fill in GL Account and all condition values": {
+    "": ""
+  },
+  "/corporate-admin/migration/import-ready": "/Corporate-Admin/Migration/Import-Ready",
+  "internal_id": "Internal_Id",
+  "/policies/accept": "/Policies/Accept",
+  "/corporate-admin/migration/staged/delete-multiple": "/Corporate-Admin/Migration/Staged/Delete-Multiple",
+  "/system-owner/system-notifications/": "/System-Owner/System-Notifications/",
+  "/system-owner/dashboard-metrics": "/System-Owner/Dashboard-Metrics",
+  "Failed to send emails: ": "Failed To Send Emails:"
+}

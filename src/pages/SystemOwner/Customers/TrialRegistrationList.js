@@ -131,9 +131,10 @@ function TrialRegistrationList() {
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
-                <tr>
+                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organization Name</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin Email</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modules</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entities</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registered At</th>
@@ -145,6 +146,17 @@ function TrialRegistrationList() {
                   <tr key={reg.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{reg.organization_name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{reg.admin_email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div className="flex gap-1 flex-wrap">
+                        {(reg.requested_modules || ['custody']).map(mod => (
+                          <span key={mod} className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                            mod === 'custody' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                          }`}>
+                            {mod === 'custody' ? 'Custody' : 'Issuance'}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{reg.entities_count}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[reg.status]}`}>

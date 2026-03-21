@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>System Owner Management - TreasuryOS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2b8cee",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display min-h-screen flex flex-col">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-slate-200 dark:border-slate-800 bg-background-light dark:bg-background-dark px-6 py-3 sticky top-0 z-50">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-4 text-primary">
+<div class="size-8 bg-primary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-2xl">account_balance_wallet</span>
+</div>
+<h2 class="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-tight">TreasuryOS</h2>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-primary text-sm font-medium transition-colors" href="#">Dashboard</a>
+<a class="text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-primary text-sm font-medium transition-colors" href="#">Reports</a>
+<a class="text-primary text-sm font-semibold border-b-2 border-primary py-1" href="#">System Admin</a>
+<a class="text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-primary text-sm font-medium transition-colors" href="#">Help</a>
+</nav>
+</div>
+<div class="flex flex-1 justify-end gap-4 items-center">
+<label class="hidden lg:flex flex-col min-w-40 h-10 max-w-64">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full">
+<div class="text-slate-400 flex border-none bg-slate-100 dark:bg-slate-800 items-center justify-center pl-4 rounded-l-lg border-r-0">
+<span class="material-symbols-outlined text-xl">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 border-none bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-0 h-full placeholder:text-slate-500 rounded-r-lg pl-2 text-sm" placeholder="Search resources..." value=""/>
+</div>
+</label>
+<div class="flex gap-2">
+<button class="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+<span class="material-symbols-outlined text-xl">notifications</span>
+</button>
+<button class="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+<span class="material-symbols-outlined text-xl">settings</span>
+</button>
+</div>
+<div class="h-10 w-10 rounded-full border-2 border-primary bg-primary/20 flex items-center justify-center overflow-hidden">
+<img alt="Profile" class="h-full w-full object-cover" data-alt="Professional headshot of a system administrator" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBZLxgV9XT15MmFjdzHQA7qymvWm3cwKuYEJffKgy6qjN5c2At0lBhYBVQ7vcsxTlq0EKxso1k0e73shWogrK52ybDWDIxxG-qHlPrex5iSizH38e-rjQk5rgaSMDgtcWtOraB8MeKHTneS-oulypRcxJi-hnDHrgoROkHzJTxubjuKguXUBhHok9YuAsU1BHkTNV-xrzPHlt_lZavHx8m4d9JvY8Jtd_f8A-ZFtDiKYE_xaHNj8ZFZOxGi76WWePvfZT_tgzGmhJo"/>
+</div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<!-- Nested Sidebar Navigation -->
+<aside class="w-72 border-r border-slate-200 dark:border-slate-800 bg-background-light dark:bg-background-dark flex flex-col shrink-0 overflow-y-auto no-scrollbar">
+<div class="p-6">
+<div class="mb-8">
+<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Role Profile</h3>
+<div class="flex items-center gap-3 bg-slate-100 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700/50">
+<div class="size-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">shield_person</span>
+</div>
+<div>
+<p class="text-sm font-bold text-slate-900 dark:text-white">System Owner</p>
+<p class="text-[11px] text-slate-500 dark:text-slate-400">Global Administration</p>
+</div>
+</div>
+</div>
+<nav class="space-y-1">
+<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 px-3">System Controls</h3>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">settings_input_component</span>
+<span class="text-sm font-medium">Global Config</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">group</span>
+<span class="text-sm font-medium">User Management</span>
+</a>
+<div class="pt-2">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">account_tree</span>
+<span class="text-sm font-bold">Common Lists</span>
+</a>
+<div class="ml-9 mt-1 space-y-1 border-l border-primary/30 pl-4">
+<a class="block py-2 text-sm text-primary font-medium" href="#">Banks &amp; Entities</a>
+<a class="block py-2 text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Currencies</a>
+<a class="block py-2 text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">LG Types</a>
+<a class="block py-2 text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Countries</a>
+</div>
+</div>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">security</span>
+<span class="text-sm font-medium">Security Policies</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">key</span>
+<span class="text-sm font-medium">API Integrations</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">monitoring</span>
+<span class="text-sm font-medium">Audit logs</span>
+</a>
+</nav>
+</div>
+<div class="mt-auto p-6">
+<button class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all">
+<span class="material-symbols-outlined text-lg">add_circle</span>
+<span>New Config</span>
+</button>
+</div>
+</aside>
+<!-- Main Workspace -->
+<main class="flex-1 overflow-y-auto bg-slate-50 dark:bg-[#0a1017]">
+<!-- Breadcrumbs & Header -->
+<div class="p-8">
+<nav class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-6">
+<a class="hover:text-primary" href="#">System Admin</a>
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+<a class="hover:text-primary" href="#">Global Configuration</a>
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+<span class="text-slate-900 dark:text-white font-medium">Common Lists</span>
+</nav>
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+<div class="max-w-2xl">
+<h1 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Common Lists Management</h1>
+<p class="text-slate-600 dark:text-slate-400 text-base">Manage global master data including bank entities, currencies, and Letter of Guarantee types across all operational regions.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined text-lg">file_download</span>
+<span>Export Data</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-lg">add</span>
+<span>Add New Entry</span>
+</button>
+</div>
+</div>
+<!-- Tabbed Interface -->
+<div class="border-b border-slate-200 dark:border-slate-800 mb-8 overflow-x-auto no-scrollbar">
+<div class="flex gap-8">
+<button class="px-1 pb-4 border-b-2 border-primary text-primary text-sm font-bold">
+                            Global Banks
+                        </button>
+<button class="px-1 pb-4 border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-sm font-bold transition-all">
+                            Currency Master
+                        </button>
+<button class="px-1 pb-4 border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-sm font-bold transition-all">
+                            LG Types
+                        </button>
+<button class="px-1 pb-4 border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-sm font-bold transition-all">
+                            Payment Methods
+                        </button>
+</div>
+</div>
+<!-- Data Table View -->
+<div class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+<div class="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-wrap items-center justify-between gap-4">
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">filter_list</span>
+<input class="pl-10 pr-4 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-1 focus:ring-primary w-64" placeholder="Filter entities..." type="text"/>
+</div>
+<span class="text-xs text-slate-500 dark:text-slate-400">Showing 24 of 142 banks</span>
+</div>
+<div class="flex gap-2">
+<button class="p-1.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-primary">
+<span class="material-symbols-outlined text-lg">grid_view</span>
+</button>
+<button class="p-1.5 rounded bg-primary/10 border border-primary/20 text-primary">
+<span class="material-symbols-outlined text-lg">format_list_bulleted</span>
+</button>
+</div>
+</div>
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-slate-50/50 dark:bg-slate-800/20">
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Bank Name</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Swift Code</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Region</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs">JP</div>
+<span class="text-sm font-semibold text-slate-900 dark:text-white">JPMorgan Chase</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400 font-mono">CHASEUS33</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Active</span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">Global / NA</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-400 hover:text-primary transition-colors px-2">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="text-slate-400 hover:text-primary transition-colors px-2">
+<span class="material-symbols-outlined text-lg">history</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400 font-bold text-xs">HS</div>
+<span class="text-sm font-semibold text-slate-900 dark:text-white">HSBC Holdings</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400 font-mono">HSBCGB44</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Active</span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">Global / EMEA</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-400 hover:text-primary transition-colors px-2">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="text-slate-400 hover:text-primary transition-colors px-2">
+<span class="material-symbols-outlined text-lg">history</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold text-xs">DB</div>
+<span class="text-sm font-semibold text-slate-900 dark:text-white">Deutsche Bank</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400 font-mono">DEUTDEFF</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">Pending</span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">EMEA</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-400 hover:text-primary transition-colors px-2">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="text-slate-400 hover:text-primary transition-colors px-2">
+<span class="material-symbols-outlined text-lg">history</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs">SC</div>
+<span class="text-sm font-semibold text-slate-900 dark:text-white">Standard Chartered</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400 font-mono">SCBLGB33</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Active</span>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">Global / APAC</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-400 hover:text-primary transition-colors px-2">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="text-slate-400 hover:text-primary transition-colors px-2">
+<span class="material-symbols-outlined text-lg">history</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="p-4 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
+<span class="text-xs text-slate-500 dark:text-slate-400">Page 1 of 6</span>
+<div class="flex gap-1">
+<button class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 disabled:opacity-30" disabled="">
+<span class="material-symbols-outlined text-base">chevron_left</span>
+</button>
+<button class="w-7 h-7 flex items-center justify-center rounded bg-primary text-white text-xs font-bold">1</button>
+<button class="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 text-xs font-bold transition-colors">2</button>
+<button class="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 text-xs font-bold transition-colors">3</button>
+<button class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400">
+<span class="material-symbols-outlined text-base">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Technical Footer/System Status -->
+<div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+<div class="flex items-center justify-between mb-3">
+<h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest">Master Data Health</h4>
+<span class="material-symbols-outlined text-green-500 text-lg">check_circle</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="text-2xl font-bold text-slate-900 dark:text-white">99.8%</span>
+<span class="text-xs text-slate-500 mb-1">Consistency Score</span>
+</div>
+<div class="mt-3 w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 99.8%"></div>
+</div>
+</div>
+<div class="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+<div class="flex items-center justify-between mb-3">
+<h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest">Active Integrations</h4>
+<span class="material-symbols-outlined text-primary text-lg">sync</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="text-2xl font-bold text-slate-900 dark:text-white">12 / 14</span>
+<span class="text-xs text-slate-500 mb-1">API Connections</span>
+</div>
+<p class="mt-2 text-[11px] text-slate-400">Last sync: 4 minutes ago</p>
+</div>
+<div class="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+<div class="flex items-center justify-between mb-3">
+<h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest">System Load</h4>
+<span class="material-symbols-outlined text-yellow-500 text-lg">bolt</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="text-2xl font-bold text-slate-900 dark:text-white">24%</span>
+<span class="text-xs text-slate-500 mb-1">Cluster Utilization</span>
+</div>
+<div class="mt-3 flex gap-0.5">
+<div class="h-2 w-full bg-primary rounded-l-sm"></div>
+<div class="h-2 w-full bg-primary"></div>
+<div class="h-2 w-full bg-slate-200 dark:bg-slate-800"></div>
+<div class="h-2 w-full bg-slate-200 dark:bg-slate-800 rounded-r-sm"></div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

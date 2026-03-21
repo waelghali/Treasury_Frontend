@@ -129,11 +129,28 @@ function CustomerOnboardingForm({ onLogout }) {
     }));
   };
 
+  // Auto-generate a 4-char code from entity name
+  const generateCodeFromName = (name) => {
+    const cleaned = name.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    if (cleaned.length <= 4) return cleaned.padEnd(4, 'X').slice(0, 4);
+    // Take first 2 chars + last 2 chars for uniqueness
+    return (cleaned.slice(0, 2) + cleaned.slice(-2)).slice(0, 4);
+  };
+
   // Handle changing an entity's name or other fields
   const handleEntityChange = (index, e) => {
     const { name, value, type, checked } = e.target;
     const newEntities = [...customerData.initial_entities];
-    newEntities[index][name] = type === 'checkbox' ? checked : value;
+    if (name === 'code') {
+      // Force uppercase and strip non-alphanumeric
+      newEntities[index][name] = value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
+    } else {
+      newEntities[index][name] = type === 'checkbox' ? checked : value;
+    }
+    // Auto-suggest code when entity_name changes and code is empty
+    if (name === 'entity_name' && !newEntities[index].code && value.trim()) {
+      newEntities[index].code = generateCodeFromName(value);
+    }
     setCustomerData((prev) => ({ ...prev, initial_entities: newEntities }));
   };
 
@@ -160,18 +177,34 @@ function CustomerOnboardingForm({ onLogout }) {
         setIsSaving(false);
         return;
       }
+      // Validate entity codes
+      const codeRegex = /^[A-Z0-9]{4}$/;
+      const invalidCode = customerData.initial_entities.find(entity => !codeRegex.test(entity.code));
+      if (invalidCode) {
+        setError(`Entity "${invalidCode.entity_name}" has an invalid code. Code must be exactly 4 uppercase alphanumeric characters (e.g., TCMN).`);
+        setIsSaving(false);
+        return;
+      }
+      // Check for duplicate codes
+      const codes = customerData.initial_entities.map(e => e.code);
+      if (new Set(codes).size !== codes.length) {
+        setError("Entity codes must be unique. Please use different codes for each entity.");
+        setIsSaving(false);
+        return;
+      }
       if (!selectedPlanCanMultiEntity && customerData.initial_entities.length > 1) {
         setError("Selected subscription plan does not support multiple entities.");
         setIsSaving(false);
         return;
       }
 
-      // --- NEW LOGIC FOR CLEANING DATA ---
+      // --- CLEAN DATA: strip empty optional fields but ALWAYS keep required ones ---
+      const requiredEntityFields = ['entity_name', 'code', 'is_active'];
       const cleanedEntities = customerData.initial_entities.map(entity => {
           const cleanedEntity = {};
           for (const key in entity) {
-              // Only include fields with a non-empty, non-null value
-              if (entity[key] !== '' && entity[key] !== null && entity[key] !== undefined) {
+              // Always include required fields, strip empty optional ones
+              if (requiredEntityFields.includes(key) || (entity[key] !== '' && entity[key] !== null && entity[key] !== undefined)) {
                   cleanedEntity[key] = entity[key];
               }
           }
@@ -302,14 +335,19 @@ function CustomerOnboardingForm({ onLogout }) {
                     />
                   </div>
                   <div className="mb-2">
-                    <label htmlFor={`code_${index}`} className={labelClassNames}>Code (Optional)</label>
+                    <label htmlFor={`code_${index}`} className={labelClassNames}>Entity Code {requiredSpan}</label>
                     <input
                       type="text"
                       name="code"
                       id={`code_${index}`}
                       value={entity.code}
                       onChange={(e) => handleEntityChange(index, e)}
+                      required
                       maxLength="4"
+                      minLength="4"
+                      pattern="[A-Z0-9]{4}"
+                      title="Exactly 4 uppercase letters or digits (e.g., TCMN)"
+                      placeholder="e.g., TCMN"
                       className={inputClassNames}
                     />
                   </div>

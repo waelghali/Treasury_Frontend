@@ -517,11 +517,14 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
+    <div className="bg-white p-6 rounded-xl border border-gray-100">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-800">
-            {filterByOwnerId ? `LGs for Owner ID: ${filterByOwnerId}` : `Manage LG Records`}
-        </h2>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">
+              {filterByOwnerId ? `LGs for Owner ID: ${filterByOwnerId}` : `Manage LG Records`}
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">View, filter, and manage your Letters of Guarantee portfolio.</p>
+        </div>
         <div className="flex space-x-3">
             {(searchTerm.length > 0 || selectedStatuses.length > 0 || selectedDate || selectedTypes.length > 0) && (
               <button

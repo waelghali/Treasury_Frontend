@@ -18,6 +18,7 @@ import TemplateList from 'pages/SystemOwner/GlobalConfigurations/TemplateList';
 import TemplateForm from 'pages/SystemOwner/GlobalConfigurations/TemplateForm';
 import AuditLogs from 'pages/SystemOwner/AuditLogs';
 import SchedulerPage from 'pages/SystemOwner/scheduler/SchedulerPage';
+import BankFormManagement from 'pages/SystemOwner/BankFormManagement';
 // NEW: Import System Notification pages
 import SystemNotificationList from 'pages/SystemOwner/SystemNotifications/SystemNotificationList';
 import SystemNotificationForm from 'pages/SystemOwner/SystemNotifications/SystemNotificationForm';
@@ -37,7 +38,7 @@ const systemOwnerReports = [
     name: "System Usage Overview",
     description: "Monitor business traction, growth, and adoption.",
     path: "system-usage-overview",
-    iconName: "BarChart" 
+    iconName: "BarChart"
   },
 ];
 
@@ -72,11 +73,14 @@ function SystemOwnerRoutes({ onLogout }) {
       <Route path="global-configurations/templates/edit/:id" element={<TemplateForm onLogout={onLogout} />} />
       <Route path="scheduler" element={<SchedulerPage onLogout={onLogout} />} />
 
+      {/* Bank Form Templates (AI-Powered) */}
+      <Route path="bank-forms" element={<BankFormManagement onLogout={onLogout} />} />
+
       {/* LG Category Management (NEW ROUTES FOR SYSTEM OWNER) */}
       <Route path="lg-categories/universal" element={<LGCategoryList onLogout={onLogout} userRole="system-owner" />} />
       <Route path="lg-categories/universal/new" element={<LGCategoryForm onLogout={onLogout} userRole="system-owner" />} />
       <Route path="lg-categories/universal/edit/:id" element={<LGCategoryForm onLogout={onLogout} userRole="system-owner" />} />
-      
+
       {/* System Notifications (NEW ROUTES) */}
       <Route path="system-notifications" element={<SystemNotificationList onLogout={onLogout} />} />
       <Route path="system-notifications/new" element={<SystemNotificationForm onLogout={onLogout} />} />

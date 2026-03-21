@@ -446,15 +446,15 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 		};
 
     return (
-        <div className="container mx-auto p-6 bg-white rounded-lg shadow-xl my-8 relative">
+        <div className="container mx-auto p-6 bg-white rounded-xl border border-gray-100 my-8 relative">
             {isRefreshing && (
-                <div className="absolute inset-x-0 top-0 flex items-center justify-center py-1 bg-blue-100 text-blue-700 text-sm font-medium z-10 rounded-t-lg">
+                <div className="absolute inset-x-0 top-0 flex items-center justify-center py-1 bg-blue-100 text-blue-700 text-sm font-medium z-10 rounded-t-xl">
                     <Loader2 className="animate-spin h-4 w-4 mr-2" /> Refreshing data...
                 </div>
             )}
             {/* Action Buttons: Full width, spaced evenly */}
             {!isCorporateAdminView && (
-                <div className={`grid grid-cols-2 sm:grid-cols-3 ${gridColumnsClass} gap-2 w-full p-3 bg-gray-50 rounded-lg shadow-inner mb-6`}>
+                <div className={`grid grid-cols-2 sm:grid-cols-3 ${gridColumnsClass} gap-2 w-full p-3 bg-gray-50 rounded-xl border border-gray-100 mb-6`}>
                     {isLgValid && (
                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                             <button
@@ -557,7 +557,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                     <ArrowLeft className="h-5 w-5 mr-1" />
                     <span className="text-sm font-medium">Back to LG Records</span>
                 </button>
-                <h1 className="text-3xl font-bold text-gray-800 flex-grow text-center flex items-center justify-center gap-3">
+                <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex-grow text-center flex items-center justify-center gap-3">
 					LG Record: {lgRecord.lg_number}
 					<button
 						onClick={handleCopyLgNumber}
@@ -612,7 +612,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                 {activeTab === 'details' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-gray-700">
                         <div className="col-span-2">
-                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">LG Core Information</h2>
+                            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">LG Core Information</p>
                         </div>
                         <p><strong>LG Number:</strong> {lgRecord.lg_number}</p>
                         <p><strong>Issuer Name:</strong> {lgRecord.issuer_name || 'N/A'}</p>
@@ -653,7 +653,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                         <p><strong>Period (Months):</strong> {lgRecord.lg_period_months}</p>
 
                         <div className="col-span-2 mt-6">
-                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Bank & Rule Information</h2>
+                            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">Bank & Rule Information</p>
                         </div>
                         {/* Conditional display for Issuing Bank and its details */}
                         <p>
@@ -682,7 +682,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                         <p><strong>Other Conditions:</strong> {lgRecord.other_conditions || 'N/A'}</p>
 
                         <div className="col-span-2 mt-6">
-                            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Internal & Category Details</h2>
+                            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">Internal & Category Details</p>
                         </div>
                         <p><strong>Internal Owner:</strong> {lgRecord.internal_owner_contact?.email || 'N/A'}</p>
                         <p><strong>Owner Phone:</strong> {lgRecord.internal_owner_contact?.phone_number || 'N/A'}</p>
@@ -696,8 +696,8 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                     </div>
                 )}
 				{activeTab === 'documents' && (
-					<div className="p-4 bg-gray-50 rounded-lg">
-						<h2 className="text-xl font-semibold text-gray-800 mb-4">Associated Documents</h2>
+					<div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+						<p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4">Associated Documents</p>
 						{/* Filter out documents where is_deleted is true */}
 						{lgRecord.documents && lgRecord.documents.filter(doc => !doc.is_deleted).length > 0 ? (
 							<ul className="list-disc list-inside space-y-2">

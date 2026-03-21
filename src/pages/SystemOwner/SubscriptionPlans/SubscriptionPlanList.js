@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
 import { Edit, Trash, PlusCircle, RotateCcw } from 'lucide-react';
@@ -7,6 +7,7 @@ function SubscriptionPlanList({ onLogout }) {
   const [plans, setPlans] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showDeleted, setShowDeleted] = useState(false);
   const navigate = useNavigate();
 
   // Function to fetch subscription plans from the backend
@@ -14,7 +15,7 @@ function SubscriptionPlanList({ onLogout }) {
     setIsLoading(true);
     setError('');
     try {
-      const response = await apiRequest('/system-owner/subscription-plans', 'GET');
+      const response = await apiRequest('/system-owner/subscription-plans?include_deleted=true', 'GET');
       setPlans(response);
     } catch (err) {
       console.error('Failed to fetch subscription plans:', err);
@@ -66,16 +67,32 @@ function SubscriptionPlanList({ onLogout }) {
     }
   };
 
+  const deletedCount = useMemo(() => plans.filter(p => p.is_deleted).length, [plans]);
+  const filteredPlans = useMemo(() => {
+    if (showDeleted) return plans;
+    return plans.filter(p => !p.is_deleted);
+  }, [plans, showDeleted]);
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold text-gray-800">Subscription Plans</h2>
-        <button
-          onClick={() => navigate('/system-owner/subscription-plans/new')}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-        >
-          <PlusCircle className="h-5 w-5 mr-2" /> Add New Plan
-        </button>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
+            <div className="relative">
+              <input type="checkbox" className="sr-only" checked={showDeleted} onChange={() => setShowDeleted(!showDeleted)} />
+              <div className={`w-9 h-5 rounded-full transition-colors ${showDeleted ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+              <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showDeleted ? 'translate-x-4' : ''}`}></div>
+            </div>
+            Show Deleted ({deletedCount})
+          </label>
+          <button
+            onClick={() => navigate('/system-owner/subscription-plans/new')}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+          >
+            <PlusCircle className="h-5 w-5 mr-2" /> Add New Plan
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -90,7 +107,7 @@ function SubscriptionPlanList({ onLogout }) {
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative" role="alert">
           <span className="block sm:inline">{error}</span>
         </div>
-      ) : plans.length === 0 ? (
+      ) : filteredPlans.length === 0 ? (
         <div className="bg-white p-6 rounded-lg shadow-md text-center">
           <p className="text-gray-500">No subscription plans found. Click "Add New Plan" to get started.</p>
         </div>
@@ -126,7 +143,7 @@ function SubscriptionPlanList({ onLogout }) {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {plans.map((plan) => (
+              {filteredPlans.map((plan) => (
                 <tr key={plan.id} className={plan.is_deleted ? 'bg-gray-50 opacity-60' : ''}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {plan.name} {plan.is_deleted && <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Deleted</span>}
@@ -138,6 +155,8 @@ function SubscriptionPlanList({ onLogout }) {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{plan.max_records}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="flex flex-wrap gap-1">
+                      {plan.has_custody_module && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Custody</span>}
+                      {plan.has_issuance_module && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Issuance</span>}
                       {plan.can_maker_checker && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">M/C</span>}
                       {plan.can_multi_entity && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Multi-Entity</span>}
                       {plan.can_ai_integration && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">AI</span>}

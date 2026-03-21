@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { ChevronDown, ChevronUp, Upload, Scan, Save, AlertCircle, XCircle, Loader2, CheckCircle, Search } from 'lucide-react';
+import { ChevronDown, ChevronUp, Upload, Scan, Save, AlertCircle, XCircle, Loader2, CheckCircle, Search, FileUp, FileText } from 'lucide-react';
 import moment from 'moment';
 
 // A reusable component to provide a tooltip for disabled elements during the grace period.
@@ -948,8 +948,11 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
 
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6">Record New LG</h2>
+    <div className="bg-white p-6 rounded-xl border border-gray-100">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Record New LG</h2>
+        <p className="text-sm text-gray-500 mt-1">Fill in the details below to record a new Letter of Guarantee.</p>
+      </div>
 
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
@@ -960,68 +963,122 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Main LG Data Accordion */}
-        <div className="bg-white shadow-md rounded-lg">
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
           <button
             type="button"
-            className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 bg-gray-50 rounded-t-lg hover:bg-gray-100 focus:outline-none"
+            className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 bg-white hover:bg-gray-50 focus:outline-none transition-colors"
             onClick={() => toggleAccordion('mainLGData')}
             disabled={isFormDisabled || isGracePeriod}
           >
-            <span>Main LG Data</span>
-            {accordionsOpen.mainLGData ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                <FileText size={18} />
+              </div>
+              <div>
+                <span className="block text-sm font-bold text-gray-900 uppercase tracking-wide">Main LG Data</span>
+                <span className="block text-xs text-gray-400">Core guarantee details and validity</span>
+              </div>
+            </div>
+            {accordionsOpen.mainLGData ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
           </button>
           {accordionsOpen.mainLGData && (
             <div className={`p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
-              <div className="md:col-span-2 mb-2">
-                <label htmlFor="ai_scan_file" className={labelClassNames}>LG Copy {requiredSpan}</label>
-                <div className={`flex items-stretch rounded-md shadow-sm border ${aiScanSuccess ? 'border-green-500' : 'border-gray-300'} focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all duration-200`}>
-                  <label htmlFor="ai_scan_file" className={`cursor-pointer bg-gray-50 hover:bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 rounded-l-md flex items-center border-r border-gray-300 ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                    Choose File
-                  </label>
-                  <input
-                    type="file"
-                    name="ai_scan_file"
-                    id="ai_scan_file"
-                    ref={aiFileInputRef}
-                    onChange={handleFileChange}
-                    accept="image/*,application/pdf"
-                    className="hidden"
-                    disabled={isFormDisabled || isGracePeriod}
-                  />
-                  <div className="flex-grow px-3 py-2 text-sm text-gray-900 bg-white flex items-center truncate">
-                    {formData.ai_scan_file ? formData.ai_scan_file.name : 'No file chosen'}
-                  </div>
-                  {aiScanSuccess && (
-                    <div className="px-3 py-2 flex items-center bg-green-50 text-green-700">
-                      <CheckCircle className="h-5 w-5" />
+              <div className="md:col-span-2 mb-4">
+                {!formData.ai_scan_file ? (
+                  <div
+                    className={`border-2 border-dashed border-blue-200 rounded-2xl p-8 sm:p-10 text-center bg-blue-50/30 hover:bg-blue-50/60 hover:border-blue-300 transition-all duration-300 cursor-pointer relative overflow-hidden group ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    onClick={() => { if (!isFormDisabled && !isGracePeriod && aiFileInputRef.current) aiFileInputRef.current.click(); }}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => {
+                      e.preventDefault(); e.stopPropagation();
+                      if (!isFormDisabled && !isGracePeriod && e.dataTransfer.files?.[0]) {
+                        const syntheticEvent = { target: { name: 'ai_scan_file', files: e.dataTransfer.files } };
+                        handleFileChange(syntheticEvent);
+                      }
+                    }}
+                  >
+                    <input
+                      type="file"
+                      name="ai_scan_file"
+                      id="ai_scan_file"
+                      ref={aiFileInputRef}
+                      onChange={handleFileChange}
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      disabled={isFormDisabled || isGracePeriod}
+                    />
+                    <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <FileUp size={28} />
                     </div>
-                  )}
-                  <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                    <button
-                      type="button"
-                      className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-r-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200 ease-in-out ${aiScanInProgress || !formData.ai_scan_file || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      onClick={handleAiScan}
-                      disabled={aiScanInProgress || !formData.ai_scan_file || isGracePeriod}
-                    >
-                      {aiScanInProgress ? (
-                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      ) : (
-                        <Scan className="h-5 w-5 mr-2" />
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">Intelligent LG Auto-Population</h3>
+                    <p className="text-sm text-gray-500 mb-5 max-w-md mx-auto">
+                      Drag and drop your Letter of Guarantee PDF or Image here. Our AI will extract all critical data points automatically.
+                    </p>
+                    <div className="flex items-center justify-center gap-3">
+                      <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                        <button
+                          type="button"
+                          className={`inline-flex items-center px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          onClick={(e) => { e.stopPropagation(); if (aiFileInputRef.current) aiFileInputRef.current.click(); }}
+                          disabled={isFormDisabled || isGracePeriod}
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload & Scan
+                        </button>
+                      </GracePeriodTooltip>
+                      <button
+                        type="button"
+                        className={`inline-flex items-center px-5 py-2.5 bg-white text-gray-700 text-sm font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300 transition-all duration-200 ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); if (aiFileInputRef.current) aiFileInputRef.current.click(); }}
+                        disabled={isFormDisabled || isGracePeriod}
+                      >
+                        Browse Files
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-green-300 rounded-2xl p-6 sm:p-8 text-center bg-green-50/40">
+                    <div className="w-14 h-14 bg-green-100 text-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle size={28} />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">LG Document Uploaded</h3>
+                    <p className="text-sm text-gray-600 mb-1">
+                      <FileText className="inline h-4 w-4 mr-1" />
+                      {formData.ai_scan_file.name}
+                    </p>
+                    {aiScanSuccess && <p className="text-sm text-green-600 font-medium">✓ AI scan complete — data extracted successfully!</p>}
+                    {aiScanInProgress && (
+                      <div className="flex items-center justify-center gap-2 mt-2 text-sm text-blue-600">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Scanning document...
+                      </div>
+                    )}
+                    <div className="flex items-center justify-center gap-3 mt-4">
+                      {!aiScanSuccess && !aiScanInProgress && (
+                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                          <button
+                            type="button"
+                            className="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-all duration-200"
+                            onClick={handleAiScan}
+                            disabled={aiScanInProgress || isGracePeriod}
+                          >
+                            <Scan className="h-4 w-4 mr-2" />
+                            Scan Now
+                          </button>
+                        </GracePeriodTooltip>
                       )}
-                      {aiScanInProgress ? 'Scanning...' : 'Upload & Scan'}
-                    </button>
-                  </GracePeriodTooltip>
-                </div>
-                <p className="mt-1 text-sm text-gray-500">
-                  {formData.ai_scan_file ? (
-                    <>
-                      File uploaded, scanned & data extracted!{' '}
-                      {!isFormDisabled && !isGracePeriod && <span onClick={() => aiFileInputRef.current && aiFileInputRef.current.click()} className="text-blue-600 cursor-pointer hover:underline">Change File</span>}
-                    </>
-                  ) : (
-                    'Upload an image or PDF of the LG to auto-populate fields.'
-                  )}
-                </p>
+                      {!isFormDisabled && !isGracePeriod && (
+                        <button
+                          type="button"
+                          className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 text-sm font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 transition-all duration-200"
+                          onClick={() => aiFileInputRef.current && aiFileInputRef.current.click()}
+                        >
+                          Change File
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="md:col-span-2 mb-2">
                 <label htmlFor="beneficiary_corporate_id" className={labelClassNames}>Beneficiary Corporate {requiredSpan}</label>
@@ -1140,15 +1197,23 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
         </div>
 
         {/* Bank Data Accordion */}
-        <div className="bg-white shadow-md rounded-lg">
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
           <button
             type="button"
-            className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 bg-gray-50 rounded-t-lg hover:bg-gray-100 focus:outline-none"
+            className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 bg-white hover:bg-gray-50 focus:outline-none transition-colors"
             onClick={() => toggleAccordion('bankData')}
             disabled={isFormDisabled || isGracePeriod}
           >
-            <span>Bank Data</span>
-            {accordionsOpen.bankData ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>
+              </div>
+              <div>
+                <span className="block text-sm font-bold text-gray-900 uppercase tracking-wide">Bank Data</span>
+                <span className="block text-xs text-gray-400">Issuing bank and communication details</span>
+              </div>
+            </div>
+            {accordionsOpen.bankData ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
           </button>
           {accordionsOpen.bankData && (
             <div className={`p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
@@ -1273,15 +1338,23 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
         </div>
 
         {/* Internal Data Accordion */}
-        <div className="bg-white shadow-md rounded-lg">
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
           <button
             type="button"
-            className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 bg-gray-50 rounded-t-lg hover:bg-gray-100 focus:outline-none"
+            className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 bg-white hover:bg-gray-50 focus:outline-none transition-colors"
             onClick={() => toggleAccordion('internalData')}
             disabled={isFormDisabled || isGracePeriod}
           >
-            <span>Internal Data</span>
-            {accordionsOpen.internalData ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <div>
+                <span className="block text-sm font-bold text-gray-900 uppercase tracking-wide">Internal Data</span>
+                <span className="block text-xs text-gray-400">Owner contacts and classification</span>
+              </div>
+            </div>
+            {accordionsOpen.internalData ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
           </button>
           {accordionsOpen.internalData && (
             <div className={`p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>

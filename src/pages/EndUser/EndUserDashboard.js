@@ -92,97 +92,109 @@ function EndUserDashboard({ isGracePeriod }) { // NEW: Accept isGracePeriod prop
   }
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6">Welcome to Your Dashboard</h2>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <Link
-          to="/end-user/lg-records"
-          className="bg-blue-50 p-4 rounded-lg shadow-sm flex items-center hover:bg-blue-100 transition-colors duration-200 cursor-pointer"
-        >
-          <div className="p-3 bg-blue-100 rounded-full mr-4">
-            <FileText className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">Active LGs</p>
-            <p className="text-xl font-bold text-gray-900">
-              {dashboardInfo?.active_lgs_count !== undefined ? dashboardInfo.active_lgs_count : 'N/A'}
-            </p>
-          </div>
-        </Link>
-
-        <Link
-          to="/end-user/action-center"
-          className="bg-orange-50 p-4 rounded-lg shadow-sm flex items-center hover:bg-orange-100 transition-colors duration-200 cursor-pointer"
-        >
-          <div className="p-3 bg-orange-100 rounded-full mr-4">
-            <Clock className="h-6 w-6 text-orange-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">LGs for Renewal</p>
-            <p className="text-xl font-bold text-gray-900">
-              {dashboardInfo?.lgs_for_renewal_count !== undefined ? dashboardInfo.lgs_for_renewal_count : 'N/A'}
-            </p>
-          </div>
-        </Link>
-
-        <Link
-          to="/end-user/action-center"
-          className="bg-purple-50 p-4 rounded-lg shadow-sm flex items-center hover:bg-purple-100 transition-colors duration-200 cursor-pointer"
-        >
-          <div className="p-3 bg-purple-100 rounded-full mr-4">
-            <Printer className="h-6 w-6 text-purple-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">Pending Print Actions</p>
-            <p className="text-xl font-bold text-gray-900">
-              {dashboardInfo?.pending_prints_count !== undefined ? dashboardInfo.pending_prints_count : 'N/A'}
-            </p>
-          </div>
-        </Link>
+    <div>
+      {/* Page Header */}
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Welcome to Your Dashboard</h2>
+        <p className="text-sm text-gray-500 mt-1">Your LG portfolio at a glance — key metrics and quick actions.</p>
       </div>
 
-      <h3 className="text-xl font-semibold text-gray-800 mb-4">Quick Actions</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {quickActions.map((action, index) => {
-          const isActionDisabled = action.isWriteAction && isGracePeriod;
-          const linkClasses = `flex items-start p-4 rounded-lg shadow-sm transition-colors duration-200 ${
-            isActionDisabled
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : 'bg-gray-50 hover:bg-gray-100'
-          }`;
+      {/* Overview Stats */}
+      <div className="mb-8">
+        <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4">Portfolio Overview</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <Link
+            to="/end-user/lg-records"
+            className="bg-white rounded-xl border border-gray-100 p-5 flex items-center hover:shadow-lg hover:border-blue-200 transition-all duration-300 cursor-pointer group"
+          >
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 mr-4" style={{ backgroundColor: 'rgba(37,99,235,0.08)' }}>
+              <FileText className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Active LGs</p>
+              <p className="text-2xl font-bold text-gray-900 mt-0.5">
+                {dashboardInfo?.active_lgs_count !== undefined ? dashboardInfo.active_lgs_count : 'N/A'}
+              </p>
+            </div>
+          </Link>
 
-          const content = (
-            <>
-              <div className="mr-3 flex-shrink-0">
-                {action.icon}
-              </div>
-              <div>
-                <h4 className="font-medium">{action.title}</h4>
-                <p className="text-sm">{action.description}</p>
-              </div>
-            </>
-          );
+          <Link
+            to="/end-user/action-center"
+            className="bg-white rounded-xl border border-gray-100 p-5 flex items-center hover:shadow-lg hover:border-orange-200 transition-all duration-300 cursor-pointer group"
+          >
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 mr-4" style={{ backgroundColor: 'rgba(234,88,12,0.08)' }}>
+              <Clock className="h-5 w-5 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">LGs for Renewal</p>
+              <p className="text-2xl font-bold text-gray-900 mt-0.5">
+                {dashboardInfo?.lgs_for_renewal_count !== undefined ? dashboardInfo.lgs_for_renewal_count : 'N/A'}
+              </p>
+            </div>
+          </Link>
 
-          if (isActionDisabled) {
-            return (
-              <GracePeriodTooltip key={index} isGracePeriod={true}>
-                <div className={linkClasses}>{content}</div>
-              </GracePeriodTooltip>
-            );
-          } else {
-            return (
-              <Link key={index} to={action.link} className={linkClasses}>
-                {content}
-              </Link>
-            );
-          }
-        })}
+          <Link
+            to="/end-user/action-center"
+            className="bg-white rounded-xl border border-gray-100 p-5 flex items-center hover:shadow-lg hover:border-purple-200 transition-all duration-300 cursor-pointer group"
+          >
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 mr-4" style={{ backgroundColor: 'rgba(147,51,234,0.08)' }}>
+              <Printer className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pending Print Actions</p>
+              <p className="text-2xl font-bold text-gray-900 mt-0.5">
+                {dashboardInfo?.pending_prints_count !== undefined ? dashboardInfo.pending_prints_count : 'N/A'}
+              </p>
+            </div>
+          </Link>
+        </div>
       </div>
 
-      <div className="mt-8 p-4 bg-gray-50 rounded-lg shadow-sm">
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">Recent LG Activity</h3>
-        <p className="text-gray-600">Coming soon: A list of your most recent LG records and actions.</p>
+      {/* Quick Actions */}
+      <div className="mb-8">
+        <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4">Quick Actions</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {quickActions.map((action, index) => {
+            const isActionDisabled = action.isWriteAction && isGracePeriod;
+            const linkClasses = `flex items-start p-5 rounded-xl border transition-all duration-300 ${
+              isActionDisabled
+                ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-md'
+            }`;
+
+            const content = (
+              <>
+                <div className="mr-4 flex-shrink-0 mt-0.5">
+                  {action.icon}
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-1">{action.title}</h4>
+                  <p className="text-sm text-gray-500 leading-relaxed">{action.description}</p>
+                </div>
+              </>
+            );
+
+            if (isActionDisabled) {
+              return (
+                <GracePeriodTooltip key={index} isGracePeriod={true}>
+                  <div className={linkClasses}>{content}</div>
+                </GracePeriodTooltip>
+              );
+            } else {
+              return (
+                <Link key={index} to={action.link} className={linkClasses}>
+                  {content}
+                </Link>
+              );
+            }
+          })}
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">Recent Activity</p>
+        <p className="text-sm text-gray-500">Coming soon: A list of your most recent LG records and actions.</p>
       </div>
     </div>
   );

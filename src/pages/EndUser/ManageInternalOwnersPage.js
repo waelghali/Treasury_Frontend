@@ -174,9 +174,12 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
     
 
     return (
-        <div className="card">
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-semibold text-gray-800">Manage Internal Owners</h2>
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Manage Internal Owners</h2>
+                    <p className="text-sm text-gray-500 mt-1">Add, edit, and manage internal LG owner contacts.</p>
+                </div>
                 <div className="flex space-x-3">
                     <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                         <button
@@ -204,7 +207,7 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                     <p className="text-gray-600 mt-2">Loading internal owners...</p>
                 </div>
             ) : owners.length === 0 ? (
-                <div className="bg-gray-50 p-6 rounded-lg text-center border border-gray-200">
+                <div className="bg-gray-50 p-6 rounded-xl text-center border border-dashed border-gray-200">
                     <p className="text-gray-500">No internal owner contacts found for your customer.</p>
                     <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                         <button
@@ -227,7 +230,7 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <div className="overflow-x-auto rounded-lg shadow">
+                <div className="overflow-x-auto rounded-xl border border-gray-100">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>

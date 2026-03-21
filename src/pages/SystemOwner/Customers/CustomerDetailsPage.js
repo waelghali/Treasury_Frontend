@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { Edit, PlusCircle, Trash, RotateCcw, ToggleLeft, ToggleRight, Loader2, RefreshCw, Calendar, User, FileText } from 'lucide-react';
+import { Edit, PlusCircle, Trash, RotateCcw, ToggleLeft, ToggleRight, Loader2, RefreshCw, Calendar, User, FileText, X, Globe } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 // ... [Keep existing UserForm component exactly as it is] ...
@@ -305,7 +305,9 @@ function CustomerDetailsPage({ onLogout }) {
     contact_email: '',
     contact_phone: '',
     subscription_plan_id: '',
+    domains: [],
   });
+  const [newDomainInput, setNewDomainInput] = useState('');
   const [availableSubscriptionPlans, setAvailableSubscriptionPlans] = useState([]);
   const [isUpdatingCustomer, setIsUpdatingCustomer] = useState(false);
 
@@ -345,6 +347,7 @@ function CustomerDetailsPage({ onLogout }) {
         contact_email: customerResponse.contact_email,
         contact_phone: customerResponse.contact_phone || '',
         subscription_plan_id: customerResponse.subscription_plan?.id || '',
+        domains: customerResponse.domains || [],
       });
     } catch (err) {
       console.error('Failed to fetch customer details:', err);
@@ -794,6 +797,49 @@ function CustomerDetailsPage({ onLogout }) {
                 ))}
               </select>
             </div>
+            {/* Domains Editor */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email Domains</label>
+              <p className="text-xs text-gray-500 mb-2">Domains used to verify public issuance portal access (e.g., acmecorp.com)</p>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {(customerEditFormData.domains || []).map((d, i) => (
+                  <span key={i} className="inline-flex items-center px-3 py-1.5 rounded-full text-sm bg-blue-100 text-blue-800">
+                    @{d}
+                    <button type="button" onClick={() => setCustomerEditFormData(prev => ({...prev, domains: prev.domains.filter((_, idx) => idx !== i)}))} className="ml-1.5 text-blue-600 hover:text-red-600 focus:outline-none">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Add domain (e.g., acme-group.com)"
+                  value={newDomainInput}
+                  onChange={(e) => setNewDomainInput(e.target.value.toLowerCase().trim())}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = newDomainInput.replace(/^@/, '').trim();
+                      if (val && !customerEditFormData.domains.includes(val)) {
+                        setCustomerEditFormData(prev => ({...prev, domains: [...(prev.domains || []), val]}));
+                        setNewDomainInput('');
+                      }
+                    }
+                  }}
+                  className="flex-grow px-3 py-2 rounded-md border border-gray-300 shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500"
+                />
+                <button type="button" onClick={() => {
+                  const val = newDomainInput.replace(/^@/, '').trim();
+                  if (val && !customerEditFormData.domains.includes(val)) {
+                    setCustomerEditFormData(prev => ({...prev, domains: [...(prev.domains || []), val]}));
+                    setNewDomainInput('');
+                  }
+                }} className="btn-secondary px-3 py-2 text-sm flex items-center">
+                  <PlusCircle className="h-4 w-4 mr-1" /> Add
+                </button>
+              </div>
+            </div>
             <div className="flex justify-end space-x-2 mt-4">
               <button type="button" onClick={() => setShowEditCustomerForm(false)} className="btn-secondary px-3 py-1.5 text-sm" disabled={isUpdatingCustomer}>Cancel</button>
               <button type="submit" className="btn-primary px-3 py-1.5 text-sm flex items-center justify-center" disabled={isUpdatingCustomer}>
@@ -808,7 +854,17 @@ function CustomerDetailsPage({ onLogout }) {
             <p className="text-gray-700"><span className="font-semibold">Address:</span> {customer.address || 'N/A'}</p>
             <p className="text-gray-700"><span className="font-semibold">Contact Email:</span> {customer.contact_email}</p>
             <p className="text-gray-700"><span className="font-semibold">Contact Phone:</span> {customer.contact_phone || 'N/A'}</p>
-            <p className="text-gray-700"><span className="font-semibold">Created At:</span> {new Date(customer.created_at).toLocaleDateString()}</p>
+            <div className="mt-2">
+              <span className="font-semibold text-gray-700 flex items-center mb-1"><Globe className="h-4 w-4 mr-1.5 text-blue-500" />Email Domains:</span>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {(customer.domains && customer.domains.length > 0) ? customer.domains.map((d, i) => (
+                  <span key={i} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                    @{d}
+                  </span>
+                )) : <span className="text-gray-400 text-sm italic">No domains configured</span>}
+              </div>
+            </div>
+            <p className="text-gray-700 mt-2"><span className="font-semibold">Created At:</span> {new Date(customer.created_at).toLocaleDateString()}</p>
           </div>
         )}
       </div>

@@ -1,7 +1,6 @@
-// frontend/src/pages/CorporateAdmin/PendingApprovalsPage.js
-import React, { useState, useEffect, useMemo, Fragment } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { apiRequest } from '../../services/apiService';
-import { Loader2, AlertCircle, Eye, Check, X, ChevronDown, ChevronUp, Download, XCircle, Search } from 'lucide-react';
+import { Loader2, AlertCircle, Eye, Check, X, ChevronDown, ChevronUp, Download, XCircle, Search, AlertTriangle, CheckCircle, RotateCcw, Shield, Settings } from 'lucide-react';
 import moment from 'moment';
 import { toast } from 'react-toastify';
 import ApprovalRequestDetailsModal from '../../components/Modals/ApprovalRequestDetailsModal';
@@ -35,6 +34,33 @@ function PendingApprovalsPage({ isGracePeriod }) {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState(null);
 
+    // Tab state
+    const [activeTab, setActiveTab] = useState('custody');
+
+    // Discrepancy Reviews state
+    const [discrepancyLGs, setDiscrepancyLGs] = useState([]);
+    const [loadingDiscrepancies, setLoadingDiscrepancies] = useState(true);
+    const [processingDiscId, setProcessingDiscId] = useState(null);
+    const [discNotes, setDiscNotes] = useState({});
+    const [hasIssuanceModule, setHasIssuanceModule] = useState(false);
+
+    // Issuance Request Approvals state
+    const [issuanceRequests, setIssuanceRequests] = useState([]);
+    const [loadingIssuance, setLoadingIssuance] = useState(true);
+    const [processingIssuanceId, setProcessingIssuanceId] = useState(null);
+
+    // Filters for Issuance tab
+    const [issuanceStatusFilter, setIssuanceStatusFilter] = useState('ALL');
+    const [issuanceSearch, setIssuanceSearch] = useState('');
+    // Filters for Discrepancy tab
+    const [discStatusFilter, setDiscStatusFilter] = useState('ALL');
+
+    // K1: Admin Change Requests state
+    const [adminChanges, setAdminChanges] = useState([]);
+    const [loadingAdminChanges, setLoadingAdminChanges] = useState(true);
+    const [processingChangeId, setProcessingChangeId] = useState(null);
+    const [currentUserEmail, setCurrentUserEmail] = useState('');
+
     // Filtering and Sorting State
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStatuses, setSelectedStatuses] = useState([]);
@@ -61,8 +87,64 @@ function PendingApprovalsPage({ isGracePeriod }) {
         }
     };
 
+    const fetchDiscrepancyReviews = useCallback(async () => {
+        try {
+            setLoadingDiscrepancies(true);
+            const data = await apiRequest('/issuance/issued-lgs', 'GET');
+            const allLGs = Array.isArray(data) ? data : [];
+            // Show DISCREPANCY (pending), ACCEPTED (approved history), DISCREPANCY_REJECTED (rejected history)
+            setDiscrepancyLGs(allLGs.filter(lg => 
+                lg.verification_status === 'DISCREPANCY' || 
+                lg.verification_status === 'ACCEPTED' || 
+                lg.verification_status === 'DISCREPANCY_REJECTED'
+            ));
+            setHasIssuanceModule(true);
+        } catch (err) {
+            console.error('Failed to fetch discrepancy reviews:', err);
+        } finally {
+            setLoadingDiscrepancies(false);
+        }
+    }, []);
+
+    const fetchIssuanceApprovals = useCallback(async () => {
+        try {
+            setLoadingIssuance(true);
+            const data = await apiRequest('/issuance/my-approval-history', 'GET');
+            setIssuanceRequests(Array.isArray(data) ? data : []);
+            setHasIssuanceModule(true);
+        } catch (err) {
+            console.error('Failed to fetch issuance approvals:', err);
+        } finally {
+            setLoadingIssuance(false);
+        }
+    }, []);
+
+    // K1: Fetch admin change requests
+    const fetchAdminChanges = useCallback(async () => {
+        try {
+            setLoadingAdminChanges(true);
+            const data = await apiRequest('/issuance/admin/change-requests', 'GET');
+            setAdminChanges(Array.isArray(data) ? data : []);
+        } catch (err) {
+            console.error('Failed to fetch admin changes:', err);
+        } finally {
+            setLoadingAdminChanges(false);
+        }
+    }, []);
+
     useEffect(() => {
         fetchApprovalRequests();
+        fetchDiscrepancyReviews();
+        fetchIssuanceApprovals();
+        fetchAdminChanges();
+        // Get current user email from token
+        try {
+            const token = localStorage.getItem('jwt_token');
+            if (token) {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                setCurrentUserEmail(payload.sub || '');
+            }
+        } catch (e) { /* ignore */ }
     }, []);
 
     const handleViewDetails = (request) => {
@@ -272,10 +354,158 @@ function PendingApprovalsPage({ isGracePeriod }) {
         XLSX.writeFile(workbook, "Approval_Requests_Detailed.xlsx");
     };
 
+    // === DISCREPANCY ACTIONS ===
+    const handleDiscrepancyApprove = async (lgId) => {
+        const notes = discNotes[lgId] || '';
+        if (!notes.trim()) {
+            toast.error('Please provide a reason for accepting the discrepancies.');
+            return;
+        }
+        if (!window.confirm('Accept these discrepancies and confirm the LG?')) return;
+        try {
+            setProcessingDiscId(lgId);
+            await apiRequest(`/issuance/lg-records/${lgId}/verify`, 'PATCH', {
+                force_accept: true,
+                verification_notes: notes,
+            });
+            toast.success('Discrepancies accepted — LG confirmed.');
+            fetchDiscrepancyReviews();
+        } catch (err) {
+            toast.error(`Failed to accept: ${err.message || 'Unknown error'}`);
+        } finally {
+            setProcessingDiscId(null);
+        }
+    };
+
+    const handleDiscrepancyReject = async (lgId) => {
+        if (!window.confirm('Reject these discrepancies? The end user will need to re-upload a corrected LG copy.')) return;
+        try {
+            setProcessingDiscId(lgId);
+            await apiRequest(`/issuance/lg-records/${lgId}/reject-discrepancy`, 'POST', {
+                notes: discNotes[lgId] || 'Discrepancies rejected by corporate admin.',
+            });
+            toast.success('Discrepancies rejected — end user must re-upload.');
+            fetchDiscrepancyReviews();
+        } catch (err) {
+            toast.error(`Failed to reject: ${err.message || 'Unknown error'}`);
+        } finally {
+            setProcessingDiscId(null);
+        }
+    };
+
+    // === ISSUANCE REQUEST ACTIONS ===
+    const handleIssuanceApprove = async (requestId) => {
+        if (!window.confirm('Approve this issuance request?')) return;
+        try {
+            setProcessingIssuanceId(requestId);
+            await apiRequest(`/issuance/requests/${requestId}/approve`, 'POST');
+            toast.success('Issuance request approved!');
+            fetchIssuanceApprovals();
+        } catch (err) {
+            toast.error(`Failed to approve: ${err.message || 'Unknown error'}`);
+        } finally {
+            setProcessingIssuanceId(null);
+        }
+    };
+
+    const handleIssuanceReject = async (requestId) => {
+        if (!window.confirm('Reject this issuance request?')) return;
+        try {
+            setProcessingIssuanceId(requestId);
+            await apiRequest(`/issuance/requests/${requestId}/reject`, 'POST');
+            toast.success('Issuance request rejected.');
+            fetchIssuanceApprovals();
+        } catch (err) {
+            toast.error(`Failed to reject: ${err.message || 'Unknown error'}`);
+        } finally {
+            setProcessingIssuanceId(null);
+        }
+    };
+
+    const handleIssuanceRevise = async (requestId) => {
+        const notes = window.prompt('Enter revision notes for the requestor (optional):');
+        if (notes === null) return;
+        try {
+            setProcessingIssuanceId(requestId);
+            await apiRequest(`/issuance/requests/${requestId}/return-for-revision`, 'POST', {
+                revision_notes: notes || null
+            });
+            toast.success('Request returned for revision.');
+            fetchIssuanceApprovals();
+        } catch (err) {
+            toast.error(`Failed: ${err.message || 'Unknown error'}`);
+        } finally {
+            setProcessingIssuanceId(null);
+        }
+    };
+
+    const formatCurrency = (amount, currency) => {
+        if (!amount) return 'N/A';
+        const num = parseFloat(amount);
+        const formatted = num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return currency?.iso_code ? `${formatted} ${currency.iso_code}` : formatted;
+    };
+
+    // K1: Admin Change Request actions
+    const handleAdminChangeApprove = async (changeId) => {
+        if (!window.confirm('Approve this configuration change?')) return;
+        try {
+            setProcessingChangeId(changeId);
+            await apiRequest(`/issuance/admin/change-requests/${changeId}/action`, 'POST', {
+                action: 'APPROVE'
+            });
+            toast.success('Configuration change approved and applied.');
+            fetchAdminChanges();
+        } catch (err) {
+            toast.error(`Failed: ${err.message || 'Unknown error'}`);
+        } finally {
+            setProcessingChangeId(null);
+        }
+    };
+
+    const handleAdminChangeReject = async (changeId) => {
+        const reason = window.prompt('Reason for rejection (optional):');
+        if (reason === null) return;
+        try {
+            setProcessingChangeId(changeId);
+            await apiRequest(`/issuance/admin/change-requests/${changeId}/action`, 'POST', {
+                action: 'REJECT',
+                rejection_reason: reason || null
+            });
+            toast.success('Configuration change rejected.');
+            fetchAdminChanges();
+        } catch (err) {
+            toast.error(`Failed: ${err.message || 'Unknown error'}`);
+        } finally {
+            setProcessingChangeId(null);
+        }
+    };
+
+    const formatChangeType = (ct) => {
+        const map = {
+            FORM_CONFIG_UPDATE: 'Form Configuration',
+            APPROVAL_MATRIX_UPDATE: 'Approval Matrix',
+            DEPARTMENT_CREATE: 'New Department',
+            DEPARTMENT_UPDATE: 'Update Department',
+            GROUP_CREATE: 'New Approval Group',
+            GROUP_UPDATE: 'Update Approval Group',
+        };
+        return map[ct] || ct;
+    };
+
+    const pendingCustodyCount = approvalRequests.filter(r => r.status === 'PENDING').length;
+    const pendingIssuanceCount = issuanceRequests.filter(r => r.status === 'PENDING_APPROVAL').length;
+    const pendingDiscrepancyCount = discrepancyLGs.filter(lg => lg.verification_status === 'DISCREPANCY').length;
+    const pendingAdminChangeCount = adminChanges.filter(c => c.status === 'PENDING').length;
+    const totalPending = pendingCustodyCount + pendingIssuanceCount + pendingDiscrepancyCount + pendingAdminChangeCount;
+
     return (
         <div className="card">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <h2 className="text-2xl font-semibold text-gray-800">Pending Approval Requests</h2>
+                <div>
+                    <h2 className="text-2xl font-semibold text-gray-800">Approval Center</h2>
+                    <p className="text-sm text-gray-500 mt-1">All items requiring your approval</p>
+                </div>
                 
                 <div className="flex flex-wrap gap-2">
                     {(searchTerm || selectedStatuses.length > 0 || dateFrom || dateTo) && (
@@ -326,12 +556,87 @@ function PendingApprovalsPage({ isGracePeriod }) {
                 </div>
             </div>
 
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200 mb-4">
+                <button
+                    onClick={() => setActiveTab('custody')}
+                    className={`relative px-5 py-3 text-sm font-semibold transition-colors ${
+                        activeTab === 'custody'
+                            ? 'text-blue-600 border-b-2 border-blue-600'
+                            : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    Custody & LG Actions
+                    {pendingCustodyCount > 0 && (
+                        <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-blue-100 text-blue-700 rounded-full">
+                            {pendingCustodyCount}
+                        </span>
+                    )}
+                </button>
+                {hasIssuanceModule && (
+                    <>
+                        <button
+                            onClick={() => setActiveTab('issuance')}
+                            className={`relative px-5 py-3 text-sm font-semibold transition-colors ${
+                                activeTab === 'issuance'
+                                    ? 'text-indigo-600 border-b-2 border-indigo-600'
+                                    : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            Issuance Requests
+                            {pendingIssuanceCount > 0 && (
+                                <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-indigo-100 text-indigo-700 rounded-full">
+                                    {pendingIssuanceCount}
+                                </span>
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('discrepancies')}
+                            className={`relative px-5 py-3 text-sm font-semibold transition-colors ${
+                                activeTab === 'discrepancies'
+                                    ? 'text-amber-600 border-b-2 border-amber-600'
+                                    : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            LG Discrepancy Reviews
+                            {pendingDiscrepancyCount > 0 && (
+                                <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-amber-100 text-amber-700 rounded-full animate-pulse">
+                                    {pendingDiscrepancyCount}
+                                </span>
+                            )}
+                        </button>
+                    </>
+                )}
+                {hasIssuanceModule && (
+                    <button
+                        onClick={() => setActiveTab('admin-changes')}
+                        className={`relative px-5 py-3 text-sm font-semibold transition-colors ${
+                            activeTab === 'admin-changes'
+                                ? 'text-purple-600 border-b-2 border-purple-600'
+                                : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                        <Settings className="inline h-4 w-4 mr-1 -mt-0.5" />
+                        Admin Changes
+                        {pendingAdminChangeCount > 0 && (
+                            <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-purple-100 text-purple-700 rounded-full animate-pulse">
+                                {pendingAdminChangeCount}
+                            </span>
+                        )}
+                    </button>
+                )}
+            </div>
+
             {error && (
                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
                     <AlertCircle className="h-5 w-5 mr-2" />
                     <span className="block sm:inline">{error}</span>
                 </div>
             )}
+
+            {/* ===== CUSTODY & LG ACTIONS TAB ===== */}
+            {activeTab === 'custody' && (
+            <>
 
             {/* Filters Row */}
             <div className="mb-4 flex flex-col md:flex-row items-center flex-wrap gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
@@ -515,6 +820,487 @@ function PendingApprovalsPage({ isGracePeriod }) {
                     onReject={handleReject}
                     isGracePeriod={isGracePeriod}
                 />
+            )}
+            </>
+            )}
+
+            {/* ===== ISSUANCE REQUESTS TAB ===== */}
+            {activeTab === 'issuance' && (
+                <>
+                    {loadingIssuance ? (
+                        <div className="text-center py-8">
+                            <Loader2 className="animate-spin h-8 w-8 text-indigo-600 mx-auto" />
+                            <p className="text-gray-600 mt-2">Loading issuance approvals...</p>
+                        </div>
+                    ) : issuanceRequests.length === 0 ? (
+                        <div className="bg-gray-50 p-12 rounded-lg text-center border border-gray-200">
+                            <CheckCircle className="h-12 w-12 text-emerald-300 mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-gray-600">No Issuance Requests</h3>
+                            <p className="text-sm text-gray-400 mt-1">No issuance requests found.</p>
+                        </div>
+                    ) : (() => {
+                        const filteredIssuance = issuanceRequests.filter(req => {
+                            if (issuanceStatusFilter !== 'ALL' && req.status !== issuanceStatusFilter) return false;
+                            if (issuanceSearch) {
+                                const s = issuanceSearch.toLowerCase();
+                                return (req.serial_number || '').toLowerCase().includes(s)
+                                    || (req.beneficiary_name || '').toLowerCase().includes(s)
+                                    || (req.requestor_name || '').toLowerCase().includes(s)
+                                    || (req.requestor_email || '').toLowerCase().includes(s)
+                                    || (req.department || '').toLowerCase().includes(s);
+                            }
+                            return true;
+                        });
+                        return (
+                        <>
+                            {/* Filter bar */}
+                            <div className="flex flex-wrap items-center gap-3 mb-4">
+                                <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                                    {[
+                                        { key: 'ALL', label: 'All', count: issuanceRequests.length },
+                                        { key: 'PENDING_APPROVAL', label: 'Pending', count: issuanceRequests.filter(r => r.status === 'PENDING_APPROVAL').length },
+                                        { key: 'APPROVED_INTERNAL', label: 'Approved', count: issuanceRequests.filter(r => r.status === 'APPROVED_INTERNAL').length },
+                                        { key: 'REJECTED', label: 'Rejected', count: issuanceRequests.filter(r => r.status === 'REJECTED').length },
+                                    ].map(f => (
+                                        <button
+                                            key={f.key}
+                                            onClick={() => setIssuanceStatusFilter(f.key)}
+                                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                                                issuanceStatusFilter === f.key
+                                                    ? 'bg-white text-indigo-700 shadow-sm'
+                                                    : 'text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            {f.label} {f.count > 0 && <span className="ml-1 text-gray-400">({f.count})</span>}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="relative flex-1 max-w-xs">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        value={issuanceSearch}
+                                        onChange={e => setIssuanceSearch(e.target.value)}
+                                        placeholder="Search serial, beneficiary..."
+                                        className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:border-indigo-400 focus:ring-indigo-400"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-400 ml-auto">
+                                    Showing {filteredIssuance.length} of {issuanceRequests.length}
+                                </p>
+                            </div>
+
+                            {/* Dense compact table */}
+                            <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
+                                <table className="w-full table-fixed divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-[22%]">Serial</th>
+                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-[22%]">Beneficiary</th>
+                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-[14%]">Amount</th>
+                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-[12%]">Dept</th>
+                                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase w-[12%]">Status</th>
+                                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase w-[18%]">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {filteredIssuance.length === 0 ? (
+                                            <tr><td colSpan={6} className="text-center py-6 text-gray-400 text-sm">No matching requests</td></tr>
+                                        ) : filteredIssuance.map(req => (
+                                            <tr key={req.id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-3 py-2">
+                                                    <div className="text-sm font-semibold text-gray-900 truncate">{req.serial_number || `#${req.id}`}</div>
+                                                    <div className="text-[11px] text-gray-400 truncate">by {req.requestor_name || req.requestor_email || 'Treasury'} · {moment(req.created_at).fromNow()}</div>
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    <div className="text-sm text-gray-900 truncate">{req.beneficiary_name}</div>
+                                                    <div className="text-[11px] text-gray-400 truncate">{req.beneficiary_country || ''}</div>
+                                                </td>
+                                                <td className="px-3 py-2 text-sm font-semibold text-gray-900 whitespace-nowrap">
+                                                    {formatCurrency(req.amount, req.currency)}
+                                                </td>
+                                                <td className="px-3 py-2 text-xs text-gray-600 truncate">
+                                                    {req.department || '—'}
+                                                </td>
+                                                <td className="px-3 py-2 text-center">
+                                                    <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full whitespace-nowrap ${
+                                                        req.status === 'PENDING_APPROVAL' ? 'bg-yellow-100 text-yellow-800' :
+                                                        req.status === 'APPROVED_INTERNAL' ? 'bg-green-100 text-green-800' :
+                                                        req.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                                                        req.status === 'RETURNED_FOR_REVISION' ? 'bg-orange-100 text-orange-800' :
+                                                        req.status === 'PENDING_BANK_CONFIRMATION' ? 'bg-blue-100 text-blue-800' :
+                                                        'bg-gray-100 text-gray-800'
+                                                    }`}>
+                                                        {req.status === 'PENDING_APPROVAL' ? 'Pending' : 
+                                                         req.status === 'APPROVED_INTERNAL' ? 'Approved' : 
+                                                         req.status === 'RETURNED_FOR_REVISION' ? 'Revision' :
+                                                         req.status === 'PENDING_BANK_CONFIRMATION' ? 'At Bank' :
+                                                         req.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-2 text-right">
+                                                    {req.status === 'PENDING_APPROVAL' ? (
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <button onClick={() => handleIssuanceApprove(req.id)} disabled={processingIssuanceId === req.id}
+                                                                className="px-2 py-1 text-[11px] font-medium rounded text-white bg-green-600 hover:bg-green-700 disabled:opacity-50" title="Approve">
+                                                                {processingIssuanceId === req.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Check className="h-3 w-3 inline mr-0.5" />Approve</>}
+                                                            </button>
+                                                            <button onClick={() => handleIssuanceRevise(req.id)} disabled={processingIssuanceId === req.id}
+                                                                className="px-1.5 py-1 text-[11px] font-medium rounded text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50" title="Revise">
+                                                                <RotateCcw className="h-3 w-3" />
+                                                            </button>
+                                                            <button onClick={() => handleIssuanceReject(req.id)} disabled={processingIssuanceId === req.id}
+                                                                className="px-1.5 py-1 text-[11px] font-medium rounded text-white bg-red-600 hover:bg-red-700 disabled:opacity-50" title="Reject">
+                                                                <X className="h-3 w-3" />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-[11px] text-gray-300">—</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
+                        );
+                    })()}
+                </>
+            )}
+
+            {/* ===== DISCREPANCY REVIEWS TAB ===== */}
+            {activeTab === 'discrepancies' && (
+                <>
+                    {loadingDiscrepancies ? (
+                        <div className="text-center py-8">
+                            <Loader2 className="animate-spin h-8 w-8 text-amber-600 mx-auto" />
+                            <p className="text-gray-600 mt-2">Loading discrepancy reviews...</p>
+                        </div>
+                    ) : discrepancyLGs.length === 0 ? (
+                        <div className="bg-gray-50 p-12 rounded-lg text-center border border-gray-200">
+                            <CheckCircle className="h-12 w-12 text-emerald-300 mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-gray-600">No Discrepancies to Review</h3>
+                            <p className="text-sm text-gray-400 mt-1">
+                                All LG verifications are clean — no discrepancies pending your approval.
+                            </p>
+                        </div>
+                    ) : (() => {
+                        const filteredDisc = discrepancyLGs.filter(lg => {
+                            if (discStatusFilter === 'ALL') return true;
+                            if (discStatusFilter === 'DISCREPANCY') return lg.verification_status === 'DISCREPANCY';
+                            if (discStatusFilter === 'ACCEPTED') return lg.verification_status === 'ACCEPTED';
+                            if (discStatusFilter === 'REJECTED') return lg.verification_status === 'DISCREPANCY_REJECTED';
+                            return true;
+                        });
+                        return (
+                        <>
+                            {/* Filter bar */}
+                            <div className="flex flex-wrap items-center gap-3 mb-4">
+                                <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                                    {[
+                                        { key: 'ALL', label: 'All', count: discrepancyLGs.length },
+                                        { key: 'DISCREPANCY', label: 'Pending', count: discrepancyLGs.filter(lg => lg.verification_status === 'DISCREPANCY').length },
+                                        { key: 'ACCEPTED', label: 'Accepted', count: discrepancyLGs.filter(lg => lg.verification_status === 'ACCEPTED').length },
+                                        { key: 'REJECTED', label: 'Rejected', count: discrepancyLGs.filter(lg => lg.verification_status === 'DISCREPANCY_REJECTED').length },
+                                    ].map(f => (
+                                        <button
+                                            key={f.key}
+                                            onClick={() => setDiscStatusFilter(f.key)}
+                                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                                                discStatusFilter === f.key
+                                                    ? 'bg-white text-amber-700 shadow-sm'
+                                                    : 'text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            {f.label} {f.count > 0 && <span className="ml-1 text-gray-400">({f.count})</span>}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-gray-400 ml-auto">
+                                    Showing {filteredDisc.length} of {discrepancyLGs.length}
+                                </p>
+                            </div>
+
+                            <div className="space-y-4">
+                            {filteredDisc.length === 0 ? (
+                                <div className="text-center py-8 text-gray-400 text-sm">No matching discrepancies</div>
+                            ) : filteredDisc.map(lg => {
+                                const req = lg.request;
+                                const isPending = lg.verification_status === 'DISCREPANCY';
+                                const isAccepted = lg.verification_status === 'ACCEPTED';
+                                const borderColor = isPending ? 'border-amber-200' : isAccepted ? 'border-green-200' : 'border-red-200';
+                                const headerBg = isPending ? 'bg-amber-50 border-amber-200' : isAccepted ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
+                                const badgeStyle = isPending ? 'bg-amber-100 text-amber-800' : isAccepted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                                const badgeText = isPending ? 'DISCREPANCY' : isAccepted ? 'ACCEPTED' : 'REJECTED';
+                                return (
+                                    <div key={lg.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden ${borderColor} ${!isPending ? 'opacity-80' : ''}`}>
+                                        {/* Card Header */}
+                                        <div className={`px-6 py-4 border-b flex items-center justify-between ${headerBg}`}>
+                                            <div className="flex items-center gap-3">
+                                                {isPending ? <AlertTriangle className="w-5 h-5 text-amber-600" /> : isAccepted ? <CheckCircle className="w-5 h-5 text-green-600" /> : <XCircle className="w-5 h-5 text-red-600" />}
+                                                <div>
+                                                    <div className="font-bold text-gray-900">{lg.lg_ref_number || `LG #${lg.id}`}</div>
+                                                    <div className="text-xs text-gray-500">
+                                                        {lg.beneficiary_name} &middot; {lg.bank_name} &middot; {lg.currency_code} {parseFloat(lg.current_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <span className={`px-3 py-1 text-xs font-bold rounded-full ${badgeStyle}`}>
+                                                {badgeText}
+                                            </span>
+                                        </div>
+
+                                        {/* Discrepancy Details — field-by-field comparison */}
+                                        <div className="px-6 py-4 space-y-3">
+                                            {(() => {
+                                                // Try to parse verification_notes as JSON (structured discrepancy data)
+                                                let discrepancyFields = null;
+                                                try {
+                                                    let raw = lg.verification_notes || '';
+                                                    // Extract just the array portion (may have rejection notes appended after)
+                                                    const arrayMatch = raw.match(/^\s*\[[\s\S]*?\]\s*/);
+                                                    if (arrayMatch) raw = arrayMatch[0];
+                                                    // Handle Python str() format (single quotes, None)
+                                                    const cleaned = raw.replace(/'/g, '"').replace(/\bNone\b/g, 'null').replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false');
+                                                    const parsed = JSON.parse(cleaned);
+                                                    if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].field) {
+                                                        discrepancyFields = parsed;
+                                                    }
+                                                } catch (e) { /* not parseable, fall through */ }
+
+                                                const fieldLabels = {
+                                                    amount: 'Amount',
+                                                    expiry_date: 'Expiry Date',
+                                                    beneficiary_name: 'Beneficiary',
+                                                    currency: 'Currency',
+                                                    lg_type: 'LG Type',
+                                                    purpose: 'Purpose',
+                                                    operational_status: 'Operational Status',
+                                                };
+                                                const severityColors = {
+                                                    HIGH: 'bg-red-100 text-red-700',
+                                                    MEDIUM: 'bg-amber-100 text-amber-700',
+                                                    LOW: 'bg-blue-100 text-blue-700',
+                                                };
+
+                                                if (discrepancyFields) {
+                                                    return (
+                                                        <div className="border border-amber-200 rounded-lg overflow-hidden">
+                                                            <table className="w-full text-sm">
+                                                                <thead>
+                                                                    <tr className="bg-amber-50 border-b border-amber-200">
+                                                                        <th className="px-4 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Field</th>
+                                                                        <th className="px-4 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Requested</th>
+                                                                        <th className="px-4 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Bank Confirmed</th>
+                                                                        <th className="px-4 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Severity</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody className="divide-y divide-amber-100">
+                                                                    {discrepancyFields.map((d, i) => {
+                                                                        const isMatch = d.match === true || d.severity === 'OK';
+                                                                        return (
+                                                                        <tr key={i} className={`hover:bg-amber-50/50 ${isMatch ? 'bg-green-50/30' : ''}`}>
+                                                                            <td className="px-4 py-2 font-medium text-gray-700">{fieldLabels[d.field] || d.field}</td>
+                                                                            <td className="px-4 py-2 text-gray-600">{d.requested || '—'}</td>
+                                                                            <td className={`px-4 py-2 font-semibold ${isMatch ? 'text-gray-600' : 'text-red-700'}`}>{d.bank_confirmed || '—'}</td>
+                                                                            <td className="px-4 py-2 text-center">
+                                                                                {isMatch ? (
+                                                                                    <CheckCircle className="w-4 h-4 text-emerald-500 inline" />
+                                                                                ) : (
+                                                                                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${severityColors[d.severity] || 'bg-gray-100 text-gray-600'}`}>
+                                                                                        {d.severity || 'INFO'}
+                                                                                    </span>
+                                                                                )}
+                                                                            </td>
+                                                                        </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                // Fallback: show generic comparison + raw notes
+                                                return (
+                                                    <>
+                                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                                            <div>
+                                                                <p className="text-xs font-bold text-gray-400 uppercase mb-1">Requested</p>
+                                                                <p className="text-gray-700">Amount: {lg.currency_code} {req ? parseFloat(req.amount).toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</p>
+                                                                <p className="text-gray-700">Beneficiary: {req?.beneficiary_name || lg.beneficiary_name}</p>
+                                                                <p className="text-gray-700">Expiry: {req?.requested_expiry_date || 'N/A'}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs font-bold text-gray-400 uppercase mb-1">Bank Confirmed</p>
+                                                                <p className="text-gray-700">Amount: {lg.currency_code} {parseFloat(lg.current_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                                                                <p className="text-gray-700">Bank LG #: {lg.bank_lg_number || 'N/A'}</p>
+                                                                <p className="text-gray-700">Expiry: {lg.expiry_date || 'N/A'}</p>
+                                                            </div>
+                                                        </div>
+                                                        {lg.verification_notes && (
+                                                            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                                                <p className="text-xs font-bold text-gray-500 uppercase mb-1">Discrepancy Details</p>
+                                                                <p className="text-sm text-gray-700 whitespace-pre-wrap">{lg.verification_notes}</p>
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
+
+                                            {/* Attached LG Copy — for admin to review */}
+                                            {lg.lg_copy_documents && lg.lg_copy_documents.length > 0 && (
+                                                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                                                    <p className="text-xs font-bold text-indigo-700 uppercase mb-2 flex items-center gap-1">
+                                                        <Eye className="w-3.5 h-3.5" /> Attached LG Copy
+                                                    </p>
+                                                    <div className="space-y-1.5">
+                                                        {lg.lg_copy_documents.map(doc => (
+                                                            <div key={doc.id} className="flex items-center justify-between gap-2 bg-white px-3 py-2 rounded-lg border border-indigo-100">
+                                                                <span className="text-xs text-gray-700 truncate flex-1">{doc.file_name}</span>
+                                                                {doc.created_at && <span className="text-[10px] text-gray-400 whitespace-nowrap">{new Date(doc.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>}
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            const data = await apiRequest(`/issuance/requests/${lg.request?.id}/documents/${doc.id}/download`, 'GET');
+                                                                            if (data?.download_url) window.open(data.download_url, '_blank');
+                                                                            else toast.error('Download URL not available');
+                                                                        } catch (err) { toast.error('Failed to open document'); }
+                                                                    }}
+                                                                    className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-indigo-700 bg-indigo-100 rounded-md hover:bg-indigo-200 transition-colors"
+                                                                >
+                                                                    <Eye className="w-3 h-3" /> View
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {isPending && (
+                                            <>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-600 mb-1">Your Notes (required to accept)</label>
+                                                <textarea
+                                                    rows={2}
+                                                    value={discNotes[lg.id] || ''}
+                                                    onChange={e => setDiscNotes(prev => ({ ...prev, [lg.id]: e.target.value }))}
+                                                    placeholder="Explain why these discrepancies are acceptable..."
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:border-amber-400 focus:ring-amber-400"
+                                                />
+                                            </div>
+
+                                            <div className="flex items-center justify-end gap-3 pt-2">
+                                                <button
+                                                    onClick={() => handleDiscrepancyReject(lg.id)}
+                                                    disabled={processingDiscId === lg.id}
+                                                    className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition-colors"
+                                                >
+                                                    {processingDiscId === lg.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <XCircle className="h-4 w-4 mr-1" />}
+                                                    Reject — Request Re-upload
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDiscrepancyApprove(lg.id)}
+                                                    disabled={processingDiscId === lg.id || !(discNotes[lg.id] || '').trim()}
+                                                    className="inline-flex items-center px-4 py-2 text-sm font-bold rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                                                >
+                                                    {processingDiscId === lg.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle className="h-4 w-4 mr-1" />}
+                                                    Accept Discrepancies
+                                                </button>
+                                            </div>
+                                            </>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            </div>
+                        </>
+                        );
+                    })()}
+                </>
+            )}
+
+            {/* ===== ADMIN CHANGES TAB (K1) ===== */}
+            {activeTab === 'admin-changes' && (
+                <>
+                    {loadingAdminChanges ? (
+                        <div className="text-center py-8">
+                            <Loader2 className="animate-spin h-8 w-8 text-purple-600 mx-auto" />
+                            <p className="text-gray-600 mt-2">Loading admin change requests...</p>
+                        </div>
+                    ) : adminChanges.length === 0 ? (
+                        <div className="bg-gray-50 p-12 rounded-lg text-center border border-gray-200">
+                            <Settings className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-gray-600">No Admin Change Requests</h3>
+                            <p className="text-sm text-gray-400 mt-1">All configuration changes will appear here when dual-control is active.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {adminChanges.map(change => (
+                                <div key={change.id} className={`border rounded-lg p-4 ${
+                                    change.status === 'PENDING' ? 'border-purple-200 bg-purple-50/30' :
+                                    change.status === 'APPROVED' ? 'border-green-200 bg-green-50/30' :
+                                    'border-red-200 bg-red-50/30'
+                                }`}>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
+                                                change.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                                change.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                                                'bg-red-100 text-red-800'
+                                            }`}>{change.status}</span>
+                                            <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700">
+                                                {formatChangeType(change.change_type)}
+                                            </span>
+                                        </div>
+                                        <span className="text-xs text-gray-400">
+                                            {moment(change.created_at).format('DD-MMM-YYYY HH:mm')}
+                                        </span>
+                                    </div>
+                                    <div className="mt-2 text-sm text-gray-600">
+                                        <span className="font-medium">Requested by:</span> {change.requested_by_email || 'Unknown'}
+                                        {change.approved_by_email && (
+                                            <span className="ml-4"><span className="font-medium">{change.status === 'APPROVED' ? 'Approved' : 'Rejected'} by:</span> {change.approved_by_email}</span>
+                                        )}
+                                    </div>
+                                    {change.rejection_reason && (
+                                        <div className="mt-1 text-sm text-red-600">
+                                            <span className="font-medium">Reason:</span> {change.rejection_reason}
+                                        </div>
+                                    )}
+                                    {change.status === 'PENDING' && (
+                                        <div className="mt-3 flex gap-2">
+                                            {change.requested_by_email === currentUserEmail ? (
+                                                <span className="text-xs text-gray-400 italic">Awaiting approval from another admin</span>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleAdminChangeApprove(change.id)}
+                                                        disabled={processingChangeId === change.id}
+                                                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                                                    >
+                                                        {processingChangeId === change.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                                                        Approve & Apply
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleAdminChangeReject(change.id)}
+                                                        disabled={processingChangeId === change.id}
+                                                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition-colors"
+                                                    >
+                                                        {processingChangeId === change.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <X className="h-4 w-4 mr-1" />}
+                                                        Reject
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

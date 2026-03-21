@@ -395,7 +395,7 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                             leaveFrom="opacity-100 translate-y-0 sm:scale-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
-                            <DialogPanel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-4xl sm:p-6">
+                            <DialogPanel className="relative transform overflow-hidden rounded-xl bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-4xl sm:p-6">
                                 <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
                                     <button
                                         type="button"
@@ -408,7 +408,7 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                                 </div>
                                 <div className="sm:flex sm:items-start">
                                     <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                                        <DialogTitle as="h3" className="text-lg font-semibold leading-6 text-gray-900 border-b pb-3 mb-3">
+                                        <DialogTitle as="h3" className="text-lg font-bold leading-6 text-gray-900 tracking-tight border-b pb-3 mb-3">
                                             Review Approval Request: {request.lg_record?.lg_number || 'N/A'} - {formatActionType(request.action_type)}
                                             <span className={`ml-3 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                                 request.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :

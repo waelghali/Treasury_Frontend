@@ -1,0 +1,2800 @@
+{
+  "common": {
+    "login": "Login",
+    "logout": "Log Out",
+    "email": "Email Address",
+    "password": "Password",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "text-green-600 hover:text-green-800",
+    "confirm": "Confirm",
+    "back": "Back",
+    "actions": "Actions",
+    "status": "Status",
+    "loading": "Loading...",
+    "success": "Policies accepted successfully!",
+    "error": "toast.error(`Failed to withdraw request: $err.message || 'An unexpected error occurred.'`);",
+    "warning": "Warning",
+    "search": "Search",
+    "filter": "Filter",
+    "clear": "Clear",
+    "home": "Home",
+    "knowMore": "Know More",
+    "select": "Select",
+    "to": "to",
+    "days": "days",
+    "items": "Items",
+    "refresh": "Refresh",
+    "delete": "text-gray-400 cursor-not-allowed",
+    "or": "OR",
+    "unexpectedError": "alert(`Failed to run AI Audit: $error.message || 'An unexpected error occurred.'`);",
+    "na": "displayValue || 'N/A'",
+    "unknownError": "toast.error(`Error loading health report: $err.message || \"Unknown error\"`);",
+    "selected": "selectedFile && Selected: selectedFile.name",
+    "submitting": "isSaving ? 'Submitting...' : 'Register and Activate Free Trial'",
+    "no": "No",
+    "edit": "text-gray-400 cursor-not-allowed",
+    "yes": "Yes"
+  },
+  "treasury": {
+    "lg": "Letter of Guarantee",
+    "lgs": "Letters of Guarantee",
+    "issue": "Issue LG",
+    "amend": "Amend LG",
+    "extend": "Extend LG",
+    "cancel": "Cancel LG",
+    "amount": "Amount",
+    "currency": "Currency",
+    "beneficiary": "Beneficiary",
+    "applicant": "Applicant",
+    "bank": "Bank",
+    "issueDate": "Issue Date",
+    "expiryDate": "Expiry Date",
+    "reference": "Reference Number",
+    "dashboard": "Dashboard",
+    "actionCenter": "Action Center",
+    "active": "Active",
+    "expired": "Expired",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "draft": "Draft"
+  },
+  "auth": {
+    "renewal": {
+      "title": "Account Expired",
+      "expiredMessage": "Your subscription has expired and access to the platform has been disabled.",
+      "contactSales": "To regain access and continue using the service, please contact our sales team to renew your subscription.",
+      "contactInfo": "Contact Information",
+      "email": "Email: lg_custody@growbusinessdevelopment.com",
+      "phone": "Phone: +20 (012) 0099-0030",
+      "returnToLogin": "Return to Login"
+    },
+    "stayLoggedIn": "Stay Logged In",
+    "sessionExpiring": "Session Expiring",
+    "logoutIn": "You will be logged out in:",
+    "verifySecurity": "Verify Security",
+    "signIn": "Sign In",
+    "signInButton": "Sign In",
+    "codeSent": "A code has been sent to your email",
+    "treasuryPlatform": "Treasury Management Platform",
+    "signingIn": "Signing In...",
+    "enter6DigitCode": "Enter 6-Digit Code",
+    "trustDevice": "Trust this device in the future",
+    "didNotReceiveCode": "Didn't receive the code?",
+    "resendCodeIn": "Resend Code in {{time}}s",
+    "resendNewCode": "Resend New Code",
+    "verifying": "Verifying...",
+    "verifyAccess": "Verify & Access Platform",
+    "backToSignIn": "Back to Sign In",
+    "forgotPassword": "Forgot Password?",
+    "backToHome": "Back to Home",
+    "networkError": "A network error occurred. Please check your connection.",
+    "verificationFailed": "Verification failed. Please try again.",
+    "loginFailed": "Login failed. Please try again."
+  },
+  "legal": {
+    "reviewAccept": "Review and Accept Policies",
+    "policyDesc": "To continue using the platform, you must accept our latest Terms & Conditions and Privacy Policy.",
+    "terms": "T&C (v{{version}})",
+    "privacy": "Privacy Policy (v{{version}})",
+    "loading": "Loading policies...",
+    "accepting": "Accepting...",
+    "acceptButton": "I Accept the Policies"
+  },
+  "layout": {
+    "treasury": "Treasury",
+    "endUserEdition": "End User Edition",
+    "dashboard": "Dashboard",
+    "actionCenter": "Action Center",
+    "recordNewLg": "Record New LG",
+    "manageLgRecords": "Manage LG Records",
+    "withdrawRequest": "Withdraw Request",
+    "internalOwners": "Internal Owners",
+    "reports": "Reports",
+    "euBadge": "EU",
+    "endUser": "End User",
+    "org": "Org: {{name}}",
+    "signOut": "Sign Out",
+    "accountRestricted": "Account Restricted",
+    "subscriptionExpired": "Your subscription has expired. Please contact your administrator to restore access."
+  },
+  "resetPassword": {
+    "resetPassword": "Reset Password",
+    "enterNewPassword": "Enter your new password below.",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password",
+    "newPasswordPlaceholder": "Enter your new password",
+    "confirmNewPasswordPlaceholder": "Confirm your new password",
+    "resetting": "Resetting...",
+    "resetPasswordButton": "Reset Password",
+    "backToLogin": "Back to Login",
+    "missingTokenUrl": "Password reset token is missing from the URL.",
+    "missingToken": "Missing password reset token.",
+    "noResetTokenFound": "No reset token found. Please use the link from your email.",
+    "passwordsDoNotMatch": "New password and confirmation do not match.",
+    "passwordTooShort": "Password must be at least 8 characters long.",
+    "passwordNoUppercase": "Password must contain at least one uppercase letter.",
+    "passwordNoLowercase": "Password must contain at least one lowercase letter.",
+    "passwordNoDigit": "Password must contain at least one digit.",
+    "resetSuccess": "Your password has been successfully reset. Please log in with your new password.",
+    "resetRedirecting": "Your password has been successfully reset. Redirecting to login page...",
+    "resetFailed": "Password reset failed. The token might be invalid or expired.",
+    "unexpectedError": "An unexpected error occurred. Please try again."
+  },
+  "pages": {
+    "corporateAdminDashboard": {
+      "avgDeliveryDays": "title=\"Average Delivery Days\"",
+      "days": "subValue=`Overall: $kpiData.avgDaysToExpiryActionOverall days`",
+      "overall": "subValue=`Overall: $kpiData.avgDaysToExpiryActionOverall days`",
+      "lgTypeMix": "LG Type Mix",
+      "outerGlobalInnerYours": "(Outer: Global | Inner: Your Figures)",
+      "loading": "Loading Corporate Admin Dashboard...",
+      "noDataAvailable": ") : No data available.",
+      "avgDaysToAction": "title=\"Avg. Days to Action\"",
+      "bankMarketShare": "Bank Market Share",
+      "totalLgVolume": "Total LG Volume",
+      "lgRecords": "Total LG Volume",
+      "avgProcessingTimesByBank": "Average Processing Times by Bank",
+      "quickActions": "Quick Actions",
+      "quickActionsList": {
+        "manageLgCategories": "Adjust settings for subscribed modules (e.g., LG Custody)",
+        "manageLgCategoriesDesc": "Adjust settings for subscribed modules (e.g., LG Custody)",
+        "manageUsers": "Adjust settings for subscribed modules (e.g., LG Custody)",
+        "manageUsersDesc": "Adjust settings for subscribed modules (e.g., LG Custody)",
+        "moduleConfigs": "Adjust settings for subscribed modules (e.g., LG Custody)",
+        "moduleConfigsDesc": "Adjust settings for subscribed modules (e.g., LG Custody)"
+      }
+    },
+    "systemOwnerDashboard": {
+      "metrics": {
+        "activeCustomers": "title: 'Active Customers',",
+        "activeUsers": "title: 'Active Users',",
+        "expiringSoon": "title: 'Expiring Soon LGs',",
+        "next30Days": "unit: 'Next 30 days',",
+        "totalValue": "title: 'Total LG Value',"
+      },
+      "quickActions": {
+        "title": "Quick Actions",
+        "addCustomer": {
+          "title": "/system-owner/global-configurations/Templates/new",
+          "description": "/system-owner/global-configurations/Templates/new"
+        },
+        "addSubscription": {
+          "title": "/system-owner/global-configurations/Templates/new",
+          "description": "/system-owner/global-configurations/Templates/new"
+        },
+        "addTemplate": {
+          "title": "/system-owner/global-configurations/Templates/new",
+          "description": "/system-owner/global-configurations/Templates/new"
+        },
+        "setGlobal": {
+          "title": "/system-owner/global-configurations/Templates/new",
+          "description": "/system-owner/global-configurations/Templates/new"
+        }
+      },
+      "recentActivity": {
+        "title": "Recent Activity",
+        "empty": "No recent activity found."
+      },
+      "systemUsage": {
+        "title": "System Usage Overview",
+        "description": "A high-level summary of business traction, growth, and adoption.",
+        "totalCustomers": "name: \"Total Customers\", value: systemUsageData.total_customers, icon:  ,",
+        "totalUsers": "name: \"Total Users\", value: systemUsageData.total_users, icon:  ,",
+        "totalLgs": "name: \"Total LGs Managed\", value: systemUsageData.total_lgs_managed, icon:  ,",
+        "instructionsIssued": "name: \"Total Instructions Issued\", value: systemUsageData.total_instructions_issued, icon:  ,",
+        "emailsSent": "name: \"Total Emails Sent\", value: systemUsageData.total_emails_sent, icon:  ,",
+        "empty": "No system usage data available."
+      }
+    },
+    "systemNotifications": {
+      "title": "System Notifications",
+      "buttons": {
+        "create": "Create Notification",
+        "continue": "Continue",
+        "cancel": "navigate('/system-owner/system-notifications') variant=\"outline\">Cancel",
+        "closeReport": "Close Report",
+        "update": "isEditMode ? 'Update Notification' : 'Create Notification'"
+      },
+      "table": {
+        "content": "Content",
+        "target": "Target",
+        "status": "Status",
+        "startDate": "Start Date",
+        "endDate": "End Date",
+        "actions": "Actions",
+        "tooltips": {
+          "deactivate": "title=notification.is_active ? \"Deactivate\" : \"Activate\"",
+          "activate": "title=notification.is_active ? \"Deactivate\" : \"Activate\"",
+          "edit": "title=\"Edit\"",
+          "delete": "title=\"Delete\"",
+          "restore": "title=\"Restore\"",
+          "analytics": "title=\"View Analytics\""
+        }
+      },
+      "status": {
+        "deleted": "return Deleted;",
+        "inactive": "return Inactive;",
+        "scheduled": "return Scheduled;",
+        "expired": "return Expired;",
+        "active": "return Active;",
+        "activated": "activated",
+        "deactivated": "deactivated",
+        "activate": "activate",
+        "deactivate": "deactivate"
+      },
+      "form": {
+        "targetText": {
+          "customers": "{{count}} Customers",
+          "users": "{{count}} Users",
+          "roles": "{{count}} Roles",
+          "allUsers": "return 'All Users';"
+        },
+        "targetCustomers": "Target Customer(s) (Optional)",
+        "imageNote": "This image will appear as a banner thumbnail or a hero image in popups.",
+        "actionLabel": "Action Button Label",
+        "frequencies": {
+          "repeat": "Repeat Up to X Times",
+          "oncePerLogin": "Once Per Login",
+          "once": "Once"
+        },
+        "allCustomers": "All Customers",
+        "types": {
+          "ad": "Advertisement (Purple)",
+          "news": "Latest News (Green)",
+          "systemCritical": "System Critical / Alert (Red)",
+          "cbe": "CBE Announcement (Teal)",
+          "systemInfo": "System Announcement (Blue)"
+        },
+        "animations": {
+          "fade": "Fade In",
+          "zoom": "Zoom In",
+          "bounce": "Bounce In",
+          "scrollLeft": "Slide In (Right)",
+          "slideLeft": "Slide In (Left)"
+        },
+        "displayStyle": "Display Style",
+        "actionLabelPlaceholder": "placeholder=\"e.g., I Agree, Acknowledge\"",
+        "startDate": "Start Date *",
+        "uploadImage": "uploading ? 'Uploading...' : 'Upload Image'",
+        "targetRoles": "Target Role(s) (Optional)",
+        "uploading": "uploading ? 'Uploading...' : 'Upload Image'",
+        "targetUsers": "Target User(s) (Optional)",
+        "activeStatus": "flex items-center space-x-2 mt-4 md:col-span-2",
+        "animationType": "Animation Type",
+        "showingUsers": "Showing Users",
+        "displayFrequency": "Display Frequency",
+        "maxDisplayCount": "Max Display Count",
+        "showAsModal": "label=\"Show as Modal Popup (Blocking)\"",
+        "defaultActionLabel": "popup_action_label: 'Acknowledge',",
+        "link": "Link (Optional)",
+        "notificationType": "Notification Type",
+        "allUsers": "All Users",
+        "removeImage": "title=\"Remove image\"",
+        "content": "Content *",
+        "imageLabel": "Notification Image (Optional)",
+        "allRoles": "All Roles",
+        "endDate": "End Date *"
+      },
+      "messages": {
+        "loadError": "toast.error('Failed to fetch notifications.');",
+        "deleteSuccess": "toast.success('Notification deleted successfully.');",
+        "deleteError": "toast.error('Failed to delete notification.');",
+        "restoreSuccess": "toast.success('Notification restored successfully.');",
+        "restoreError": "toast.error('Failed to restore notification.');",
+        "toggleSuccess": "Notification {{status}} successfully.",
+        "toggleError": "Failed to {{status}} notification.",
+        "analyticsError": "toast.error(\"Failed to load analytics data.\");",
+        "loading": "Loading notifications...",
+        "noNotifications": "No notifications found.",
+        "gatheringInsights": "Gathering insights...",
+        "noAnalytics": "No analytics data available.",
+        "noViews": "No views recorded yet.",
+        "uploadFailed": "toast.error(\"Failed to upload image\");",
+        "uploadSuccess": "toast.success(\"Image uploaded successfully\");",
+        "submitFailed": "toast.error(`Submission failed: $errorMessage`);",
+        "uploadMissingFields": "toast.error(\"Upload response missing required fields\");",
+        "loadCustomersError": "toast.error(\"Failed to load customer list.\");",
+        "createSuccess": "toast.success('Notification created successfully.');",
+        "updateSuccess": "toast.success('Notification updated successfully.');",
+        "invalidUri": "toast.error('Invalid image URI format. Please re-upload the image.');",
+        "contentRequired": "toast.error(\"Content is required\");",
+        "loadDetailsError": "toast.error('Failed to fetch notification details.');"
+      },
+      "dialogs": {
+        "deleteTitle": "title=\"Are you sure you want to delete this notification?\"",
+        "deleteDesc": "description=\"This action will soft-delete the notification. It can be restored later.\"",
+        "confirmDelete": "confirmText=\"Delete\"",
+        "restoreTitle": "title=\"Restore this notification?\"",
+        "restoreDesc": "This action will restore the deleted notification. It will be active again if it",
+        "confirmRestore": "confirmText=\"Restore\"",
+        "deactivateTitle": "title=selectedNotification.is_active ? \"Deactivate Notification?\" : \"Activate Notification?\"",
+        "activateTitle": "title=selectedNotification.is_active ? \"Deactivate Notification?\" : \"Activate Notification?\"",
+        "deactivateDesc": "? \"This will immediately hide the notification from all users, regardless of its date range.\"",
+        "activateDesc": ": \"This will make the notification visible, provided it is within its start and end dates.\"",
+        "confirmDeactivate": "confirmText=selectedNotification.is_active ? \"Deactivate\" : \"Activate\"",
+        "confirmActivate": "confirmText=selectedNotification.is_active ? \"Deactivate\" : \"Activate\""
+      },
+      "analytics": {
+        "title": "Analytics Report",
+        "totalViews": "Total Views",
+        "uniqueViewers": "Unique Viewers",
+        "engagementTitle": "Viewer Engagement",
+        "user": "User",
+        "engagementViews": "Engagement (Views)",
+        "lastInteraction": "Last Interaction",
+        "userId": "User ID: {{id}}"
+      },
+      "formTitleEdit": "isEditMode ? 'Edit' : 'Create' System Notification",
+      "formTitleNew": "isEditMode ? 'Edit' : 'Create' System Notification"
+    },
+    "publicPortal": {
+      "title": "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2",
+      "subtitle": "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2",
+      "emailPlaceholder": "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2",
+      "requestAccessBtn": "Request Access Code",
+      "codeSent": "A 6-digit code has been sent to your email.",
+      "enterCode": "<input",
+      "verifyBtn": "isLoading ? \"Submitting...\" : \"Submit Request\"",
+      "messages": {
+        "linkExpired": "Invalid or expired access link.",
+        "orgNotRecognized": "body: JSON.stringify(payload)",
+        "invalidCode": "min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4",
+        "codeSent": "headers:  'Content-Type': 'application/json' ,"
+      }
+    },
+    "publicIssuanceForm": {
+      "externalTitle": "LG Issuance Request",
+      "internalTitle": "New Issuance Request",
+      "subtitle": "Please provide the details for your Letter of Guarantee request.",
+      "successTitle": "Request Submitted Successfully",
+      "successMessage": "Your request has been sent for internal review. You will receive an email update once it's processed.",
+      "returnHomeBtn": "Return to Dashboard",
+      "submitBtn": "Submit Request",
+      "saveDraftBtn": "Save Draft",
+      "financialRiskData": "Financial Risk Data",
+      "sections": {
+        "issuingEntity": "1. Issuing Entity",
+        "requestorDetails": "2. Requestor Details",
+        "underlyingReference": "3. Underlying Reference / Contract",
+        "lgDetails": "4. LG Details",
+        "beneficiaryDetails": "5. Beneficiary Details",
+        "specialConditions": "6. Special Conditions",
+        "additionalInfo": "7. Additional Information"
+      },
+      "fields": {
+        "selectEntity": "Select Issuing Entity",
+        "fullName": "Full Name",
+        "workEmail": "Work Email",
+        "department": "Department",
+        "jobTitle": "Job Title",
+        "phoneNumber": "Phone Number",
+        "employeeId": "Employee ID",
+        "managerEmail": "Manager Email",
+        "secondLineManagerEmail": "Second Line Manager Email",
+        "referenceType": "Reference Type (e.g. Contract, PO)",
+        "referenceNumber": "Reference Number",
+        "referenceAmount": "Reference Amount",
+        "referenceCurrency": "Reference Currency",
+        "startDate": "Start Date",
+        "endDate": "End Date",
+        "lgType": "LG Type",
+        "lgAmount": "LG Amount",
+        "lgCurrency": "LG Currency",
+        "payableCurrency": "LG Payable Currency",
+        "payableCurrencyHint": "Defaults to LG currency unless changed",
+        "lgPurpose": "Purpose of LG",
+        "suggestedIssueDate": "Suggested Issue Date",
+        "maturityDate": "Maturity Date (Expiry)",
+        "advancePaymentOpStatus": "Advance Payment Operational Status",
+        "selectStatus": "Select status...",
+        "operative": "Operative (Standard)",
+        "nonOperative": "Non-Operative (Requires matching inflow)",
+        "beneficiaryName": "Beneficiary Name",
+        "country": "Country",
+        "fullAddress": "Full Address",
+        "contactPerson": "Contact Person",
+        "emailAddress": "Email Address",
+        "isThirdParty": "This is a Third-Party Issuance",
+        "thirdPartyName": "Third Party Name",
+        "relationship": "Relationship to Applicant",
+        "thirdPartyAddress": "Third Party Address",
+        "isCrossBorder": "This is a Cross-Border / Foreign Issuance",
+        "issuingCountry": "Issuing Country (if different)",
+        "requiresSpecialWording": "Requires Special / Non-Standard Wording",
+        "uploadTemplateNote": "Please email your preferred template to Treasury after submission."
+      },
+      "messages": {
+        "sessionExpired": "Your session has expired. Please request a new access code.",
+        "loadFailed": "Failed to load form configuration.",
+        "previousDataLoaded": "Previous request data loaded \u2014 please review",
+        "requestSubmitted": "Request submitted successfully!",
+        "draftSaved": "Draft saved successfully.",
+        "validationError": "Please check the form for errors."
+      }
+    },
+    "customerDetails": {
+      "basicInfo": {
+        "fields": {
+          "email": "Contact Email",
+          "mainEntity": "placeholder=`Main Entity` + (index > 0 ? ` $index+1` : '')",
+          "cancel": "Cancel",
+          "maxUsers": "Yes",
+          "adminPassword": "Admin Password requiredSpan",
+          "orgName": "Organization Name requiredSpan",
+          "multiEntity": "Yes",
+          "yes": "Yes",
+          "taxId": "Tax ID",
+          "contactPerson": "Contact Person (Optional)",
+          "plan": "Subscription Plan",
+          "phone": "Contact Phone",
+          "entityName": "Entity Name requiredSpan",
+          "commercialRegister": "Commercial Register Number",
+          "maxRecords": "Yes",
+          "contactEmailOpt": "Contact Email (Optional)",
+          "address": "Address",
+          "no": "Yes",
+          "code": "Code (Optional)",
+          "adminEmail": "Admin Email requiredSpan"
+        },
+        "customerInfo": "Customer Information",
+        "editButton": "showEditCustomerForm ? 'Hide Edit Form' : <> Edit Customer Details",
+        "initialAdmin": "Initial Corporate Admin User",
+        "entitiesRule": "Every customer must have at least one entity. More entities can be added if the selected subscription plan supports multi-entity.",
+        "onboardPageTitle": "Onboard New Customer",
+        "title": "Basic Information",
+        "onboardTitle": "isSaving ? 'Onboarding...' : 'Onboard Customer'",
+        "addEntity": "Add Another Entity",
+        "editTitle": "Edit Customer: customer.name",
+        "onboarding": "isSaving ? 'Onboarding...' : 'Onboard Customer'",
+        "customerEntities": "Customer Entities",
+        "hideEdit": "showEditCustomerForm ? 'Hide Edit Form' : <> Edit Customer Details",
+        "oneEntityLimit": "Your selected plan supports only one entity. To add more, please upgrade your subscription plan.",
+        "note": "Note: This user will be created with the 'Corporate Admin' role."
+      },
+      "subscriptionHealth": {
+        "customExpiry": "Custom Expiry Date (Optional)",
+        "renewStandard": "customExpiryDate ? 'Set Custom Expiry' : 'Renew Standard Duration'",
+        "setCustom": "customExpiryDate ? 'Set Custom Expiry' : 'Renew Standard Duration'",
+        "activeUsers": "label=\"Active Users\"",
+        "currentPlan": "Current Plan: customer.subscription_plan.name",
+        "activeCheckers": "Active Checkers",
+        "expiryDate": "Expiry Date:",
+        "activeRecords": "Active LG Records",
+        "defaultExtend": "Default Extend",
+        "title": "Subscription Health",
+        "usageLimits": "Usage Limits",
+        "processing": "<> Processing...",
+        "startDate": "Start Date:",
+        "periodDetails": "Period Details"
+      },
+      "messages": {
+        "updateSuccess": "toast.success('Customer details updated successfully!');",
+        "updateFailed": "Update Failed",
+        "renewConfirmStandard": "Renew Confirm Standard",
+        "renewSuccess": "toast.success('Subscription updated successfully!');",
+        "renewFailed": "Renew Failed",
+        "renewConfirmCustom": "Renew Confirm Custom"
+      },
+      "back": "Back to Customers",
+      "title": "Customer Details: customer.name",
+      "notFound": "Customer not found."
+    },
+    "userForm": {
+      "errors": {
+        "passwordLength": "setError('Password must be at least 8 characters long.');",
+        "passwordRequired": "setError('Password is required.');",
+        "emailRoleRequired": "setError('Email and Role are required.');",
+        "entitySelectionRequired": "setError('Please select at least one entity or grant access to all entities.');"
+      },
+      "roles": {
+        "viewer": "Viewer",
+        "checker": "Checker",
+        "end_user": "End User"
+      },
+      "loading": "Loading user data...",
+      "selectEntities": "Select Entities:",
+      "noEntities": "No entities available for this customer.",
+      "createUser": "id ? 'Update User' : 'Create User'",
+      "entityAccessSection": "Entity Access",
+      "changePassword": "showPasswordFields ? 'Hide Password Fields' : 'Change Password'",
+      "passwordSection": "Password",
+      "requirePasswordChange": "Require password change on next login",
+      "accessSpecificEntities": "Access specific entities",
+      "hidePassword": "showPasswordFields ? 'Hide Password Fields' : 'Change Password'",
+      "titleEdit": "setFormTitle('Edit User');",
+      "accessAllEntities": "Access all entities under this customer",
+      "passwordLabel": "Password",
+      "gracePeriodDisabled": "toast.warn(\"This action is disabled during your subscription's grace period.\");",
+      "emailLabel": "Email",
+      "updateUser": "id ? 'Update User' : 'Create User'",
+      "confirmPasswordLabel": "Confirm Password",
+      "cancel": "Cancel",
+      "roleLabel": "Role",
+      "titleCreate": "setFormTitle('Create New User');"
+    },
+    "pendingApprovals": {
+      "searchPlaceholder": "placeholder=\"Search LG No, Requestor, Authorizer...\"",
+      "loading": "Loading approval requests...",
+      "tableHeaders": {
+        "actions": "Actions",
+        "authRejBy": "col === 'checker' && 'Auth/Rej By'",
+        "requestedBy": "col === 'maker' && 'Requested By'",
+        "status": "col === 'status' && 'Status'",
+        "lgNumber": "col === 'lg_number' && 'LG Number'",
+        "actionType": "col === 'action_type' && 'Action Type'",
+        "requestedOn": "col === 'created_at' && 'Requested On'"
+      },
+      "noRequests": "No requests match your criteria.",
+      "reject": "title=\"Reject\"",
+      "exportAll": "Export All (approvalRequests.length)",
+      "na": "request.maker_user?.email || 'N/A'",
+      "confirmReject": "Are you sure you want to REJECT this request? Please provide a reason (optional):",
+      "to": "To:",
+      "allStatuses": "Filter Status",
+      "from": "From:",
+      "clearFilters": "Clear Filters",
+      "confirmApprove": "if (!window.confirm(\"Are you sure you want to APPROVE this request?\"))",
+      "filterStatus": "Filter Status",
+      "export": "Export",
+      "approve": "title=\"Approve\"",
+      "viewDetails": "title=\"View Details\"",
+      "exportFiltered": "Export Filtered (filteredAndSortedRequests.length)",
+      "title": "Pending Approval Requests",
+      "gracePeriodDisabled": "toast.warn(\"This action is disabled during your subscription's grace period.\");"
+    },
+    "customerManagement": {
+      "table": {
+        "actions": "Actions",
+        "plan": "Plan",
+        "customerName": "Customer Name",
+        "entities": "Entities",
+        "users": "Users",
+        "contactEmail": "Contact Email"
+      },
+      "messages": {
+        "deletedSuccess": "Deleted Success",
+        "restoreFailed": "Restore Failed",
+        "deleteFailed": "Delete Failed",
+        "restoredSuccess": "Restored Success"
+      },
+      "title": "Customer Management",
+      "onboardButton": "Onboard New Customer",
+      "empty": "No customers found. Click \"Onboard New Customer\" to get started.",
+      "confirmations": {
+        "restore": "Restore",
+        "delete": "Delete"
+      },
+      "tooltips": {
+        "viewDetails": "title=\"View Details\"",
+        "delete": "title=\"Delete Customer\"",
+        "restore": "title=\"Restore Customer\""
+      },
+      "badges": {
+        "deleted": "customer.name customer.is_deleted && Deleted"
+      }
+    },
+    "freeTrial": {
+      "benefits": {
+        "shield": {
+          "title": "Title",
+          "description": "Description"
+        },
+        "trending": {
+          "description": "Description",
+          "title": "Title"
+        },
+        "zap": {
+          "title": "Title",
+          "description": "Description"
+        }
+      },
+      "startTrial": "Start Your 1-Month Free Trial",
+      "submitBtn": "isSaving ? 'Submitting...' : 'Register and Activate Free Trial'",
+      "entityOptions": {
+        "one": "One",
+        "multiple": "Multiple"
+      },
+      "messages": {
+        "unexpectedError": "An unexpected error occurred during submission.",
+        "termsLoadFailed": "setError('Failed to load Terms and Conditions. Please try again later.'); //",
+        "termsLoadError": "toast.error('Failed to load legal content.'); //",
+        "registrationFailed": "Registration Failed",
+        "registrationSuccess": "Registration submitted successfully. Please check your email for a confirmation message.",
+        "commercialRegisterNeeded": "toast.error('Commercial Register document is required.');",
+        "acceptTermsNeeded": "toast.error('You must accept the Terms & Conditions.'); //"
+      },
+      "fields": {
+        "commercialRegister": "Commercial Register",
+        "contactAdminName": "Super Admin Name requiredSpan",
+        "organizationName": "Organization Name requiredSpan",
+        "entitiesCount": "Number of Entities requiredSpan",
+        "organizationAddress": "Organization Address requiredSpan",
+        "adminEmail": "Admin Email requiredSpan",
+        "contactPhone": "Contact Phone requiredSpan"
+      },
+      "submitNote": "We will email your admin credentials instantly after review.",
+      "trialDescription": "Trial Description",
+      "footerCopy": "&copy; 2025 Grow Business Development. All rights reserved.",
+      "fileSelected": "File Selected",
+      "formTitle": "Organization & Admin Details",
+      "termsTitle": "Terms & Conditions",
+      "termsCheckbox": "I have read and agree to the Terms & Conditions and Free Trial Disclaimer requiredSpan"
+    },
+    "facilities": {
+      "title": "Bank Facilities",
+      "subtitle": "Global credit lines and issuance governance",
+      "hideArchived": "Hide Archived",
+      "showArchived": "Show Archived",
+      "createFacility": "Create Facility",
+      "totalExposure": "Total Exposure",
+      "egpEq": "EGP-Eq",
+      "activeLines": "Active Lines",
+      "facilities": "Facilities",
+      "multiCurrency": "Multi-Currency",
+      "enabled": "Enabled",
+      "syncingData": "Syncing Facility Data...",
+      "noFacilities": "No facilities found. Initialize a new credit line to begin.",
+      "utilization": "Utilization",
+      "limit": "Limit",
+      "crossBorder": "Cross-Border",
+      "fxProtection": "FX Protection",
+      "nextReview": "Next Review",
+      "subLimitAllocation": "Sub-Limit Allocation",
+      "generalAllocation": "General Allocation",
+      "moreAllocations": "+{{count}} More Allocations",
+      "facilityInactive": "Facility Inactive / Archived"
+    },
+    "auditLogsCorporate": {
+      "tableCols": {
+        "timestamp": "Timestamp",
+        "lgNumber": "LG Number",
+        "details": "Details",
+        "actionType": "Action Type",
+        "entityType": "Entity Type",
+        "userName": "User Name",
+        "ipAddress": "IP Address",
+        "entityName": "Entity Name"
+      },
+      "exportToCsv": "Export to CSV",
+      "system": "log.user_name || log.user_id || 'System'",
+      "entityId": "Entity ID",
+      "hideFilters": "showFilters ? 'Hide Filters' : 'Show Filters'",
+      "showFilters": "showFilters ? 'Hide Filters' : 'Show Filters'",
+      "noLogsFound": "No audit logs found for your organization.",
+      "loading": "Loading audit logs...",
+      "title": "Audit Logs (Corporate)",
+      "endDate": "End Date",
+      "entityType": "Entity Type",
+      "na": "log.ip_address || 'N/A'",
+      "userId": "User ID",
+      "clearFilters": "Clear Filters",
+      "actionType": "Action Type",
+      "startDate": "Start Date",
+      "applyFilters": "Apply Filters"
+    },
+    "recordNewLg": {
+      "fields": {
+        "operationalStatus": "Operational Status requiredSpan",
+        "foreignBankAddress": "Address requiredSpan",
+        "foreignBankCountry": "Country requiredSpan",
+        "supportingDocument": "Internal Supporting Document",
+        "internalOwnerEmail": "Internal Owner (Email) requiredSpan",
+        "notes": "Notes",
+        "rulesText": "Applicable Rules Text requiredSpan",
+        "issuingBankPhone": "Issuing Bank Phone requiredSpan",
+        "internalProjectId": "Contract/Project ID",
+        "category": "Category requiredSpan",
+        "issuerName": "Issuer Name requiredSpan",
+        "payableCurrency": "LG Payable Currency",
+        "advisingBank": "formData.advising_status === 'Advised' ? 'Advising Bank' : 'Confirming Bank' requiredSpan",
+        "issueDate": "Issuance Date requiredSpan",
+        "otherConditions": "Other Conditions",
+        "ownerManagerEmail": "Internal Owner (Manager) requiredSpan",
+        "lgNumber": "LG Number requiredSpan",
+        "issuingBankFax": "Issuing Bank Fax",
+        "foreignBankSwift": "SWIFT Code requiredSpan",
+        "applicableRule": "Applicable Rule requiredSpan",
+        "lgType": "LG Type requiredSpan",
+        "internalOwnerId": "Internal Owner (ID)",
+        "internalOwnerPhone": "Internal Owner (Phone) requiredSpan",
+        "issuingBankAddress": "Issuing Bank Address requiredSpan",
+        "foreignBankName": "Bank Name requiredSpan",
+        "advisingStatus": "Advising Status requiredSpan",
+        "issuingBank": "Issuing Bank requiredSpan",
+        "paymentConditions": "Payment Conditions requiredSpan",
+        "purpose": "Description/Purpose requiredSpan",
+        "issuingMethod": "Issuing Method requiredSpan",
+        "beneficiary": "Beneficiary Corporate requiredSpan",
+        "currency": "LG Currency requiredSpan",
+        "amount": "LG Amount requiredSpan",
+        "expiryDate": "Expiry Date requiredSpan",
+        "autoRenewal": "Auto-Renewal",
+        "issuerId": "Issuer ID"
+      },
+      "sections": {
+        "core": "Main LG Data",
+        "bank": "Bank Data",
+        "internal": "Internal Data"
+      },
+      "messages": {
+        "submitSuccess": "alert('New LG Record created successfully!');",
+        "uploadSuccess": "alert(\"AI scan successful! Form fields have been auto-populated.\");",
+        "ownerNotFound": "Owner Not Found",
+        "uploadTypeError": "setError(\"Only image files (JPEG, PNG) or PDF files are supported for AI scanning.\");",
+        "uploadError": "setError(\"Please select an AI Scan File (image or PDF) first.\");",
+        "lookupFailed": "Lookup Failed",
+        "emailFormatError": "setError(\"Please enter a valid email format for lookup.\");",
+        "warnGraceDisabled": "setError(\"This action is disabled during your subscription's grace period.\");",
+        "uploadFailed": "Upload Failed",
+        "submitError": "Submit Error",
+        "clearConfirm": "if (window.confirm(\"Are you sure you want to clear all form fields?\"))"
+      },
+      "gracePeriodTooltip": "This action is disabled during your subscription's grace period.",
+      "title": "Record New LG",
+      "placeholders": {
+        "selectStatus": "Select Operational Status",
+        "selectBank": "communication_bank_id",
+        "selectLgType": "Select LG Type",
+        "selectCategory": "Select Category",
+        "selectMethod": "Select Issuing Method",
+        "selectCurrency": "Select Currency",
+        "selectRule": "Select Rule",
+        "selectBeneficiary": "Select Beneficiary Corporate"
+      },
+      "buttons": {
+        "save": "isSaving ? 'Saving...' : 'Save LG Record'",
+        "clear": "Clear Form"
+      },
+      "aiScan": {
+        "selectFile": "Choose File",
+        "description": "'Upload an image or PDF of the LG to auto-populate fields.'",
+        "button": "aiScanInProgress ? 'Scanning...' : 'Upload & Scan'",
+        "title": "LG Copy requiredSpan",
+        "processing": "aiScanInProgress ? 'Scanning...' : 'Upload & Scan'"
+      }
+    },
+    "commonListManagement": {
+      "table": {
+        "actions": "Actions",
+        "status": "Status"
+      },
+      "messages": {
+        "deleteSuccess": "Delete Success",
+        "restoreSuccess": "Restore Success",
+        "confirmDelete": "Confirm Delete",
+        "noItemsFound": "No Items Found",
+        "loadError": "Load Error",
+        "saveError": "Save Error",
+        "templateNote": "Template management is a more complex feature due to dynamic content, placeholders, and global/customer-specific variants. It requires a dedicated UI not covered by this generic list manager.",
+        "deleteError": "Delete Error",
+        "updateSuccess": "Update Success",
+        "confirmRestore": "Confirm Restore",
+        "invalidListType": "Invalid List Type",
+        "createSuccess": "Create Success",
+        "templateNote2": "Please use the appropriate component/page for template management once it is developed.",
+        "unknownListType": "Unknown List Type",
+        "loading": "Loading",
+        "restoreError": "Restore Error"
+      },
+      "buttons": {
+        "create": "Create",
+        "addNew": "Add New",
+        "delete": "title=\"Delete\"",
+        "cancel": "Cancel",
+        "restore": "title=\"Restore\"",
+        "update": "Update",
+        "edit": "title=\"Edit\""
+      },
+      "note": "Note:",
+      "tabs": {
+        "issuing-methods": "title: 'Issuing Methods',",
+        "lg-operational-statuses": "title: 'LG Operational Statuses',",
+        "rules": "title: 'Rules',",
+        "banks": "title: 'Banks',",
+        "currencies": "title: 'Currencies',",
+        "lg-statuses": "title: 'LG Statuses',",
+        "lg-types": "title: 'LG Types',"
+      },
+      "templatesTitle": "title: 'Templates',",
+      "status": {
+        "active": "Active",
+        "deleted": "Deleted"
+      },
+      "errors": {
+        "unknownListTitle": "Error: Unknown List Type"
+      }
+    },
+    "endUserLgDetails": {
+      "buttons": {
+        "extend": "Extend",
+        "liquidateTooltip": "title=\"Liquidate LG\"",
+        "activate": "Activate",
+        "back": "Back to LG Records",
+        "view": "{lgRecord.additional_field_values?.[lgRecord.lg_category.extra_field_name] || 'N/A'}",
+        "viewTooltip": "{lgRecord.additional_field_values?.[lgRecord.lg_category.extra_field_name] || 'N/A'}",
+        "liquidate": "Liquidate",
+        "activateTooltip": "title=\"Activate LG\"",
+        "changeOwner": "Change Owner",
+        "release": "Release",
+        "decrease": "Decrease Amt",
+        "copy": "title=\"Copy LG Number\"",
+        "releaseTooltip": "title=\"Release LG\"",
+        "amendTooltip": "title=\"Amend LG\"",
+        "amend": "Amend LG",
+        "changeOwnerTooltip": "title=\"Change LG Owner\"",
+        "decreaseTooltip": "title=\"Decrease LG Amount\"",
+        "extendTooltip": "title=\"Extend LG\""
+      },
+      "fields": {
+        "notes": "{lgRecord.additional_field_values?.[lgRecord.lg_category.extra_field_name] || 'N/A'}",
+        "beneficiary": "Beneficiary: lgRecord.beneficiary_corporate?.entity_name || 'N/A'",
+        "operationalStatus": "Operational Status: lgRecord.lg_operational_status?.name || 'N/A'",
+        "bankPhone": "Bank Phone:",
+        "bankAddress": "Bank Address:",
+        "lgType": "LG Type: lgRecord.lg_type?.name || 'N/A'",
+        "autoRenewal": "Auto Renewal:",
+        "lgNumber": "LG Number: lgRecord.lg_number",
+        "period": "Period (Months): lgRecord.lg_period_months",
+        "amount": "Amount: formatAmount(lgRecord.lg_amount, lgRecord.lg_currency?.iso_code)",
+        "rulesText": "Rules Text: lgRecord.applicable_rules_text || 'N/A'",
+        "issuerName": "Issuer Name: lgRecord.issuer_name || 'N/A'",
+        "advisingStatus": "Advising Status: lgRecord.advising_status || 'N/A'",
+        "purpose": "Purpose: lgRecord.description_purpose || 'N/A'",
+        "issuingMethod": "Issuing Method: lgRecord.issuing_method?.name || 'N/A'",
+        "applicableRule": "Applicable Rule: lgRecord.applicable_rule?.name || 'N/A'",
+        "advisingBank": "Advising Bank: communicationBank?.name || 'N/A'",
+        "category": "LG Category: lgRecord.lg_category?.name || 'N/A'",
+        "issuanceDate": "Issuance Date: formatDate(lgRecord.issuance_date)",
+        "status": "Status: <span className=`px-2 inline-flex text-xs leading-5 font-semibold rounded-full $",
+        "expiryDate": "Expiry Date: formatDate(lgRecord.expiry_date)",
+        "otherConditions": "Other Conditions: lgRecord.other_conditions || 'N/A'",
+        "internalOwner": "Internal Owner: lgRecord.internal_owner_contact?.email || 'N/A'",
+        "ownerManager": "Owner Manager: lgRecord.internal_owner_contact?.manager_email || 'N/A'",
+        "internalProjectId": "{lgRecord.additional_field_values?.[lgRecord.lg_category.extra_field_name] || 'N/A'}",
+        "issuingBank": "Issuing Bank:",
+        "ownerPhone": "Owner Phone: lgRecord.internal_owner_contact?.phone_number || 'N/A'"
+      },
+      "messages": {
+        "na": "toast.error(`Could not open letter. $error.message || 'An unexpected error occurred.'`);",
+        "copySuccess": "toast.success(\"LG Number copied to clipboard!\");",
+        "sendReminderError": "Send Reminder Error",
+        "sendReminderSuccess": "toast.success(response.message);",
+        "refreshing": "Refreshing data...",
+        "autoRenewalSuccess": "toast.success(response.message);",
+        "warnGraceDisabled": "if (isGracePeriod) toast.warn(\"This action is disabled during your subscription's grace period.\");",
+        "actionSuccess": "toast.success(\"LG action completed successfully!\");",
+        "noDocuments": "{lgRecord.additional_field_values?.[lgRecord.lg_category.extra_field_name] || 'N/A'}",
+        "openingLetter": "toast.info(\"Opening document securely in a new tab.\");",
+        "autoRenewalError": "Auto Renewal Error",
+        "noLetter": "toast.error('No generated letter found for this LG, or instruction ID is missing.');",
+        "errorOpeningLetter": "Error Opening Letter",
+        "documentError": "Document Error"
+      },
+      "gracePeriodTooltip": "This action is disabled during your subscription's grace period.",
+      "tabs": {
+        "details": "Details",
+        "documents": "Documents",
+        "history": "Lifecycle History"
+      },
+      "sections": {
+        "bankInfo": "Bank & Rule Information",
+        "coreInfo": "LG Core Information",
+        "internalInfo": "Internal & Category Details",
+        "documents": "{lgRecord.additional_field_values?.[lgRecord.lg_category.extra_field_name] || 'N/A'}"
+      },
+      "errorLoading": "Error Loading",
+      "loading": "Loading LG record details...",
+      "notFound": "LG Record not found."
+    },
+    "issuanceFormConfig": {
+      "title": "Request Form Configuration",
+      "subtitle": "Control which fields are visible or mandatory for your users when requesting an LG.",
+      "saveLayout": "Save Layout",
+      "strictGovernanceRule": "Strict Governance Rule:",
+      "ruleDescription": "Core financial fields (Amount, Currency, Maturity Date, Beneficiary, LG Type, Issuing Entity) are locked by the system and cannot be hidden. This ensures matrix re-evaluations and exposure calculations always function correctly.",
+      "visible": "Visible",
+      "mandatory": "Mandatory",
+      "customFieldsTitle": "Custom Fields (Max 2)",
+      "enable": "Enable",
+      "fieldLabel": "Field Label (e.g., Cost Center)",
+      "dataType": "Data Type",
+      "text": "Text",
+      "number": "Number",
+      "date": "Date"
+    },
+    "lgCategoryList": {
+      "tableHeaders": {
+        "extraFieldName": "Extra Field Name",
+        "status": "Status",
+        "code": "Code",
+        "communicationList": "Communication List",
+        "appliesToEntities": "Applies To Entities",
+        "type": "Type",
+        "mandatory": "Mandatory?",
+        "categoryName": "Category Name",
+        "actions": "Actions"
+      },
+      "universalCategories": "const pageTitle = isSystemOwner ? 'Universal Categories' : 'LG Categories';",
+      "showDeleted": "Show Deleted Categories",
+      "gracePeriodDisabled": "toast.warn(\"This action is disabled during your subscription's grace period.\");",
+      "deleted": "Deleted",
+      "active": "Active",
+      "restoreAction": "title=\"Restore\"",
+      "confirmSoftDelete": "Confirm Soft Delete",
+      "addNewLgCategory": "Add New singularListName",
+      "lgCategories": "const pageTitle = isSystemOwner ? 'Universal Categories' : 'LG Categories';",
+      "universalCategoryItem": "const singularListName = isSystemOwner ? 'Universal Category' : 'LG Category';",
+      "softDeleteSuccess": "Soft Delete Success",
+      "editAction": "title=\"Edit\"",
+      "confirmRestore": "Confirm Restore",
+      "na": "Array.isArray(category.entities_with_access) && category.entities_with_access.length > 0 ? (",
+      "lgCategoryItem": "const singularListName = isSystemOwner ? 'Universal Category' : 'LG Category';",
+      "no": "category.is_mandatory ? 'Yes' : 'No'",
+      "addNewUniversalCategory": "Add New singularListName",
+      "systemDefaultNoDelete": "System default categories (Universal Categories) cannot be deleted by Corporate Admins.",
+      "customerSpecificType": "category.customer_id === null ? 'Universal' : 'Customer-specific'",
+      "systemDefaultStatus": "System Default",
+      "allEntities": "All Entities",
+      "systemDefaultNoRestore": "System default categories (Universal Categories) cannot be restored by Corporate Admins.",
+      "systemDefaultNoEdit": "setError(\"System default categories cannot be edited by Corporate Admins.\");",
+      "yes": "category.is_mandatory ? 'Yes' : 'No'",
+      "noCategoriesFound": "No Categories Found",
+      "universalType": "category.customer_id === null ? 'Universal' : 'Customer-specific'",
+      "deleteAction": "title=\"Delete\"",
+      "restoreSuccess": "Restore Success"
+    },
+    "templateList": {
+      "table": {
+        "no": "No",
+        "global": "Global",
+        "deleteTooltip": "text-red-600 hover:text-red-900 p-1",
+        "name": "Name getSortIcon('name')",
+        "type": "Type getSortIcon('template_type')",
+        "templateId": "Template ID getSortIcon('id')",
+        "yes": "Yes",
+        "active": "Active",
+        "restoreTooltip": "text-green-600 hover:text-green-900 p-1",
+        "editTooltip": "handleEdit(template.id) className=\"text-indigo-600 hover:text-indigo-900 p-1\" title=\"Edit\">",
+        "na": "template.action_type || 'N/A'",
+        "status": "Status",
+        "actionType": "Action Type getSortIcon('action_type')",
+        "actions": "Actions",
+        "deleted": "Deleted",
+        "customerId": "Customer ID"
+      },
+      "messages": {
+        "deleteConfirm": "Delete Confirm",
+        "restoreConfirm": "Restore Confirm",
+        "loading": "Loading templates...",
+        "deleteError": "Delete Error",
+        "loadError": "Load Error",
+        "restoreError": "Restore Error"
+      },
+      "filters": {
+        "customerOnly": "Customer Only",
+        "globalAndCustomer": "Global & Customer",
+        "globalOnly": "Global Only",
+        "searchPlaceholder": "placeholder=\"Search by name...\"",
+        "allActionTypes": "All Action Types"
+      },
+      "title": "Templates Management",
+      "buttons": {
+        "addNew": "Add New Template"
+      }
+    },
+    "trialRegistrations": {
+      "detailsModal": {
+        "title": "Registration Details",
+        "orgName": "Organization Name",
+        "registrationIp": "Registration IP",
+        "viewDocSecurely": "View Document (Securely)",
+        "docTitle": "Commercial Register Document",
+        "entitiesCount": "Entities Count",
+        "adminEmail": "Admin Email",
+        "close": "Close",
+        "registeredAt": "Registered At",
+        "na": "registration.accepted_terms_ip || 'N/A'",
+        "status": "Status",
+        "orgAddress": "Organization Address",
+        "noDocUploaded": "No document uploaded.",
+        "superAdminName": "Super Admin Name",
+        "contactPhone": "Contact Phone"
+      },
+      "messages": {
+        "actionError": "Action Error",
+        "docOpenError": "Doc Open Error",
+        "docUrlFailed": "toast.error(\"Failed to retrieve document URL.\");",
+        "noDoc": "toast.error(\"No document path available.\");",
+        "loadError": "toast.error(`Failed to load registrations: $err.message || ''`);",
+        "noRegistrations": "No Registrations",
+        "rejectSuccess": "toast.info(`Registration rejected.`);",
+        "loading": "Loading registrations...",
+        "approveSuccess": "Approve Success"
+      },
+      "table": {
+        "actions": "Actions",
+        "adminEmail": "Admin Email",
+        "registeredAt": "Registered At",
+        "orgName": "Organization Name",
+        "status": "Status",
+        "entities": "Entities"
+      },
+      "title": "Trial Registrations",
+      "tabs": {
+        "rejected": "Rejected",
+        "pending": "Pending",
+        "approved": "Approved"
+      },
+      "tooltips": {
+        "viewDetails": "handleViewDetails(reg) className=\"text-gray-600 hover:text-gray-900 mr-4\" title=\"View Details\">",
+        "viewDoc": "title=\"View Commercial Register\"",
+        "reject": "Reject",
+        "approve": "Approve"
+      },
+      "status": {
+        "pendingReview": "statusText[reg.status]"
+      }
+    },
+    "templateForm": {
+      "fields": {
+        "name": "Template Name requiredSpan",
+        "selectCustomer": "Select Customer",
+        "content": "Template Content requiredSpan",
+        "selectType": "Select Type",
+        "templateType": "Template Type requiredSpan",
+        "subjectPlaceholder": "placeholder=\"e.g. Reminder: LG #lg_number Expiring Soon\"",
+        "globalTemplate": "Global Template",
+        "actionType": "Action Type requiredSpan",
+        "emailSubject": "Email Subject",
+        "customer": "Customer requiredSpan",
+        "selectAction": "Select Action"
+      },
+      "messages": {
+        "saveSuccess": "alert('Template saved successfully!');",
+        "loading": "if (isLoading) return ;",
+        "metaLoadError": "setError('Failed to load system configuration constants.');",
+        "saveError": "Save Error",
+        "loadError": "setError('Failed to load template details.');",
+        "customerLoadError": "setError('Failed to load customer list.');"
+      },
+      "placeholdersInfo": {
+        "title": "Available Placeholders",
+        "instruction": "Click to insert at cursor position",
+        "emptyText": "Select an Action Type to see placeholders."
+      },
+      "formTitles": {
+        "create": "Create",
+        "edit": "setFormTitle('Edit Template');"
+      },
+      "buttons": {
+        "create": "id ? 'Update Template' : 'Create Template'",
+        "update": "id ? 'Update Template' : 'Create Template'",
+        "cancel": "navigate(-1) className=\"px-4 py-2 border rounded\">Cancel"
+      }
+    },
+    "manageInternalOwners": {
+      "na": "setError(`Internal Owner lookup failed: $err.message || 'An unexpected error occurred.'`);",
+      "messages": {
+        "warnGraceDisabled": "toast.warn(\"This action is disabled during your subscription's grace period.\");",
+        "loadError": "Load Error",
+        "noOwners": "No internal owner contacts found for your customer.",
+        "deleteError": "Delete Error",
+        "deleteSuccess": "toast.success(\"Internal owner contact deleted successfully!\");",
+        "noSearchMatch": "bg-gray-50 p-6 text-center border-t border-gray-200",
+        "deleteConfirm": "Are you sure you want to delete this internal owner contact? This action is irreversible."
+      },
+      "gracePeriodTooltip": "This action is disabled during your subscription's grace period.",
+      "headers": {
+        "actions": "Actions",
+        "internalId": "Internal ID renderSortIcon('internal_id')",
+        "phone": "Phone Number renderSortIcon('phone_number')",
+        "email": "Email renderSortIcon('email')",
+        "managerEmail": "Manager Email renderSortIcon('manager_email')",
+        "viewLgs": "View LGs"
+      },
+      "tooltips": {
+        "viewAllLgs": "disabled=isGracePeriod // NEW: Disable button",
+        "deleteOwner": "bg-gray-50 p-6 text-center border-t border-gray-200",
+        "call": "Call",
+        "reassignLgs": "bg-gray-50 p-6 text-center border-t border-gray-200",
+        "editOwner": "filteredAndSortedOwners.length === 0 && (",
+        "noLgs": "disabled=isGracePeriod // NEW: Disable button",
+        "sendEmail": "Send Email"
+      },
+      "buttons": {
+        "addNew": "Add New Owner",
+        "addFirst": "Add First Owner"
+      },
+      "searchPlaceholder": "placeholder=\"Search by email, phone, or ID...\"",
+      "loading": "Loading internal owners...",
+      "title": "Manage Internal Owners"
+    },
+    "migrationUpload": {
+      "conflictDetected": "Conflict Detected",
+      "id": "ID",
+      "baseRecordDescription": "This is the base record that will be created.",
+      "paymentConditions": "payment_conditions: 'Payment Cond.',",
+      "dataIntakeFailed": "Data Intake Failed",
+      "bankPhone": "issuing_bank_phone: 'Bank Phone',",
+      "uploadOrEnterRecord": "Upload or Enter a Record",
+      "statusImported": "IMPORTED",
+      "imported": "label=\"Imported\"",
+      "validationLog": "Validation Log",
+      "noStagedRecordsFound": "setUploadMessage('No staged records found.');",
+      "selectRule": "Select Rule",
+      "issuanceDate": "issuance_date: 'Issuance Date',",
+      "issuerId": "issuer_id: 'Issuer ID',",
+      "additionalFields": "additional_field_values: 'Add. Fields',",
+      "deleteSelected": "Delete Selected",
+      "conflictMessage": "Conflict Message",
+      "expiryDate": "expiry_date: 'Expiry Date',",
+      "historicalMigrationNote": "batch_note: \"Historical migration run via UI.\"",
+      "noRecordsSelectedForDeletion": "setUploadMessage('No records selected for deletion.');",
+      "operationalStatus": "lg_operational_status_id: 'Op. Status',",
+      "payableCurrency": "lg_payable_currency_id: 'Payable Currency',",
+      "allStatuses": "All Statuses",
+      "migrationReportAndBatches": "Migration Report & Batches",
+      "manualEntryFailed": "setUploadMessage(`Manual entry failed validation or was a duplicate. Please review.`);",
+      "statusError": "ERROR",
+      "selectEntity": "Select Entity",
+      "auditFailed": "Audit Failed",
+      "issuerName": "issuer_name: 'Issuer Name',",
+      "selectBank": "Select Bank",
+      "finalizeMigrationDescription": "Finalize Migration Description",
+      "revalidateSelectedFailed": "Revalidate Selected Failed",
+      "issuingBank": "issuing_bank_id: 'Issuing Bank',",
+      "selectFile": "Select File (.json, .csv, .xlsx)",
+      "manualEntryPlaceholder": "Example: {",
+      "duplicates": "label=\"Duplicates\"",
+      "issuingMethod": "issuing_method_id: 'Issuing Method',",
+      "contractId": "internal_contract_project_id: 'Contract ID',",
+      "uploadSuccessWithIssues": "Upload Success With Issues",
+      "totalStaged": "label=\"Total Staged\"",
+      "fileName": "File Name",
+      "migrationType": "Migration Type:",
+      "bankAddress": "issuing_bank_address: 'Bank Address',",
+      "deleteAllFailed": "Delete All Failed",
+      "lgNumber": "lg_number: 'LG Number',",
+      "amount": "lg_amount: 'Amount',",
+      "selectLgType": "Select LG Type",
+      "close": "Close",
+      "filterByFileName": "placeholder=\"Filter by File Name\"",
+      "finalizeMigration": "Finalize Migration",
+      "selectCurrency": "Select Currency",
+      "viewAllStagedRecords": "View All Staged Records",
+      "confirmDeleteAll": "Confirm Delete All",
+      "otherConditions": "other_conditions: 'Other Cond.',",
+      "noStagedRecords": "return No staged records to display.;",
+      "errors": "label=\"Errors\"",
+      "confirmFinalize": "Confirm Finalize",
+      "recordsDeletedSuccessfully": "Records Deleted Successfully",
+      "deleteSelectedFailed": "Delete Selected Failed",
+      "pending": "label=\"Pending\"",
+      "autoRenewal": "auto_renewal: 'Auto-Renewal',",
+      "noIssues": "No Issues",
+      "loadingReportStatistics": "Loading report statistics...",
+      "runAiAudit": "isAuditing ? 'Scanning Docs...' : 'Run AI Audit'",
+      "readyForImportError": "This record is already ready for import and cannot be edited. It must be processed or deleted.",
+      "selectStatus": "Select Status",
+      "allRecordsDeletedSuccessfully": "All Records Deleted Successfully",
+      "uploadSuccess": "Upload Success",
+      "newLgRecords": "New LG Records",
+      "lgType": "lg_type_id: 'LG Type',",
+      "statusDuplicate": "DUPLICATE",
+      "actions": "Actions",
+      "statusReadyForImport": "All Statuses",
+      "confirmDelete": "Confirm Delete",
+      "selectFileOrRecord": "setUploadMessage('Please select a file or enter a record to stage.');",
+      "viewStagedRecords": "View Staged Records",
+      "ownerEmail": "internal_owner_email: 'Owner Email',",
+      "bankFax": "issuing_bank_fax: 'Bank Fax',",
+      "stageRecords": "Stage Records",
+      "finalMigrationFailed": "Final Migration Failed",
+      "status": "Status",
+      "initialRecord": "index === 0 ? 'Initial Record' : `Amendment $index`",
+      "finalMigrationComplete": "Final Migration Complete",
+      "revalidationComplete": "Revalidation Complete",
+      "updateRecordFailed": "Update Record Failed",
+      "noRecordsReadyForImport": "setUploadMessage('There are no records ready for import.');",
+      "currency": "lg_currency_id: 'Currency',",
+      "foundStagedRecords": "Found Staged Records",
+      "lgInstructions": "LG Instructions (Amendments)",
+      "scanningDocs": "isAuditing ? 'Scanning Docs...' : 'Run AI Audit'",
+      "ruleText": "applicable_rules_text: 'Rule Text',",
+      "historyPreviewFailed": "History Preview Failed",
+      "ready": "label=\"Ready\"",
+      "manualEntrySuccess": "setUploadMessage(`Manual entry successfully staged and processed.`);",
+      "confirmRevalidate": "Confirm Revalidate",
+      "amendment": "Amendment",
+      "selectCategory": "Select Category",
+      "historyPreviewTitle": "LG History Preview: lgHistory.lg_number",
+      "rule": "applicable_rule_id: 'Rule',",
+      "beneficiary": "beneficiary_corporate_id: 'Beneficiary',",
+      "selectMethod": "Select Method",
+      "filterByLgNumber": "placeholder=\"Filter by LG Number\"",
+      "finalizeMigrationAndImport": "Finalize Migration & Import",
+      "revalidateSelected": "Revalidate Selected",
+      "noRecordsSelectedForRevalidation": "setUploadMessage('No records selected for re-validation.');",
+      "changesFromPreviousVersion": "Changes from previous version:",
+      "category": "lg_category_id: 'Category',",
+      "fetchStagedRecordsFailed": "Fetch Staged Records Failed",
+      "noLgNumbersFound": "setUploadMessage('No LG numbers found in staged records.');",
+      "processDeprecated": "alert('This process is now deprecated as records are processed automatically on upload.');",
+      "recordUpdated": "Record Updated",
+      "noHistorySnapshotsFound": "setUploadMessage('No history snapshots found for this LG number.');",
+      "deleteRecordFailed": "Delete Record Failed",
+      "confirmDeleteSelected": "Confirm Delete Selected",
+      "notes": "notes: 'Notes',",
+      "expired": "label=\"Expired\"",
+      "statusExpired": "EXPIRED",
+      "noLgWithHistoryFound": "setUploadMessage('No LGs with multiple history snapshots found in staged records.');",
+      "statusPending": "PENDING",
+      "purpose": "description_purpose: 'Purpose',",
+      "recordDeleted": "Record Deleted",
+      "auditCompleteNoDiscrepancies": "alert(\"\u2705 AI Audit Complete: No discrepancies found!\");",
+      "enterSingleRecord": "Enter a single LG record (JSON format)",
+      "previewHistoricalImport": "Preview Historical Import"
+    },
+    "globalConfigurationForm": {
+      "labels": {
+        "description": "Description",
+        "valueMax": "Maximum Value (as string)",
+        "key": "Configuration Key",
+        "valueDefault": "Default Value (as string)",
+        "valueMin": "Minimum Value (as string)",
+        "unit": "Unit (e.g., days, percentage)"
+      },
+      "buttons": {
+        "creating": "Update Configuration",
+        "updating": "Update Configuration",
+        "update": "Update Configuration",
+        "cancel": "Cancel",
+        "create": "Update Configuration"
+      },
+      "messages": {
+        "updateSuccess": "alert('Global configuration updated successfully!');",
+        "createSuccess": "alert('Global configuration created successfully!');",
+        "loadError": "setError('Failed to load configuration details for editing. Please try again.');",
+        "saveError": "setError(`Error saving configuration: $err.message || 'An unexpected error occurred.'`);"
+      },
+      "loading": "Loading configuration data...",
+      "titleEdit": "setFormTitle('Edit Global Configuration');",
+      "titleCreate": "setFormTitle('Create New Global Configuration');"
+    },
+    "endUserActionCenter": {
+      "replies": {
+        "issued": "Issued",
+        "headers": {
+          "instruction": "!isCorporateAdminView && Actions",
+          "lgNumber": "Timeline",
+          "actions": "inline-flex items-center px-3 py-1.5 border border-yellow-200 text-sm font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 transition-all active:scale-95",
+          "timeline": "inline-flex items-center px-3 py-1.5 border border-yellow-200 text-sm font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 transition-all active:scale-95"
+        },
+        "delivered": "Delivered",
+        "remind": "Remind",
+        "emptyTitle": "inline-flex items-center px-3 py-1.5 border border-yellow-200 text-sm font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 transition-all active:scale-95",
+        "emptyDesc": "inline-flex items-center px-3 py-1.5 border border-yellow-200 text-sm font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 transition-all active:scale-95",
+        "recordReply": "Remind",
+        "title": "px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center bg-gray-50/50",
+        "bulkReminders": "opacity-50 cursor-not-allowed",
+        "viewReminder": "View Reminder"
+      },
+      "messages": {
+        "errorOpeningLetter": "Error Opening Letter",
+        "failedToLoadTasks": "Failed To Load Tasks",
+        "noContent": "toast.error(\"Server returned no content.\");",
+        "actionDisabledGrace": "if (isGracePeriod) return toast.warn(\"Subscription Grace Period: Action disabled.\");",
+        "openingLetter": "Opening Letter",
+        "popupBlocked": "toast.error(\"Popup blocked.\");",
+        "dataMissing": "else  toast.warn(\"Action disabled during grace period.\");",
+        "authRequired": "if (!authToken) return toast.error(\"Authentication required.\");",
+        "reminderGenerated": "Reminder Generated",
+        "failedToSendReminder": "Failed To Send Reminder",
+        "instructionIdMissing": "if (!instructionId) return toast.error('Instruction ID is missing.');",
+        "warnGraceDisabled": "Warn Grace Disabled"
+      },
+      "delivery": {
+        "confirmDelivery": "Confirm Delivery",
+        "emptyTitle": "Empty Title",
+        "headers": {
+          "instruction": "Delay",
+          "dates": "!isCorporateAdminView && Action",
+          "delay": "Delay",
+          "action": "Action"
+        },
+        "emptyDesc": "Empty Desc",
+        "issued": "Issued",
+        "daysPending": "Days Pending",
+        "title": "px-6 py-4 border-b border-gray-100 flex items-center bg-gray-50/50"
+      },
+      "readOnly": "Action Center isCorporateAdminView && (Read Only)",
+      "printing": {
+        "headers": {
+          "typeMaker": "!isCorporateAdminView && Action",
+          "action": "px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider",
+          "lgNumber": "Status",
+          "approvalDate": "px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider"
+        },
+        "emptyTitle": "px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider",
+        "title": "px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center bg-gray-50/50",
+        "bulkPrintSoon": "!isCorporateAdminView && (",
+        "bulkPrint": "px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center bg-gray-50/50",
+        "emptyDesc": "px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider",
+        "printLetter": "Renew",
+        "ref": "lg.issuer_name || 'N/A'"
+      },
+      "gracePeriodTooltip": "bg-gray-900 text-white text-xs rounded shadow-lg p-3 text-center leading-relaxed",
+      "renewals": {
+        "title": "Title",
+        "headers": {
+          "status": "Status",
+          "expiry": "Expiry",
+          "lgDetails": "Lg Details",
+          "action": "Action"
+        },
+        "emptyTitle": "Empty Title",
+        "emptyDesc": "Empty Desc",
+        "autoRenewal": "Auto Renewal",
+        "daysLeft": "Days Left",
+        "renew": "Renew"
+      },
+      "stats": {
+        "bankReplies": "title=\"Bank Replies\"",
+        "awaitingDelivery": "title=\"Awaiting Delivery\"",
+        "dueRenewals": "title=\"Due Renewals\"",
+        "pendingPrints": "title=\"Pending Prints\""
+      },
+      "subtitle": "Overview of pending tasks, renewals, and bank communications.",
+      "title": "Action Center isCorporateAdminView && (Read Only)",
+      "errorLoading": "Error loading data",
+      "syncing": "Synchronizing with records..."
+    },
+    "issuanceRequests": {
+      "title": "Issuance Requests",
+      "testPathB": "Test Path B: Generate Invite",
+      "searchPlaceholder": "Search beneficiary or requestor...",
+      "allStatuses": "All Statuses",
+      "draft": "Draft",
+      "pendingApproval": "Pending Approval",
+      "readyForBank": "Ready for Bank",
+      "issued": "Issued",
+      "rejected": "Rejected",
+      "tableHeaders": {
+        "idRequestor": "ID / Requestor",
+        "beneficiary": "Beneficiary",
+        "amount": "Amount",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "noRequests": "No requests found matching your filters.",
+      "generateModalTitle": "Generate Unique Invite Link",
+      "requestorEmail": "Requestor Email",
+      "linkHint": "Link will only work for this email domain.",
+      "assignDepartment": "Assign to Department",
+      "createLinkBtn": "Create Tokenized Link",
+      "secureInviteUrl": "Secure Invite URL",
+      "copyToTest": "Copy to Test",
+      "back": "Back",
+      "pasteHint": "Paste this into a new browser tab to test the direct form access."
+    },
+    "endUserLgListExtra": {
+      "messages": {
+        "viewLetter": "title=\"View Latest Letter\"",
+        "openingLetter": "toast.info(\"Opening letter in new tab. Please check for pop-up blockers.\");",
+        "autoRenewalError": "Auto Renewal Error",
+        "errorOpeningLetter": "Error Opening Letter",
+        "noLetter": "toast.error('No generated letter found for this LG, or instruction ID is missing.');",
+        "warnGraceDisabled": "if (isGracePeriod) toast.warn(\"This action is disabled during your subscription's grace period.\");",
+        "noSelection": "No LG records match your filter criteria.",
+        "loadError": "Load Error",
+        "actionSuccess": "toast.success(\"LG action completed successfully!\");"
+      },
+      "gracePeriodTooltip": "This action is disabled during your subscription's grace period."
+    },
+    "endUserPendingApprovals": {
+      "messages": {
+        "decodeFailed": "toast.error(\"Failed to retrieve user information. Please log in again.\");",
+        "withdrawSuccess": "toast.success(\"Approval request withdrawn successfully!\");",
+        "actionDisabledGrace": "toast.warn(\"This action is disabled during your subscription's grace period.\");",
+        "confirmWithdraw": "Are you sure you want to WITHDRAW this request? This action cannot be undone.",
+        "fetchFailed": "Fetch Failed",
+        "withdrawFailed": "Withdraw Failed"
+      },
+      "headers": {
+        "requestedOn": "Requested On",
+        "actions": "Actions",
+        "status": "Status",
+        "requestedBy": "Requested By",
+        "actionType": "Action Type",
+        "lgNumber": "LG Number"
+      },
+      "noActions": "No actions",
+      "withdrawRequest": "title=\"Withdraw Request\"",
+      "gracePeriodTooltip": "This action is disabled during your subscription's grace period.",
+      "viewDetails": "title=\"View Details\"",
+      "loading": "Loading approval requests...",
+      "title": "My Pending Approval Requests",
+      "empty": "No pending approval requests submitted by you at this time. All clear!"
+    },
+    "customerConfigurationManagement": {
+      "makerChecker": "label=\"Maker-Checker\"",
+      "loading": "Loading settings...",
+      "activeUsers": "label=\"Active Users\"",
+      "planFeatures": "Plan Features",
+      "multiEntity": "label=\"Multi-Entity\"",
+      "activeLgRecords": "text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center",
+      "subscriptionAndUsage": "Subscription & Usage",
+      "activeCheckers": "Active Checkers",
+      "renewalDate": "Renewal Date:",
+      "plan": "Plan: subscriptionData.subscription_plan.name",
+      "docStorage": "label=\"Doc Storage\"",
+      "usageLimits": "Usage Limits",
+      "title": "Module Settings (Customer Configurations)",
+      "aiScan": "label=\"AI Scan\"",
+      "startDate": "Start Date:",
+      "currentTerm": "Current Term",
+      "manageEmailSettings": "Manage Email Settings"
+    },
+    "lgCategoryForm": {
+      "createUniversal": "Create New Universal Category",
+      "createLg": "Create New LG Category",
+      "editUniversal": "Edit Universal Category",
+      "editLg": "Edit LG Category",
+      "universalWarning": "You are editing a system-wide (universal) category. Changes will affect all customers.",
+      "categoryName": "Category Name",
+      "code": "Code (1-2 Alphanumeric Chars)",
+      "extraFieldName": "Extra Field Name (e.g., 'Project Code')",
+      "isExtraMandatory": "Is Extra Field Mandatory?",
+      "communicationList": "Communication List (Comma-separated emails)",
+      "communicationHint": "Emails in this list will receive notifications for LGs in this category.",
+      "appliesToAll": "Applies to All Entities for this Customer",
+      "selectEntities": "Select Specific Entities (Leave unchecked to apply to all)",
+      "noEntities": "No entities found for this customer. All categories will apply to all entities by default.",
+      "cancel": "Cancel",
+      "updating": "Updating...",
+      "updateLgCategory": "Update LG Category",
+      "creating": "Creating...",
+      "createLgCategory": "Create LG Category"
+    },
+    "globalConfigurationList": {
+      "table": {
+        "actions": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100",
+        "min": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100",
+        "default": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100",
+        "max": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100",
+        "toggleTooltip": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100",
+        "description": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100",
+        "na": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100",
+        "key": "onClick=() => handleSort('description')",
+        "unit": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100",
+        "editTooltip": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100",
+        "restoreTooltip": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+      },
+      "title": "Global Ranges Configurations",
+      "messages": {
+        "restoreSuccess": "Restore Success",
+        "noItems": "No global configurations found matching your criteria.",
+        "loadError": "setError('Failed to load global configurations. Please try again.');",
+        "loading": "Loading global configurations...",
+        "restoreConfirm": "Restore Confirm"
+      },
+      "filters": {
+        "compliance": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100",
+        "security": "))",
+        "filterPlaceholder": "type=\"text\"",
+        "communication": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100",
+        "allGroups": "All Groups",
+        "limits": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100",
+        "general": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+      },
+      "buttons": {
+        "addNew": "Add New Configuration"
+      }
+    }
+  },
+  "forgotPassword": {
+    "forgotPassword": "Forgot Password",
+    "enterEmailInstruction": "Enter your email to receive a password reset link.",
+    "emailAddress": "Email Address",
+    "emailPlaceholder": "you@example.com",
+    "sending": "Sending...",
+    "sendResetLink": "Send Reset Link",
+    "rememberPassword": "Remember your password?",
+    "backToLogin": "Back to Login",
+    "missingEmail": "Please enter your email address.",
+    "successMessage": "If an account with that email exists, a password reset link has been sent to your inbox.",
+    "unexpectedError": "An unexpected error occurred. Please try again."
+  },
+  "forcePasswordChange": {
+    "changePassword": "Change Your Password",
+    "requiredToChange": "You are required to change your password before proceeding.",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password",
+    "passwordsDoNotMatch": "New password and confirmation do not match.",
+    "passwordTooShort": "New password must be at least 8 characters long.",
+    "changing": "Changing...",
+    "changePasswordButton": "Change Password",
+    "successMessage": "Password changed successfully! Redirecting to your dashboard...",
+    "unexpectedError": "An unexpected error occurred during password change."
+  },
+  "dashboard": {
+    "welcome": "Welcome to Your Dashboard",
+    "activeLgs": "Active LGs",
+    "lgsForRenewal": "LGs for Renewal",
+    "pendingPrints": "Pending Print Actions",
+    "quickActions": "Quick Actions",
+    "recentActivity": "Recent LG Activity",
+    "comingSoonActivity": "Coming soon: A list of your most recent LG records and actions.",
+    "loadingData": "Loading dashboard data...",
+    "failedToLoad": "Failed to load dashboard data: {{error}}",
+    "gracePeriodDisabled": "This action is disabled during your subscription's grace period.",
+    "recordNewLgTitle": "Record New LG",
+    "recordNewLgDesc": "Initiate the process to record a new Letter of Guarantee.",
+    "viewMyLgsTitle": "View My LGs",
+    "viewMyLgsDesc": "Access and manage your active Letters of Guarantee.",
+    "viewReportsTitle": "View Reports",
+    "viewReportsDesc": "Access various reports and analytics related to LGs."
+  },
+  "lgList": {
+    "titleOwner": "LGs for Owner ID: {{id}}",
+    "titleManage": "Manage LG Records",
+    "clearFilters": "Clear Filters",
+    "export": "Export",
+    "exportFiltered": "Export Filtered Data ({{count}})",
+    "exportAll": "Export All Data ({{count}})",
+    "actionHistory": "Action History",
+    "recordNewLg": "Record New LG",
+    "loading": "Loading LG records...",
+    "noLgsFound": "No LG records found for your customer.",
+    "searchPlaceholder": "Search by LG No., Issuer, Beneficiary, Bank, Category...",
+    "filterDate": "Filter by date",
+    "filterStatus": "Filter by Status",
+    "allStatuses": "All Statuses",
+    "filterType": "Filter by Type",
+    "allTypes": "All Types",
+    "refreshing": "Refreshing data...",
+    "headers": {
+      "lgNumber": "LG Number",
+      "issuerName": "Issuer Name",
+      "beneficiary": "Beneficiary",
+      "amount": "Amount",
+      "issuingBank": "Issuing Bank",
+      "category": "Category",
+      "expiryDate": "Expiry Date",
+      "status": "Status",
+      "actions": "Actions",
+      "autoRenewal": "Auto-Renewal"
+    },
+    "toggleAutoRenewalOn": "Toggle auto-renewal (Current: ON)",
+    "toggleAutoRenewalOff": "Toggle auto-renewal (Current: OFF)"
+  },
+  "sidebar": {
+    "overview": "Overview",
+    "dashboard": "Dashboard",
+    "issuance": "Issuance",
+    "requestsInbox": "Requests Inbox",
+    "bankFacilities": "Bank Facilities",
+    "lgManagement": "LG Management",
+    "allLgs": "All LG Records",
+    "pendingApprovals": "Pending Approvals",
+    "actionCenter": "Action Center",
+    "configuration": "Configuration",
+    "userManagement": "User Management",
+    "issuanceConfig": "Issuance Form Config",
+    "settings": "Settings",
+    "lgCategories": "LG Categories",
+    "system": "System",
+    "auditLogs": "Audit Logs",
+    "reports": "Reports",
+    "migrationHub": "Migration Hub",
+    "signOut": "Sign Out",
+    "corporateAdmin": "Corporate Admin",
+    "org": "Org: {{name}}"
+  },
+  "userManagement": {
+    "title": "Manage Users",
+    "tabs": {
+      "users": "Users",
+      "departments": "Departments",
+      "groups": "Approval Groups"
+    },
+    "tooltips": {
+      "gracePeriod": "This action is disabled during your subscription's grace period."
+    },
+    "buttons": {
+      "addUser": "opacity-50 cursor-not-allowed",
+      "addDepartment": "opacity-50 cursor-not-allowed",
+      "addGroup": "opacity-50 cursor-not-allowed",
+      "cancel": "Cancel",
+      "save": "Save",
+      "edit": "Edit",
+      "delete": "Delete",
+      "restore": "Restore"
+    },
+    "users": {
+      "email": "ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800",
+      "role": "!isLoading && users.length > 0 && (",
+      "status": "ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800",
+      "actions": "!user.is_deleted ? (",
+      "active": "ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800",
+      "deleted": "ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800",
+      "confirmDelete": "Are you sure you want to soft-delete user: {{email}}?",
+      "confirmRestore": "Are you sure you want to restore user: {{email}}?",
+      "deleteSuccess": "User '{{email}}' soft-deleted successfully.",
+      "restoreSuccess": "User '{{email}}' restored successfully.",
+      "cannotDeleteSelf": "You cannot delete your own account."
+    },
+    "departments": {
+      "name": "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800",
+      "manager": "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800",
+      "noManager": "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800",
+      "empty": "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800",
+      "modalTitleNew": "New Department",
+      "modalTitleEdit": "Edit Department",
+      "selectManager": "-- Select Manager --",
+      "confirmDelete": "Delete this department?",
+      "createSuccess": "Department created.",
+      "updateSuccess": "Department updated.",
+      "deleteSuccess": "Department deleted."
+    },
+    "groups": {
+      "name": "px-6 py-4 whitespace-nowrap text-right text-sm font-medium",
+      "members": "px-6 py-4 whitespace-nowrap text-right text-sm font-medium",
+      "emptyRow": "disabled=isGracePeriod",
+      "empty": "px-6 py-4 whitespace-nowrap text-right text-sm font-medium",
+      "modalTitleNew": "New Approval Group",
+      "modalTitleEdit": "Edit Approval Group",
+      "selectMembers": "Select Members",
+      "confirmDelete": "Delete this group?",
+      "createSuccess": "Group created.",
+      "updateSuccess": "Group updated.",
+      "deleteSuccess": "Group deleted."
+    }
+  },
+  "customerUserManagement": {
+    "title": "Customer Users (users.length)",
+    "buttons": {
+      "cancel": "showForm ? 'Cancel' : <> Add New User",
+      "addNewUser": "showForm ? 'Cancel' : <> Add New User",
+      "updateUser": "editingUser ? 'Update User' : 'Create User'",
+      "createUser": "editingUser ? 'Update User' : 'Create User'"
+    },
+    "messages": {
+      "loadError": "setError(`Failed to load users. $err.message || ''`);",
+      "confirmDelete": "Are you sure you want to soft-delete the user {{email}}?",
+      "deleteSuccess": "User {{email}} has been soft-deleted successfully.",
+      "deleteError": "Failed to delete user {{email}}. ",
+      "confirmRestore": "Are you sure you want to restore the user {{email}}?",
+      "restoreSuccess": "User {{email}} has been restored successfully.",
+      "restoreError": "Failed to restore user {{email}}. ",
+      "noUsersFound": "No users found for this customer."
+    },
+    "form": {
+      "editUser": "editingUser ? 'Edit User' : 'Add New User'",
+      "addNewUser": "editingUser ? 'Edit User' : 'Add New User'",
+      "email": "Email",
+      "role": "Role",
+      "password": "Password",
+      "roles": {
+        "corporate_admin": "Corporate Admin",
+        "end_user": "End User"
+      }
+    },
+    "table": {
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "actions": "Actions",
+      "deleted": "Deleted",
+      "active": "Active",
+      "tooltips": {
+        "restore": "Restore User",
+        "edit": "Edit User",
+        "delete": "Soft Delete User"
+      }
+    }
+  },
+  "auditLogs": {
+    "title": "Audit Logs",
+    "buttons": {
+      "showFilters": "showFilters ? 'Hide Filters' : 'Show Filters'",
+      "hideFilters": "showFilters ? 'Hide Filters' : 'Show Filters'",
+      "clearFilters": "Clear Filters",
+      "applyFilters": "Apply Filters",
+      "exportToCSV": "Export to CSV"
+    },
+    "filters": {
+      "userId": "User ID",
+      "actionType": "Action Type",
+      "entityType": "Entity Type",
+      "entityId": "Entity ID",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "customerId": "Customer ID"
+    },
+    "placeholders": {
+      "userId": "placeholder=\"e.g., 1\"",
+      "actionType": "placeholder=\"e.g., LOGIN_SUCCESS\"",
+      "entityType": "placeholder=\"e.g., Customer\"",
+      "entityId": "placeholder=\"e.g., 5\"",
+      "customerId": "placeholder=\"e.g., 2\""
+    },
+    "messages": {
+      "loadError": "setError(`Failed to load audit logs. $err.message || 'An unexpected error occurred.'`);",
+      "exportStarted": "toast.success('Export started successfully.');",
+      "exportFailed": "toast.error(`Export failed. $err.message || 'An unexpected error occurred.'`);",
+      "loading": "Loading audit logs...",
+      "noLogsFound": "No audit logs found for the selected filters.",
+      "notAuth": "toast.error('Authentication token not found. Please log in again.');",
+      "unexpected": "toast.error(`Export failed. $err.message || 'An unexpected error occurred.'`);"
+    },
+    "table": {
+      "timestamp": "Timestamp",
+      "userName": "User Name",
+      "customerId": "Customer ID",
+      "actionType": "Action Type",
+      "entityType": "Entity Type",
+      "entityId": "Entity ID",
+      "lgNumber": "LG Number",
+      "details": "Details",
+      "ipAddress": "IP Address"
+    },
+    "details": {
+      "na": "log.ip_address || 'N/A'",
+      "action": "Action: maskedDetails.action_type || 'N/A'",
+      "file": "maskedDetails.file_name && File: maskedDetails.file_name",
+      "ocrChars": "OCR Chars: usage.ocr_characters",
+      "geminiPrompt": "Gemini Prompt: usage.gemini_prompt_tokens tokens",
+      "geminiCompletion": "Gemini Completion: usage.gemini_completion_tokens tokens",
+      "tokens": "Gemini Completion: usage.gemini_completion_tokens tokens",
+      "pages": "usage.total_pages_processed > 0 && Pages: usage.total_pages_processed",
+      "reason": "maskedDetails.reason && Reason: maskedDetails.reason",
+      "failureReason": "Failure Reason:",
+      "logMetadata": "Log Metadata:"
+    }
+  },
+  "reports": {
+    "opsHealth": {
+      "title": "Treasury Ops Health",
+      "subtitle": "Operational telemetry: Volume, Friction, and Risk.",
+      "noData": "No data available.",
+      "table": {
+        "reference": "Reference",
+        "triggerDate": "Trigger Date",
+        "detail": "Detail",
+        "requests": "No critical expiries or stalled instructions detected.",
+        "tokens": "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
+        "activityLevel": "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+      },
+      "messages": {
+        "loadError": "toast.error(`Error loading health report: $err.message || \"Unknown error\"`);",
+        "noAiData": "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+      },
+      "trends": {
+        "faster": "isFaster ? '\u2193 Faster' : '\u2191 Slower'",
+        "slower": "isFaster ? '\u2193 Faster' : '\u2191 Slower'"
+      },
+      "sections": {
+        "periodActivity": "Period Activity Flow",
+        "efficiency": "Efficiency Speedometer",
+        "pipeline": "Instruction Pipeline (Snapshot)",
+        "aiCopilot": "Risk & Attention Panel",
+        "riskAlerts": "grid grid-cols-1 lg:grid-cols-2 gap-6"
+      },
+      "kpis": {
+        "netVolume": "Net Operational Volume"
+      },
+      "flow": {
+        "newLGs": "New LG's",
+        "extensions": "Extensions",
+        "reductions": "Reductions",
+        "amendments": "Amendments",
+        "activations": "Activations",
+        "releases": "Releases",
+        "liquidations": "Liquidations",
+        "reminders": "Reminders"
+      },
+      "charts": {
+        "activityTrend": "Activity Trend (Last 4 Months)",
+        "portfolioStatus": "Portfolio Status Composition"
+      },
+      "efficiency": {
+        "approvalTime": "Approval Time",
+        "history": "History: efficiency.lifetime_bank_days || \"0.0\" days",
+        "internalTurnaround": "Internal Turnaround",
+        "bankResponseTime": "Bank Response Time"
+      },
+      "pipeline": {
+        "actionable": "Actionable",
+        "allBacklog": "All Backlog",
+        "internalBacklog": "Internal Backlog",
+        "internalTotalDesc": "showAll ? \"Total pending instructions.\" : \"Instructions needing immediate attention.\"",
+        "internalActionableDesc": "showAll ? \"Total pending instructions.\" : \"Instructions needing immediate attention.\"",
+        "bankBacklog": "Bank Backlog",
+        "bankTotalDesc": "showAll ? \"Total waiting for bank reply.\" : \"Banks that are officially ghosting.\"",
+        "bankActionableDesc": "showAll ? \"Total waiting for bank reply.\" : \"Banks that are officially ghosting.\"",
+        "completedRecently": "Completed Recently",
+        "completedDesc": "Replies recorded in this period."
+      },
+      "risk": {
+        "allNominal": "grid grid-cols-1 lg:grid-cols-2 gap-6",
+        "noRisks": "grid grid-cols-1 lg:grid-cols-2 gap-6",
+        "criticalExpiry": "Critical Expiry Risk",
+        "noExpiryRisks": "No LGs with critical expiry risk.",
+        "unresponsiveBanks": "Unresponsive Banks",
+        "banksHealthy": "No banks currently flagged as severely unresponsive.",
+        "stalledInternal": "Stalled Internal Actions",
+        "internalHealthy": "No actions are severely stalled internally."
+      }
+    },
+    "dashboard": {
+      "title": "Reports Dashboard",
+      "noReports": "No reports available for your role.",
+      "selectReport": "Select a report to view detailed insights."
+    },
+    "myLGDashboard": {
+      "title": "My LG Dashboard",
+      "description": "A personalized overview of your assigned LGs and pending tasks.",
+      "kpis": {
+        "myLGs": "name: \"My LGs\", value: reportData.my_lgs_count, icon:  ,",
+        "lgsNearExpiry": "name: \"LGs Near Expiry\", value: reportData.lgs_near_expiry_count, icon:  ,",
+        "undeliveredInstructions": "name: \"Undelivered Instructions\", value: reportData.undelivered_instructions_count, icon:  ,"
+      },
+      "recentActions": {
+        "title": "Recent Actions",
+        "noneFound": "No recent actions found."
+      },
+      "messages": {
+        "loadSuccess": "toast.success(\"Report data loaded successfully!\");",
+        "loadError": "toast.error(`Error fetching report: $err.message`);",
+        "noData": "return No report data available.;"
+      }
+    }
+  },
+  "modals": {
+    "approvalMatrixModal": {
+      "title": "Approval Matrix",
+      "subtitle": "Define the automated approval sequence for LG Issuance Requests.",
+      "createStep": "1. Create Rule Step",
+      "triggerCondition": "Trigger Condition",
+      "triggerOptions": {
+        "always": "Always Trigger (Any Request)",
+        "amountRange": "Specific Amount Range (EGP-Eq)",
+        "amountOver": "Amount Exceeds...",
+        "anyDepartment": "Any Department (Originating)",
+        "deptMatch": "For Specific Department",
+        "crossBorder": "Cross-Border / International"
+      },
+      "minAmount": "Min (e.g. 500)",
+      "to": "to",
+      "maxAmount": "Max (e.g. 1000)",
+      "ccy": "Ccy",
+      "selectDepartment": "Select Department...",
+      "anyDeptNote": "This rule applies to all requests. It is typically paired with the 'Requester's Department Manager' approver.",
+      "crossBorderNote": "This rule will trigger for any request involving foreign banks or currencies.",
+      "whoApproves": "2. Who Approves?",
+      "approverOptions": {
+        "deptHead": "Requester's Department Manager",
+        "group": "Custom Approval Group",
+        "users": "Specific Individuals"
+      },
+      "noGroupsFound": "No groups found. Create them in Organization & Teams.",
+      "noUsersFound": "No active users found.",
+      "members": "members",
+      "signaturesRequired": "3. Signatures Required",
+      "signaturesSub": "Approver(s) must sign this step.",
+      "insertSequence": "Insert into Sequence",
+      "liveSequence": "Live Approval Sequence",
+      "noRulesDefined": "No rules defined yet.",
+      "approversText": "Approvers:",
+      "reqSigs": "Req. Sigs:",
+      "saveMatrix": "Save Active Matrix"
+    },
+    "approvalRequestDetailsModal": {
+      "gracePeriodTitle": "This action is disabled during your subscription's grace period.",
+      "title": "Review Approval Request:",
+      "status": {
+        "pending": "PENDING",
+        "approved": "APPROVED",
+        "rejected": "REJECTED"
+      },
+      "reviewNote": "Review the details below. The data presented are based on the most recent information available, rather than the data at the time the request was submitted.",
+      "requestInfo": "Request Information:",
+      "actionType": "Action Type:",
+      "requestedBy": "Requested By:",
+      "requestedOn": "Requested On:",
+      "rejectionReason": "Rejection Reason:",
+      "approvedBy": "Approved By:",
+      "on": "on",
+      "autoStatusNote": "This request was automatically",
+      "lgRecordSnapshotTitle": "LG Record Details (Snapshot vs. Current)",
+      "loadingDetails": "Loading LG record details...",
+      "compareError": "Entity ID missing or mismatch.",
+      "changed": "Changed",
+      "na": "N/A",
+      "decreaseAmountTitle": "Decrease Amount Request Details:",
+      "amountToDecrease": "Amount to Decrease:",
+      "reason": "Reason:",
+      "additionalNotes": "Additional Notes:",
+      "noReasonProvided": "No reason provided",
+      "noNotesProvided": "No notes provided",
+      "viewSupportingDoc": "View Supporting Document",
+      "liquidationTitle": "LG Liquidation Request Details:",
+      "liquidationType": "Liquidation Type:",
+      "newAmountPartial": "New Amount (for partial):",
+      "releaseTitle": "LG Release Request Details:",
+      "amendmentTitle": "LG Amendment Request Details:",
+      "requestedAmendments": "Requested Amendments:",
+      "viewAmendmentLetter": "View Amendment Letter",
+      "activationTitle": "LG Activation Request Details:",
+      "paymentMethod": "Payment Method:",
+      "amount": "Amount:",
+      "paymentReference": "Payment Reference:",
+      "issuingBankId": "Issuing Bank ID:",
+      "paymentDate": "Payment Date:",
+      "updateOwnerTitle": "Update Internal Owner Details:",
+      "oldEmail": "Old Email:",
+      "newEmail": "New Email:",
+      "newPhone": "New Phone:",
+      "newManagerEmail": "New Manager Email:",
+      "changeScope": "Change Scope:",
+      "oldOwnerId": "Old Owner ID:",
+      "newOwnerId": "New Owner ID:",
+      "newOwnerEmailIfNew": "New Owner Email (if new):",
+      "affectedLgRecordId": "Affected LG Record ID:",
+      "affectedLgs": "Affected LGs:",
+      "genericActionDetails": "Generic Action Details:",
+      "noSpecificDetails": "No specific action details available for this type.",
+      "buttons": {
+        "withdraw": "Withdraw Request",
+        "withdrawing": "Withdrawing...",
+        "approve": "Approve",
+        "approving": "Approving...",
+        "reject": "Reject",
+        "rejecting": "Rejecting...",
+        "rejectionPlaceholder": "Reason for rejection (optional)",
+        "noActionsAvailable": "No actions available for this request (status is"
+      }
+    },
+    "bulkChangeLGOwnerModal": {
+      "title": "Bulk Change Internal Owner from: {{email}}",
+      "currentOwnerDetails": "Current Owner Details:",
+      "email": "Email",
+      "phone": "Phone Number",
+      "manager": "Manager Email",
+      "na": "Manager: oldOwner?.manager_email || 'N/A'",
+      "lgsToBeReassigned": "LGs to be Reassigned ({{count}}):",
+      "loadingLgs": "Loading LGs...",
+      "exp": "Exp: {{date}}",
+      "createNewOwner": "Create a New Internal Owner Contact",
+      "newOwnerContactDetails": "New Owner Contact Details:",
+      "internalIdOptional": "Internal ID (Optional)",
+      "selectExistingOwner": "Select Existing Owner",
+      "loadingOwners": "Loading owners...",
+      "selectAnOwner": "-- Select an owner --",
+      "reasonForChange": "Reason for Change",
+      "processing": "isSubmitting ? 'Processing...' : `Submit Bulk Change`",
+      "submitBulkChange": "isSubmitting ? 'Processing...' : `Submit Bulk Change`",
+      "cancel": "Cancel"
+    },
+    "bulkRemindersModal": {
+      "title": "Generate Bulk Bank Reminders",
+      "description1": "This action will automatically identify all eligible LG instructions for a bank reminder, which may extend beyond the list below. It will then generate a consolidated PDF document containing all such reminders. The PDF will open in a new tab for printing.",
+      "description2": "Eligible instructions are those where a bank reply has not been recorded, and they fall",
+      "cancel": "Cancel",
+      "generating": "isProcessing ? 'Generating...' : 'Generate & Print Reminders'",
+      "generateAndPrint": "isProcessing ? 'Generating...' : 'Generate & Print Reminders'"
+    },
+    "cancelInstructionModal": {
+      "title": "Cancel Last Instruction",
+      "warningText": "You are about to cancel the following instruction. This action will roll back the LG to its previous state.",
+      "instructionType": "Instruction Type: formatActionTypeLabel(instruction.instruction_type)",
+      "instructionSerial": "Instruction Serial: instruction.serial_number",
+      "lgNumber": "LG Number: instruction.lg_record?.lg_number || 'N/A'",
+      "issuedOn": "Issued On: moment(instruction.created_at).format('DD-MMM-YYYY HH:mm')",
+      "na": "LG Number: instruction.lg_record?.lg_number || 'N/A'",
+      "timeLeft": "Time left to cancel: {{time}}",
+      "loading": "Time left to cancel: timeRemaining || 'Loading...'",
+      "reasonForCancellation": "Reason for Cancellation",
+      "reasonPlaceholder": "placeholder=\"e.g., Incorrect amount was entered\"",
+      "declaration": "I confirm that this instruction is to be considered null and void,",
+      "confirmCancellation": "'Confirm Cancellation'",
+      "back": "Back"
+    },
+    "changeLGOwnerModal": {
+      "title": "Change Internal Owner for LG: {{lgNumber}}",
+      "currentOwnerDetails": "Current Owner Details:",
+      "email": "Email",
+      "phone": "Phone Number",
+      "manager": "Manager Email",
+      "na": "Manager: lgRecord.internal_owner_contact?.manager_email || 'N/A'",
+      "createNewOwner": "Create a New Internal Owner Contact",
+      "newOwnerContactDetails": "New Owner Contact Details:",
+      "internalIdOptional": "Internal ID (Optional)",
+      "selectExistingOwner": "Select Existing Owner",
+      "loadingOwners": "Loading owners...",
+      "selectAnOwner": "-- Select an owner --",
+      "reasonForChange": "Reason for Change",
+      "processing": "isSubmitting ? 'Processing...' : 'Submit Change Request'",
+      "submitChangeRequest": "isSubmitting ? 'Processing...' : 'Submit Change Request'",
+      "cancel": "Cancel"
+    },
+    "decreaseAmountModal": {
+      "title": "Decrease LG Amount: {{lgNumber}}",
+      "description": "Reduce the amount of this LG. This action may require approval.",
+      "currentAmount": "Current LG Amount: formatCurrency(currentAmount, currencyCode) | Status: lgRecord.lg_status?.name",
+      "status": "Current LG Amount: formatCurrency(currentAmount, currencyCode) | Status: lgRecord.lg_status?.name",
+      "amountToDecrease": "Amount to be Decreased ({{currencyCode}})",
+      "newRemainingAmount": "New Remaining LG Amount:",
+      "reasonForDecrease": "Reason for Amount Decrease",
+      "additionalNotes": "Additional Notes (Optional)",
+      "supportingDocument": "Supporting Document",
+      "attachDocumentsDescription": "Attach any documents related to this request (e.g., formal request from beneficiary).",
+      "processing": "isSubmitting ? 'Processing...' : 'Submit Decrease Request'",
+      "submitDecreaseRequest": "isSubmitting ? 'Processing...' : 'Submit Decrease Request'",
+      "cancel": "Cancel",
+      "gracePeriodWarning": "toast.warn(\"This action is disabled during your subscription's grace period.\");",
+      "successMessageApproval": "LG Decrease Amount request submitted for approval. Request ID: {{id}}.",
+      "successMessageDirect": "LG {{lgNumber}} amount decreased successfully!",
+      "validationAmountRequired": ".required('Amount to decrease is required')",
+      "validationAmountPositive": ".positive('Amount to decrease must be positive')",
+      "validationAmountMax": "Amount to decrease must be less than current LG amount ({{currentAmount}})",
+      "validationReasonRequired": "Reason for amount decrease is required",
+      "validationReasonLength": "Reason for amount decrease is required"
+    },
+    "extendLGModal": {
+      "title": "Extend Letter of Guarantee: {{lgNumber}}",
+      "description": "Extend the expiry date for this LG.",
+      "currentExpiryDate": "{Number(lgRecord.lg_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {lgRecord.lg_currency?.iso_code}",
+      "currentAmount": "{Number(lgRecord.lg_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {lgRecord.lg_currency?.iso_code}",
+      "extensionMethod": "Extension Method *",
+      "selectSpecificDate": "Select Specific Date",
+      "extendByMonths": "Extend by Months",
+      "newExpiryDate": "New Expiry Date *",
+      "numberOfMonths": "Number of Months to Extend *",
+      "newExpiryDateApprox": "New Expiry Date will be approximately:' '",
+      "additionalNotes": "Additional Notes (Optional)",
+      "processing": "isSubmitting ? 'Processing...' : 'Extend LG'",
+      "extendLG": "isSubmitting ? 'Processing...' : 'Extend LG'",
+      "cancel": "Cancel",
+      "gracePeriodWarning": "toast.warn(\"This action is disabled during your subscription's grace period.\");",
+      "successMessage": "LG Record {{lgNumber}} successfully extended to {{date}}.",
+      "validationMethodRequired": "extensionMethod: Yup.string().oneOf(['date', 'months']).required('Extension method is required.'),",
+      "validationDateRequired": ".required('New Expiry Date is required.')",
+      "validationDateAfterCurrent": ".test('is-after-current', 'New Expiry Date must be after the current one.', (value) =>",
+      "validationMonthsRequired": ".required('Number of months is required.')",
+      "validationMonthsPositive": ".positive('Number of months must be a positive integer.'),"
+    },
+    "facilityFormModal": {
+      "createTitle": "inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full",
+      "updateTitle": "inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full",
+      "modelVersion": "facilityToEdit ? 'Edit Facility' : 'Add New Bank Facility'",
+      "tabs": {
+        "basicInfo": "mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500",
+        "riskGovernance": "Bank",
+        "subLimitsPricing": "<select"
+      },
+      "basicInfo": {
+        "permittedCustomerEntities": "mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500",
+        "facilityAttachment": "type=\"text\" required",
+        "changeFile": "Select...",
+        "chooseFile": "Select...",
+        "existingAttachment": "currency_code",
+        "noFileSelected": "currency_code",
+        "facilityName": "mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500",
+        "facilityNamePlaceholder": "mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500",
+        "totalFacilityAmount": "mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500",
+        "facilityTenor": "mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500",
+        "months": "mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500",
+        "bankPartner": "Sub-Limits",
+        "selectBank": "text-xs flex items-center text-blue-600 hover:text-blue-800",
+        "baseCurrency": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "selectCurrency": "Select CCY...",
+        "status": "value=sl.limit_name",
+        "statusActive": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "statusSuspended": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "referenceNumber": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "startDate": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "expiryDate": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "nextReview": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "foreignCorrespondentDetails": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "bankName": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "swift": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "country": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "fullAddress": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "selectCcy": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm"
+      },
+      "riskGovernance": {
+        "riskSettings": "Risk & Multi-Currency Settings",
+        "riskMultiCurrencySettings": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "multiCurrencyAllowed": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "multiCurrencyDesc": "Enable issuance in currencies other than base currency",
+        "multiCurrencyAllowedDescription": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "fxBreachAutoSuspend": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "fxBreachDesc": "Lock facility if currency revaluation hits total limit",
+        "fxBreachAutoSuspendDescription": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "marginReducesExposure": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "marginReducesDesc": "Deduct cash margin from utilized limit",
+        "marginReducesExposureDescription": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "governanceSLA": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "slaAgreementDays": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "marginLeadTimeDays": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "allowCrossBorder": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "allowCrossBorderDesc": "Master switch for multi-country beneficiary issuance",
+        "allowCrossBorderDescription": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "allowThirdPartyIssuance": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "allowThirdPartyDesc": "Allow issuance on behalf of third parties",
+        "allowThirdPartyIssuanceDescription": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "internalNotes": "Internal Notes & Special Conditions",
+        "internalNotesSpecialConditions": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "internalNotesPlaceholder": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm"
+      },
+      "subLimits": {
+        "allocationTitle": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "newAllocation": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "lgTypes": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "limitAmount": "block w-full border border-gray-300 rounded-md py-1 px-2 text-sm",
+        "allocationLabel": "text-red-500 pb-2",
+        "allocationLabelPlaceholder": "text-red-500 pb-2",
+        "commissionStructure": "Commission Structure",
+        "commRate": "Comm. Rate (%)",
+        "commissionRate": "Commission Rate (%)",
+        "minFees": "Min. Fees (Floor)",
+        "flatProcessingFee": "Flat Processing Fee",
+        "rules": "loading ?  : \"Save Facility\"",
+        "cashMargin": "w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white bg-blue-600 hover:bg-blue-700 sm:text-sm",
+        "maxTenor": "w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white bg-blue-600 hover:bg-blue-700 sm:text-sm",
+        "allowsConfirm": "Allows Confirm.",
+        "allowsConfirmation": "w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white bg-blue-600 hover:bg-blue-700 sm:text-sm",
+        "geography": "w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white bg-blue-600 hover:bg-blue-700 sm:text-sm",
+        "allowOnly": "w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white bg-blue-600 hover:bg-blue-700 sm:text-sm",
+        "excludeThese": "w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white bg-blue-600 hover:bg-blue-700 sm:text-sm",
+        "isoCodesPlaceholder": "w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white bg-blue-600 hover:bg-blue-700 sm:text-sm",
+        "crossBorderOff": "Facility cross-border switch is OFF.",
+        "crossBorderSwitchOff": "w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white bg-blue-600 hover:bg-blue-700 sm:text-sm"
+      },
+      "footer": {
+        "schemaCompliant": "Issuance-v2.1 Full Schema Compliant",
+        "discard": "Discard",
+        "uploading": "UPLOADING...",
+        "authorizeUpdate": "AUTHORIZE & UPDATE FACILITY",
+        "authorizeSave": "AUTHORIZE & SAVE FACILITY"
+      }
+    },
+    "historyExportModal": {
+      "title": "text-lg font-medium leading-6 text-gray-900",
+      "from": "From",
+      "to": "To",
+      "includeActions": "Include Actions:",
+      "cancel": "Cancel",
+      "exportHistory": "Export History",
+      "noHistoryFound": "toast.info(\"No history found for the selected criteria.\");",
+      "successExport": "Successfully exported {{count}} history events.",
+      "errorExport": "Failed to export history. Please ensure you are logged in and the list data is accessible."
+    },
+    "internalOwnerFormModal": {
+      "editTitle": "const modalTitle = isEditMode ? 'Edit Internal Owner Details' : 'Add New Internal Owner';",
+      "addTitle": "const modalTitle = isEditMode ? 'Edit Internal Owner Details' : 'Add New Internal Owner';",
+      "saveChanges": "const submitButtonText = isEditMode ? 'Save Changes' : 'Add Owner';",
+      "addOwner": "const submitButtonText = isEditMode ? 'Save Changes' : 'Add Owner';",
+      "email": "Email",
+      "phoneNumber": "Phone Number",
+      "internalId": "Internal ID (Optional)",
+      "managerEmail": "Manager Email",
+      "processing": "isSubmitting ? 'Processing...' : submitButtonText",
+      "cancel": "Cancel",
+      "gracePeriodWarning": "This action is disabled during your subscription's grace period."
+    },
+    "issuanceExecutionModal": {
+      "title": "Execute Issuance (Smart Mode)",
+      "beneficiary": "Beneficiary: request.beneficiary_name",
+      "requestAmount": "Request Amount",
+      "selectBestBankOption": "Select Best Bank Option",
+      "analyzingRates": "Analyzing best rates...",
+      "noSufficientLimits": "No sufficient limits found.",
+      "bestPrice": "BEST PRICE",
+      "avail": "Avail: parseFloat(fac.limit_available).toLocaleString()",
+      "commission": "Commission: fac.price_commission_rate%",
+      "cashMargin": "Cash Margin: fac.price_cash_margin_pct%",
+      "zeroMargin": "fac.price_cash_margin_pct === 0 && ZERO MARGIN",
+      "bankRefNumber": "Bank Ref Number",
+      "issueDate": "Issue Date",
+      "confirmIssuance": "loading ?  : \"Confirm Issuance\"",
+      "placeholderBankRef": "placeholder=\"e.g. LG-2025-001\""
+    },
+    "lgActivateNonOperativeModal": {
+      "title": "Activate LG Record: lgRecord.lg_number",
+      "loadingData": "Loading data...",
+      "lgDetails": "LG Details",
+      "type": "Type: lgRecord.lg_type?.name |",
+      "status": "Status: lgRecord.lg_operational_status?.name",
+      "paymentInformation": "Payment Information",
+      "paymentAmount": "Payment Amount*",
+      "currency": "Currency*",
+      "selectCurrency": "Select Currency",
+      "issuingBank": "Issuing Bank*",
+      "selectBank": "Select Bank",
+      "paymentMethod": "Payment Method*",
+      "paymentDate": "Payment Date*",
+      "paymentReference": "Payment Reference",
+      "additionalNotes": "Additional Notes (Optional)",
+      "supportingDocument": "Supporting Document",
+      "attachDocumentsRelated": "Attach any documents related to this request (e.g., proof of advance payment).",
+      "activateLg": "isProcessing ? 'Activating...' : 'Activate LG'",
+      "activating": "isProcessing ? 'Activating...' : 'Activate LG'",
+      "cancel": "Cancel"
+    },
+    "lgAmendModal": {
+      "title": "Amend LG Record: lgRecord.lg_number",
+      "lgNumber": "getField('lg_number', 'LG Number', 'text', true)",
+      "beneficiary": "Beneficiary",
+      "issuanceDate": "getField('issuance_date', 'Issuance Date', 'date')",
+      "expiryDate": "getField('expiry_date', 'Expiry Date', 'date')",
+      "lgAmount": "getField('lg_amount', 'LG Amount', 'number', false, step: \"0.01\")",
+      "autoRenewal": "getField('auto_renewal', 'Auto-Renewal', 'checkbox')",
+      "paymentConditions": "getField('payment_conditions', 'Payment Conditions')",
+      "purpose": "getField('description_purpose', 'Purpose')",
+      "otherConditions": "getField('other_conditions', 'Other Conditions')",
+      "notes": "getField('notes', 'Notes', 'textarea')",
+      "reasonForAmendment": "Reason for Amendment *",
+      "amendmentLetterFromBank": "Amendment Letter from Bank *",
+      "scanCopyMandatory": "(!amendmentFile) && A scanned copy of the bank's amendment letter is mandatory.",
+      "submitAmendment": "isProcessing ? 'Amending...' : 'Submit Amendment'",
+      "amending": "isProcessing ? 'Amending...' : 'Submit Amendment'",
+      "cancel": "Cancel",
+      "amended": "Amended"
+    },
+    "liquidateLgModal": {
+      "title": "Liquidate LG: lgRecord.lg_number",
+      "chooseLiquidationText": "Choose full or partial liquidation for this LG. This action may require approval.",
+      "currentLgAmount": "{Number(lgRecord.lg_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {lgRecord.lg_currency?.iso_code}",
+      "liquidationType": "Liquidation Type",
+      "fullLiquidation": "Full Liquidation (Amount becomes 0)",
+      "partialLiquidation": "Partial Liquidation (Reduce Amount)",
+      "newAmountAfterPartial": "New LG Amount after Partial Liquidation (lgRecord.lg_currency?.iso_code)",
+      "reasonForLiquidation": "Reason for Liquidation",
+      "additionalNotes": "Additional Notes (Optional)",
+      "additionalNotesHint": "Provide any additional free-text notes for this liquidation.",
+      "supportingDocument": "Supporting Document",
+      "attachDocumentsRelated": "Attach any documents related to this request (e.g., formal request from beneficiary).",
+      "submitLiquidation": "isSubmitting ? 'Processing...' : 'Submit Liquidation Request'",
+      "processing": "isSubmitting ? 'Processing...' : 'Submit Liquidation Request'",
+      "cancel": "Cancel",
+      "disabledGracePeriod": "This action is disabled during your subscription's grace period."
+    },
+    "recordBankReplyModal": {
+      "title": "Record Bank Reply for Instruction: instruction.serial_number",
+      "instructionText": "Record the bank's response to this instruction.",
+      "lg": "{new Date(instruction.delivery_date).toLocaleDateString()}",
+      "type": "{new Date(instruction.delivery_date).toLocaleDateString()}",
+      "issued": "{new Date(instruction.delivery_date).toLocaleDateString()}",
+      "delivered": "instruction.delivery_date &&  | Delivered: new Date(instruction.delivery_date).toLocaleDateString()",
+      "bankReplyDate": "Bank Reply Date",
+      "replyDetails": "Reply Details (Optional)",
+      "bankReplyDocument": "Bank Reply Document (Optional)",
+      "supportedFormats": "Supported formats: JPG, PNG, PDF. (Max 5MB)",
+      "recordReply": "isSubmitting ? 'Processing...' : 'Record Reply'",
+      "processing": "isSubmitting ? 'Processing...' : 'Record Reply'",
+      "cancel": "Cancel"
+    },
+    "recordDeliveryModal": {
+      "title": "Record Delivery for Instruction: instruction.serial_number",
+      "instructionText": "Confirm when this instruction was delivered to the bank and attach any supporting evidence.",
+      "lg": "{instruction.lg_record?.lg_number || 'N/A'} |",
+      "type": "{instruction.lg_record?.lg_number || 'N/A'} |",
+      "issued": "{instruction.lg_record?.lg_number || 'N/A'} |",
+      "deliveryDate": "Delivery Date",
+      "deliveryDocument": "Delivery Document",
+      "supportedFormats": "Supported formats: JPG, PNG, PDF. (Max 5MB)",
+      "recordDelivery": "isSubmitting ? 'Processing...' : 'Record Delivery'",
+      "processing": "isSubmitting ? 'Processing...' : 'Record Delivery'",
+      "cancel": "Cancel"
+    },
+    "releaseLgModal": {
+      "title": "Release LG: lgRecord.lg_number",
+      "instructionText": "Released",
+      "currentLgAmount": "{Number(lgRecord.lg_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {lgRecord.lg_currency?.iso_code}",
+      "status": "{Number(lgRecord.lg_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {lgRecord.lg_currency?.iso_code}",
+      "reasonForRelease": "Reason for Release",
+      "additionalNotes": "Additional Notes (Optional)",
+      "supportingDocument": "Supporting Document",
+      "attachDocumentsRelated": "Attach any documents related to this request (e.g., formal request from beneficiary).",
+      "totalDocuments": "Total Documents on Record",
+      "pendingReplies": "Pending Bank Replies",
+      "submitRelease": "isSubmitting ? 'Processing...' : 'Submit Release Request'",
+      "processing": "isSubmitting ? 'Processing...' : 'Submit Release Request'",
+      "cancel": "Cancel"
+    },
+    "runAutoRenewalModal": {
+      "title": "Run Auto/Forced LG Renewal",
+      "messageEligible": "This process will identify all your eligible Letters of Guarantee for auto-renewal and for forced renewal.",
+      "messageDetailed": "For each eligible LG (which may differ from the list shown below), the system will automatically extend its expiry date, generate an individual instruction letter, and send an individual email notification. A single, combined PDF containing all generated instruction letters will be provided for download.",
+      "successfullyRenewed": "Successfully renewed: result.renewed_count LGs.",
+      "lgs": "Successfully renewed: result.renewed_count LGs.",
+      "close": "Close",
+      "confirmAndRun": "isProcessing ? 'Processing...' : 'Confirm & Run Renewal'",
+      "processing": "isProcessing ? 'Processing...' : 'Confirm & Run Renewal'",
+      "cancel": "Cancel"
+    }
+  },
+  "subscriptionPlans": {
+    "title": "Subscription Plans",
+    "buttons": {
+      "addNew": "Add New Plan",
+      "cancel": "Cancel",
+      "create": "id ? (isSaving ? 'Updating...' : 'Update Plan') : (isSaving ? 'Creating...' : 'Create Plan')",
+      "update": "id ? (isSaving ? 'Updating...' : 'Update Plan') : (isSaving ? 'Creating...' : 'Create Plan')",
+      "creating": "id ? (isSaving ? 'Updating...' : 'Update Plan') : (isSaving ? 'Creating...' : 'Create Plan')",
+      "updating": "id ? (isSaving ? 'Updating...' : 'Update Plan') : (isSaving ? 'Creating...' : 'Create Plan')"
+    },
+    "messages": {
+      "loadError": "setError('Failed to load subscription plans. Please try again.');",
+      "loadFormError": "setError('Failed to load plan details for editing. Please try again.');",
+      "confirmDelete": "Are you sure you want to soft-delete the plan \"{{name}}\"?",
+      "deleteSuccess": "Subscription plan \"{{name}}\" soft-deleted successfully.",
+      "deleteError": "Failed to soft-delete plan \"{{name}}\".",
+      "confirmRestore": "Are you sure you want to restore the plan \"{{name}}\"?",
+      "restoreSuccess": "Subscription plan \"{{name}}\" restored successfully.",
+      "restoreError": "Failed to restore plan \"{{name}}\".",
+      "createSuccess": "alert('Subscription plan created successfully!');",
+      "updateSuccess": "alert('Subscription plan updated successfully!');",
+      "saveError": "setError(`Error saving plan: $err.message || 'An unexpected error occurred.'`);",
+      "loading": "Loading plans...",
+      "loadingData": "Loading plan data...",
+      "noPlans": "No subscription plans found. Click \"Add New Plan\" to get started."
+    },
+    "table": {
+      "planName": "Plan Name",
+      "duration": "Duration (Months)",
+      "monthlyPrice": "Monthly Price",
+      "annualPrice": "Annual Price",
+      "maxUsers": "Max Users",
+      "maxRecords": "Max Records",
+      "maxIssuanceRecords": "Features",
+      "maxCheckerUsers": "Actions",
+      "features": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
+      "actions": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
+      "deleted": "plan.name plan.is_deleted && Deleted",
+      "tooltips": {
+        "restore": "title=\"Restore Plan\"",
+        "edit": "title=\"Edit Plan\"",
+        "delete": "title=\"Delete Plan\""
+      },
+      "featuresList": {
+        "makerChecker": "plan.can_ai_integration && AI",
+        "multiEntity": "plan.can_image_storage && Images",
+        "aiIntegration": "px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800",
+        "imageStorage": "px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800",
+        "custodyModule": "plan.can_maker_checker && M/C",
+        "issuanceModule": "plan.can_multi_entity && Multi-Entity"
+      }
+    },
+    "formTitleNew": "setFormTitle('Create New Subscription Plan');",
+    "formTitleEdit": "setFormTitle('Edit Subscription Plan');",
+    "form": {
+      "name": "Plan Name requiredSpan",
+      "description": "Description",
+      "duration": "Duration (Months) requiredSpan",
+      "monthlyPrice": "Monthly Price requiredSpan",
+      "annualPrice": "Annual Price requiredSpan",
+      "maxUsers": "Max Users requiredSpan",
+      "maxRecords": "Max Records {requiredSpan}",
+      "maxIssuanceRecords": "Max Records (Issuance)",
+      "maxCheckerUsers": "Max Checkers",
+      "featuresTitle": "Features",
+      "featuresList": {
+        "makerChecker": "label=\"Maker/Checker Workflow\"",
+        "multiEntity": "label=\"Multi-Entity Support\"",
+        "aiIntegration": "label=\"AI Integration\"",
+        "imageStorage": "label=\"Image Storage\"",
+        "custodyModule": "border border-gray-200 rounded-md p-4 space-y-2",
+        "issuanceModule": "border border-gray-200 rounded-md p-4 space-y-2"
+      }
+    }
+  },
+  "public": {
+    "landing": {
+      "errors": {
+        "fillRequired": "setFormError('Please fill out all required fields.');",
+        "networkError": "setFormError('A network error occurred. Please check your connection.');"
+      },
+      "nav": {
+        "issuanceRequest": "/know-more",
+        "knowMore": "Know More",
+        "startFreeTrial": "Start Free Trial",
+        "bookDemo": "Book a Demo",
+        "downloadBrochure": "Download Brochure",
+        "login": "Login"
+      },
+      "hero": {
+        "title": "The LG Management System That Works Like Your Smartest Team Member",
+        "subtitle": "Never miss an expiry. Never lose a reply. Always stay in control.",
+        "startFreeTrial": "Start Free Trial",
+        "bookDemo": "Book a Demo",
+        "knowMore": "Know More",
+        "downloadBrochure": "Download Brochure"
+      },
+      "problems": {
+        "title": "The Daily Struggles With LGs",
+        "expiry": {
+          "title": "Expiries missed or rushed",
+          "desc": "Manual tracking leads to last-minute scrambles and potential financial risk."
+        },
+        "replies": {
+          "title": "Bank replies lost in follow-ups",
+          "desc": "Tracking communication and replies across different channels is a daily challenge."
+        },
+        "files": {
+          "title": "Scattered files and unclear status",
+          "desc": "LG documents and statuses are spread across emails and spreadsheets."
+        },
+        "audits": {
+          "title": "Stress when auditors or management ask for details",
+          "desc": "Producing reports for audits is a time-consuming and manual process."
+        }
+      },
+      "solution": {
+        "title": "Your Assistant for LG Management",
+        "tracking": {
+          "title": "End-to-End LG Tracking",
+          "desc": "All LGs in one place \u2014 clear, organized, and always updated."
+        },
+        "alerts": {
+          "title": "Proactive Alerts",
+          "desc": "Automatic reminders for expiries, renewals, and overdue replies."
+        },
+        "control": {
+          "title": "Simple Control",
+          "desc": "Dashboards, one-click actions, and maker-checker approvals."
+        },
+        "insights": {
+          "title": "Data Insights \u2014 Your Power, Your Control",
+          "desc": "Data Insights \u2014 Your Power, Your Control"
+        }
+      },
+      "whyUs": {
+        "title": "Built by Treasurers, for Treasurers",
+        "point1": "Designed from real operational needs.",
+        "point2": "Protects your data \u2014 you always stay in control.",
+        "point3": "Focused on efficiency, accuracy, and peace of mind.",
+        "point4": "Scales into a full treasury platform in the future."
+      },
+      "vision": {
+        "quote": "We\u2019re building more than a system. We\u2019re building your future treasury assistant \u2014 a tool that grows with you, understands your needs, and makes your operations stronger every day."
+      },
+      "demo": {
+        "title": "See the System in Action",
+        "subtitle": "Request a demo and discover how it can transform your LG management.",
+        "success": "Thank you! We\u2019ll be in touch shortly to schedule your demo.",
+        "name": "Name *",
+        "company": "Company *",
+        "email": "Email *",
+        "phone": "Phone *",
+        "message": "Message/Notes (Optional)",
+        "submit": "Request Demo"
+      },
+      "cta": {
+        "title": "Ready to take control of your LGs?",
+        "startFreeTrial": "Start Free Trial",
+        "bookDemo": "Book a Demo Today",
+        "login": "Login to Your Account"
+      }
+    },
+    "footer": {
+      "companyName": "Grow Business Development",
+      "companyDesc": "The LG Management System designed to empower your treasury operations.",
+      "contactInfo": "Contact Info",
+      "quickLinks": "Quick Links",
+      "terms": "Terms & Conditions",
+      "privacy": "Privacy Policy",
+      "copyright": "&copy; 2025 Grow Business Development. All rights reserved."
+    },
+    "knowMore": {
+      "nav": {
+        "home": "Home"
+      },
+      "hero": {
+        "title": "Built for Treasurers, Designed for Growth",
+        "subtitle": "A powerful custody and treasury management system, crafted to prevent risks, simplify operations, and help businesses grow.",
+        "startFreeTrial": "Start Free Trial",
+        "requestDemo": "Request a Demo"
+      },
+      "whatWeDo": {
+        "title": "What We Do",
+        "desc": "We provide a specialized treasury system with a focus on Letters of Guarantee (LG) custody, ensuring nothing slips through the cracks. From auto-renewals to tracking communications, our platform is built to make treasurers\u2019 lives easier and businesses more secure."
+      },
+      "problems": {
+        "title": "The Problems We Solve",
+        "expiry": {
+          "title": "Expired or missed LG renewals.",
+          "desc": "Manual tracking often leads to last-minute scrambles and potential financial risk."
+        },
+        "communication": {
+          "title": "Inconsistent communication.",
+          "desc": "Tracking communication with banks and internally is a daily challenge."
+        },
+        "transparency": {
+          "title": "Lack of transparency.",
+          "desc": "LG documents and statuses are spread across emails and spreadsheets."
+        },
+        "manual": {
+          "title": "Manual follow-ups.",
+          "desc": "Producing reports for audits is a time-consuming and manual process."
+        }
+      },
+      "howItWorks": {
+        "title": "How It Works: A Step-by-Step Walkthrough",
+        "desc": "Our system transforms the LG management process from a chaotic scramble into a clear, controlled workflow. Here's a look at how it works in practice.",
+        "step1": {
+          "title": "1. Recording a New LG",
+          "desc": "Bringing an LG into the system is fast and simple. Capture all LG details in less than a minute using our AI powered recording tool.",
+          "point1": "**Upload & Extract:** Just upload a scanned copy of the LG. Our AI-powered tool instantly auto-extracts key fields like expiry date, amount, and bank.",
+          "point2": "**Add Context:** Add your internal data, such as the internal owner, category, or project name.",
+          "point3": "**Upload & Extract:** Just upload a scanned copy of the LG. Our AI-powered tool instantly auto-extracts key fields like expiry date, amount, and bank."
+        },
+        "step2": {
+          "title": "2. Smart Reminders & Tracking",
+          "desc": "Manual tracking is a thing of the past. The system continuously monitors every LG and keeps you ahead of every deadline.",
+          "alerts": {
+            "title": "Proactive Alerts",
+            "desc": "Automatic reminders for expiries and renewals to all relevant parties."
+          },
+          "renewals": {
+            "title": "Automate Renewals",
+            "desc": "The system suggests renewals and generates extension letters with one click."
+          },
+          "templates": {
+            "title": "Template Library",
+            "desc": "Use built-in templates or your own for all LG communications."
+          }
+        },
+        "step3": {
+          "title": "3. The LG Life Cycle & Action Center",
+          "desc": "No more hunting for documents or status updates. The platform gives you a single, unified view of your entire LG portfolio.",
+          "lifecycle": {
+            "title": "Life Cycle View",
+            "desc": "Every LG has a comprehensive, \"always-on\" life cycle view. You can see the current status, every action taken, and all related documents\u2014from the original LG, its amendments to the final release."
+          },
+          "actionCenter": {
+            "title": "Action Center",
+            "desc": "Think of this as your daily mission control. It\u2019s a single hub listing everything that needs your attention: expiring LGs, pending approvals (for maker-checker workflows), and outstanding bank replies."
+          }
+        },
+        "step4": {
+          "title": "4. Taking Action",
+          "desc": "When it's time to act, the system gives you the tools to get things done quickly and accurately.",
+          "point1": "**LG Actions:** The system supports a full range of actions other than extension, including amount decrease, liquidation, partial liquidation, amendment, activate none-operative LG, and release.",
+          "point2": "**LG Actions:** The system supports a full range of actions other than extension, including amount decrease, liquidation, partial liquidation, amendment, activate none-operative LG, and release."
+        },
+        "step5": {
+          "title": "5. Bank Communication & Security",
+          "desc": "Stay in control of your communication with banks and maintain airtight security.",
+          "point1": "**Instant Documentation:** It instantly generates the correct instructions and templates for you. All related supporting documents and bank replies are stored securely with the LG record.",
+          "point2": "**Instant Documentation:** It instantly generates the correct instructions and templates for you. All related supporting documents and bank replies are stored securely with the LG record."
+        },
+        "step6": {
+          "title": "6. Built for Your Business",
+          "desc": "This system isn\u2019t a rigid tool; it's a flexible platform that you can configure to fit your specific needs.",
+          "flexibility": {
+            "title": "Control & Flexibility",
+            "desc": "As an administrator, you define the rules. You can set how actionable LGs are selected, the logic for reminders, renewal preferences, and other behavioral rules."
+          },
+          "audit": {
+            "title": "Full Audit Trail",
+            "desc": "Every action is logged. You\u2019ll have a complete audit trail that shows who did what, when, and what changed across all users and actions. This makes internal reviews and external audits effortless."
+          }
+        }
+      },
+      "cta": {
+        "title": "Ready to Take Control?",
+        "desc": "LG management can be simple, secure, and smart. See for yourself how a system built by treasurers can transform your operations and empower your growth.",
+        "requestDemo": "Request a Demo Today"
+      }
+    }
+  },
+  "/corporate-admin/approval-requests/": "/Corporate-Admin/Approval-Requests/",
+  "/corporate-admin/my-subscription": "/Corporate-Admin/My-Subscription",
+  "Failed to configure bank": {
+    " It may already exist for this trade type": {
+      "": ""
+    }
+  },
+  "/corporate-admin/email-settings/": "/Corporate-Admin/Email-Settings/",
+  "The window for this quotation has already closed": {
+    " It cannot be approved": {
+      "": ""
+    }
+  },
+  "/end-user/quotations/": "/End-User/Quotations/",
+  "/public-issuance/generate-invite": "/Public-Issuance/Generate-Invite",
+  "template_type": "Template_Type",
+  "value_default": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100",
+  "LG Category updated successfully!": "L G  Category Updated Successfully!",
+  "Reason": "Reason",
+  "/system-owner/users/": "/System-Owner/Users/",
+  "debit_amount": "Debit_Amount",
+  "/corporate-admin/migration/staged/re-validate-multiple": "/Corporate-Admin/Migration/Staged/Re-Validate-Multiple",
+  "/end-user/currencies": "/End-User/Currencies",
+  "/facilities/upload-attachment": "/Facilities/Upload-Attachment",
+  "booking_date": "Booking_Date",
+  "raw_description": "Raw_Description",
+  "/public/register-free-trial/": "/Public/Register-Free-Trial/",
+  "Subject": "Subject",
+  "/reports/system-owner/system-usage-overview": "/Reports/System-Owner/System-Usage-Overview",
+  "/end-user/banks/": "/End-User/Banks/",
+  "/system-owner/scheduler/jobs": "/System-Owner/Scheduler/Jobs",
+  "New Amount": "New  Amount",
+  "T": "min=new Date().toISOString().split(\"T\")[0]",
+  "/system-owner/global-configurations": "/System-Owner/Global-Configurations",
+  "Bidding link copied to clipboard!": "Bidding Link Copied To Clipboard!",
+  "style": "Style",
+  "running_balance": "Running_Balance",
+  "Customer onboarded successfully!": "Customer Onboarded Successfully!",
+  "/corporate-admin/customer-entities/": "/Corporate-Admin/Customer-Entities/",
+  "": {
+    "": "subscriptionStatus,"
+  },
+  "/end-user/currencies/": "/End-User/Currencies/",
+  "/reports/avg-bank-processing-time": "/Reports/Avg-Bank-Processing-Time",
+  "Failed to delete statement": {
+    " ": ""
+  },
+  ") ": ")",
+  "Amount": "Amount",
+  "/public/legal-content/terms_and_conditions": "/Public/Legal-Content/Terms_And_Conditions",
+  "Days until expiry": "Days Until Expiry",
+  "/reports/avg-delivery-days": "/Reports/Avg-Delivery-Days",
+  "/reports/customer-lg-type-mix": "/Reports/Customer-Lg-Type-Mix",
+  "/end-user/quotations/notifications": "/End-User/Quotations/Notifications",
+  "Result emails have been sent successfully": {
+    "": ""
+  },
+  "YYYYMMDD": "Y Y Y Y M M D D",
+  "global_config_key": "handleSort('global_config_key')>",
+  "Failed to archive facility": "bg-yellow-500",
+  "token": "const [department, setDepartment] = useState('');",
+  "/system-owner/customers/onboard": "/System-Owner/Customers/Onboard",
+  "Link copied to clipboard": "Link Copied To Clipboard",
+  "/end-user/users/me_dashboard_info": "/End-User/Users/Me_Dashboard_Info",
+  "/corporate-admin/banks": "/Corporate-Admin/Banks",
+  "a": "A",
+  "/corporate-admin/migration/batches": "/Corporate-Admin/Migration/Batches",
+  "/reconciliation/statements/upload": "/Reconciliation/Statements/Upload",
+  "/reports/bank-market-share": "/Reports/Bank-Market-Share",
+  "global_description": "handleSort('global_description')>",
+  "/system-owner/subscription-plans": "/System-Owner/Subscription-Plans",
+  "/corporate-admin/users": "/Corporate-Admin/Users",
+  "is-after-current": "Is-After-Current",
+  "name": "Name",
+  "Approved by": "Approved By",
+  "Recipients": "Recipients",
+  "/system-owner/template-metadata": "/System-Owner/Template-Metadata",
+  "/end-user/internal-owner-contacts/with-lg-count": "/End-User/Internal-Owner-Contacts/With-Lg-Count",
+  "/reconciliation/rules": "/Reconciliation/Rules",
+  "id": "Id",
+  "YYYY-MM-DD HH:mm:ss": "'Date/Time': moment(event.timestamp).format('YYYY-MM-DD HH:mm:ss'),",
+  "Failed to restore facility": "bg-yellow-500",
+  "/corporate-admin/migration/preview-history": "/Corporate-Admin/Migration/Preview-History",
+  "Document stored": "Document Stored",
+  "/issuance/requests/": "/Issuance/Requests/",
+  "Details": "Details",
+  "Failed to save rule": {
+    "": ""
+  },
+  "/system-owner/templates": "/System-Owner/Templates",
+  "/corporate-admin/migration/staged/delete-all": "/Corporate-Admin/Migration/Staged/Delete-All",
+  "/reconciliation/statements": "/Reconciliation/Statements",
+  "/corporate-admin/approval-groups/": "/Corporate-Admin/Approval-Groups/",
+  "/corporate-admin/departments/": "/Corporate-Admin/Departments/",
+  "Beneficiary": "Beneficiary",
+  "global_value_max": "handleSort('global_value_max')>",
+  "/end-user/system-notifications/": "/End-User/System-Notifications/",
+  "phone_number": "onClick=() => handleSort('phone_number')",
+  "/end-user/rules/": "/End-User/Rules/",
+  "/end-user/issuing-methods/": "/End-User/Issuing-Methods/",
+  "/corporate-admin/quotations/pending-approvals": "/Corporate-Admin/Quotations/Pending-Approvals",
+  "/end-user/approval-requests/my-pending": "/End-User/Approval-Requests/My-Pending",
+  "To": "To",
+  "/end-user/customer-configurations/MAX_DAYS_FOR_LAST_INSTRUCTION_CANCELLATION": "/End-User/Customer-Configurations/ M A X_ D A Y S_ F O R_ L A S T_ I N S T R U C T I O N_ C A N C E L L A T I O N",
+  "YYYYMMDD_HHmmss": "Y Y Y Y M M D D_ H Hmmss",
+  "manager_email": "onClick=() => handleSort('manager_email')",
+  "global_value_min": "handleSort('global_value_min')>",
+  "key": "<th",
+  "/reports/end-user/my-lg-dashboard": "/Reports/End-User/My-Lg-Dashboard",
+  "DD-MMM-YYYY HH:mm": "Issued On: moment(instruction.created_at).format('DD-MMM-YYYY HH:mm')",
+  "/reconciliation/detect-relationships": "/Reconciliation/Detect-Relationships",
+  "/issuance/form-config": "/Issuance/Form-Config",
+  "email": "onClick=() => handleSort('email')",
+  "terms_and_conditions": "Terms_And_Conditions",
+  "/corporate-admin/migration/report": "/Corporate-Admin/Migration/Report",
+  "LG Category created successfully!": "L G  Category Created Successfully!",
+  "/reports/avg-days-to-action": "/Reports/Avg-Days-To-Action",
+  "/end-user/lg-records/scan-file/": "/End-User/Lg-Records/Scan-File/",
+  "global_value_default": "handleSort('global_value_default')>",
+  "/end-user/lg-types/": "/End-User/Lg-Types/",
+  "ownerId": "Owner Id",
+  "privacy_policy": "Privacy_Policy",
+  "/system-owner/customers": "/System-Owner/Customers",
+  "Delivered on": "Delivered On",
+  "content-type": "Content-Type",
+  "rfq_id": "Rfq_Id",
+  "action_type": "Action_Type",
+  "Replied on": "Replied On",
+  "/change-password": "/Change-Password",
+  "/end-user/quotations/banks": "/End-User/Quotations/Banks",
+  "/corporate-admin/customer-configurations/": "/Corporate-Admin/Customer-Configurations/",
+  "/end-user/customer-entities/": "/End-User/Customer-Entities/",
+  "_": "_",
+  ",": "[name]: value.split(',').map(item => item.trim()).filter(item => item !== '')",
+  "Initial Expiry": "Initial  Expiry",
+  "/issuance/workflow-policies": "/Issuance/Workflow-Policies",
+  "Serial": "Serial",
+  "/corporate-admin/migration/import-history": "/Corporate-Admin/Migration/Import-History",
+  "/corporate-admin/migration/staged/audit": "/Corporate-Admin/Migration/Staged/Audit",
+  "Failed to update approval status": {
+    " ": ""
+  },
+  "/end-user/lg-statuses/": "/End-User/Lg-Statuses/",
+  "effective_value": "handleSort('effective_value')>",
+  "/public-issuance/verify-otp": "/Public-Issuance/Verify-Otp",
+  "/end-user/lg-operational-statuses/": "/End-User/Lg-Operational-Statuses/",
+  "Instruction Serial": "Instruction  Serial",
+  "/end-user/lg-records/run-auto-renewal": "/End-User/Lg-Records/Run-Auto-Renewal",
+  "global_unit": "handleSort('global_unit')>",
+  "/end-user/lg-records/change-owner": "/End-User/Lg-Records/Change-Owner",
+  "/end-user/quotations/stats": "/End-User/Quotations/Stats",
+  "description": "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100",
+  "DD-MMM-YYYY": "D D- M M M- Y Y Y Y",
+  "/refresh-token": "/Refresh-Token",
+  "Failed to delete rule": {
+    "": ""
+  },
+  "/end-user/lg-categories/": "/End-User/Lg-Categories/",
+  "/system-owner/customers/": "/System-Owner/Customers/",
+  "Failed to remove bank configuration": {
+    "": ""
+  },
+  "YYYY-MM-DD HH:mm:ss z": "Y Y Y Y- M M- D D  H H:Mm:Ss Z",
+  "/issuance/currencies": "/Issuance/Currencies",
+  "MMM Do, YYYY": "M M M  Do,  Y Y Y Y",
+  "/corporate-admin/system-notifications/": "/Corporate-Admin/System-Notifications/",
+  "YYYY-MM-DD": "expiry_date: formData.expiry_date ? moment(formData.expiry_date).format('YYYY-MM-DD') : null,",
+  "/corporate-admin/users/": "/Corporate-Admin/Users/",
+  " ": "",
+  "/public-issuance/verify-domain": "/Public-Issuance/Verify-Domain",
+  "/corporate-admin/migration/manual-entry": "/Corporate-Admin/Migration/Manual-Entry",
+  "/end-user/lg-records/": "/End-User/Lg-Records/",
+  "Please fill in GL Account and all condition values": {
+    "": ""
+  },
+  "/corporate-admin/migration/import-ready": "/Corporate-Admin/Migration/Import-Ready",
+  "internal_id": "onClick=() => handleSort('internal_id')",
+  "/policies/accept": "/Policies/Accept",
+  "/corporate-admin/migration/staged/delete-multiple": "/Corporate-Admin/Migration/Staged/Delete-Multiple",
+  "/system-owner/system-notifications/": "/System-Owner/System-Notifications/",
+  "/system-owner/dashboard-metrics": "/System-Owner/Dashboard-Metrics",
+  "Failed to send emails: ": "Failed To Send Emails:"
+}

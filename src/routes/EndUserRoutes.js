@@ -10,6 +10,15 @@ import ManageInternalOwnersPage from 'pages/EndUser/ManageInternalOwnersPage';
 import EndUserActionCenter from 'pages/EndUser/EndUserActionCenter';
 import EndUserPendingApprovalsPage from 'pages/EndUser/EndUserPendingApprovalsPage';
 
+// NEW: Import Quotation Dashboards
+import QuotationRequestDashboard from 'pages/EndUser/Quotations/QuotationRequestDashboard';
+import QuotationHistoryDashboard from 'pages/EndUser/Quotations/QuotationHistoryDashboard';
+import ResultsView from 'pages/EndUser/Quotations/ResultsView';
+import IssuanceRequestsPage from 'pages/CorporateAdmin/IssuanceRequestsPage';
+import IssuanceRequestForm from 'pages/Public/PublicIssuanceForm';
+import IssuedLGsPage from 'pages/EndUser/IssuedLGsPage';
+import LGReconciliationPage from 'pages/EndUser/LGReconciliationPage';
+
 // NEW: Import the generic ReportsPage and the single report component for this role
 import ReportsPage from 'pages/Reports/ReportsPage';
 import MyLGDashboardReport from 'pages/Reports/MyLGDashboardReport';
@@ -49,6 +58,17 @@ function EndUserRoutes({ onLogout, subscriptionStatus }) { // NEW: Receive subsc
 
       {/* Pending Approvals for End User - PASS PROP */}
       <Route path="pending-approvals" element={<EndUserPendingApprovalsPage isGracePeriod={isGracePeriod} />} />
+
+      {/* Quotation Module Routes */}
+      <Route path="quotations/active" element={<QuotationRequestDashboard />} />
+      <Route path="quotations/history" element={<QuotationHistoryDashboard />} />
+      <Route path="quotations/results/:id" element={<ResultsView />} />
+
+      {/* Issuance Module Routes (End User = Treasury Officer) */}
+      <Route path="issuance/requests" element={<IssuanceRequestsPage />} />
+      <Route path="issuance/requests/edit/:id" element={<IssuanceRequestForm />} />
+      <Route path="issuance/issued-lgs" element={<IssuedLGsPage />} />
+      <Route path="issuance/reconciliation" element={<LGReconciliationPage />} />
 
       {/* Reports (Updated for End User) */}
       <Route path="reports" element={<ReportsPage reports={endUserReports} />}>

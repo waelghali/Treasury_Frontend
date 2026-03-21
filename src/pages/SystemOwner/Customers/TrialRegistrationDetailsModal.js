@@ -80,6 +80,18 @@ function TrialRegistrationDetailsModal({ registration, onClose }) {
               <p className="mt-1 text-sm text-gray-900">{registration.entities_count}</p>
             </div>
             <div>
+              <p className="text-sm font-medium text-gray-500">Requested Modules</p>
+              <div className="mt-1 flex gap-1 flex-wrap">
+                {(registration.requested_modules || ['custody']).map(mod => (
+                  <span key={mod} className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                    mod === 'custody' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                  }`}>
+                    {mod === 'custody' ? 'LG Custody' : 'LG Issuance'}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div>
               <p className="text-sm font-medium text-gray-500">Status</p>
               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                   registration.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :

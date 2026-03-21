@@ -33,62 +33,107 @@ export const getAuthToken = () => {
  */
 let sessionWarningTimer;
 let sessionExpiryTimer;
+let lastTokenRefreshTime = Date.now();
+let refreshInFlight = false;
 
-// TOTAL_SESSION_MS: Total time before logout
-// WARNING_BUFFER_MS: How long the "warning modal" stays up before the end
-const TOTAL_SESSION_MS = 20 * 60 * 1000;    // 30 Seconds Total (Testing)
-export const WARNING_BUFFER_MS = 1 * 60 * 1000;  // 10 Seconds (Exported for UI)
+// TOTAL_SESSION_MS: Total time before auto-logout (must match backend ACCESS_TOKEN_EXPIRE_MINUTES)
+// WARNING_BUFFER_MS: How long the "warning modal" stays up before the final logout
+const TOTAL_SESSION_MS = 20 * 60 * 1000;    // 20 minutes
+export const WARNING_BUFFER_MS = 1 * 60 * 1000;  // 1 minute warning buffer
+const REFRESH_THRESHOLD_MS = TOTAL_SESSION_MS * 0.5; // Silently refresh JWT after 50% of session time
 
 export const logoutUser = () => {
-    console.log('User logged out due to inactivity or session expiry.');
-    setAuthToken(null);
-    stopInactivityTracker();
-    clearSessionTimers();
+  console.log('User logged out due to inactivity or session expiry.');
+  setAuthToken(null);
+  stopInactivityTracker();
+  clearSessionTimers();
+  // Only redirect to login if the user is on an authenticated (protected) route.
+  // Public pages like /, /know-more, /free-trial-register, /login, /portal/*
+  // should not be disrupted by a session timeout from a stale token.
+  const publicPaths = ['/', '/know-more', '/free-trial-register', '/login', '/forgot-password', '/reset-password', '/portal', '/public-issuance', '/public-quotation'];
+  const currentPath = window.location.pathname;
+  const isPublicPage = publicPaths.some(p => currentPath === p || currentPath.startsWith(p + '/'));
+  if (!isPublicPage) {
     window.location.href = '/login';
+  }
 };
 
 export const clearSessionTimers = () => {
-    clearTimeout(sessionWarningTimer);
-    clearTimeout(sessionExpiryTimer);
+  clearTimeout(sessionWarningTimer);
+  clearTimeout(sessionExpiryTimer);
 };
 
 export const startSessionTimers = (onWarning) => {
-    clearSessionTimers();
+  clearSessionTimers();
 
-    // Trigger the UI warning modal
-    sessionWarningTimer = setTimeout(() => {
-        if (onWarning) onWarning(); 
-    }, TOTAL_SESSION_MS - WARNING_BUFFER_MS);
+  // Trigger the UI warning modal
+  sessionWarningTimer = setTimeout(() => {
+    if (onWarning) onWarning();
+  }, TOTAL_SESSION_MS - WARNING_BUFFER_MS);
 
-    // Final logout timer
-    sessionExpiryTimer = setTimeout(() => {
-        logoutUser();
-    }, TOTAL_SESSION_MS);
+  // Final logout timer
+  sessionExpiryTimer = setTimeout(() => {
+    logoutUser();
+  }, TOTAL_SESSION_MS);
 };
 
 export const handleUserActivity = async (onWarning) => {
-    startSessionTimers(onWarning); 
+  startSessionTimers(onWarning);
+
+  // Silent background JWT refresh: keeps the backend token alive
+  // while the user is actively working, preventing desync between
+  // the frontend timer (which resets on activity) and the backend
+  // JWT expiry (which is fixed at creation time).
+  const elapsed = Date.now() - lastTokenRefreshTime;
+  if (elapsed > REFRESH_THRESHOLD_MS && !refreshInFlight) {
+    refreshInFlight = true;
+    try {
+      const token = getAuthToken();
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/refresh-token`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.access_token) {
+            setAuthToken(data.access_token);
+            lastTokenRefreshTime = Date.now();
+          }
+        }
+        // If refresh fails (e.g. 401), we don't logout here —
+        // the next real API call will catch the 401 and handle it.
+      }
+    } catch (err) {
+      console.warn('Silent token refresh failed:', err.message);
+    } finally {
+      refreshInFlight = false;
+    }
+  }
 };
 
-// Compatibility stubs for App.js logic
-export const resetInactivityTimer = () => {}; 
-export const startInactivityTracker = () => {};
+// Called after login to mark the token as freshly issued
+export const resetTokenRefreshTime = () => { lastTokenRefreshTime = Date.now(); };
 export const stopInactivityTracker = () => clearSessionTimers();
 
 /**
  * Session Extension (Token Refresh)
  */
 export const extendSession = async () => {
-    try {
-        const data = await apiRequest('/refresh-token', 'POST');
-        if (data && data.access_token) {
-            setAuthToken(data.access_token);
-            return true;
-        }
-    } catch (err) {
-        console.error("Extension failed", err);
+  try {
+    const data = await apiRequest('/refresh-token', 'POST');
+    if (data && data.access_token) {
+      setAuthToken(data.access_token);
+      lastTokenRefreshTime = Date.now();
+      return true;
     }
-    return false;
+  } catch (err) {
+    console.error('Session extension failed — token may have already expired:', err.message);
+  }
+  return false;
 };
 
 /**
@@ -101,8 +146,8 @@ export const apiRequest = async (url, method = 'GET', data = null, contentType =
 
   let body = data;
   if (!(data instanceof FormData)) {
-      headers['Content-Type'] = contentType;
-      if (contentType === 'application/json' && data !== null) body = JSON.stringify(data);
+    headers['Content-Type'] = contentType;
+    if (contentType === 'application/json' && data !== null) body = JSON.stringify(data);
   }
 
   try {
@@ -117,7 +162,7 @@ export const apiRequest = async (url, method = 'GET', data = null, contentType =
         throw forbiddenError;
       }
       if (response.status === 401) {
-        logoutUser(); 
+        logoutUser();
         const authError = new Error('Authentication required or session expired.');
         authError.statusCode = 401;
         throw authError;
@@ -129,6 +174,7 @@ export const apiRequest = async (url, method = 'GET', data = null, contentType =
 
     const contentTypeHeader = response.headers.get('content-type');
     if (response.status === 204 || !contentTypeHeader) return null;
+    if (responseType === 'blob') return await response.blob();
     return responseType === 'text' ? await response.text() : await response.json();
   } catch (error) {
     console.error('API Request Failed:', error);

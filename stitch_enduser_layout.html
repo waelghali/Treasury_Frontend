@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>End-User Transaction Layout - Treasury Platform</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2b8cee",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .sidebar-item-active {
+            background: rgba(43, 140, 238, 0.15);
+            border-right: 3px solid #2b8cee;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased">
+<div class="flex h-screen overflow-hidden">
+<!-- Sidebar -->
+<aside class="w-72 flex-shrink-0 flex flex-col bg-slate-50 dark:bg-slate-900/50 border-r border-slate-200 dark:border-slate-800">
+<div class="p-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-white">
+<span class="material-symbols-outlined">account_balance</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-slate-900 dark:text-white text-base font-bold leading-tight">Treasury Platform</h1>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-medium">End-User Edition</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-3 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-primary sidebar-item-active group" href="#">
+<span class="material-symbols-outlined text-[22px]">dashboard</span>
+<span class="text-sm font-semibold">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined text-[22px]">notifications_active</span>
+<span class="text-sm font-medium">Action Center</span>
+<span class="ml-auto bg-primary text-white text-[10px] px-1.5 py-0.5 rounded-full">12</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined text-[22px]">add_circle</span>
+<span class="text-sm font-medium">Record New LG</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined text-[22px]">history</span>
+<span class="text-sm font-medium">Transaction History</span>
+</a>
+<div class="pt-4 pb-2">
+<p class="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Support</p>
+</div>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined text-[22px]">help</span>
+<span class="text-sm font-medium">Help Center</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined text-[22px]">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+<div class="p-4 mt-auto">
+<button class="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-lg py-2.5 text-sm font-bold transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-sm">add</span>
+<span>New Transaction</span>
+</button>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col overflow-hidden">
+<!-- Header -->
+<header class="h-16 flex items-center justify-between px-8 bg-white/50 dark:bg-background-dark/50 border-b border-slate-200 dark:border-slate-800 glass z-10">
+<div class="flex items-center gap-6">
+<button class="text-slate-500 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">menu_open</span>
+</button>
+<h2 class="text-lg font-bold tracking-tight">End-User Workspace</h2>
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">search</span>
+<input class="bg-slate-100 dark:bg-slate-800/50 border-none rounded-lg pl-10 pr-4 py-2 text-sm w-64 focus:ring-2 focus:ring-primary/50 transition-all" placeholder="Search transactions, records..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center border-r border-slate-200 dark:border-slate-800 pr-4 gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined">help</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+</button>
+</div>
+<div class="flex items-center gap-3 pl-2">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-bold leading-none">Alex Rivera</p>
+<p class="text-[10px] text-slate-500 font-medium mt-1">Operational Specialist</p>
+</div>
+<img alt="User Profile" class="w-10 h-10 rounded-full border-2 border-primary/20 p-0.5" data-alt="Close up portrait of a professional man" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCrWQRvReDbHK8BYikNHZ08Ogke_ItOlWkH3i6ttEqAiVdUHTz_st5ZvZSInTJQ9iyjSEWnkixOjV8oCNtjDx9-56KsRcuBYn-18rol64rP2Vdv7WMt1Nukg0C_US2sJqSf0flKTKRzDHgP0nwGvy3xughtxQcgb_ZvPlh7YOtfYvCXECzA_WnycJ0CAfrL1-5AzffZ9szBh6gn2zZKEFXs9DH6qwYKb7r6eWSG1u1th7_8xaD2bHhSZgIFFHDJzKj5zXCT306J83g"/>
+</div>
+</div>
+</header>
+<!-- Dashboard Content -->
+<div class="flex-1 overflow-y-auto p-8">
+<div class="max-w-6xl mx-auto">
+<!-- Welcome Section -->
+<div class="flex flex-wrap items-end justify-between gap-4 mb-8">
+<div>
+<h1 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Welcome back, Alex</h1>
+<p class="text-slate-500 dark:text-slate-400 mt-1">Here's a summary of your personal tasks and recent record statuses.</p>
+</div>
+<button class="flex items-center gap-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold py-2.5 px-5 rounded-lg transition-all text-sm">
+<span class="material-symbols-outlined text-sm">post_add</span>
+<span>Record New LG</span>
+</button>
+</div>
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+<div class="bg-white dark:bg-slate-900/40 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<span class="text-slate-500 dark:text-slate-400 font-medium text-sm">Pending Actions</span>
+<div class="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center text-orange-600 dark:text-orange-400">
+<span class="material-symbols-outlined text-xl">pending_actions</span>
+</div>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-bold">12</span>
+<span class="text-emerald-500 text-xs font-bold">+2%</span>
+</div>
+<p class="text-xs text-slate-400 mt-1">Required attention today</p>
+</div>
+<div class="bg-white dark:bg-slate-900/40 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<span class="text-slate-500 dark:text-slate-400 font-medium text-sm">Total Records</span>
+<div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
+<span class="material-symbols-outlined text-xl">description</span>
+</div>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-bold">148</span>
+<span class="text-rose-500 text-xs font-bold">-1%</span>
+</div>
+<p class="text-xs text-slate-400 mt-1">Active bank guarantees</p>
+</div>
+<div class="bg-white dark:bg-slate-900/40 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<span class="text-slate-500 dark:text-slate-400 font-medium text-sm">Processed Today</span>
+<div class="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+<span class="material-symbols-outlined text-xl">check_circle</span>
+</div>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-bold">5</span>
+<span class="text-emerald-500 text-xs font-bold">+5%</span>
+</div>
+<p class="text-xs text-slate-400 mt-1">Since 8:00 AM</p>
+</div>
+</div>
+<!-- Action Center -->
+<div class="mb-10">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-xl font-bold tracking-tight">Action Center</h2>
+<a class="text-primary text-sm font-semibold hover:underline" href="#">View All</a>
+</div>
+<div class="bg-white dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Transaction ID</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Applicant</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Type</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Amount</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-sm">LG-2024-0892</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium">Global Logistics S.A.</td>
+<td class="px-6 py-4 text-sm text-slate-500">Performance Bond</td>
+<td class="px-6 py-4 text-sm font-bold">$45,000.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800">Review Needed</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary font-bold text-xs hover:text-primary/80">Execute</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-sm">LG-2024-0895</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium">Vertex Construct</td>
+<td class="px-6 py-4 text-sm text-slate-500">Advance Payment</td>
+<td class="px-6 py-4 text-sm font-bold">$120,500.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800">Pending Bank</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-slate-400 font-bold text-xs cursor-not-allowed">Waiting</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-sm">LG-2024-0901</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium">Nordic Energy Corp</td>
+<td class="px-6 py-4 text-sm text-slate-500">Tender Guarantee</td>
+<td class="px-6 py-4 text-sm font-bold">$12,000.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">Completed</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary font-bold text-xs hover:text-primary/80">Download</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Recent Status Activity -->
+<div>
+<h2 class="text-xl font-bold tracking-tight mb-6">Recent Status Changes</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex items-center gap-4 p-4 rounded-xl bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
+<div class="w-12 h-12 flex-shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+<span class="material-symbols-outlined">verified</span>
+</div>
+<div class="flex-1">
+<h3 class="text-sm font-bold">LG-2024-0812 Approved</h3>
+<p class="text-xs text-slate-500">Verified by Compliance Team</p>
+</div>
+<span class="text-[10px] font-bold text-slate-400 uppercase">2m ago</span>
+</div>
+<div class="flex items-center gap-4 p-4 rounded-xl bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
+<div class="w-12 h-12 flex-shrink-0 rounded-full bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
+<span class="material-symbols-outlined">edit_square</span>
+</div>
+<div class="flex-1">
+<h3 class="text-sm font-bold">Draft LG-2024-0912</h3>
+<p class="text-xs text-slate-500">Saved by Alex Rivera</p>
+</div>
+<span class="text-[10px] font-bold text-slate-400 uppercase">1h ago</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

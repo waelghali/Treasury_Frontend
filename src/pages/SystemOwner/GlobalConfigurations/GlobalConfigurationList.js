@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
+import { toast } from 'react-toastify';
 import { 
-  PlusCircle, Edit, RotateCcw, Search, Filter, Settings, 
-  ChevronUp, ChevronDown, Lock, Clock, MessageSquare, FileCheck 
+  PlusCircle, Edit, RotateCcw, Search, Filter, Settings, Save, Loader2,
+  ChevronUp, ChevronDown, Lock, Clock, MessageSquare, FileCheck, Layers 
 } from 'lucide-react';
 
 // --- Configuration Groupings Mapping ---
@@ -12,6 +13,7 @@ const settingGroups = {
     'System Limits & Timers': { icon: Clock },
     'Communication & Alerts': { icon: MessageSquare },
     'Document Compliance & Requirements': { icon: FileCheck },
+    'Issuance & Facilities': { icon: Layers },
     'General': { icon: Settings }
 };
 
@@ -30,6 +32,9 @@ const getGroupKey = (configKey) => {
     }
     if (key.includes('REQUIRED') || key.includes('MANDATORY') || key.includes('OPTIONAL') || key.includes('DOC') || key.includes('ATTACHMENT') || key.includes('FILE')) {
         return 'Document Compliance & Requirements';
+    }
+    if (key.includes('FACILITY_SCORE') || key.includes('RESERVATION_TTL') || key.includes('ISSUANCE_LG')) {
+        return 'Issuance & Facilities';
     }
     return 'General';
 };
@@ -318,12 +323,11 @@ function GlobalConfigurationList({ onLogout }) {
                                 </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                {configsInGroup.map((config) => {
+                                {configsInGroup.filter(c => !c.key?.startsWith('FACILITY_SCORE_WEIGHT_')).map((config) => {
                                     const isBool = isBooleanConfig(config);
                                     const valStr = String(config.value_default).toLowerCase();
                                     const isOn = valStr === 'true';
 
-                                    // Determine text color for value column
                                     let valueTextColor = "text-gray-900";
                                     if (isBool) {
                                         valueTextColor = isOn ? "text-green-600" : "text-red-600";
@@ -337,16 +341,10 @@ function GlobalConfigurationList({ onLogout }) {
                                         <td className="px-6 py-4 text-sm text-gray-500 w-[25%]">{config.description || 'N/A'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{config.value_min || '-'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{config.value_max || '-'}</td>
-                                        
-                                        {/* Value Default Column with Color Coding */}
                                         <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${valueTextColor}`}>
                                             {config.value_default || 'N/A'}
                                         </td>
-                                        
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{config.unit || 'N/A'}</td>
-                                        {/* Status Column Removed */}
-                                        
-                                        {/* Actions Column - Centered */}
                                         <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                             {config.is_deleted ? (
                                                 <button
@@ -387,6 +385,218 @@ function GlobalConfigurationList({ onLogout }) {
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* System Owner Weight Editor — for Issuance & Facilities group */}
+                        {groupName === 'Issuance & Facilities' && (() => {
+                          const WEIGHT_DEFS = [
+                            { label: 'Cost', color: '#3b82f6', key: 'FACILITY_SCORE_WEIGHT_COST', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_COST' },
+                            { label: 'Margin', color: '#8b5cf6', key: 'FACILITY_SCORE_WEIGHT_MARGIN', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_MARGIN' },
+                            { label: 'SLA', color: '#f59e0b', key: 'FACILITY_SCORE_WEIGHT_SLA', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_SLA' },
+                            { label: 'Capacity', color: '#10b981', key: 'FACILITY_SCORE_WEIGHT_CAPACITY', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_CAPACITY' },
+                            { label: 'Currency', color: '#ec4899', key: 'FACILITY_SCORE_WEIGHT_CURRENCY_MATCH', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_CURRENCY_MATCH' },
+                          ];
+
+                          const getConfig = (cfgKey) => configsInGroup.find(x => x.key === cfgKey);
+
+                          const SysWeightPanel = ({ title, keyProp }) => {
+                            const [editing, setEditing] = React.useState(false);
+                            const [saving, setSaving] = React.useState(false);
+                            const [rows, setRows] = React.useState(() =>
+                              WEIGHT_DEFS.map(w => {
+                                const c = getConfig(w[keyProp]);
+                                return {
+                                  ...w,
+                                  configId: c?.id,
+                                  configKey: w[keyProp],
+                                  min: parseInt(c?.value_min || 0),
+                                  max: parseInt(c?.value_max || 100),
+                                  def: parseInt(c?.value_default || 20),
+                                };
+                              })
+                            );
+
+                            React.useEffect(() => {
+                              if (!editing) {
+                                setRows(WEIGHT_DEFS.map(w => {
+                                  const c = getConfig(w[keyProp]);
+                                  return {
+                                    ...w,
+                                    configId: c?.id,
+                                    configKey: w[keyProp],
+                                    min: parseInt(c?.value_min || 0),
+                                    max: parseInt(c?.value_max || 100),
+                                    def: parseInt(c?.value_default || 20),
+                                  };
+                                }));
+                              }
+                            }, [configs, editing]);
+
+                            const snap5 = (v) => Math.round(v / 5) * 5;
+                            const defaultTotal = rows.reduce((s, r) => s + r.def, 0);
+                            const isBalanced = defaultTotal === 100;
+
+                            const handleFieldChange = (idx, field, val) => {
+                              val = Math.max(0, Math.min(100, snap5(val || 0)));
+                              setRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: val } : r));
+                            };
+
+                            const handleBalance = () => {
+                              if (defaultTotal === 0) {
+                                setRows(prev => prev.map(r => ({ ...r, def: 20 })));
+                                return;
+                              }
+                              const scale = 100 / defaultTotal;
+                              const updated = rows.map(r => ({ ...r, def: snap5(r.def * scale) }));
+                              const newTotal = updated.reduce((s, r) => s + r.def, 0);
+                              if (newTotal !== 100) {
+                                const largest = updated.reduce((best, r, i) => r.def > updated[best].def ? i : best, 0);
+                                updated[largest].def += (100 - newTotal);
+                              }
+                              setRows(updated);
+                            };
+
+                            const handleSave = async () => {
+                              if (!isBalanced) {
+                                toast.warn('Default weights must sum to 100%. Use the Balance button.');
+                                return;
+                              }
+                              // Validate min <= default <= max per weight
+                              for (const r of rows) {
+                                if (r.min > r.def) {
+                                  toast.warn(`${r.label}: Minimum (${r.min}) cannot exceed Default (${r.def}).`);
+                                  return;
+                                }
+                                if (r.def > r.max) {
+                                  toast.warn(`${r.label}: Default (${r.def}) cannot exceed Maximum (${r.max}).`);
+                                  return;
+                                }
+                              }
+                              setSaving(true);
+                              try {
+                                for (const r of rows) {
+                                  await apiRequest(`/system-owner/global-configurations/${r.configId}`, 'PUT', {
+                                    key: r.configKey,
+                                    value_min: String(r.min),
+                                    value_max: String(r.max),
+                                    value_default: String(r.def),
+                                    unit: 'percentage',
+                                    description: getConfig(r.configKey)?.description || '',
+                                  });
+                                }
+                                toast.success(`${title} saved!`);
+                                setEditing(false);
+                                fetchGlobalConfigurations();
+                              } catch (err) {
+                                toast.error(`Save failed: ${err.message}`);
+                              } finally {
+                                setSaving(false);
+                              }
+                            };
+
+                            const handleCancel = () => {
+                              setRows(WEIGHT_DEFS.map(w => {
+                                const c = getConfig(w[keyProp]);
+                                return { ...w, configId: c?.id, configKey: w[keyProp], min: parseInt(c?.value_min || 0), max: parseInt(c?.value_max || 100), def: parseInt(c?.value_default || 20) };
+                              }));
+                              setEditing(false);
+                            };
+
+                            const totalColor = isBalanced
+                              ? 'bg-green-100 text-green-700 border-green-300'
+                              : defaultTotal > 90 && defaultTotal < 110
+                              ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                              : 'bg-red-100 text-red-700 border-red-300';
+
+                            return (
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm font-semibold text-gray-700">{title}</span>
+                                  {!editing ? (
+                                    <button onClick={() => setEditing(true)} className="text-xs px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium">
+                                      <Edit className="h-3 w-3 inline mr-1" />Edit Ranges
+                                    </button>
+                                  ) : (
+                                    <div className="flex gap-2 items-center">
+                                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${totalColor}`}>
+                                        Defaults: {defaultTotal}%
+                                      </span>
+                                      {!isBalanced && (
+                                        <button onClick={handleBalance} className="text-xs px-2 py-1 bg-amber-500 text-white rounded-md hover:bg-amber-600 font-medium">
+                                          Balance to 100%
+                                        </button>
+                                      )}
+                                      <button onClick={handleSave} disabled={saving || !isBalanced} className="text-xs px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 font-medium">
+                                        {saving ? <Loader2 className="h-3 w-3 inline animate-spin mr-1" /> : <Save className="h-3 w-3 inline mr-1" />}Save
+                                      </button>
+                                      <button onClick={handleCancel} disabled={saving} className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 font-medium">
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Color bar */}
+                                <div className="flex h-6 rounded-lg overflow-hidden bg-gray-100 shadow-inner mb-2">
+                                  {rows.map((seg, i) => {
+                                    const pct = defaultTotal > 0 ? (seg.def / defaultTotal) * 100 : 20;
+                                    return (
+                                      <div key={i} style={{ width: `${pct}%`, backgroundColor: seg.color }} className="flex items-center justify-center transition-all duration-200" title={`${seg.label}: ${seg.def}%`}>
+                                        {pct > 10 && <span className="text-[10px] font-bold text-white drop-shadow">{seg.def}%</span>}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                {editing ? (
+                                  <div>
+                                    {/* Header row */}
+                                    <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-2 mb-1">
+                                      <div className="w-20" />
+                                      <span className="text-[10px] font-semibold text-gray-500 text-center uppercase">Min</span>
+                                      <span className="text-[10px] font-semibold text-gray-500 text-center uppercase">Default</span>
+                                      <span className="text-[10px] font-semibold text-gray-500 text-center uppercase">Max</span>
+                                    </div>
+                                    {rows.map((w, i) => (
+                                      <div key={i} className="grid grid-cols-[auto_1fr_1fr_1fr] gap-2 items-center mb-1">
+                                        <div className="flex items-center gap-1 w-20">
+                                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: w.color }} />
+                                          <span className="text-[11px] font-semibold text-gray-700">{w.label}</span>
+                                        </div>
+                                        <input type="number" min="0" max="100" step="5" value={w.min}
+                                          onChange={e => handleFieldChange(i, 'min', parseInt(e.target.value, 10))}
+                                          className="w-full text-xs text-center border border-gray-300 rounded px-1 py-1 focus:ring-1 focus:ring-blue-500" />
+                                        <input type="number" min="0" max="100" step="5" value={w.def}
+                                          onChange={e => handleFieldChange(i, 'def', parseInt(e.target.value, 10))}
+                                          className="w-full text-xs text-center border border-blue-300 rounded px-1 py-1 font-bold bg-blue-50 focus:ring-1 focus:ring-blue-500" />
+                                        <input type="number" min="0" max="100" step="5" value={w.max}
+                                          onChange={e => handleFieldChange(i, 'max', parseInt(e.target.value, 10))}
+                                          className="w-full text-xs text-center border border-gray-300 rounded px-1 py-1 focus:ring-1 focus:ring-blue-500" />
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="flex gap-3">
+                                    {rows.map((seg, i) => (
+                                      <div key={i} className="flex items-center gap-1">
+                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: seg.color }} />
+                                        <span className="text-[10px] text-gray-500">{seg.label}: {seg.min}-{seg.def}-{seg.max}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          };
+
+                          return (
+                            <div className="px-4 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+                              <div className="flex gap-8">
+                                <SysWeightPanel title="⚖️ Normal Requests" keyProp="key" />
+                                <SysWeightPanel title="🚨 Urgent Requests" keyProp="urgentKey" />
+                              </div>
+                            </div>
+                          );
+                        })()}
                     </div>
                 );
             })}
