@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import {
     Upload, Search, CheckCircle2, AlertTriangle, AlertCircle, Info,
     RefreshCw, FileText, Calendar, Building2, ChevronDown, ChevronUp,
-    Check, X, Clock, Shield, Eye, Download, Loader2, BarChart3
+    Check, X, Clock, Shield, Eye, Download, Loader2, BarChart3, Trash2
 } from 'lucide-react';
 
 // ─── Severity config ───
@@ -126,7 +126,7 @@ export default function LGReconciliationPage() {
         try {
             const updated = await apiRequest(
                 `/issuance/reconciliation/sessions/${selectedSession.id}/match`,
-                { method: 'POST' }
+                'POST'
             );
             setSelectedSession(updated);
             const resultsData = await apiRequest(
@@ -143,7 +143,8 @@ export default function LGReconciliationPage() {
         try {
             const updated = await apiRequest(
                 `/issuance/reconciliation/results/${resultId}/resolve`,
-                { method: 'POST', body: JSON.stringify({ resolution, notes }) }
+                'POST',
+                { resolution, notes }
             );
             setResults(prev => prev.map(r => r.id === resultId ? updated : r));
             toast.success(resolution === 'ADJUSTED'
@@ -152,13 +153,28 @@ export default function LGReconciliationPage() {
         } catch (e) { toast.error('Resolution failed'); }
     };
 
+    // ── Delete ──
+    const handleDeleteSession = async () => {
+        if (!selectedSession || !window.confirm('Are you sure you want to delete this session entirely?')) return;
+        try {
+            await apiRequest(
+                `/issuance/reconciliation/sessions/${selectedSession.id}`,
+                'DELETE'
+            );
+            toast.success('Session deleted successfully');
+            fetchSessions();
+            setActiveTab('sessions');
+            setSelectedSession(null);
+        } catch (e) { toast.error(e.message || 'Cannot delete session right now'); }
+    };
+
     // ── Complete ──
     const handleComplete = async () => {
         if (!selectedSession) return;
         try {
             await apiRequest(
                 `/issuance/reconciliation/sessions/${selectedSession.id}/complete`,
-                { method: 'POST' }
+                'POST'
             );
             toast.success('Reconciliation completed!');
             fetchSessions();
@@ -368,7 +384,11 @@ export default function LGReconciliationPage() {
                                     Parsed via {selectedSession.parsing_method}
                                 </p>
                             </div>
-                            <div style={{ display: 'flex', gap: 8 }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <button onClick={handleDeleteSession}
+                                    style={{ ...btnPrimary, background: '#fee2e2', color: '#ef4444', display: 'flex', alignItems: 'center', gap: 6, opacity: 0.9 }}>
+                                    <Trash2 size={14} /> Delete
+                                </button>
                                 {selectedSession.status === 'PARSED' && (
                                     <button onClick={handleRunMatching} disabled={matching}
                                         style={{ ...btnPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -418,7 +438,7 @@ export default function LGReconciliationPage() {
                             background: '#fff', borderRadius: 12, padding: 16,
                         }}>
                             <select value={filterSeverity} onChange={e => setFilterSeverity(e.target.value)}
-                                style={{ ...inputStyle, width: 160, height: 36, fontSize: 13 }}>
+                                style={{ ...inputStyle, width: 160, height: 36, fontSize: 13, padding: '4px 12px' }}>
                                 <option value="">All Severity</option>
                                 <option value="HIGH">🔴 High</option>
                                 <option value="MEDIUM">🟠 Medium</option>
@@ -426,7 +446,7 @@ export default function LGReconciliationPage() {
                                 <option value="INFO">🔵 Info</option>
                             </select>
                             <select value={filterType} onChange={e => setFilterType(e.target.value)}
-                                style={{ ...inputStyle, width: 200, height: 36, fontSize: 13 }}>
+                                style={{ ...inputStyle, width: 200, height: 36, fontSize: 13, padding: '4px 12px' }}>
                                 <option value="">All Types</option>
                                 <option value="AMOUNT">Amount Variance</option>
                                 <option value="CURRENCY">Currency Mismatch</option>
@@ -437,7 +457,7 @@ export default function LGReconciliationPage() {
                                 <option value="SYSTEM_ONLY">System Only</option>
                             </select>
                             <select value={filterResolved} onChange={e => setFilterResolved(e.target.value)}
-                                style={{ ...inputStyle, width: 160, height: 36, fontSize: 13 }}>
+                                style={{ ...inputStyle, width: 160, height: 36, fontSize: 13, padding: '4px 12px' }}>
                                 <option value="">All Status</option>
                                 <option value="no">Unresolved</option>
                                 <option value="yes">Resolved</option>
@@ -449,10 +469,22 @@ export default function LGReconciliationPage() {
                     )}
 
                     {/* Results list */}
+                    
+                    {/* Resolution Banner */}
+                    {selectedSession.status !== 'COMPLETED' && filteredResults.some(r => !r.user_resolution) && (
+                        <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', padding: '12px 16px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                            <AlertTriangle size={20} color="#d97706" style={{ flexShrink: 0 }} />
+                            <div style={{ fontSize: 14, color: '#b45309' }}>
+                                <strong style={{ display: 'block', marginBottom: 2 }}>Action Required: Resolve Discrepancies</strong>
+                                Please click on each pending row below to review the differences and select a resolution (Adjust, Dispute, or Ignore) before completing.
+                            </div>
+                        </div>
+                    )}
+
                     {filteredResults.length === 0 && selectedSession.status !== 'PARSED' ? (
                         <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8', background: '#fff', borderRadius: 12 }}>
                             {results.length === 0 ? (
-                                <><CheckCircle2 size={40} color="#22c55e" /><p style={{ marginTop: 8 }}>All records matched perfectly!</p></>
+                                <><CheckCircle2 size={40} color="#22c55e" style={{ margin: '0 auto' }}/><p style={{ marginTop: 8 }}>All records matched perfectly!</p></>
                             ) : (
                                 <p>No items match your filters</p>
                             )}
@@ -524,7 +556,10 @@ function ResultRow({ result, onResolve }) {
                     {result.user_resolution ? (
                         <ResolutionBadge resolution={result.user_resolution} approval={result.approval_status} />
                     ) : (
-                        <span style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>⏳ Pending</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fefce8', color: '#d97706', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: '1px solid #fef08a' }}>
+                            <span>⏳ Needs Resolution</span>
+                            {!expanded && <span style={{ color: '#b45309', fontWeight: 500, fontStyle: 'italic', fontSize: 11 }}>(Click to expand)</span>}
+                        </div>
                     )}
                     {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </div>
@@ -547,27 +582,77 @@ function ResultRow({ result, onResolve }) {
                     </div>
 
                     {/* Resolution controls */}
-                    {!result.user_resolution && (
-                        <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                            <div style={{ flex: 1 }}>
-                                <input type="text" placeholder="Notes (optional)"
-                                    value={notes} onChange={e => setNotes(e.target.value)}
-                                    style={{ ...inputStyle, height: 36, fontSize: 13 }} />
+                    {!result.user_resolution && (() => {
+                        const isFinancial = ['AMOUNT', 'CURRENCY', 'EXPIRY'].includes(result.mismatch_type);
+                        const isBankOnly = result.mismatch_type === 'BANK_ONLY';
+                        const sysVal = Number(result.system_value?.replace(/,/g, '') || 0);
+                        const bankVal = Number(result.bank_value?.replace(/,/g, '') || 0);
+                        const isAmountIncrease = result.mismatch_type === 'AMOUNT' && (bankVal > sysVal);
+                        const isAmountDecrease = result.mismatch_type === 'AMOUNT' && (bankVal < sysVal);
+                        
+                        const disableIgnore = isFinancial || isBankOnly;
+                        const blockAdjust = isBankOnly || isAmountIncrease;
+
+                        return (
+                            <div style={{ marginTop: 16 }}>
+                                {/* Governance Warnings */}
+                                {blockAdjust && (
+                                    <div style={{ background: '#fef2f2', borderLeft: '4px solid #ef4444', padding: '10px 14px', marginBottom: 16, borderRadius: '0 8px 8px 0', fontSize: 13, color: '#991b1b' }}>
+                                        <AlertCircle size={16} style={{ float: 'left', marginRight: 8, marginTop: 2 }} />
+                                        {isBankOnly && <strong>Bank-Only Liability: </strong>}
+                                        {isAmountIncrease && <strong>Financial Increase: </strong>}
+                                        {isBankOnly ? (
+                                            <span>This record is missing from the system. <strong>"Adjust" is blocked.</strong> Please navigate to the <a href="/issuance/migration-hub" style={{color: '#b91c1c', textDecoration: 'underline'}}>Migration Hub</a> to register this historical LG or initiate a formal Issuance Request.</span>
+                                        ) : (
+                                            <span>You cannot bypass approval for amount increases. <strong>"Adjust" is blocked.</strong> Please initiate a formal "Amount Increase" request from the LG Maintenance module to follow the corporate approval matrix.</span>
+                                        )}
+                                    </div>
+                                )}
+                                {isAmountDecrease && (
+                                    <div style={{ background: '#eff6ff', borderLeft: '4px solid #3b82f6', padding: '10px 14px', marginBottom: 16, borderRadius: '0 8px 8px 0', fontSize: 13, color: '#1e40af' }}>
+                                        <Info size={16} style={{ float: 'left', marginRight: 8, marginTop: 2 }} />
+                                        <strong>Amount Decrease Detected:</strong> Adjusting this record will automatically generate a <strong>Partial Liquidation</strong> or <strong>Beneficiary Reduction</strong> maintenance request for Corporate Admin approval.
+                                    </div>
+                                )}
+
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <input type="text" placeholder={disableIgnore ? "Notes (required for resolving financial variances)" : "Notes (optional)"}
+                                            value={notes} onChange={e => setNotes(e.target.value)}
+                                            style={{ ...inputStyle, height: 36, fontSize: 13 }} />
+                                    </div>
+                                    <button onClick={() => {
+                                        if (disableIgnore && !notes.trim()) {
+                                            toast.warning("Notes are required when resolving financial variances.");
+                                            return;
+                                        }
+                                        onResolve(result.id, 'ADJUSTED', notes);
+                                    }}
+                                        disabled={blockAdjust}
+                                        title={blockAdjust ? "Adjustment blocked by governance policy" : ""}
+                                        style={{ ...btnPrimary, fontSize: 12, padding: '8px 14px', background: blockAdjust ? '#cbd5e1' : '#3b82f6', cursor: blockAdjust ? 'not-allowed' : 'pointer', color: blockAdjust ? '#64748b' : '#fff' }}>
+                                        ✓ Accept & Adjust Record
+                                    </button>
+                                    <button onClick={() => {
+                                        if (!notes.trim()) {
+                                            toast.warning("Please provide notes for the dispute.");
+                                            return;
+                                        }
+                                        onResolve(result.id, 'DISPUTE', notes);
+                                    }}
+                                        style={{ ...btnPrimary, fontSize: 12, padding: '8px 14px', background: '#f59e0b' }}>
+                                        🔍 Dispute
+                                    </button>
+                                    <button onClick={() => onResolve(result.id, 'IGNORE', notes)}
+                                        disabled={disableIgnore}
+                                        title={disableIgnore ? "Cannot ignore financial/liability variance" : ""}
+                                        style={{ ...btnPrimary, fontSize: 12, padding: '8px 14px', background: disableIgnore ? '#cbd5e1' : '#94a3b8', cursor: disableIgnore ? 'not-allowed' : 'pointer', color: disableIgnore ? '#64748b' : '#fff' }}>
+                                        ✕ Ignore
+                                    </button>
+                                </div>
                             </div>
-                            <button onClick={() => onResolve(result.id, 'ADJUSTED', notes)}
-                                style={{ ...btnPrimary, fontSize: 12, padding: '8px 14px', background: '#3b82f6' }}>
-                                ✓ Accept & Adjust Record
-                            </button>
-                            <button onClick={() => onResolve(result.id, 'DISPUTE', notes)}
-                                style={{ ...btnPrimary, fontSize: 12, padding: '8px 14px', background: '#f59e0b' }}>
-                                🔍 Dispute
-                            </button>
-                            <button onClick={() => onResolve(result.id, 'IGNORE', notes)}
-                                style={{ ...btnPrimary, fontSize: 12, padding: '8px 14px', background: '#94a3b8' }}>
-                                ✕ Ignore
-                            </button>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {result.resolution_notes && (
                         <p style={{ marginTop: 8, fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>

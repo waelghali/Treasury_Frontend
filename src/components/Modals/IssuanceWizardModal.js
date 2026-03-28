@@ -10,8 +10,36 @@ import { apiRequest } from '../../services/apiService';
  * Step 3: Execute & Confirm
  */
 export default function IssuanceWizardModal({ request, matchedFacilities = [], onClose, onIssued }) {
-    const [step, setStep] = useState(1);
-    const [selectedFacility, setSelectedFacility] = useState(null);
+    // If facility is already reserved, skip step 1
+    const isReserved = request.status === 'FACILITY_RESERVED';
+    const [step, setStep] = useState(isReserved ? 2 : 1);
+    const [selectedFacility, setSelectedFacility] = useState(() => {
+        if (isReserved && request.selected_sub_limit_id) {
+            // Build facility selection from reservation data
+            const matchedFac = matchedFacilities.find(f => 
+                f.sub_limit_id === request.selected_sub_limit_id || f.id === request.selected_sub_limit_id
+            );
+            if (matchedFac) {
+                return { type: 'facility', data: matchedFac };
+            }
+            // Fallback: use bank info from the request itself
+            if (request.selected_facility || request.selected_bank) {
+                const fac = request.selected_facility || {};
+                const bank = request.selected_bank || fac.bank || {};
+                return {
+                    type: 'facility',
+                    data: {
+                        id: request.selected_sub_limit_id,
+                        sub_limit_id: request.selected_sub_limit_id,
+                        bank_id: bank.id || fac.bank_id,
+                        bank: { id: bank.id, name: bank.name || 'Reserved Bank' },
+                        facility_name: fac.facility_name || 'Reserved Facility',
+                    }
+                };
+            }
+        }
+        return null;
+    });
     const [selectedMethod, setSelectedMethod] = useState(null);
     const [methods, setMethods] = useState([]);
     const [loadingMethods, setLoadingMethods] = useState(false);
@@ -35,9 +63,13 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
     const [showMissingFields, setShowMissingFields] = useState(false);
     const [formFillInfo, setFormFillInfo] = useState(null); // Stores form template info from Phase 1
     const [bankFormCompleted, setBankFormCompleted] = useState(false); // Tracks if bank form was already filled
+    const [bankFormPreloaded, setBankFormPreloaded] = useState(false); // Tracks if Phase 1 was already run on step entry
+    const [issuanceCompleted, setIssuanceCompleted] = useState(false); // Prevents bank unlock after successful issue
+    const [skipEmptyChecked, setSkipEmptyChecked] = useState(false); // Checkbox: print with remaining fields empty
     const [gapAnalysis, setGapAnalysis] = useState(null); // 3.2: Gap analysis results
     const [fxDrift, setFxDrift] = useState(null); // C5: FX rate drift warning
     const [loadingDrift, setLoadingDrift] = useState(false);
+    const [bankLocked, setBankLocked] = useState(false); // Tracks if the backend bank lock was acquired
 
     // Load all banks for "Other Bank" option
     useEffect(() => {
@@ -45,6 +77,58 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
             .then(data => setAllBanks(data || []))
             .catch(() => setAllBanks([]));
     }, []);
+
+    // For reserved requests: resolve the bank/facility
+    const [resolvingFacility, setResolvingFacility] = useState(isReserved && !selectedFacility);
+    useEffect(() => {
+        if (!isReserved || selectedFacility) {
+            setResolvingFacility(false);
+            return;
+        }
+        setResolvingFacility(true);
+
+        const resolveFromProps = () => {
+            if (matchedFacilities.length > 0) {
+                // Find the reserved one by sub_limit_id
+                const match = matchedFacilities.find(f =>
+                    f.sub_limit_id === request.selected_sub_limit_id || f.id === request.selected_sub_limit_id
+                );
+                if (match) {
+                    setSelectedFacility({ type: 'facility', data: match });
+                    setResolvingFacility(false);
+                    return true;
+                }
+                // Just use the first one
+                setSelectedFacility({ type: 'facility', data: matchedFacilities[0] });
+                setResolvingFacility(false);
+                return true;
+            }
+            return false;
+        };
+
+        if (resolveFromProps()) return;
+
+        // Fetch suitable-facilities ourselves
+        apiRequest(`/issuance/requests/${request.id}/suitable-facilities`, 'GET')
+            .then(data => {
+                const facs = (data || []).map(f => ({
+                    id: f.facility_id,
+                    bank: { name: f.facility_bank, id: f.bank_id },
+                    bank_id: f.bank_id,
+                    sub_limit_id: f.sub_limit_id,
+                    facility_name: f.sub_limit_name,
+                }));
+                if (facs.length > 0) {
+                    const match = facs.find(f => f.sub_limit_id === request.selected_sub_limit_id);
+                    setSelectedFacility({ type: 'facility', data: match || facs[0] });
+                } else {
+                    // No facilities at all — fall back to step 1
+                    setStep(1);
+                }
+            })
+            .catch(() => setStep(1))
+            .finally(() => setResolvingFacility(false));
+    }, [isReserved, request.selected_sub_limit_id, request.id]);
 
     // When facility/bank selection changes, load methods
     useEffect(() => {
@@ -68,6 +152,24 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
             .finally(() => setLoadingMethods(false));
     }, [selectedFacility]);
 
+    // Reset bank form state when selected bank/facility or method changes
+    useEffect(() => {
+        // If bank was locked from a previous method (e.g., BANK_FORM), release it
+        if (bankLocked && !issuanceCompleted) {
+            apiRequest(`/issuance/bank-forms/unlock/${request.id}`, 'POST')
+                .catch(err => console.warn('Failed to release bank lock on method switch:', err));
+            setBankLocked(false);
+        }
+        setBankFormCompleted(false);
+        setBankFormPreloaded(false);
+        setShowMissingFields(false);
+        setMissingFields([]);
+        setGapAnalysis(null);
+        setFormFillInfo(null);
+        setSkipEmptyChecked(false);
+        setUserFieldValues({});
+    }, [selectedFacility, selectedMethod]);
+
     // C5: Check FX drift when entering Step 3 for reserved requests
     useEffect(() => {
         if (step !== 3 || request.status !== 'FACILITY_RESERVED') return;
@@ -83,6 +185,20 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
             .catch(() => setFxDrift(null))
             .finally(() => setLoadingDrift(false));
     }, [step, request.id, request.status]);
+
+    // Release bank lock when wizard is closed without issuing
+    const handleClose = async () => {
+        // Only unlock if bank was locked AND issuance was NOT completed
+        if (bankLocked && !issuanceCompleted) {
+            try {
+                await apiRequest(`/issuance/bank-forms/unlock/${request.id}`, 'POST');
+            } catch (unlockErr) {
+                // Silently fail — lock will expire or be cleaned up
+                console.warn('Failed to release bank lock:', unlockErr);
+            }
+        }
+        onClose();
+    };
 
     const getBankId = () => {
         if (!selectedFacility) return null;
@@ -104,7 +220,98 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
         return selectedFacility.data.sub_limit_id || selectedFacility.data.id || null;
     };
 
-    // Phase 2: Fill PDF with user-provided values
+    // Issue 1: Trigger bank form Phase 1 when entering Step 3 (before user clicks Confirm)
+    const handleStepForward = async () => {
+        if (step === 2 && selectedMethod?.strategy_code === 'BANK_FORM' && !bankFormPreloaded) {
+            // Run Phase 1: check for missing fields + gap analysis BEFORE showing Step 3
+            setIsExecuting(true);
+            try {
+                const bankId = getBankId();
+                const response = await apiRequest(
+                    `/issuance/bank-forms/auto-fill/${request.id}?bank_id=${bankId}`,
+                    'POST', null
+                );
+                setBankLocked(true);
+
+                if (response && response.status === 'missing_fields') {
+                    const fields = response.missing_fields || [];
+                    setMissingFields(fields);
+                    setFormFillInfo(response);
+                    const prefilledValues = {};
+                    fields.forEach(f => {
+                        prefilledValues[f.pdf_field_name] = f.saved_value || '';
+                    });
+                    setUserFieldValues(prefilledValues);
+                    setShowMissingFields(true);
+
+                    // Run gap analysis
+                    try {
+                        const templateId = response.form_template_id;
+                        if (templateId && request?.id) {
+                            const gaps = await apiRequest(
+                                `/issuance/bank-forms/${templateId}/gap-analysis/${request.id}`, 'POST'
+                            );
+                            if (gaps?.has_gaps) {
+                                setGapAnalysis(gaps);
+                            }
+                        }
+                    } catch (gapErr) {
+                        console.warn('Gap analysis check skipped:', gapErr);
+                    }
+                } else if (response instanceof Blob) {
+                    // No missing fields, PDF generated directly — open it
+                    const blobUrl = window.URL.createObjectURL(response);
+                    window.open(blobUrl, '_blank');
+                    toast.success('Bank form filled and opened in new tab.');
+                    setBankFormCompleted(true);
+                    setFormFillInfo({});
+                }
+                setBankFormPreloaded(true);
+            } catch (formErr) {
+                if (formErr.message?.includes('locked')) {
+                    toast.error(formErr.message);
+                    setIsExecuting(false);
+                    return; // Don't advance to Step 3
+                }
+                toast.warning(formErr.message || 'Could not pre-check bank form.');
+            } finally {
+                setIsExecuting(false);
+            }
+        }
+
+        // COMPANY_LETTER: check for missing letter placeholder fields
+        if (step === 2 && selectedMethod?.strategy_code === 'COMPANY_LETTER' && !bankFormPreloaded) {
+            setIsExecuting(true);
+            try {
+                const bankId = getBankId();
+                const params = bankId ? `?bank_id=${bankId}` : '';
+                const response = await apiRequest(
+                    `/issuance/requests/${request.id}/letter-fields-check${params}`,
+                    'GET'
+                );
+                if (response && response.status === 'missing_fields' && response.missing_fields?.length > 0) {
+                    const fields = response.missing_fields;
+                    setMissingFields(fields);
+                    setFormFillInfo(response);
+                    const prefilledValues = {};
+                    fields.forEach(f => {
+                        prefilledValues[f.pdf_field_name] = f.saved_value || f.current_value || '';
+                    });
+                    setUserFieldValues(prefilledValues);
+                    setShowMissingFields(true);
+                }
+                setBankFormPreloaded(true);
+            } catch (err) {
+                toast.warning(err.message || 'Could not pre-check letter fields.');
+            } finally {
+                setIsExecuting(false);
+            }
+        }
+
+        setStep(step + 1);
+    };
+
+    // Phase 2: Fill PDF with user-provided values, then auto-issue
     const handleFillAndDownload = async (skipEmpty = false) => {
         setIsExecuting(true);
         try {
@@ -120,7 +327,7 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
             // Show form-type-specific instruction
             const fType = formFillInfo?.form_type || '';
             if (fType === 'PHYSICAL_OVERLAY') {
-                toast.info('📋 Place the pre-printed bank form in your printer, then print this overlay page on top of it.', { autoClose: 8000 });
+                toast.info('\ud83d\udccb Place the pre-printed bank form in your printer, then print this overlay page on top of it.', { autoClose: 8000 });
             } else {
                 toast.success('Bank form filled and opened in new tab.');
             }
@@ -132,7 +339,7 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                     const docRes = await apiRequest(`/issuance/requests/${request.id}/documents/${swDocId}/download`);
                     if (docRes?.download_url) {
                         window.open(docRes.download_url, '_blank');
-                        toast.info('📄 Special wording document opened in a new tab.', { autoClose: 5000 });
+                        toast.info('\ud83d\udcc4 Special wording document opened in a new tab.', { autoClose: 5000 });
                     }
                 } catch (swErr) {
                     console.warn('Could not auto-open special wording:', swErr);
@@ -141,24 +348,42 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
 
             setShowMissingFields(false);
             setMissingFields([]);
-            setBankFormCompleted(true); // Mark bank form as done so Confirm & Issue proceeds
+            setBankFormCompleted(true);
 
-            // 3.2: Run gap analysis after form fill
-            try {
-                const templateId = formFillInfo?.form_template_id;
-                if (templateId && request?.id) {
-                    const gaps = await apiRequest(
-                        `/issuance/bank-forms/${templateId}/gap-analysis/${request.id}`, 'POST'
-                    );
-                    if (gaps?.has_gaps) {
-                        setGapAnalysis(gaps);
-                    }
-                }
-            } catch (gapErr) {
-                console.warn('Gap analysis check skipped:', gapErr);
+            // Auto-chain into issuance — no second click needed
+            const methodCode = selectedMethod?.strategy_code;
+            const body = {
+                sub_limit_id: getSubLimitId(),
+                bank_id: bankId,
+                issued_ref_number: issuedRefNumber || `LG-${request.serial_number}`,
+                expiry_date: request.requested_expiry_date || null,
+                issuance_method: methodCode,
+            };
+            if (commissionRate || cashMarginPct || flatFee || minCommission) {
+                body.manual_pricing = {
+                    commission_rate: commissionRate ? parseFloat(commissionRate) : null,
+                    min_commission: minCommission ? parseFloat(minCommission) : null,
+                    flat_fee: flatFee ? parseFloat(flatFee) : null,
+                    cash_margin_pct: cashMarginPct ? parseFloat(cashMarginPct) : null,
+                };
+            }
+            const result = await apiRequest(`/issuance/requests/${request.id}/issue`, 'POST', body);
+            toast.success(`LG issued successfully! Ref: ${result.lg_ref_number}`);
+            setIssuanceCompleted(true);
+
+            if (typeof onIssued === 'function') {
+                onIssued(result);
+            } else {
+                onClose();
             }
         } catch (err) {
             toast.error(err.message || 'Failed to fill bank form.');
+            // Release lock if it was set and issuance didn't complete
+            if (bankLocked && !issuanceCompleted) {
+                apiRequest(`/issuance/bank-forms/unlock/${request.id}`, 'POST')
+                    .catch(unlockErr => console.warn('Failed to release lock after form error:', unlockErr));
+                setBankLocked(false);
+            }
         } finally {
             setIsExecuting(false);
         }
@@ -171,54 +396,37 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
         try {
             const methodCode = selectedMethod.strategy_code;
 
-            // If Company Letter, generate it first
+            // If Company Letter, generate it first (pass user overrides for missing fields)
             if (methodCode === 'COMPANY_LETTER') {
                 const params = new URLSearchParams();
                 if (additionalText) params.set('additional_text', additionalText);
+                // Append user-provided overrides for missing fields
+                if (showMissingFields && missingFields.length > 0) {
+                    const overrideValues = {};
+                    missingFields.forEach(f => {
+                        const val = userFieldValues[f.pdf_field_name];
+                        if (val && val.trim()) {
+                            overrideValues[f.pdf_field_name] = val.trim();
+                        }
+                    });
+                    if (Object.keys(overrideValues).length > 0) {
+                        params.set('field_overrides', JSON.stringify(overrideValues));
+                    }
+                }
                 const url = `/issuance/requests/${request.id}/generate-letter${params.toString() ? '?' + params.toString() : ''}`;
                 const blob = await apiRequest(url, 'GET', null, 'application/json', 'blob');
                 const blobUrl = window.URL.createObjectURL(blob);
                 window.open(blobUrl, '_blank');
             }
 
-            // If Bank Form, auto-resolve the right template and fill it (skip if already done)
-            if (methodCode === 'BANK_FORM' && !bankFormCompleted) {
-                try {
-                    const bankId = getBankId();
-                    // Phase 1: Check for missing fields (send null body)
-                    const response = await apiRequest(
-                        `/issuance/bank-forms/auto-fill/${request.id}?bank_id=${bankId}`,
-                        'POST', null
-                    );
-
-                    // If response is JSON with missing_fields → show inline form
-                    if (response && response.status === 'missing_fields') {
-                        const fields = response.missing_fields || [];
-                        setMissingFields(fields);
-                        setFormFillInfo(response);
-                        // Pre-fill from saved values
-                        const prefilledValues = {};
-                        fields.forEach(f => {
-                            prefilledValues[f.pdf_field_name] = f.saved_value || '';
-                        });
-                        setUserFieldValues(prefilledValues);
-                        setShowMissingFields(true);
-                        setIsExecuting(false);
-                        return; // Don't proceed to issue — wait for user input
-                    }
-
-                    // If response is a blob (PDF) → open directly
-                    if (response instanceof Blob) {
-                        const blobUrl = window.URL.createObjectURL(response);
-                        window.open(blobUrl, '_blank');
-                        toast.info('Bank form filled and opened in new tab.');
-                        setBankFormCompleted(true);
-                    }
-                } catch (formErr) {
-                    // Check if the error response contains missing_fields JSON
-                    toast.warning(formErr.message || 'Could not auto-fill bank form. The LG will still be issued.');
-                }
+            // If Bank Form with missing fields still showing: generate PDF then issue
+            if (methodCode === 'BANK_FORM' && showMissingFields && missingFields.length > 0) {
+                // Delegate to handleFillAndDownload which generates PDF + chains into /issue
+                await handleFillAndDownload(skipEmptyChecked);
+                return; // handleFillAndDownload handles everything including closing modals
             }
+            // If Bank Form already completed (no missing fields, PDF auto-generated on step entry)
+            // just proceed to /issue below.
 
             // Always create the IssuedLGRecord
             const body = {
@@ -241,11 +449,22 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
 
             const result = await apiRequest(`/issuance/requests/${request.id}/issue`, 'POST', body);
             toast.success(`LG issued successfully! Ref: ${result.lg_ref_number}`);
+            setIssuanceCompleted(true); // Prevent bank unlock on close
 
-            if (typeof onIssued === 'function') onIssued(result);
-            onClose();
+            if (typeof onIssued === 'function') {
+                onIssued(result);
+            } else {
+                onClose();
+            }
+            return; // Prevent further execution — modals are closing
         } catch (err) {
             toast.error(err.message || 'Failed to execute issuance.');
+            // Release lock if it was set and issuance didn't complete
+            if (bankLocked && !issuanceCompleted) {
+                apiRequest(`/issuance/bank-forms/unlock/${request.id}`, 'POST')
+                    .catch(unlockErr => console.warn('Failed to release lock after error:', unlockErr));
+                setBankLocked(false);
+            }
         } finally {
             setIsExecuting(false);
         }
@@ -270,7 +489,7 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                         </h2>
                         <p className="text-emerald-200 text-sm mt-0.5">{request.serial_number} — {request.beneficiary_name}</p>
                     </div>
-                    <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
+                    <button onClick={handleClose} className="text-white/70 hover:text-white transition-colors">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -394,6 +613,12 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                     {/* STEP 2: Choose Method */}
                     {step === 2 && (
                         <div className="space-y-4">
+                            {resolvingFacility ? (
+                                <div className="text-center py-12 text-slate-400">
+                                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                                    Resolving reserved facility...
+                                </div>
+                            ) : <>
                             <p className="text-sm text-slate-600 mb-2">
                                 Bank: <strong className="text-slate-900">{getBankName()}</strong> — Choose how to send the issuance request:
                             </p>
@@ -437,6 +662,7 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                     placeholder="Enter any extra notes or instructions for the bank..."
                                 />
                             </div>
+                            </>}
                         </div>
                     )}
 
@@ -538,7 +764,7 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                             </h4>
                                             <p className="text-xs text-amber-700 mt-0.5">
                                                 {formFillInfo?.auto_filled_fields || 0} of {formFillInfo?.total_fields || 0} fields were auto-filled.
-                                                Please provide the remaining information or skip to leave them blank.
+                                                Please provide the remaining information or leave them empty.
                                             </p>
                                         </div>
                                     </div>
@@ -564,23 +790,24 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                         ))}
                                     </div>
 
-                                    <div className="flex items-center gap-3 pt-2 border-t border-amber-200">
-                                        <button
-                                            onClick={() => handleFillAndDownload(false)}
-                                            disabled={isExecuting}
-                                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm font-bold rounded-lg hover:bg-amber-700 disabled:opacity-50 transition-all"
-                                        >
-                                            {isExecuting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
-                                            Fill & Download
-                                        </button>
-                                        <button
-                                            onClick={() => handleFillAndDownload(true)}
-                                            disabled={isExecuting}
-                                            className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-all"
-                                        >
-                                            Skip Empty
-                                        </button>
-                                    </div>
+                                    {/* Checkbox: skip empty fields */}
+                                    {(() => {
+                                        const allFilled = missingFields.every(f => (userFieldValues[f.pdf_field_name] || '').trim() !== '');
+                                        return !allFilled ? (
+                                            <div className="flex items-center gap-2 pt-2 border-t border-amber-200">
+                                                <input
+                                                    type="checkbox"
+                                                    id="skip-empty-checkbox"
+                                                    checked={skipEmptyChecked}
+                                                    onChange={e => setSkipEmptyChecked(e.target.checked)}
+                                                    className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                                                />
+                                                <label htmlFor="skip-empty-checkbox" className="text-xs text-amber-800 cursor-pointer select-none">
+                                                    Print with remaining fields empty
+                                                </label>
+                                            </div>
+                                        ) : null;
+                                    })()}
                                     <p className="text-[10px] text-amber-600 italic">
                                         Your entries will be saved and pre-filled next time you use this form.
                                     </p>
@@ -645,71 +872,119 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                 <p className="text-[10px] text-slate-400 mt-1">Leave blank for auto-generated reference</p>
                             </div>
 
-                            {/* Cost & Margin Recording */}
-                            <div className="bg-blue-50/50 rounded-xl p-5 border border-blue-100 space-y-4">
-                                <div className="flex items-center gap-2">
-                                    <DollarSign className="w-4 h-4 text-blue-600" />
-                                    <h4 className="text-xs font-bold text-blue-800 uppercase">Transaction Cost & Margin (Optional)</h4>
-                                </div>
-                                <p className="text-[10px] text-blue-600">Record the bank's pricing terms for this LG. You can also update these later from the LG details.</p>
-                                
-                                {/* Commission Row */}
-                                <div>
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Commission</label>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div>
-                                            <label className="text-[10px] font-semibold text-slate-600 block mb-1">Rate (%)</label>
-                                            <input
-                                                type="number" step="0.01" min="0" max="100"
-                                                value={commissionRate}
-                                                onChange={e => setCommissionRate(e.target.value)}
-                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                                                placeholder="e.g., 1.5"
-                                            />
+                            {/* Cost & Margin — only show manual entry when facility has no pricing */}
+                            {(() => {
+                                const facData = selectedFacility?.data;
+                                const hasKnownPricing = facData && (
+                                    parseFloat(facData.price_commission_rate || 0) > 0 ||
+                                    parseFloat(facData.price_cash_margin_pct || 0) > 0
+                                );
+                                if (hasKnownPricing) {
+                                    // Show compact summary from facility
+                                    return (
+                                        <div className="bg-emerald-50/50 rounded-xl p-4 border border-emerald-100">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <DollarSign className="w-4 h-4 text-emerald-600" />
+                                                <h4 className="text-xs font-bold text-emerald-800 uppercase">Pricing from Facility</h4>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                                {parseFloat(facData.price_commission_rate || 0) > 0 && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-slate-500">Commission Rate</span>
+                                                        <span className="font-bold text-slate-900">{facData.price_commission_rate}%</span>
+                                                    </div>
+                                                )}
+                                                {parseFloat(facData.price_cash_margin_pct || 0) > 0 && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-slate-500">Cash Margin</span>
+                                                        <span className="font-bold text-slate-900">{facData.price_cash_margin_pct}%</span>
+                                                    </div>
+                                                )}
+                                                {parseFloat(facData.estimated_commission_cost || 0) > 0 && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-slate-500">Est. Commission</span>
+                                                        <span className="font-bold text-emerald-700">{parseFloat(facData.estimated_commission_cost).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                                    </div>
+                                                )}
+                                                {parseFloat(facData.required_cash_margin_amount || 0) > 0 && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-slate-500">Cash Margin Amt</span>
+                                                        <span className="font-bold text-emerald-700">{parseFloat(facData.required_cash_margin_amount).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p className="text-[10px] text-emerald-600 mt-2 italic">Using default pricing from the facility agreement. You can adjust after issuance.</p>
                                         </div>
-                                        <div>
-                                            <label className="text-[10px] font-semibold text-slate-600 block mb-1">Minimum Amount</label>
-                                            <input
-                                                type="number" step="0.01" min="0"
-                                                value={minCommission}
-                                                onChange={e => setMinCommission(e.target.value)}
-                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                                                placeholder="e.g., 500"
-                                            />
+                                    );
+                                }
+                                // No pricing — show manual entry form
+                                return (
+                                    <div className="bg-blue-50/50 rounded-xl p-5 border border-blue-100 space-y-4">
+                                        <div className="flex items-center gap-2">
+                                            <DollarSign className="w-4 h-4 text-blue-600" />
+                                            <h4 className="text-xs font-bold text-blue-800 uppercase">Transaction Cost & Margin (Optional)</h4>
                                         </div>
+                                        <p className="text-[10px] text-blue-600">No pricing defined for this facility. Record the bank's pricing terms or update later.</p>
+                                        
+                                        {/* Commission Row */}
                                         <div>
-                                            <label className="text-[10px] font-semibold text-slate-600 block mb-1">Flat Fee</label>
-                                            <input
-                                                type="number" step="0.01" min="0"
-                                                value={flatFee}
-                                                onChange={e => setFlatFee(e.target.value)}
-                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                                                placeholder="e.g., 250"
-                                            />
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Commission</label>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                <div>
+                                                    <label className="text-[10px] font-semibold text-slate-600 block mb-1">Rate (%)</label>
+                                                    <input
+                                                        type="number" step="0.01" min="0" max="100"
+                                                        value={commissionRate}
+                                                        onChange={e => setCommissionRate(e.target.value)}
+                                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                                        placeholder="e.g., 1.5"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-semibold text-slate-600 block mb-1">Minimum Amount</label>
+                                                    <input
+                                                        type="number" step="0.01" min="0"
+                                                        value={minCommission}
+                                                        onChange={e => setMinCommission(e.target.value)}
+                                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                                        placeholder="e.g., 500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-semibold text-slate-600 block mb-1">Flat Fee</label>
+                                                    <input
+                                                        type="number" step="0.01" min="0"
+                                                        value={flatFee}
+                                                        onChange={e => setFlatFee(e.target.value)}
+                                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                                        placeholder="e.g., 250"
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
 
-                                {/* Cash Margin Row */}
-                                <div className="border-t border-blue-100 pt-3">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Cash Margin</label>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div>
-                                            <label className="text-[10px] font-semibold text-slate-600 block mb-1">Margin (%)</label>
-                                            <input
-                                                type="number" step="0.01" min="0" max="100"
-                                                value={cashMarginPct}
-                                                onChange={e => setCashMarginPct(e.target.value)}
-                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                                                placeholder="e.g., 10"
-                                            />
-                                        </div>
-                                        <div className="col-span-2 flex items-end">
-                                            <p className="text-[10px] text-blue-500 italic pb-2">The cash margin amount will be auto-calculated from the LG amount.</p>
+                                        {/* Cash Margin Row */}
+                                        <div className="border-t border-blue-100 pt-3">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Cash Margin</label>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                <div>
+                                                    <label className="text-[10px] font-semibold text-slate-600 block mb-1">Margin (%)</label>
+                                                    <input
+                                                        type="number" step="0.01" min="0" max="100"
+                                                        value={cashMarginPct}
+                                                        onChange={e => setCashMarginPct(e.target.value)}
+                                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                                        placeholder="e.g., 10"
+                                                    />
+                                                </div>
+                                                <div className="col-span-2 flex items-end">
+                                                    <p className="text-[10px] text-blue-500 italic pb-2">The cash margin amount will be auto-calculated from the LG amount.</p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
+                                );
+                            })()}
                         </div>
                     )}
                 </div>
@@ -717,10 +992,11 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                 {/* Footer */}
                 <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
                     <button
-                        onClick={() => step === 1 ? onClose() : setStep(step - 1)}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                        disabled={issuanceCompleted}
+                        onClick={() => (step === 1 || (step === 2 && isReserved)) ? handleClose() : setStep(step - 1)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     >
-                        {step === 1 ? 'Cancel' : <><ChevronLeft className="w-4 h-4" /> Back</>}
+                        {(step === 1 || (step === 2 && isReserved)) ? 'Cancel' : <><ChevronLeft className="w-4 h-4" /> Back</>}
                     </button>
 
                     {step < 3 ? (
@@ -739,8 +1015,11 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                             setIsExecuting(true);
                                             await apiRequest(`/issuance/requests/${request.id}/reserve?sub_limit_id=${subLimitId}`, 'POST');
                                             toast.success('Facility reserved successfully! You can issue to bank later.');
-                                            if (typeof onIssued === 'function') onIssued({ reserved: true });
-                                            onClose();
+                                            if (typeof onIssued === 'function') {
+                                                onIssued({ reserved: true });
+                                            } else {
+                                                onClose();
+                                            }
                                         } catch (err) {
                                             toast.error(err.message || 'Failed to reserve facility.');
                                         } finally {
@@ -755,24 +1034,35 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                             )}
                             <button
                                 disabled={(step === 1 && !selectedFacility) || (step === 2 && !selectedMethod)}
-                                onClick={() => setStep(step + 1)}
+                                onClick={handleStepForward}
                                 className="flex items-center gap-2 px-6 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                             >
                                 Next <ChevronRight className="w-4 h-4" />
                             </button>
                         </div>
                     ) : (
-                        <button
-                            disabled={isExecuting}
-                            onClick={handleExecute}
-                            className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 shadow-lg transition-all"
-                        >
-                            {isExecuting ? (
-                                <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
-                            ) : (
-                                <><Zap className="w-4 h-4" /> Confirm & Issue</>
-                            )}
-                        </button>
+                        (() => {
+                            // For any method with missing fields: enable only when all filled OR checkbox ticked
+                            const hasMissingFields = showMissingFields && missingFields.length > 0;
+                            const allFieldsFilled = hasMissingFields
+                                ? missingFields.every(f => (userFieldValues[f.pdf_field_name] || '').trim() !== '')
+                                : true;
+                            const canConfirm = !hasMissingFields || allFieldsFilled || skipEmptyChecked;
+                            return (
+                                <button
+                                    id="wizard-confirm-issue-btn"
+                                    disabled={isExecuting || !canConfirm}
+                                    onClick={handleExecute}
+                                    className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-30 disabled:cursor-not-allowed shadow-lg transition-all"
+                                >
+                                    {isExecuting ? (
+                                        <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                                    ) : (
+                                        <><Zap className="w-4 h-4" /> Confirm & Issue</>
+                                    )}
+                                </button>
+                            );
+                        })()
                     )}
                 </div>
             </div>

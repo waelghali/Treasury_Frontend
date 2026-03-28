@@ -7,7 +7,7 @@ import {
 import { toast } from 'react-toastify';
 import IssuanceExecutionModal from '../../components/Modals/IssuanceExecutionModal';
 import IssuanceRequestDetailsModal from '../../components/Modals/IssuanceRequestDetailsModal';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function IssuanceRequestsPage() {
   const [requests, setRequests] = useState([]);
@@ -24,6 +24,21 @@ export default function IssuanceRequestsPage() {
 
   const [selectedRequestForExecution, setSelectedRequestForExecution] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
+
+  const location = useLocation();
+  const openRequestId = location.state?.openRequestId;
+
+  // Auto-open requested modal if passed via navigation state
+  useEffect(() => {
+    if (openRequestId && requests.length > 0) {
+      const match = requests.find(r => String(r.id) === String(openRequestId));
+      if (match && !selectedRequest) {
+        setSelectedRequest(match);
+        // Clean up the location state so it doesn't re-trigger on refresh
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    }
+  }, [openRequestId, requests, selectedRequest, navigate, location.pathname]);
 
   // --- Path B: Invite Testing State ---
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -117,23 +132,49 @@ export default function IssuanceRequestsPage() {
       'DRAFT': 'bg-gray-100 text-gray-800',
       'SUBMITTED': 'bg-blue-100 text-blue-800',
       'PENDING_APPROVAL': 'bg-yellow-100 text-yellow-800',
-      'RETURNED_FOR_REVISION': 'bg-amber-100 text-amber-800',
+      'REVISION_REQUIRED': 'bg-amber-100 text-amber-800',
       'APPROVED_INTERNAL': 'bg-blue-100 text-blue-800',
       'FACILITY_RESERVED': 'bg-amber-100 text-amber-800',
-      'PENDING_BANK_CONFIRMATION': 'bg-purple-100 text-purple-800',
+      'INTERNAL_PROCESSING': 'bg-purple-100 text-purple-800',
       'ISSUED': 'bg-green-100 text-green-800',
       'REJECTED': 'bg-red-100 text-red-800',
+      'CANCELLATION_REQUESTED': 'bg-red-100 text-red-800 border border-red-300',
+      'EDIT_REQUESTED': 'bg-orange-100 text-orange-800 border border-orange-200',
+      'CANCELLED': 'bg-gray-200 text-gray-600',
     };
     const labels = {
       'APPROVED_INTERNAL': 'Ready for Bank',
       'FACILITY_RESERVED': 'Reserved',
-      'PENDING_BANK_CONFIRMATION': 'Pending Confirmation',
+      'INTERNAL_PROCESSING': 'Processing',
+      'CANCELLATION_REQUESTED': 'Cancel Pending',
+      'EDIT_REQUESTED': 'Edit Pending',
+      'CANCELLED': 'Cancelled',
     };
     return (
       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${styles[status] || 'bg-gray-100'}`}>
         {labels[status] || status.replace(/_/g, ' ')}
       </span>
     );
+  };
+
+  // Derive unique statuses dynamically
+  const uniqueStatuses = useMemo(() => {
+    return [...new Set(requests.map(r => r.status))].filter(Boolean).sort();
+  }, [requests]);
+
+  const statusLabelsMap = {
+    'DRAFT': 'Draft',
+    'SUBMITTED': 'Submitted',
+    'PENDING_APPROVAL': 'Pending Approval',
+    'REVISION_REQUIRED': 'Revision Required',
+    'APPROVED_INTERNAL': 'Ready for Bank',
+    'FACILITY_RESERVED': 'Reserved',
+    'INTERNAL_PROCESSING': 'Processing',
+    'ISSUED': 'Issued',
+    'REJECTED': 'Rejected',
+    'CANCELLATION_REQUESTED': 'Cancel Pending',
+    'EDIT_REQUESTED': 'Edit Pending',
+    'CANCELLED': 'Cancelled',
   };
 
   // Filter count for badge
@@ -188,6 +229,7 @@ export default function IssuanceRequestsPage() {
         case 'serial_number': valA = a.serial_number || ''; valB = b.serial_number || ''; break;
         case 'amount': valA = parseFloat(a.amount) || 0; valB = parseFloat(b.amount) || 0; break;
         case 'beneficiary_name': valA = a.beneficiary_name || ''; valB = b.beneficiary_name || ''; break;
+        case 'lg_type': valA = a.lg_type?.name || ''; valB = b.lg_type?.name || ''; break;
         case 'status': valA = a.status || ''; valB = b.status || ''; break;
         default: valA = a.created_at || ''; valB = b.created_at || ''; break;
       }
@@ -235,15 +277,9 @@ export default function IssuanceRequestsPage() {
               onChange={e => setStatusFilter(e.target.value)}
             >
               <option value="ALL">All Statuses</option>
-              <option value="DRAFT">Draft</option>
-              <option value="SUBMITTED">Submitted</option>
-              <option value="PENDING_APPROVAL">Pending Approval</option>
-              <option value="RETURNED_FOR_REVISION">Returned for Revision</option>
-              <option value="APPROVED_INTERNAL">Ready for Bank</option>
-              <option value="FACILITY_RESERVED">Reserved</option>
-              <option value="PENDING_BANK_CONFIRMATION">Pending Confirmation</option>
-              <option value="ISSUED">Issued</option>
-              <option value="REJECTED">Rejected</option>
+              {uniqueStatuses.map(st => (
+                  <option key={st} value={st}>{statusLabelsMap[st] || st.replace(/_/g, ' ')}</option>
+              ))}
             </select>
           </div>
           <button
@@ -293,25 +329,28 @@ export default function IssuanceRequestsPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-gray-700 transition-colors" onClick={() => toggleSort('serial_number')}>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-gray-700 transition-colors" onClick={() => toggleSort('serial_number')}>
                   <div className="flex items-center gap-1">Serial / Requestor <SortIcon field="serial_number" /></div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-gray-700 transition-colors" onClick={() => toggleSort('beneficiary_name')}>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-gray-700 transition-colors" onClick={() => toggleSort('beneficiary_name')}>
                   <div className="flex items-center gap-1">Beneficiary <SortIcon field="beneficiary_name" /></div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-gray-700 transition-colors" onClick={() => toggleSort('amount')}>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-gray-700 transition-colors" onClick={() => toggleSort('lg_type')}>
+                  <div className="flex items-center gap-1">LG Type <SortIcon field="lg_type" /></div>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-gray-700 transition-colors" onClick={() => toggleSort('amount')}>
                   <div className="flex items-center gap-1">Amount <SortIcon field="amount" /></div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-gray-700 transition-colors" onClick={() => toggleSort('status')}>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-gray-700 transition-colors" onClick={() => toggleSort('status')}>
                   <div className="flex items-center gap-1">Status <SortIcon field="status" /></div>
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-10 text-center text-gray-500">
+                  <td colSpan="6" className="px-4 py-10 text-center text-gray-500">
                     {activeFilterCount > 0 || searchTerm
                       ? 'No requests match your filters. Try adjusting your criteria.'
                       : 'No requests found.'}
@@ -319,32 +358,33 @@ export default function IssuanceRequestsPage() {
                 </tr>
               ) : (
                 filteredRequests.map((req) => (
-                  <tr key={req.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                  <tr key={req.id} className="hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => setSelectedRequest(req)}>
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm font-bold text-gray-900">{req.serial_number || `#${req.id}`}</div>
                       <div className="text-xs text-gray-500">{req.requestor_name || "Treasury"}</div>
                       <div className="text-xs text-blue-600">{req.business_details?.department}</div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="text-sm text-gray-900 font-medium">{req.beneficiary_name}</div>
                       <div className="text-xs text-gray-500 truncate max-w-xs">{req.business_details?.project_name}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4">
+                      <div className="text-sm font-bold text-gray-900">{req.lg_type?.name || '—'}</div>
+                      <div className="text-xs text-gray-500 truncate max-w-[120px]" title={req.lg_purpose}>{req.lg_purpose || ''}</div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm font-bold text-gray-900">
                         {req.currency?.iso_code || ''} {parseFloat(req.amount).toLocaleString()}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       {getStatusBadge(req.status)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end space-x-2">
-                        <button onClick={() => setSelectedRequest(req)} className="text-gray-600 hover:text-gray-900" title="View Details">
-                          <Eye className="h-5 w-5" />
-                        </button>
-                        {/* Edit — visible for editable statuses */}
-                        {['DRAFT', 'SUBMITTED', 'PENDING_APPROVAL', 'APPROVED'].includes(req.status) && !req.locked_for_issuance && (
-                          <button onClick={() => navigate(`issuance/requests/edit/${req.id}`)} className="text-amber-600 hover:text-amber-900" title="Edit Request">
+                        {/* Edit — visible for all pre-issuance statuses */}
+                        {!['ISSUED', 'REJECTED', 'INTERNAL_PROCESSING', 'COMPLETED', 'CANCELLED', 'CANCELLATION_REQUESTED', 'EDIT_REQUESTED'].includes(req.status) && !req.locked_for_issuance && (
+                          <button onClick={() => navigate(`edit/${req.id}`)} className="text-amber-600 hover:text-amber-900" title="Edit Request">
                             <Edit3 className="h-5 w-5" />
                           </button>
                         )}
@@ -352,18 +392,6 @@ export default function IssuanceRequestsPage() {
                           <button onClick={() => handleStatusChange(req.id, 'submit', 'submit')} className="text-blue-600 hover:text-blue-900" title="Submit">
                             <Play className="h-5 w-5" />
                           </button>
-                        )}
-
-                        {/* Execute actions — end_user (treasury officer) only */}
-                        {isEndUser && (req.status === 'APPROVED_INTERNAL' || req.status === 'FACILITY_RESERVED') && (
-                          <>
-                            <button onClick={() => handleDownloadPdf(req.id, req.id)} className="text-gray-600 hover:text-gray-900" title="Print Application">
-                              <Printer className="h-5 w-5" />
-                            </button>
-                            <button onClick={() => setSelectedRequestForExecution(req)} className={`hover:opacity-80 ${req.status === 'FACILITY_RESERVED' ? 'text-amber-600' : 'text-purple-600'}`} title={req.status === 'FACILITY_RESERVED' ? 'Execute Reserved' : 'Execute Issuance'}>
-                              <Zap className="h-5 w-5" />
-                            </button>
-                          </>
                         )}
 
                         {/* Approve actions — corporate_admin only, for PENDING_APPROVAL requests */}
@@ -468,7 +496,8 @@ export default function IssuanceRequestsPage() {
             } else if (action === 'PRINT') {
               handleDownloadPdf((req || selectedRequest).id, (req || selectedRequest).id);
             } else {
-              // Default: refresh list (approve/reject from old flow)
+              // Default: refresh list and close the modal (e.g. after issuance, approval, etc.)
+              setSelectedRequest(null);
               fetchRequests();
             }
           }}

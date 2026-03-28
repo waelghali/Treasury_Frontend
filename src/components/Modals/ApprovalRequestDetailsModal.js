@@ -351,6 +351,27 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                         <p><strong>Reason:</strong> {details.reason || 'No reason provided'}</p>
                     </div>
                 );
+            case 'ISSUANCE_CHANGE_REQUESTOR': {
+                const newReq = details.new_requestor || {};
+                const lgIds = details.lg_ids || [];
+                return (
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <h4 className="font-semibold text-blue-800 mb-2">Issuance Ownership Transfer Details:</h4>
+                        <div className="space-y-2 text-sm">
+                            <p><strong>Affected LG Records:</strong> {lgIds.length} LG{lgIds.length !== 1 ? 's' : ''} (IDs: {lgIds.join(', ')})</p>
+                            <div className="mt-3 p-3 bg-white border border-blue-100 rounded-lg">
+                                <p className="font-semibold text-gray-700 mb-1">New Requestor:</p>
+                                <p><strong>Name:</strong> {newReq.name || 'N/A'}</p>
+                                <p><strong>Email:</strong> {newReq.email || 'N/A'}</p>
+                                {newReq.department && <p><strong>Department:</strong> {newReq.department}</p>}
+                                {newReq.job_title && <p><strong>Job Title:</strong> {newReq.job_title}</p>}
+                                {newReq.phone_number && <p><strong>Phone:</strong> {newReq.phone_number}</p>}
+                                {newReq.employee_id && <p><strong>Employee ID:</strong> {newReq.employee_id}</p>}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
             default:
                 return (
                     <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
@@ -444,6 +465,9 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                                             </div>
 
 
+                                            {/* Only show LG Record comparison for actual LGRecord entity types */}
+                                            {request.entity_type === 'LGRecord' && (
+                                            <>
                                             <h4 className="text-md font-semibold text-gray-800 mb-3 border-b pb-2">LG Record Details (Snapshot vs. Current)</h4>
 
                                             {isLoadingDetails ? (
@@ -481,6 +505,7 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                                                     {getFieldDisplay('Notes', lgRecordSnapshot?.notes, currentLgRecord?.notes)}
                                                 </div>
                                             )}
+                                            </>)}
                                         </div>
                                     </div>
                                 </div>

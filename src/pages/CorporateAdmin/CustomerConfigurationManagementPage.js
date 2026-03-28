@@ -539,13 +539,32 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
   };
 
   const groupedAndSortedConfigurations = useMemo(() => {
+    // Build a set of active module tags from the subscription plan
+    const activeModules = new Set();
+    if (subscriptionData?.subscription_plan?.has_custody_module) activeModules.add('custody');
+    if (subscriptionData?.subscription_plan?.has_issuance_module) activeModules.add('issuance');
+    // Future modules can be added here, e.g.: if (subscriptionData?.subscription_plan?.has_quotation_module) activeModules.add('quotation');
+
     let filtered = [...configurations]
-      .filter(config =>
-        (selectedGroup === 'All Groups' || config.group === selectedGroup) && // Group Filter
-        (config.global_config_key.toLowerCase().includes(filterText.toLowerCase()) ||
-          (config.global_description && config.global_description.toLowerCase().includes(filterText.toLowerCase())) ||
-          (config.effective_value && String(config.effective_value).toLowerCase().includes(filterText.toLowerCase()))) // Text Filter
-      )
+      .filter(config => {
+        // Module-based filtering: null/undefined = system (always shown)
+        const tags = config.global_module_tags;
+        if (tags && Array.isArray(tags) && tags.length > 0) {
+          // Show only if customer has at least one of the required modules
+          const hasAccess = tags.some(tag => activeModules.has(tag));
+          if (!hasAccess) return false;
+        }
+        // Existing group and text filters
+        const search = filterText.toLowerCase();
+        const humanizedKey = config.global_config_key.replace(/_/g, ' ').toLowerCase();
+        return (
+          (selectedGroup === 'All Groups' || config.group === selectedGroup) &&
+          (config.global_config_key.toLowerCase().includes(search) ||
+            humanizedKey.includes(search) ||
+            (config.global_description && config.global_description.toLowerCase().includes(search)) ||
+            (config.effective_value && String(config.effective_value).toLowerCase().includes(search)))
+        );
+      })
       .sort((a, b) => {
         const aHasUnit = a.global_unit !== null && a.global_unit !== undefined && a.global_unit !== '';
         const bHasUnit = b.global_unit !== null && b.global_unit !== undefined && b.global_unit !== '';
@@ -577,7 +596,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     });
 
     return grouped;
-  }, [configurations, filterText, sortKey, sortDirection, selectedGroup]);
+  }, [configurations, filterText, sortKey, sortDirection, selectedGroup, subscriptionData]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';

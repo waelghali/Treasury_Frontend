@@ -31,11 +31,12 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
-const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }) => {
+const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, apiUrl }) => {
     const [replyFile, setReplyFile] = useState(null);
+    const [verificationResult, setVerificationResult] = useState(null); // AI verification mismatch state
     
-    // --- NEW: Calculate Instruction Issue Date ---
-    const instructionIssueDate = moment(instruction.instruction_date).format('YYYY-MM-DD');
+    // --- Calculate Instruction Issue Date (fallback to created_at for maintenance actions) ---
+    const instructionIssueDate = moment(instruction.instruction_date || instruction.created_at).format('YYYY-MM-DD');
 
     const initialValues = {
         bankReplyDate: moment().format('YYYY-MM-DD'),
@@ -73,12 +74,22 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
                 formData.append('bank_reply_document_metadata', JSON.stringify(documentMetadata));
             }
 
+            const url = apiUrl || `/end-user/lg-records/instructions/${instruction.id}/record-bank-reply`;
             const response = await apiRequest(
-                `/end-user/lg-records/instructions/${instruction.id}/record-bank-reply`,
+                url,
                 'POST',
                 formData,
                 'multipart/form-data'
             );
+
+            // Check if AI verification found issues
+            const aiVerification = response?.action_data?.ai_verification || response?.ai_verification;
+            if (aiVerification && aiVerification.status === 'mismatch') {
+                setVerificationResult(aiVerification);
+                toast.warn('AI verification found discrepancies — please review.');
+                setSubmitting(false);
+                return; // Don't close modal — show verification inline
+            }
 
             toast.success(`Bank reply recorded successfully for Instruction ${instruction.serial_number}!`);
             onSuccess();
@@ -88,6 +99,35 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
             setErrors({ general: error.message || 'An unexpected error occurred.' });
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    // Handle "Proceed Anyway" — calls the confirm endpoint
+    const handleProceedAnyway = async () => {
+        try {
+            const confirmUrl = apiUrl
+                ? apiUrl.replace('/bank-reply', '/confirm-bank-reply')
+                : `/end-user/lg-records/instructions/${instruction.id}/confirm-bank-reply`;
+            await apiRequest(confirmUrl, 'POST');
+            toast.success('Bank reply confirmed despite AI discrepancies.');
+            onSuccess();
+        } catch (error) {
+            toast.error(`Failed to confirm: ${error.message || 'An unexpected error occurred.'}`);
+        }
+    };
+
+    // Handle "Cancel & Re-upload" — resets the verification state
+    const handleCancelReupload = async () => {
+        try {
+            const cancelUrl = apiUrl
+                ? apiUrl.replace('/bank-reply', '/cancel-bank-reply')
+                : `/end-user/lg-records/instructions/${instruction.id}/cancel-bank-reply`;
+            await apiRequest(cancelUrl, 'POST');
+            toast.info('Bank reply cancelled. You can re-upload the correct document.');
+            setVerificationResult(null);
+            setReplyFile(null);
+        } catch (error) {
+            toast.error(`Failed to cancel: ${error.message || 'An unexpected error occurred.'}`);
         }
     };
 
@@ -145,7 +185,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
                                                 {({ isSubmitting, errors, touched }) => (
                                                     <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
                                                         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
-                                                            <strong>LG:</strong> {instruction.lg_record?.lg_number || 'N/A'} | <strong>Type:</strong> {instruction.instruction_type} | <strong>Issued:</strong> {new Date(instruction.instruction_date).toLocaleDateString()}
+                                                            <strong>LG:</strong> {instruction.lg_record?.lg_number || instruction.lg_number || 'N/A'} | <strong>Type:</strong> {instruction.instruction_type || instruction.action_type?.replace(/_/g, ' ') || 'N/A'} | <strong>Date:</strong> {new Date(instruction.instruction_date || instruction.created_at).toLocaleDateString()}
                                                             {instruction.delivery_date && <span> | <strong>Delivered:</strong> {new Date(instruction.delivery_date).toLocaleDateString()}</span>}
                                                         </div>
 
@@ -210,6 +250,50 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
                                                             </div>
                                                         )}
 
+                                                        {/* AI Verification Mismatch Result */}
+                                                        {verificationResult && (
+                                                            <div className="mt-4 p-4 bg-amber-50 border border-amber-300 rounded-lg">
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <AlertCircle className="h-5 w-5 text-amber-600" />
+                                                                    <h4 className="text-sm font-bold text-amber-800">AI Verification Needs Your Review</h4>
+                                                                </div>
+                                                                <p className="text-xs text-amber-700 mb-2">
+                                                                    The AI detected discrepancies between the bank reply and expected changes. Please review and decide.
+                                                                </p>
+                                                                {verificationResult.mismatches?.length > 0 && (
+                                                                    <ul className="list-disc list-inside text-xs text-red-700 space-y-1 mb-3 bg-red-50 p-2 rounded">
+                                                                        {verificationResult.mismatches.map((m, i) => (
+                                                                            <li key={i}>{m}</li>
+                                                                        ))}
+                                                                    </ul>
+                                                                )}
+                                                                {verificationResult.matches?.length > 0 && (
+                                                                    <ul className="list-disc list-inside text-xs text-green-700 space-y-1 mb-3 bg-green-50 p-2 rounded">
+                                                                        {verificationResult.matches.map((m, i) => (
+                                                                            <li key={i}>✓ {m}</li>
+                                                                        ))}
+                                                                    </ul>
+                                                                )}
+                                                                <div className="grid grid-cols-2 gap-3 mt-3">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={handleProceedAnyway}
+                                                                        className="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700 flex items-center justify-center gap-1"
+                                                                    >
+                                                                        ✅ Proceed Anyway
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={handleCancelReupload}
+                                                                        className="px-4 py-2 bg-red-100 text-red-700 text-sm font-bold rounded-lg hover:bg-red-200 flex items-center justify-center gap-1"
+                                                                    >
+                                                                        ❌ Cancel & Re-upload
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {!verificationResult && (
                                                         <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
                                                             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                                 <button
@@ -230,6 +314,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod }
                                                                 Cancel
                                                             </button>
                                                         </div>
+                                                        )}
                                                     </Form>
                                                 )}
                                             </Formik>

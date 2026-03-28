@@ -39,6 +39,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
       if (currentPath.startsWith('/corporate-admin/dashboard')) { activeItem = 'corporate-admin-dashboard'; title = 'Dashboard'; }
       else if (currentPath.startsWith('/corporate-admin/issuance/requests')) { activeItem = 'issuance-requests'; title = 'LG Issuance'; }
       else if (currentPath.startsWith('/corporate-admin/issuance/reconciliation')) { activeItem = 'issuance-reconciliation'; title = 'LG Reconciliation'; }
+      else if (currentPath.startsWith('/corporate-admin/issuance/migration-hub')) { activeItem = 'issuance-migration-hub'; title = 'Issuance Migration Hub'; }
       else if (currentPath.startsWith('/corporate-admin/issuance/owner-management')) { activeItem = 'issuance-owner-management'; title = 'Owner Management'; }
       else if (currentPath.startsWith('/corporate-admin/issuance/issued-lgs')) { activeItem = 'issuance-issued-lgs'; title = 'Issued LGs'; }
       else if (currentPath.startsWith('/corporate-admin/issuance/bank-accounts')) { activeItem = 'issuance-bank-accounts'; title = 'Bank Accounts'; }

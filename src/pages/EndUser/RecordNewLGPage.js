@@ -335,6 +335,8 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
   const [isInternalOwnerFieldsLocked, setIsInternalOwnerFieldsLocked] = useState(false);
   const [aiScanSuccess, setAiScanSuccess] = useState(false);
   const [isFormDisabled, setIsFormDisabled] = useState(false);
+  // Track whether user has manually set a different payable currency (stops auto-sync)
+  const [payableCurrencyTouched, setPayableCurrencyTouched] = useState(false);
   // NEW: State to track foreign bank for conditional rendering
   const [isForeignBankSelected, setIsForeignBankSelected] = useState(false);
   const [foreignBankId, setForeignBankId] = useState(null);
@@ -480,8 +482,16 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
 			 'lg_operational_status_id', 'issuing_bank_id', 'issuing_method_id', 'applicable_rule_id',
 			 'lg_category_id', 'communication_bank_id'].includes(name)) {
 		  const parsedValue = parseInt(value, 10);
-		  // Handles the case where the select/searchable is cleared (value is '')
-		  return { ...prevData, [name]: value === '' ? '' : String(parsedValue) };
+		  const normalizedValue = value === '' ? '' : String(parsedValue);
+          // Auto-sync payable currency to LG currency unless user deliberately diverged
+          if (name === 'lg_currency_id' && !payableCurrencyTouched) {
+              return { ...prevData, [name]: normalizedValue, lg_payable_currency_id: normalizedValue };
+          }
+          if (name === 'lg_payable_currency_id') {
+              // Mark as touched only if user picks something different from LG currency
+              setPayableCurrencyTouched(value !== prevData.lg_currency_id);
+          }
+		  return { ...prevData, [name]: normalizedValue };
 		}
       return { ...prevData, [name]: value };
     });

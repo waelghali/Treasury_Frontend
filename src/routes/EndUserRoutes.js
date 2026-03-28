@@ -33,7 +33,7 @@ const endUserReports = [
   },
 ];
 
-function EndUserRoutes({ onLogout, subscriptionStatus }) { // NEW: Receive subscriptionStatus prop
+function EndUserRoutes({ onLogout, subscriptionStatus, hasCustodyModule, hasIssuanceModule }) { // NEW: Receive subscriptionStatus prop
   const isGracePeriod = subscriptionStatus === 'grace'; // NEW: Determine grace period status
 
   return (
@@ -44,31 +44,40 @@ function EndUserRoutes({ onLogout, subscriptionStatus }) { // NEW: Receive subsc
       {/* Action Center Page */}
       <Route path="action-center" element={<EndUserActionCenter />} />
 
-      {/* Record New LG Page - PASS PROP */}
-      <Route path="lg-records/new" element={<RecordNewLGPage isGracePeriod={isGracePeriod} />} />
-
-      {/* Manage LG Records Page - PASS PROP */}
-      <Route path="lg-records" element={<LGRecordList isGracePeriod={isGracePeriod} />} />
-
-      {/* LG Details Page with dynamic ID - PASS PROP */}
-      <Route path="lg-records/:id" element={<LGDetailsPage isGracePeriod={isGracePeriod} />} />
-
-      {/* Manage Internal Owners Page - PASS PROP */}
-      <Route path="internal-owners" element={<ManageInternalOwnersPage isGracePeriod={isGracePeriod} />} />
-
-      {/* Pending Approvals for End User - PASS PROP */}
-      <Route path="pending-approvals" element={<EndUserPendingApprovalsPage isGracePeriod={isGracePeriod} />} />
+      {/* LG Custody routes — only if customer has custody module */}
+      {hasCustodyModule ? (
+        <>
+          <Route path="lg-records/new" element={<RecordNewLGPage isGracePeriod={isGracePeriod} />} />
+          <Route path="lg-records" element={<LGRecordList isGracePeriod={isGracePeriod} />} />
+          <Route path="lg-records/:id" element={<LGDetailsPage isGracePeriod={isGracePeriod} />} />
+          <Route path="internal-owners" element={<ManageInternalOwnersPage isGracePeriod={isGracePeriod} />} />
+          <Route path="pending-approvals" element={<EndUserPendingApprovalsPage isGracePeriod={isGracePeriod} />} />
+        </>
+      ) : (
+        <>
+          {/* Redirect custody URLs to dashboard when module is not available */}
+          <Route path="lg-records/*" element={<Navigate to="../dashboard" replace />} />
+          <Route path="internal-owners" element={<Navigate to="../dashboard" replace />} />
+          <Route path="pending-approvals" element={<Navigate to="../dashboard" replace />} />
+        </>
+      )}
 
       {/* Quotation Module Routes */}
       <Route path="quotations/active" element={<QuotationRequestDashboard />} />
       <Route path="quotations/history" element={<QuotationHistoryDashboard />} />
       <Route path="quotations/results/:id" element={<ResultsView />} />
 
-      {/* Issuance Module Routes (End User = Treasury Officer) */}
-      <Route path="issuance/requests" element={<IssuanceRequestsPage />} />
-      <Route path="issuance/requests/edit/:id" element={<IssuanceRequestForm />} />
-      <Route path="issuance/issued-lgs" element={<IssuedLGsPage />} />
-      <Route path="issuance/reconciliation" element={<LGReconciliationPage />} />
+      {/* Issuance Module Routes — only if customer has issuance module */}
+      {hasIssuanceModule ? (
+        <>
+          <Route path="issuance/requests" element={<IssuanceRequestsPage />} />
+          <Route path="issuance/requests/edit/:id" element={<IssuanceRequestForm />} />
+          <Route path="issuance/issued-lgs" element={<IssuedLGsPage />} />
+          <Route path="issuance/reconciliation" element={<LGReconciliationPage />} />
+        </>
+      ) : (
+        <Route path="issuance/*" element={<Navigate to="../dashboard" replace />} />
+      )}
 
       {/* Reports (Updated for End User) */}
       <Route path="reports" element={<ReportsPage reports={endUserReports} />}>

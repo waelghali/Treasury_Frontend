@@ -3,7 +3,7 @@ import { Link, Outlet } from 'react-router-dom';
 import {
   Home, Users, FolderKanban, LogOut, Settings, FileText,
   BarChart, Hourglass, ClipboardList, DatabaseZap, Send, Building, Shield,
-  ChevronLeft, ChevronRight, FileCheck, Settings2, Download, LayoutTemplate, TrendingUp, CreditCard, BarChart3, Bell
+  ChevronLeft, ChevronRight, FileCheck, Settings2, Download, LayoutTemplate, TrendingUp, CreditCard, BarChart3, Bell, Upload, RefreshCw
 } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner';
@@ -34,6 +34,8 @@ function CorporateAdminLayout({
   const [notifications, setNotifications] = useState([]);
   const [isLoadingNotifs, setIsLoadingNotifs] = useState(true);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [userNotifications, setUserNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const notifRef = useRef(null);
   const bellRef = useRef(null);
 
@@ -101,18 +103,51 @@ function CorporateAdminLayout({
     loadNotifications();
   }, []);
 
+  // Fetch UserNotification records (issuance, maintenance, etc.)
+  useEffect(() => {
+    const fetchUserNotifs = () => {
+      apiRequest('/notifications/', 'GET').then(data => setUserNotifications(data || [])).catch(() => {});
+      apiRequest('/notifications/unread-count', 'GET').then(data => setUnreadCount(data?.count || 0)).catch(() => {});
+    };
+    fetchUserNotifs();
+    const interval = setInterval(fetchUserNotifs, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const markNotifRead = async (id) => {
+    try {
+      await apiRequest(`/notifications/${id}/read`, 'PATCH');
+      setUserNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch {}
+  };
+
+  const markAllRead = async () => {
+    try {
+      await apiRequest('/notifications/mark-all-read', 'PATCH');
+      setUserNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setUnreadCount(0);
+    } catch {}
+  };
+
   const fetchPendingCount = useCallback(async () => {
     try {
       let count = 0;
-      // Custody approvals
-      try {
-        const data = await apiRequest('/corporate-admin/approval-requests/', 'GET');
-        count += data.filter(req => req.status === 'PENDING').length;
-      } catch (e) { /* no custody module */ }
+      const userStr = localStorage.getItem('user');
+      const currentUser = userStr ? JSON.parse(userStr) : null;
+      const currentUserEmail = currentUser?.email || localStorage.getItem('userEmail');
+
+      // Custody approvals — only for corporate admin (checkers get 403)
+      if (!isChecker) {
+        try {
+          const data = await apiRequest('/corporate-admin/approval-requests/', 'GET');
+          count += data.filter(req => req.status === 'PENDING' && req.maker_user?.email !== currentUserEmail).length;
+        } catch (e) { /* no custody module */ }
+      }
       // Issuance approvals
       try {
         const issuanceData = await apiRequest('/issuance/my-pending-approvals', 'GET');
-        count += (Array.isArray(issuanceData) ? issuanceData : []).length;
+        count += (Array.isArray(issuanceData) ? issuanceData : []).filter(req => req.status === 'PENDING_APPROVAL' && req.requestor_email !== currentUserEmail).length;
       } catch (e) { /* no issuance module */ }
       // Discrepancy reviews
       try {
@@ -124,7 +159,7 @@ function CorporateAdminLayout({
     } catch (err) {
       console.error("Failed to fetch pending count", err);
     }
-  }, []);
+  }, [isChecker]);
 
   useEffect(() => {
     fetchPendingCount();
@@ -170,16 +205,18 @@ function CorporateAdminLayout({
 
         <nav className="flex-grow p-3 space-y-1 overflow-y-auto relative z-10 dark-sidebar-nav">
           {/* Overview */}
-          <div className="pb-2">
-            {!isCollapsed && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Overview</p></div>}
-            <Link to={`${basePath}/dashboard`} title={isCollapsed ? 'Dashboard' : ''}
-              className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'corporate-admin-dashboard' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-              style={activeMenuItem === 'corporate-admin-dashboard' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-            >
-              <Home className={`h-5 w-5 flex-shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} />
-              {!isCollapsed && <span className="ml-3">Dashboard</span>}
-            </Link>
-          </div>
+          {!isChecker && (
+            <div className="pb-2">
+              {!isCollapsed && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Overview</p></div>}
+              <Link to={`${basePath}/dashboard`} title={isCollapsed ? 'Dashboard' : ''}
+                className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'corporate-admin-dashboard' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
+                style={activeMenuItem === 'corporate-admin-dashboard' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+              >
+                <Home className={`h-5 w-5 flex-shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} />
+                {!isCollapsed && <span className="ml-3">Dashboard</span>}
+              </Link>
+            </div>
+          )}
 
           {/* Approval Center — visible to corporate admin AND checker */}
           <div className="pb-2">
@@ -198,15 +235,6 @@ function CorporateAdminLayout({
                 </span>
               )}
             </Link>
-            {hasIssuanceModule && (
-              <Link to={`${basePath}/approval-inbox`} title={isCollapsed ? 'Issuance Approvals' : ''}
-                className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'approval-inbox' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-                style={activeMenuItem === 'approval-inbox' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-              >
-                <ClipboardList className={`h-5 w-5 flex-shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} />
-                {!isCollapsed && <span className="ml-3">Issuance Approvals</span>}
-              </Link>
-            )}
           </div>
 
           {/* Issuance — full section for corporate admin, only Issued LGs for checker */}
@@ -252,6 +280,24 @@ function CorporateAdminLayout({
                 >
                   <Users className={`h-5 w-5 flex-shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} />
                   {!isCollapsed && <span className="ml-3">Owner Management</span>}
+                </Link>
+              )}
+              {!isChecker && (
+                <Link to={`${basePath}/issuance/reconciliation`} title={isCollapsed ? 'Position Reconciliation' : ''}
+                  className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'issuance-reconciliation' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
+                  style={activeMenuItem === 'issuance-reconciliation' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+                >
+                  <RefreshCw className={`h-5 w-5 flex-shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} />
+                  {!isCollapsed && <span className="ml-3">Position Reconciliation</span>}
+                </Link>
+              )}
+              {!isChecker && (
+                <Link to={`${basePath}/issuance/migration-hub`} title={isCollapsed ? 'Issuance Migration' : ''}
+                  className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'issuance-migration-hub' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
+                  style={activeMenuItem === 'issuance-migration-hub' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+                >
+                  <Upload className={`h-5 w-5 flex-shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} />
+                  {!isCollapsed && <span className="ml-3">Migration Hub</span>}
                 </Link>
               )}
             </div>
@@ -378,13 +424,15 @@ function CorporateAdminLayout({
                 <BarChart className={`h-5 w-5 flex-shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} />
                 {!isCollapsed && <span className="ml-3">Reports</span>}
               </Link>
-              <Link to="/corporate-admin/migration-hub" title={isCollapsed ? 'Migration Hub' : ''}
-                className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'migration-hub' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-                style={activeMenuItem === 'migration-hub' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-              >
-                <DatabaseZap className={`h-5 w-5 flex-shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} />
-                {!isCollapsed && <span className="ml-3">Migration Hub</span>}
-              </Link>
+              {hasCustodyModule && (
+                <Link to="/corporate-admin/migration-hub" title={isCollapsed ? 'Migration Hub' : ''}
+                  className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'migration-hub' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
+                  style={activeMenuItem === 'migration-hub' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+                >
+                  <DatabaseZap className={`h-5 w-5 flex-shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} />
+                  {!isCollapsed && <span className="ml-3">Migration Hub</span>}
+                </Link>
+              )}
             </div>
           )}
         </nav>
@@ -414,9 +462,9 @@ function CorporateAdminLayout({
                     title="Notifications"
                   >
                     <Bell className="h-4.5 w-4.5" style={{ width: '18px', height: '18px' }} />
-                    {notifications.length > 0 && (
+                    {(notifications.length + unreadCount) > 0 && (
                       <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold">
-                        {notifications.length > 9 ? '9+' : notifications.length}
+                        {(notifications.length + unreadCount) > 9 ? '9+' : (notifications.length + unreadCount)}
                       </span>
                     )}
                   </button>
@@ -441,17 +489,35 @@ function CorporateAdminLayout({
       {/* Notification Dropdown — rendered outside sidebar to avoid clipping */}
       {showNotifDropdown && (
         <div ref={notifRef} className="overflow-y-auto bg-white rounded-xl shadow-2xl border border-gray-200" style={getDropdownStyle()}>
-          <div className="p-3 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl">
+          <div className="p-3 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl flex items-center justify-between">
             <h4 className="text-xs font-bold text-gray-700 uppercase">Notifications</h4>
+            {unreadCount > 0 && (
+              <button onClick={markAllRead} className="text-[10px] text-blue-600 hover:text-blue-800 font-medium">Mark all read</button>
+            )}
           </div>
-          {notifications.length === 0 ? (
+          {(userNotifications.length === 0 && notifications.length === 0) ? (
             <div className="p-4 text-center text-sm text-gray-400">No notifications</div>
           ) : (
             <div className="divide-y divide-gray-50">
+              {userNotifications.map((n) => (
+                <div key={`u-${n.id}`}
+                  onClick={() => { if (!n.is_read) markNotifRead(n.id); if (n.link) window.location.href = n.link; }}
+                  className={`px-3 py-2.5 transition-colors cursor-pointer ${n.is_read ? 'hover:bg-gray-50' : 'bg-blue-50/60 hover:bg-blue-50'}`}>
+                  <div className="flex items-start gap-2">
+                    {!n.is_read && <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${n.is_read ? 'text-gray-700' : 'font-semibold text-gray-900'}`}>{n.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{n.module?.toLowerCase()}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
               {notifications.map((n, i) => (
-                <div key={n.id || i} className="px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                <div key={`s-${n.id || i}`} className="px-3 py-2.5 hover:bg-gray-50 transition-colors">
                   <p className="text-sm font-medium text-gray-800">{n.title}</p>
                   <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message || n.content}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">system</p>
                 </div>
               ))}
             </div>

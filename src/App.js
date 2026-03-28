@@ -194,7 +194,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
   const getDefaultRedirectPath = (role) => {
     if (role === 'system_owner') return "/system-owner/dashboard";
     if (role === 'corporate_admin') return "/corporate-admin/dashboard";
-    if (role === 'checker') return "/checker/approval-inbox";
+    if (role === 'checker') return "/checker/approval-requests";
     if (role === 'end_user' || role === 'viewer') return "/end-user/action-center";
     return "/login";
   };
@@ -225,7 +225,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
                 <Route path="system-owner/*" element={<SystemOwnerRoutes onLogout={handleLogout} />} />
                 <Route path="corporate-admin/*" element={<CorporateAdminRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} hasIssuanceModule={hasIssuanceModule} hasCustodyModule={hasCustodyModule} />} />
                 <Route path="checker/*" element={<CheckerRoutes />} />
-                <Route path="end-user/*" element={<EndUserRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} />} />
+                <Route path="end-user/*" element={<EndUserRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} />} />
                 <Route path="*" element={<Navigate to={getDefaultRedirectPath(userRole)} replace />} />
               </Route>
             )}

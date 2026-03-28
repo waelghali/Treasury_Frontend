@@ -270,7 +270,11 @@ export default function FacilitiesPage() {
           {facilities.map(fac => {
             const total = Number(fac.total_limit_amount) || 0;
             const utilized = Number(fac.utilized_amount) || 0;
+            const reserved = Number(fac.reserved_amount) || 0;
+            const issued = Math.max(0, utilized - reserved);
             const pct = total > 0 ? (utilized / total) * 100 : 0;
+            const issuedPct = total > 0 ? (issued / total) * 100 : 0;
+            const reservedPct = total > 0 ? (reserved / total) * 100 : 0;
             const isFxSuspended = fac.status === 'FX_SUSPENDED';
             const isArchived = fac.status === 'ARCHIVED' || fac.status === 'SUSPENDED' || isFxSuspended;
 
@@ -323,16 +327,34 @@ export default function FacilitiesPage() {
                       <span className="text-slate-400 flex items-center gap-1"><ArrowUpRight size={12} /> Utilization</span>
                       <span className={pct > 90 ? 'text-red-600' : 'text-slate-900'}>{pct.toFixed(1)}%</span>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-1000 rounded-full ${pct > 90 ? 'bg-red-500' : 'bg-blue-600'}`}
-                        style={{ width: `${pct}%` }}
-                      ></div>
+                    <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden flex">
+                      {issuedPct > 0 && (
+                        <div
+                          className={`h-full transition-all duration-1000 ${pct > 90 ? 'bg-red-500' : 'bg-blue-600'}`}
+                          style={{ width: `${Math.min(issuedPct, 100)}%` }}
+                        ></div>
+                      )}
+                      {reservedPct > 0 && (
+                        <div
+                          className="h-full transition-all duration-1000 bg-amber-400"
+                          style={{ width: `${Math.min(reservedPct, 100 - issuedPct)}%` }}
+                        ></div>
+                      )}
                     </div>
                     <div className="flex justify-between items-baseline">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">Limit</span>
                       <span className="text-sm font-black text-slate-700">{fac.currency?.iso_code} {total.toLocaleString()}</span>
                     </div>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Utilized</span>
+                      <span className="text-sm font-black text-slate-700">{fac.currency?.iso_code} {utilized.toLocaleString()}</span>
+                    </div>
+                    {reserved > 0 && (
+                      <div className="flex items-center gap-3 text-[10px] font-bold text-slate-500">
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-600 inline-block"></span> Issued: {fac.currency?.iso_code} {issued.toLocaleString()}</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"></span> Reserved: {fac.currency?.iso_code} {reserved.toLocaleString()}</span>
+                      </div>
+                    )}
                     {/* 🧠 Burn Rate Projection */}
                     {pct > 0 && pct < 100 && fac.start_date && (() => {
                       const startDate = new Date(fac.start_date);
@@ -381,9 +403,9 @@ export default function FacilitiesPage() {
                       <AlertCircle size={14} />
                       <span className="text-[10px] font-black uppercase tracking-tighter">FX Protection</span>
                     </div>
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${fac.review_date ? 'border-slate-200 bg-slate-50 text-slate-600' : 'border-slate-100 text-slate-400'}`}>
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${fac.expiry_date ? 'border-slate-200 bg-slate-50 text-slate-600' : 'border-slate-100 text-slate-400'}`}>
                       <Clock size={14} />
-                      <span className="text-[10px] font-black uppercase tracking-tighter">Next Review</span>
+                      <span className="text-[10px] font-black uppercase tracking-tighter">{fac.expiry_date ? new Date(fac.expiry_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No Expiry'}</span>
                     </div>
                   </div>
 

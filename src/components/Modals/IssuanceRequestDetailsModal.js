@@ -5,14 +5,16 @@ import {
     X, CheckCircle, XCircle, Clock, FileText, Building, Globe, Zap, Printer,
     ShieldCheck, FileKey, User, Calendar, DollarSign, AlertTriangle, Hash,
     Briefcase, ArrowDownCircle, FileWarning, MessageSquare, Settings, Search, ChevronDown,
-    Download, Loader2, Trash2, Edit3, Send, Lock, Unlock, FileSearch
+    Download, Loader2, Trash2, Edit3, Send, Lock, Unlock, FileSearch, RotateCcw
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import ApprovalProgressTracker from '../ApprovalProgressTracker';
 import IssuanceWizardModal from './IssuanceWizardModal';
 
-export default function IssuanceRequestDetailsModal({ request, onClose, onStatusChange }) {
+export default function IssuanceRequestDetailsModal({ request: requestProp, onClose, onStatusChange }) {
     const navigate = useNavigate();
+    const [fullRequest, setFullRequest] = useState(requestProp);
+    const [loadingFullRequest, setLoadingFullRequest] = useState(false);
     const [facilities, setFacilities] = useState([]);
     const [loadingFacilities, setLoadingFacilities] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -27,10 +29,30 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
     const [letterSpecialWording, setLetterSpecialWording] = useState(false);
     const [letterAdditionalText, setLetterAdditionalText] = useState('');
     const [showWizard, setShowWizard] = useState(false);
+    const [showCancelPrompt, setShowCancelPrompt] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
+    const [cancelLoading, setCancelLoading] = useState(false);
     const [nearMatches, setNearMatches] = useState([]);
     const [loadingNearMatch, setLoadingNearMatch] = useState(false);
     const [docAnalysis, setDocAnalysis] = useState(null);
     const [analyzingDocId, setAnalyzingDocId] = useState(null);
+
+    // Use fullRequest as the canonical request object (keeps prop as fallback)
+    const request = fullRequest || requestProp;
+
+    // Fetch full request data by ID to get all nested objects
+    useEffect(() => {
+        if (!requestProp?.id) return;
+        setLoadingFullRequest(true);
+        apiRequest(`/issuance/requests/${requestProp.id}`, 'GET')
+            .then(data => {
+                if (data) setFullRequest(data);
+            })
+            .catch(err => {
+                console.warn('Could not fetch full request details, using list data:', err);
+            })
+            .finally(() => setLoadingFullRequest(false));
+    }, [requestProp?.id]);
 
     // Get current user ID and role from JWT
     useEffect(() => {
@@ -45,7 +67,7 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
     }, []);
 
     useEffect(() => {
-        if (request?.status === 'APPROVED_INTERNAL') {
+        if (request?.status === 'APPROVED_INTERNAL' || request?.status === 'FACILITY_RESERVED') {
             fetchMatchingFacilities();
         }
     }, [request]);
@@ -101,11 +123,35 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
 
     const handleDownloadDoc = async (docId, fileName) => {
         try {
-            const data = await apiRequest(`/issuance/requests/${request.id}/documents/${docId}/download`, 'GET');
-            if (data?.download_url) {
-                window.open(data.download_url, '_blank');
+            const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
+            const authToken = localStorage.getItem('jwt_token');
+            const resp = await fetch(`${API_URL}/issuance/requests/${request.id}/documents/${docId}/download`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            if (!resp.ok) {
+                toast.error('Failed to download document');
+                return;
+            }
+            const contentType = resp.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                // GCS path — response contains { download_url }
+                const data = await resp.json();
+                if (data?.download_url) {
+                    window.open(data.download_url, '_blank');
+                } else {
+                    toast.error('Download URL not available');
+                }
             } else {
-                toast.error('Download URL not available');
+                // Local file — stream as blob and trigger download
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName || 'document';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
             }
         } catch (err) {
             toast.error('Failed to download document');
@@ -116,13 +162,26 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
     const handleAnalyzeDoc = async (doc) => {
         setAnalyzingDocId(doc.id);
         try {
-            // First download the file to get its bytes
-            const downloadData = await apiRequest(`/issuance/requests/${request.id}/documents/${doc.id}/download`, 'GET');
-            if (!downloadData?.download_url) { toast.error('Cannot access document'); return; }
+            // Fetch the file bytes (works for both local and GCS)
+            const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
+            const authToken = localStorage.getItem('jwt_token');
+            const resp = await fetch(`${API_URL}/issuance/requests/${request.id}/documents/${doc.id}/download`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            if (!resp.ok) { toast.error('Cannot access document'); return; }
 
-            // Fetch the actual file
-            const fileResp = await fetch(downloadData.download_url);
-            const fileBlob = await fileResp.blob();
+            const contentType = resp.headers.get('content-type') || '';
+            let fileBlob;
+            if (contentType.includes('application/json')) {
+                // GCS: get signed URL, then fetch the file
+                const data = await resp.json();
+                if (!data?.download_url) { toast.error('Cannot access document'); return; }
+                const fileResp = await fetch(data.download_url);
+                fileBlob = await fileResp.blob();
+            } else {
+                // Local file: direct blob
+                fileBlob = await resp.blob();
+            }
 
             // Map document_type to our API doc_type
             const docTypeMap = { 'CONTRACT': 'CONTRACT', 'PURCHASE_ORDER': 'PURCHASE_ORDER', 'FORMAL_REQUEST': 'FORMAL_REQUEST' };
@@ -146,6 +205,7 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
         }
     };
 
+
     const fetchMatchingFacilities = async () => {
         try {
             setLoadingFacilities(true);
@@ -166,6 +226,11 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                 utilization_pct: f.utilization_pct,
                 tags: f.recommendation_tags || [],
                 score: f.facility_score || 0,
+                // Pricing
+                price_commission_rate: f.price_commission_rate,
+                price_cash_margin_pct: f.price_cash_margin_pct,
+                estimated_commission_cost: f.estimated_commission_cost,
+                required_cash_margin_amount: f.required_cash_margin_amount,
             }));
             setFacilities(mapped);
         } catch (err) {
@@ -196,7 +261,10 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
     const currencyCode = request.currency?.iso_code || request.currency?.code || '';
     const payableCurrencyCode = request.payable_currency?.iso_code || request.payable_currency?.code || '';
     const refCurrencyCode = request.reference_currency?.iso_code || request.reference_currency?.code || '';
-    const isApprover = currentUserId && request.pending_approver_users?.map(String).includes(String(currentUserId));
+    const isApprover = currentUserId && (
+        request.pending_approver_users?.map(String).includes(String(currentUserId))
+        || ((userRole === 'corporate_admin' || userRole === 'checker') && request.status === 'PENDING_APPROVAL')
+    );
 
     const DetailRow = ({ label, value, icon: Icon, highlight }) => {
         if (!value && value !== 0 && value !== false) return null;
@@ -219,7 +287,7 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
 
     return (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50">
-            <div className="relative bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col mx-4">
+            <div className="relative bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[90vh] flex flex-col mx-4">
 
                 {/* Header */}
                 <div className={`${request.status === 'APPROVED_INTERNAL' ? 'bg-emerald-700' : 'bg-blue-800'} text-white px-6 py-4 rounded-t-xl flex justify-between items-center shrink-0`}>
@@ -258,11 +326,14 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                             </div>
                             <div className="text-right">
                                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${request.status === 'APPROVED_INTERNAL' ? 'bg-green-100 text-green-800' :
-                                    request.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                                        request.status === 'PENDING_APPROVAL' ? 'bg-yellow-100 text-yellow-800' :
-                                            'bg-blue-100 text-blue-800'
+                                    request.status === 'REJECTED' || request.status === 'CANCELLATION_REQUESTED' || request.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                                    request.status === 'PENDING_APPROVAL' ? 'bg-yellow-100 text-yellow-800' :
+                                    request.status === 'REVISION_REQUIRED' ? 'bg-amber-100 text-amber-800' :
+                                        'bg-blue-100 text-blue-800'
                                     }`}>
-                                    {request.status?.replace(/_/g, ' ')}
+                                    {request.status === 'CANCELLATION_REQUESTED' ? '🚫 Cancel Pending' :
+                                     request.status === 'REVISION_REQUIRED' ? '🔄 Revision Required' :
+                                     request.status?.replace(/_/g, ' ')}
                                 </span>
                                 {request.is_urgent && (
                                     <div className="mt-2">
@@ -274,10 +345,35 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                             </div>
                         </div>
 
+                        {/* Cancellation Banner */}
+                        {request.status === 'CANCELLATION_REQUESTED' && request.cancellation_reason && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+                                <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-sm font-bold text-red-800">Cancellation Requested</p>
+                                    <p className="text-sm text-red-700 mt-1">"{request.cancellation_reason}"</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Revision Required Banner */}
+                        {request.status === 'REVISION_REQUIRED' && (
+                            <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 flex items-start gap-3">
+                                <RotateCcw className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-sm font-bold text-amber-800">Revision Required by Approver</p>
+                                    {request.revision_notes && (
+                                        <p className="text-sm text-amber-700 mt-1 whitespace-pre-wrap">"{request.revision_notes}"</p>
+                                    )}
+                                    <p className="text-xs text-amber-600 mt-1">Please edit the request and resubmit for approval.</p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Requestor & Business Details */}
                         <div className="bg-white p-5 rounded-lg shadow-sm border">
                             <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2">Requestor & Business Details</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1">
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                                 <DetailRow label="Issuing Entity" value={request.issuing_entity?.entity_name || request.issuing_entity_id} icon={Building} highlight />
                                 <DetailRow label="Requestor" value={request.requestor_name} icon={User} />
                                 <DetailRow label="Email" value={request.requestor_email} />
@@ -296,7 +392,7 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                         {/* LG Details */}
                         <div className="bg-white p-5 rounded-lg shadow-sm border">
                             <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2">LG Details</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1">
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                                 <DetailRow label="LG Type" value={request.lg_type?.name} icon={FileText} />
                                 <DetailRow label="LG Purpose" value={request.lg_purpose} />
                                 <DetailRow label="Amount" value={`${currencyCode} ${requestAmount}`} icon={DollarSign} />
@@ -331,7 +427,7 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                         {(request.reference_type || request.reference_number || request.reference_amount) && (
                             <div className="bg-white p-5 rounded-lg shadow-sm border">
                                 <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2">Underlying Reference</h4>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1">
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                                     <DetailRow label="Reference Type" value={request.reference_type?.replace(/_/g, ' ')} icon={FileText} />
                                     <DetailRow label="Reference Number" value={request.reference_number} icon={Hash} />
                                     <DetailRow label="Reference Amount" value={request.reference_amount ? `${refCurrencyCode || currencyCode} ${parseFloat(request.reference_amount).toLocaleString()}` : null} icon={DollarSign} />
@@ -344,10 +440,37 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                             </div>
                         )}
 
+                        {/* Risk Warning: LG maturity significantly exceeds reference end date */}
+                        {(() => {
+                            if (!request.requested_expiry_date || !request.reference_end_date) return null;
+                            const maturity = new Date(request.requested_expiry_date);
+                            const refEnd = new Date(request.reference_end_date);
+                            const diffMs = maturity - refEnd;
+                            const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+                            if (diffDays <= 90) return null;
+                            const months = Math.floor(diffDays / 30);
+                            const remainDays = diffDays % 30;
+                            const gapText = months > 0
+                                ? `${months} month${months > 1 ? 's' : ''}${remainDays > 0 ? `, ${remainDays} day${remainDays > 1 ? 's' : ''}` : ''}`
+                                : `${diffDays} days`;
+                            return (
+                                <div className="bg-amber-50 p-4 rounded-lg border border-amber-300 flex items-start gap-3">
+                                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-amber-800">Maturity Date Exceeds Reference Period</p>
+                                        <p className="text-xs text-amber-700 mt-1">
+                                            The LG maturity date ({request.requested_expiry_date}) extends <span className="font-bold">{gapText}</span> beyond the reference end date ({request.reference_end_date}).
+                                            This may indicate over-coverage risk.
+                                        </p>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         {/* Beneficiary */}
                         <div className="bg-white p-5 rounded-lg shadow-sm border">
                             <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2">Beneficiary</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1">
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                                 <DetailRow label="Beneficiary ID" value={request.beneficiary_id_number} icon={Hash} />
                                 <DetailRow label="Name" value={request.beneficiary_name} icon={Building} />
                                 <DetailRow label="Country" value={request.beneficiary_country} icon={Globe} />
@@ -402,7 +525,7 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                                 <h4 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2 flex items-center gap-1">
                                     <Globe className="w-4 h-4" /> Cross-Border Issuance
                                 </h4>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1">
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                                     <DetailRow label="Issuing Country" value={request.issuance_country} icon={Globe} />
                                     {request.cross_border_details?.advising_bank_name && (
                                         <DetailRow label="Advising Bank" value={request.cross_border_details.advising_bank_name} />
@@ -521,8 +644,8 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                             ) : (
                                 <div className="space-y-2">
                                     {documents.map(doc => {
-                                        const typeLabels = { CONTRACT: 'Contract/PO', SPECIAL_WORDING: 'Wording', FORMAL_REQUEST: 'Formal Request', THIRD_PARTY: 'Third Party', OTHER: 'Other' };
-                                        const typeColors = { CONTRACT: 'bg-blue-100 text-blue-700', SPECIAL_WORDING: 'bg-purple-100 text-purple-700', FORMAL_REQUEST: 'bg-gray-100 text-gray-700', THIRD_PARTY: 'bg-amber-100 text-amber-700', OTHER: 'bg-gray-100 text-gray-600' };
+                                        const typeLabels = { CONTRACT: 'Contract/PO', SPECIAL_WORDING: 'Wording', FORMAL_REQUEST: 'Formal Request', THIRD_PARTY: 'Third Party', HANDOVER_SIGNED_COPY: 'Handover Copy', BANK_REJECTION_NOTICE: 'Rejection Notice', BANK_LG_COPY: 'Bank Issued Copy', BANK_INQUIRY: 'Bank Inquiry', BANK_REPLY: 'Bank Reply', DELIVERY_PROOF: 'Delivery Proof', OTHER: 'Other' };
+                                        const typeColors = { CONTRACT: 'bg-blue-100 text-blue-700', SPECIAL_WORDING: 'bg-purple-100 text-purple-700', FORMAL_REQUEST: 'bg-gray-100 text-gray-700', THIRD_PARTY: 'bg-amber-100 text-amber-700', HANDOVER_SIGNED_COPY: 'bg-emerald-100 text-emerald-700', BANK_REJECTION_NOTICE: 'bg-red-100 text-red-700', BANK_LG_COPY: 'bg-blue-100 text-blue-700', BANK_INQUIRY: 'bg-amber-100 text-amber-700', BANK_REPLY: 'bg-blue-100 text-blue-700', DELIVERY_PROOF: 'bg-indigo-100 text-indigo-700', OTHER: 'bg-gray-100 text-gray-600' };
                                         return (
                                             <div key={doc.id} className="flex items-center justify-between p-2.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-white transition">
                                                 <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -659,6 +782,77 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                             )}
                         </div>
 
+                        {/* Activity Timeline */}
+                        {(() => {
+                            const audit = request.approval_chain_audit || [];
+                            if (audit.length === 0 && !request.revision_notes) return null;
+                            const ACTION_CONFIG = {
+                                'SUBMITTED': { icon: '📤', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200', label: 'Submitted for approval' },
+                                'RESUBMITTED': { icon: '🔄', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200', label: 'Resubmitted after revision' },
+                                'APPROVED': { icon: '✅', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200', label: 'Approved' },
+                                'REJECTED': { icon: '❌', color: 'text-red-700', bg: 'bg-red-50 border-red-200', label: 'Rejected' },
+                                'APPROVED_STEP': { icon: '✅', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200', label: 'Approved (step)' },
+                                'FULLY_APPROVED': { icon: '✅', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200', label: 'Fully approved' },
+                                'REVISION_REQUIRED': { icon: '🔄', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200', label: 'Revision required' },
+                                'SKIPPED_STEP': { icon: '⏭️', color: 'text-gray-500', bg: 'bg-gray-50 border-gray-200', label: 'Step skipped' },
+                                'RE_APPROVAL_TRIGGERED': { icon: '🔁', color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200', label: 'Re-approval required (fields edited)' },
+                                'SAFE_EDIT': { icon: '✏️', color: 'text-indigo-600', bg: 'bg-indigo-50 border-indigo-200', label: 'Request edited (no re-approval needed)' },
+                                'CANCELLATION_REQUESTED': { icon: '🚫', color: 'text-red-700', bg: 'bg-red-50 border-red-200', label: 'Cancellation requested' },
+                                'CANCELLATION_APPROVED': { icon: '✅', color: 'text-red-700', bg: 'bg-red-50 border-red-200', label: 'Cancellation approved — request cancelled' },
+                                'CANCELLATION_REJECTED': { icon: '↩️', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200', label: 'Cancellation rejected — request restored' },
+                                'BANK_REJECTED': { icon: '🏦❌', color: 'text-red-700', bg: 'bg-red-50 border-red-200', label: 'Bank rejected — request reopened' },
+                                'BANK_NO_RESPONSE': { icon: '🏦⏰', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200', label: 'Bank no response — request reopened' },
+                            };
+                            return (
+                                <div className="bg-white p-5 rounded-lg shadow-sm border">
+                                    <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2 flex items-center">
+                                        <MessageSquare className="w-4 h-4 mr-2 text-indigo-500" /> Activity Timeline
+                                    </h4>
+                                    <div className="space-y-2">
+                                        {audit.map((entry, idx) => {
+                                            const cfg = ACTION_CONFIG[entry.action] || { icon: '•', color: 'text-gray-600', bg: 'bg-gray-50 border-gray-200', label: entry.action };
+                                            const message = entry.notes || entry.reason;
+                                            return (
+                                                <div key={idx} className={`flex items-start gap-2.5 p-2.5 rounded-lg border ${cfg.bg}`}>
+                                                    <span className="text-sm flex-shrink-0 mt-0.5">{cfg.icon}</span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <span className={`text-xs font-semibold ${cfg.color}`}>{cfg.label}</span>
+                                                            {entry.timestamp && <span className="text-[10px] text-gray-400 flex-shrink-0">{entry.timestamp}</span>}
+                                                        </div>
+                                                        {(entry.user_name || entry.step) && (
+                                                            <div className="flex items-center gap-2 mt-0.5">
+                                                                {entry.user_name && <span className="text-[10px] text-gray-500">by {entry.user_name}</span>}
+                                                                {entry.step && <span className="text-[10px] text-gray-400">· Step {entry.step}</span>}
+                                                            </div>
+                                                        )}
+                                                        {message && (
+                                                            <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap bg-white/60 rounded px-2 py-1.5 border border-gray-100">
+                                                                "{message}"
+                                                            </p>
+                                                        )}
+                                                        {entry.changed_fields && entry.changed_fields.length > 0 && (
+                                                            <p className="text-[10px] text-gray-400 mt-0.5">Changed: {entry.changed_fields.map(f => f.replace(/_/g, ' ')).join(', ')}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {/* Fallback: show current revision_notes if no audit entries have it */}
+                                        {audit.length === 0 && request.revision_notes && (
+                                            <div className="flex items-start gap-2.5 p-2.5 rounded-lg border bg-amber-50 border-amber-200">
+                                                <span className="text-sm flex-shrink-0 mt-0.5">↩️</span>
+                                                <div>
+                                                    <span className="text-xs font-semibold text-amber-700">Revision Notes</span>
+                                                    <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">"{request.revision_notes}"</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         {/* Approve/Reject — only for designated approvers */}
                         {request.status === 'PENDING_APPROVAL' && isApprover && (
                             <div className="bg-yellow-50 p-5 rounded-lg shadow-sm border border-yellow-200">
@@ -666,20 +860,63 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                                     <ShieldCheck className="w-4 h-4 mr-2" /> Action Required
                                 </h4>
                                 <p className="text-xs text-yellow-700 mb-4">Review the details before registering your approval decision.</p>
-                                <div className="flex space-x-3">
+                                <div className="flex space-x-2">
                                     <button
                                         onClick={() => handleAction('approve', 'approve')}
                                         disabled={isProcessing}
-                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-md shadow-sm text-sm transition-colors flex justify-center items-center"
+                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-1.5 px-3 rounded-md shadow-sm text-xs transition-colors flex justify-center items-center"
                                     >
-                                        <CheckCircle className="w-4 h-4 mr-2" /> Approve
+                                        <CheckCircle className="w-3.5 h-3.5 mr-1.5" /> Approve
                                     </button>
                                     <button
-                                        onClick={() => handleAction('reject', 'reject')}
+                                        onClick={async () => {
+                                            const notes = window.prompt('Enter revision notes for the requestor (optional):');
+                                            if (notes === null) return;
+                                            try {
+                                                setIsProcessing(true);
+                                                await apiRequest(`/issuance/requests/${request.id}/return-for-revision`, 'POST', {
+                                                    revision_notes: notes || null
+                                                });
+                                                toast.success('Request returned for revision — requestor will be notified');
+                                                if (onStatusChange) onStatusChange();
+                                                onClose();
+                                            } catch (err) {
+                                                toast.error(err?.message || 'Failed to return request');
+                                            } finally {
+                                                setIsProcessing(false);
+                                            }
+                                        }}
                                         disabled={isProcessing}
-                                        className="flex-1 bg-red-100 hover:bg-red-200 text-red-800 font-medium py-2 rounded-md shadow-sm text-sm transition-colors flex justify-center items-center"
+                                        className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 px-3 rounded-md shadow-sm text-xs transition-colors flex justify-center items-center"
                                     >
-                                        Reject
+                                        <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Revise
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            const reason = window.prompt('Enter the reason for rejecting this request:');
+                                            if (reason === null) return;
+                                            if (!reason.trim()) {
+                                                toast.error('A rejection reason is required');
+                                                return;
+                                            }
+                                            try {
+                                                setIsProcessing(true);
+                                                await apiRequest(`/issuance/requests/${request.id}/reject`, 'POST', {
+                                                    rejection_reason: reason.trim()
+                                                });
+                                                toast.success('Request rejected');
+                                                if (onStatusChange) onStatusChange();
+                                                onClose();
+                                            } catch (err) {
+                                                toast.error(err?.message || 'Failed to reject request');
+                                            } finally {
+                                                setIsProcessing(false);
+                                            }
+                                        }}
+                                        disabled={isProcessing}
+                                        className="flex-1 bg-red-100 hover:bg-red-200 text-red-800 font-medium py-1.5 px-3 rounded-md shadow-sm text-xs transition-colors flex justify-center items-center"
+                                    >
+                                        <XCircle className="w-3.5 h-3.5 mr-1.5" /> Reject
                                     </button>
                                 </div>
                             </div>
@@ -747,12 +984,22 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
 
                 {/* Footer */}
                 <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-xl flex justify-between items-center shrink-0">
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md font-medium text-sm transition-colors"
-                    >
-                        Close
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md font-medium text-sm transition-colors"
+                        >
+                            Close
+                        </button>
+                        {(userRole === 'end_user' || currentUserId === request.requestor_user_id) && ['PENDING_APPROVAL', 'APPROVED_INTERNAL', 'FACILITY_RESERVED'].includes(request.status) && (
+                            <button
+                                onClick={() => setShowCancelPrompt(true)}
+                                className="flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:text-red-600 rounded-md text-xs transition-colors"
+                            >
+                                <XCircle className="w-3.5 h-3.5" /> Cancel Request
+                            </button>
+                        )}
+                    </div>
                     <div className="flex gap-2">
                         {/* === DRAFT ACTIONS === */}
                         {request.status === 'DRAFT' && (
@@ -777,7 +1024,8 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                                 <button
                                     onClick={() => {
                                         onClose();
-                                        navigate(`/issuance/requests/edit/${request.id}`);
+                                        const basePath = userRole === 'corporate_admin' ? '/corporate-admin' : '/end-user';
+                                        navigate(`${basePath}/issuance/requests/edit/${request.id}`);
                                     }}
                                     className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 rounded-md font-medium text-sm hover:bg-gray-100 transition-colors"
                                 >
@@ -802,6 +1050,42 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                                     className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold text-sm transition-colors shadow-sm"
                                 >
                                     <Send className="w-4 h-4" /> Submit
+                                </button>
+                            </>
+                        )}
+
+                        {/* === REVISION_REQUIRED ACTIONS === */}
+                        {request.status === 'REVISION_REQUIRED' && (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        onClose();
+                                        const basePath = userRole === 'corporate_admin' ? '/corporate-admin' : '/end-user';
+                                        navigate(`${basePath}/issuance/requests/edit/${request.id}`);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-md font-medium text-sm hover:bg-amber-100 transition-colors"
+                                >
+                                    <Edit3 className="w-4 h-4" /> Edit Request
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        if (!window.confirm('Resubmit this request for approval? It will resume from the approver who requested the revision.')) return;
+                                        try {
+                                            setIsProcessing(true);
+                                            await apiRequest(`/issuance/requests/${request.id}/submit`, 'POST');
+                                            toast.success('Request resubmitted for approval');
+                                            onStatusChange();
+                                            onClose();
+                                        } catch (err) {
+                                            toast.error(err?.message || 'Failed to resubmit');
+                                        } finally {
+                                            setIsProcessing(false);
+                                        }
+                                    }}
+                                    disabled={isProcessing}
+                                    className="flex items-center gap-2 px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md font-semibold text-sm transition-colors shadow-sm"
+                                >
+                                    <Send className="w-4 h-4" /> Resubmit for Approval
                                 </button>
                             </>
                         )}
@@ -840,8 +1124,20 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                             </button>
                         )}
 
-                        {/* Issue to Bank — available on APPROVED_INTERNAL or FACILITY_RESERVED */}
-                        {userRole === 'end_user' && (request.status === 'APPROVED_INTERNAL' || request.status === 'FACILITY_RESERVED') && (
+                        {/* Reserve Facility — only for APPROVED_INTERNAL, end_user, with matching facilities, not locked */}
+                        {userRole === 'end_user' && request.status === 'APPROVED_INTERNAL' && facilities.length > 0 && !request.locked_for_issuance && (
+                            <button
+                                onClick={() => {
+                                    if (typeof onStatusChange === 'function') onStatusChange('EXECUTE', request);
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-md font-medium text-sm hover:bg-amber-100 transition-colors"
+                            >
+                                <Lock className="w-4 h-4" /> Reserve Facility
+                            </button>
+                        )}
+
+                        {/* Issue to Bank — available on APPROVED_INTERNAL or FACILITY_RESERVED, not locked */}
+                        {userRole === 'end_user' && !request.locked_for_issuance && (request.status === 'APPROVED_INTERNAL' || request.status === 'FACILITY_RESERVED') && (
                             <button
                                 onClick={() => setShowWizard(true)}
                                 className="flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-semibold text-sm transition-colors shadow-sm"
@@ -849,8 +1145,103 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                                 <Zap className="w-4 h-4" /> Issue to Bank
                             </button>
                         )}
+
+
+
+                        {/* Admin: Approve/Reject Cancellation */}
+                        {userRole === 'corporate_admin' && request.status === 'CANCELLATION_REQUESTED' && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-red-600 font-medium mr-1">Cancellation pending:</span>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            await apiRequest(`/issuance/requests/${request.id}/resolve-cancellation`, 'POST', { approved: true, note: '' });
+                                            toast.success('Cancellation approved. Request has been cancelled.');
+                                            if (typeof onStatusChange === 'function') onStatusChange('REFRESH');
+                                            onClose();
+                                        } catch (err) { toast.error(err.message || 'Failed to approve cancellation.'); }
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-md text-xs font-bold hover:bg-red-700 transition-colors"
+                                >
+                                    <CheckCircle className="w-3.5 h-3.5" /> Approve Cancel
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            await apiRequest(`/issuance/requests/${request.id}/resolve-cancellation`, 'POST', { approved: false, note: '' });
+                                            toast.info('Cancellation rejected. Request restored to previous status.');
+                                            if (typeof onStatusChange === 'function') onStatusChange('REFRESH');
+                                            onClose();
+                                        } catch (err) { toast.error(err.message || 'Failed to reject cancellation.'); }
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-bold hover:bg-slate-50 transition-colors"
+                                >
+                                    <XCircle className="w-3.5 h-3.5" /> Reject Cancel
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
+
+                {/* Cancellation Reason Dialog */}
+                {showCancelPrompt && (
+                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+                            <div className="p-5 border-b border-slate-200">
+                                <h3 className="text-lg font-bold text-red-700 flex items-center gap-2">
+                                    <XCircle className="w-5 h-5" /> Request Cancellation
+                                </h3>
+                                <p className="text-sm text-slate-500 mt-1">
+                                    This will send a cancellation request to the admin for approval. Please provide a reason.
+                                </p>
+                            </div>
+                            <div className="p-5 space-y-4">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Reason for cancellation *</label>
+                                    <textarea
+                                        value={cancelReason}
+                                        onChange={e => setCancelReason(e.target.value)}
+                                        className="w-full p-3 border border-slate-200 rounded-xl text-sm resize-none h-24 focus:ring-2 focus:ring-red-200 focus:border-red-400 outline-none"
+                                        placeholder="e.g., Duplicate request, terms changed, beneficiary no longer requires guarantee..."
+                                    />
+                                    {cancelReason.length > 0 && cancelReason.length < 5 && (
+                                        <p className="text-[10px] text-red-500 mt-1">Reason must be at least 5 characters.</p>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="p-5 border-t border-slate-200 flex justify-end gap-3">
+                                <button
+                                    onClick={() => { setShowCancelPrompt(false); setCancelReason(''); }}
+                                    className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800"
+                                >
+                                    Nevermind
+                                </button>
+                                <button
+                                    disabled={cancelReason.trim().length < 5 || cancelLoading}
+                                    onClick={async () => {
+                                        setCancelLoading(true);
+                                        try {
+                                            await apiRequest(`/issuance/requests/${request.id}/request-cancellation`, 'POST', { reason: cancelReason.trim() });
+                                            toast.success('Cancellation request submitted. Awaiting admin approval.');
+                                            setShowCancelPrompt(false);
+                                            setCancelReason('');
+                                            if (typeof onStatusChange === 'function') onStatusChange('REFRESH');
+                                            onClose();
+                                        } catch (err) {
+                                            toast.error(err.message || 'Failed to submit cancellation request.');
+                                        } finally {
+                                            setCancelLoading(false);
+                                        }
+                                    }}
+                                    className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    {cancelLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                                    Submit Cancellation Request
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Letter Reprint Dialog */}
                 {showLetterDialog && (
@@ -971,8 +1362,10 @@ export default function IssuanceRequestDetailsModal({ request, onClose, onStatus
                     onClose={() => setShowWizard(false)}
                     onIssued={(result) => {
                         setShowWizard(false);
-                        onClose();
+                        // Close the details modal and refresh the parent list
                         if (typeof onStatusChange === 'function') onStatusChange('REFRESH');
+                        // Safety net: ensure modal closes even if onStatusChange doesn't handle it
+                        if (typeof onClose === 'function') onClose();
                     }}
                 />
             )}

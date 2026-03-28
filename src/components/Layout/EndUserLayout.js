@@ -3,7 +3,7 @@ import { Link, Outlet } from 'react-router-dom';
 import {
   Home, FileText, PlusCircle, BarChart, LogOut,
   FolderKanban, Users, ListTodo, ChevronLeft, ChevronRight,
-  Building, History, Zap, Bell
+  Building, History, Zap, Bell, RefreshCw
 } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner';
@@ -17,6 +17,8 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [newRequestCount, setNewRequestCount] = useState(0);
+  const [userNotifications, setUserNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const notifRef = useRef(null);
   const bellRef = useRef(null);
 
@@ -61,13 +63,42 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
     loadNotifications();
   }, []);
 
-  // Fetch count of new issuance requests needing attention
+  // Fetch UserNotification records (issuance, maintenance, etc.)
+  useEffect(() => {
+    const fetchUserNotifs = () => {
+      apiRequest('/notifications/', 'GET').then(data => setUserNotifications(data || [])).catch(() => {});
+      apiRequest('/notifications/unread-count', 'GET').then(data => setUnreadCount(data?.count || 0)).catch(() => {});
+    };
+    fetchUserNotifs();
+    const interval = setInterval(fetchUserNotifs, 30000); // Poll every 30s
+    return () => clearInterval(interval);
+  }, []);
+
+  const markNotifRead = async (id) => {
+    try {
+      await apiRequest(`/notifications/${id}/read`, 'PATCH');
+      setUserNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch {} 
+  };
+
+  const markAllRead = async () => {
+    try {
+      await apiRequest('/notifications/mark-all-read', 'PATCH');
+      setUserNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setUnreadCount(0);
+    } catch {}
+  };
+
+  // Fetch count of issuance requests pending end-user action (approved, awaiting execution)
   useEffect(() => {
     if (!hasIssuanceModule) return;
-    apiRequest('/issuance/requests?status=PENDING_APPROVAL&page=1&page_size=1', 'GET')
+    apiRequest('/issuance/requests/', 'GET')
       .then(data => {
-        const count = data?.total || data?.length || 0;
-        setNewRequestCount(count);
+        const actionable = (data || []).filter(r =>
+          r.status === 'APPROVED_INTERNAL' || r.status === 'FACILITY_RESERVED'
+        );
+        setNewRequestCount(actionable.length);
       })
       .catch(() => setNewRequestCount(0));
   }, [hasIssuanceModule]);
@@ -331,6 +362,20 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
                 <FileText className="h-5 w-5 flex-shrink-0" />
                 {!isCollapsed && <span className="ml-3">Issued LGs</span>}
               </Link>
+              <Link
+                to="/end-user/issuance/reconciliation"
+                title={isCollapsed ? "Pos. Reconciliation" : ""}
+                className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'issuance-reconciliation'
+                  ? 'font-semibold'
+                  : 'hover:bg-white/[0.07]'
+                  }`}
+                style={activeMenuItem === 'issuance-reconciliation'
+                  ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
+                  : { color: '#cbd5e1' }}
+              >
+                <RefreshCw className="h-5 w-5 flex-shrink-0" />
+                {!isCollapsed && <span className="ml-3">Pos. Reconciliation</span>}
+              </Link>
             </>
           )}
 
@@ -380,9 +425,9 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
                     title="Notifications"
                   >
                     <Bell className="h-4.5 w-4.5" style={{ width: '18px', height: '18px' }} />
-                    {notifications.length > 0 && (
+                    {(notifications.length + unreadCount) > 0 && (
                       <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold">
-                        {notifications.length > 9 ? '9+' : notifications.length}
+                        {(notifications.length + unreadCount) > 9 ? '9+' : (notifications.length + unreadCount)}
                       </span>
                     )}
                   </button>
@@ -407,17 +452,35 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
       {/* Notification Dropdown — rendered outside sidebar to avoid clipping */}
       {showNotifDropdown && (
         <div ref={notifRef} className="overflow-y-auto bg-white rounded-xl shadow-2xl border border-gray-200" style={getDropdownStyle()}>
-          <div className="p-3 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl">
+          <div className="p-3 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl flex items-center justify-between">
             <h4 className="text-xs font-bold text-gray-700 uppercase">Notifications</h4>
+            {unreadCount > 0 && (
+              <button onClick={markAllRead} className="text-[10px] text-blue-600 hover:text-blue-800 font-medium">Mark all read</button>
+            )}
           </div>
-          {notifications.length === 0 ? (
+          {(userNotifications.length === 0 && notifications.length === 0) ? (
             <div className="p-4 text-center text-sm text-gray-400">No notifications</div>
           ) : (
             <div className="divide-y divide-gray-50">
+              {userNotifications.map((n) => (
+                <div key={`u-${n.id}`}
+                  onClick={() => { if (!n.is_read) markNotifRead(n.id); if (n.link) window.location.href = n.link; }}
+                  className={`px-3 py-2.5 transition-colors cursor-pointer ${n.is_read ? 'hover:bg-gray-50' : 'bg-blue-50/60 hover:bg-blue-50'}`}>
+                  <div className="flex items-start gap-2">
+                    {!n.is_read && <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${n.is_read ? 'text-gray-700' : 'font-semibold text-gray-900'}`}>{n.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{n.module?.toLowerCase()}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
               {notifications.map((n, i) => (
-                <div key={n.id || i} className="px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                <div key={`s-${n.id || i}`} className="px-3 py-2.5 hover:bg-gray-50 transition-colors">
                   <p className="text-sm font-medium text-gray-800">{n.title}</p>
                   <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message || n.content}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">system</p>
                 </div>
               ))}
             </div>

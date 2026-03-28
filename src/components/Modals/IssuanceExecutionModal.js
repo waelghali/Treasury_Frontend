@@ -7,16 +7,10 @@ export default function IssuanceExecutionModal({ request, onClose, onSuccess }) 
   const [loading, setLoading] = useState(false);
   const [reserveLoading, setReserveLoading] = useState(false);
   const [facilities, setFacilities] = useState([]);
-  const [banks, setBanks] = useState([]);
   const [fetchingFacilities, setFetchingFacilities] = useState(true);
-  const [proceedWithoutFacility, setProceedWithoutFacility] = useState(false);
 
   // Form State
   const [selectedOption, setSelectedOption] = useState(null);
-  const [selectedBankId, setSelectedBankId] = useState('');
-  const [manualPricing, setManualPricing] = useState({
-    commission_rate: '', flat_fee: '', margin_pct: '', notes: ''
-  });
 
   const isReserved = request.status === 'FACILITY_RESERVED';
 
@@ -28,12 +22,8 @@ export default function IssuanceExecutionModal({ request, onClose, onSuccess }) 
     }
     async function loadOptions() {
       try {
-        const [facData, bankData] = await Promise.all([
-          apiRequest(`/issuance/requests/${request.id}/suitable-facilities`, 'GET'),
-          apiRequest('/issuance/banks', 'GET'),
-        ]);
+        const facData = await apiRequest(`/issuance/requests/${request.id}/suitable-facilities`, 'GET');
         setFacilities(facData);
-        setBanks(bankData);
       } catch (err) {
         toast.error("Failed to load bank facilities.");
       } finally {
@@ -79,62 +69,7 @@ export default function IssuanceExecutionModal({ request, onClose, onSuccess }) 
     }
   };
 
-  const handleIssue = async () => {
-    if (!isReserved && !selectedOption && !proceedWithoutFacility) {
-      toast.error("Please select a bank facility or choose to proceed without one.");
-      return;
-    }
-    if (proceedWithoutFacility && !selectedBankId) {
-      toast.error("Please select the issuing bank.");
-      return;
-    }
 
-    // Advisory warning for insufficient limit
-    if (selectedOption && !selectedOption.has_sufficient_limit) {
-      if (!window.confirm(
-        `⚠️ This facility has insufficient available limit.\n\n` +
-        `Available: ${parseFloat(selectedOption.limit_available).toLocaleString()}\n` +
-        `Required: ${parseFloat(request.amount).toLocaleString()}\n\n` +
-        `Are you sure you want to proceed?`
-      )) return;
-    }
-
-    setLoading(true);
-    try {
-      const body = {};
-      if (selectedOption) {
-        body.sub_limit_id = selectedOption.sub_limit_id;
-      }
-      if (proceedWithoutFacility && selectedBankId) {
-        body.bank_id = parseInt(selectedBankId, 10);
-      }
-      // D2: Don't send issue_date — backend sets it from bank reply
-      body.issued_ref_number = `PENDING-${request.serial_number || request.id}`;
-
-      // D3: Send manual pricing when no facility selected
-      if (proceedWithoutFacility) {
-        const hasAnyPricing = Object.values(manualPricing).some(v => v !== '');
-        if (hasAnyPricing) {
-          body.manual_pricing = {
-            commission_rate: manualPricing.commission_rate ? parseFloat(manualPricing.commission_rate) : null,
-            flat_fee: manualPricing.flat_fee ? parseFloat(manualPricing.flat_fee) : null,
-            margin_pct: manualPricing.margin_pct ? parseFloat(manualPricing.margin_pct) : null,
-            notes: manualPricing.notes || null,
-          };
-        }
-      }
-
-      await apiRequest(`/issuance/requests/${request.id}/issue`, 'POST', body);
-
-      toast.success("LG Issued Successfully!");
-      onSuccess();
-      onClose();
-    } catch (err) {
-      toast.error(err?.message || "Failed to execute issuance.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const UtilizationBar = ({ used, total, pct }) => (
     <div className="w-full mt-1">
@@ -186,7 +121,7 @@ export default function IssuanceExecutionModal({ request, onClose, onSuccess }) 
                     <span className="text-sm font-bold text-amber-800">Facility Reserved</span>
                   </div>
                   <p className="text-sm text-amber-700">
-                    Capacity is held on the selected facility. You can now confirm issuance or release the reservation.
+                    Capacity is held on the selected facility. To proceed with issuance, close this modal and use <strong>"Issue to Bank"</strong> from the request details.
                   </p>
                 </div>
 
@@ -198,15 +133,6 @@ export default function IssuanceExecutionModal({ request, onClose, onSuccess }) 
                   >
                     <Unlock className="h-4 w-4" />
                     Release Reservation
-                  </button>
-                  <button
-                    onClick={handleIssue}
-                    disabled={loading}
-                    className="flex-1 inline-flex justify-center items-center gap-2 rounded-md border border-transparent shadow-sm px-4 py-3 text-base font-medium text-white bg-blue-600 hover:bg-blue-700"
-                  >
-                    {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <>
-                      <Check className="h-4 w-4" /> Confirm Issuance
-                    </>}
                   </button>
                 </div>
               </div>
@@ -221,14 +147,14 @@ export default function IssuanceExecutionModal({ request, onClose, onSuccess }) 
                   </label>
                   {fetchingFacilities ? (
                     <div className="flex items-center text-gray-500"><Loader2 className="h-4 w-4 animate-spin mr-2" /> Analyzing facilities...</div>
-                  ) : facilities.length === 0 && !proceedWithoutFacility ? (
+                  ) : facilities.length === 0 ? (
                     <div className="space-y-3">
                       <div className="text-amber-600 flex items-center bg-amber-50 p-3 rounded-lg border border-amber-200">
                         <AlertTriangle className="h-4 w-4 mr-2 flex-shrink-0" />
-                        <span className="text-sm">No matching facilities found for this currency. You may proceed without selecting one.</span>
+                        <span className="text-sm">No matching facilities found for this currency. Use "Issue to Bank" from the request details to proceed without a facility.</span>
                       </div>
                     </div>
-                  ) : !proceedWithoutFacility && (
+                  ) : (
                     <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
                       {facilities.map((fac, idx) => {
                         const isSelected = selectedOption?.sub_limit_id === fac.sub_limit_id;
@@ -238,7 +164,7 @@ export default function IssuanceExecutionModal({ request, onClose, onSuccess }) 
                         return (
                           <div
                             key={idx}
-                            onClick={() => { setSelectedOption(fac); setProceedWithoutFacility(false); }}
+                            onClick={() => setSelectedOption(fac)}
                             className={`relative p-3 rounded-lg cursor-pointer border-2 transition-all ${isSelected
                               ? (isInsufficient ? 'border-amber-500 bg-amber-50' : 'border-blue-600 bg-blue-50')
                               : (isInsufficient ? 'border-gray-100 opacity-70 hover:opacity-100 hover:border-amber-300' : 'border-gray-100 hover:border-blue-300')
@@ -287,128 +213,24 @@ export default function IssuanceExecutionModal({ request, onClose, onSuccess }) 
                     </div>
                   )}
 
-                  {/* PROCEED WITHOUT FACILITY */}
-                  <div className="mt-3">
-                    <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${proceedWithoutFacility ? 'border-gray-600 bg-gray-50' : 'border-dashed border-gray-200 hover:border-gray-400'
-                      }`}>
-                      <input
-                        type="checkbox"
-                        checked={proceedWithoutFacility}
-                        onChange={(e) => {
-                          setProceedWithoutFacility(e.target.checked);
-                          if (e.target.checked) setSelectedOption(null);
-                          if (!e.target.checked) setSelectedBankId('');
-                        }}
-                        className="mt-0.5 rounded"
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">Proceed without facility selection</p>
-                        <p className="text-xs text-gray-500 mt-0.5">Use this when facility documentation is pending or verbal agreement with bank is in place.</p>
-                      </div>
-                    </label>
-                  </div>
-
-                  {/* BANK SELECTOR (shown when proceeding without facility) */}
-                  {proceedWithoutFacility && (
-                    <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <Building className="inline w-4 h-4 mr-1" />
-                        Issuing Bank <span className="text-red-400">*</span>
-                      </label>
-                      <select
-                        value={selectedBankId}
-                        onChange={(e) => setSelectedBankId(e.target.value)}
-                        className="w-full border border-gray-300 rounded-md p-2 shadow-sm text-sm"
-                        required
-                      >
-                        <option value="">Select a bank...</option>
-                        {banks.map(b => (
-                          <option key={b.id} value={b.id}>{b.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* D3: Manual Pricing Fields (when no facility) */}
-                  {proceedWithoutFacility && (
-                    <div className="mt-3 p-4 bg-amber-50 rounded-lg border border-amber-200">
-                      <label className="block text-sm font-medium text-amber-800 mb-3">
-                        <Banknote className="inline w-4 h-4 mr-1" />
-                        Pricing (Optional — can be added later)
-                      </label>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Commission %</label>
-                          <input
-                            type="number" step="0.01" min="0"
-                            placeholder="e.g. 1.5"
-                            value={manualPricing.commission_rate}
-                            onChange={(e) => setManualPricing(p => ({ ...p, commission_rate: e.target.value }))}
-                            className="w-full border border-gray-300 rounded-md p-2 text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Flat Fee</label>
-                          <input
-                            type="number" step="0.01" min="0"
-                            placeholder="e.g. 500"
-                            value={manualPricing.flat_fee}
-                            onChange={(e) => setManualPricing(p => ({ ...p, flat_fee: e.target.value }))}
-                            className="w-full border border-gray-300 rounded-md p-2 text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Cash Margin %</label>
-                          <input
-                            type="number" step="0.01" min="0"
-                            placeholder="e.g. 10"
-                            value={manualPricing.margin_pct}
-                            onChange={(e) => setManualPricing(p => ({ ...p, margin_pct: e.target.value }))}
-                            className="w-full border border-gray-300 rounded-md p-2 text-sm"
-                          />
-                        </div>
-                      </div>
-                      <div className="mt-2">
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pricing Notes</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Verbal agreement with bank"
-                          value={manualPricing.notes}
-                          onChange={(e) => setManualPricing(p => ({ ...p, notes: e.target.value }))}
-                          className="w-full border border-gray-300 rounded-md p-2 text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
                 </div>
 
-                {/* ACTION BUTTONS */}
+                {facilities.length > 0 && (
                 <div className="flex gap-3 pt-4 border-t">
-                  {/* Reserve Only — only when a facility is selected (not when proceeding without) */}
-                  {!proceedWithoutFacility && (
-                    <button
-                      onClick={handleReserve}
-                      disabled={reserveLoading || !selectedOption}
-                      className={`flex-1 inline-flex justify-center items-center gap-2 rounded-md border-2 px-4 py-3 text-base font-medium transition-all ${!selectedOption
-                          ? 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed'
-                          : 'border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100'
-                        }`}
-                    >
-                      {reserveLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-                      Reserve Only
-                    </button>
-                  )}
                   <button
-                    onClick={handleIssue}
-                    disabled={loading || (!selectedOption && !proceedWithoutFacility)}
-                    className={`flex-1 inline-flex justify-center items-center gap-2 rounded-md border border-transparent shadow-sm px-4 py-3 text-base font-medium text-white ${loading || (!selectedOption && !proceedWithoutFacility) ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
+                    onClick={handleReserve}
+                    disabled={reserveLoading || !selectedOption}
+                    className={`flex-1 inline-flex justify-center items-center gap-2 rounded-md border-2 px-4 py-3 text-base font-medium transition-all ${!selectedOption
+                        ? 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed'
+                        : 'border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100'
                       }`}
                   >
-                    {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <>
-                      <Check className="h-4 w-4" /> Confirm Issuance
-                    </>}
+                    {reserveLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+                    Reserve Only
                   </button>
+                  <p className="flex-1 text-xs text-gray-400 flex items-center justify-center text-center px-2">To issue, close this and use <strong className="mx-1">"Issue to Bank"</strong> from request details.</p>
                 </div>
+                )}
               </div>
             )}
           </div>

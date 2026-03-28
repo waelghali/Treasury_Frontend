@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
-import { Loader2, Save, ShieldAlert, LayoutTemplate, Settings2, Plus, X } from 'lucide-react';
+import { Loader2, Save, ShieldAlert, LayoutTemplate, Settings2, Plus, X, Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 // Hardcoded system constraints: These fields cannot be hidden.
 const UNHIDEABLE_FIELDS = [
     'amount', 'currency_id', 'requested_expiry_date',
-    'beneficiary_name', 'lg_type_id', 'issuing_entity_id'
+    'beneficiary_name', 'beneficiary_address', 'lg_type_id', 'issuing_entity_id'
 ];
 
 // Groupings for UI organization
 const FIELD_GROUPS = {
     "Requestor Information": ['department', 'job_title', 'phone_number', 'employee_id', 'manager_email', 'second_line_manager_email'],
     "Underlying Reference": ['reference_type', 'reference_number', 'reference_amount', 'reference_currency_id', 'reference_start_date', 'reference_end_date'],
-    "Beneficiary Information": ['beneficiary_id_number', 'beneficiary_address', 'beneficiary_contact_person', 'beneficiary_phone', 'beneficiary_email'],
+    "Beneficiary Information": ['beneficiary_id_number', 'beneficiary_contact_person', 'beneficiary_phone', 'beneficiary_email'],
     "LG Terms & Conditions": ['other_conditions', 'comments', 'requires_special_wording'],
     "Conditional & Options": ['is_third_party', 'is_cross_border', 'is_urgent']
 };
@@ -23,6 +23,7 @@ export default function IssuanceFormConfigPage() {
     const { t } = useTranslation();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [deptLockedByPolicy, setDeptLockedByPolicy] = useState(false);
 
     // State matching the Pydantic Schema exactly
     const [config, setConfig] = useState({
@@ -48,7 +49,14 @@ export default function IssuanceFormConfigPage() {
 
     const fetchConfig = async () => {
         try {
-            const data = await apiRequest('/issuance/form-config', 'GET');
+            const [data, policies] = await Promise.all([
+                apiRequest('/issuance/form-config', 'GET'),
+                apiRequest('/issuance/workflow-policies', 'GET').catch(() => [])
+            ]);
+
+            // Detect if any DEPT_MATCH workflow policy exists
+            const hasDeptPolicy = (policies || []).some(p => p.condition_type === 'DEPT_MATCH' && p.is_active);
+            setDeptLockedByPolicy(hasDeptPolicy);
 
             // Ensure all configurable fields exist in state even if backend returned empty dict
             const initializedFields = { ...data.field_configurations };
@@ -57,6 +65,11 @@ export default function IssuanceFormConfigPage() {
                     initializedFields[field] = { is_visible: true, is_mandatory: false };
                 }
             });
+
+            // If DEPT_MATCH exists, force department to visible+mandatory in UI state
+            if (hasDeptPolicy) {
+                initializedFields['department'] = { is_visible: true, is_mandatory: true };
+            }
 
             setConfig({
                 ...data,
@@ -71,6 +84,11 @@ export default function IssuanceFormConfigPage() {
 
     const handleFieldToggle = (fieldKey, settingType) => {
         if (UNHIDEABLE_FIELDS.includes(fieldKey) && settingType === 'is_visible') return; // Enforce lock
+        // Enforce department lock when DEPT_MATCH policy exists
+        if (fieldKey === 'department' && deptLockedByPolicy) {
+            toast.warning('Department cannot be changed while an approval workflow is assigned to a specific department.');
+            return;
+        }
 
         setConfig(prev => {
             const current = prev.field_configurations[fieldKey];
@@ -84,13 +102,34 @@ export default function IssuanceFormConfigPage() {
                 updated.is_mandatory = false; // turning off visible → clear mandatory
             }
 
-            return {
+            const newState = {
                 ...prev,
                 field_configurations: {
                     ...prev.field_configurations,
                     [fieldKey]: updated
                 }
             };
+
+            // Sync backward logic: if turning off is_third_party visibility or mandatory, match THIRD_PARTY documents
+            if (fieldKey === 'is_third_party') {
+                const currentDocConfig = prev.document_config || {};
+                const tpDocConfig = currentDocConfig['THIRD_PARTY'] || { is_visible: true, is_mandatory: false };
+                
+                if (settingType === 'is_visible' && !updated.is_visible) {
+                    newState.document_config = {
+                        ...currentDocConfig,
+                        ['THIRD_PARTY']: { ...tpDocConfig, is_visible: false, is_mandatory: false }
+                    };
+                }
+                if (settingType === 'is_mandatory' && !updated.is_mandatory) {
+                    newState.document_config = {
+                        ...currentDocConfig,
+                        ['THIRD_PARTY']: { ...tpDocConfig, is_mandatory: false }
+                    };
+                }
+            }
+
+            return newState;
         });
     };
 
@@ -125,7 +164,8 @@ export default function IssuanceFormConfigPage() {
                 toast.success("Form configuration saved successfully! Treasury and Public forms are now updated.");
             }
         } catch (error) {
-            toast.error("Failed to save configuration.");
+            const detail = error?.response?.data?.detail || error?.message || 'Failed to save configuration.';
+            toast.error(detail);
         } finally {
             setSaving(false);
         }
@@ -171,14 +211,19 @@ export default function IssuanceFormConfigPage() {
                         </div>
                         <div className="divide-y divide-gray-100">
                             {fields.map(field => {
-                                const isLocked = UNHIDEABLE_FIELDS.includes(field);
+                                const isLocked = UNHIDEABLE_FIELDS.includes(field) || (field === 'department' && deptLockedByPolicy);
                                 const conf = config.field_configurations[field];
 
                                 return (
                                     <div key={field} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition">
                                         <div className="flex flex-col">
-                                            <span className="font-medium text-gray-900">
+                                            <span className="font-medium text-gray-900 flex items-center gap-1.5">
                                                 {field.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                                {field === 'department' && deptLockedByPolicy && (
+                                                    <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                                                        <Lock className="w-3 h-3" /> Locked by Approval Policy
+                                                    </span>
+                                                )}
                                             </span>
                                             <span className="text-xs text-gray-400 font-mono">{field}</span>
                                         </div>
@@ -191,6 +236,7 @@ export default function IssuanceFormConfigPage() {
                                                     checked={conf?.is_visible || false}
                                                     disabled={isLocked}
                                                     onChange={() => handleFieldToggle(field, 'is_visible')}
+                                                    title={field === 'department' && deptLockedByPolicy ? 'Locked: an approval workflow uses department matching' : ''}
                                                 />
                                                 <span className={`text-sm ${isLocked ? 'text-gray-400' : 'text-gray-700'}`}>{t('pages.issuanceFormConfig.visible')}</span>
                                             </label>
@@ -200,7 +246,9 @@ export default function IssuanceFormConfigPage() {
                                                     type="checkbox"
                                                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                                                     checked={conf?.is_mandatory || false}
+                                                    disabled={field === 'department' && deptLockedByPolicy}
                                                     onChange={() => handleFieldToggle(field, 'is_mandatory')}
+                                                    title={field === 'department' && deptLockedByPolicy ? 'Locked: an approval workflow uses department matching' : ''}
                                                 />
                                                 <span className="text-sm text-gray-700">{t('pages.issuanceFormConfig.mandatory')}</span>
                                             </label>
@@ -293,8 +341,19 @@ export default function IssuanceFormConfigPage() {
                                                 onChange={() => {
                                                     const current = { ...config.document_config } || {};
                                                     const cur = current[dt.key] || { is_visible: true, is_mandatory: false };
-                                                    current[dt.key] = { ...cur, is_visible: !cur.is_visible, is_mandatory: !cur.is_visible ? cur.is_mandatory : false };
-                                                    setConfig(prev => ({ ...prev, document_config: current }));
+                                                    const newVisible = !cur.is_visible;
+                                                    current[dt.key] = { ...cur, is_visible: newVisible, is_mandatory: !newVisible ? false : cur.is_mandatory };
+                                                    
+                                                    setConfig(prev => {
+                                                        const newState = { ...prev, document_config: current };
+                                                        // Auto-sync Is Third Party toggle based on Third Party Docs setting
+                                                        if (dt.key === 'THIRD_PARTY' && newVisible) {
+                                                            newState.field_configurations = { ...newState.field_configurations };
+                                                            const tpConfig = newState.field_configurations['is_third_party'] || { is_visible: false, is_mandatory: false };
+                                                            newState.field_configurations['is_third_party'] = { ...tpConfig, is_visible: true };
+                                                        }
+                                                        return newState;
+                                                    });
                                                 }}
                                             />
                                             <span className="text-sm text-gray-700">Visible</span>
@@ -307,8 +366,19 @@ export default function IssuanceFormConfigPage() {
                                                 onChange={() => {
                                                     const current = { ...config.document_config } || {};
                                                     const cur = current[dt.key] || { is_visible: true, is_mandatory: false };
-                                                    current[dt.key] = { ...cur, is_mandatory: !cur.is_mandatory, is_visible: !cur.is_mandatory ? true : cur.is_visible };
-                                                    setConfig(prev => ({ ...prev, document_config: current }));
+                                                    const newMandatory = !cur.is_mandatory;
+                                                    current[dt.key] = { ...cur, is_mandatory: newMandatory, is_visible: newMandatory ? true : cur.is_visible };
+                                                    
+                                                    setConfig(prev => {
+                                                        const newState = { ...prev, document_config: current };
+                                                        // Auto-sync Is Third Party toggle based on Third Party Docs setting
+                                                        if (dt.key === 'THIRD_PARTY' && newMandatory) {
+                                                            newState.field_configurations = { ...newState.field_configurations };
+                                                            const tpConfig = newState.field_configurations['is_third_party'] || { is_visible: false, is_mandatory: false };
+                                                            newState.field_configurations['is_third_party'] = { ...tpConfig, is_visible: true, is_mandatory: true };
+                                                        }
+                                                        return newState;
+                                                    });
                                                 }}
                                             />
                                             <span className="text-sm text-gray-700">Mandatory</span>

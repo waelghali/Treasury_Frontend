@@ -178,6 +178,11 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
         setCustomerEntities(ce || []);
         setProjects(proj || []);
 
+        // Auto-select entity if customer has only 1 entity (new facility only)
+        if (!isEdit && ce && ce.length === 1) {
+          setFormData(prev => ({ ...prev, entity_ids: [ce[0].id] }));
+        }
+
         if (isEdit && facility) {
           setFormData({
             ...facility,
@@ -768,6 +773,18 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
                               className="px-2 py-1.5 border border-slate-200 rounded-lg text-[12px] font-bold text-right h-8 outline-none focus:ring-1 focus:ring-blue-500"
                               value={sl.max_tenor_days}
                               onChange={e => updateSubLimit(index, 'max_tenor_days', e.target.value)}
+                            />
+
+                            {/* Max Amount Per LG */}
+                            <label className="text-[12px] font-bold text-blue-600 flex items-center h-8">
+                              Max Per LG
+                            </label>
+                            <input
+                              type="number"
+                              className="px-2 py-1.5 border border-slate-200 rounded-lg text-[12px] font-bold text-right text-blue-700 bg-blue-50/30 h-8 outline-none focus:ring-1 focus:ring-blue-500"
+                              placeholder="No limit"
+                              value={sl.max_amount_per_lg}
+                              onChange={e => updateSubLimit(index, 'max_amount_per_lg', e.target.value)}
                             />
 
                             {/* Allows Confirmation - Vertically Centered Fix */}

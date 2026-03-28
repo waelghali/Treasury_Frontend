@@ -931,7 +931,7 @@ function CustomerDetailsPage({ onLogout }) {
                 />
               </div>
               <div>
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address (Optional)</label>
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   name="address"

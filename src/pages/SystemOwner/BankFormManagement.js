@@ -1,11 +1,40 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiRequest } from '../../services/apiService';
 import {
     Upload, FileText, Brain, CheckCircle, XCircle, Clock, Loader2,
     ChevronDown, ChevronRight, Eye, Edit3, RefreshCw, AlertTriangle,
-    Save, Plus, Trash2, X, Pause, Play, Star, Archive, RotateCcw
+    Save, Plus, Trash2, X, Pause, Play, Star, Archive, RotateCcw,
+    Sparkles, Undo2
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+
+const AVAILABLE_SYSTEM_FIELDS = [
+    "request_id", "serial_number", "status", "transaction_type",
+    "beneficiary_name", "beneficiary_address", "beneficiary_contact_person", 
+    "beneficiary_phone", "beneficiary_email", "beneficiary_country", "beneficiary_id_number",
+    "amount", "lg_purpose", "purpose", "operational_status",
+    "requested_issue_date", "requested_expiry_date", "expiry_date", "current_date",
+    "reference_type", "reference_number", "reference_amount",
+    "requestor_name", "requestor_email", "department", "phone_number", "employee_id",
+    "custom_field_1_value", "custom_field_2_value",
+    "is_cross_border", "is_local_lg", "lg_format_is_special", "lg_format_is_bank_standard",
+    "is_third_party", "is_in_own_name",
+    "third_party_name", "third_party_address", "third_party_relationship",
+    "lg_language_is_arabic", "lg_language_is_english",
+    "bank_branch", "bank_account_number", "customer_cif_number", "iban", "account_name",
+    "applicable_rules", "applicable_rules_text", "additional_conditions",
+    "advising_bank_name", "advising_bank_country", "advising_bank_swift",
+    "governing_law_country", "place_of_jurisdiction", "delivery_channel",
+    "beneficiary_bank_name", "beneficiary_bank_swift",
+    "margin_instructions", "treasury_notes",
+    "currency_code", "currency_name", "amount_with_currency", "amount_in_words",
+    "lg_type", "guarantee_type", "lg_type_is_bid_bond", "lg_type_is_performance",
+    "lg_type_is_advance_payment", "lg_type_is_payment_guarantee",
+    "lg_type_is_advance_conditioned", "lg_type_is_advance_unconditioned",
+    "customer_name", "company_name", "customer_address", "customer_phone", "customer_email",
+    "entity_name", "entity_address", "project_name",
+    "has_facility_at_bank", "facility_reference"
+];
 
 export default function BankFormManagement() {
     const [banks, setBanks] = useState([]);
@@ -30,6 +59,7 @@ export default function BankFormManagement() {
     const [editingMapping, setEditingMapping] = useState(false);
     const [editableMapping, setEditableMapping] = useState([]);
     const [savingMapping, setSavingMapping] = useState(false);
+    const [selectedRows, setSelectedRows] = useState(new Set());
     const [showArchived, setShowArchived] = useState(false);
 
     // Issue reports state
@@ -39,6 +69,18 @@ export default function BankFormManagement() {
     const [showIssues, setShowIssues] = useState(false);
     const [resolvingIssue, setResolvingIssue] = useState(null);
     const [resolutionNotes, setResolutionNotes] = useState('');
+    const [enhancing, setEnhancing] = useState(null);
+
+    const availablePdfFields = useMemo(() => {
+        if (!selectedForm || !selectedForm.ai_analysis) return [];
+        const mapped = selectedForm.ai_analysis.field_mapping || [];
+        const unmapped = selectedForm.ai_analysis.unmapped_fields || [];
+        const allNames = new Set([
+            ...mapped.map(f => f.pdf_field_name).filter(Boolean),
+            ...unmapped.map(f => f.pdf_field_name).filter(Boolean)
+        ]);
+        return Array.from(allNames).sort();
+    }, [selectedForm]);
 
     const fetchBanks = useCallback(async () => {
         try {
@@ -213,8 +255,63 @@ export default function BankFormManagement() {
         }
     };
 
+    const handleViewPdf = async (formId) => {
+        try {
+            const data = await apiRequest(`/issuance/bank-forms/${formId}/download`);
+            if (data?.download_url) {
+                window.open(data.download_url, '_blank');
+            } else {
+                toast.error('No download URL returned');
+            }
+        } catch (err) {
+            toast.error(err.message || 'Failed to open PDF');
+        }
+    };
+
+    const handlePreviewFill = async (formId) => {
+        try {
+            toast.info('Generating preview with dummy data...');
+            const blob = await apiRequest(`/issuance/bank-forms/${formId}/preview`, 'POST', null, 'application/json', 'blob');
+            const blobUrl = window.URL.createObjectURL(blob);
+            window.open(blobUrl, '_blank');
+            toast.success('Preview opened in new tab — verify field positions!');
+        } catch (err) {
+            toast.error(err.message || 'Preview generation failed');
+        }
+    };
+
+    const handleEnhance = async (formId) => {
+        setEnhancing(formId);
+        try {
+            toast.info('Enhancing field positions with AI visual feedback...');
+            const result = await apiRequest(`/issuance/bank-forms/${formId}/enhance`, 'POST');
+            toast.success(result.message || 'Enhancement applied!');
+            // Refresh form details
+            const updated = await apiRequest(`/issuance/bank-forms/${formId}`);
+            setSelectedForm(updated);
+            fetchForms();
+        } catch (err) {
+            toast.error(err.message || 'Enhancement failed');
+        } finally {
+            setEnhancing(null);
+        }
+    };
+
+    const handleUndoEnhance = async (formId) => {
+        try {
+            const result = await apiRequest(`/issuance/bank-forms/${formId}/undo-enhance`, 'POST');
+            toast.success(result.message || 'Enhancement undone!');
+            const updated = await apiRequest(`/issuance/bank-forms/${formId}`);
+            setSelectedForm(updated);
+            fetchForms();
+        } catch (err) {
+            toast.error(err.message || 'Undo failed');
+        }
+    };
+
     const startEditMapping = () => {
         setEditableMapping(JSON.parse(JSON.stringify(selectedForm.field_mapping || [])));
+        setSelectedRows(new Set());
         setEditingMapping(true);
     };
 
@@ -252,6 +349,33 @@ export default function BankFormManagement() {
             const copy = [...prev];
             copy[idx] = { ...copy[idx], [key]: value };
             return copy;
+        });
+    };
+
+    // Nudge fields' coordinates by a delta (selected rows only, or all if none selected)
+    const nudgeAllFields = (axis, delta) => {
+        setEditableMapping(prev => prev.map((field, idx) => {
+            // If rows are selected, only nudge those; otherwise nudge all
+            if (selectedRows.size > 0 && !selectedRows.has(idx)) return field;
+            const key = axis === 'x' ? 'x_pct' : 'y_pct';
+            const current = field[key] ?? field[axis === 'x' ? 'x' : 'y'] ?? 0;
+            return { ...field, [key]: Math.round((parseFloat(current) + delta) * 10) / 10 };
+        }));
+    };
+
+    const toggleRowSelection = (idx) => {
+        setSelectedRows(prev => {
+            const next = new Set(prev);
+            if (next.has(idx)) next.delete(idx);
+            else next.add(idx);
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        setSelectedRows(prev => {
+            if (prev.size === editableMapping.length) return new Set();
+            return new Set(editableMapping.map((_, i) => i));
         });
     };
 
@@ -553,6 +677,22 @@ export default function BankFormManagement() {
                                                             </button>
                                                         )}
                                                         <button
+                                                            onClick={() => handleViewPdf(form.id)}
+                                                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md hover:bg-emerald-100 transition-colors"
+                                                            title="View uploaded PDF"
+                                                        >
+                                                            <FileText className="w-3 h-3" /> View PDF
+                                                        </button>
+                                                        {form.ai_analysis_status === 'COMPLETED' && (
+                                                            <button
+                                                                onClick={() => handlePreviewFill(form.id)}
+                                                                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-cyan-700 bg-cyan-50 border border-cyan-200 rounded-md hover:bg-cyan-100 transition-colors"
+                                                                title="Test fill with dummy data"
+                                                            >
+                                                                <Eye className="w-3 h-3" /> Preview Fill
+                                                            </button>
+                                                        )}
+                                                        <button
                                                             onClick={() => handleViewDetails(form.id)}
                                                             className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
                                                         >
@@ -768,10 +908,53 @@ export default function BankFormManagement() {
             {/* Details Side Panel */}
             {selectedForm && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-end z-50" onClick={() => setSelectedForm(null)}>
-                    <div className="bg-white w-full max-w-5xl h-full overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white w-full max-w-6xl h-full overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
                         <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
                             <h2 className="text-lg font-bold text-gray-900">Form Details</h2>
-                            <button onClick={() => setSelectedForm(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => handleViewPdf(selectedForm.id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
+                                >
+                                    <FileText className="w-4 h-4" /> View PDF
+                                </button>
+                                {selectedForm.ai_analysis_status === 'COMPLETED' && (
+                                    <>
+                                        <button
+                                            onClick={() => handlePreviewFill(selectedForm.id)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-cyan-700 bg-cyan-50 border border-cyan-200 rounded-lg hover:bg-cyan-100 transition-colors"
+                                        >
+                                            <Eye className="w-4 h-4" /> Preview Fill
+                                        </button>
+                                        {['PHYSICAL_OVERLAY', 'SCANNED_FILL'].includes(selectedForm.form_type) && (
+                                            <>
+                                                <button
+                                                    onClick={() => handleEnhance(selectedForm.id)}
+                                                    disabled={enhancing === selectedForm.id}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 disabled:opacity-50 transition-colors"
+                                                    title="AI visual feedback: compares preview vs original and corrects misplaced fields"
+                                                >
+                                                    {enhancing === selectedForm.id
+                                                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                        : <Sparkles className="w-4 h-4" />
+                                                    }
+                                                    {enhancing === selectedForm.id ? 'Enhancing...' : 'Enhance'}
+                                                </button>
+                                                {selectedForm.field_mapping_backup && (
+                                                    <button
+                                                        onClick={() => handleUndoEnhance(selectedForm.id)}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                                                        title="Revert to pre-enhancement mapping"
+                                                    >
+                                                        <Undo2 className="w-4 h-4" /> Undo Enhance
+                                                    </button>
+                                                )}
+                                            </>
+                                        )}
+                                    </>
+                                )}
+                                <button onClick={() => setSelectedForm(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                            </div>
                         </div>
 
                         <div className="p-6 space-y-6">
@@ -836,6 +1019,16 @@ export default function BankFormManagement() {
                                             </button>
                                         ) : (
                                             <div className="flex items-center gap-2">
+                                                {/* Nudge controls — only for overlay/scanned forms */}
+                                                {['PHYSICAL_OVERLAY', 'SCANNED_FILL'].includes(selectedForm.form_type) && (
+                                                    <div className="flex items-center gap-1 ml-2 pl-2 border-l border-gray-200">
+                                                        <span className="text-[10px] text-gray-400 mr-1">{selectedRows.size > 0 ? `Nudge ${selectedRows.size}:` : 'Nudge All:'}</span>
+                                                        <button onClick={() => nudgeAllFields('x', -0.1)} title="Move all fields left 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">{'\u2190'}</button>
+                                                        <button onClick={() => nudgeAllFields('x', 0.1)} title="Move all fields right 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">{'\u2192'}</button>
+                                                        <button onClick={() => nudgeAllFields('y', -0.1)} title="Move all fields up 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">{'\u2191'}</button>
+                                                        <button onClick={() => nudgeAllFields('y', 0.1)} title="Move all fields down 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">{'\u2193'}</button>
+                                                    </div>
+                                                )}
                                                 <button
                                                     onClick={handleSaveMapping}
                                                     disabled={savingMapping}
@@ -858,16 +1051,21 @@ export default function BankFormManagement() {
                                         <table className="w-full text-xs">
                                             <thead className="bg-gray-50 text-gray-500 uppercase">
                                                 <tr>
+                                                    {editingMapping && ['PHYSICAL_OVERLAY', 'SCANNED_FILL'].includes(selectedForm.form_type) && (
+                                                        <th className="px-2 py-2 text-center w-8">
+                                                            <input type="checkbox" checked={selectedRows.size === editableMapping.length && editableMapping.length > 0} onChange={toggleSelectAll} title="Select all / none" className="accent-blue-600" />
+                                                        </th>
+                                                    )}
                                                     <th className="px-3 py-2 text-left">PDF Field</th>
                                                     <th className="px-3 py-2 text-left">Label</th>
                                                     <th className="px-3 py-2 text-left">Maps To</th>
                                                     <th className="px-3 py-2 text-left">Type</th>
                                                     <th className="px-3 py-2 text-left">Format</th>
                                                     <th className="px-3 py-2 text-left">Lang</th>
-                                                    {selectedForm.form_type === 'PHYSICAL_OVERLAY' && (
+                                                    {['PHYSICAL_OVERLAY', 'SCANNED_FILL'].includes(selectedForm.form_type) && (
                                                         <>
-                                                            <th className="px-2 py-2 text-center w-14">X</th>
-                                                            <th className="px-2 py-2 text-center w-14">Y</th>
+                                                            <th className="px-2 py-2 text-center w-14">X%</th>
+                                                            <th className="px-2 py-2 text-center w-14">Y%</th>
                                                             <th className="px-2 py-2 text-center w-14">Size</th>
                                                         </>
                                                     )}
@@ -876,11 +1074,17 @@ export default function BankFormManagement() {
                                             </thead>
                                             <tbody className="divide-y divide-gray-100">
                                                 {(editingMapping ? editableMapping : selectedForm.field_mapping).map((field, idx) => (
-                                                    <tr key={idx} className="hover:bg-gray-50">
+                                                    <tr key={idx} className={`hover:bg-gray-50 ${selectedRows.has(idx) ? 'bg-blue-50' : ''}`}>
+                                                        {editingMapping && ['PHYSICAL_OVERLAY', 'SCANNED_FILL'].includes(selectedForm.form_type) && (
+                                                            <td className="px-2 py-2 text-center">
+                                                                <input type="checkbox" checked={selectedRows.has(idx)} onChange={() => toggleRowSelection(idx)} className="accent-blue-600" />
+                                                            </td>
+                                                        )}
                                                         <td className="px-3 py-2">
                                                             {editingMapping ? (
                                                                 <input
                                                                     type="text"
+                                                                    list="pdf-fields-list"
                                                                     value={field.pdf_field_name || ''}
                                                                     onChange={e => updateMappingRow(idx, 'pdf_field_name', e.target.value)}
                                                                     className="w-full px-2 py-1 border border-gray-200 rounded text-xs font-mono bg-white"
@@ -905,6 +1109,7 @@ export default function BankFormManagement() {
                                                             {editingMapping ? (
                                                                 <input
                                                                     type="text"
+                                                                    list="system-mapping-list"
                                                                     value={field.mapped_to || ''}
                                                                     onChange={e => updateMappingRow(idx, 'mapped_to', e.target.value)}
                                                                     className="w-full px-2 py-1 border border-blue-200 rounded text-xs font-mono bg-blue-50 text-blue-700"
@@ -961,22 +1166,22 @@ export default function BankFormManagement() {
                                                                 </span>
                                                             )}
                                                         </td>
-                                                        {selectedForm.form_type === 'PHYSICAL_OVERLAY' && (
+                                                        {['PHYSICAL_OVERLAY', 'SCANNED_FILL'].includes(selectedForm.form_type) && (
                                                             <>
                                                                 <td className="px-2 py-2 text-center">
                                                                     {editingMapping ? (
-                                                                        <input type="number" value={field.x ?? ''} onChange={e => updateMappingRow(idx, 'x', e.target.value ? Number(e.target.value) : null)}
-                                                                            className="w-12 px-1 py-1 border border-gray-200 rounded text-xs text-center bg-white" />
+                                                                        <input type="number" step="0.5" value={field.x_pct ?? field.x ?? ''} onChange={e => updateMappingRow(idx, 'x_pct', e.target.value ? Number(e.target.value) : null)}
+                                                                            className="w-14 px-1 py-1 border border-gray-200 rounded text-xs text-center bg-white" />
                                                                     ) : (
-                                                                        <span className="text-gray-500 text-[10px]">{field.x ?? '—'}</span>
+                                                                        <span className="text-gray-500 text-[10px]">{field.x_pct ?? field.x ?? '—'}</span>
                                                                     )}
                                                                 </td>
                                                                 <td className="px-2 py-2 text-center">
                                                                     {editingMapping ? (
-                                                                        <input type="number" value={field.y ?? ''} onChange={e => updateMappingRow(idx, 'y', e.target.value ? Number(e.target.value) : null)}
-                                                                            className="w-12 px-1 py-1 border border-gray-200 rounded text-xs text-center bg-white" />
+                                                                        <input type="number" step="0.5" value={field.y_pct ?? field.y ?? ''} onChange={e => updateMappingRow(idx, 'y_pct', e.target.value ? Number(e.target.value) : null)}
+                                                                            className="w-14 px-1 py-1 border border-gray-200 rounded text-xs text-center bg-white" />
                                                                     ) : (
-                                                                        <span className="text-gray-500 text-[10px]">{field.y ?? '—'}</span>
+                                                                        <span className="text-gray-500 text-[10px]">{field.y_pct ?? field.y ?? '—'}</span>
                                                                     )}
                                                                 </td>
                                                                 <td className="px-2 py-2 text-center">
@@ -1045,6 +1250,17 @@ export default function BankFormManagement() {
                     </div>
                 </div>
             )}
+
+            <datalist id="pdf-fields-list">
+                {availablePdfFields.map((val, i) => (
+                    <option key={i} value={val} />
+                ))}
+            </datalist>
+            <datalist id="system-mapping-list">
+                {AVAILABLE_SYSTEM_FIELDS.map((val, i) => (
+                    <option key={i} value={val} />
+                ))}
+            </datalist>
         </div>
     );
 }

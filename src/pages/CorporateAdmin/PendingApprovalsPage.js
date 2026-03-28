@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { apiRequest } from '../../services/apiService';
-import { Loader2, AlertCircle, Eye, Check, X, ChevronDown, ChevronUp, Download, XCircle, Search, AlertTriangle, CheckCircle, RotateCcw, Shield, Settings } from 'lucide-react';
+import { Loader2, AlertCircle, Eye, Check, X, ChevronDown, ChevronUp, Download, XCircle, Search, AlertTriangle, CheckCircle, RotateCcw, Shield, Settings, Wrench } from 'lucide-react';
 import moment from 'moment';
 import { toast } from 'react-toastify';
 import ApprovalRequestDetailsModal from '../../components/Modals/ApprovalRequestDetailsModal';
+import IssuanceRequestDetailsModal from '../../components/Modals/IssuanceRequestDetailsModal';
+import MaintenanceActionApprovalModal from '../../components/Modals/MaintenanceActionApprovalModal';
 import { Listbox, Transition, Menu } from '@headlessui/react';
 import * as XLSX from 'xlsx';
 
@@ -34,13 +36,19 @@ function PendingApprovalsPage({ isGracePeriod }) {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState(null);
 
+    // User role (to hide irrelevant tabs for checkers)
+    const [userRole, setUserRole] = useState(null);
+
     // Tab state
-    const [activeTab, setActiveTab] = useState('custody');
+    const [activeTab, setActiveTab] = useState('lg-actions');
 
     // Discrepancy Reviews state
     const [discrepancyLGs, setDiscrepancyLGs] = useState([]);
     const [loadingDiscrepancies, setLoadingDiscrepancies] = useState(true);
     const [processingDiscId, setProcessingDiscId] = useState(null);
+
+    // LG Cancellation Requests state
+    const [cancelRequestedLGs, setCancelRequestedLGs] = useState([]);
     const [discNotes, setDiscNotes] = useState({});
     const [hasIssuanceModule, setHasIssuanceModule] = useState(false);
 
@@ -48,6 +56,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
     const [issuanceRequests, setIssuanceRequests] = useState([]);
     const [loadingIssuance, setLoadingIssuance] = useState(true);
     const [processingIssuanceId, setProcessingIssuanceId] = useState(null);
+    const [selectedIssuanceRequest, setSelectedIssuanceRequest] = useState(null);
 
     // Filters for Issuance tab
     const [issuanceStatusFilter, setIssuanceStatusFilter] = useState('ALL');
@@ -60,6 +69,13 @@ function PendingApprovalsPage({ isGracePeriod }) {
     const [loadingAdminChanges, setLoadingAdminChanges] = useState(true);
     const [processingChangeId, setProcessingChangeId] = useState(null);
     const [currentUserEmail, setCurrentUserEmail] = useState('');
+    const [userLookup, setUserLookup] = useState({}); // id → email map
+
+    // Maintenance Actions state
+    const [maintenanceActions, setMaintenanceActions] = useState([]);
+    const [loadingMaintenance, setLoadingMaintenance] = useState(true);
+    const [processingMaintenanceId, setProcessingMaintenanceId] = useState(null);
+    const [selectedMaintenanceAction, setSelectedMaintenanceAction] = useState(null);
 
     // Filtering and Sorting State
     const [searchTerm, setSearchTerm] = useState('');
@@ -79,9 +95,13 @@ function PendingApprovalsPage({ isGracePeriod }) {
             const response = await apiRequest('/corporate-admin/approval-requests/', 'GET');
             setApprovalRequests(response);
         } catch (err) {
-            console.error("Failed to fetch approval requests:", err);
-            setError(`Failed to load approval requests. ${err.message || 'An unexpected error occurred.'}`);
-            toast.error(`Failed to load approval requests: ${err.message || 'An unexpected error occurred.'}`);
+            // Checkers don't have access to custody approval endpoints — silently skip
+            if (err?.statusCode === 403) {
+                setApprovalRequests([]);
+            } else {
+                console.error("Failed to fetch approval requests:", err);
+                setError(`Failed to load approval requests. ${err.message || 'An unexpected error occurred.'}`);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -98,6 +118,8 @@ function PendingApprovalsPage({ isGracePeriod }) {
                 lg.verification_status === 'ACCEPTED' || 
                 lg.verification_status === 'DISCREPANCY_REJECTED'
             ));
+            // Extract LGs pending cancellation approval
+            setCancelRequestedLGs(allLGs.filter(lg => lg.status === 'CANCEL_REQUESTED'));
             setHasIssuanceModule(true);
         } catch (err) {
             console.error('Failed to fetch discrepancy reviews:', err);
@@ -119,32 +141,69 @@ function PendingApprovalsPage({ isGracePeriod }) {
         }
     }, []);
 
-    // K1: Fetch admin change requests
+    // K1: Fetch admin change requests + build user lookup map
     const fetchAdminChanges = useCallback(async () => {
         try {
             setLoadingAdminChanges(true);
-            const data = await apiRequest('/issuance/admin/change-requests', 'GET');
+            const [data, users] = await Promise.all([
+                apiRequest('/issuance/admin/change-requests', 'GET'),
+                apiRequest('/corporate-admin/users/', 'GET').catch(() => []),
+            ]);
             setAdminChanges(Array.isArray(data) ? data : []);
+            // Build id → email lookup
+            const lookup = {};
+            (Array.isArray(users) ? users : []).forEach(u => { if (u.id) lookup[u.id] = u.email || `User #${u.id}`; });
+            setUserLookup(lookup);
         } catch (err) {
-            console.error('Failed to fetch admin changes:', err);
+            // Checkers don't have access to admin change-request endpoint — silently skip
+            if (err?.statusCode === 403) {
+                setAdminChanges([]);
+            } else {
+                console.error('Failed to fetch admin changes:', err);
+            }
         } finally {
             setLoadingAdminChanges(false);
         }
     }, []);
 
+    // Fetch all maintenance actions (including history)
+    const fetchMaintenanceActions = useCallback(async () => {
+        try {
+            setLoadingMaintenance(true);
+            const data = await apiRequest('/issuance/maintenance/approval-history', 'GET');
+            setMaintenanceActions(Array.isArray(data) ? data : []);
+        } catch (err) {
+            console.error('Failed to fetch maintenance actions:', err);
+        } finally {
+            setLoadingMaintenance(false);
+        }
+    }, []);
+
     useEffect(() => {
-        fetchApprovalRequests();
-        fetchDiscrepancyReviews();
-        fetchIssuanceApprovals();
-        fetchAdminChanges();
-        // Get current user email from token
+        // Get current user role and email from token
+        let userRole = null;
         try {
             const token = localStorage.getItem('jwt_token');
             if (token) {
                 const payload = JSON.parse(atob(token.split('.')[1]));
                 setCurrentUserEmail(payload.sub || '');
+                userRole = payload.role;
+                setUserRole(payload.role);
             }
         } catch (e) { /* ignore */ }
+
+        // Fetch approval requests (Custody/Maintenance) for both roles, 
+        // Admin changes still restricted to corporate_admin
+        fetchApprovalRequests();
+        if (userRole !== 'checker') {
+            fetchAdminChanges();
+        } else {
+            setAdminChanges([]);
+        }
+        // These endpoints work for both corporate_admin and checker
+        fetchDiscrepancyReviews();
+        fetchIssuanceApprovals();
+        fetchMaintenanceActions();
     }, []);
 
     const handleViewDetails = (request) => {
@@ -493,11 +552,103 @@ function PendingApprovalsPage({ isGracePeriod }) {
         return map[ct] || ct;
     };
 
-    const pendingCustodyCount = approvalRequests.filter(r => r.status === 'PENDING').length;
-    const pendingIssuanceCount = issuanceRequests.filter(r => r.status === 'PENDING_APPROVAL').length;
+    const userStr = localStorage.getItem('user');
+    const currentUser = userStr ? JSON.parse(userStr) : null;
+    const currentUserId = currentUser?.id || currentUser?.user_id;
+    const loggedInEmail = currentUser?.email || localStorage.getItem('userEmail');
+
+    const pendingCustodyCount = approvalRequests.filter(r => r.status === 'PENDING' && r.maker_user?.email !== loggedInEmail).length;
+    const pendingIssuanceCount = issuanceRequests.filter(r => r.status === 'PENDING_APPROVAL' && r.requestor_email !== loggedInEmail).length;
     const pendingDiscrepancyCount = discrepancyLGs.filter(lg => lg.verification_status === 'DISCREPANCY').length;
-    const pendingAdminChangeCount = adminChanges.filter(c => c.status === 'PENDING').length;
-    const totalPending = pendingCustodyCount + pendingIssuanceCount + pendingDiscrepancyCount + pendingAdminChangeCount;
+    const pendingAdminChangeCount = adminChanges.filter(c => c.status === 'PENDING' && c.requested_by_user_id !== currentUserId).length;
+    const pendingMaintenanceCount = maintenanceActions.filter(a => a.status === 'PENDING_APPROVAL' && a.initiated_by_email !== loggedInEmail).length;
+    
+    // For LG cancellations, the requester is in the metadata
+    const pendingCancelCount = cancelRequestedLGs.filter(lg => {
+        const cancelMeta = lg.metadata_json?.pending_cancellation || lg.request?.metadata_json?.pending_cancellation || {};
+        const metaUserId = cancelMeta.requested_by_user_id;
+        return typeof metaUserId !== 'undefined' ? metaUserId !== currentUserId : true;
+    }).length;
+
+    const totalPending = pendingCustodyCount + pendingIssuanceCount + pendingDiscrepancyCount + pendingAdminChangeCount + pendingMaintenanceCount + pendingCancelCount;
+
+    // LG Cancellation approve/reject handlers
+    const handleLGCancelApprove = async (lgId) => {
+        if (!window.confirm('Approve this LG cancellation? This will cancel the LG and reopen the request.')) return;
+        try {
+            setProcessingDiscId(lgId);
+            await apiRequest(`/issuance/lg-records/${lgId}/resolve-cancellation`, 'POST', {
+                approved: true,
+                note: '',
+            });
+            toast.success('LG cancellation approved.');
+            fetchDiscrepancyReviews();
+        } catch (err) {
+            toast.error(`Failed: ${err.message || 'Unknown error'}`);
+        } finally {
+            setProcessingDiscId(null);
+        }
+    };
+
+    const handleLGCancelReject = async (lgId) => {
+        const reason = window.prompt('Reason for rejecting the cancellation (optional):');
+        if (reason === null) return;
+        try {
+            setProcessingDiscId(lgId);
+            await apiRequest(`/issuance/lg-records/${lgId}/resolve-cancellation`, 'POST', {
+                approved: false,
+                note: reason || '',
+            });
+            toast.success('LG cancellation rejected — LG restored to previous status.');
+            fetchDiscrepancyReviews();
+        } catch (err) {
+            toast.error(`Failed: ${err.message || 'Unknown error'}`);
+        } finally {
+            setProcessingDiscId(null);
+        }
+    };
+
+    // Maintenance action approve/reject handlers
+    const handleMaintenanceApprove = async (actionId) => {
+        try {
+            setProcessingMaintenanceId(actionId);
+            await apiRequest(`/issuance/maintenance/${actionId}/approve`, 'POST');
+            toast.success('Maintenance action approved!');
+            fetchMaintenanceActions();
+        } catch (err) {
+            toast.error(`Failed to approve: ${err.message || 'Unknown error'}`);
+        } finally {
+            setProcessingMaintenanceId(null);
+        }
+    };
+
+    const handleMaintenanceReject = async (actionId) => {
+        const reason = window.prompt('Reason for rejection (optional):');
+        if (reason === null) return;
+        try {
+            setProcessingMaintenanceId(actionId);
+            await apiRequest(`/issuance/maintenance/${actionId}/reject`, 'POST', { reason: reason || '' });
+            toast.success('Maintenance action rejected.');
+            fetchMaintenanceActions();
+        } catch (err) {
+            toast.error(`Failed to reject: ${err.message || 'Unknown error'}`);
+        } finally {
+            setProcessingMaintenanceId(null);
+        }
+    };
+
+    const formatMaintenanceType = (type) => {
+        const map = {
+            EXTEND: 'Extend Expiry',
+            INCREASE_AMOUNT: 'Increase Amount',
+            AMENDMENT: 'Amendment',
+            ACTIVATE: 'Activate',
+            CLOSE: 'Close / Return',
+            LIQUIDATE: 'Liquidation',
+            CHANGE_OWNER: 'Change Owner',
+        };
+        return map[type] || (type || '').replace(/_/g, ' ');
+    };
 
     return (
         <div className="card">
@@ -559,17 +710,17 @@ function PendingApprovalsPage({ isGracePeriod }) {
             {/* Tabs */}
             <div className="flex border-b border-gray-200 mb-4">
                 <button
-                    onClick={() => setActiveTab('custody')}
+                    onClick={() => setActiveTab('lg-actions')}
                     className={`relative px-5 py-3 text-sm font-semibold transition-colors ${
-                        activeTab === 'custody'
+                        activeTab === 'lg-actions'
                             ? 'text-blue-600 border-b-2 border-blue-600'
                             : 'text-gray-500 hover:text-gray-700'
                     }`}
                 >
-                    Custody & LG Actions
-                    {pendingCustodyCount > 0 && (
+                    LG Actions
+                    {(pendingCustodyCount + (hasIssuanceModule ? pendingMaintenanceCount + pendingCancelCount : 0)) > 0 && (
                         <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-blue-100 text-blue-700 rounded-full">
-                            {pendingCustodyCount}
+                            {pendingCustodyCount + (hasIssuanceModule ? pendingMaintenanceCount + pendingCancelCount : 0)}
                         </span>
                     )}
                 </button>
@@ -607,7 +758,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                         </button>
                     </>
                 )}
-                {hasIssuanceModule && (
+                {hasIssuanceModule && userRole !== 'checker' && (
                     <button
                         onClick={() => setActiveTab('admin-changes')}
                         className={`relative px-5 py-3 text-sm font-semibold transition-colors ${
@@ -633,10 +784,102 @@ function PendingApprovalsPage({ isGracePeriod }) {
                     <span className="block sm:inline">{error}</span>
                 </div>
             )}
+            {/* ===== LG ACTIONS TAB (Merged Custody + Maintenance) ===== */}
+            {activeTab === 'lg-actions' && (() => {
+                // Normalize custody and maintenance into a single mixed list
+                const mergedRows = [
+                    ...approvalRequests.map(r => {
+                        const actionStr = (r.action_type || '').toUpperCase();
+                        let dispSource = 'custody';
+                        if (actionStr.includes('ISSUANCE')) dispSource = 'issuance';
+                        else if (actionStr.includes('FACILITY') || actionStr.includes('MAINTENANCE')) dispSource = 'maintenance';
+                        
+                        return {
+                            _source: 'custody',
+                            _displaySource: dispSource,
+                            _id: `custody-${r.id}`,
+                            _raw: r,
+                            lgNumber: r.lg_record?.lg_number || 'N/A',
+                            actionType: formatActionType(r.action_type),
+                            requestedBy: r.maker_user?.email || 'N/A',
+                            createdAt: r.created_at,
+                            status: r.status,
+                            isPending: r.status === 'PENDING',
+                        };
+                    }),
+                    ...(hasIssuanceModule ? maintenanceActions.map(m => ({
+                        _source: 'maintenance',
+                        _displaySource: 'maintenance',
+                        _id: `maint-${m.id}`,
+                        _raw: m,
+                        lgNumber: m.lg_ref_number || `LG #${m.issued_lg_id}`,
+                        actionType: formatMaintenanceType(m.action_type),
+                        requestedBy: m.initiated_by_email || 'N/A',
+                        createdAt: m.created_at,
+                        status: m.status === 'PENDING_APPROVAL' ? 'PENDING' :
+                                m.status === 'EXECUTED' ? 'APPROVED' :
+                                m.status || 'UNKNOWN',
+                        isPending: m.status === 'PENDING_APPROVAL',
+                    })) : []),
+                    // LG Cancellation requests
+                    ...(hasIssuanceModule ? cancelRequestedLGs.map(lg => {
+                        // Try request metadata first, then top-level, then custody_transfer_log fallback
+                        const cancelMeta = lg.metadata_json?.pending_cancellation
+                            || lg.request?.metadata_json?.pending_cancellation
+                            || (() => {
+                                const ctl = lg.custody_transfer_log || lg.action_history || [];
+                                const entry = [...ctl].reverse().find(e => e.action === 'CANCEL_REQUESTED');
+                                return entry ? { cancel_reason: entry.reason, previous_status: entry.previous_status, requested_by_user_id: entry.user_id, requested_at: entry.timestamp } : {};
+                            })();
+                        return {
+                            _source: 'lg_cancel',
+                            _displaySource: 'lg_cancel',
+                            _id: `cancel-${lg.id}`,
+                            _raw: lg,
+                            lgNumber: lg.lg_ref_number || lg.internal_serial || `LG #${lg.id}`,
+                            actionType: '🚫 LG Cancellation',
+                            requestedBy: cancelMeta.requested_at ? `User #${cancelMeta.requested_by_user_id}` : 'N/A',
+                            createdAt: cancelMeta.requested_at || lg.updated_at,
+                            status: 'PENDING',
+                            isPending: true,
+                            cancelReason: cancelMeta.cancel_reason || '',
+                        };
+                    }) : []),
+                ];
 
-            {/* ===== CUSTODY & LG ACTIONS TAB ===== */}
-            {activeTab === 'custody' && (
-            <>
+                // Apply filters
+                const filtered = mergedRows.filter(row => {
+                    if (searchTerm) {
+                        const term = searchTerm.toLowerCase();
+                        if (!row.lgNumber.toLowerCase().includes(term) &&
+                            !row.actionType.toLowerCase().includes(term) &&
+                            !row.requestedBy.toLowerCase().includes(term)) return false;
+                    }
+                    if (selectedStatuses.length > 0 && !selectedStatuses.includes(row.status)) return false;
+                    if (dateFrom && row.createdAt && moment(row.createdAt).isBefore(moment(dateFrom), 'day')) return false;
+                    if (dateTo && row.createdAt && moment(row.createdAt).isAfter(moment(dateTo), 'day')) return false;
+                    return true;
+                });
+
+                // Sort
+                filtered.sort((a, b) => {
+                    let aVal, bVal;
+                    if (sortColumn === 'created_at') { aVal = a.createdAt; bVal = b.createdAt; }
+                    else if (sortColumn === 'lg_number') { aVal = a.lgNumber; bVal = b.lgNumber; }
+                    else if (sortColumn === 'action_type') { aVal = a.actionType; bVal = b.actionType; }
+                    else if (sortColumn === 'maker') { aVal = a.requestedBy; bVal = b.requestedBy; }
+                    else if (sortColumn === 'status') { aVal = a.status; bVal = b.status; }
+                    else { aVal = a.createdAt; bVal = b.createdAt; }
+                    if (!aVal) return 1; if (!bVal) return -1;
+                    const comp = String(aVal).localeCompare(String(bVal));
+                    return sortDirection === 'asc' ? comp : -comp;
+                });
+
+                // All unique statuses for the filter dropdown
+                const allStatuses = [...new Set(mergedRows.map(r => r.status).filter(Boolean))].sort();
+
+                return (
+                <>
 
             {/* Filters Row */}
             <div className="mb-4 flex flex-col md:flex-row items-center flex-wrap gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
@@ -646,7 +889,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                     </div>
                     <input
                         type="text"
-                        placeholder="Search LG No, Requestor, Authorizer..."
+                        placeholder="Search LG No, Action, Requestor..."
                         className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -680,16 +923,15 @@ function PendingApprovalsPage({ isGracePeriod }) {
                         <div className="relative w-full md:w-56 shrink-0">
                             <Listbox.Button className="relative w-full cursor-default rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm">
                                 <span className="block truncate">
-                                    {selectedStatuses.length === 0 ? 'Filter Status' : selectedStatuses.length === uniqueStatuses.length ? 'All Statuses' : `Selected (${selectedStatuses.length})`}
+                                    {selectedStatuses.length === 0 ? 'Filter Status' : selectedStatuses.length === allStatuses.length ? 'All Statuses' : `Selected (${selectedStatuses.length})`}
                                 </span>
                                 <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
                                     <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden="true" />
                                 </span>
                             </Listbox.Button>
                             <Transition show={open} as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
-                                {/* FIX: Added z-50 to ensure dropdown appears above sticky table content */}
                                 <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                                    {uniqueStatuses.map((status) => (
+                                    {allStatuses.map((status) => (
                                         <Listbox.Option key={status} className={({ active }) => `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`} value={status}>
                                             {({ selected }) => (
                                                 <>
@@ -706,25 +948,25 @@ function PendingApprovalsPage({ isGracePeriod }) {
                 </Listbox>
             </div>
 
-            {isLoading ? (
+            {(isLoading || loadingMaintenance) ? (
                 <div className="text-center py-8">
                     <Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto" />
-                    <p className="text-gray-600 mt-2">Loading approval requests...</p>
+                    <p className="text-gray-600 mt-2">Loading LG actions...</p>
                 </div>
-            ) : filteredAndSortedRequests.length === 0 ? (
+            ) : filtered.length === 0 ? (
                 <div className="bg-gray-100 p-6 rounded-lg text-center border border-gray-200">
-                    <p className="text-gray-700">No requests match your criteria.</p>
+                    <p className="text-gray-700">No LG actions match your criteria.</p>
                 </div>
             ) : (
                 <div className="overflow-x-auto rounded-lg shadow relative">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
-                                {/* Standard Headers */}
-                                {['lg_number', 'action_type', 'maker', 'created_at', 'checker', 'status'].map((col) => (
-                                    <th 
+                                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                                {['lg_number', 'action_type', 'maker', 'created_at', 'status'].map((col) => (
+                                    <th
                                         key={col}
-                                        scope="col" 
+                                        scope="col"
                                         className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100"
                                         onClick={() => handleSort(col)}
                                     >
@@ -733,76 +975,142 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                             {col === 'action_type' && 'Action Type'}
                                             {col === 'maker' && 'Requested By'}
                                             {col === 'created_at' && 'Requested On'}
-                                            {col === 'checker' && 'Auth/Rej By'}
                                             {col === 'status' && 'Status'}
                                             {renderSortIcon(col)}
                                         </div>
                                     </th>
                                 ))}
-                                {/* STICKY HEADER for Actions */}
                                 <th scope="col" className="sticky right-0 z-10 bg-gray-50 border-l border-gray-200 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider shadow-sm">
                                     Actions
                                 </th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredAndSortedRequests.map((request) => (
-                                <tr 
-                                    key={request.id} 
-                                    className="group hover:bg-blue-50 transition-colors cursor-pointer"
-                                    onClick={() => handleViewDetails(request)}
+                            {filtered.map((row) => (
+                                <tr
+                                    key={row._id}
+                                    className={`group transition-colors cursor-pointer ${row._displaySource === 'lg_cancel' ? 'hover:bg-red-50' : row._displaySource === 'maintenance' ? 'hover:bg-teal-50' : row._displaySource === 'issuance' ? 'hover:bg-indigo-50' : 'hover:bg-blue-50'}`}
+                                    onClick={() => {
+                                        if (row._source === 'custody') { handleViewDetails(row._raw); }
+                                        else if (row._source === 'maintenance') { setSelectedMaintenanceAction(row._raw); }
+                                        // lg_cancel rows: no click-through modal, actions in-row
+                                    }}
                                 >
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                                        {request.lg_record?.lg_number || 'N/A'}
+                                    <td className="px-4 py-4 whitespace-nowrap">
+                                        <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${
+                                            row._displaySource === 'custody'
+                                                ? 'bg-blue-50 text-blue-600 ring-1 ring-blue-200'
+                                                : row._displaySource === 'lg_cancel'
+                                                    ? 'bg-red-50 text-red-600 ring-1 ring-red-200 animate-pulse'
+                                                    : row._displaySource === 'issuance'
+                                                        ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200'
+                                                        : 'bg-teal-50 text-teal-600 ring-1 ring-teal-200'
+                                        }`}>
+                                            {row._displaySource === 'custody' ? 'Custody' : row._displaySource === 'lg_cancel' ? 'Cancel' : row._displaySource === 'issuance' ? 'Issuance' : 'Maint.'}
+                                        </span>
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatActionType(request.action_type)}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{request.maker_user?.email || 'N/A'}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{moment(request.created_at).format('DD-MMM-YYYY HH:mm')}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">{getDeciderName(request)}</td>
+                                    <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${row._displaySource === 'lg_cancel' ? 'text-red-700' : row._displaySource === 'maintenance' ? 'text-teal-700' : row._displaySource === 'issuance' ? 'text-indigo-700' : 'text-blue-600'}`}>
+                                        {row.lgNumber}
+                                    </td>
+                                    <td className="px-4 py-4 text-sm text-gray-500">
+                                        <div>{row.actionType}</div>
+                                        {row._displaySource === 'lg_cancel' && row.cancelReason && (
+                                            <div className="text-xs text-red-500 mt-0.5 max-w-[200px] truncate" title={row.cancelReason}>
+                                                Reason: {row.cancelReason}
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{row.requestedBy}</td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{row.createdAt ? moment(row.createdAt).format('DD-MMM-YYYY HH:mm') : ''}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm">
                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                            request.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                            request.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                                            request.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                                            row.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                            row.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                                            row.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
                                             'bg-gray-100 text-gray-800'
                                         }`}>
-                                            {request.status}
+                                            {row.status}
                                         </span>
                                     </td>
 
                                     {/* STICKY ACTION COLUMN */}
-                                    <td className="sticky right-0 z-10 bg-white group-hover:bg-blue-50 border-l border-gray-200 px-4 py-4 whitespace-nowrap text-center text-sm font-medium transition-colors shadow-sm">
+                                    <td className={`sticky right-0 z-10 bg-white border-l border-gray-200 px-4 py-4 whitespace-nowrap text-center text-sm font-medium transition-colors shadow-sm ${row._displaySource === 'lg_cancel' ? 'group-hover:bg-red-50' : row._displaySource === 'maintenance' ? 'group-hover:bg-teal-50' : row._displaySource === 'issuance' ? 'group-hover:bg-indigo-50' : 'group-hover:bg-blue-50'}`}>
                                         <div className="flex justify-center space-x-2">
-                                            {/* We use e.stopPropagation() so clicking the button doesn't trigger the row click */}
                                             <button
-                                                onClick={(e) => handleActionClick(e, () => handleViewDetails(request))}
-                                                className="text-blue-600 hover:text-blue-900 p-1 rounded-md hover:bg-white"
-                                                title="View Details"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (row._source === 'custody') handleViewDetails(row._raw);
+                                                    else if (row._source === 'maintenance') setSelectedMaintenanceAction(row._raw);
+                                                    else if (row._source === 'lg_cancel') {
+                                                        const meta = row._raw.metadata_json?.pending_cancellation
+                                                            || row._raw.request?.metadata_json?.pending_cancellation
+                                                            || (() => {
+                                                                const ctl = row._raw.custody_transfer_log || [];
+                                                                const entry = [...ctl].reverse().find(e => e.action === 'CANCEL_REQUESTED');
+                                                                return entry ? { cancel_reason: entry.reason, previous_status: entry.previous_status, requested_at: entry.timestamp } : {};
+                                                            })();
+                                                        toast.info(
+                                                            <div>
+                                                                <strong>LG Cancellation Request</strong>
+                                                                <p className="mt-1">Reason: {meta.cancel_reason || 'No reason provided'}</p>
+                                                                <p className="text-xs mt-1 opacity-70">Previous status: {meta.previous_status || '—'}</p>
+                                                                <p className="text-xs opacity-70">Requested at: {meta.requested_at ? new Date(meta.requested_at).toLocaleString() : '—'}</p>
+                                                            </div>,
+                                                            { autoClose: 8000 }
+                                                        );
+                                                    }
+                                                }}
+                                                className={`${row._source === 'lg_cancel' ? 'text-red-600 hover:text-red-900' : row._source === 'maintenance' ? 'text-teal-600 hover:text-teal-900' : 'text-blue-600 hover:text-blue-900'} p-1 rounded-md hover:bg-white`}
+                                                title={row._source === 'lg_cancel' ? (row.cancelReason || 'View Reason') : 'View Details'}
                                             >
                                                 <Eye className="h-5 w-5" />
                                             </button>
-                                            
-                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                <button
-                                                    onClick={(e) => handleActionClick(e, () => handleApprove(request.id))}
-                                                    className={`text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-white ${request.status !== 'PENDING' || isGracePeriod ? 'opacity-30 cursor-not-allowed' : ''}`}
-                                                    title="Approve"
-                                                    disabled={request.status !== 'PENDING' || isGracePeriod}
-                                                >
-                                                    <Check className="h-5 w-5" />
-                                                </button>
-                                            </GracePeriodTooltip>
-                                            
-                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                <button
-                                                    onClick={(e) => handleActionClick(e, () => handleReject(request.id))}
-                                                    className={`text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-white ${request.status !== 'PENDING' || isGracePeriod ? 'opacity-30 cursor-not-allowed' : ''}`}
-                                                    title="Reject"
-                                                    disabled={request.status !== 'PENDING' || isGracePeriod}
-                                                >
-                                                    <X className="h-5 w-5" />
-                                                </button>
-                                            </GracePeriodTooltip>
+
+                                            {row._source === 'custody' && (
+                                                <>
+                                                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                        <button
+                                                            onClick={(e) => handleActionClick(e, () => handleApprove(row._raw.id))}
+                                                            className={`text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-white ${!row.isPending || isGracePeriod ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                            title="Approve"
+                                                            disabled={!row.isPending || isGracePeriod}
+                                                        >
+                                                            <Check className="h-5 w-5" />
+                                                        </button>
+                                                    </GracePeriodTooltip>
+                                                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                        <button
+                                                            onClick={(e) => handleActionClick(e, () => handleReject(row._raw.id))}
+                                                            className={`text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-white ${!row.isPending || isGracePeriod ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                            title="Reject"
+                                                            disabled={!row.isPending || isGracePeriod}
+                                                        >
+                                                            <X className="h-5 w-5" />
+                                                        </button>
+                                                    </GracePeriodTooltip>
+                                                </>
+                                            )}
+
+                                            {row._source === 'lg_cancel' && row.isPending && (
+                                                <>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleLGCancelApprove(row._raw.id); }}
+                                                        className={`text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-white ${processingDiscId === row._raw.id ? 'opacity-50 cursor-wait' : ''}`}
+                                                        title="Approve Cancellation"
+                                                        disabled={processingDiscId === row._raw.id}
+                                                    >
+                                                        <Check className="h-5 w-5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleLGCancelReject(row._raw.id); }}
+                                                        className={`text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-white ${processingDiscId === row._raw.id ? 'opacity-50 cursor-wait' : ''}`}
+                                                        title="Reject Cancellation"
+                                                        disabled={processingDiscId === row._raw.id}
+                                                    >
+                                                        <X className="h-5 w-5" />
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -812,6 +1120,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                 </div>
             )}
 
+            {/* Custody Detail Modal */}
             {showDetailsModal && selectedRequest && (
                 <ApprovalRequestDetailsModal
                     request={selectedRequest}
@@ -821,8 +1130,35 @@ function PendingApprovalsPage({ isGracePeriod }) {
                     isGracePeriod={isGracePeriod}
                 />
             )}
-            </>
+
+            {/* Maintenance Detail Modal */}
+            {selectedMaintenanceAction && (
+                <MaintenanceActionApprovalModal
+                    action={selectedMaintenanceAction}
+                    onClose={() => setSelectedMaintenanceAction(null)}
+                    onApprove={async (actionId) => {
+                        await handleMaintenanceApprove(actionId);
+                        setSelectedMaintenanceAction(null);
+                    }}
+                    onReject={async (actionId, reason) => {
+                        try {
+                            setProcessingMaintenanceId(actionId);
+                            await apiRequest(`/issuance/maintenance/${actionId}/reject`, 'POST', { reason: reason || '' });
+                            toast.success('Maintenance action rejected.');
+                            fetchMaintenanceActions();
+                            setSelectedMaintenanceAction(null);
+                        } catch (err) {
+                            toast.error(`Failed to reject: ${err.message || 'Unknown error'}`);
+                        } finally {
+                            setProcessingMaintenanceId(null);
+                        }
+                    }}
+                />
             )}
+
+            </>
+            );
+            })()}
 
             {/* ===== ISSUANCE REQUESTS TAB ===== */}
             {activeTab === 'issuance' && (
@@ -859,6 +1195,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                     {[
                                         { key: 'ALL', label: 'All', count: issuanceRequests.length },
                                         { key: 'PENDING_APPROVAL', label: 'Pending', count: issuanceRequests.filter(r => r.status === 'PENDING_APPROVAL').length },
+                                        { key: 'CANCELLATION_REQUESTED', label: 'Cancel Pending', count: issuanceRequests.filter(r => r.status === 'CANCELLATION_REQUESTED').length },
                                         { key: 'APPROVED_INTERNAL', label: 'Approved', count: issuanceRequests.filter(r => r.status === 'APPROVED_INTERNAL').length },
                                         { key: 'REJECTED', label: 'Rejected', count: issuanceRequests.filter(r => r.status === 'REJECTED').length },
                                     ].map(f => (
@@ -907,7 +1244,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                         {filteredIssuance.length === 0 ? (
                                             <tr><td colSpan={6} className="text-center py-6 text-gray-400 text-sm">No matching requests</td></tr>
                                         ) : filteredIssuance.map(req => (
-                                            <tr key={req.id} className="hover:bg-gray-50 transition-colors">
+                                            <tr key={req.id} className="hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => setSelectedIssuanceRequest(req)}>
                                                 <td className="px-3 py-2">
                                                     <div className="text-sm font-semibold text-gray-900 truncate">{req.serial_number || `#${req.id}`}</div>
                                                     <div className="text-[11px] text-gray-400 truncate">by {req.requestor_name || req.requestor_email || 'Treasury'} · {moment(req.created_at).fromNow()}</div>
@@ -927,18 +1264,22 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                         req.status === 'PENDING_APPROVAL' ? 'bg-yellow-100 text-yellow-800' :
                                                         req.status === 'APPROVED_INTERNAL' ? 'bg-green-100 text-green-800' :
                                                         req.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                                                        req.status === 'RETURNED_FOR_REVISION' ? 'bg-orange-100 text-orange-800' :
-                                                        req.status === 'PENDING_BANK_CONFIRMATION' ? 'bg-blue-100 text-blue-800' :
+                                                        req.status === 'REVISION_REQUIRED' ? 'bg-orange-100 text-orange-800' :
+                                                        req.status === 'INTERNAL_PROCESSING' ? 'bg-blue-100 text-blue-800' :
+                                                        req.status === 'CANCELLATION_REQUESTED' ? 'bg-red-100 text-red-800 ring-1 ring-red-300 animate-pulse' :
+                                                        req.status === 'CANCELLED' ? 'bg-gray-200 text-gray-600' :
                                                         'bg-gray-100 text-gray-800'
                                                     }`}>
                                                         {req.status === 'PENDING_APPROVAL' ? 'Pending' : 
                                                          req.status === 'APPROVED_INTERNAL' ? 'Approved' : 
-                                                         req.status === 'RETURNED_FOR_REVISION' ? 'Revision' :
-                                                         req.status === 'PENDING_BANK_CONFIRMATION' ? 'At Bank' :
+                                                         req.status === 'REVISION_REQUIRED' ? 'Revision' :
+                                                         req.status === 'INTERNAL_PROCESSING' ? 'Processing' :
+                                                         req.status === 'CANCELLATION_REQUESTED' ? '🚫 Cancel Pending' :
+                                                         req.status === 'CANCELLED' ? 'Cancelled' :
                                                          req.status}
                                                     </span>
                                                 </td>
-                                                <td className="px-3 py-2 text-right">
+                                                <td className="px-3 py-2 text-right" onClick={e => e.stopPropagation()}>
                                                     {req.status === 'PENDING_APPROVAL' ? (
                                                         <div className="flex items-center justify-end gap-1">
                                                             <button onClick={() => handleIssuanceApprove(req.id)} disabled={processingIssuanceId === req.id}
@@ -954,6 +1295,31 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                                 <X className="h-3 w-3" />
                                                             </button>
                                                         </div>
+                                                    ) : req.status === 'CANCELLATION_REQUESTED' ? (
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <button
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await apiRequest(`/issuance/requests/${req.id}/resolve-cancellation`, 'POST', { approved: true, note: '' });
+                                                                        toast.success('Cancellation approved.');
+                                                                        fetchIssuanceApprovals();
+                                                                    } catch (err) { toast.error(err.message || 'Failed'); }
+                                                                }}
+                                                                className="px-2 py-1 text-[11px] font-medium rounded text-white bg-red-600 hover:bg-red-700" title="Approve Cancellation">
+                                                                <Check className="h-3 w-3 inline mr-0.5" />Cancel
+                                                            </button>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await apiRequest(`/issuance/requests/${req.id}/resolve-cancellation`, 'POST', { approved: false, note: '' });
+                                                                        toast.info('Cancellation rejected. Request restored.');
+                                                                        fetchIssuanceApprovals();
+                                                                    } catch (err) { toast.error(err.message || 'Failed'); }
+                                                                }}
+                                                                className="px-2 py-1 text-[11px] font-medium rounded text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300" title="Reject Cancellation">
+                                                                <X className="h-3 w-3 inline mr-0.5" />Keep
+                                                            </button>
+                                                        </div>
                                                     ) : (
                                                         <span className="text-[11px] text-gray-300">—</span>
                                                     )}
@@ -966,6 +1332,15 @@ function PendingApprovalsPage({ isGracePeriod }) {
                         </>
                         );
                     })()}
+
+                    {/* Issuance Request Detail Modal */}
+                    {selectedIssuanceRequest && (
+                        <IssuanceRequestDetailsModal
+                            request={selectedIssuanceRequest}
+                            onClose={() => setSelectedIssuanceRequest(null)}
+                            onStatusChange={() => { setSelectedIssuanceRequest(null); fetchIssuanceApprovals(); }}
+                        />
+                    )}
                 </>
             )}
 
@@ -1180,6 +1555,16 @@ function PendingApprovalsPage({ isGracePeriod }) {
 
                                             {isPending && (
                                             <>
+                                            {/* End-user submission note */}
+                                            {lg.bank_reply_notes && (
+                                                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                                    <p className="text-xs font-bold text-blue-700 uppercase mb-1 flex items-center gap-1">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                                        End User Submission Note
+                                                    </p>
+                                                    <p className="text-sm text-blue-900 italic">{lg.bank_reply_notes}</p>
+                                                </div>
+                                            )}
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-600 mb-1">Your Notes (required to accept)</label>
                                                 <textarea
@@ -1238,7 +1623,290 @@ function PendingApprovalsPage({ isGracePeriod }) {
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {adminChanges.map(change => (
+                            {adminChanges.map(change => {
+                                const payload = change.change_payload || {};
+                                const newVal = payload.new_value || {};
+                                const oldVal = payload.old_value || {};
+                                
+                                // Build detail rows based on change type
+                                const renderPayloadDetails = () => {
+                                    const ct = change.change_type;
+                                    
+                                    if (ct === 'DEPARTMENT_CREATE') {
+                                        return (
+                                            <div className="mt-3 bg-white rounded-lg border border-gray-200 p-3 space-y-1.5">
+                                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Department Details</h4>
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                                                    {newVal.name && <><span className="text-gray-500">Name:</span><span className="font-medium text-gray-900">{newVal.name}</span></>}
+                                                    {newVal.code && <><span className="text-gray-500">Code:</span><span className="font-medium text-gray-900">{newVal.code}</span></>}
+                                                    {newVal.manager_user_id && <><span className="text-gray-500">Manager:</span><span className="font-medium text-gray-900">{userLookup[newVal.manager_user_id] || `User #${newVal.manager_user_id}`}</span></>}
+                                                    {newVal.description && <><span className="text-gray-500 col-span-2">Description:</span><span className="text-gray-700 col-span-2 -mt-1">{newVal.description}</span></>}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    
+                                    if (ct === 'DEPARTMENT_UPDATE') {
+                                        return (
+                                            <div className="mt-3 bg-white rounded-lg border border-gray-200 p-3 space-y-1.5">
+                                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Updated Fields (Dept #{payload.entity_id})</h4>
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                                                    {Object.entries(newVal).map(([key, val]) => {
+                                                        const isManagerId = key === 'manager_id' || key === 'manager_user_id';
+                                                        const display = isManagerId ? (userLookup[val] || `User #${val}`) : String(val);
+                                                        const label = isManagerId ? 'Manager' : key.replace(/_/g, ' ');
+                                                        return (
+                                                            <React.Fragment key={key}>
+                                                                <span className="text-gray-500">{label}:</span>
+                                                                <span className="font-medium text-gray-900">{display}</span>
+                                                            </React.Fragment>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    
+                                    if (ct === 'GROUP_CREATE') {
+                                        return (
+                                            <div className="mt-3 bg-white rounded-lg border border-gray-200 p-3 space-y-1.5">
+                                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Approval Group Details</h4>
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                                                    {newVal.name && <><span className="text-gray-500">Name:</span><span className="font-medium text-gray-900">{newVal.name}</span></>}
+                                                    {newVal.description && <><span className="text-gray-500">Description:</span><span className="font-medium text-gray-900">{newVal.description}</span></>}
+                                                    {newVal.department_id && <><span className="text-gray-500">Department ID:</span><span className="font-medium text-gray-900">{newVal.department_id}</span></>}
+                                                    {newVal.member_user_ids && (
+                                                        <><span className="text-gray-500">Members:</span><span className="font-medium text-gray-900">{newVal.member_user_ids.length} user(s)</span></>
+                                                    )}
+                                                </div>
+                                                    {newVal.member_user_ids && newVal.member_user_ids.length > 0 && (
+                                                        <div className="mt-2 flex flex-wrap gap-1">
+                                                            {newVal.member_user_ids.map(id => (
+                                                                <span key={id} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2 py-0.5">
+                                                                    {userLookup[id] || `User #${id}`}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                            </div>
+                                        );
+                                    }
+                                    
+                                    if (ct === 'GROUP_UPDATE') {
+                                        return (
+                                            <div className="mt-3 bg-white rounded-lg border border-gray-200 p-3 space-y-1.5">
+                                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Updated Fields (Group #{payload.entity_id})</h4>
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                                                    {Object.entries(newVal).map(([key, val]) => {
+                                                        const isUserIds = key === 'user_ids' || key === 'member_user_ids';
+                                                        const isManagerId = key === 'manager_id' || key === 'manager_user_id';
+                                                        let display;
+                                                        if (isManagerId) {
+                                                            display = userLookup[val] || `User #${val}`;
+                                                        } else if (isUserIds && Array.isArray(val)) {
+                                                            display = (
+                                                                <span className="flex flex-wrap gap-1">
+                                                                    {val.map(id => (
+                                                                        <span key={id} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2 py-0.5">
+                                                                            {userLookup[id] || `#${id}`}
+                                                                        </span>
+                                                                    ))}
+                                                                </span>
+                                                            );
+                                                        } else {
+                                                            display = Array.isArray(val) ? val.join(', ') : String(val);
+                                                        }
+                                                        return (
+                                                            <React.Fragment key={key}>
+                                                                <span className="text-gray-500">{key.replace(/_/g, ' ')}:</span>
+                                                                <span className="font-medium text-gray-900">{display}</span>
+                                                            </React.Fragment>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    
+                                    if (ct === 'APPROVAL_MATRIX_UPDATE' || ct === 'FORM_CONFIG_UPDATE' || ct === 'CONFIG_UPDATE') {
+                                        // Smart renderer for config changes — avoid raw JSON
+                                        const renderConfigDiff = () => {
+                                            // FORM_CONFIG_UPDATE: show field-level changes
+                                            if (ct === 'FORM_CONFIG_UPDATE') {
+                                                const newFields = newVal.field_configurations || newVal;
+                                                const oldFields = oldVal.field_configurations || oldVal;
+                                                
+                                                // If both are objects with field keys, show a field-level diff
+                                                if (typeof newFields === 'object' && !Array.isArray(newFields)) {
+                                                    const allKeys = new Set([...Object.keys(newFields), ...Object.keys(oldFields || {})]);
+                                                    const changes = [];
+                                                    allKeys.forEach(key => {
+                                                        const nf = newFields[key];
+                                                        const of_ = oldFields?.[key];
+                                                        const nStr = JSON.stringify(nf);
+                                                        const oStr = JSON.stringify(of_);
+                                                        if (nStr !== oStr) {
+                                                            changes.push({
+                                                                field: key.replace(/_/g, ' '),
+                                                                isNew: !of_,
+                                                                isRemoved: !nf,
+                                                                newVisible: nf?.is_visible,
+                                                                newMandatory: nf?.is_mandatory,
+                                                                oldVisible: of_?.is_visible,
+                                                                oldMandatory: of_?.is_mandatory,
+                                                            });
+                                                        }
+                                                    });
+                                                    
+                                                    if (changes.length === 0) {
+                                                        return <p className="text-xs text-gray-400 italic">No visible changes detected</p>;
+                                                    }
+                                                    
+                                                    return (
+                                                        <div className="space-y-2">
+                                                            <p className="text-xs text-gray-500">
+                                                                <span className="font-semibold text-gray-700">{changes.length}</span> field(s) modified out of {allKeys.size} total
+                                                            </p>
+                                                            <div className="grid gap-1 max-h-48 overflow-y-auto">
+                                                                {changes.map(c => (
+                                                                    <div key={c.field} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-1.5 border border-gray-100">
+                                                                        <span className="font-medium text-gray-700 capitalize">{c.field}</span>
+                                                                        <div className="flex items-center gap-2">
+                                                                            {c.isNew && <span className="text-green-600 font-semibold">+ Added</span>}
+                                                                            {c.isRemoved && <span className="text-red-600 font-semibold">- Removed</span>}
+                                                                            {!c.isNew && !c.isRemoved && (
+                                                                                <>
+                                                                                    {c.newVisible !== c.oldVisible && (
+                                                                                        <span className={c.newVisible ? 'text-green-600' : 'text-red-500'}>
+                                                                                            {c.newVisible ? '👁 Visible' : '🙈 Hidden'}
+                                                                                        </span>
+                                                                                    )}
+                                                                                    {c.newMandatory !== c.oldMandatory && (
+                                                                                        <span className={c.newMandatory ? 'text-amber-600' : 'text-gray-400'}>
+                                                                                            {c.newMandatory ? '⚠ Required' : 'Optional'}
+                                                                                        </span>
+                                                                                    )}
+                                                                                    {c.newVisible === c.oldVisible && c.newMandatory === c.oldMandatory && (
+                                                                                        <span className="text-blue-500">Modified</span>
+                                                                                    )}
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                            }
+                                            
+                                            // APPROVAL_MATRIX_UPDATE: show meaningful step details
+                                            if (ct === 'APPROVAL_MATRIX_UPDATE') {
+                                                // new_value is an array of approval step objects
+                                                const steps = Array.isArray(newVal) ? newVal : Object.values(newVal || {});
+                                                if (steps.length > 0) {
+                                                    const conditionLabels = {
+                                                        'ALWAYS': 'All Requests',
+                                                        'AMOUNT_OVER': 'Amount Over',
+                                                        'AMOUNT_RANGE': 'Amount Range',
+                                                        'LG_TYPE': 'LG Type',
+                                                        'DEPARTMENT': 'Department',
+                                                    };
+                                                    return (
+                                                        <div className="space-y-1.5">
+                                                            <p className="text-xs text-gray-500">
+                                                                <span className="font-semibold text-gray-700">{steps.length}</span> approval step(s) defined
+                                                            </p>
+                                                            {steps.map((step, idx) => (
+                                                                <div key={idx} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-2 border border-gray-100">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold text-[10px]">
+                                                                            Step {step.step_sequence || idx + 1}
+                                                                        </span>
+                                                                        <span className="text-gray-700 font-medium">
+                                                                            {conditionLabels[step.condition_type] || step.condition_type || '—'}
+                                                                            {step.condition_value ? ` (${step.condition_value})` : ''}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 text-gray-500 text-right">
+                                                                        <span>{step.approver_type === 'GROUP' ? '👥 Group' : step.approver_type === 'ROLE' ? '🔑 Role' : step.approver_type || '—'}</span>
+                                                                        {step.approver_values && step.approver_values.length > 0 && (
+                                                                            <span className="text-gray-700 font-medium truncate max-w-[200px]" title={step.approver_values.join(', ')}>
+                                                                                {step.approver_values.join(', ')}
+                                                                            </span>
+                                                                        )}
+                                                                        <span className="font-semibold text-gray-700">{step.required_signatures || 1} sig(s)</span>
+                                                                        {step.is_active === false && <span className="text-red-400 text-[10px]">(Inactive)</span>}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                }
+                                            }
+                                            
+                                            // Generic config: show key-value pairs cleanly
+                                            const allEntries = Object.entries(newVal || {});
+                                            if (allEntries.length > 0) {
+                                                return (
+                                                    <div className="space-y-1.5">
+                                                        {allEntries.slice(0, 10).map(([key, val]) => (
+                                                            <div key={key} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-1.5 border border-gray-100">
+                                                                <span className="font-medium text-gray-700 capitalize">{key.replace(/_/g, ' ')}</span>
+                                                                <span className="text-gray-900 font-semibold truncate max-w-[200px]">
+                                                                    {typeof val === 'object' ? (Array.isArray(val) ? `${val.length} item(s)` : `${Object.keys(val).length} key(s)`) : String(val)}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                        {allEntries.length > 10 && (
+                                                            <p className="text-[10px] text-gray-400 italic">...and {allEntries.length - 10} more</p>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }
+                                            
+                                            return <p className="text-xs text-gray-400 italic">No details available</p>;
+                                        };
+                                        
+                                        return (
+                                            <div className="mt-3 bg-white rounded-lg border border-gray-200 p-3 space-y-2">
+                                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Configuration Change</h4>
+                                                {payload.config_key && (
+                                                    <div className="text-sm"><span className="text-gray-500">Setting:</span> <span className="font-medium text-gray-900">{payload.config_key}</span></div>
+                                                )}
+                                                {renderConfigDiff()}
+                                            </div>
+                                        );
+                                    }
+                                    
+                                    // Generic fallback — clean key-value summary
+                                    if (Object.keys(payload).length > 0) {
+                                        return (
+                                            <div className="mt-3 bg-white rounded-lg border border-gray-200 p-3 space-y-2">
+                                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Change Details</h4>
+                                                <div className="grid gap-1">
+                                                    {Object.entries(payload).slice(0, 12).map(([key, val]) => (
+                                                        <div key={key} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-1.5 border border-gray-100">
+                                                            <span className="font-medium text-gray-700 capitalize">{key.replace(/_/g, ' ')}</span>
+                                                            <span className="text-gray-900 font-semibold truncate max-w-[250px]">
+                                                                {val === null || val === undefined ? '—' :
+                                                                 typeof val === 'object' ? (Array.isArray(val) ? `${val.length} item(s)` : `${Object.keys(val).length} key(s)`) :
+                                                                 typeof val === 'boolean' ? (val ? 'Yes' : 'No') :
+                                                                 String(val)}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                    {Object.keys(payload).length > 12 && (
+                                                        <p className="text-[10px] text-gray-400 italic pl-1">...and {Object.keys(payload).length - 12} more fields</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                };
+
+                                return (
                                 <div key={change.id} className={`border rounded-lg p-4 ${
                                     change.status === 'PENDING' ? 'border-purple-200 bg-purple-50/30' :
                                     change.status === 'APPROVED' ? 'border-green-200 bg-green-50/30' :
@@ -1265,8 +1933,12 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                             <span className="ml-4"><span className="font-medium">{change.status === 'APPROVED' ? 'Approved' : 'Rejected'} by:</span> {change.approved_by_email}</span>
                                         )}
                                     </div>
+                                    
+                                    {/* Payload Details */}
+                                    {renderPayloadDetails()}
+                                    
                                     {change.rejection_reason && (
-                                        <div className="mt-1 text-sm text-red-600">
+                                        <div className="mt-2 text-sm text-red-600">
                                             <span className="font-medium">Reason:</span> {change.rejection_reason}
                                         </div>
                                     )}
@@ -1297,11 +1969,15 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                         </div>
                                     )}
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </>
             )}
+
+            {/* ===== MAINTENANCE ACTIONS TAB ===== */}
+            {/* Maintenance tab content removed — now merged into LG Actions tab */}
         </div>
     );
 }

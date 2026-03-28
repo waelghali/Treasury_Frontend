@@ -39,7 +39,7 @@ export default function LGOwnerManagementPage() {
         }
     };
 
-    const liveStatuses = ['ACTIVE', 'CONFIRMED', 'HANDED_OVER', 'ISSUED', 'DELIVERED_TO_BANK', 'PENDING_CONFIRMATION', 'PENDING_VERIFICATION'];
+    const liveStatuses = ['ACTIVE', 'LG_ISSUED', 'DELIVERED_TO_BANK', 'INTERNAL_PROCESSING'];
 
     const filtered = useMemo(() => {
         return records.filter(lg => {
@@ -127,11 +127,11 @@ export default function LGOwnerManagementPage() {
 
     const statusColors = {
         ACTIVE: 'bg-emerald-100 text-emerald-700',
-        CONFIRMED: 'bg-emerald-100 text-emerald-700',
+        LG_ISSUED: 'bg-emerald-100 text-emerald-700',
         EXPIRED: 'bg-slate-200 text-slate-600',
         LIQUIDATED: 'bg-red-100 text-red-700',
         CLOSED: 'bg-slate-300 text-slate-700',
-        PENDING_CONFIRMATION: 'bg-amber-100 text-amber-700',
+        INTERNAL_PROCESSING: 'bg-amber-100 text-amber-700',
     };
 
     if (loading) {
@@ -206,7 +206,7 @@ export default function LGOwnerManagementPage() {
                     className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white shadow-sm"
                 >
                     <option value="ALL">All Statuses</option>
-                    {['ACTIVE', 'CONFIRMED', 'PENDING_CONFIRMATION', 'EXPIRED', 'LIQUIDATED', 'CLOSED'].map(s => (
+                    {['ACTIVE', 'LG_ISSUED', 'INTERNAL_PROCESSING', 'EXPIRED', 'LIQUIDATED', 'CLOSED'].map(s => (
                         <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
                     ))}
                 </select>

@@ -107,8 +107,8 @@ function FreeTrialRegistration() {
       navigate('/');
     } catch (err) {
       console.error('Registration failed:', err);
-      const errorMessage = err.response?.data?.detail || err.message || 'An unexpected error occurred during submission.';
-      setError(`Registration failed: ${errorMessage}`);
+      const errorMessage = err.message || 'An unexpected error occurred during submission.';
+      setError(errorMessage);
       toast.error(errorMessage);
     } finally {
       setIsSaving(false);

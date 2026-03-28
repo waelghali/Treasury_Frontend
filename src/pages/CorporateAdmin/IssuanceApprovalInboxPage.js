@@ -319,7 +319,7 @@ export default function IssuanceApprovalInboxPage() {
                                             </thead>
                                             <tbody className="bg-white divide-y divide-gray-200">
                                                 {filteredRequests.map(req => (
-                                                    <tr key={req.id} className="hover:bg-gray-50 transition-colors">
+                                                    <tr key={req.id} className="hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => setSelectedRequest(req)}>
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             <div className="text-sm font-medium text-gray-900">{req.serial_number || `#${req.id}`}</div>
                                                             <div className="text-xs text-gray-500">{req.requestor_name || 'Treasury'}</div>
@@ -342,7 +342,7 @@ export default function IssuanceApprovalInboxPage() {
                                                                 Step {req.current_approval_step || 1}
                                                             </span>
                                                         </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                                        <td className="px-6 py-4 whitespace-nowrap text-right" onClick={e => e.stopPropagation()}>
                                                             <div className="flex items-center justify-end gap-2">
                                                                 <button
                                                                     onClick={() => setSelectedRequest(req)}
@@ -551,6 +551,7 @@ export default function IssuanceApprovalInboxPage() {
                     show={!!selectedRequest}
                     request={selectedRequest}
                     onClose={() => setSelectedRequest(null)}
+                    onStatusChange={() => { setSelectedRequest(null); fetchPendingApprovals(); }}
                 />
             )}
         </div>

@@ -27,11 +27,11 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
-const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod }) => {
+const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod, apiUrl }) => {
     const [deliveryFile, setDeliveryFile] = useState(null);
     
-    // --- NEW: Calculate Instruction Issue Date ---
-    const instructionIssueDate = moment(instruction.instruction_date).format('YYYY-MM-DD');
+    // --- Calculate Instruction Issue Date (fallback to created_at for maintenance actions) ---
+    const instructionIssueDate = moment(instruction.instruction_date || instruction.created_at).format('YYYY-MM-DD');
 
     const initialValues = {
         deliveryDate: moment().format('YYYY-MM-DD'),
@@ -67,8 +67,9 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod })
                 formData.append('delivery_document_metadata', JSON.stringify(documentMetadata));
             }
 
+            const url = apiUrl || `/end-user/lg-records/instructions/${instruction.id}/record-delivery`;
             const response = await apiRequest(
-                `/end-user/lg-records/instructions/${instruction.id}/record-delivery`,
+                url,
                 'POST',
                 formData,
                 'multipart/form-data'
@@ -139,7 +140,7 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod })
                                                 {({ isSubmitting, errors, touched }) => (
                                                     <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
                                                         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
-                                                            <strong>LG:</strong> {instruction.lg_record?.lg_number || 'N/A'} | <strong>Type:</strong> {instruction.instruction_type} | <strong>Issued:</strong> {new Date(instruction.instruction_date).toLocaleDateString()}
+                                                            <strong>LG:</strong> {instruction.lg_record?.lg_number || instruction.lg_number || 'N/A'} | <strong>Type:</strong> {instruction.instruction_type || instruction.action_type?.replace(/_/g, ' ') || 'N/A'} | <strong>Date:</strong> {new Date(instruction.instruction_date || instruction.created_at).toLocaleDateString()}
                                                         </div>
 
                                                         <div>

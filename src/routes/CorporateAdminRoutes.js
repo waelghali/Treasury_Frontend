@@ -15,6 +15,7 @@ import LGRecordListReadOnlyPage from '../pages/CorporateAdmin/LGRecordListReadOn
 import AuditLogsCorporate from '../pages/CorporateAdmin/AuditLogsCorporate';
 import ActionCenter from '../pages/CorporateAdmin/ActionCenter';
 import MigrationUploadPage from '../pages/CorporateAdmin/MigrationUploadPage';
+import IssuanceMigrationPage from '../pages/CorporateAdmin/IssuanceMigrationPage';
 import IssuanceRequestsPage from '../pages/CorporateAdmin/IssuanceRequestsPage';
 import IssuanceApprovalInboxPage from '../pages/CorporateAdmin/IssuanceApprovalInboxPage';
 import IssuanceFormConfigPage from '../pages/CorporateAdmin/IssuanceFormConfigPage';
@@ -88,6 +89,7 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIss
       <Route path="issuance/issued-lgs" element={<IssuedLGsPage />} />
       <Route path="issuance/owner-management" element={<LGOwnerManagementPage />} />
       <Route path="issuance/reconciliation" element={<LGReconciliationPage />} />
+      <Route path="issuance/migration-hub" element={<IssuanceMigrationPage />} />
       {/* Issuance Approval Inbox (shared with checker role) */}
       <Route path="approval-inbox" element={<IssuanceApprovalInboxPage />} />
 

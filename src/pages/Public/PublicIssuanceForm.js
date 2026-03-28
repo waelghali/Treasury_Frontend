@@ -80,6 +80,11 @@ export default function IssuanceRequestForm() {
 
     // Pending file uploads (collected before submit, uploaded after)
     const [pendingFiles, setPendingFiles] = useState([]);
+    // Existing documents already attached to the request being edited
+    const [existingDocuments, setExistingDocuments] = useState([]);
+
+    // Track whether user has manually changed payable currency (stops auto-sync)
+    const [payableCurrencyTouched, setPayableCurrencyTouched] = useState(false);
 
     // AI Document Verification state
     const [verificationResult, setVerificationResult] = useState(null); // {comparison, mismatches, summary, ...}
@@ -140,7 +145,7 @@ export default function IssuanceRequestForm() {
             } else {
                 draft = await apiRequest(`/issuance/requests/${draftId}`, 'GET');
             }
-            const EDITABLE_STATUSES = ['DRAFT', 'SUBMITTED', 'PENDING_APPROVAL', 'APPROVED'];
+            const EDITABLE_STATUSES = ['DRAFT', 'SUBMITTED', 'PENDING_APPROVAL', 'APPROVED', 'APPROVED_INTERNAL', 'FACILITY_RESERVED', 'REVISION_REQUIRED'];
             if (!EDITABLE_STATUSES.includes(draft.status)) {
                 toast.error('This request cannot be edited in its current status.');
                 if (isPublic) {
@@ -166,6 +171,19 @@ export default function IssuanceRequestForm() {
                 }
             });
             setFormData(prev => ({ ...prev, ...fillData }));
+
+            // Load existing documents so they appear in the form
+            if (!isPublic) {
+                try {
+                    const docs = await apiRequest(`/issuance/requests/${draftId}/documents`, 'GET');
+                    if (Array.isArray(docs) && docs.length > 0) {
+                        setExistingDocuments(docs);
+                    }
+                } catch (docErr) {
+                    console.warn('Could not load existing documents:', docErr);
+                }
+            }
+
             toast.info('Draft loaded. You can continue editing.');
         } catch (err) {
             toast.error('Failed to load draft.');
@@ -249,21 +267,19 @@ export default function IssuanceRequestForm() {
                     });
                 }
             } else {
-                const [configData, currData, entData, typesData, deptsData] = await Promise.all([
-                    apiRequest('/issuance/form-config', 'GET'),
-                    apiRequest('/issuance/currencies', 'GET').catch(() => []),
-                    apiRequest('/corporate-admin/customer-entities/', 'GET').catch(() => []),
-                    Promise.resolve([
-                        { id: 1, name: 'Performance Guarantee' }, { id: 2, name: 'Bid Bond' },
-                        { id: 3, name: 'Advance Payment Guarantee' }, { id: 4, name: 'Financial Guarantee' }
-                    ]),
-                    apiRequest('/corporate-admin/departments/', 'GET').catch(() => [])
+                const [configData, dictData] = await Promise.all([
+                    apiRequest('/issuance/form-config', 'GET').catch(() => null),
+                    apiRequest('/issuance/form-dictionary', 'GET').catch(() => ({})),
                 ]);
+                const currData = dictData.currencies || [];
+                const entData = (dictData.entities || []).map(e => ({ ...e, entity_name: e.name }));
+                const typesData = dictData.lgTypes || [];
+                const deptsData = (dictData.departments || []).map(d => typeof d === 'string' ? { id: d, name: d } : d);
                 setConfig(configData);
                 setCurrencies(currData);
                 setEntities(entData);
                 setLgTypes(typesData);
-                setDepartments(deptsData || []);
+                setDepartments(deptsData);
                 // Auto-select single-option dropdowns for internal users
                 setFormData(prev => {
                     const updated = { ...prev };
@@ -276,10 +292,14 @@ export default function IssuanceRequestForm() {
                     if (deptsData?.length === 1) updated.department = deptsData[0].name || deptsData[0];
                     return updated;
                 });
-                // Fetch projects for internal users
+                // Fetch projects for corporate admin users only
                 try {
-                    const projData = await apiRequest('/corporate-admin/projects/', 'GET');
-                    setProjects(projData || []);
+                    const token = localStorage.getItem('jwt_token');
+                    const payload = token ? JSON.parse(atob(token.split('.')[1])) : {};
+                    if (payload.role === 'corporate_admin' || payload.role === 'checker') {
+                        const projData = await apiRequest('/corporate-admin/projects/', 'GET');
+                        setProjects(projData || []);
+                    }
                 } catch (e) { /* projects not critical */ }
             }
         } catch (error) {
@@ -392,6 +412,9 @@ export default function IssuanceRequestForm() {
     const isDocVisible = (docType) => {
         // Special Wording is always visible when requires_special_wording is checked
         if (docType === 'SPECIAL_WORDING' && formData.requires_special_wording) return true;
+        // Third Party is ONLY visible when the toggle is ON
+        if (docType === 'THIRD_PARTY' && !formData.is_third_party) return false;
+        
         if (!config?.document_config?.[docType]) return true; // default visible
         return config.document_config[docType].is_visible !== false;
     };
@@ -399,6 +422,13 @@ export default function IssuanceRequestForm() {
     const isDocMandatory = (docType) => {
         // Special Wording is ONLY mandatory when the toggle is ON
         if (docType === 'SPECIAL_WORDING') return formData.requires_special_wording === true;
+        // Third Party is ONLY mandatory when the toggle is ON and config requires it
+        if (docType === 'THIRD_PARTY') {
+            if (!formData.is_third_party) return false;
+            if (!config?.document_config?.[docType]) return false;
+            return config.document_config[docType].is_mandatory === true;
+        }
+        
         if (!config?.document_config?.[docType]) return false;
         return config.document_config[docType].is_mandatory === true;
     };
@@ -413,8 +443,15 @@ export default function IssuanceRequestForm() {
 
         setFormData(prev => {
             const updated = { ...prev, [name]: newValue };
-            if (name === 'currency_id' && !prev.payable_currency_id) {
-                updated.payable_currency_id = newValue;
+            if (name === 'currency_id') {
+                // Always mirror payable currency to LG currency unless user deliberately changed it
+                if (!payableCurrencyTouched) {
+                    updated.payable_currency_id = newValue;
+                }
+            }
+            if (name === 'payable_currency_id') {
+                // User explicitly picked a payable currency — stop auto-syncing
+                setPayableCurrencyTouched(newValue !== formData.currency_id);
             }
             return updated;
         });
@@ -435,38 +472,67 @@ export default function IssuanceRequestForm() {
     useEffect(() => {
         const refType = formData.reference_type;
         const refNum = formData.reference_number;
-        if (!refType || !refNum || refNum.length < 1) {
+        const benName = formData.beneficiary_name;
+        const amount = formData.amount;
+        const lgTypeId = formData.lg_type_id;
+        const expDate = formData.requested_expiry_date;
+        
+        if ((!refType || !refNum || refNum.length < 1) && !benName && !amount && !lgTypeId && !expDate) {
             setDuplicateRefWarning(null);
             return;
         }
+        
         const timer = setTimeout(async () => {
             try {
                 let data;
-                const excludeParam = draftId ? `&exclude_id=${draftId}` : '';
+                const payload = {
+                    reference_type: refType || null,
+                    reference_number: refNum || null,
+                    beneficiary_name: benName || null,
+                    amount: amount ? parseFloat(amount) : null,
+                    currency: formData.currency_id 
+                        ? (currencies.find(c => c.id === parseInt(formData.currency_id))?.iso_code || formData.currency_id) 
+                        : null,
+                    lg_type_id: lgTypeId ? parseInt(lgTypeId) : null,
+                    requested_expiry_date: expDate || null,
+                    exclude_request_id: draftId ? parseInt(draftId) : null
+                };
+
                 if (isPublic) {
-                    const safeToken = encodeURIComponent(token);
-                    data = await publicApiRequest(
-                        `/public-issuance/check-duplicate-reference?token=${safeToken}&reference_type=${encodeURIComponent(refType)}&reference_number=${encodeURIComponent(refNum)}${excludeParam}`,
-                        'GET'
-                    );
+                    payload.token = token;
+                    data = await publicApiRequest('/public-issuance/pre-submit-similarity', 'POST', payload);
                 } else {
-                    data = await apiRequest(
-                        `/issuance/check-duplicate-reference?reference_type=${encodeURIComponent(refType)}&reference_number=${encodeURIComponent(refNum)}${excludeParam}`,
-                        'GET'
-                    );
+                    data = await apiRequest('/issuance/pre-submit-similarity', 'POST', payload);
                 }
+                
                 if (data && data.found && data.matches?.length > 0) {
                     setDuplicateRefWarning(data.matches);
+                    // Auto-recall: fill blank reference fields from most recent match that is an exact ref match
+                    const exactMatch = data.matches.find(m => m.exact_ref && m.recall_data);
+                    if (exactMatch && exactMatch.recall_data) {
+                        setFormData(prev => {
+                            const updated = { ...prev };
+                            const rd = exactMatch.recall_data;
+                            let filled = false;
+                            if (!prev.reference_amount && rd.reference_amount) { updated.reference_amount = rd.reference_amount; filled = true; }
+                            if (!prev.reference_currency_id && rd.reference_currency_id) { updated.reference_currency_id = String(rd.reference_currency_id); filled = true; }
+                            if (!prev.reference_start_date && rd.reference_start_date) { updated.reference_start_date = rd.reference_start_date; filled = true; }
+                            if (!prev.reference_end_date && rd.reference_end_date) { updated.reference_end_date = rd.reference_end_date; filled = true; }
+                            if (!prev.project_id && rd.project_id) { updated.project_id = String(rd.project_id); filled = true; }
+                            if (filled) toast.info('Reference details recalled from a previous request');
+                            return updated;
+                        });
+                    }
                 } else {
                     setDuplicateRefWarning(null);
                 }
             } catch (e) {
-                console.error('Duplicate reference check failed:', e);
+                console.error('Similarity check failed:', e);
                 setDuplicateRefWarning(null);
             }
-        }, 600);
+        }, 800);
         return () => clearTimeout(timer);
-    }, [formData.reference_type, formData.reference_number, draftId]);
+    }, [formData.reference_type, formData.reference_number, formData.beneficiary_name, formData.amount, formData.lg_type_id, formData.requested_expiry_date, draftId]);
 
     // Tenor calculation
     const calcTenor = () => {
@@ -522,11 +588,12 @@ export default function IssuanceRequestForm() {
             if (formData.is_third_party && !formData.third_party_name) errors.push('Third Party Name is required');
             if (formData.is_cross_border && !formData.issuance_country) errors.push('Issuance Country is required');
             if (formData.is_urgent && !formData.urgency_justification) errors.push('Urgency Justification is required');
-            // Mandatory document validation
+            // Mandatory document validation — skip if existing document of that type already attached
             const mandatoryDocTypes = ['CONTRACT', 'THIRD_PARTY', 'SPECIAL_WORDING', 'OTHER'].filter(dt => isDocMandatory(dt) && isDocVisible(dt));
             mandatoryDocTypes.forEach(dt => {
-                const hasFile = pendingFiles.some(f => f.type === dt);
-                if (!hasFile) {
+                const hasNewFile = pendingFiles.some(f => f.type === dt);
+                const hasExisting = existingDocuments.some(d => d.document_type === dt);
+                if (!hasNewFile && !hasExisting) {
                     const docLabels = { CONTRACT: 'Contract / Purchase Order', THIRD_PARTY: 'Third Party Document', SPECIAL_WORDING: 'Special Wording Template', OTHER: 'Other Supporting Document' };
                     errors.push(`${docLabels[dt] || dt} is required`);
                 }
@@ -705,18 +772,18 @@ export default function IssuanceRequestForm() {
                     setIsSuccess(true);
                 }
             } else if (draftId) {
-                // Editing an existing request — update it via PUT
-                const isPostSubmission = editingStatus && editingStatus !== 'DRAFT';
-                if (isPostSubmission && payload.change_reason) {
-                    // Include change_reason for post-submission edits (required by backend)
-                } else if (isPostSubmission) {
-                    toast.error('A change reason is required when editing a submitted request.');
+                const isPostSubmission = editingStatus && editingStatus !== 'DRAFT' && editingStatus !== 'REVISION_REQUIRED';
+                const requireChangeReason = editingStatus && editingStatus !== 'DRAFT';
+
+                if (requireChangeReason && !payload.change_reason) {
+                    toast.error('A change reason is required when editing this request.');
                     setSubmitting(false);
                     return;
                 }
-                // Strip change_reason from payload if editing DRAFT (not needed)
+
+                // Strip change_reason from payload ONLY if editing DRAFT (not needed)
                 const putPayload = { ...payload };
-                if (!isPostSubmission) {
+                if (editingStatus === 'DRAFT') {
                     delete putPayload.change_reason;
                 }
                 await apiRequest(`/issuance/requests/${draftId}`, 'PUT', putPayload);
@@ -884,7 +951,7 @@ export default function IssuanceRequestForm() {
                         className={inputClasses(false)}
                     >
                         <option value="">— Select —</option>
-                        {options.map(opt => <option key={opt.id} value={opt.id}>{opt.name || opt.iso_code || opt.entity_name}</option>)}
+                        {options.map(opt => <option key={opt.id} value={opt.id}>{opt.iso_code ? `${opt.iso_code}${opt.name && opt.name !== opt.iso_code ? ` - ${opt.name}` : ''}` : (opt.name || opt.entity_name)}</option>)}
                     </select>
                 ) : type === 'textarea' ? (
                     <textarea
@@ -996,23 +1063,6 @@ export default function IssuanceRequestForm() {
                 )}
             </div>
 
-            {/* Duplicate Reference Warning */}
-            {duplicateRefWarning && duplicateRefWarning.length > 0 && (
-                <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-start gap-3">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                        <p className="text-sm font-semibold text-amber-800">Duplicate Reference Detected</p>
-                        <p className="text-xs text-amber-700 mt-1">The same reference type and number was used in {duplicateRefWarning.length} previous request(s). Please verify this is a new request.</p>
-                        <div className="mt-2 space-y-1">
-                            {duplicateRefWarning.map((m, i) => (
-                                <p key={i} className="text-xs text-amber-800">
-                                    • <span className="font-medium">{m.serial_number}</span> — {m.status?.replace(/_/g, ' ')} — {m.beneficiary_name || 'N/A'}
-                                </p>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Reference Document Upload */}
             {isDocVisible('CONTRACT') && (
@@ -1029,6 +1079,14 @@ export default function IssuanceRequestForm() {
                             onChange={(e) => { if (e.target.files[0]) addFile(e.target.files[0], 'CONTRACT'); e.target.value = ''; }}
                         />
                     </label>
+                    {/* Show existing files for this type */}
+                    {existingDocuments.filter(f => f.document_type === 'CONTRACT').map((f, i) => (
+                        <div key={`exist-${i}`} className="flex items-center gap-3 mt-3 bg-gray-50/80 p-2.5 rounded-lg border border-gray-200">
+                            <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                            <span className="text-sm text-slate-600 font-medium text-ellipsis overflow-hidden flex-1">{f.file_name}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold border border-green-200">Already Attached</span>
+                        </div>
+                    ))}
                     {/* Show pending files for this type */}
                     {pendingFiles.filter(f => f.type === 'CONTRACT').map((f, i) => {
                         const realIdx = pendingFiles.indexOf(f);
@@ -1074,7 +1132,7 @@ export default function IssuanceRequestForm() {
                         </label>
                         <select name="payable_currency_id" value={formData.payable_currency_id || ''} onChange={handleChange} className={inputClasses(false)}>
                             <option value="">— Select —</option>
-                            {currencies.map(opt => <option key={opt.id} value={opt.id}>{opt.name || opt.iso_code}</option>)}
+                            {currencies.map(opt => <option key={opt.id} value={opt.id}>{opt.iso_code}{opt.name && opt.name !== opt.iso_code ? ` - ${opt.name}` : ''}</option>)}
                         </select>
                         <p className="text-[10px] text-slate-400">Defaults to LG currency unless changed</p>
                     </div>
@@ -1179,9 +1237,16 @@ export default function IssuanceRequestForm() {
                                 {beneficiarySuggestions.map((s, i) => (
                                     <button key={i} type="button"
                                         onClick={() => applyBeneficiarySuggestion(s)}
-                                        className="w-full text-left px-3 py-2.5 text-sm hover:bg-blue-50 transition border-b border-gray-50 last:border-none">
-                                        <span className="font-medium text-slate-800">{s.beneficiary_name}</span>
-                                        {s.beneficiary_country && <span className="text-slate-400 ml-2 text-xs">{s.beneficiary_country}</span>}
+                                        className="w-full text-left px-3 py-2.5 text-sm hover:bg-blue-50 transition border-b border-gray-50 last:border-none flex items-center justify-between">
+                                        <div>
+                                            <span className="font-medium text-slate-800">{s.beneficiary_name}</span>
+                                            {s.beneficiary_country && <span className="text-slate-400 ml-2 text-xs">{s.beneficiary_country}</span>}
+                                        </div>
+                                        {s.similarity_score && (
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                                s.similarity_score >= 95 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                                            }`}>{s.similarity_score}%</span>
+                                        )}
                                     </button>
                                 ))}
                                 <button type="button" onClick={() => setShowSuggestions(false)}
@@ -1365,6 +1430,18 @@ export default function IssuanceRequestForm() {
                                 </label>
                             )}
                         </div>
+                        {/* Show existing files (except CONTRACT) */}
+                        {existingDocuments.filter(f => f.document_type !== 'CONTRACT').map((f, i) => {
+                            const typeLabels = { THIRD_PARTY: 'Third Party', SPECIAL_WORDING: 'Wording', OTHER: 'Other' };
+                            return (
+                                <div key={`exist-${i}`} className="flex items-center gap-3 mt-3 bg-gray-50/80 p-2.5 rounded-lg border border-gray-200">
+                                    <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                    <span className="text-sm text-slate-600 font-medium text-ellipsis overflow-hidden flex-1">{f.file_name}</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 font-medium">{typeLabels[f.document_type] || f.document_type}</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold border border-green-200 whitespace-nowrap">Already Attached</span>
+                                </div>
+                            );
+                        })}
                         {/* All pending files (except CONTRACT which is shown in Step 1) */}
                         {pendingFiles.filter(f => f.type !== 'CONTRACT').map((f, i) => {
                             const realIdx = pendingFiles.indexOf(f);
@@ -1417,9 +1494,15 @@ export default function IssuanceRequestForm() {
                     </div>
                     <h2 className="text-2xl font-bold text-slate-900 mb-2">{t('pages.publicIssuanceForm.successTitle')}</h2>
                     <p className="text-slate-500 mb-8">{t('pages.publicIssuanceForm.successMessage')}</p>
-                    <button onClick={() => navigate('/login')}
+                    <button onClick={() => {
+                            if (isPublic && token) {
+                                navigate(`/public-issuance/dashboard?token=${encodeURIComponent(token)}`);
+                            } else {
+                                navigate('/end-user/issuance/requests');
+                            }
+                        }}
                         className="w-full bg-slate-900 text-white font-semibold py-3.5 rounded-xl hover:bg-slate-800 transition shadow-lg">
-                        {t('pages.publicIssuanceForm.returnHomeBtn')}
+                        {isPublic ? 'Return to Dashboard' : 'Return to Requests'}
                     </button>
                 </div>
             </div>
@@ -1455,7 +1538,7 @@ export default function IssuanceRequestForm() {
                     ) : (
                         <button
                             type="button"
-                            onClick={() => navigate('/issuance/requests')}
+                            onClick={() => navigate(-1)}
                             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors"
                         >
                             <ChevronLeft className="w-4 h-4" /> All Requests
@@ -1468,7 +1551,7 @@ export default function IssuanceRequestForm() {
                     <div className="flex items-center justify-between relative">
                         {/* Connecting line */}
                         <div className="absolute top-5 left-8 right-8 h-0.5 bg-gray-200 -z-0" />
-                        <div className="absolute top-5 left-8 h-0.5 bg-blue-500 transition-all duration-500 -z-0"
+                        <div className="absolute top-5 left-8 h-0.5 bg-green-500 transition-all duration-500 -z-0"
                             style={{ width: `${(currentStep / 3) * (100 - (100 / 3.7))}%` }} />
 
                         {STEP_LABELS.map((label, idx) => {
@@ -1476,20 +1559,33 @@ export default function IssuanceRequestForm() {
                             const isActive = idx === currentStep;
                             const isDone = idx < currentStep;
                             return (
-                                <div key={idx} className="flex flex-col items-center relative z-10 cursor-pointer"
+                                <div key={idx} className="flex flex-col items-center relative z-10 cursor-pointer group"
                                     onClick={() => {
                                         if (idx < currentStep) {
+                                            // Go back freely
                                             setSlideDir('left');
+                                            setCurrentStep(idx);
+                                        } else if (idx > currentStep) {
+                                            // Go forward — validate all intermediate steps
+                                            for (let s = currentStep; s < idx; s++) {
+                                                const errors = validateStep(s);
+                                                if (errors.length > 0) {
+                                                    errors.forEach(e => toast.error(e));
+                                                    setCurrentStep(s);
+                                                    return;
+                                                }
+                                            }
+                                            setSlideDir('right');
                                             setCurrentStep(idx);
                                         }
                                     }}>
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${isDone ? 'bg-blue-500 text-white shadow-md shadow-blue-200' :
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${isDone ? 'bg-green-500 text-white shadow-md shadow-green-200 group-hover:bg-green-600' :
                                         isActive ? 'bg-blue-500 text-white shadow-lg shadow-blue-200 ring-4 ring-blue-100' :
-                                            'bg-white text-slate-400 border-2 border-gray-200'
+                                            'bg-white text-slate-400 border-2 border-gray-200 group-hover:border-blue-300 group-hover:text-blue-400'
                                         }`}>
                                         {isDone ? <CheckCircle className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
                                     </div>
-                                    <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap transition-colors ${isActive ? 'text-blue-600' : isDone ? 'text-slate-600' : 'text-slate-400'
+                                    <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap transition-colors ${isActive ? 'text-blue-600' : isDone ? 'text-green-600' : 'text-slate-400 group-hover:text-slate-600'
                                         }`}>{label}</span>
                                 </div>
                             );
@@ -1505,6 +1601,59 @@ export default function IssuanceRequestForm() {
                             <h2 className="text-lg font-bold text-slate-800">{STEP_LABELS[currentStep]}</h2>
                             <span className="ml-auto text-xs text-slate-400 font-medium">Step {currentStep + 1} of 4</span>
                         </div>
+
+                        {/* Duplicate Reference Warning Overlay - Persists globally over all Steps */}
+                        {duplicateRefWarning && duplicateRefWarning.length > 0 && (
+                            <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4 flex flex-col gap-3 shadow-sm animate-fadeIn">
+                                <div className="flex items-start gap-3">
+                                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-amber-800">Similar LGs Detected</p>
+                                        <p className="text-xs text-amber-700 mt-1">
+                                            We found {duplicateRefWarning.length === 1 ? '1 similar record' : `${duplicateRefWarning.length} similar records`} matching the details you entered. Please verify this is a new request.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="mt-2 flex flex-col gap-3">
+                                    {duplicateRefWarning.map((m, i) => (
+                                        <div key={i} className="bg-white rounded-lg p-3 border border-amber-200 shadow-sm">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <p className="text-xs font-semibold text-amber-900">
+                                                    {m.match_type === 'issued_lg' ? 'Issued LG' : 'Pending Request'}
+                                                    <span className="ml-2 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 font-mono text-[10px]">{m.lg_ref_number || `REQ-${m.request_id}`}</span>
+                                                </p>
+                                                <div className="flex items-center gap-1.5 bg-amber-100 px-2 py-0.5 rounded text-xs font-bold text-amber-800">
+                                                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                                                    {m.score.toFixed(1)}% Match
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                                {m.breakdown?.reference?.matched && (
+                                                    <div className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1.5 py-1 rounded">
+                                                        <CheckCircle className="w-3 h-3 truncate" /> Same Ref (+{m.breakdown.reference.score})
+                                                    </div>
+                                                )}
+                                                {m.breakdown?.beneficiary?.matched && (
+                                                    <div className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1.5 py-1 rounded">
+                                                        <CheckCircle className="w-3 h-3 truncate" /> Ben. Match (+{m.breakdown.beneficiary.score})
+                                                    </div>
+                                                )}
+                                                {m.breakdown?.amount?.matched && (
+                                                    <div className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1.5 py-1 rounded">
+                                                        <CheckCircle className="w-3 h-3 truncate" /> Similar Amt (+{m.breakdown.amount.score})
+                                                    </div>
+                                                )}
+                                                {m.breakdown?.lg_type?.matched && (
+                                                    <div className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1.5 py-1 rounded">
+                                                        <CheckCircle className="w-3 h-3 truncate" /> Same LG Type (+{m.breakdown.lg_type.score})
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         <div key={currentStep}>
                             {STEPS[currentStep]()}

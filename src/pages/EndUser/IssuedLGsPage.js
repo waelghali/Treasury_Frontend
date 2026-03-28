@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 import {
@@ -8,26 +9,32 @@ import {
     AlertCircle, Copy, CheckCircle, Plus, ArrowUpRight,
     ArrowDownRight, RotateCcw, Trash2, Edit3, Zap,
     Send, Check, Ban, Download, Users, AlertTriangle,
-    ArrowUp, ArrowDown, SlidersHorizontal, Filter
+    ArrowUp, ArrowDown, SlidersHorizontal, Filter, XCircle
 } from 'lucide-react';
 import PostIssuanceTracker from '../../components/PostIssuanceTracker';
+import RecordDeliveryModal from '../../components/Modals/RecordDeliveryModal';
+import RecordBankReplyModal from '../../components/Modals/RecordBankReplyModal';
+import MaintenanceActionModal from '../../components/Modals/MaintenanceActionModal';
+import ChangeRequestorModal from '../../components/Modals/ChangeRequestorModal';
+import IssuanceRequestDetailsModal from '../../components/Modals/IssuanceRequestDetailsModal';
+import RequestorDirectoryTab from '../../components/Issuance/RequestorDirectoryTab';
 
 // Status display labels (module-level so both modal and page can use)
 const statusLabels = {
-    PENDING_CONFIRMATION: 'Instruction Issued',
+    INTERNAL_PROCESSING: 'Processing',
     DELIVERED_TO_BANK: 'At Bank',
     BANK_INQUIRY: 'Bank Inquiry',
     BANK_REJECTED: 'Rejected by Bank',
-    PENDING_VERIFICATION: 'Needs Review',
-    ISSUED: 'Issued',
-    CONFIRMED: 'Verified',
-    HANDED_OVER: 'Active',
+    LG_ISSUED: 'LG Issued',
+    ACTIVE: 'Active',
     EXPIRED: 'Expired',
     CANCELLED: 'Cancelled',
     PENDING_CLOSE: 'Closing',
     CLOSED: 'Closed',
     LIQUIDATED: 'Liquidated',
     SLA_EXCEEDED: 'SLA Breach',
+    CANCEL_REQUESTED: 'Cancel Pending',
+    RETURNED: 'Returned',
 };
 
 // Expiry countdown helper
@@ -87,11 +94,39 @@ function DocumentsTab({ lgId }) {
                     toast.error('Could not generate download link');
                 }
             } else if (doc.download_type === 'lg_reprint' && doc.lg_id) {
-                // Use the reprint endpoint which serves the file
-                const url = `/issuance/issued-lgs/${doc.lg_id}/reprint`;
-                const token = localStorage.getItem('jwt_token');
-                const baseUrl = process.env.REACT_APP_API_URL || '/api/v1';
-                window.open(`${baseUrl}${url}?token=${token}`, '_blank');
+                // Same approach as the Reprint Letter button (handleReprint)
+                const blob = await apiRequest(`/issuance/issued-lgs/${doc.lg_id}/reprint`, 'POST', null, 'application/json', 'blob');
+                if (blob && blob.size > 0) {
+                    const url = window.URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                } else {
+                    toast.error('Could not download document');
+                }
+            } else if (doc.download_type === 'maintenance_letter' && doc.action_id) {
+                // Open maintenance instruction letter as PDF blob
+                const blob = await apiRequest(`/issuance/maintenance/${doc.action_id}/document/letter`, 'GET', null, 'application/json', 'blob');
+                const url = window.URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            } else if (doc.download_type === 'maintenance_doc' && doc.action_id) {
+                // Download delivery proof or bank reply doc — may be local (blob) or GCS (signed URL)
+                try {
+                    const blob = await apiRequest(`/issuance/maintenance/${doc.action_id}/document/${doc.doc_type}`, 'GET', null, 'application/json', 'blob');
+                    if (blob && blob.size > 0 && blob.type !== 'application/json') {
+                        const url = window.URL.createObjectURL(blob);
+                        window.open(url, '_blank');
+                    } else {
+                        // It was JSON — parse the signed URL
+                        const text = await blob.text();
+                        const res = JSON.parse(text);
+                        if (res?.download_url) {
+                            window.open(res.download_url, '_blank');
+                        } else {
+                            toast.error('Could not generate download link');
+                        }
+                    }
+                } catch (dlErr) {
+                    toast.error('Download failed');
+                }
             } else {
                 toast.info('Download not available for this document type');
             }
@@ -151,7 +186,7 @@ function SmartSuggestions({ lg }) {
     const suggestions = [];
 
     // Rule 1: Expiring soon
-    if (lg.expiry_date && ['ACTIVE', 'CONFIRMED', 'HANDED_OVER'].includes(lg.status)) {
+    if (lg.expiry_date && ['ACTIVE', 'LG_ISSUED'].includes(lg.status)) {
         const today = new Date(); today.setHours(0,0,0,0);
         const exp = new Date(lg.expiry_date); exp.setHours(0,0,0,0);
         const daysLeft = Math.ceil((exp - today) / 86400000);
@@ -180,7 +215,7 @@ function SmartSuggestions({ lg }) {
     }
 
     // Rule 4: Stale LG (created > 6 months ago, no recent updates)
-    if (lg.created_at && !lg.updated_at && ['ACTIVE', 'CONFIRMED'].includes(lg.status)) {
+    if (lg.created_at && !lg.updated_at && ['ACTIVE', 'LG_ISSUED'].includes(lg.status)) {
         const created = new Date(lg.created_at);
         const monthsOld = (new Date() - created) / (1000 * 60 * 60 * 24 * 30);
         if (monthsOld > 6) {
@@ -189,7 +224,7 @@ function SmartSuggestions({ lg }) {
     }
 
     // Rule 5: Pending confirmation too long
-    if (lg.status === 'PENDING_CONFIRMATION' && lg.created_at) {
+    if (lg.status === 'INTERNAL_PROCESSING' && lg.created_at) {
         const created = new Date(lg.created_at);
         const daysWaiting = Math.ceil((new Date() - created) / 86400000);
         if (daysWaiting > 7) {
@@ -340,6 +375,7 @@ function ManualPricingPanel({ lgId, initialPricing, readOnly }) {
 // Detailed LG Modal
 // ---------------------------------------------------------------------------
 function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
+    const navigate = useNavigate();
     const [reprinting, setReprinting] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
     const [maintenanceActions, setMaintenanceActions] = useState([]);
@@ -347,6 +383,9 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
     const [actionModal, setActionModal] = useState(null); // {type: 'EXTEND'|'INCREASE_AMOUNT'|...}
     const [submitting, setSubmitting] = useState(false);
     const [formData, setFormData] = useState({});
+    const [availableActions, setAvailableActions] = useState([]);
+    const [supportFile, setSupportFile] = useState(null);
+    const [showChangeOwnerModal, setShowChangeOwnerModal] = useState(false);
 
     // Bank form issue report state
     const [showFormIssue, setShowFormIssue] = useState(false);
@@ -355,27 +394,34 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
         description: '',
         field_name: '',
         severity: 'MEDIUM',
+        form_config_id: '',
     });
+    const [formIssueFile, setFormIssueFile] = useState(null);
+    const [formIssueTemplates, setFormIssueTemplates] = useState([]);
     const [submittingIssue, setSubmittingIssue] = useState(false);
 
-    // Maintenance bank reply / delivery modal state
+    // Fetch bank form templates when issue modal opens
+    useEffect(() => {
+        if (showFormIssue && lg.bank_id) {
+            apiRequest(`/issuance/bank-forms?bank_id=${lg.bank_id}`, 'GET')
+                .then(data => setFormIssueTemplates(data || []))
+                .catch(() => setFormIssueTemplates([]));
+        }
+    }, [showFormIssue, lg.bank_id]);
+
+    // Maintenance bank reply / delivery modal state (unified modals)
     const [bankReplyModal, setBankReplyModal] = useState(null); // action object
-    const [bankReplyNotes, setBankReplyNotes] = useState('');
-    const [bankReplyDate, setBankReplyDate] = useState(new Date().toISOString().split('T')[0]);
-    const [bankReplyFile, setBankReplyFile] = useState(null);
-    const [submittingBankReply, setSubmittingBankReply] = useState(false);
     const [deliveryModal, setDeliveryModal] = useState(null); // action object
-    const [deliveryMethod, setDeliveryMethod] = useState('courier');
-    const [deliveryNotes, setDeliveryNotes] = useState('');
-    const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
-    const [deliveryFile, setDeliveryFile] = useState(null);
-    const [submittingDelivery, setSubmittingDelivery] = useState(false);
 
     // Bank-initiated change state
     const [bankInitiatedModal, setBankInitiatedModal] = useState(false);
     const [bankInitiatedFile, setBankInitiatedFile] = useState(null);
     const [bankInitiatedUploading, setBankInitiatedUploading] = useState(false);
     const [bankInitiatedResult, setBankInitiatedResult] = useState(null); // AI analysis result
+    const [cancellingLG, setCancellingLG] = useState(false);
+    const [cancelModal, setCancelModal] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
+    const [cancelWithLetter, setCancelWithLetter] = useState(true);
 
     const req = lg.request;
 
@@ -404,20 +450,41 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
         toast.success('Copied to clipboard');
     };
 
+    const handleCancelLG = async () => {
+        if (!cancelReason.trim()) { toast.error('Please enter a cancellation reason.'); return; }
+        setCancellingLG(true);
+        try {
+            await apiRequest(`/issuance/lg-records/${lg.id}/request-cancellation`, 'POST', {
+                cancel_reason: cancelReason,
+                issue_cancellation_letter: cancelWithLetter,
+            });
+            toast.success('Cancellation request submitted for admin approval.');
+            setCancelModal(false);
+            if (onClose) onClose();
+        } catch (err) {
+            toast.error(err.message || 'Failed to submit cancellation request.');
+        } finally {
+            setCancellingLG(false);
+        }
+    };
+
     const handleFormIssueSubmit = async () => {
-        if (!formIssueData.description.trim()) { toast.error('Please describe the issue.'); return; }
+        if (!formIssueData.description.trim() || formIssueData.description.trim().length < 3) { toast.error('Description must be at least 3 characters.'); return; }
         setSubmittingIssue(true);
         try {
-            await apiRequest('/issuance/bank-form-issues', 'POST', {
-                bank_id: lg.bank_id || req?.bank_id,
-                issue_type: formIssueData.issue_type,
-                description: formIssueData.description,
-                field_name: formIssueData.field_name || null,
-                severity: formIssueData.severity,
-            });
+            const fd = new FormData();
+            fd.append('bank_id', lg.bank_id);
+            fd.append('issue_type', formIssueData.issue_type);
+            fd.append('description', formIssueData.description);
+            if (formIssueData.field_name) fd.append('field_name', formIssueData.field_name);
+            fd.append('severity', formIssueData.severity);
+            if (formIssueData.form_config_id) fd.append('form_config_id', formIssueData.form_config_id);
+            if (formIssueFile) fd.append('attachment', formIssueFile);
+            await apiRequest('/issuance/bank-form-issues', 'POST', fd);
             toast.success('Form issue reported successfully. The system owner will review it.');
             setShowFormIssue(false);
-            setFormIssueData({ issue_type: 'INCORRECT_FORMAT', description: '', field_name: '', severity: 'MEDIUM' });
+            setFormIssueFile(null);
+            setFormIssueData({ issue_type: 'INCORRECT_FORMAT', description: '', field_name: '', severity: 'MEDIUM', form_config_id: '' });
         } catch (err) {
             toast.error(err.message || 'Failed to submit form issue report.');
         } finally {
@@ -426,9 +493,9 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
     };
 
     const statusColors = {
-        PENDING_CONFIRMATION: 'bg-amber-100 text-amber-800 border-amber-200',
+        INTERNAL_PROCESSING: 'bg-amber-100 text-amber-800 border-amber-200',
         ACTIVE: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-        CONFIRMED: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+        LG_ISSUED: 'bg-emerald-100 text-emerald-800 border-emerald-200',
         EXPIRED: 'bg-slate-200 text-slate-600 border-slate-300',
         CANCELLED: 'bg-red-100 text-red-700 border-red-200',
         ISSUED: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -436,11 +503,11 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
         CLOSED: 'bg-slate-300 text-slate-700 border-slate-400',
         LIQUIDATED: 'bg-red-200 text-red-800 border-red-300',
         DELIVERED_TO_BANK: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-        PENDING_VERIFICATION: 'bg-purple-100 text-purple-800 border-purple-200',
         BANK_INQUIRY: 'bg-amber-100 text-amber-800 border-amber-200',
         BANK_REJECTED: 'bg-red-100 text-red-700 border-red-200',
         SLA_EXCEEDED: 'bg-red-200 text-red-800 border-red-300',
-        HANDED_OVER: 'bg-teal-100 text-teal-800 border-teal-200',
+        CANCEL_REQUESTED: 'bg-orange-100 text-orange-700 border-orange-200',
+        RETURNED: 'bg-teal-100 text-teal-800 border-teal-200',
     };
 
     const methodLabels = {
@@ -491,7 +558,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                 const decision = step.decision || step.action || 'REVIEWED';
                 const decisionLabel = decision === 'APPROVED' ? 'Approved' :
                     decision === 'REJECTED' ? 'Rejected' :
-                    decision === 'RETURNED_FOR_REVISION' ? 'Returned for Revision' : decision;
+                    decision === 'REVISION_REQUIRED' ? 'Revision Required' : decision;
                 const decisionColor = decision === 'APPROVED' ? 'bg-green-100 text-green-600' :
                     decision === 'REJECTED' ? 'bg-red-100 text-red-600' :
                     'bg-amber-100 text-amber-600';
@@ -631,19 +698,41 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
         if (activeTab === 'maintenance') fetchMaintenanceActions();
     }, [activeTab]);
 
+    // Fetch available actions from backend (single source of truth)
+    const fetchAvailableActions = async () => {
+        try {
+            const data = await apiRequest(`/issuance/issued-lgs/${lg.id}/available-actions`, 'GET');
+            setAvailableActions(data?.available_actions || []);
+        } catch { /* silent */ }
+    };
+
+    useEffect(() => { fetchAvailableActions(); }, [lg.id]);
+
     const handleCreateAction = async () => {
         if (!actionModal) return;
         setSubmitting(true);
         try {
+            let actionData = { ...formData };
+
+            // Upload supporting document if attached
+            if (supportFile) {
+                const uploadFd = new FormData();
+                uploadFd.append('file', supportFile);
+                const uploadRes = await apiRequest('/issuance/maintenance/upload-document', 'POST', uploadFd);
+                actionData.supporting_documents = [{ uri: uploadRes.uri, file_name: uploadRes.file_name }];
+            }
+
             await apiRequest(`/issuance/issued-lgs/${lg.id}/maintenance`, 'POST', {
                 action_type: actionModal,
-                action_data: formData,
+                action_data: actionData,
                 notes: formData.notes || null,
             });
             toast.success(`${actionModal.replace(/_/g, ' ')} action created successfully`);
             setActionModal(null);
             setFormData({});
+            setSupportFile(null);
             fetchMaintenanceActions();
+            fetchAvailableActions();
         } catch (err) {
             toast.error(err?.response?.data?.detail || err.message || 'Failed to create action');
         } finally {
@@ -652,52 +741,9 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
     };
 
     // Handle Record Delivery for maintenance action (FormData for file upload)
-    const handleRecordDelivery = async () => {
-        if (!deliveryModal) return;
-        setSubmittingDelivery(true);
-        try {
-            const fd = new FormData();
-            fd.append('delivery_method', deliveryMethod);
-            if (deliveryNotes) fd.append('delivery_notes', deliveryNotes);
-            if (deliveryDate) fd.append('delivery_date', deliveryDate);
-            if (deliveryFile) fd.append('delivery_document', deliveryFile);
-            await apiRequest(`/issuance/maintenance/${deliveryModal.id}/delivery`, 'POST', fd);
-            toast.success('Delivery recorded successfully');
-            setDeliveryModal(null);
-            setDeliveryMethod('courier');
-            setDeliveryNotes('');
-            setDeliveryDate(new Date().toISOString().split('T')[0]);
-            setDeliveryFile(null);
-            fetchMaintenanceActions();
-        } catch (err) {
-            toast.error(err?.message || 'Failed to record delivery');
-        } finally {
-            setSubmittingDelivery(false);
-        }
-    };
-
-    // Handle Record Bank Reply for maintenance action (FormData for F3 AI verification)
-    const handleRecordBankReply = async () => {
-        if (!bankReplyModal) return;
-        setSubmittingBankReply(true);
-        try {
-            const fd = new FormData();
-            if (bankReplyNotes) fd.append('bank_reply_notes', bankReplyNotes);
-            if (bankReplyDate) fd.append('bank_reply_date', bankReplyDate);
-            if (bankReplyFile) fd.append('bank_reply_file', bankReplyFile);
-            await apiRequest(`/issuance/maintenance/${bankReplyModal.id}/bank-reply`, 'POST', fd);
-            toast.success('Bank reply recorded successfully');
-            setBankReplyModal(null);
-            setBankReplyNotes('');
-            setBankReplyDate(new Date().toISOString().split('T')[0]);
-            setBankReplyFile(null);
-            fetchMaintenanceActions();
-        } catch (err) {
-            toast.error(err?.message || 'Failed to record bank reply');
-        } finally {
-            setSubmittingBankReply(false);
-        }
-    };
+    // Delivery / Bank Reply: handled by unified RecordDeliveryModal / RecordBankReplyModal
+    const handleDeliverySuccess = () => { setDeliveryModal(null); fetchMaintenanceActions(); };
+    const handleBankReplySuccess = () => { setBankReplyModal(null); fetchMaintenanceActions(); };
 
     // Handle Confirm Bank Reply (Phase 2 — user proceeds despite AI mismatches)
     const handleConfirmBankReply = async (actionId) => {
@@ -764,17 +810,15 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
         }
     };
 
-    const liveStatuses = ['ACTIVE', 'CONFIRMED', 'HANDED_OVER', 'ISSUED', 'DELIVERED_TO_BANK', 'PENDING_CONFIRMATION', 'PENDING_VERIFICATION'];
-
-    const actionButtons = [
-        { type: 'EXTEND', label: 'Extend Expiry', icon: Calendar, color: 'bg-blue-600 hover:bg-blue-700', statuses: liveStatuses },
-        { type: 'INCREASE_AMOUNT', label: 'Increase Amount', icon: ArrowUpRight, color: 'bg-emerald-600 hover:bg-emerald-700', statuses: liveStatuses },
-        { type: 'AMENDMENT', label: 'Amend LG', icon: Edit3, color: 'bg-purple-600 hover:bg-purple-700', statuses: liveStatuses },
-        { type: 'CLOSE', label: 'Close / Return', icon: RotateCcw, color: 'bg-amber-600 hover:bg-amber-700', statuses: liveStatuses },
-        { type: 'LIQUIDATION', label: 'Record Liquidation', icon: AlertCircle, color: 'bg-red-600 hover:bg-red-700', statuses: liveStatuses },
-        { type: 'ACTIVATE', label: 'Activate Non-Op', icon: Zap, color: 'bg-indigo-600 hover:bg-indigo-700', statuses: liveStatuses },
-        { type: 'CHANGE_OWNERSHIP', label: 'Change Owner', icon: Users, color: 'bg-slate-600 hover:bg-slate-700', statuses: liveStatuses },
-    ];
+    // Static button styling — filtered by availableActions from backend
+    const actionButtonConfig = {
+        EXTEND: { label: 'Extend Expiry', icon: Calendar, color: 'bg-blue-600 hover:bg-blue-700' },
+        INCREASE_AMOUNT: { label: 'Increase Amount', icon: ArrowUpRight, color: 'bg-emerald-600 hover:bg-emerald-700' },
+        AMENDMENT: { label: 'Amend LG', icon: Edit3, color: 'bg-purple-600 hover:bg-purple-700' },
+        CLOSE: { label: 'Close / Return', icon: RotateCcw, color: 'bg-amber-600 hover:bg-amber-700' },
+        LIQUIDATION: { label: 'Record Liquidation', icon: AlertCircle, color: 'bg-red-600 hover:bg-red-700' },
+        ACTIVATE: { label: 'Activate Non-Op', icon: Zap, color: 'bg-indigo-600 hover:bg-indigo-700' },
+    };
 
     const actionStatusColors = {
         PENDING_APPROVAL: 'bg-amber-100 text-amber-800',
@@ -814,12 +858,23 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                     </div>
 
                     {/* Key Stats Bar */}
-                    <div className="flex gap-4 px-6 py-3 bg-slate-50 border-b border-slate-200 shrink-0 text-xs">
-                        <div><span className="text-slate-400">Bank</span><p className="font-bold text-slate-800">{lg.bank_name}</p></div>
-                        <div className="border-l border-slate-200 pl-4"><span className="text-slate-400">Method</span><p className="font-bold text-slate-800">{methodLabels[lg.issuance_method] || lg.issuance_method || '—'}</p></div>
-                        <div className="border-l border-slate-200 pl-4"><span className="text-slate-400">Issue Date</span><p className="font-bold text-slate-800">{lg.issue_date || '—'}</p></div>
-                        <div className="border-l border-slate-200 pl-4"><span className="text-slate-400">Expiry</span><p className="font-bold text-slate-800">{lg.expiry_date || '—'}</p></div>
-                        <div className="border-l border-slate-200 pl-4"><span className="text-slate-400">Request</span><p className="font-bold text-blue-600">{req?.serial_number || '—'}</p></div>
+                    <div className="flex items-center gap-4 px-6 py-3 bg-slate-50 border-b border-slate-200 shrink-0 text-xs">
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                            <div><span className="text-slate-400">Bank</span><p className="font-bold text-slate-800">{lg.bank_name}</p></div>
+                            <div className="border-l border-slate-200 pl-4"><span className="text-slate-400">Method</span><p className="font-bold text-slate-800">{methodLabels[lg.issuance_method] || lg.issuance_method || '—'}</p></div>
+                            <div className="border-l border-slate-200 pl-4"><span className="text-slate-400">Issue Date</span><p className="font-bold text-slate-800">{lg.issue_date || '—'}</p></div>
+                            <div className="border-l border-slate-200 pl-4"><span className="text-slate-400">Expiry</span><p className="font-bold text-slate-800">{lg.expiry_date || '—'}</p></div>
+                            <div className="border-l border-slate-200 pl-4"><span className="text-slate-400">Request</span><p className="font-bold text-blue-600">{req?.id ? <button onClick={() => navigate('/end-user/issuance/requests', { state: { openRequestId: req.id } })} className="hover:underline cursor-pointer">{req.serial_number} ↗</button> : (req?.serial_number || '—')}</p></div>
+                        </div>
+                        {!readOnly && availableActions.some(a => a.type === 'CHANGE_OWNERSHIP') && (
+                            <button
+                                onClick={() => setShowChangeOwnerModal(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-600 text-white text-xs font-bold rounded-lg hover:bg-slate-700 transition-all shadow-sm shrink-0"
+                            >
+                                <Users className="w-3.5 h-3.5" />
+                                Change Owner
+                            </button>
+                        )}
                     </div>
 
                     {/* Tabs */}
@@ -893,8 +948,37 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                         <DetailRow label="Collected Date" value={lg.original_copy_collected_date} />
                                     </div>
 
-                                    {/* D3: Manual Pricing — only for non-facility LGs */}
-                                    {!lg.sub_limit_id && (
+                                    {/* Handover */}
+                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-5 mb-2">🤝 LG Handover</h4>
+                                    {lg.handover_date ? (
+                                        <div className="space-y-1">
+                                            <DetailRow label="Handover Date" value={lg.handover_date} />
+                                            <DetailRow label="Recipient" value={lg.recipient_name} />
+                                            {lg.recipient_email && <DetailRow label="Recipient Email" value={lg.recipient_email} />}
+                                            {lg.recipient_department && <DetailRow label="Department" value={lg.recipient_department} />}
+                                            {lg.recipient_job_title && <DetailRow label="Job Title" value={lg.recipient_job_title} />}
+                                            {lg.recipient_phone && <DetailRow label="Phone" value={lg.recipient_phone} />}
+                                            {lg.recipient_employee_id && <DetailRow label="Employee ID" value={lg.recipient_employee_id} />}
+                                            {lg.handover_notes && <DetailRow label="Notes" value={lg.handover_notes} />}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-slate-400 italic">Not yet handed over.</p>
+                                    )}
+
+                                    {/* Pricing Details */}
+                                    {lg.sub_limit_id && lg.facility_pricing ? (
+                                        <>
+                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-5 mb-2">
+                                                💰 Facility Pricing <span className="text-emerald-500 font-normal">(from sub-limit)</span>
+                                            </h4>
+                                            <div className="space-y-1">
+                                                {lg.facility_pricing.commission_rate != null && <DetailRow label="Commission %" value={`${lg.facility_pricing.commission_rate}%`} />}
+                                                {lg.facility_pricing.min_commission != null && <DetailRow label="Min Commission" value={lg.facility_pricing.min_commission} />}
+                                                {lg.facility_pricing.flat_fee != null && <DetailRow label="Flat Fee" value={lg.facility_pricing.flat_fee} />}
+                                                {lg.facility_pricing.margin_pct != null && <DetailRow label="Cash Margin %" value={`${lg.facility_pricing.margin_pct}%`} />}
+                                            </div>
+                                        </>
+                                    ) : (
                                         <ManualPricingPanel lgId={lg.id} initialPricing={lg.manual_pricing} readOnly={readOnly} />
                                     )}
                                 </div>
@@ -1008,21 +1092,28 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                 {/* Action Buttons — hidden for readOnly (corporate admin / checker) */}
                                 {!readOnly && (
                                 <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-4 rounded-xl border border-slate-200">
-                                    <div className="flex flex-wrap gap-2">
-                                        {actionButtons.map(btn => (
-                                            btn.statuses.includes(lg.status) && (
-                                                <button key={btn.type} onClick={() => { setActionModal(btn.type); setFormData({}); }}
-                                                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-bold shadow-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed ${btn.color}`}
-                                            >
-                                                <btn.icon className="w-4 h-4" />
-                                                {btn.label}
-                                            </button>
-                                        )))}
-                                    </div>
-                                    {/* Bank-Initiated Change Button */}
-                                    <div className="mt-2">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                        {availableActions.map(action => {
+                                            const cfg = actionButtonConfig[action.type];
+                                            if (!cfg) return null;
+                                            const BtnIcon = cfg.icon;
+                                            return (
+                                                <button key={action.type} onClick={() => { 
+                                                        if (action.type === 'CHANGE_OWNERSHIP') {
+                                                            setShowChangeOwnerModal(true);
+                                                        } else {
+                                                            setActionModal(action.type); setFormData({}); 
+                                                        }
+                                                    }}
+                                                    className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-white text-xs font-bold shadow-sm transition-all ${cfg.color}`}
+                                                >
+                                                    <BtnIcon className="w-4 h-4" />
+                                                    {action.label || cfg.label}
+                                                </button>
+                                            );
+                                        })}
                                         <button onClick={() => { setBankInitiatedModal(true); setBankInitiatedFile(null); }}
-                                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-bold shadow-sm transition-all bg-violet-600 hover:bg-violet-700">
+                                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-white text-xs font-bold shadow-sm transition-all bg-violet-600 hover:bg-violet-700">
                                             🏦 Record Bank Action
                                         </button>
                                     </div>
@@ -1094,9 +1185,22 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                             )}
                                                         </div>
                                                         {a.instruction_status && (
-                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${instructionStatusColors[a.instruction_status] || 'bg-slate-100'}`}>
-                                                                {a.instruction_status}
-                                                            </span>
+                                                            <button
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    try {
+                                                                        const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/letter`, 'GET', null, 'application/json', 'blob');
+                                                                        const url = window.URL.createObjectURL(blob);
+                                                                        window.open(url, '_blank');
+                                                                    } catch (err) {
+                                                                        toast.error(err.message || 'Failed to load instruction letter.');
+                                                                    }
+                                                                }}
+                                                                className={`text-[10px] px-2 py-0.5 rounded-full font-bold cursor-pointer hover:opacity-80 transition-opacity ${instructionStatusColors[a.instruction_status] || 'bg-slate-100'}`}
+                                                                title="Click to view instruction letter"
+                                                            >
+                                                                📄 {a.instruction_status}
+                                                            </button>
                                                         )}
                                                     </div>
                                                     <div className="mt-1.5 text-xs text-slate-500 space-y-0.5">
@@ -1110,6 +1214,31 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                         {a.action_data?.payment_method && <p>Payment: <strong>{a.action_data.payment_method}</strong> &mdash; {a.action_data.payment_amount ? parseFloat(a.action_data.payment_amount).toLocaleString() : ''} (Ref: {a.action_data.payment_reference || 'N/A'})</p>}
                                                         {a.notes && <p className="italic text-slate-400">Notes: {a.notes}</p>}
                                                         {a.bank_reply_notes && <p className="italic text-emerald-600">Bank Reply: {a.bank_reply_notes}</p>}
+                                                        {/* Delivery & Bank Reply Date Badges (clickable when document exists) */}
+                                                        <div className="flex flex-wrap gap-1.5 mt-1">
+                                                            {a.delivery_date ? (
+                                                                a.delivery_document_path ? (
+                                                                    <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/delivery`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url) window.open(res.download_url, '_blank'); } } catch { toast.error('Failed to load delivery document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors" title="Click to download delivery proof">
+                                                                        📦 Delivered {new Date(a.delivery_date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})} ⬇
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                                                        📦 Delivered {new Date(a.delivery_date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})}
+                                                                    </span>
+                                                                )
+                                                            ) : null}
+                                                            {a.bank_reply_date ? (
+                                                                a.bank_reply_document_path ? (
+                                                                    <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/bank_reply`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url) window.open(res.download_url, '_blank'); } } catch { toast.error('Failed to load bank reply document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 cursor-pointer transition-colors" title="Click to download bank reply document">
+                                                                        🏦 Replied {new Date(a.bank_reply_date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})} ⬇
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                                                                        🏦 Replied {new Date(a.bank_reply_date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})}
+                                                                    </span>
+                                                                )
+                                                            ) : null}
+                                                        </div>
                                                         {/* F3: AI Verification Result */}
                                                         {a.action_data?.ai_verification && (
                                                             <div className={`mt-1.5 p-2 rounded-lg border ${
@@ -1133,54 +1262,27 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                             </div>
                                                         )}
                                                         <p className="text-[10px] text-slate-400 mt-1">{a.created_at ? new Date(a.created_at).toLocaleString() : ''}</p>
-                                                        {/* Document Links */}
-                                                        {(a.delivery_document_path || a.bank_reply_document_path || a.action_data?.bank_document_gcs) && (
-                                                            <div className="mt-2 flex flex-wrap gap-1.5">
-                                                                {a.delivery_document_path && (
-                                                                    <button onClick={async () => {
-                                                                        try {
-                                                                            const res = await apiRequest(`/issuance/maintenance/${a.id}/document/delivery`, 'GET');
-                                                                            window.open(res.download_url, '_blank');
-                                                                        } catch { toast.error('Failed to load document'); }
-                                                                    }} className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 transition-colors">
-                                                                        📦 Delivery Proof
-                                                                    </button>
-                                                                )}
-                                                                {a.bank_reply_document_path && (
-                                                                    <button onClick={async () => {
-                                                                        try {
-                                                                            const res = await apiRequest(`/issuance/maintenance/${a.id}/document/bank_reply`, 'GET');
-                                                                            window.open(res.download_url, '_blank');
-                                                                        } catch { toast.error('Failed to load document'); }
-                                                                    }} className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-md hover:bg-emerald-100 transition-colors">
-                                                                        🏦 Bank Reply
-                                                                    </button>
-                                                                )}
-                                                                {a.action_data?.bank_document_gcs && (
-                                                                    <button onClick={async () => {
-                                                                        try {
-                                                                            const res = await apiRequest(`/issuance/maintenance/${a.id}/document/bank_initiated`, 'GET');
-                                                                            window.open(res.download_url, '_blank');
-                                                                        } catch { toast.error('Failed to load document'); }
-                                                                    }} className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-violet-600 bg-violet-50 border border-violet-200 rounded-md hover:bg-violet-100 transition-colors">
-                                                                        📄 Bank Letter
-                                                                    </button>
-                                                                )}
+                                                        {/* Bank-initiated document download (if no badge handles it) */}
+                                                        {a.action_data?.bank_document_gcs && (
+                                                            <div className="mt-1 flex flex-wrap gap-1.5">
+                                                                <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/bank_initiated`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url) window.open(res.download_url, '_blank'); } } catch { toast.error('Failed to load document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 cursor-pointer transition-colors" title="Click to download bank letter">
+                                                                    📄 Bank Letter ⬇
+                                                                </button>
                                                             </div>
                                                         )}
                                                     </div>
                                                     {/* Action Buttons based on instruction_status — hidden for corporate admin / checker (readOnly) */}
                                                     {!readOnly && a.status === 'EXECUTED' && a.instruction_status && a.instruction_status !== 'Confirmed by Bank' && (
                                                         <div className="mt-2 flex gap-2">
-                                                            {a.instruction_status === 'Instruction Issued' && (
+                                                            {(a.instruction_status === 'Instruction Issued' || a.instruction_status === 'Printed') && !a.delivery_date && (
                                                                 <button
-                                                                    onClick={() => { setDeliveryModal(a); setDeliveryMethod('courier'); setDeliveryNotes(''); }}
+                                                                    onClick={() => setDeliveryModal({ ...a, lg_number: lg.lg_ref_number || lg.lg_number })}
                                                                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
                                                                 >
                                                                     📦 Record Delivery
                                                                 </button>
                                                             )}
-                                                            {a.instruction_status === 'Instruction Issued' && (
+                                                            {(a.instruction_status === 'Instruction Issued' || a.instruction_status === 'Printed') && !a.delivery_date && (
                                                                 <button
                                                                     onClick={() => handleCancelAction(a.id)}
                                                                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
@@ -1188,9 +1290,9 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                                     ❌ Cancel
                                                                 </button>
                                                             )}
-                                                            {(a.instruction_status === 'Instruction Issued' || a.instruction_status === 'Instruction Delivered') && (
+                                                            {(a.instruction_status === 'Instruction Issued' || a.instruction_status === 'Printed' || a.instruction_status === 'Instruction Delivered') && (
                                                                 <button
-                                                                    onClick={() => { setBankReplyModal(a); setBankReplyNotes(''); setBankReplyDate(new Date().toISOString().split('T')[0]); setBankReplyFile(null); }}
+                                                                    onClick={() => setBankReplyModal({ ...a, lg_number: lg.lg_ref_number || lg.lg_number })}
                                                                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
                                                                 >
                                                                     🏦 Record Bank Reply
@@ -1278,10 +1380,27 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
 
                     {/* Footer */}
                     <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-3">
                         <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
                             Close
                         </button>
-                        {lg.status === 'HANDED_OVER' ? (
+                        {['INTERNAL_PROCESSING', 'DELIVERED_TO_BANK'].includes(lg.status) && (
+                            <button
+                                onClick={() => setCancelModal(true)}
+                                disabled={cancellingLG}
+                                className="flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:text-red-600 rounded-md text-xs transition-colors disabled:opacity-50"
+                            >
+                                <XCircle className="w-3.5 h-3.5" /> Cancel & Reopen
+                            </button>
+                        )}
+                        {lg.status === 'CANCEL_REQUESTED' && (
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 border border-orange-200 text-orange-700 rounded-md text-xs font-medium">
+                                <Clock className="w-3.5 h-3.5" /> Cancellation Pending Approval
+                            </span>
+                        )}
+                    </div>
+                        {!['CANCELLED', 'SLA_EXCEEDED', 'BANK_REJECTED', 'CANCEL_REQUESTED'].includes(lg.status) && (
+                        lg.status === 'ACTIVE' ? (
                             <button
                                 onClick={handleReprint}
                                 disabled={reprinting}
@@ -1317,294 +1436,188 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                 {reprinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                                 View LG Document
                             </button>
-                        ) : null}
+                        ) : null
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* ACTION MODAL */}
-            {
-                actionModal && (
-                    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => setActionModal(null)}>
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-                            <div className="px-6 py-4 border-b border-slate-200">
-                                <h3 className="text-lg font-black text-slate-900">{actionModal.replace(/_/g, ' ')}</h3>
-                                <p className="text-xs text-slate-500 mt-1">LG {lg.lg_ref_number} &middot; {lg.beneficiary_name}</p>
-                            </div>
-                            <div className="p-6 space-y-4">
-                                {actionModal === 'EXTEND' && (
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1">New Expiry Date</label>
-                                        <input type="date" value={formData.new_expiry_date || ''}
-                                            onChange={e => setFormData({ ...formData, new_expiry_date: e.target.value })}
-                                            min={lg.expiry_date || undefined}
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
-                                        <p className="text-[10px] text-slate-400 mt-1">Current expiry: {lg.expiry_date || 'N/A'}</p>
-                                    </div>
-                                )}
-                                {actionModal === 'INCREASE_AMOUNT' && (
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1">New Amount ({lg.currency_code})</label>
-                                        <input type="number" step="0.01" value={formData.new_amount || ''}
-                                            onChange={e => setFormData({ ...formData, new_amount: e.target.value })}
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
-                                        <p className="text-[10px] text-slate-400 mt-1">Current: {lg.currency_code} {parseFloat(lg.current_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                                    </div>
-                                )}
-                                {actionModal === 'AMENDMENT' && (
-                                    <>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-600 mb-1">New Beneficiary Name <span className="font-normal text-slate-400">(optional)</span></label>
-                                            <input type="text" value={formData.beneficiary_name || ''}
-                                                onChange={e => setFormData({ ...formData, beneficiary_name: e.target.value })}
-                                                placeholder={lg.beneficiary_name || 'Leave blank to keep unchanged'}
-                                                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-600 mb-1">New Beneficiary Address <span className="font-normal text-slate-400">(optional)</span></label>
-                                            <input type="text" value={formData.beneficiary_address || ''}
-                                                onChange={e => setFormData({ ...formData, beneficiary_address: e.target.value })}
-                                                placeholder="Leave blank to keep unchanged"
-                                                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-600 mb-1">New LG Purpose <span className="font-normal text-slate-400">(optional)</span></label>
-                                            <textarea rows={2} value={formData.lg_purpose || ''}
-                                                onChange={e => setFormData({ ...formData, lg_purpose: e.target.value })}
-                                                placeholder="Leave blank to keep unchanged"
-                                                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm resize-none" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-600 mb-1">Additional Description <span className="font-normal text-slate-400">(optional)</span></label>
-                                            <textarea rows={2} value={formData.amendment_text || ''}
-                                                onChange={e => setFormData({ ...formData, amendment_text: e.target.value })}
-                                                placeholder="Any additional details about the amendment..."
-                                                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm resize-none" />
-                                        </div>
-                                    </>
-                                )}
-                                {actionModal === 'LIQUIDATION' && (
-                                    <>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-600 mb-1">Liquidation Type</label>
-                                            <select value={formData.liquidation_type || ''}
-                                                onChange={e => setFormData({ ...formData, liquidation_type: e.target.value })}
-                                                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
-                                                <option value="">Select...</option>
-                                                <option value="FULL">Full Liquidation</option>
-                                                <option value="PARTIAL">Partial Liquidation</option>
-                                            </select>
-                                        </div>
-                                        {formData.liquidation_type === 'PARTIAL' && (
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-600 mb-1">Liquidation Amount ({lg.currency_code})</label>
-                                                <input type="number" step="0.01" value={formData.liquidation_amount || ''}
-                                                    onChange={e => setFormData({ ...formData, liquidation_amount: e.target.value })}
-                                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
-                                                <p className="text-[10px] text-slate-400 mt-1">Current: {lg.currency_code} {parseFloat(lg.current_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-                                {(actionModal === 'CLOSE' || actionModal === 'ACTIVATE') && (
-                                    <p className="text-sm text-slate-600">
-                                        {actionModal === 'CLOSE'
-                                            ? 'This will generate a return letter to the bank. The LG will move to Pending Close until bank confirms.'
-                                            : 'This will send an activation instruction to the bank for this non-operative advance payment guarantee.'}
-                                    </p>
-                                )}
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1">Notes (optional)</label>
-                                    <textarea rows={2} value={formData.notes || ''}
-                                        onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm resize-none" />
-                                </div>
-                            </div>
-                            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
-                                <button onClick={() => setActionModal(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">Cancel</button>
-                                <button onClick={handleCreateAction} disabled={submitting}
-                                    className="px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
-                                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                    {['EXTEND', 'INCREASE_AMOUNT', 'AMENDMENT'].includes(actionModal) ? 'Submit for Approval' : 'Execute Action'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* RECORD DELIVERY MODAL */}
-            {deliveryModal && (
-                <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => setDeliveryModal(null)}>
+            {/* CANCEL & REOPEN MODAL */}
+            {cancelModal && (
+                <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => setCancelModal(false)}>
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
                         <div className="px-6 py-4 border-b border-slate-200">
-                            <h3 className="text-lg font-black text-slate-900">Record Delivery</h3>
-                            <p className="text-xs text-slate-500 mt-1">
-                                {deliveryModal.action_type?.replace(/_/g, ' ')} &middot; {deliveryModal.letter_serial_number || `Action #${deliveryModal.id}`}
-                            </p>
+                            <h3 className="text-base font-bold text-slate-900">Cancel Bank Request</h3>
+                            <p className="text-xs text-slate-500 mt-1">This will close this LG attempt and reopen the original request for reprocessing.</p>
                         </div>
-                        <div className="p-6 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1">Delivery Date *</label>
-                                    <input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)}
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1">Delivery Method *</label>
-                                    <select value={deliveryMethod} onChange={e => setDeliveryMethod(e.target.value)}
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
-                                        <option value="courier">Courier</option>
-                                        <option value="hand_delivery">Hand Delivery</option>
-                                        <option value="email">Email</option>
-                                        <option value="swift">SWIFT</option>
-                                        <option value="other">Other</option>
-                                    </select>
-                                </div>
-                            </div>
+                        <div className="px-6 py-4 space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">Delivery Notes <span className="font-normal text-slate-400">(optional)</span></label>
-                                <textarea rows={2} value={deliveryNotes} onChange={e => setDeliveryNotes(e.target.value)}
-                                    placeholder="e.g., Delivered to branch ABC, received by Mr. X..."
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm resize-none" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">
-                                    Delivery Proof <span className="font-normal text-slate-400">(optional — receipt, waybill, etc.)</span>
-                                </label>
-                                <input
-                                    type="file"
-                                    accept="image/*,application/pdf"
-                                    onChange={e => setDeliveryFile(e.target.files[0] || null)}
-                                    className="w-full text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border border-slate-200 rounded-xl"
+                                <label className="text-xs font-medium text-slate-600">Cancellation Reason *</label>
+                                <textarea
+                                    value={cancelReason}
+                                    onChange={e => setCancelReason(e.target.value)}
+                                    placeholder="Why is this bank request being cancelled?"
+                                    className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-300"
+                                    rows={3}
                                 />
                             </div>
-                            {deliveryFile && (
-                                <div className="flex items-center gap-2 p-2 bg-indigo-50 border border-indigo-200 rounded-lg">
-                                    <span className="text-indigo-600 text-sm">📄</span>
-                                    <span className="text-xs font-medium text-indigo-800 flex-1 truncate">{deliveryFile.name}</span>
-                                    <button onClick={() => setDeliveryFile(null)} className="text-xs text-red-500 hover:text-red-700 font-bold">Remove</button>
+                            <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg space-y-2">
+                                <div className="flex items-start gap-2">
+                                    <AlertCircle className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <p className="text-xs font-semibold text-orange-700">Issue Cancellation Notice to Bank</p>
+                                        <p className="text-[10px] text-orange-600 mt-0.5">
+                                            Recommended: send a formal letter to the bank to avoid late issuance risk.
+                                        </p>
+                                    </div>
                                 </div>
-                            )}
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={cancelWithLetter}
+                                        onChange={e => setCancelWithLetter(e.target.checked)}
+                                        className="w-4 h-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
+                                    />
+                                    <span className="text-xs font-medium text-orange-700">Generate cancellation notice</span>
+                                </label>
+                            </div>
                         </div>
                         <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
-                            <button onClick={() => setDeliveryModal(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">Cancel</button>
-                            <button onClick={handleRecordDelivery} disabled={submittingDelivery}
-                                className="px-5 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
-                                {submittingDelivery ? <Loader2 className="w-4 h-4 animate-spin" /> : '📦'}
-                                Record Delivery
+                            <button onClick={() => setCancelModal(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                                Back
+                            </button>
+                            <button
+                                onClick={handleCancelLG}
+                                disabled={cancellingLG || !cancelReason.trim()}
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                            >
+                                {cancellingLG ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                                Cancel & Reopen Request
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* RECORD BANK REPLY MODAL (F3: with file upload for AI verification) */}
+            {/* ACTION MODAL */}
+            <MaintenanceActionModal
+                isOpen={!!actionModal}
+                actionType={actionModal}
+                lg={lg}
+                onClose={() => setActionModal(null)}
+                onSubmit={(type, formData, file) => {
+                    // Update the local state so the existing handleCreateAction function picks it up
+                    setFormData(formData);
+                    setSupportFile(file);
+                    // A slight delay ensures state is updated before handleCreateAction reads it
+                    setTimeout(() => handleCreateAction(type, formData, file), 0);
+                }}
+                submitting={submitting}
+            />
+
+            {/* CHANGE OWNERSHIP MODAL */}
+            {showChangeOwnerModal && (
+                <ChangeRequestorModal
+                    lgRecords={[lg]}
+                    onClose={() => setShowChangeOwnerModal(false)}
+                    onSuccess={() => {
+                        setShowChangeOwnerModal(false);
+                        fetchMaintenanceActions();
+                        fetchAvailableActions();
+                    }}
+                />
+            )}
+
+            {/* RECORD DELIVERY MODAL (Unified) */}
+            {deliveryModal && (
+                <RecordDeliveryModal
+                    instruction={deliveryModal}
+                    onClose={() => setDeliveryModal(null)}
+                    onSuccess={handleDeliverySuccess}
+                    apiUrl={`/issuance/lg-records/${deliveryModal.issued_lg_id}/record-delivery`}
+                />
+            )}
+
+            {/* RECORD BANK REPLY MODAL (Unified) */}
             {bankReplyModal && (
-                <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => setBankReplyModal(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-                        <div className="px-6 py-4 border-b border-slate-200">
-                            <h3 className="text-lg font-black text-slate-900">Record Bank Reply</h3>
-                            <p className="text-xs text-slate-500 mt-1">
-                                {bankReplyModal.action_type?.replace(/_/g, ' ')} &middot; {bankReplyModal.letter_serial_number || `Action #${bankReplyModal.id}`}
-                            </p>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-xl text-xs">
-                                <p className="font-bold">What does this do?</p>
-                                <p className="mt-1">Recording a bank reply confirms that the bank has processed this action. The requested changes will be applied to the LG record.</p>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">Bank Reply Date *</label>
-                                <input type="date" value={bankReplyDate} onChange={e => setBankReplyDate(e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">Bank Reply Notes <span className="font-normal text-slate-400">(optional)</span></label>
-                                <textarea rows={3} value={bankReplyNotes} onChange={e => setBankReplyNotes(e.target.value)}
-                                    placeholder="e.g., Bank confirmed extension to new expiry date, reference #XYZ..."
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm resize-none" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">
-                                    Bank Confirmation Document <span className="font-normal text-slate-400">(optional — enables AI verification)</span>
-                                </label>
-                                <input
-                                    type="file"
-                                    accept="image/*,application/pdf"
-                                    onChange={e => setBankReplyFile(e.target.files[0] || null)}
-                                    className="w-full text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 border border-slate-200 rounded-xl"
-                                />
-                                <p className="mt-1 text-[10px] text-slate-400">Upload the bank's confirmation letter for AI-powered verification (PDF or image). The system will extract and compare key fields.</p>
-                            </div>
-                            {bankReplyFile && (
-                                <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg">
-                                    <span className="text-emerald-600 text-sm">📄</span>
-                                    <span className="text-xs font-medium text-emerald-800 flex-1 truncate">{bankReplyFile.name}</span>
-                                    <button onClick={() => setBankReplyFile(null)} className="text-xs text-red-500 hover:text-red-700 font-bold">Remove</button>
-                                </div>
-                            )}
-                        </div>
-                        <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
-                            <button onClick={() => setBankReplyModal(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">Cancel</button>
-                            <button onClick={handleRecordBankReply} disabled={submittingBankReply}
-                                className="px-5 py-2 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2">
-                                {submittingBankReply ? <Loader2 className="w-4 h-4 animate-spin" /> : '🏦'}
-                                Confirm Bank Reply
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <RecordBankReplyModal
+                    instruction={bankReplyModal}
+                    onClose={() => setBankReplyModal(null)}
+                    onSuccess={handleBankReplySuccess}
+                    apiUrl={`/issuance/maintenance/${bankReplyModal.id}/bank-reply`}
+                />
             )}
 
             {/* BANK FORM ISSUE REPORT MODAL */}
             {showFormIssue && (
                 <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => setShowFormIssue(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-                        <div className="px-6 py-4 border-b border-slate-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="px-6 py-3 border-b border-slate-200">
                             <h3 className="text-lg font-black text-slate-900">Report Form Issue</h3>
-                            <p className="text-xs text-slate-500 mt-1">Bank: {lg.bank_name} &middot; Method: Bank Form</p>
+                            <p className="text-xs text-slate-500 mt-0.5">Bank: {lg.bank_name} &middot; Method: Bank Form</p>
                         </div>
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">Issue Type</label>
-                                <select value={formIssueData.issue_type}
-                                    onChange={e => setFormIssueData({ ...formIssueData, issue_type: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
-                                    <option value="MISSING_FIELD">Missing Field</option>
-                                    <option value="INCORRECT_FORMAT">Incorrect Format / Wrong Field</option>
-                                    <option value="OUTDATED_TEMPLATE">Outdated Template</option>
-                                    <option value="LAYOUT_ERROR">Layout Error</option>
-                                    <option value="OTHER">Other</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">Field Name <span className="font-normal text-slate-400">(optional)</span></label>
-                                <input type="text" value={formIssueData.field_name}
-                                    onChange={e => setFormIssueData({ ...formIssueData, field_name: e.target.value })}
-                                    placeholder="e.g. Beneficiary Address, LG Amount..."
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">Description *</label>
-                                <textarea rows={3} value={formIssueData.description}
-                                    onChange={e => setFormIssueData({ ...formIssueData, description: e.target.value })}
-                                    placeholder="Describe the issue in detail..."
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm resize-none" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">Severity</label>
-                                <div className="flex gap-2">
-                                    {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(s => (
-                                        <button key={s} onClick={() => setFormIssueData({ ...formIssueData, severity: s })}
-                                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-                                                formIssueData.severity === s
-                                                    ? s === 'CRITICAL' ? 'bg-red-600 text-white' : s === 'HIGH' ? 'bg-orange-500 text-white' : s === 'MEDIUM' ? 'bg-amber-500 text-white' : 'bg-slate-500 text-white'
-                                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                            }`}>
-                                            {s}
-                                        </button>
-                                    ))}
+                        <div className="p-5">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Issue Type</label>
+                                    <select value={formIssueData.issue_type}
+                                        onChange={e => setFormIssueData({ ...formIssueData, issue_type: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
+                                        <option value="MISSING_BANK_FORM">Missing Bank Form</option>
+                                        <option value="MISSING_FIELD">Missing Field</option>
+                                        <option value="INCORRECT_FORMAT">Incorrect Format / Wrong Field</option>
+                                        <option value="OUTDATED_TEMPLATE">Outdated Template</option>
+                                        <option value="LAYOUT_ERROR">Layout Error</option>
+                                        <option value="OTHER">Other</option>
+                                    </select>
+                                </div>
+                                {formIssueTemplates.length > 0 ? (
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-1">Specific Form</label>
+                                        <select value={formIssueData.form_config_id}
+                                            onChange={e => setFormIssueData({ ...formIssueData, form_config_id: e.target.value })}
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
+                                            <option value="">All forms / General</option>
+                                            {formIssueTemplates.map(t => (
+                                                <option key={t.id} value={t.id}>{t.name} (v{t.version})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                ) : <div />}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Field Name <span className="font-normal text-slate-400">(opt.)</span></label>
+                                    <input type="text" value={formIssueData.field_name}
+                                        onChange={e => setFormIssueData({ ...formIssueData, field_name: e.target.value })}
+                                        placeholder="e.g. Beneficiary Address"
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Severity</label>
+                                    <div className="flex gap-1.5">
+                                        {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(s => (
+                                            <button key={s} onClick={() => setFormIssueData({ ...formIssueData, severity: s })}
+                                                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${
+                                                    formIssueData.severity === s
+                                                        ? s === 'CRITICAL' ? 'bg-red-600 text-white' : s === 'HIGH' ? 'bg-orange-500 text-white' : s === 'MEDIUM' ? 'bg-amber-500 text-white' : 'bg-slate-500 text-white'
+                                                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                                }`}>
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Description *</label>
+                                    <textarea rows={2} value={formIssueData.description}
+                                        onChange={e => setFormIssueData({ ...formIssueData, description: e.target.value })}
+                                        placeholder="Describe the issue in detail..."
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm resize-none" />
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Attachment <span className="font-normal text-slate-400">(optional)</span></label>
+                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.doc,.docx,.xls,.xlsx"
+                                        onChange={e => setFormIssueFile(e.target.files[0] || null)}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-50 file:text-amber-700" />
                                 </div>
                             </div>
                         </div>
@@ -1656,6 +1669,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
 // Main Page
 // ---------------------------------------------------------------------------
 export default function IssuedLGsPage() {
+    const navigate = useNavigate();
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -1668,6 +1682,7 @@ export default function IssuedLGsPage() {
     const [sortDir, setSortDir] = useState('desc');
     const [showFilters, setShowFilters] = useState(false);
     const [selectedLG, setSelectedLG] = useState(null);
+    const [pageTab, setPageTab] = useState('LGS'); // 'LGS' | 'REQUESTORS'
 
     // Detect user role from JWT to gate maintenance actions
     const userRole = useMemo(() => {
@@ -1685,25 +1700,47 @@ export default function IssuedLGsPage() {
     // Bank form issue reporting (page-level)
     const [showPageFormIssue, setShowPageFormIssue] = useState(false);
     const [pageFormIssueData, setPageFormIssueData] = useState({
-        bank_id: '', issue_type: 'INCORRECT_FORMAT', description: '', field_name: '', severity: 'MEDIUM',
+        bank_id: '', issue_type: 'INCORRECT_FORMAT', description: '', field_name: '', severity: 'MEDIUM', form_config_id: '',
     });
+    const [pageFormIssueFile, setPageFormIssueFile] = useState(null);
     const [submittingPageIssue, setSubmittingPageIssue] = useState(false);
+    const [allBanks, setAllBanks] = useState([]);
+    const [pageFormTemplates, setPageFormTemplates] = useState([]);
+
+    // Fetch all banks for the report modal
+    useEffect(() => {
+        apiRequest('/issuance/banks', 'GET').then(data => setAllBanks(data || [])).catch(() => {});
+    }, []);
+
+    // Fetch form templates when bank changes
+    useEffect(() => {
+        if (pageFormIssueData.bank_id) {
+            apiRequest(`/issuance/bank-forms?bank_id=${pageFormIssueData.bank_id}`, 'GET')
+                .then(data => setPageFormTemplates(data || []))
+                .catch(() => setPageFormTemplates([]));
+        } else {
+            setPageFormTemplates([]);
+        }
+    }, [pageFormIssueData.bank_id]);
 
     const handlePageFormIssueSubmit = async () => {
         if (!pageFormIssueData.bank_id) { toast.error('Please select a bank.'); return; }
-        if (!pageFormIssueData.description.trim()) { toast.error('Please describe the issue.'); return; }
+        if (!pageFormIssueData.description.trim() || pageFormIssueData.description.trim().length < 3) { toast.error('Description must be at least 3 characters.'); return; }
         setSubmittingPageIssue(true);
         try {
-            await apiRequest('/issuance/bank-form-issues', 'POST', {
-                bank_id: parseInt(pageFormIssueData.bank_id),
-                issue_type: pageFormIssueData.issue_type,
-                description: pageFormIssueData.description,
-                field_name: pageFormIssueData.field_name || null,
-                severity: pageFormIssueData.severity,
-            });
+            const fd = new FormData();
+            fd.append('bank_id', parseInt(pageFormIssueData.bank_id));
+            fd.append('issue_type', pageFormIssueData.issue_type);
+            fd.append('description', pageFormIssueData.description);
+            if (pageFormIssueData.field_name) fd.append('field_name', pageFormIssueData.field_name);
+            fd.append('severity', pageFormIssueData.severity);
+            if (pageFormIssueData.form_config_id) fd.append('form_config_id', pageFormIssueData.form_config_id);
+            if (pageFormIssueFile) fd.append('attachment', pageFormIssueFile);
+            await apiRequest('/issuance/bank-form-issues', 'POST', fd);
             toast.success('Form issue reported. The system owner will review it.');
             setShowPageFormIssue(false);
-            setPageFormIssueData({ bank_id: '', issue_type: 'INCORRECT_FORMAT', description: '', field_name: '', severity: 'MEDIUM' });
+            setPageFormIssueFile(null);
+            setPageFormIssueData({ bank_id: '', issue_type: 'INCORRECT_FORMAT', description: '', field_name: '', severity: 'MEDIUM', form_config_id: '' });
         } catch (err) {
             toast.error(err.message || 'Failed to submit report.');
         } finally {
@@ -1732,10 +1769,23 @@ export default function IssuedLGsPage() {
 
     useEffect(() => { fetchRecords(); }, []);
 
+    // Auto-open modal when navigated from Action Center with location state
+    const location = useLocation();
+    useEffect(() => {
+        const openId = location.state?.openLgId;
+        if (!openId || records.length === 0) return;
+        const target = records.find(r => String(r.id) === String(openId));
+        if (target) {
+            setSelectedLG(target);
+            // Clear state so closing the modal and re-renders don't re-open it
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+    }, [records, location.state]);
+
     const statusColors = {
-        PENDING_CONFIRMATION: 'bg-amber-100 text-amber-800',
+        INTERNAL_PROCESSING: 'bg-amber-100 text-amber-800',
         ACTIVE: 'bg-emerald-100 text-emerald-800',
-        CONFIRMED: 'bg-emerald-100 text-emerald-800',
+        LG_ISSUED: 'bg-emerald-100 text-emerald-800',
         EXPIRED: 'bg-slate-200 text-slate-600',
         CANCELLED: 'bg-red-100 text-red-700',
         PENDING_CLOSE: 'bg-orange-100 text-orange-800',
@@ -1743,11 +1793,11 @@ export default function IssuedLGsPage() {
         LIQUIDATED: 'bg-red-200 text-red-800',
         ISSUED: 'bg-blue-100 text-blue-800',
         DELIVERED_TO_BANK: 'bg-indigo-100 text-indigo-800',
-        PENDING_VERIFICATION: 'bg-purple-100 text-purple-800',
         BANK_INQUIRY: 'bg-amber-100 text-amber-800',
         BANK_REJECTED: 'bg-red-100 text-red-700',
         SLA_EXCEEDED: 'bg-red-200 text-red-800',
-        HANDED_OVER: 'bg-teal-100 text-teal-800',
+        CANCEL_REQUESTED: 'bg-orange-100 text-orange-700',
+        RETURNED: 'bg-teal-100 text-teal-800',
     };
 
     const methodLabels = {
@@ -1834,15 +1884,15 @@ export default function IssuedLGsPage() {
     const now30 = new Date(); now30.setDate(now30.getDate() + 30);
     const stats = {
         total: records.length,
-        active: records.filter(r => ['ACTIVE', 'CONFIRMED', 'ISSUED', 'DELIVERED_TO_BANK', 'HANDED_OVER'].includes(r.status)).length,
+        active: records.filter(r => ['ACTIVE', 'LG_ISSUED', 'DELIVERED_TO_BANK'].includes(r.status)).length,
         expiring: records.filter(r => {
             if (!r.expiry_date || r.status === 'EXPIRED') return false;
             const exp = new Date(r.expiry_date);
             return exp <= now30 && exp >= new Date();
         }).length,
         expired: records.filter(r => r.status === 'EXPIRED').length,
-        pending: records.filter(r => r.status === 'PENDING_CONFIRMATION').length,
-        totalAmount: records.reduce((sum, r) => sum + (r.current_amount || 0), 0),
+        pending: records.filter(r => r.status === 'INTERNAL_PROCESSING').length,
+        totalAmount: records.filter(r => ['ACTIVE', 'LG_ISSUED', 'DELIVERED_TO_BANK'].includes(r.status)).reduce((sum, r) => sum + (r.current_amount || 0), 0),
     };
 
     return (
@@ -1905,7 +1955,27 @@ export default function IssuedLGsPage() {
                 </div>
             </div>
 
-            {/* Stats */}
+            {/* Tabs */}
+            <div className="flex border-b border-slate-200">
+                <button
+                    onClick={() => setPageTab('LGS')}
+                    className={`px-4 py-3 text-sm font-bold border-b-2 transition-colors ${pageTab === 'LGS' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                    Issued LGs
+                </button>
+                <button
+                    onClick={() => setPageTab('REQUESTORS')}
+                    className={`px-4 py-3 text-sm font-bold border-b-2 transition-colors ${pageTab === 'REQUESTORS' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                    Requestor Directory
+                </button>
+            </div>
+
+            {pageTab === 'REQUESTORS' ? (
+                <RequestorDirectoryTab />
+            ) : (
+                <>
+                    {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                     <p className="text-xs text-slate-500 font-bold uppercase">Total</p>
@@ -1952,19 +2022,9 @@ export default function IssuedLGsPage() {
                         className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium"
                     >
                         <option value="ALL">All Statuses</option>
-                        <option value="PENDING_CONFIRMATION">Instruction Sent</option>
-                        <option value="DELIVERED_TO_BANK">At Bank</option>
-                        <option value="ISSUED">Bank Issued</option>
-                        <option value="PENDING_VERIFICATION">Needs Review</option>
-                        <option value="CONFIRMED">Verified</option>
-                        <option value="ACTIVE">Live</option>
-                        <option value="HANDED_OVER">In Custody</option>
-                        <option value="BANK_INQUIRY">Bank Inquiry</option>
-                        <option value="BANK_REJECTED">Rejected</option>
-                        <option value="SLA_EXCEEDED">SLA Breach</option>
-                        <option value="EXPIRED">Expired</option>
-                        <option value="CANCELLED">Cancelled</option>
-                        <option value="CLOSED">Closed</option>
+                        {[...new Set(records.map(r => r.status))].sort().map(st => (
+                            <option key={st} value={st}>{statusLabels[st] || st}</option>
+                        ))}
                     </select>
                     <button
                         onClick={() => setShowFilters(!showFilters)}
@@ -2054,6 +2114,7 @@ export default function IssuedLGsPage() {
                                         <div className="flex items-center gap-1">Serial # <SortIcon field="internal_serial" /></div>
                                     </th>
                                     <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Status</th>
+                                    <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">LG Type</th>
                                     <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('current_amount')}>
                                         <div className="flex items-center justify-end gap-1">Amount <SortIcon field="current_amount" /></div>
                                     </th>
@@ -2066,7 +2127,6 @@ export default function IssuedLGsPage() {
                                     <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('beneficiary_name')}>
                                         <div className="flex items-center gap-1">Beneficiary <SortIcon field="beneficiary_name" /></div>
                                     </th>
-                                    <th className="text-center px-4 py-3 text-xs font-bold text-slate-500 uppercase">View</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -2087,7 +2147,15 @@ export default function IssuedLGsPage() {
                                                     {statusLabels[r.status] || r.status?.replace(/_/g, ' ')}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 text-right font-bold text-slate-900">
+                                            <td className="px-4 py-3">
+                                                <div className="font-bold text-slate-700 truncate max-w-[150px]" title={r.request?.lg_type || 'Unknown'}>
+                                                    {r.request?.lg_type || '—'}
+                                                </div>
+                                                <div className="text-[10px] text-slate-500 truncate max-w-[150px]" title={r.request?.lg_purpose || ''}>
+                                                    {r.request?.lg_purpose || ''}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
                                                 {r.currency_code} {r.current_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                             </td>
                                             <td className="px-4 py-3">
@@ -2099,16 +2167,13 @@ export default function IssuedLGsPage() {
                                                     <Building className="w-3.5 h-3.5 text-slate-400" />
                                                     <span className="text-slate-700">{r.bank_name}</span>
                                                 </div>
+                                                {r.sub_limit_id && (
+                                                    <div className="mt-1 flex">
+                                                        <span className="text-[10px] font-bold bg-blue-50 border border-blue-200 text-blue-700 px-1.5 py-0.5 rounded uppercase tracking-wider">From Facility</span>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3 text-slate-700">{r.beneficiary_name}</td>
-                                            <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
-                                                <button
-                                                    onClick={() => setSelectedLG(r)}
-                                                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-200 transition-colors"
-                                                >
-                                                    <ExternalLink className="w-3 h-3" /> View
-                                                </button>
-                                            </td>
                                         </tr>
                                     );
                                 })}
@@ -2117,12 +2182,14 @@ export default function IssuedLGsPage() {
                     </div>
                 </div>
             )}
+                </>
+            )}
 
             {/* Detail Modal */}
             {selectedLG && (
                 <IssuedLGDetailModal
                     lg={selectedLG}
-                    onClose={() => setSelectedLG(null)}
+                    onClose={() => { setSelectedLG(null); fetchRecords(); }}
                     readOnly={isCorporateAdmin}
                 />
             )}
@@ -2130,60 +2197,82 @@ export default function IssuedLGsPage() {
             {/* PAGE-LEVEL FORM ISSUE REPORT MODAL */}
             {showPageFormIssue && (
                 <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => setShowPageFormIssue(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-                        <div className="px-6 py-4 border-b border-slate-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="px-6 py-3 border-b border-slate-200">
                             <h3 className="text-lg font-black text-slate-900">Report Bank Form Issue</h3>
-                            <p className="text-xs text-slate-500 mt-1">Report a problem with a bank form template to the system administrator.</p>
+                            <p className="text-xs text-slate-500 mt-0.5">Report a problem with a bank form template to the system administrator.</p>
                         </div>
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">Bank *</label>
-                                <select value={pageFormIssueData.bank_id}
-                                    onChange={e => setPageFormIssueData({ ...pageFormIssueData, bank_id: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
-                                    <option value="">Select bank...</option>
-                                    {uniqueBanksWithId.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">Issue Type</label>
-                                <select value={pageFormIssueData.issue_type}
-                                    onChange={e => setPageFormIssueData({ ...pageFormIssueData, issue_type: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
-                                    <option value="MISSING_FIELD">Missing Field</option>
-                                    <option value="INCORRECT_FORMAT">Incorrect Format / Wrong Field</option>
-                                    <option value="OUTDATED_TEMPLATE">Outdated Template</option>
-                                    <option value="LAYOUT_ERROR">Layout Error</option>
-                                    <option value="OTHER">Other</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">Field Name <span className="font-normal text-slate-400">(optional)</span></label>
-                                <input type="text" value={pageFormIssueData.field_name}
-                                    onChange={e => setPageFormIssueData({ ...pageFormIssueData, field_name: e.target.value })}
-                                    placeholder="e.g. Beneficiary Address, LG Amount..."
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">Description *</label>
-                                <textarea rows={3} value={pageFormIssueData.description}
-                                    onChange={e => setPageFormIssueData({ ...pageFormIssueData, description: e.target.value })}
-                                    placeholder="Describe the issue in detail..."
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm resize-none" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">Severity</label>
-                                <div className="flex gap-2">
-                                    {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(s => (
-                                        <button key={s} onClick={() => setPageFormIssueData({ ...pageFormIssueData, severity: s })}
-                                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-                                                pageFormIssueData.severity === s
-                                                    ? s === 'CRITICAL' ? 'bg-red-600 text-white' : s === 'HIGH' ? 'bg-orange-500 text-white' : s === 'MEDIUM' ? 'bg-amber-500 text-white' : 'bg-slate-500 text-white'
-                                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                            }`}>
-                                            {s}
-                                        </button>
-                                    ))}
+                        <div className="p-5">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Bank *</label>
+                                    <select value={pageFormIssueData.bank_id}
+                                        onChange={e => setPageFormIssueData({ ...pageFormIssueData, bank_id: e.target.value, form_config_id: '' })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
+                                        <option value="">Select bank...</option>
+                                        {allBanks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                    </select>
+                                </div>
+                                {pageFormTemplates.length > 0 ? (
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-1">Specific Form</label>
+                                        <select value={pageFormIssueData.form_config_id}
+                                            onChange={e => setPageFormIssueData({ ...pageFormIssueData, form_config_id: e.target.value })}
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
+                                            <option value="">All forms / General</option>
+                                            {pageFormTemplates.map(t => (
+                                                <option key={t.id} value={t.id}>{t.name} (v{t.version})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                ) : <div />}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Issue Type</label>
+                                    <select value={pageFormIssueData.issue_type}
+                                        onChange={e => setPageFormIssueData({ ...pageFormIssueData, issue_type: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
+                                        <option value="MISSING_BANK_FORM">Missing Bank Form</option>
+                                        <option value="MISSING_FIELD">Missing Field</option>
+                                        <option value="INCORRECT_FORMAT">Incorrect Format / Wrong Field</option>
+                                        <option value="OUTDATED_TEMPLATE">Outdated Template</option>
+                                        <option value="LAYOUT_ERROR">Layout Error</option>
+                                        <option value="OTHER">Other</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Field Name <span className="font-normal text-slate-400">(opt.)</span></label>
+                                    <input type="text" value={pageFormIssueData.field_name}
+                                        onChange={e => setPageFormIssueData({ ...pageFormIssueData, field_name: e.target.value })}
+                                        placeholder="e.g. Beneficiary Address"
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Description *</label>
+                                    <textarea rows={2} value={pageFormIssueData.description}
+                                        onChange={e => setPageFormIssueData({ ...pageFormIssueData, description: e.target.value })}
+                                        placeholder="Describe the issue in detail..."
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm resize-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Attachment <span className="font-normal text-slate-400">(optional)</span></label>
+                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.doc,.docx,.xls,.xlsx"
+                                        onChange={e => setPageFormIssueFile(e.target.files[0] || null)}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-50 file:text-amber-700" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Severity</label>
+                                    <div className="flex gap-1.5">
+                                        {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(s => (
+                                            <button key={s} onClick={() => setPageFormIssueData({ ...pageFormIssueData, severity: s })}
+                                                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${
+                                                    pageFormIssueData.severity === s
+                                                        ? s === 'CRITICAL' ? 'bg-red-600 text-white' : s === 'HIGH' ? 'bg-orange-500 text-white' : s === 'MEDIUM' ? 'bg-amber-500 text-white' : 'bg-slate-500 text-white'
+                                                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                                }`}>
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -199,7 +199,7 @@ function CustomerOnboardingForm({ onLogout }) {
       }
 
       // --- CLEAN DATA: strip empty optional fields but ALWAYS keep required ones ---
-      const requiredEntityFields = ['entity_name', 'code', 'is_active'];
+      const requiredEntityFields = ['entity_name', 'code', 'is_active', 'address'];
       const cleanedEntities = customerData.initial_entities.map(entity => {
           const cleanedEntity = {};
           for (const key in entity) {
@@ -352,13 +352,14 @@ function CustomerOnboardingForm({ onLogout }) {
                     />
                   </div>
                   <div className="mb-2">
-                    <label htmlFor={`address_${index}`} className={labelClassNames}>Address</label>
+                    <label htmlFor={`address_${index}`} className={labelClassNames}>Address {requiredSpan}</label>
                     <input
                       type="text"
                       name="address"
                       id={`address_${index}`}
                       value={entity.address}
                       onChange={(e) => handleEntityChange(index, e)}
+                      required
                       className={inputClassNames}
                     />
                   </div>

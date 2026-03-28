@@ -3,7 +3,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
 import { 
     Loader2, AlertCircle, Clock, FileText, Repeat, CalendarPlus, 
-    Truck, Building, Mail, Printer, CheckCircle2, ArrowRight, Eye, ChevronDown, ChevronUp 
+    Truck, Building, Mail, Printer, CheckCircle2, ArrowRight, Eye, ChevronDown, ChevronUp,
+    ClipboardCheck, Wrench
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
@@ -76,6 +77,10 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
+
+    // Subscription module flags (decoded from JWT)
+    const [hasIssuanceModule, setHasIssuanceModule] = useState(false);
+    const [hasCustodyModule, setHasCustodyModule] = useState(true); // default true for backward compat
     
     const [lgRenewalList, setLgRenewalList] = useState([]);
     const [instructionsUndelivered, setInstructionsUndelivered] = useState([]);
@@ -87,6 +92,14 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
     const [isRenewalsOpen, setIsRenewalsOpen] = useState(true);
     const [isDeliveryOpen, setIsDeliveryOpen] = useState(true);
     const [isRepliesOpen, setIsRepliesOpen] = useState(true);
+
+    // Issuance Module Data (module-gated — only populated if subscribed)
+    const [issuanceApprovedRequests, setIssuanceApprovedRequests] = useState([]);
+    const [issuanceApprovedMaintenance, setIssuanceApprovedMaintenance] = useState([]);
+    const [issuanceApproachingExpiry, setIssuanceApproachingExpiry] = useState([]);
+    const [isApprovedRequestsOpen, setIsApprovedRequestsOpen] = useState(true);
+    const [isApprovedMaintenanceOpen, setIsApprovedMaintenanceOpen] = useState(true);
+    const [isIssuanceApproachingExpiryOpen, setIsIssuanceApproachingExpiryOpen] = useState(true);
 
     // Modal States
     const [showExtendModal, setShowExtendModal] = useState(false);
@@ -101,7 +114,16 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
     const scrollToSection = (id) => {
         const element = document.getElementById(id);
         if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Scroll within the closest scrollable ancestor (the <main> element)
+            // instead of using scrollIntoView which can shift the entire viewport
+            // and displace the sidebar on some browsers (Edge).
+            const scrollParent = element.closest('main') || element.closest('[class*="overflow-y"]');
+            if (scrollParent) {
+                const offset = element.offsetTop - scrollParent.offsetTop - 24; // 24px top padding
+                scrollParent.scrollTo({ top: offset, behavior: 'smooth' });
+            } else {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         }
     };
 
@@ -177,17 +199,64 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                     : '/end-user/action-center/approved-requests-pending-print' // Note: completely different name
             };
 
-            const [renewal, undelivered, noReply, pendingPrints] = await Promise.all([
+            // Fetch custody data + issuance unified data in parallel (silent catch for issuance — module may not be subscribed)
+            const [renewal, undelivered, noReply, pendingPrints, maintPendingPrints,
+                   issUnifiedDelivery, issUnifiedBankReply,
+                   issApprovedReqs, issApprovedMaint, issExpiry] = await Promise.all([
                 apiRequest(urls.renewal, 'GET'),
                 apiRequest(urls.undelivered, 'GET'),
                 apiRequest(urls.awaitingReply, 'GET'),
-                apiRequest(urls.pendingPrint, 'GET')
+                apiRequest(urls.pendingPrint, 'GET'),
+                apiRequest('/issuance/maintenance/pending-print', 'GET').catch(() => []),
+                // Unified issuance action center
+                apiRequest('/issuance/action-center/unified-pending-delivery', 'GET').catch(() => []),
+                apiRequest('/issuance/action-center/unified-pending-bank-reply', 'GET').catch(() => []),
+                apiRequest('/issuance/action-center/approved-requests', 'GET').catch(() => []),
+                apiRequest('/issuance/action-center/approved-maintenance', 'GET').catch(() => []),
+                apiRequest('/issuance/action-center/approaching-expiry?days_threshold=30', 'GET').catch(() => []),
             ]);
             
+            // Merge custody + issuance maintenance pending prints into one list
+            const normalizedMaint = (maintPendingPrints || []).map(m => ({
+                ...m,
+                _source: 'issuance_maintenance',
+                _display_lg_number: m.lg_ref_number || 'N/A',
+                _display_serial: m.letter_serial_number || '',
+                _display_action_type: m.action_type,
+                _display_date: m.executed_at || m.created_at,
+            }));
+            const normalizedCustody = (pendingPrints || []).map(p => ({
+                ...p,
+                _source: 'custody',
+                _display_lg_number: p.lg_record?.lg_number || 'N/A',
+                _display_serial: p.related_instruction?.serial_number || '',
+                _display_action_type: p.action_type,
+                _display_date: p.updated_at,
+            }));
+
+            // Merge issuance pending-delivery into custody undelivered
+            const normalizedIssDelivery = (issUnifiedDelivery || []).map(d => ({
+                ...d,
+                _source: d.source === 'maintenance' ? 'issuance_maintenance' : 'issuance_lg',
+                _issuance: true,
+            }));
+
+            // Merge issuance pending-bank-reply into custody awaiting-reply
+            const normalizedIssBankReply = (issUnifiedBankReply || []).map(r => ({
+                ...r,
+                _source: r.source === 'maintenance' ? 'issuance_maintenance' : 'issuance_lg',
+                _issuance: true,
+            }));
+            
             setLgRenewalList(renewal);
-            setInstructionsUndelivered(undelivered);
-            setInstructionsNoReply(noReply);
-            setApprovedPendingPrints(pendingPrints); 
+            setInstructionsUndelivered([...(undelivered || []).map(u => ({ ...u, _issuance: false })), ...normalizedIssDelivery]);
+            setInstructionsNoReply([...(noReply || []).map(r => ({ ...r, _issuance: false })), ...normalizedIssBankReply]);
+            setApprovedPendingPrints([...normalizedCustody, ...normalizedMaint]);
+
+            // Module-gated issuance sections
+            setIssuanceApprovedRequests(issApprovedReqs || []);
+            setIssuanceApprovedMaintenance(issApprovedMaint || []);
+            setIssuanceApproachingExpiry(issExpiry || []); 
         } catch (err) {
             console.error(err);
             setError(`Failed to load tasks: ${err.message}`);
@@ -211,6 +280,16 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
     }, [fetchAllActionCenterData, selectedLgRecordForExtend, handleViewLetter]);
 
     useEffect(() => {
+        // Decode module flags from JWT
+        try {
+            const token = localStorage.getItem('jwt_token');
+            if (token) {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                setHasIssuanceModule(!!payload.has_issuance_module);
+                // has_custody_module defaults true in token (see SecurityPy), treat undefined as true
+                setHasCustodyModule(payload.has_custody_module !== false);
+            }
+        } catch (e) { /* ignore */ }
         fetchAllActionCenterData();
     }, [fetchAllActionCenterData]);
 
@@ -225,6 +304,22 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
         if (isGracePeriod) return toast.warn("Subscription Grace Period: Action disabled.");
         await handleViewLetter(instructionId, lgNumber);
         fetchAllActionCenterData(true);
+    };
+
+    const handlePrintMaintenanceLetter = async (actionId) => {
+        if (isGracePeriod) return toast.warn("Subscription Grace Period: Action disabled.");
+        try {
+            const blob = await apiRequest(`/issuance/maintenance/${actionId}/document/letter`, 'GET', null, 'application/json', 'blob');
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            // Mark as printed
+            await apiRequest(`/issuance/maintenance/${actionId}/mark-printed`, 'POST').catch(() => {});
+            toast.success('Letter opened for printing.');
+            fetchAllActionCenterData(true);
+        } catch (err) {
+            console.error(err);
+            toast.error(`Failed to open letter: ${err.message}`);
+        }
     };
 
     const handleSendReminder = async (instructionId, serialNumber) => {
@@ -282,8 +377,10 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                 </div>
             ) : (
                 <>
-                    {/* Stats Dashboard */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                    {/* Stats Dashboard — module-aware */}
+                    <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 ${
+                        (hasIssuanceModule && hasCustodyModule) ? 'lg:grid-cols-5' : 'lg:grid-cols-4'
+                    }`}>
                         <StatCard 
                             title="Pending Prints" 
                             count={approvedPendingPrints.length} 
@@ -292,14 +389,28 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                             colorClass="text-purple-600"
                             onClick={() => scrollToSection('section-printing')}
                         />
-                        <StatCard 
-                            title="Due Renewals" 
-                            count={lgRenewalList.length} 
-                            icon={Clock} 
-                            bgClass="bg-orange-100" 
-                            colorClass="text-orange-600"
-                            onClick={() => scrollToSection('section-renewals')}
-                        />
+                        {/* Pending Issuances — issuance module only, shown BEFORE Due Renewals */}
+                        {hasIssuanceModule && (
+                            <StatCard 
+                                title="Pending Issuances" 
+                                count={issuanceApprovedRequests.length} 
+                                icon={ClipboardCheck} 
+                                bgClass="bg-green-100" 
+                                colorClass="text-green-600"
+                                onClick={() => scrollToSection('section-iss-approved-req')}
+                            />
+                        )}
+                        {/* Due Renewals — custody module only */}
+                        {hasCustodyModule && (
+                            <StatCard 
+                                title="Due Renewals" 
+                                count={lgRenewalList.length} 
+                                icon={Clock} 
+                                bgClass="bg-orange-100" 
+                                colorClass="text-orange-600"
+                                onClick={() => scrollToSection('section-renewals')}
+                            />
+                        )}
                         <StatCard 
                             title="Awaiting Delivery" 
                             count={instructionsUndelivered.length} 
@@ -371,29 +482,35 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {approvedPendingPrints.map((req) => (
-                            <tr key={req.id} className="hover:bg-gray-50 transition-colors">
+                        {approvedPendingPrints.map((req) => {
+                            const isMaint = req._source === 'issuance_maintenance';
+                            return (
+                            <tr key={`${req._source || 'custody'}-${req.id}`} className="hover:bg-gray-50 transition-colors">
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); req.lg_record?.id && handleViewDetails(req.lg_record.id); }}
-                                        className="text-sm font-bold text-indigo-600 hover:text-indigo-900 hover:underline"
-                                    >
-                                        {req.lg_record?.lg_number || 'N/A'}
-                                    </button>
-                                    <div className="text-xs text-gray-500 mt-0.5">Ref: {req.related_instruction?.serial_number}</div>
+                                    <span className="text-sm font-bold text-indigo-600">
+                                        {req._display_lg_number}
+                                    </span>
+                                    <div className="text-xs text-gray-500 mt-0.5">
+                                        {isMaint ? `Instruction: ${req._display_serial}` : `Ref: ${req._display_serial}`}
+                                    </div>
+                                    {isMaint && <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded font-medium">Issuance</span>}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-medium text-gray-900">{formatActionTypeLabel(req.action_type)}</div>
-                                    <div className="text-xs text-gray-500">{req.maker_user?.email}</div>
+                                    <div className="text-sm font-medium text-gray-900">{formatActionTypeLabel(req._display_action_type)}</div>
+                                    <div className="text-xs text-gray-500">{isMaint ? '' : (req.maker_user?.email || '')}</div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(req.updated_at)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(req._display_date)}</td>
                                 {!isCorporateAdminView && (
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                             <button 
                                                 onClick={(e) => { 
                                                     e.stopPropagation();
-                                                    req.related_instruction?.id && req.lg_record?.lg_number ? handlePrintApprovedLetter(req.related_instruction.id, req.lg_record.lg_number) : toast.error("Data missing.");
+                                                    if (isMaint) {
+                                                        handlePrintMaintenanceLetter(req.id);
+                                                    } else {
+                                                        req.related_instruction?.id && req.lg_record?.lg_number ? handlePrintApprovedLetter(req.related_instruction.id, req.lg_record.lg_number) : toast.error("Data missing.");
+                                                    }
                                                 }}
                                                 disabled={isGracePeriod}
                                                 className={`inline-flex items-center px-3 py-1.5 border border-purple-200 text-sm font-medium rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -404,7 +521,8 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                     </td>
                                 )}
                             </tr>
-                        ))}
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
@@ -412,8 +530,8 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
     )}
 </div>
 
-{/* 2. Renewals Section */}
-<div id="section-renewals" className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden scroll-mt-24">
+{/* 2. Renewals Section — custody module only */}
+{hasCustodyModule && <div id="section-renewals" className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden scroll-mt-24">
     {/* Header: Consistent Flex Layout */}
     <div 
         className="px-6 py-4 border-b border-gray-100 flex items-center bg-gray-50/50 cursor-pointer gap-4"
@@ -516,7 +634,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
             </div>
         )
     )}
-</div>
+</div>}
 
 {/* 3. Delivery Confirmation Section */}
 <div id="section-delivery" className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden scroll-mt-24">
@@ -549,49 +667,55 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {instructionsUndelivered.map((inst) => {
-                            const daysStuck = Math.round(moment().diff(moment(inst.instruction_date), 'days', true));
+                        {instructionsUndelivered.map((inst, idx) => {
+                            const isIss = inst._issuance;
+                            const lgNum = isIss ? (inst.lg_number || '—') : (inst.lg_record?.lg_number || '—');
+                            const lgId = isIss ? null : inst.lg_record?.id;
+                            const issLgId = isIss ? (inst._source === 'issuance_maintenance' ? inst.issued_lg_id : inst.id) : null;
+                            const actionLabel = isIss ? formatActionTypeLabel(inst.action_type) : formatActionTypeLabel(inst.instruction_type);
+                            const serialNum = isIss ? (inst.serial_number || '') : inst.serial_number;
+                            const issuedDate = isIss ? inst.created_at : inst.instruction_date;
+                            const daysStuck = Math.round(moment().diff(moment(issuedDate), 'days', true));
                             const urgencyStatus = getUrgencyStatus(daysStuck, 'undelivered');
                             return (
-                                <tr key={inst.id} className="hover:bg-gray-50 transition-colors">
+                                <tr key={`${isIss ? 'iss' : 'cust'}-${inst.id}-${idx}`} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center">
                                             <FileText className="h-4 w-4 text-gray-400 mr-2" />
-                                            <button 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    inst.lg_record?.id && handleViewDetails(inst.lg_record.id);
-                                                }} 
-                                                className="text-sm font-bold text-indigo-600 hover:underline"
-                                            >
-                                                {inst.lg_record?.lg_number}
-                                            </button>
+                                            {lgId ? (
+                                                <button onClick={(e) => { e.stopPropagation(); handleViewDetails(lgId); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
+                                            ) : issLgId ? (
+                                                <button onClick={(e) => { e.stopPropagation(); navigate('/end-user/issuance/issued-lgs', { state: { openLgId: issLgId } }); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
+                                            ) : (
+                                                <span className="text-sm font-bold text-gray-900">{lgNum}</span>
+                                            )}
                                         </div>
-                                        <div className="text-xs text-gray-500 mt-1 ml-6">{formatActionTypeLabel(inst.instruction_type)} #{inst.serial_number}</div>
+                                        <div className="text-xs text-gray-500 mt-1 ml-6">{actionLabel} {serialNum && `#${serialNum}`}</div>
+                                        {isIss && <span className={`inline-block mt-1 ml-6 text-[10px] px-1.5 py-0.5 rounded font-medium ${inst._source === 'issuance_maintenance' ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-700'}`}>{inst._source === 'issuance_maintenance' ? 'Maintenance' : 'Issuance'}</span>}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Issued: {formatDate(inst.instruction_date)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Created: {formatDate(issuedDate)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <StatusBadge type={urgencyStatus}>{daysStuck} Days Pending</StatusBadge>
                                     </td>
                                     {!isCorporateAdminView && (
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                                             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                <button 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (!isGracePeriod) { 
-                                                            setSelectedInstructionForDelivery(inst); 
-                                                            setShowRecordDeliveryModal(true); 
-                                                        } else { 
-                                                            toast.warn("Action disabled during grace period."); 
-                                                        }
-                                                    }}
-                                                    disabled={isGracePeriod}
-                                                    className={`inline-flex items-center px-3 py-1.5 border border-blue-200 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                >
-                                                    <CheckCircle2 className="h-4 w-4 mr-1.5" /> Confirm Delivery
-                                                </button>
-                                            </GracePeriodTooltip>
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (!isGracePeriod) { 
+                                                                setSelectedInstructionForDelivery(inst); 
+                                                                setShowRecordDeliveryModal(true); 
+                                                            } else { 
+                                                                toast.warn("Action disabled during grace period."); 
+                                                            }
+                                                        }}
+                                                        disabled={isGracePeriod}
+                                                        className={`inline-flex items-center px-3 py-1.5 border border-blue-200 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    >
+                                                        <CheckCircle2 className="h-4 w-4 mr-1.5" /> Confirm Delivery
+                                                    </button>
+                                                </GracePeriodTooltip>
                                         </td>
                                     )}
                                 </tr>
@@ -654,87 +778,249 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {instructionsNoReply.map((inst) => (
-                            <tr key={inst.id} className="hover:bg-gray-50 transition-colors">
+                        {instructionsNoReply.map((inst, idx) => {
+                            const isIss = inst._issuance;
+                            const lgNum = isIss ? (inst.lg_number || 'N/A') : (inst.lg_record?.lg_number || 'N/A');
+                            const lgId = isIss ? null : inst.lg_record?.id;
+                            const issLgId = isIss ? (inst._source === 'issuance_maintenance' ? inst.issued_lg_id : inst.id) : null;
+                            const actionLabel = isIss ? formatActionTypeLabel(inst.action_type) : formatActionTypeLabel(inst.instruction_type);
+                            const serialNum = isIss ? (inst.serial_number || '') : inst.serial_number;
+                            const delivDate = inst.delivery_date;
+                            return (
+                            <tr key={`${isIss ? 'iss' : 'cust'}-${inst.id}-${idx}`} className="hover:bg-gray-50 transition-colors">
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                    <button 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            inst.lg_record?.id && handleViewDetails(inst.lg_record.id);
-                                        }}
-                                        className="text-sm font-bold text-indigo-600 hover:underline"
-                                    >
-                                        {inst.lg_record?.lg_number || 'N/A'}
-                                    </button>
+                                    {lgId ? (
+                                        <button onClick={(e) => { e.stopPropagation(); handleViewDetails(lgId); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
+                                    ) : issLgId ? (
+                                        <button onClick={(e) => { e.stopPropagation(); navigate('/end-user/issuance/issued-lgs', { state: { openLgId: issLgId } }); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
+                                    ) : (
+                                        <span className="text-sm font-bold text-gray-900">{lgNum}</span>
+                                    )}
+                                    {isIss && <span className={`inline-block ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium ${inst._source === 'issuance_maintenance' ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-700'}`}>{inst._source === 'issuance_maintenance' ? 'Maint.' : 'Issuance'}</span>}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm text-gray-900">{formatActionTypeLabel(inst.instruction_type)}</div>
-                                    <div className="text-xs text-gray-500">#{inst.serial_number}</div>
+                                    <div className="text-sm text-gray-900">{actionLabel}</div>
+                                    {serialNum && <div className="text-xs text-gray-500">#{serialNum}</div>}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="text-xs text-gray-500 flex flex-col space-y-1">
-                                        <span>Issued: {formatDate(inst.instruction_date)}</span>
-                                        {inst.delivery_date && (
+                                        {delivDate && (
                                             <span className="text-green-600 flex items-center">
-                                                <CheckCircle2 className="w-3 h-3 mr-1"/> Delivered: {formatDate(inst.delivery_date)}
+                                                <CheckCircle2 className="w-3 h-3 mr-1"/> Delivered: {formatDate(delivDate)}
                                             </span>
+                                        )}
+                                        {isIss && inst.days_waiting != null && (
+                                            <StatusBadge type={inst.days_waiting > 7 ? 'critical' : inst.days_waiting > 3 ? 'warning' : 'neutral'}>{inst.days_waiting} Days Waiting</StatusBadge>
                                         )}
                                     </div>
                                 </td>
                                 {!isCorporateAdminView && (
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                            <button 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (!isGracePeriod) { 
-                                                        setSelectedInstructionForReply(inst); 
-                                                        setShowRecordBankReplyModal(true); 
-                                                    } else { 
-                                                        toast.warn("Action disabled during grace period."); 
-                                                    }
-                                                }}
-                                                disabled={isGracePeriod}
-                                                className={`inline-flex items-center px-3 py-1.5 border border-green-200 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                            >
-                                                <ArrowRight className="h-4 w-4 mr-1.5" /> Record Reply
-                                            </button>
-                                        </GracePeriodTooltip>
-                                        
-                                        {inst.has_reminder_sent ? (
-                                            <button 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleViewLetter(inst.id, inst.lg_record?.lg_number || 'N/A');
-                                                }}
-                                                className="inline-flex items-center px-3 py-1.5 border border-yellow-200 text-sm font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 transition-all active:scale-95"
-                                            >
-                                                <Eye className="h-4 w-4 mr-1.5" /> View Reminder
-                                            </button>
-                                        ) : (
-                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                 <button 
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleSendReminder(inst.id, inst.serial_number);
+                                                        if (!isGracePeriod) { 
+                                                            setSelectedInstructionForReply(inst); 
+                                                            setShowRecordBankReplyModal(true); 
+                                                        } else { 
+                                                            toast.warn("Action disabled during grace period."); 
+                                                        }
                                                     }}
                                                     disabled={isGracePeriod}
-                                                    className={`inline-flex items-center px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md text-gray-700 bg-gray-50 hover:bg-gray-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className={`inline-flex items-center px-3 py-1.5 border border-green-200 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 >
-                                                    <Mail className="h-4 w-4 mr-1.5" /> Remind
+                                                    <ArrowRight className="h-4 w-4 mr-1.5" /> Record Reply
                                                 </button>
                                             </GracePeriodTooltip>
-                                        )}
+                                            
+                                            {!isIss && (
+                                            <>
+                                            {inst.has_reminder_sent ? (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleViewLetter(inst.id, inst.lg_record?.lg_number || 'N/A'); }}
+                                                    className="inline-flex items-center px-3 py-1.5 border border-yellow-200 text-sm font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 transition-all active:scale-95"
+                                                >
+                                                    <Eye className="h-4 w-4 mr-1.5" /> View Reminder
+                                                </button>
+                                            ) : (
+                                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); handleSendReminder(inst.id, inst.serial_number); }}
+                                                        disabled={isGracePeriod}
+                                                        className={`inline-flex items-center px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md text-gray-700 bg-gray-50 hover:bg-gray-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    >
+                                                        <Mail className="h-4 w-4 mr-1.5" /> Remind
+                                                    </button>
+                                                </GracePeriodTooltip>
+                                            )}
+                                            </>
+                                            )}
                                     </td>
                                 )}
                             </tr>
-                        ))}
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
         )
     )}
 </div>
+
+{/* ============== ISSUANCE MODULE SECTIONS (module-gated) ============== */}
+{(issuanceApprovedRequests.length > 0 || issuanceApprovedMaintenance.length > 0 || issuanceApproachingExpiry.length > 0) && (
+    <>
+    {/* Section Divider */}
+    <div className="flex items-center gap-3 mt-6 mb-2">
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-indigo-300 to-transparent" />
+        <span className="text-xs font-semibold uppercase tracking-wider text-indigo-500">LG Issuance Actions</span>
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-indigo-300 to-transparent" />
+    </div>
+
+    {/* Issuance: Approved Requests Ready to Process */}
+    {issuanceApprovedRequests.length > 0 && (
+        <div id="section-iss-approved-req" className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden scroll-mt-24">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center bg-gray-50/50 cursor-pointer gap-4"
+                 onClick={() => setIsApprovedRequestsOpen(!isApprovedRequestsOpen)}>
+                <div className="flex items-center space-x-3 flex-1">
+                    <div className="p-2 bg-green-100 rounded-lg"><ClipboardCheck className="h-5 w-5 text-green-600" /></div>
+                    <h2 className="text-lg font-semibold text-gray-900 flex-1">Approved Requests — Ready to Process ({issuanceApprovedRequests.length})</h2>
+                </div>
+                {isApprovedRequestsOpen ? <ChevronUp className="h-6 w-6 text-gray-400" /> : <ChevronDown className="h-6 w-6 text-gray-400" />}
+            </div>
+            {isApprovedRequestsOpen && (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Serial #</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiary</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Approved</th>
+                                {!isCorporateAdminView && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Action</th>}
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {issuanceApprovedRequests.map(r => (
+                                <tr key={r.id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-sm font-bold text-indigo-600">{r.serial_number}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-700">{r.beneficiary_name || '—'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">{r.department || '—'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500">{formatDate(r.approved_at)}</td>
+                                    {!isCorporateAdminView && (
+                                        <td className="px-6 py-4 text-right">
+                                            <button onClick={() => navigate('/end-user/issuance-requests')}
+                                                className="inline-flex items-center px-3 py-1.5 border border-green-200 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-all active:scale-95">
+                                                <ArrowRight className="h-4 w-4 mr-1.5" /> Process
+                                            </button>
+                                        </td>
+                                    )}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    )}
+
+    {/* Issuance: Approved Maintenance Ready to Execute */}
+    {issuanceApprovedMaintenance.length > 0 && (
+        <div id="section-iss-approved-maint" className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden scroll-mt-24">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center bg-gray-50/50 cursor-pointer gap-4"
+                 onClick={() => setIsApprovedMaintenanceOpen(!isApprovedMaintenanceOpen)}>
+                <div className="flex items-center space-x-3 flex-1">
+                    <div className="p-2 bg-rose-100 rounded-lg"><Wrench className="h-5 w-5 text-rose-600" /></div>
+                    <h2 className="text-lg font-semibold text-gray-900 flex-1">Approved Maintenance — Ready to Execute ({issuanceApprovedMaintenance.length})</h2>
+                </div>
+                {isApprovedMaintenanceOpen ? <ChevronUp className="h-6 w-6 text-gray-400" /> : <ChevronDown className="h-6 w-6 text-gray-400" />}
+            </div>
+            {isApprovedMaintenanceOpen && (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">LG Number</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action Type</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiary</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Approved</th>
+                                {!isCorporateAdminView && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Action</th>}
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {issuanceApprovedMaintenance.map(a => (
+                                <tr key={a.id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{a.lg_number || '—'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">{formatActionTypeLabel(a.action_type)}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">{a.beneficiary || '—'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500">{formatDate(a.approved_at)}</td>
+                                    {!isCorporateAdminView && (
+                                        <td className="px-6 py-4 text-right">
+                                            <button onClick={() => navigate('/end-user/issued-lgs')}
+                                                className="inline-flex items-center px-3 py-1.5 border border-rose-200 text-sm font-medium rounded-md text-rose-700 bg-rose-50 hover:bg-rose-100 transition-all active:scale-95">
+                                                <ArrowRight className="h-4 w-4 mr-1.5" /> Execute
+                                            </button>
+                                        </td>
+                                    )}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    )}
+
+    {/* Issuance: Approaching Expiry */}
+    {issuanceApproachingExpiry.length > 0 && (
+        <div id="section-iss-expiry" className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden scroll-mt-24">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center bg-gray-50/50 cursor-pointer gap-4"
+                 onClick={() => setIsIssuanceApproachingExpiryOpen(!isIssuanceApproachingExpiryOpen)}>
+                <div className="flex items-center space-x-3 flex-1">
+                    <div className="p-2 bg-amber-100 rounded-lg"><AlertCircle className="h-5 w-5 text-amber-600" /></div>
+                    <h2 className="text-lg font-semibold text-gray-900 flex-1">Issuance — Approaching Expiry ({issuanceApproachingExpiry.length})</h2>
+                </div>
+                {isIssuanceApproachingExpiryOpen ? <ChevronUp className="h-6 w-6 text-gray-400" /> : <ChevronDown className="h-6 w-6 text-gray-400" />}
+            </div>
+            {isIssuanceApproachingExpiryOpen && (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">LG Number</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiary</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expiry Date</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days Left</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Suggestion</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {issuanceApproachingExpiry.map(lg => (
+                                <tr key={lg.id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{lg.lg_number || '—'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">{lg.beneficiary_name || '—'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">{lg.amount ? `${lg.currency || ''} ${parseFloat(lg.amount).toLocaleString()}` : '—'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">{formatDate(lg.bank_lg_expiry_date)}</td>
+                                    <td className="px-6 py-4 text-sm">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                            lg.days_to_expiry <= 7 ? 'bg-red-100 text-red-700' :
+                                            lg.days_to_expiry <= 14 ? 'bg-amber-100 text-amber-700' :
+                                            'bg-green-100 text-green-700'
+                                        }`}>{lg.days_to_expiry} days</span>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-indigo-600">{lg.suggestion}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    )}
+    </>
+)}
 
 {/* Modals - Only render if NOT corporate admin view */}
 {!isCorporateAdminView && (
@@ -753,6 +1039,11 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                 onClose={() => setShowRecordDeliveryModal(false)}
                 onSuccess={handleActionSuccess}
                 isGracePeriod={isGracePeriod}
+                apiUrl={selectedInstructionForDelivery._issuance
+                    ? selectedInstructionForDelivery._source === 'issuance_maintenance'
+                        ? `/issuance/lg-records/${selectedInstructionForDelivery.issued_lg_id}/record-delivery`
+                        : `/issuance/lg-records/${selectedInstructionForDelivery.id}/record-delivery`
+                    : undefined}
             />
         )}
         {showRecordBankReplyModal && selectedInstructionForReply && (
@@ -761,6 +1052,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                 onClose={() => setShowRecordBankReplyModal(false)}
                 onSuccess={handleActionSuccess}
                 isGracePeriod={isGracePeriod}
+                apiUrl={selectedInstructionForReply._issuance ? `/issuance/maintenance/${selectedInstructionForReply.id}/bank-reply` : undefined}
             />
         )}
         {showBulkRemindersModal && (
