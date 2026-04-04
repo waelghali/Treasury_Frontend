@@ -352,16 +352,22 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     }
 
     try {
-      await apiRequest(`/corporate-admin/customer-configurations/${config.global_config_key}`, 'PUT', {
+      const result = await apiRequest(`/corporate-admin/customer-configurations/${config.global_config_key}`, 'PUT', {
         configured_value: valueToSave,
       });
 
       const readableName = config.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-      const msg = directValue !== null
-        ? `${readableName} set to ${valueToSave}!`
-        : `${readableName} updated successfully!`;
 
-      toast.success(msg);
+      // Handle dual-control: backend returns { status: "PENDING" } when a second admin must approve
+      if (result && result.status === 'PENDING') {
+        toast.info(`${readableName} — change submitted for approval by a second administrator.`, { autoClose: 6000 });
+      } else {
+        const msg = directValue !== null
+          ? `${readableName} set to ${valueToSave}!`
+          : `${readableName} updated successfully!`;
+        toast.success(msg);
+      }
+
       setEditingConfigId(null);
       setEditValue('');
       setEditEmailList([]);
@@ -400,8 +406,12 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
         ? emailSettingsForm
         : { ...emailSettingsForm, smtp_password: null };
 
-      await apiRequest(url, method, payload);
-      toast.success('Email settings saved successfully!');
+      const response = await apiRequest(url, method, payload);
+      if (response && response.status === 'PENDING') {
+        toast.info('Email settings change submitted for approval by a second administrator.', { autoClose: 6000 });
+      } else {
+        toast.success('Email settings saved successfully!');
+      }
       setShowEmailSettingsModal(false);
       fetchEmailSettings();
     } catch (err) {
@@ -423,8 +433,12 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     setIsEmailSettingsSaving(true);
     setEmailSettingsError('');
     try {
-      await apiRequest(`/corporate-admin/email-settings/${emailSettings.id}`, 'DELETE');
-      toast.info('Email settings deleted successfully! The system will now use global settings.');
+      const response = await apiRequest(`/corporate-admin/email-settings/${emailSettings.id}`, 'DELETE');
+      if (response && response.status === 'PENDING') {
+        toast.info('Email settings deletion submitted for approval by a second administrator.', { autoClose: 6000 });
+      } else {
+        toast.info('Email settings deleted successfully! The system will now use global settings.');
+      }
       setShowEmailSettingsModal(false);
       fetchEmailSettings();
     } catch (err) {
@@ -476,10 +490,17 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     }
 
     try {
-      await apiRequest(`/corporate-admin/customer-configurations/${currentConfigToEdit.global_config_key}`, 'PUT', {
+      const result = await apiRequest(`/corporate-admin/customer-configurations/${currentConfigToEdit.global_config_key}`, 'PUT', {
         configured_value: JSON.stringify(editEmailList),
       });
-      toast.success(`Configuration "${currentConfigToEdit.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}" updated successfully!`);
+
+      const readableName = currentConfigToEdit.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+      if (result && result.status === 'PENDING') {
+        toast.info(`${readableName} — change submitted for approval by a second administrator.`, { autoClose: 6000 });
+      } else {
+        toast.success(`${readableName} updated successfully!`);
+      }
+
       setShowEmailListModal(false);
       setEditEmailList([]);
       setNewEmail('');
@@ -1055,12 +1076,18 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                         }
                         setSaving(true);
                         try {
+                          let hasPending = false;
                           for (const w of weights) {
-                            await apiRequest(`/corporate-admin/customer-configurations/${w[keyProp]}`, 'PUT', {
+                            const result = await apiRequest(`/corporate-admin/customer-configurations/${w[keyProp]}`, 'PUT', {
                               configured_value: String(w.val),
                             });
+                            if (result && result.status === 'PENDING') hasPending = true;
                           }
-                          toast.success(`${title.replace(/[⚖️🚨]/g, '').trim()} weights saved!`);
+                          if (hasPending) {
+                            toast.info(`${title.replace(/[⚖️🚨]/g, '').trim()} — changes submitted for approval by a second administrator.`, { autoClose: 6000 });
+                          } else {
+                            toast.success(`${title.replace(/[⚖️🚨]/g, '').trim()} weights saved!`);
+                          }
                           setEditing(false);
                           fetchConfigurations(true);
                         } catch (err) {

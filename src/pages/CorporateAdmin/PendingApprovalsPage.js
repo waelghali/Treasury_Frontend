@@ -548,6 +548,10 @@ function PendingApprovalsPage({ isGracePeriod }) {
             DEPARTMENT_UPDATE: 'Update Department',
             GROUP_CREATE: 'New Approval Group',
             GROUP_UPDATE: 'Update Approval Group',
+            CUSTOMER_CONFIG_UPDATE: 'Customer Configuration',
+            EMAIL_SETTINGS_CREATE: 'New Email Settings',
+            EMAIL_SETTINGS_UPDATE: 'Update Email Settings',
+            EMAIL_SETTINGS_DELETE: 'Delete Email Settings',
         };
         return map[ct] || ct;
     };
@@ -1724,6 +1728,82 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                         );
                                                     })}
                                                 </div>
+                                            </div>
+                                        );
+                                    }
+                                    
+                                    if (ct === 'CUSTOMER_CONFIG_UPDATE') {
+                                        // Customer configuration change: show config key, old → new value
+                                        const configKey = payload.global_config_key || payload.config_key || '—';
+                                        const humanKey = configKey.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+                                        const oldConfigVal = payload.old_value ?? '(default)';
+                                        const newConfigVal = payload.configured_value ?? '—';
+                                        return (
+                                            <div className="mt-3 bg-white rounded-lg border border-gray-200 p-3 space-y-2">
+                                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Customer Configuration Change</h4>
+                                                <div className="text-sm"><span className="text-gray-500">Setting:</span> <span className="font-medium text-gray-900">{humanKey}</span></div>
+                                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                                    <div className="bg-red-50 border border-red-200 rounded-lg p-2">
+                                                        <p className="text-[10px] font-bold text-red-500 uppercase mb-0.5">Current Value</p>
+                                                        <p className="font-medium text-red-800 break-all">{String(oldConfigVal)}</p>
+                                                    </div>
+                                                    <div className="bg-green-50 border border-green-200 rounded-lg p-2">
+                                                        <p className="text-[10px] font-bold text-green-600 uppercase mb-0.5">Proposed Value</p>
+                                                        <p className="font-medium text-green-800 break-all">{String(newConfigVal)}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    if (ct === 'EMAIL_SETTINGS_UPDATE' || ct === 'EMAIL_SETTINGS_CREATE' || ct === 'EMAIL_SETTINGS_DELETE') {
+                                        const humanFieldName = (key) => {
+                                            const map = {
+                                                smtp_host: 'SMTP Host',
+                                                smtp_port: 'SMTP Port',
+                                                smtp_username: 'SMTP Username',
+                                                sender_email: 'Sender Email',
+                                                sender_display_name: 'Sender Display Name',
+                                                is_active: 'Active',
+                                            };
+                                            return map[key] || key.replace(/_/g, ' ');
+                                        };
+
+                                        if (ct === 'EMAIL_SETTINGS_DELETE') {
+                                            return (
+                                                <div className="mt-3 bg-white rounded-lg border border-red-200 p-3 space-y-2">
+                                                    <h4 className="text-xs font-bold text-red-500 uppercase tracking-wider">⚠️ Delete Email Settings</h4>
+                                                    <p className="text-sm text-gray-700">This will remove custom email settings and revert to <strong>global/system email delivery</strong>.</p>
+                                                    {payload.sender_email && <p className="text-xs text-gray-500">Current sender: <span className="font-medium">{payload.sender_email}</span></p>}
+                                                </div>
+                                            );
+                                        }
+
+                                        const nv = payload.new_value || {};
+                                        const ov = payload.old_value || {};
+                                        const fields = Object.keys(nv);
+
+                                        return (
+                                            <div className="mt-3 bg-white rounded-lg border border-gray-200 p-3 space-y-2">
+                                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                                    {ct === 'EMAIL_SETTINGS_CREATE' ? '📧 New Email Settings' : '📧 Email Settings Update'}
+                                                </h4>
+                                                <div className="space-y-1.5">
+                                                    {fields.map((field) => (
+                                                        <div key={field} className="grid grid-cols-3 text-sm items-center gap-2">
+                                                            <span className="text-gray-500 text-xs font-medium">{humanFieldName(field)}</span>
+                                                            {ct === 'EMAIL_SETTINGS_UPDATE' && ov[field] !== undefined ? (
+                                                                <>
+                                                                    <span className="text-red-600 text-xs line-through break-all">{String(ov[field])}</span>
+                                                                    <span className="text-green-700 text-xs font-semibold break-all">{String(nv[field])}</span>
+                                                                </>
+                                                            ) : (
+                                                                <span className="col-span-2 text-green-700 text-xs font-semibold break-all">{String(nv[field])}</span>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <p className="text-[10px] text-gray-400 italic mt-1">🔒 Password changes are applied immediately and are never shown here.</p>
                                             </div>
                                         );
                                     }

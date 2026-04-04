@@ -669,18 +669,25 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                                 </button>
                                                 {['CONTRACT', 'PURCHASE_ORDER', 'FORMAL_REQUEST'].includes(doc.document_type) && doc.file_name?.toLowerCase().endsWith('.pdf') && (
                                                     doc.ai_verification_result?.status === 'OK' ? (
-                                                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold cursor-help ${
+                                                        <button
+                                                            onClick={() => setDocAnalysis({
+                                                                docName: doc.file_name,
+                                                                status: doc.ai_verification_result.status,
+                                                                mismatches: doc.ai_verification_result.mismatches,
+                                                                total_fields_compared: doc.ai_verification_result.total_fields_compared,
+                                                                comparison: doc.ai_verification_result.comparison || [],
+                                                                summary: doc.ai_verification_result.summary || null,
+                                                            })}
+                                                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold cursor-pointer hover:opacity-80 transition-opacity ${
                                                             doc.ai_verification_result.mismatches === 0
                                                                 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                                                        }`} title={doc.ai_verification_result.mismatches === 0
-                                                            ? `AI verified — ${doc.ai_verification_result.total_fields_compared} field(s) checked, all match`
-                                                            : `AI found ${doc.ai_verification_result.mismatches} potential mismatch(es) out of ${doc.ai_verification_result.total_fields_compared}`
-                                                        }>
+                                                        }`} title="Click to view details"
+                                                        >
                                                             {doc.ai_verification_result.mismatches === 0
                                                                 ? <><CheckCircle className="w-3 h-3" /> Verified</>
                                                                 : <><AlertTriangle className="w-3 h-3" /> {doc.ai_verification_result.mismatches} Issue{doc.ai_verification_result.mismatches !== 1 ? 's' : ''}</>
                                                             }
-                                                        </span>
+                                                        </button>
                                                     ) : (
                                                         <button
                                                             onClick={() => handleAnalyzeDoc(doc)}
@@ -964,6 +971,25 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                                         </div>
                                                         <div className="w-full bg-gray-200 rounded-full h-1.5">
                                                             <div className={`h-1.5 rounded-full ${barColor}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                                                        </div>
+                                                    </div>
+                                                    {/* Pricing Details */}
+                                                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 mb-2 text-[10px]">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-400">Commission:</span>
+                                                            <span className="font-bold text-gray-600">{f.price_commission_rate != null ? `${f.price_commission_rate}%` : '—'}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-400">Est. Fee:</span>
+                                                            <span className="font-bold text-emerald-700">{f.estimated_commission_cost != null ? `${f.currency} ${parseFloat(f.estimated_commission_cost).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '—'}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-400">Margin:</span>
+                                                            <span className="font-bold text-gray-600">{f.price_cash_margin_pct != null ? `${f.price_cash_margin_pct}%` : '—'}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-400">Req. Margin:</span>
+                                                            <span className="font-bold text-teal-700">{f.required_cash_margin_amount != null ? `${f.currency} ${parseFloat(f.required_cash_margin_amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '—'}</span>
                                                         </div>
                                                     </div>
                                                     <div className="flex justify-between items-center bg-white p-2 rounded border">
