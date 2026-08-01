@@ -24,7 +24,7 @@ export default function AdminQuotationDashboard() {
             const [pendingRes, historyRes, statsRes] = await Promise.all([
                 apiClient.get('/corporate-admin/quotations/pending-approvals').catch(() => ({ data: [] })),
                 apiClient.get('/end-user/quotations/').catch(() => ({ data: [] })),
-                apiClient.get('/end-user/quotations/stats').catch(() => ({ data: [] })),
+                apiClient.get('/end-user/quotations/stats?trade_type=FX_SPOT').catch(() => ({ data: [] })),
             ]);
             setPendingApprovals(pendingRes.data);
             setHistory(historyRes.data);

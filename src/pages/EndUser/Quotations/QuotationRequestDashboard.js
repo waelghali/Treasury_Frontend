@@ -42,7 +42,20 @@ export default function QuotationRequestDashboard() {
         if (selectedBanks.find(b => b.id === bank.bank_id)) { // Adjusted ID tracking
             setSelectedBanks(selectedBanks.filter(b => b.id !== bank.bank_id));
         } else {
-            setSelectedBanks([...selectedBanks, { id: bank.bank_id, name: bank.bank?.name || `Bank ${bank.bank_id}`, emails: bank.emails, costMin: 0, costPercent: 0, costMax: 0, costFlat: 0 }]);
+            setSelectedBanks([
+                ...selectedBanks, 
+                { 
+                    id: bank.bank_id, 
+                    name: bank.bank?.name || `Bank ${bank.bank_id}`, 
+                    emails: bank.emails, 
+                    costMin: 0, 
+                    costPercent: 0, 
+                    costMax: 0, 
+                    costFlat: 0,
+                    quotationBase: formData.quotationBase,
+                    isDocumentVisible: true
+                }
+            ]);
         }
     };
 
@@ -538,44 +551,70 @@ export default function QuotationRequestDashboard() {
                                             </button>
                                         </div>
 
-                                        {isSelected && (
-                                            <div className="animate-fade-in-up grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 mt-2 border-t border-gray-200">
-                                                <div>
-                                                    <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Min Cost</label>
-                                                    <input
-                                                        type="number"
-                                                        className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black"
-                                                        value={isSelected.costMin}
-                                                        onChange={e => updateBankCost(bank.bank_id, 'costMin', parseFloat(e.target.value))}
-                                                    />
+                                         {isSelected && (
+                                            <div className="animate-fade-in-up space-y-3 pt-4 mt-2 border-t border-gray-200">
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                                    <div>
+                                                        <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Min Cost</label>
+                                                        <input
+                                                            type="number"
+                                                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black"
+                                                            value={isSelected.costMin}
+                                                            onChange={e => updateBankCost(bank.bank_id, 'costMin', parseFloat(e.target.value))}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Cost %</label>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black"
+                                                            value={isSelected.costPercent}
+                                                            onChange={e => updateBankCost(bank.bank_id, 'costPercent', parseFloat(e.target.value))}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Max Cost</label>
+                                                        <input
+                                                            type="number"
+                                                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black"
+                                                            value={isSelected.costMax}
+                                                            onChange={e => updateBankCost(bank.bank_id, 'costMax', parseFloat(e.target.value))}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Flat Fee</label>
+                                                        <input
+                                                            type="number"
+                                                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black"
+                                                            value={isSelected.costFlat}
+                                                            onChange={e => updateBankCost(bank.bank_id, 'costFlat', parseFloat(e.target.value))}
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Cost %</label>
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black"
-                                                        value={isSelected.costPercent}
-                                                        onChange={e => updateBankCost(bank.bank_id, 'costPercent', parseFloat(e.target.value))}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Max Cost</label>
-                                                    <input
-                                                        type="number"
-                                                        className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black"
-                                                        value={isSelected.costMax}
-                                                        onChange={e => updateBankCost(bank.bank_id, 'costMax', parseFloat(e.target.value))}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Flat Fee</label>
-                                                    <input
-                                                        type="number"
-                                                        className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black"
-                                                        value={isSelected.costFlat}
-                                                        onChange={e => updateBankCost(bank.bank_id, 'costFlat', parseFloat(e.target.value))}
-                                                    />
+
+                                                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100 text-xs">
+                                                    <div className="flex items-center gap-2">
+                                                        <label className="text-[10px] font-bold text-gray-400 uppercase">Base Type:</label>
+                                                        <select
+                                                            className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black"
+                                                            value={isSelected.quotationBase || formData.quotationBase}
+                                                            onChange={e => updateBankCost(bank.bank_id, 'quotationBase', e.target.value)}
+                                                        >
+                                                            <option value="Execution">Execution</option>
+                                                            <option value="Indicative">Indicative</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-gray-600 font-medium select-none">
+                                                        <input
+                                                            type="checkbox"
+                                                            className="rounded border-gray-300 text-black focus:ring-black"
+                                                            checked={isSelected.isDocumentVisible !== false}
+                                                            onChange={e => updateBankCost(bank.bank_id, 'isDocumentVisible', e.target.checked)}
+                                                        />
+                                                        Document Visible
+                                                    </label>
                                                 </div>
                                             </div>
                                         )}

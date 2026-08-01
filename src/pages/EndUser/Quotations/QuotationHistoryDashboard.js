@@ -43,8 +43,8 @@ export default function QuotationHistoryDashboard() {
                 setSelectedRfqId(rfqIdFromUrl);
             }
 
-            // Fetch Stats from new endpoint
-            const statsRes = await apiClient.get('/end-user/quotations/stats');
+            // Fetch Stats for FX Spot from endpoint
+            const statsRes = await apiClient.get('/end-user/quotations/stats?trade_type=FX_SPOT');
             setStats(statsRes.data);
 
         } catch (err) {

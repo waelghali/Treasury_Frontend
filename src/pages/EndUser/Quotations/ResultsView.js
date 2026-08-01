@@ -29,6 +29,16 @@ export default function ResultsView({ rfqId }) {
         return () => clearInterval(interval);
     }, [rfqId]);
 
+    const handleResendInvite = async (qBankId, bankName) => {
+        try {
+            await apiClient.post(`/end-user/quotations/${rfqId}/resend-invite/${qBankId}`);
+            alert(`Invitation email resent to ${bankName}!`);
+        } catch (err) {
+            console.error('Resend failed:', err);
+            alert('Failed to resend invite: ' + (err.response?.data?.detail || err.message));
+        }
+    };
+
     if (loading) return <div className="p-8 text-center">Calculating results...</div>;
 
     const hasSubmissions = results.some(r =>
@@ -164,9 +174,17 @@ export default function ResultsView({ rfqId }) {
                                         {index === 0 && result.best_score ? <Trophy size={18} /> : <Landmark size={20} />}
                                     </div>
                                     <div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             <h4 className="font-bold text-lg">{result.bank_name}</h4>
                                             {index === 0 && result.best_score && <span className="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded uppercase tracking-wider">Winner</span>}
+                                            {result.quotation_base && (
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${result.quotation_base === 'Execution' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700'}`}>
+                                                    {result.quotation_base}
+                                                </span>
+                                            )}
+                                            {result.is_document_visible === false && (
+                                                <span className="text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded uppercase">Doc Hidden</span>
+                                            )}
                                         </div>
                                         <p className="text-xs text-gray-400">{result.bank_emails}</p>
                                     </div>
@@ -181,7 +199,7 @@ export default function ResultsView({ rfqId }) {
                                     {result.token && (
                                         <button
                                             onClick={() => {
-                                                const link = `${window.location.origin}/quotation-submission?token=${result.token}`;
+                                                const link = `${window.location.origin}/public-quotation/${result.token}`;
                                                 navigator.clipboard.writeText(link);
                                                 alert('Bidding link copied to clipboard!');
                                             }}
@@ -189,6 +207,15 @@ export default function ResultsView({ rfqId }) {
                                             title="Copy secure bidding link for this bank"
                                         >
                                             <ExternalLink size={12} /> Bidding Link
+                                        </button>
+                                    )}
+                                    {result.quotation_bank_id && (
+                                        <button
+                                            onClick={() => handleResendInvite(result.quotation_bank_id, result.bank_name)}
+                                            className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded uppercase tracking-wider hover:bg-emerald-100 transition-colors flex items-center gap-1"
+                                            title="Resend invitation email to this bank"
+                                        >
+                                            <Mail size={12} /> Resend Invite
                                         </button>
                                     )}
                                     <span className="text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-1 rounded uppercase tracking-wider">
@@ -245,11 +272,19 @@ export default function ResultsView({ rfqId }) {
                                     {index === 0 && result.price ? <Trophy size={20} /> : <Landmark size={20} />}
                                 </div>
                                 <div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         <h4 className="font-bold text-lg">{result.bank_name}</h4>
                                         {index === 0 && result.price && <span className="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded uppercase tracking-wider">Winner</span>}
+                                        {result.quotation_base && (
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${result.quotation_base === 'Execution' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700'}`}>
+                                                {result.quotation_base}
+                                            </span>
+                                        )}
+                                        {result.is_document_visible === false && (
+                                            <span className="text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded uppercase">Doc Hidden</span>
+                                        )}
                                     </div>
-                                    <div className="flex items-center gap-3 mt-1">
+                                    <div className="flex items-center gap-3 mt-1 flex-wrap">
                                         {result.submitted_at ? (
                                             <p className="text-xs text-gray-400">Submitted at {new Date(result.submitted_at).toLocaleTimeString()}</p>
                                         ) : (
@@ -262,10 +297,19 @@ export default function ResultsView({ rfqId }) {
                                                     navigator.clipboard.writeText(link);
                                                     alert('Bidding link copied to clipboard!');
                                                 }}
-                                                className="text-[10px] text-blue-600 hover:underline flex items-center gap-1"
+                                                className="text-[10px] text-blue-600 hover:underline flex items-center gap-1 font-medium"
                                                 title="Copy bidding link"
                                             >
                                                 <ExternalLink size={10} /> Link
+                                            </button>
+                                        )}
+                                        {result.quotation_bank_id && (
+                                            <button
+                                                onClick={() => handleResendInvite(result.quotation_bank_id, result.bank_name)}
+                                                className="text-[10px] text-emerald-600 hover:underline flex items-center gap-1 font-medium"
+                                                title="Resend invitation email to this bank"
+                                            >
+                                                <Mail size={10} /> Resend Invite
                                             </button>
                                         )}
                                     </div>
