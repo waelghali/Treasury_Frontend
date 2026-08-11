@@ -34,34 +34,52 @@ export default function QuotationBankOfferPage() {
     }, [token]);
 
     const checkResult = useCallback(async () => {
-        if (!rfq) return;
+        if (!rfq) return null;
         try {
             const res = await axios.get(`${API_BASE_URL}/api/v1/public-quotation/${token}/result`);
             const status = res.data.status;
 
             if (status === 'WINNER') {
                 setResultStatus('WINNER');
-            } else if (status === 'AWAITING_MANUAL_SELECTION') {
+            } else if (status === 'AWAITING_MANUAL_SELECTION' || status === 'INCONCLUSIVE') {
                 setResultStatus('AWAITING_SELECTION');
             } else if (status === 'NOT_SELECTED') {
                 setResultStatus('NOT_SELECTED');
+            } else if (status === 'INDICATIVE_ONLY' || status === 'COMPLETED') {
+                setResultStatus(status);
             }
+            return status;
         } catch (err) {
             console.error(err);
+            return null;
         }
     }, [rfq, token]);
 
     useEffect(() => {
-        // We check results if the window is closed OR if we just submitted.
-        // We also check if we have existing offers (already submitted previously)
-        const hasSubmitted = submitted || (rfq?.offers && rfq.offers.length > 0);
+        let interval = null;
 
-        if (timeLeft.status === 'CLOSED') {
-            checkResult();
-            const interval = setInterval(checkResult, 10000);
-            return () => clearInterval(interval);
+        if (timeLeft.status === 'CLOSED' && !resultStatus) {
+            const startPolling = async () => {
+                const initialStatus = await checkResult();
+                if (initialStatus && initialStatus !== 'PENDING') {
+                    return; // Terminal state reached on first check, do not start interval
+                }
+                interval = setInterval(async () => {
+                    const status = await checkResult();
+                    if (status && status !== 'PENDING') {
+                        if (interval) clearInterval(interval);
+                    }
+                }, 10000);
+            };
+
+            startPolling();
         }
-    }, [timeLeft.status, submitted, rfq?.offers, checkResult]);
+
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [timeLeft.status, resultStatus, checkResult]);
+
 
     useEffect(() => {
         fetchRfq();

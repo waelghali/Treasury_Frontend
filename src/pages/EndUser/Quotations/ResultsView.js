@@ -12,7 +12,7 @@ export default function ResultsView({ rfqId }) {
     const [resultsMeta, setResultsMeta] = useState({});
 
     const fetchResults = async () => {
-        if (!rfqId) return;
+        if (!rfqId) return null;
         try {
             const res = await apiClient.get(`/end-user/quotations/${rfqId}/results`);
             // Axios auto-parses JSON into res.data
@@ -27,18 +27,37 @@ export default function ResultsView({ rfqId }) {
                 deviationPercent: res.data.deviation_percent,
                 hasExecutionBanks: res.data.has_execution_banks
             });
+            return res.data.rfq?.status;
         } catch (err) {
             console.error(err);
+            return null;
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchResults();
-        const interval = setInterval(fetchResults, 5000);
-        return () => clearInterval(interval);
+        let interval = null;
+        const initFetch = async () => {
+            const currentStatus = await fetchResults();
+            if (currentStatus && ['COMPLETED', 'CANCELLED', 'REJECTED'].includes(currentStatus)) {
+                return; // Terminal state reached, do not poll
+            }
+            interval = setInterval(async () => {
+                const updatedStatus = await fetchResults();
+                if (updatedStatus && ['COMPLETED', 'CANCELLED', 'REJECTED'].includes(updatedStatus)) {
+                    if (interval) clearInterval(interval);
+                }
+            }, 5000);
+        };
+
+        initFetch();
+
+        return () => {
+            if (interval) clearInterval(interval);
+        };
     }, [rfqId]);
+
 
     const handleResendInvite = async (qBankId, bankName) => {
         try {
