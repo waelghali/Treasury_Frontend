@@ -9,6 +9,8 @@ export default function ResultsView({ rfqId }) {
     const [sendingResults, setSendingResults] = useState(false);
     const userRole = localStorage.getItem('user_role'); // Check role
 
+    const [resultsMeta, setResultsMeta] = useState({});
+
     const fetchResults = async () => {
         if (!rfqId) return;
         try {
@@ -16,6 +18,15 @@ export default function ResultsView({ rfqId }) {
             // Axios auto-parses JSON into res.data
             setResults(res.data.results || []);
             setRfq(res.data.rfq);
+            setResultsMeta({
+                winnerBankId: res.data.winner_bank_id,
+                isInconclusive: res.data.is_inconclusive,
+                inconclusiveReason: res.data.inconclusive_reason,
+                bestIndicativeRate: res.data.best_indicative_rate,
+                bestExecutionRate: res.data.best_execution_rate,
+                deviationPercent: res.data.deviation_percent,
+                hasExecutionBanks: res.data.has_execution_banks
+            });
         } catch (err) {
             console.error(err);
         } finally {
@@ -69,18 +80,18 @@ export default function ResultsView({ rfqId }) {
                 alert(`Quotation Approved and Released successfully.`);
             } else {
                 await apiClient.post(`/corporate-admin/quotations/${rfqId}/reject`);
-                alert(`Quotation Rejected.`);
+                alert(`Quotation Request Rejected.`);
             }
             // Refresh explicitly after changing the status
             fetchResults();
         } catch (err) {
-            console.error('Approval failed:', err);
-            alert('Failed to update approval status. ' + (err.response?.data?.detail || err.message));
+            console.error('Approval action failed:', err);
+            alert('Action failed: ' + (err.response?.data?.detail || err.message));
         }
     };
 
     const handleSendResults = async () => {
-        if (!window.confirm("Are you sure you want to send winner and regret emails to all assigned banks? This will use your configured email settings.")) return;
+        if (!window.confirm("Are you sure you want to send winner and regret emails to all assigned Execution banks? This will use your configured email settings.")) return;
 
         try {
             setSendingResults(true);
@@ -104,7 +115,7 @@ export default function ResultsView({ rfqId }) {
                     {rfq && <p className="text-sm font-mono font-bold text-gray-600">{rfq.ref_no}</p>}
                 </div>
                 <div className="flex items-center gap-4 mt-2 sm:mt-0">
-                    {(rfq?.status === 'COMPLETED' || rfq?.status === 'EVALUATING') && (
+                    {(rfq?.status === 'COMPLETED' || rfq?.status === 'EVALUATING') && !resultsMeta.isInconclusive && (
                         <button
                             onClick={handleSendResults}
                             disabled={sendingResults}
@@ -117,6 +128,23 @@ export default function ResultsView({ rfqId }) {
                     <span className="text-xs font-medium text-gray-400 italic">Auto-refreshing every 5s</span>
                 </div>
             </div>
+
+            {resultsMeta.isInconclusive && (
+                <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-4">
+                    <AlertCircle className="text-amber-600 shrink-0 mt-0.5" size={24} />
+                    <div>
+                        <h4 className="font-bold text-sm uppercase tracking-wide">Quotation Closed Without Winner</h4>
+                        <p className="text-xs mt-1 leading-relaxed text-amber-800">{resultsMeta.inconclusiveReason}</p>
+                        {resultsMeta.bestIndicativeRate !== null && resultsMeta.bestExecutionRate !== null && (
+                            <div className="flex items-center gap-6 mt-3 pt-3 border-t border-amber-200/60 text-xs font-mono">
+                                <div><span className="font-sans text-[10px] uppercase font-bold text-amber-600 block">Indicative Benchmark</span>{resultsMeta.bestIndicativeRate.toFixed(4)}</div>
+                                <div><span className="font-sans text-[10px] uppercase font-bold text-amber-600 block">Best Execution Quote</span>{resultsMeta.bestExecutionRate.toFixed(4)}</div>
+                                <div><span className="font-sans text-[10px] uppercase font-bold text-amber-600 block">Deviation</span>{resultsMeta.deviationPercent ? `${resultsMeta.deviationPercent.toFixed(2)}%` : 'N/A'}</div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {rfq?.status === 'PENDING_APPROVAL' ? (
                 <div className="p-8 bg-orange-50 rounded-3xl border border-orange-200">
@@ -274,7 +302,9 @@ export default function ResultsView({ rfqId }) {
                                 <div>
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <h4 className="font-bold text-lg">{result.bank_name}</h4>
-                                        {index === 0 && result.price && <span className="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded uppercase tracking-wider">Winner</span>}
+                                        {resultsMeta.winnerBankId && result.bank_id === resultsMeta.winnerBankId && (
+                                            <span className="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded uppercase tracking-wider">Winner</span>
+                                        )}
                                         {result.quotation_base && (
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${result.quotation_base === 'Execution' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700'}`}>
                                                 {result.quotation_base}

@@ -22,6 +22,7 @@ export default function QuotationRequestDashboard() {
         windowStart: '',
         windowDuration: '60',
         quotationBase: 'Execution',
+        maxTolerancePercent: '0.5',
         tokenValidityHours: '24',
     });
     const [file, setFile] = useState(null);
@@ -42,6 +43,7 @@ export default function QuotationRequestDashboard() {
         if (selectedBanks.find(b => b.id === bank.bank_id)) { // Adjusted ID tracking
             setSelectedBanks(selectedBanks.filter(b => b.id !== bank.bank_id));
         } else {
+            const base = formData.quotationBase || 'Execution';
             setSelectedBanks([
                 ...selectedBanks, 
                 { 
@@ -52,15 +54,25 @@ export default function QuotationRequestDashboard() {
                     costPercent: 0, 
                     costMax: 0, 
                     costFlat: 0,
-                    quotationBase: formData.quotationBase,
-                    isDocumentVisible: true
+                    quotationBase: base,
+                    isDocumentVisible: base === 'Execution'
                 }
             ]);
         }
     };
 
     const updateBankCost = (bankId, field, value) => {
-        setSelectedBanks(selectedBanks.map(b => b.id === bankId ? { ...b, [field]: value } : b));
+        setSelectedBanks(selectedBanks.map(b => {
+            if (b.id !== bankId) return b;
+            if (field === 'quotationBase') {
+                return {
+                    ...b,
+                    quotationBase: value,
+                    isDocumentVisible: value === 'Execution'
+                };
+            }
+            return { ...b, [field]: value };
+        }));
     };
 
     const handleSubmit = async (e) => {
@@ -107,6 +119,7 @@ export default function QuotationRequestDashboard() {
             windowStart: windowStart.toISOString(),
             windowEnd: windowEnd.toISOString(),
             quotationBase: formData.quotationBase || null,
+            maxTolerancePercent: formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null,
             selectedBanks: JSON.stringify(selectedBanks),
             token_validity_hours: parseInt(formData.tokenValidityHours)
         };
@@ -423,8 +436,8 @@ export default function QuotationRequestDashboard() {
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Quotation Base</label>
+                                     <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Default Quotation Base</label>
                                         <div className="flex gap-2">
                                             {['Execution', 'Indicative'].map(type => (
                                                 <button
@@ -440,6 +453,21 @@ export default function QuotationRequestDashboard() {
                                                 </button>
                                             ))}
                                         </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Max Tolerance (%) for Execution vs Indicative</label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="0.50"
+                                                className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
+                                                value={formData.maxTolerancePercent}
+                                                onChange={e => setFormData({ ...formData, maxTolerancePercent: e.target.value })}
+                                            />
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 mt-1">If Execution rate exceeds Indicative rate by more than this %, RFQ will close without a winner.</p>
                                     </div>
                                 </>
                             )}

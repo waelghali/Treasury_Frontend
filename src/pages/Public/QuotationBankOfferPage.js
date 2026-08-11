@@ -204,6 +204,16 @@ export default function QuotationBankOfferPage() {
                             <h2 className="text-xl font-bold">Selection in Progress</h2>
                             <p className="text-sm">Thank you for your quote. The customer is currently evaluating all bids.</p>
                         </div>
+                    ) : resultStatus === 'INDICATIVE_ONLY' ? (
+                        <div className="flex flex-col items-center">
+                            <h2 className="text-xl font-bold text-gray-800">Indicative Quotation Completed</h2>
+                            <p className="text-sm text-gray-500 mt-1">Thank you for providing reference market pricing for this request.</p>
+                        </div>
+                    ) : resultStatus === 'INCONCLUSIVE' ? (
+                        <div className="flex flex-col items-center">
+                            <h2 className="text-xl font-bold text-gray-800">Quotation Completed</h2>
+                            <p className="text-sm text-gray-500 mt-1">Thank you for your submission. This request closed without execution.</p>
+                        </div>
                     ) : (
                         <div className="flex flex-col items-center">
                             <h2 className="text-xl font-bold">Quotation Completed</h2>
