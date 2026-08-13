@@ -567,10 +567,9 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
 
   const groupedAndSortedConfigurations = useMemo(() => {
     // Build a set of active module tags from the subscription plan
-    const activeModules = new Set();
+    const activeModules = new Set(['quotation', 'quotations']);
     if (subscriptionData?.subscription_plan?.has_custody_module) activeModules.add('custody');
     if (subscriptionData?.subscription_plan?.has_issuance_module) activeModules.add('issuance');
-    // Future modules can be added here, e.g.: if (subscriptionData?.subscription_plan?.has_quotation_module) activeModules.add('quotation');
 
     let filtered = [...configurations]
       .filter(config => {
