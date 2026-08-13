@@ -264,10 +264,10 @@ export default function ResultsView({ rfqId }) {
                     <AlertCircle className="mx-auto text-red-400 mb-4" size={32} />
                     <p className="text-red-700 font-medium tracking-tight">This quotation request was rejected by the Corporate Admin.</p>
                 </div>
-            ) : (!hasSubmissions && rfq?.status !== 'PENDING' && rfq?.status !== 'PENDING_APPROVAL') ? (
+            ) : results.length === 0 ? (
                 <div className="p-12 bg-gray-50 rounded-3xl border border-dashed border-gray-200 text-center">
                     <Clock className="mx-auto text-gray-300 mb-4" size={32} />
-                    <p className="text-gray-500">Waiting for submissions or window to close...</p>
+                    <p className="text-gray-500">No counterparties assigned to this quotation request.</p>
                 </div>
             ) : rfq?.type === 'TBILL' ? (
                 <div className="space-y-6">
