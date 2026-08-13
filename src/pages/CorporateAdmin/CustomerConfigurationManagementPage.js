@@ -8,6 +8,7 @@ import QuotationBanksModal from '../../components/Modals/QuotationBanksModal';
 // --- REVISED: Configuration Groupings Mapping ---
 const settingGroups = {
   'Security & Authentication': { icon: Lock },
+  'Quotation & Treasury': { icon: FileText },
   'System Limits & Timers': { icon: Clock },
   'Communication & Alerts': { icon: MessageSquare },
   'Document Compliance & Requirements': { icon: FileCheck },
@@ -18,6 +19,11 @@ const settingGroups = {
 // Helper function to dynamically determine a config's group based on keywords
 const getGroupKey = (configKey) => {
   const key = configKey.toUpperCase();
+
+  // Group 0: Quotation & Treasury Settings
+  if (key.includes('QUOTATION') || key.includes('RFQ') || key.includes('TREASURY')) {
+    return 'Quotation & Treasury';
+  }
 
   // Group 1: Security & Authentication
   if (key.includes('PASSWORD') || key.includes('AUTH') || key.includes('LOCKOUT') || key.includes('LOGIN') || key.includes('ENFORCE') || key.includes('ACCOUNT_LOCKOUT') || key.includes('SESSION')) {
