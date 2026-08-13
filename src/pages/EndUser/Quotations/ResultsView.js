@@ -71,9 +71,7 @@ export default function ResultsView({ rfqId }) {
 
     if (loading) return <div className="p-8 text-center">Calculating results...</div>;
 
-    const hasSubmissions = results.some(r =>
-        rfq?.type === 'TBILL' ? (r.offers && r.offers.length > 0) : (r.price !== null && r.price !== undefined)
-    );
+
 
     const handleApproval = async (status) => {
         try {
