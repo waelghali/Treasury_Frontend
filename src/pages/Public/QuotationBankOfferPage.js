@@ -4,8 +4,18 @@ import axios from 'axios';
 import { Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText } from 'lucide-react';
 import './quotation-animations.css';
 
-// Base URL for API calls. If you use a custom environment variable, replace this.
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const getApiBaseUrl = () => {
+    let url = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_URL;
+    if (url) {
+        return url.replace(/\/api\/v1\/?$/, '');
+    }
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        return window.location.origin;
+    }
+    return 'http://localhost:8000';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export default function QuotationBankOfferPage() {
     const { token } = useParams();
