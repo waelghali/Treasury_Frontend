@@ -324,13 +324,28 @@ export default function QuotationBankOfferPage() {
                             </div>
                         </div>
 
-                        {rfq.document_path && (
-                            <div className="mt-8 p-3 sm:p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <FileText className="text-gray-400 shrink-0" size={20} />
-                                    <span className="text-xs sm:text-sm font-medium text-gray-600 line-clamp-1">Supporting Document Attached</span>
+                        {((rfq.documents && rfq.documents.length > 0) || rfq.document_path) && (
+                            <div className="mt-8 pt-6 border-t border-gray-100 space-y-3">
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Supporting Documents</label>
+                                <div className="space-y-2">
+                                    {(rfq.documents && rfq.documents.length > 0 ? rfq.documents : [{ name: 'Attached Supporting Document', path: rfq.document_path }]).map((doc, idx) => (
+                                        <a
+                                            key={idx}
+                                            href={doc.path?.startsWith('http') ? doc.path : `${API_BASE_URL}${doc.path?.startsWith('/') ? '' : '/'}${doc.path}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200/60 transition-all text-xs font-medium text-gray-800"
+                                        >
+                                            <span className="flex items-center gap-2 truncate">
+                                                <FileText size={16} className="text-gray-500 shrink-0" />
+                                                <span className="truncate">{doc.name || `Document ${idx + 1}`}</span>
+                                            </span>
+                                            <span className="text-[10px] font-bold bg-white text-black border border-gray-200 px-3 py-1 rounded-lg uppercase tracking-wider shrink-0 hover:bg-black hover:text-white transition-colors">
+                                                Download
+                                            </span>
+                                        </a>
+                                    ))}
                                 </div>
-                                <button className="text-[10px] sm:text-xs font-bold text-black hover:text-gray-600 underline uppercase tracking-wider transition-colors shrink-0">Download</button>
                             </div>
                         )}
                     </section>

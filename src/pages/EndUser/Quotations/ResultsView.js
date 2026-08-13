@@ -165,14 +165,78 @@ export default function ResultsView({ rfqId }) {
                 </div>
             )}
 
-            {rfq?.status === 'PENDING_APPROVAL' ? (
-                <div className="p-8 bg-orange-50 rounded-3xl border border-orange-200">
+            {rfq && (
+                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4 mb-6">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <div>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400">Trade Specifications</h4>
+                            <p className="text-base font-bold text-gray-900 mt-0.5">
+                                {rfq.type === 'TBILL' ? `${rfq.direction} T-Bill` : `${rfq.direction} ${rfq.amount?.toLocaleString()} ${rfq.buy_currency}/${rfq.sell_currency}`}
+                            </p>
+                        </div>
+                        <div className="text-right text-xs">
+                            <span className="font-bold text-gray-400 block uppercase text-[10px]">Value Date</span>
+                            <span className="font-mono font-semibold text-gray-700">{rfq.value_date || 'N/A'}</span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
+                        <div>
+                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Quotation Base</span>
+                            <span className="font-bold text-gray-800">{rfq.quotation_base || 'Execution'}</span>
+                        </div>
+                        <div>
+                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Max Tolerance</span>
+                            <span className="font-bold text-gray-800">{rfq.max_tolerance_percent ? `${rfq.max_tolerance_percent}%` : 'None'}</span>
+                        </div>
+                        <div>
+                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Min Ticket Amount</span>
+                            <span className="font-bold text-gray-800">{rfq.min_ticket_amount ? rfq.min_ticket_amount.toLocaleString() : 'N/A'}</span>
+                        </div>
+                        <div>
+                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Creator</span>
+                            <span className="font-bold text-gray-800">{rfq.creator_name || 'End User'}</span>
+                        </div>
+                    </div>
+
+                    {rfq.document_path && (
+                        <div className="pt-3 border-t border-gray-100">
+                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block mb-2">Attached Documents</span>
+                            <div className="flex flex-wrap gap-2">
+                                {(() => {
+                                    let docs = [];
+                                    try {
+                                        const parsed = JSON.parse(rfq.document_path);
+                                        docs = Array.isArray(parsed) ? parsed : [{ name: 'Attached Document', path: rfq.document_path }];
+                                    } catch {
+                                        docs = rfq.document_path.split(',').map(p => ({ name: p.trim(), path: p.trim() }));
+                                    }
+                                    return docs.map((d, i) => (
+                                        <a
+                                            key={i}
+                                            href={d.path?.startsWith('http') ? d.path : `http://localhost:8000${d.path?.startsWith('/') ? '' : '/'}${d.path}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-xs font-medium text-blue-600 hover:bg-gray-100"
+                                        >
+                                            <FileText size={14} className="text-gray-400" /> {d.name || `Document ${i+1}`}
+                                        </a>
+                                    ));
+                                })()}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {rfq?.status === 'PENDING_APPROVAL' && (
+                <div className="p-8 bg-orange-50 rounded-3xl border border-orange-200 mb-6">
                     <div className="flex flex-col items-center text-center space-y-4">
                         <AlertCircle className="text-orange-500" size={48} />
                         <div>
                             <h4 className="text-lg font-bold text-orange-900 mb-1">Corporate Admin Approval Required</h4>
                             <p className="text-sm text-orange-700 max-w-lg mx-auto">
-                                This quotation requires approval before being dispatched to the selected counterparties for bidding.
+                                Review the trade specifications and selected counterparty list above before releasing this quotation.
                             </p>
                         </div>
                         {userRole === 'corporate_admin' && (
@@ -191,14 +255,11 @@ export default function ResultsView({ rfqId }) {
                                 </button>
                             </div>
                         )}
-                        {userRole !== 'corporate_admin' && (
-                            <p className="text-xs font-medium text-orange-800 bg-orange-100 px-4 py-2 rounded-lg mt-4">
-                                Waiting for Corporate Admin...
-                            </p>
-                        )}
                     </div>
                 </div>
-            ) : rfq?.status === 'REJECTED' ? (
+            )}
+
+            {rfq?.status === 'REJECTED' ? (
                 <div className="p-12 bg-red-50 rounded-3xl border border-red-100 text-center">
                     <AlertCircle className="mx-auto text-red-400 mb-4" size={32} />
                     <p className="text-red-700 font-medium tracking-tight">This quotation request was rejected by the Corporate Admin.</p>

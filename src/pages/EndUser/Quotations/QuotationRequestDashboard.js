@@ -25,7 +25,7 @@ export default function QuotationRequestDashboard() {
         maxTolerancePercent: '0.5',
         tokenValidityHours: '24',
     });
-    const [file, setFile] = useState(null);
+    const [files, setFiles] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [createdRfq, setCreatedRfq] = useState(null);
 
@@ -39,23 +39,40 @@ export default function QuotationRequestDashboard() {
         setSelectedBanks([]);
     }, [formData.type]);
 
-    const handleBankToggle = (bank) => {
+    const handleBankToggle = async (bank) => {
         if (selectedBanks.find(b => b.id === bank.bank_id)) { // Adjusted ID tracking
             setSelectedBanks(selectedBanks.filter(b => b.id !== bank.bank_id));
         } else {
             const base = formData.quotationBase || 'Execution';
+            let fetchedCosts = { costMin: 0, costPercent: 0, costMax: 0, costFlat: 0, quotationBase: base };
+            try {
+                const res = await apiClient.get(`/end-user/quotations/banks/latest-costs?bank_id=${bank.bank_id}`);
+                if (res.data) {
+                    fetchedCosts = {
+                        costMin: res.data.cost_min ?? 0,
+                        costPercent: res.data.cost_percent ?? 0,
+                        costMax: res.data.cost_max ?? 0,
+                        costFlat: res.data.cost_flat ?? 0,
+                        quotationBase: res.data.quotation_base || base
+                    };
+                }
+            } catch (err) {
+                console.warn('Could not fetch latest bank costs:', err);
+            }
+
+            const activeBase = fetchedCosts.quotationBase || base;
             setSelectedBanks([
                 ...selectedBanks, 
                 { 
                     id: bank.bank_id, 
                     name: bank.bank?.name || `Bank ${bank.bank_id}`, 
                     emails: bank.emails, 
-                    costMin: 0, 
-                    costPercent: 0, 
-                    costMax: 0, 
-                    costFlat: 0,
-                    quotationBase: base,
-                    isDocumentVisible: base === 'Execution'
+                    costMin: fetchedCosts.costMin, 
+                    costPercent: fetchedCosts.costPercent, 
+                    costMax: fetchedCosts.costMax, 
+                    costFlat: fetchedCosts.costFlat,
+                    quotationBase: activeBase,
+                    isDocumentVisible: activeBase === 'Execution'
                 }
             ]);
         }
@@ -120,6 +137,7 @@ export default function QuotationRequestDashboard() {
             windowEnd: windowEnd.toISOString(),
             quotationBase: formData.quotationBase || null,
             maxTolerancePercent: formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null,
+            documentPath: files.length > 0 ? JSON.stringify(files.map(f => ({ name: f.name, path: `/uploads/${f.name}` }))) : null,
             selectedBanks: JSON.stringify(selectedBanks),
             token_validity_hours: parseInt(formData.tokenValidityHours)
         };
@@ -524,17 +542,42 @@ export default function QuotationRequestDashboard() {
                     {/* Documents Section */}
                     <section className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100">
                         <h3 className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-2">
-                            <FileText size={14} /> Documents
+                            <FileText size={14} /> Supporting Documents
                         </h3>
                         <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center hover:border-black/20 hover:bg-gray-50 transition-all cursor-pointer relative overflow-hidden group">
                             <input
                                 type="file"
+                                multiple
                                 className="absolute inset-0 opacity-0 cursor-pointer h-full w-full z-10"
-                                onChange={e => setFile(e.target.files?.[0] || null)}
+                                onChange={e => {
+                                    if (e.target.files && e.target.files.length > 0) {
+                                        setFiles(prev => [...prev, ...Array.from(e.target.files)]);
+                                    }
+                                }}
                             />
                             <Plus className="mx-auto text-gray-300 group-hover:text-black mb-2 transition-colors" />
-                            <p className="text-xs sm:text-sm text-gray-500 truncate px-2">{file ? file.name : 'Click or drag to attach'}</p>
+                            <p className="text-xs sm:text-sm text-gray-500">Click or drag to attach files (Multiple allowed)</p>
                         </div>
+
+                        {files.length > 0 && (
+                            <div className="mt-4 space-y-2">
+                                {files.map((f, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs">
+                                        <span className="flex items-center gap-2 truncate text-gray-700 font-medium">
+                                            <FileText size={14} className="text-gray-400 shrink-0" />
+                                            <span className="truncate">{f.name}</span>
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFiles(files.filter((_, i) => i !== idx))}
+                                            className="text-red-500 hover:text-red-700 p-1 rounded font-bold text-xs shrink-0"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </section>
                 </div>
 

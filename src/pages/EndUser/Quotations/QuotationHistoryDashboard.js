@@ -2,7 +2,7 @@ import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'react-toastify';
-import { Check, X, Bell } from 'lucide-react';
+import { Check, X, Bell, Download } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { BarChart3, Landmark, History, ChevronRight } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
@@ -98,13 +98,52 @@ export default function QuotationHistoryDashboard() {
         }
     };
 
+    const handleExportCSV = () => {
+        if (!history || history.length === 0) {
+            alert('No history data to export.');
+            return;
+        }
+
+        const headers = ['RFQ Ref', 'Type', 'Direction', 'Amount', 'Buy Currency', 'Sell Currency', 'Value Date', 'Status', 'Creator', 'Created At'];
+        const rows = history.map(r => [
+            `"${r.ref_no || ''}"`,
+            `"${r.type || ''}"`,
+            `"${r.direction || ''}"`,
+            r.amount || 0,
+            `"${r.buy_currency || ''}"`,
+            `"${r.sell_currency || ''}"`,
+            `"${r.value_date || ''}"`,
+            `"${r.status || ''}"`,
+            `"${r.creator_name || ''}"`,
+            `"${r.created_at ? new Date(r.created_at).toLocaleString() : ''}"`
+        ]);
+
+        const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `quotation_history_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     if (loading) return <div className="p-12 text-center text-gray-500">Loading historical data...</div>;
 
     return (
         <div className="w-full max-w-[1400px] mx-auto p-4 sm:p-8 space-y-8 sm:space-y-12">
-            <header className="mb-8">
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900">Market Insights & History</h1>
-                <p className="text-sm text-gray-500 mt-1">Review past performance and bank analytics.</p>
+            <header className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-gray-900">Market Insights & History</h1>
+                    <p className="text-sm text-gray-500 mt-1">Review past performance and bank analytics.</p>
+                </div>
+                <button
+                    onClick={handleExportCSV}
+                    className="flex items-center gap-2 px-4 py-2 bg-black text-white text-xs font-bold rounded-xl hover:bg-gray-800 transition-colors shadow-md"
+                >
+                    <Download size={14} /> Export History (CSV)
+                </button>
             </header>
 
             {/* Pending Approvals (Admin Only) */}
