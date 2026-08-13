@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 
 export default function ResultsView({ rfqId }) {
