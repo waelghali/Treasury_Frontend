@@ -8,35 +8,20 @@ import {
 } from 'lucide-react';
 
 export default function AdminQuotationDashboard() {
-    const handleExportCSV = () => {
-        if (!history || history.length === 0) {
-            alert('No history data to export.');
-            return;
+    const handleExportCSV = async () => {
+        try {
+            const response = await apiClient.get('/end-user/quotations/export-csv', { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `admin_quotation_detailed_report_${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (err) {
+            console.error('Export failed:', err);
+            alert('Failed to export detailed report: ' + (err.response?.data?.detail || err.message));
         }
-
-        const headers = ['RFQ Ref', 'Type', 'Direction', 'Amount', 'Buy Currency', 'Sell Currency', 'Value Date', 'Status', 'Creator', 'Created At'];
-        const rows = history.map(r => [
-            `"${r.ref_no || ''}"`,
-            `"${r.type || ''}"`,
-            `"${r.direction || ''}"`,
-            r.amount || 0,
-            `"${r.buy_currency || ''}"`,
-            `"${r.sell_currency || ''}"`,
-            `"${r.value_date || ''}"`,
-            `"${r.status || ''}"`,
-            `"${r.creator_name || ''}"`,
-            `"${r.created_at ? new Date(r.created_at).toLocaleString() : ''}"`
-        ]);
-
-        const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `admin_quotation_history_${new Date().toISOString().slice(0, 10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
     };
     const [history, setHistory] = useState([]);
     const [stats, setStats] = useState([]);
