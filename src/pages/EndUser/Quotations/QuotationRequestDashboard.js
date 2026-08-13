@@ -119,6 +119,23 @@ export default function QuotationRequestDashboard() {
             }
         }
 
+        let uploadedDocs = [];
+        if (files && files.length > 0) {
+            try {
+                const uploadData = new FormData();
+                files.forEach(f => uploadData.append('files', f));
+                const uploadRes = await apiClient.post('/end-user/quotations/upload-documents', uploadData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                if (uploadRes.data && uploadRes.data.documents) {
+                    uploadedDocs = uploadRes.data.documents;
+                }
+            } catch (uploadErr) {
+                console.error('Document upload failed:', uploadErr);
+                alert('Warning: Failed to upload attached documents.');
+            }
+        }
+
         // Prepare JSON payload according to backend schema
         const payload = {
             type: formData.type,
@@ -137,7 +154,7 @@ export default function QuotationRequestDashboard() {
             windowEnd: windowEnd.toISOString(),
             quotationBase: formData.quotationBase || null,
             maxTolerancePercent: formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null,
-            documentPath: files.length > 0 ? JSON.stringify(files.map(f => ({ name: f.name, path: `/uploads/${f.name}` }))) : null,
+            documentPath: uploadedDocs.length > 0 ? JSON.stringify(uploadedDocs) : null,
             selectedBanks: JSON.stringify(selectedBanks),
             token_validity_hours: parseInt(formData.tokenValidityHours)
         };
