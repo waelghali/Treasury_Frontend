@@ -62,6 +62,8 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
   const [showLegalModal, setShowLegalModal] = useState(false);
   const [hasCustodyModule, setHasCustodyModule] = useState(true);
   const [hasIssuanceModule, setHasIssuanceModule] = useState(false);
+  const [hasQuotationModule, setHasQuotationModule] = useState(true);
+  const [hasReconciliationModule, setHasReconciliationModule] = useState(true);
 
   const navigate = useNavigate();
 
@@ -102,6 +104,8 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
         setUserPermissions(decoded.permissions || []);
         setHasCustodyModule(decoded.has_custody_module !== undefined ? decoded.has_custody_module : true);
         setHasIssuanceModule(decoded.has_issuance_module !== undefined ? decoded.has_issuance_module : false);
+        setHasQuotationModule(decoded.has_quotation_module !== undefined ? decoded.has_quotation_module : true);
+        setHasReconciliationModule(decoded.has_reconciliation_module !== undefined ? decoded.has_reconciliation_module : true);
         return {
           isAuthenticated: true,
           userRole: decoded.role,
@@ -221,7 +225,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
             {mustChangePassword ? (
               <Route path="*" element={<Navigate to="/force-password-change" replace />} />
             ) : (
-              <Route path="/*" element={<ProtectedLayout onLogout={handleLogout} userRole={userRole} userPermissions={userPermissions} customerName={customerName} customerId={customerId} subscriptionStatus={subscriptionStatus} subscriptionEndDate={subscriptionEndDate} hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} />}>
+              <Route path="/*" element={<ProtectedLayout onLogout={handleLogout} userRole={userRole} userPermissions={userPermissions} customerName={customerName} customerId={customerId} subscriptionStatus={subscriptionStatus} subscriptionEndDate={subscriptionEndDate} hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} hasQuotationModule={hasQuotationModule} hasReconciliationModule={hasReconciliationModule} />}>
                 <Route path="system-owner/*" element={<SystemOwnerRoutes onLogout={handleLogout} />} />
                 <Route path="corporate-admin/*" element={<CorporateAdminRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} hasIssuanceModule={hasIssuanceModule} hasCustodyModule={hasCustodyModule} />} />
                 <Route path="checker/*" element={<CheckerRoutes />} />

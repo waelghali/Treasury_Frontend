@@ -34,7 +34,9 @@ const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-me
 const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, apiUrl }) => {
     const [replyFile, setReplyFile] = useState(null);
     const [verificationResult, setVerificationResult] = useState(null); // AI verification mismatch state
-    
+    const isCancelLiquidation = instruction.action_type === 'CANCEL_LIQUIDATION' || instruction.instruction_type === 'CANCEL_LIQUIDATION';
+    const [confirmOriginalReturned, setConfirmOriginalReturned] = useState(false);
+
     // --- Calculate Instruction Issue Date (fallback to created_at for maintenance actions) ---
     const instructionIssueDate = moment(instruction.instruction_date || instruction.created_at).format('YYYY-MM-DD');
 
@@ -59,10 +61,19 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
             return;
         }
 
+        if (isCancelLiquidation && !confirmOriginalReturned) {
+            toast.error("You must confirm that the original physical LG document has been retrieved/received back from the bank before completing this action.");
+            setSubmitting(false);
+            return;
+        }
+
         try {
             const formData = new FormData();
             formData.append('bank_reply_date', values.bankReplyDate);
             formData.append('reply_details', values.replyDetails || '');
+            if (isCancelLiquidation) {
+                formData.append('original_lg_returned_from_bank', 'true');
+            }
             if (replyFile) {
                 const documentMetadata = {
                     document_type: "BANK_REPLY",
@@ -242,6 +253,25 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
                                                             />
                                                             <p className="mt-1 text-xs text-gray-500">Supported formats: JPG, PNG, PDF. (Max 5MB)</p>
                                                         </div>
+
+                                                        {isCancelLiquidation && (
+                                                            <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl space-y-1.5">
+                                                                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={confirmOriginalReturned}
+                                                                        onChange={(e) => setConfirmOriginalReturned(e.target.checked)}
+                                                                        className="mt-0.5 h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded cursor-pointer"
+                                                                    />
+                                                                    <span className="text-xs font-bold text-amber-900 leading-snug">
+                                                                        I confirm that the original physical LG document has been retrieved / received back from the bank. <span className="text-red-500">*</span>
+                                                                    </span>
+                                                                </label>
+                                                                <p className="text-[11px] text-amber-700 pl-6 font-medium">
+                                                                    Required: The liquidation cancellation action will not complete until physical document retrieval is confirmed.
+                                                                </p>
+                                                            </div>
+                                                        )}
 
                                                         {errors.general && (
                                                             <div className="text-red-600 text-sm mt-2">

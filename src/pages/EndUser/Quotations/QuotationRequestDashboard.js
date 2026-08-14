@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, DollarSign, Copy, ExternalLink, Mail } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, DollarSign, Copy, ExternalLink, Mail, AlertCircle } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 
@@ -91,6 +91,18 @@ export default function QuotationRequestDashboard() {
             return { ...b, [field]: value };
         }));
     };
+
+    const handleMasterQuotationBaseChange = (type) => {
+        setFormData(prev => ({ ...prev, quotationBase: type }));
+        setSelectedBanks(prev => prev.map(b => ({
+            ...b,
+            quotationBase: type,
+            isDocumentVisible: type === 'Execution'
+        })));
+    };
+
+    const uniqueBases = Array.from(new Set(selectedBanks.map(b => b.quotationBase || formData.quotationBase)));
+    const hasMixedBases = selectedBanks.length > 1 && uniqueBases.length > 1;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -478,7 +490,7 @@ export default function QuotationRequestDashboard() {
                                                 <button
                                                     key={type}
                                                     type="button"
-                                                    onClick={() => setFormData({ ...formData, quotationBase: type })}
+                                                    onClick={() => handleMasterQuotationBaseChange(type)}
                                                     className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${formData.quotationBase === type
                                                         ? 'bg-black text-white'
                                                         : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -609,6 +621,27 @@ export default function QuotationRequestDashboard() {
                                 {selectedBanks.length} Selected
                             </span>
                         </div>
+
+                        {hasMixedBases && (
+                            <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm animate-fade-in-up">
+                                <div className="flex items-center gap-2.5">
+                                    <AlertCircle size={18} className="text-amber-600 shrink-0" />
+                                    <div>
+                                        <strong className="block text-amber-950 font-bold uppercase tracking-wider text-[10px]">Mixed Base Types Selected</strong>
+                                        <span>
+                                            {selectedBanks.filter(b => (b.quotationBase || formData.quotationBase) === 'Execution').length} Execution, {selectedBanks.filter(b => (b.quotationBase || formData.quotationBase) === 'Indicative').length} Indicative counterparty bases.
+                                        </span>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => handleMasterQuotationBaseChange(formData.quotationBase)}
+                                    className="px-3 py-1.5 bg-amber-200/90 hover:bg-amber-300 text-amber-950 font-bold rounded-xl text-[11px] transition-colors shrink-0 shadow-sm"
+                                >
+                                    Sync All to {formData.quotationBase}
+                                </button>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-4 flex-1">
                             {banks.map(bank => {

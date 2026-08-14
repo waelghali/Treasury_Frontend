@@ -4,6 +4,8 @@ import { toast } from 'react-toastify';
 import {
     Plus, Trash2, Edit, Building2, CreditCard, Check, X, Star, Loader2
 } from 'lucide-react';
+import CopyBadge from '../../components/CopyBadge';
+import { SkeletonTable } from '../../components/SkeletonLoader';
 
 export default function BankAccountsPage() {
     const [accounts, setAccounts] = useState([]);
@@ -122,9 +124,7 @@ export default function BankAccountsPage() {
 
             {/* Accounts Table */}
             {loading ? (
-                <div className="flex items-center justify-center py-20">
-                    <Loader2 className="animate-spin text-blue-500" size={32} />
-                </div>
+                <SkeletonTable rows={3} cols={3} />
             ) : Object.keys(grouped).length === 0 ? (
                 <div className="text-center py-20 bg-white rounded-2xl border border-slate-200">
                     <CreditCard className="mx-auto text-slate-300 mb-4" size={48} />
@@ -156,13 +156,19 @@ export default function BankAccountsPage() {
                                                 {a.entity_name && <span className="text-xs text-slate-400">Entity: {a.entity_name}</span>}
                                             </div>
                                             <div className="min-w-[150px]">
-                                                <span className="text-xs text-slate-400 block">Account #</span>
-                                                <span className="font-mono font-bold text-sm text-slate-700">{a.account_number}</span>
+                                                <span className="text-xs text-slate-400 block mb-0.5">Account #</span>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="font-mono font-bold text-sm text-slate-700">{a.account_number}</span>
+                                                    <CopyBadge text={a.account_number} variant="icon" size="sm" />
+                                                </div>
                                             </div>
                                             {a.customer_number && (
                                                 <div className="min-w-[120px]">
-                                                    <span className="text-xs text-slate-400 block">CIF / Customer #</span>
-                                                    <span className="font-mono text-sm text-slate-600">{a.customer_number}</span>
+                                                    <span className="text-xs text-slate-400 block mb-0.5">CIF / Customer #</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="font-mono text-sm text-slate-600">{a.customer_number}</span>
+                                                        <CopyBadge text={a.customer_number} variant="icon" size="sm" />
+                                                    </div>
                                                 </div>
                                             )}
                                             {a.branch_name && (

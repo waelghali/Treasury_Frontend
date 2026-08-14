@@ -45,6 +45,8 @@ function SubscriptionPlanForm({ onLogout }) {
     // Module Access
     has_custody_module: true,
     has_issuance_module: false,
+    has_quotation_module: true,
+    has_reconciliation_module: true,
     // Limits
     max_checker_users: 0,
     max_issuance_records: 0,
@@ -80,6 +82,8 @@ function SubscriptionPlanForm({ onLogout }) {
             // Module Access
             has_custody_module: plan.has_custody_module !== undefined ? plan.has_custody_module : true,
             has_issuance_module: plan.has_issuance_module || false,
+            has_quotation_module: plan.has_quotation_module !== undefined ? plan.has_quotation_module : true,
+            has_reconciliation_module: plan.has_reconciliation_module !== undefined ? plan.has_reconciliation_module : true,
             // Limits
             max_checker_users: plan.max_checker_users || 0,
             max_issuance_records: plan.max_issuance_records || 0,
@@ -313,6 +317,20 @@ function SubscriptionPlanForm({ onLogout }) {
               checked={formData.has_issuance_module}
               onChange={handleChange}
               label="LG Issuance Module (Phase 2)"
+            />
+            <ToggleSwitch
+              id="has_quotation_module"
+              name="has_quotation_module"
+              checked={formData.has_quotation_module}
+              onChange={handleChange}
+              label="FX & T-Bill Quotation Module"
+            />
+            <ToggleSwitch
+              id="has_reconciliation_module"
+              name="has_reconciliation_module"
+              checked={formData.has_reconciliation_module}
+              onChange={handleChange}
+              label="Bank Reconciliation Module"
             />
           </div>
 

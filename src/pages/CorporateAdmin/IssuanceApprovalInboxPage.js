@@ -3,6 +3,7 @@ import { apiRequest } from '../../services/apiService';
 import { Loader2, CheckCircle, XCircle, Eye, Shield, Search, Inbox, RotateCcw, ArrowUp, ArrowDown, X, AlertTriangle, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
 import IssuanceRequestDetailsModal from '../../components/Modals/IssuanceRequestDetailsModal';
+import { SkeletonTable } from '../../components/SkeletonLoader';
 
 export default function IssuanceApprovalInboxPage() {
     // Tab state
@@ -252,9 +253,7 @@ export default function IssuanceApprovalInboxPage() {
             {activeTab === 'requests' && (
                 <>
                     {loadingRequests ? (
-                        <div className="flex justify-center items-center p-16">
-                            <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
-                        </div>
+                        <SkeletonTable rows={5} cols={6} />
                     ) : (
                         <>
                             {/* Search */}
@@ -407,9 +406,7 @@ export default function IssuanceApprovalInboxPage() {
             {activeTab === 'discrepancies' && (
                 <>
                     {loadingDiscrepancies ? (
-                        <div className="flex justify-center items-center p-16">
-                            <Loader2 className="animate-spin h-8 w-8 text-amber-600" />
-                        </div>
+                        <SkeletonTable rows={5} cols={6} />
                     ) : (
                         <>
                             {/* Search */}

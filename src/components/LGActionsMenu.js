@@ -1,7 +1,6 @@
-// frontend/src/components/LGActionsMenu.js
 import React from 'react';
 import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react';
-import { EllipsisVertical, CalendarPlus, Users, CheckCircle, FileMinus, MinusCircle, Eye, Edit, PlayCircle } from 'lucide-react';
+import { EllipsisVertical, CalendarPlus, Users, CheckCircle, FileMinus, MinusCircle, Eye, Edit, PlayCircle, ShieldAlert, DollarSign } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 
@@ -27,7 +26,7 @@ function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
-const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquidate, onDecreaseAmount, onViewDetails, isGracePeriod, onAmend, onActivate }) => {
+const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquidate, onDecreaseAmount, onViewDetails, isGracePeriod, onAmend, onActivate, onCancelLiquidation, onRecordFunds }) => {
   const isLgValid = lgRecord.lg_status?.name === 'Valid';
   const isExpired = lgRecord.lg_status?.name === 'Expired';
   const expiryDateMoment = moment(lgRecord.expiry_date);
@@ -40,6 +39,14 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
   const LG_OPERATIONAL_STATUS_NON_OPERATIVE = 2; 
 
   const canActivate = lgRecord.lg_type?.id === LG_TYPE_ADVANCE_PAYMENT_LG && lgRecord.lg_operational_status?.id === LG_OPERATIONAL_STATUS_NON_OPERATIVE;
+
+  const isLiquidationConfirmed = 
+    lgRecord.status === 'LIQUIDATED' || 
+    lgRecord.lg_status?.name === 'Liquidated' ||
+    lgRecord.last_instruction_status === 'Confirmed by Bank' ||
+    lgRecord.fund_receipt_details != null;
+
+  const canCancelLiquidation = onCancelLiquidation && !isLiquidationConfirmed;
 
   const handleAction = (action) => {
     if (isGracePeriod) {
@@ -222,6 +229,50 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                     >
                       <Users className="mr-3 h-5 w-5 text-purple-600 group-hover:text-purple-700" aria-hidden="true" />
                       Change Owner
+                    </button>
+                  </GracePeriodTooltip>
+                )}
+              </MenuItem>
+            )}
+
+            {/* Cancel Liquidation Demand */}
+            {canCancelLiquidation && (
+              <MenuItem disabled={isGracePeriod}>
+                {({ active }) => (
+                  <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                    <button
+                      onClick={() => handleAction(() => onCancelLiquidation(lgRecord))}
+                      className={classNames(
+                        active ? 'bg-amber-50 text-amber-900' : 'text-amber-700',
+                        'group flex items-center w-full px-4 py-2 text-sm font-semibold',
+                        isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
+                      )}
+                      disabled={isGracePeriod}
+                    >
+                      <ShieldAlert className="mr-3 h-5 w-5 text-amber-600 group-hover:text-amber-700" aria-hidden="true" />
+                      Cancel Liquidation Demand
+                    </button>
+                  </GracePeriodTooltip>
+                )}
+              </MenuItem>
+            )}
+
+            {/* Record Liquidation Funds */}
+            {onRecordFunds && (
+              <MenuItem disabled={isGracePeriod}>
+                {({ active }) => (
+                  <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                    <button
+                      onClick={() => handleAction(() => onRecordFunds(lgRecord))}
+                      className={classNames(
+                        active ? 'bg-emerald-50 text-emerald-900' : 'text-emerald-700',
+                        'group flex items-center w-full px-4 py-2 text-sm font-semibold',
+                        isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
+                      )}
+                      disabled={isGracePeriod}
+                    >
+                      <DollarSign className="mr-3 h-5 w-5 text-emerald-600 group-hover:text-emerald-700" aria-hidden="true" />
+                      Record Fund Receipt
                     </button>
                   </GracePeriodTooltip>
                 )}

@@ -8,6 +8,7 @@ import { toast } from 'react-toastify';
 import IssuanceExecutionModal from '../../components/Modals/IssuanceExecutionModal';
 import IssuanceRequestDetailsModal from '../../components/Modals/IssuanceRequestDetailsModal';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { SkeletonTable } from '../../components/SkeletonLoader';
 
 export default function IssuanceRequestsPage() {
   const [requests, setRequests] = useState([]);
@@ -240,7 +241,7 @@ export default function IssuanceRequestsPage() {
     return result;
   }, [requests, searchTerm, statusFilter, dateFrom, dateTo, sortField, sortDir]);
 
-  if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600" /></div>;
+  if (loading) return <div className="p-6"><SkeletonTable rows={6} cols={6} /></div>;
 
   return (
     <div className="space-y-6">

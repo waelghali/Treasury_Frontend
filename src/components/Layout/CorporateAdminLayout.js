@@ -27,6 +27,8 @@ function CorporateAdminLayout({
   subscriptionEndDate,
   hasCustodyModule,
   hasIssuanceModule,
+  hasQuotationModule = true,
+  hasReconciliationModule = true,
   isChecker = false
 }) {
   const [pendingCount, setPendingCount] = useState(getInitialCount());
@@ -103,15 +105,33 @@ function CorporateAdminLayout({
     loadNotifications();
   }, []);
 
-  // Fetch UserNotification records (issuance, maintenance, etc.)
+  // Fetch UserNotification records (issuance, maintenance, etc.) efficiently
   useEffect(() => {
     const fetchUserNotifs = () => {
-      apiRequest('/notifications/', 'GET').then(data => setUserNotifications(data || [])).catch(() => {});
-      apiRequest('/notifications/unread-count', 'GET').then(data => setUnreadCount(data?.count || 0)).catch(() => {});
+      if (document.hidden) return;
+      apiRequest('/notifications/', 'GET')
+        .then(data => {
+          const list = data || [];
+          setUserNotifications(list);
+          setUnreadCount(list.filter(n => !n.is_read).length);
+        })
+        .catch(() => {});
     };
+
     fetchUserNotifs();
-    const interval = setInterval(fetchUserNotifs, 30000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchUserNotifs, 60000);
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchUserNotifs();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const markNotifRead = async (id) => {
@@ -326,7 +346,7 @@ function CorporateAdminLayout({
           )}
 
           {/* Bank Reconciliation */}
-          {!isChecker && (customerId === 1 || customerId === "1") && (
+          {!isChecker && hasReconciliationModule && (
             <div className="pb-2">
               {!isCollapsed && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Bank Reconciliation</p></div>}
               <Link to="/corporate-admin/reconciliation" title={isCollapsed ? 'Statement Dash' : ''}
@@ -354,7 +374,7 @@ function CorporateAdminLayout({
           )}
 
           {/* Quotations */}
-          {!isChecker && (customerId === 1 || customerId === "1") && (
+          {!isChecker && hasQuotationModule && (
             <div className="pb-2">
               {!isCollapsed && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Quotations</p></div>}
               <Link to="/corporate-admin/quotations" title={isCollapsed ? 'Quotation Control' : ''}

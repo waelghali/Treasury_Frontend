@@ -56,10 +56,12 @@ export default function NotificationCenter() {
     const navigate = useNavigate();
 
     const fetchNotifications = async () => {
+        if (document.hidden) return;
         try {
             const response = await apiClient.get('/notifications');
-            setNotifications(response.data);
-            setUnreadCount(response.data.filter(n => !n.is_read).length);
+            const data = response.data || [];
+            setNotifications(data);
+            setUnreadCount(data.filter(n => !n.is_read).length);
         } catch (error) {
             if (error?.response?.status !== 401) {
                 console.error("Error fetching notifications:", error);
@@ -69,8 +71,15 @@ export default function NotificationCenter() {
 
     useEffect(() => {
         fetchNotifications();
-        const interval = setInterval(fetchNotifications, 30000);
-        return () => clearInterval(interval);
+        const interval = setInterval(fetchNotifications, 60000);
+        const handleVisibilityChange = () => {
+            if (!document.hidden) fetchNotifications();
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, []);
 
     useEffect(() => {

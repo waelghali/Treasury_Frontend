@@ -18,6 +18,7 @@ import MaintenanceActionModal from '../../components/Modals/MaintenanceActionMod
 import ChangeRequestorModal from '../../components/Modals/ChangeRequestorModal';
 import IssuanceRequestDetailsModal from '../../components/Modals/IssuanceRequestDetailsModal';
 import RequestorDirectoryTab from '../../components/Issuance/RequestorDirectoryTab';
+import CopyBadge from '../../components/CopyBadge';
 
 // Status display labels (module-level so both modal and page can use)
 const statusLabels = {
@@ -844,9 +845,9 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                     {/* Header */}
                     <div className="bg-gradient-to-r from-slate-800 to-slate-700 text-white px-6 py-4 flex justify-between items-start shrink-0">
                         <div>
-                            <div className="flex items-center gap-3 mb-1">
+                            <div className="flex items-center gap-2 mb-1">
                                 <h2 className="text-lg font-black tracking-tight">{lg.lg_ref_number}</h2>
-                                <button onClick={() => handleCopy(lg.lg_ref_number)} className="text-white/50 hover:text-white"><Copy className="w-4 h-4" /></button>
+                                <CopyBadge text={lg.lg_ref_number} variant="icon" className="text-white/60 hover:text-white hover:bg-slate-700/60" />
                                 <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${statusColors[lg.status] || 'bg-slate-100 text-slate-600'}`}>
                                     {lg.status?.replace(/_/g, ' ')}
                                 </span>

@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, Outlet } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
+import AIQueryAssistantModal from './AIQueryAssistantModal';
 
 // Layout Imports
+
 import SidebarLayout from './Layout/SidebarLayout';
 import CorporateAdminLayout from './Layout/CorporateAdminLayout';
 import EndUserLayout from './Layout/EndUserLayout';
@@ -10,11 +13,13 @@ import ViewerLayout from './Layout/ViewerLayout';
 // Service Imports
 import { fetchActiveSystemNotifications } from '../services/notificationService';
 
-function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, customerId, subscriptionStatus, subscriptionEndDate, hasCustodyModule, hasIssuanceModule }) {
+function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, customerId, subscriptionStatus, subscriptionEndDate, hasCustodyModule, hasIssuanceModule, hasQuotationModule, hasReconciliationModule }) {
   const location = useLocation();
   const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [headerTitle, setHeaderTitle] = useState('');
   const [systemNotifications, setSystemNotifications] = useState([]);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+
 
   // --- 1. LOGIC TO DETERMINE ACTIVE MENU ITEM & TITLE ---
   const getActiveState = (currentPath, role) => {
@@ -103,9 +108,36 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
     loadNotifications();
   }, [userRole]);
 
+  // Helper to wrap layout with AI Assistant trigger & modal
+  const renderWithAiAssistant = (layoutComponent) => (
+    <>
+      {layoutComponent}
+
+      {/* Floating AI Assistant Trigger Button */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <button
+          onClick={() => setIsAiModalOpen(true)}
+          className="flex items-center space-x-2 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-full shadow-2xl transition-all duration-300 transform hover:scale-105 group border border-white/20"
+          title="AI Assistant — Experimental"
+        >
+          <Sparkles className="w-5 h-5 text-amber-300 animate-pulse group-hover:rotate-12 transition-transform" />
+          <span className="font-bold text-sm tracking-wide">AI Assistant</span>
+          <span className="bg-amber-400 text-slate-900 text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-full">
+            POC
+          </span>
+        </button>
+      </div>
+
+      <AIQueryAssistantModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+      />
+    </>
+  );
+
   // --- 3. RENDERING ---
   if (userRole === 'system_owner') {
-    return (
+    return renderWithAiAssistant(
       <SidebarLayout
         onLogout={onLogout}
         activeMenuItem={activeMenuItem}
@@ -116,7 +148,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
       </SidebarLayout>
     );
   } else if (userRole === 'corporate_admin' || userRole === 'checker') {
-    return (
+    return renderWithAiAssistant(
       <CorporateAdminLayout
         onLogout={onLogout}
         activeMenuItem={activeMenuItem}
@@ -128,13 +160,15 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
         subscriptionEndDate={subscriptionEndDate}
         hasCustodyModule={hasCustodyModule}
         hasIssuanceModule={hasIssuanceModule}
+        hasQuotationModule={hasQuotationModule}
+        hasReconciliationModule={hasReconciliationModule}
         isChecker={userRole === 'checker'}
       >
         <Outlet />
       </CorporateAdminLayout>
     );
   } else if (userRole === 'end_user') {
-    return (
+    return renderWithAiAssistant(
       <EndUserLayout
         onLogout={onLogout}
         activeMenuItem={activeMenuItem}
@@ -146,12 +180,14 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
         userPermissions={userPermissions}
         hasCustodyModule={hasCustodyModule}
         hasIssuanceModule={hasIssuanceModule}
+        hasQuotationModule={hasQuotationModule}
+        hasReconciliationModule={hasReconciliationModule}
       >
         <Outlet />
       </EndUserLayout>
     );
   } else if (userRole === 'viewer') {
-    return (
+    return renderWithAiAssistant(
       <ViewerLayout
         onLogout={onLogout}
         activeMenuItem={activeMenuItem}
@@ -174,5 +210,6 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
     );
   }
 }
+
 
 export default ProtectedLayout;

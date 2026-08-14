@@ -11,7 +11,7 @@ import { fetchActiveSystemNotifications } from '../../services/notificationServi
 import { apiRequest } from '../../services/apiService';
 import { parseISO } from 'date-fns';
 
-function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, headerTitle, subscriptionStatus, subscriptionEndDate, userPermissions, hasCustodyModule, hasIssuanceModule }) {
+function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, headerTitle, subscriptionStatus, subscriptionEndDate, userPermissions, hasCustodyModule, hasIssuanceModule, hasQuotationModule = true, hasReconciliationModule = true }) {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -63,15 +63,33 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
     loadNotifications();
   }, []);
 
-  // Fetch UserNotification records (issuance, maintenance, etc.)
+  // Fetch UserNotification records (issuance, maintenance, etc.) efficiently
   useEffect(() => {
     const fetchUserNotifs = () => {
-      apiRequest('/notifications/', 'GET').then(data => setUserNotifications(data || [])).catch(() => {});
-      apiRequest('/notifications/unread-count', 'GET').then(data => setUnreadCount(data?.count || 0)).catch(() => {});
+      if (document.hidden) return;
+      apiRequest('/notifications/', 'GET')
+        .then(data => {
+          const list = data || [];
+          setUserNotifications(list);
+          setUnreadCount(list.filter(n => !n.is_read).length);
+        })
+        .catch(() => {});
     };
+
     fetchUserNotifs();
-    const interval = setInterval(fetchUserNotifs, 30000); // Poll every 30s
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchUserNotifs, 60000);
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchUserNotifs();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const markNotifRead = async (id) => {
@@ -272,8 +290,8 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
             </>
           )}
 
-          {/* Quotations - TEMP: only for customer_id 1 until module is complete */}
-          {(customerId === 1 || customerId === "1") && (
+          {/* Quotations */}
+          {hasQuotationModule && (
             <>
               {!isCollapsed && (
                 <div className="pt-3 pb-1 px-3">

@@ -8,6 +8,7 @@ import {
   FileSearch, CheckCircle, XCircle, AlertTriangle
 } from 'lucide-react';
 import FacilityFormModal from '../../components/Modals/FacilityFormModal';
+import { SkeletonCards } from '../../components/SkeletonLoader';
 
 export default function FacilitiesPage() {
   const [facilities, setFacilities] = useState([]);
@@ -256,10 +257,7 @@ export default function FacilitiesPage() {
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-32 space-y-4">
-          <Loader2 className="animate-spin text-blue-600" size={48} />
-          <p className="text-slate-400 font-black text-[10px] uppercase tracking-[0.2em]">Syncing Facility Data...</p>
-        </div>
+        <SkeletonCards count={3} />
       ) : facilities.length === 0 ? (
         <div className="text-center py-24 bg-white rounded-[2rem] border-2 border-dashed border-slate-200 shadow-inner">
           <Building2 className="mx-auto text-slate-200 mb-4" size={64} />

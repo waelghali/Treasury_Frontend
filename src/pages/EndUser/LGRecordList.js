@@ -15,6 +15,8 @@ import LiquidateLGModal from 'components/Modals/LiquidateLGModal';
 import DecreaseAmountModal from 'components/Modals/DecreaseAmountModal';
 import LGAmendModal from 'components/Modals/LGAmendModal';
 import LGActivateNonOperativeModal from 'components/Modals/LGActivateNonOperativeModal';
+import CancelLiquidationModal from 'components/Modals/CancelLiquidationModal';
+import RecordLiquidationFundsModal from 'components/Modals/RecordLiquidationFundsModal';
 import { Switch } from '@headlessui/react';
 import { toast } from 'react-toastify';
 import { Listbox, Transition, Menu } from '@headlessui/react';
@@ -22,6 +24,7 @@ import * as XLSX from 'xlsx';
 
 // Added HistoryExportModal import
 import HistoryExportModal from 'components/Modals/HistoryExportModal';
+import { SkeletonTable } from 'components/SkeletonLoader';
 
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
   if (isGracePeriod) {
@@ -75,6 +78,12 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
 
   const [showActivateModal, setShowActivateModal] = useState(false);
   const [selectedLgRecordForActivate, setSelectedLgRecordForActivate] = useState(null);
+
+  const [showCancelLiquidationModal, setShowCancelLiquidationModal] = useState(false);
+  const [selectedLgForCancelLiquidation, setSelectedLgForCancelLiquidation] = useState(null);
+
+  const [showRecordFundsModal, setShowRecordFundsModal] = useState(false);
+  const [selectedLgForRecordFunds, setSelectedLgForRecordFunds] = useState(null);
 
   const [sortColumn, setSortColumn] = useState('expiry_date');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -214,6 +223,20 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     if (!isCorporateAdminView && !isGracePeriod) {
       setSelectedLgRecordForActivate(record);
       setShowActivateModal(true);
+    }
+  };
+
+  const handleCancelLiquidation = (record) => {
+    if (!isCorporateAdminView && !isGracePeriod) {
+      setSelectedLgForCancelLiquidation(record);
+      setShowCancelLiquidationModal(true);
+    }
+  };
+
+  const handleRecordFunds = (record) => {
+    if (!isCorporateAdminView && !isGracePeriod) {
+      setSelectedLgForRecordFunds(record);
+      setShowRecordFundsModal(true);
     }
   };
 
@@ -618,10 +641,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
       )}
 
       {isInitialLoading ? (
-        <div className="text-center py-8">
-          <Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto" />
-          <p className="text-gray-600 mt-2">Loading LG records...</p>
-        </div>
+        <SkeletonTable rows={6} cols={8} className="my-4" />
       ) : lgRecords.length === 0 ? (
         <div className="bg-gray-50 p-6 rounded-lg text-center border border-gray-200">
           <p className="text-gray-500">No LG records found for your customer.</p>
@@ -881,6 +901,8 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                                       onViewDetails={handleViewDetails}
                                       onAmend={handleAmend}
                                       onActivate={handleActivate}
+                                      onCancelLiquidation={handleCancelLiquidation}
+                                      onRecordFunds={handleRecordFunds}
                                   />
                               </div>
                           )}
@@ -966,6 +988,20 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
             <LGActivateNonOperativeModal
                 lgRecord={selectedLgRecordForActivate}
                 onClose={() => setShowActivateModal(false)}
+                onSuccess={handleActionSuccess}
+            />
+          )}
+          {showCancelLiquidationModal && selectedLgForCancelLiquidation && (
+            <CancelLiquidationModal
+                lg={selectedLgForCancelLiquidation}
+                onClose={() => setShowCancelLiquidationModal(false)}
+                onSuccess={handleActionSuccess}
+            />
+          )}
+          {showRecordFundsModal && selectedLgForRecordFunds && (
+            <RecordLiquidationFundsModal
+                lg={selectedLgForRecordFunds}
+                onClose={() => setShowRecordFundsModal(false)}
                 onSuccess={handleActionSuccess}
             />
           )}

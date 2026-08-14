@@ -157,6 +157,8 @@ function SubscriptionPlanList({ onLogout }) {
                     <div className="flex flex-wrap gap-1">
                       {plan.has_custody_module && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Custody</span>}
                       {plan.has_issuance_module && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Issuance</span>}
+                      {plan.has_quotation_module && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">Quotations</span>}
+                      {plan.has_reconciliation_module && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">Reconciliation</span>}
                       {plan.can_maker_checker && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">M/C</span>}
                       {plan.can_multi_entity && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Multi-Entity</span>}
                       {plan.can_ai_integration && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">AI</span>}

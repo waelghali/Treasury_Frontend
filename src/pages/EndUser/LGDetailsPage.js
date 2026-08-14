@@ -18,6 +18,7 @@ import RecordBankReplyModal from '../../components/Modals/RecordBankReplyModal';
 import LGAmendModal from '../../components/Modals/LGAmendModal';
 import LGActivateNonOperativeModal from '../../components/Modals/LGActivateNonOperativeModal';
 import { Switch } from '@headlessui/react';
+import CopyBadge from '../../components/CopyBadge';
 import LgTimelineBar from '../../components/LgTimelineBar';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
@@ -559,13 +560,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                 </button>
                 <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex-grow text-center flex items-center justify-center gap-3">
 					LG Record: {lgRecord.lg_number}
-					<button
-						onClick={handleCopyLgNumber}
-						className="p-1.5 rounded-full hover:bg-gray-200 text-gray-500 hover:text-blue-600 transition-colors duration-200"
-						title="Copy LG Number"
-					>
-						<Copy className="h-5 w-5" />
-					</button>
+					<CopyBadge text={lgRecord.lg_number} variant="icon" size="lg" />
 				</h1>
                 <div className="flex-shrink-0 w-auto">
                 </div>
