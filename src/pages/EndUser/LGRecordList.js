@@ -540,27 +540,27 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-100">
-      <div className="flex justify-between items-center mb-6">
+    <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
               {filterByOwnerId ? `LGs for Owner ID: ${filterByOwnerId}` : `Manage LG Records`}
           </h2>
-          <p className="text-sm text-gray-500 mt-1">View, filter, and manage your Letters of Guarantee portfolio.</p>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">View, filter, and manage your Letters of Guarantee portfolio.</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {(searchTerm.length > 0 || selectedStatuses.length > 0 || selectedDate || selectedTypes.length > 0) && (
               <button
                   onClick={handleClearFilters}
-                  className={`${buttonBaseClassNames} bg-gray-600 text-white hover:bg-gray-700`}
+                  className={`${buttonBaseClassNames} bg-gray-600 text-white hover:bg-gray-700 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2`}
               >
-                  <XCircle className="h-5 w-5 mr-2" />
+                  <XCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-1.5" />
                   Clear Filters
               </button>
             )}
             <Menu as="div" className="relative inline-block text-left">
-              <Menu.Button className={`${buttonBaseClassNames} bg-teal-600 text-white hover:bg-teal-700`}>
-                <Download className="h-5 w-5 mr-2" />
+              <Menu.Button className={`${buttonBaseClassNames} bg-teal-600 text-white hover:bg-teal-700 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2`}>
+                <Download className="h-4 w-4 sm:h-5 sm:w-5 mr-1.5" />
                 Export
               </Menu.Button>
               <Transition
@@ -572,7 +572,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                 leaveFrom="transform opacity-100 scale-100"
                 leaveTo="transform opacity-0 scale-95"
               >
-                {/* FIX: Added z-50 to ensure dropdown appears above sticky table content */}
                 <Menu.Items className="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                   <div className="py-1">
                     <Menu.Item>
@@ -608,24 +607,23 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
               </Transition>
             </Menu>
 
-            {/* ADDED: Action History Button */}
             <button
                 onClick={() => setShowHistoryModal(true)}
-                className={`${buttonBaseClassNames} bg-indigo-600 text-white hover:bg-indigo-700 ml-2`}
+                className={`${buttonBaseClassNames} bg-indigo-600 text-white hover:bg-indigo-700 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2`}
                 title="Export full audit history of actions"
             >
-                <History className="h-5 w-5 mr-2" />
-                Action History
+                <History className="h-4 w-4 sm:h-5 sm:w-5 mr-1.5" />
+                History
             </button>
 
             {!isCorporateAdminView && (
               <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                 <button
                     onClick={() => navigate('/end-user/lg-records/new')}
-                    className={`${buttonBaseClassNames} bg-blue-600 text-white hover:bg-blue-700 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`${buttonBaseClassNames} bg-blue-600 text-white hover:bg-blue-700 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                     disabled={isGracePeriod}
                 >
-                    <PlusCircle className="h-5 w-5 mr-2" />
+                    <PlusCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-1.5" />
                     Record New LG
                 </button>
               </GracePeriodTooltip>
@@ -648,150 +646,246 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
         </div>
       ) : (
         <>
-          <div className="mb-4 flex items-center justify-between space-x-4 flex-wrap gap-2">
+          <div className="mb-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             <input
               type="text"
               placeholder="Search by LG No., Issuer, Beneficiary, Bank, Category..."
-              className="mt-1 block flex-grow border border-gray-300 pl-3 pr-10 py-2 text-base rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-md"
+              className="block flex-1 min-w-0 border border-gray-300 px-3 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
 
-            <div className="relative w-64 shrink-0">
-              <input
-                type="date"
-                className="mt-1 w-full cursor-pointer rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-md"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                placeholder="Filter by date"
-                title="Show LGs where: Issuance Date < Selected Date < Expiry Date"
-              />
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+              <div className="w-full sm:w-44 shrink-0">
+                <input
+                  type="date"
+                  className="w-full cursor-pointer rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  placeholder="Filter by date"
+                  title="Show LGs where: Issuance Date < Selected Date < Expiry Date"
+                />
+              </div>
+
+              <Listbox value={selectedStatuses} onChange={setSelectedStatuses} multiple>
+                {({ open }) => (
+                  <div className="relative w-full sm:w-44 shrink-0">
+                    <Listbox.Button className="w-full cursor-default rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                      <span className="block truncate">
+                        {selectedStatuses.length === 0
+                          ? 'Status: All'
+                          : selectedStatuses.length === uniqueStatuses.length
+                            ? 'All Statuses'
+                            : selectedStatuses.join(', ')}
+                      </span>
+                      <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                        <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                      </span>
+                    </Listbox.Button>
+
+                    <Transition
+                      show={open}
+                      as={Fragment}
+                      leave="transition ease-in duration-100"
+                      leaveFrom="opacity-100"
+                      leaveTo="opacity-0"
+                    >
+                      <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white py-1 text-sm shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none">
+                        {uniqueStatuses.map((status) => (
+                          <Listbox.Option
+                            key={status}
+                            className={({ active }) =>
+                              `relative cursor-default select-none py-2 pl-8 pr-4 ${
+                                active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                              }`
+                            }
+                            value={status}
+                          >
+                            {({ selected, active }) => (
+                              <>
+                                <span className={`block truncate ${selected ? 'font-semibold' : 'font-normal'}`}>
+                                  {status}
+                                </span>
+                                {selected ? (
+                                  <span
+                                    className={`absolute inset-y-0 left-0 flex items-center pl-2 ${
+                                      active ? 'text-white' : 'text-blue-600'
+                                    }`}
+                                  >
+                                    ✓
+                                  </span>
+                                ) : null}
+                              </>
+                            )}
+                          </Listbox.Option>
+                        ))}
+                      </Listbox.Options>
+                    </Transition>
+                  </div>
+                )}
+              </Listbox>
+
+              <Listbox value={selectedTypes} onChange={setSelectedTypes} multiple>
+                {({ open }) => (
+                  <div className="relative w-full sm:w-44 shrink-0">
+                    <Listbox.Button className="w-full cursor-default rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                      <span className="block truncate">
+                        {selectedTypes.length === 0
+                          ? 'Type: All'
+                          : selectedTypes.length === uniqueTypes.length
+                            ? 'All Types'
+                            : selectedTypes.join(', ')}
+                      </span>
+                      <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                        <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                      </span>
+                    </Listbox.Button>
+
+                    <Transition
+                      show={open}
+                      as={Fragment}
+                      leave="transition ease-in duration-100"
+                      leaveFrom="opacity-100"
+                      leaveTo="opacity-0"
+                    >
+                      <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white py-1 text-sm shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none">
+                        {uniqueTypes.map((type) => (
+                          <Listbox.Option
+                            key={type}
+                            className={({ active }) =>
+                              `relative cursor-default select-none py-2 pl-8 pr-4 ${
+                                active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                              }`
+                            }
+                            value={type}
+                          >
+                            {({ selected, active }) => (
+                              <>
+                                <span className={`block truncate ${selected ? 'font-semibold' : 'font-normal'}`}>
+                                  {type}
+                                </span>
+                                {selected ? (
+                                  <span
+                                    className={`absolute inset-y-0 left-0 flex items-center pl-2 ${
+                                      active ? 'text-white' : 'text-blue-600'
+                                    }`}
+                                  >
+                                    ✓
+                                  </span>
+                                ) : null}
+                              </>
+                            )}
+                          </Listbox.Option>
+                        ))}
+                      </Listbox.Options>
+                    </Transition>
+                  </div>
+                )}
+              </Listbox>
             </div>
-
-            <Listbox value={selectedStatuses} onChange={setSelectedStatuses} multiple>
-              {({ open }) => (
-                <div className="relative w-64 shrink-0">
-                  <Listbox.Button className="mt-1 w-full cursor-default rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-md">
-                    <span className="block truncate text-md">
-                      {selectedStatuses.length === 0
-                        ? 'Filter by Status'
-                        : selectedStatuses.length === uniqueStatuses.length
-                          ? 'All Statuses'
-                          : selectedStatuses.join(', ')}
-                    </span>
-                    <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                      <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden="true" />
-                    </span>
-                  </Listbox.Button>
-
-                  <Transition
-                    show={open}
-                    as={Fragment}
-                    leave="transition ease-in duration-100"
-                    leaveFrom="opacity-100"
-                    leaveTo="opacity-0"
-                  >
-                     {/* FIX: Added z-50 to ensure dropdown appears above sticky table content */}
-                    <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                      {uniqueStatuses.map((status) => (
-                        <Listbox.Option
-                          key={status}
-                          className={({ active }) =>
-                            `relative cursor-default select-none py-2 pl-8 pr-4 ${
-                              active ? 'bg-blue-600 text-white' : 'text-gray-900'
-                            }`
-                          }
-                          value={status}
-                        >
-                          {({ selected, active }) => (
-                            <>
-                              <span className={`block truncate ${selected ? 'font-semibold' : 'font-normal'}`}>
-                                {status}
-                              </span>
-                              {selected ? (
-                                <span
-                                  className={`absolute inset-y-0 left-0 flex items-center pl-1.5 ${
-                                    active ? 'text-white' : 'text-blue-600'
-                                  }`}
-                                >
-                                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.052-.143z" clipRule="evenodd" />
-                                  </svg>
-                                </span>
-                              ) : null}
-                            </>
-                          )}
-                        </Listbox.Option>
-                      ))}
-                    </Listbox.Options>
-                  </Transition>
-                </div>
-              )}
-            </Listbox>
-
-            <Listbox value={selectedTypes} onChange={setSelectedTypes} multiple>
-              {({ open }) => (
-                <div className="relative w-64 shrink-0">
-                  <Listbox.Button className="mt-1 w-full cursor-default rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-md">
-                    <span className="block truncate text-md">
-                      {selectedTypes.length === 0
-                        ? 'Filter by Type'
-                        : selectedTypes.length === uniqueTypes.length
-                          ? 'All Types'
-                          : selectedTypes.join(', ')}
-                    </span>
-                    <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                      <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden="true" />
-                    </span>
-                  </Listbox.Button>
-
-                  <Transition
-                    show={open}
-                    as={Fragment}
-                    leave="transition ease-in duration-100"
-                    leaveFrom="opacity-100"
-                    leaveTo="opacity-0"
-                  >
-                     {/* FIX: Added z-50 to ensure dropdown appears above sticky table content */}
-                    <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                      {uniqueTypes.map((type) => (
-                        <Listbox.Option
-                          key={type}
-                          className={({ active }) =>
-                            `relative cursor-default select-none py-2 pl-8 pr-4 ${
-                              active ? 'bg-blue-600 text-white' : 'text-gray-900'
-                            }`
-                          }
-                          value={type}
-                        >
-                          {({ selected, active }) => (
-                            <>
-                              <span className={`block truncate ${selected ? 'font-semibold' : 'font-normal'}`}>
-                                {type}
-                              </span>
-                              {selected ? (
-                                <span
-                                  className={`absolute inset-y-0 left-0 flex items-center pl-1.5 ${
-                                    active ? 'text-white' : 'text-blue-600'
-                                  }`}
-                                >
-                                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.052-.143z" clipRule="evenodd" />
-                                  </svg>
-                                </span>
-                              ) : null}
-                            </>
-                          )}
-                        </Listbox.Option>
-                      ))}
-                    </Listbox.Options>
-                  </Transition>
-                </div>
-              )}
-            </Listbox>
           </div>
 
-          <div className="overflow-auto rounded-lg shadow relative max-h-[75vh]">
+          {/* MOBILE VIEW: Cards for Small Screens (< md) */}
+          <div className="md:hidden space-y-3">
+            {filteredAndSortedRecords.length === 0 ? (
+              <div className="p-6 text-center text-gray-500 bg-gray-50 rounded-xl border border-gray-200">
+                No matching LG records found.
+              </div>
+            ) : (
+              filteredAndSortedRecords.map((record) => (
+                <div
+                  key={`mobile-${record.id}`}
+                  className="p-4 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => handleViewDetails(record.id)}
+                      className="font-bold text-base text-blue-600 hover:text-blue-800 text-left truncate"
+                    >
+                      {record.lg_number}
+                    </button>
+                    <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${
+                      record.lg_status?.name === 'Valid' ? 'bg-green-100 text-green-800' :
+                      record.lg_status?.name === 'Expired' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {record.lg_status?.name || 'N/A'}
+                    </span>
+                  </div>
+
+                  <div className="text-lg font-extrabold text-gray-900">
+                    {formatAmount(record.lg_amount, record.lg_currency?.iso_code)}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 bg-gray-50 p-2.5 rounded-lg">
+                    <div>
+                      <span className="text-gray-400 block text-[10px] uppercase font-semibold">Beneficiary</span>
+                      <span className="font-medium text-gray-800 truncate block">{record.beneficiary_corporate?.entity_name || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 block text-[10px] uppercase font-semibold">Issuing Bank</span>
+                      <span className="font-medium text-gray-800 truncate block">
+                        {record.issuing_bank?.name === 'Foreign Bank' ? record.foreign_bank_name || 'Foreign' : record.issuing_bank?.name || 'N/A'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 block text-[10px] uppercase font-semibold">Category</span>
+                      <span className="font-medium text-gray-800 truncate block">{record.lg_category?.name || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 block text-[10px] uppercase font-semibold">Expiry Date</span>
+                      <span className="font-medium text-gray-800 block">{formatDate(record.expiry_date)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+                    {!isCorporateAdminView && (
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-500">Auto Renew:</span>
+                        <Switch
+                          checked={record.auto_renewal}
+                          onChange={(newStatus) => handleToggleAutoRenewal(record, newStatus)}
+                          disabled={isGracePeriod}
+                          className={`${
+                            record.auto_renewal ? 'bg-blue-600' : 'bg-gray-200'
+                          } relative inline-flex h-5 w-9 items-center rounded-full transition-colors`}
+                        >
+                          <span className={`${
+                            record.auto_renewal ? 'translate-x-4' : 'translate-x-1'
+                          } inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} />
+                        </Switch>
+                      </div>
+                    )}
+                    <div className="flex items-center space-x-2 ml-auto">
+                      {!isCorporateAdminView && !isGracePeriod && (
+                        <LGActionsMenu
+                          lgRecord={record}
+                          onExtend={handleExtend}
+                          onChangeOwner={handleChangeOwner}
+                          onRelease={handleRelease}
+                          onLiquidate={handleLiquidate}
+                          onDecreaseAmount={handleDecreaseAmount}
+                          onAmend={handleAmend}
+                          onActivate={handleActivate}
+                          onCancelLiquidation={handleCancelLiquidation}
+                          onRecordFunds={handleRecordFunds}
+                        />
+                      )}
+                      <button
+                        onClick={() => handleViewDetails(record.id)}
+                        className="px-2.5 py-1 text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md transition-colors"
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* DESKTOP VIEW: Multi-Column Table (>= md) */}
+          <div className="hidden md:block overflow-auto rounded-lg shadow relative max-h-[75vh]">
             {isRefreshing && (
                 <div className="absolute inset-x-0 top-0 flex items-center justify-center py-1 bg-blue-100 text-blue-700 text-sm font-medium z-10 rounded-t-lg">
                   <Loader2 className="animate-spin h-4 w-4 mr-2" /> Refreshing data...
@@ -800,7 +894,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  {/* Standard Headers */}
                   {[
                       { key: 'lg_number', label: 'LG Number' },
                       { key: 'issuer_name', label: 'Issuer Name' },
@@ -828,7 +921,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
 					  Auto Renew
 					</th>
                   )}
-                  {/* STICKY ACTION HEADER */}
 				  <th scope="col" className="sticky top-0 right-0 z-30 bg-gray-50 border-l border-gray-200 px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider shadow-sm">Actions</th>
                 </tr>
               </thead>
@@ -885,7 +977,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                       </td>
                     )}
                     
-                    {/* STICKY ACTION COLUMN */}
                     <td className="sticky right-0 z-10 bg-white group-hover:bg-blue-50 border-l border-gray-200 px-4 py-4 whitespace-nowrap text-right text-sm font-medium transition-colors shadow-sm">
                       <div className="flex justify-end items-center">
                           
@@ -898,7 +989,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                                       onRelease={handleRelease}
                                       onLiquidate={handleLiquidate}
                                       onDecreaseAmount={handleDecreaseAmount}
-                                      onViewDetails={handleViewDetails}
                                       onAmend={handleAmend}
                                       onActivate={handleActivate}
                                       onCancelLiquidation={handleCancelLiquidation}
@@ -906,12 +996,13 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                                   />
                               </div>
                           )}
+                          
                           <button
-                            onClick={(e) => handleInteractiveClick(e, () => handleViewLetter(record))}
-                            className="text-teal-600 hover:text-teal-900 mr-2 p-1 rounded-md hover:bg-white"
-                            title="View Latest Letter"
+                            onClick={() => handleViewDetails(record.id)}
+                            className="text-gray-400 hover:text-blue-600 p-1 rounded-md transition-colors ml-2"
+                            title="View Details"
                           >
-                            <FileText className="h-5 w-5" />
+                            <Eye className="h-5 w-5" />
                           </button>
                       </div>
                     </td>
@@ -919,11 +1010,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                 ))}
               </tbody>
             </table>
-            {filteredAndSortedRecords.length === 0 && (
-              <div className="bg-gray-50 p-6 rounded-lg text-center border border-gray-200 mt-4">
-                <p className="text-gray-500">No LG records match your filter criteria.</p>
-              </div>
-            )}
           </div>
         </>
       )}

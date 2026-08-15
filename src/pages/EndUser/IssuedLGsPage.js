@@ -2106,82 +2106,135 @@ export default function IssuedLGsPage() {
                     </p>
                 </div>
             ) : (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200">
-                                    <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('internal_serial')}>
-                                        <div className="flex items-center gap-1">Serial # <SortIcon field="internal_serial" /></div>
-                                    </th>
-                                    <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Status</th>
-                                    <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">LG Type</th>
-                                    <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('current_amount')}>
-                                        <div className="flex items-center justify-end gap-1">Amount <SortIcon field="current_amount" /></div>
-                                    </th>
-                                    <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('expiry_date')}>
-                                        <div className="flex items-center gap-1">Expiry <SortIcon field="expiry_date" /></div>
-                                    </th>
-                                    <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('bank_name')}>
-                                        <div className="flex items-center gap-1">Bank <SortIcon field="bank_name" /></div>
-                                    </th>
-                                    <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('beneficiary_name')}>
-                                        <div className="flex items-center gap-1">Beneficiary <SortIcon field="beneficiary_name" /></div>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {filtered.map(r => {
-                                    const cd = expiryCountdown(r.expiry_date);
-                                    return (
-                                        <tr
-                                            key={r.id}
-                                            className="hover:bg-slate-50 transition-colors cursor-pointer"
-                                            onClick={() => setSelectedLG(r)}
-                                        >
-                                            <td className="px-4 py-3">
-                                                <div className="font-bold text-slate-900">{r.internal_serial || '—'}</div>
-                                                <div className="text-[11px] text-blue-600 font-medium">{r.lg_ref_number}</div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${statusColors[r.status] || 'bg-slate-100 text-slate-600'}`}>
-                                                    {statusLabels[r.status] || r.status?.replace(/_/g, ' ')}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className="font-bold text-slate-700 truncate max-w-[150px]" title={r.request?.lg_type || 'Unknown'}>
-                                                    {r.request?.lg_type || '—'}
-                                                </div>
-                                                <div className="text-[10px] text-slate-500 truncate max-w-[150px]" title={r.request?.lg_purpose || ''}>
-                                                    {r.request?.lg_purpose || ''}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
-                                                {r.currency_code} {r.current_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className="text-slate-600 text-xs">{r.expiry_date || '—'}</div>
-                                                <div className={`text-[11px] ${cd.color}`}>{cd.text}</div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-1.5">
-                                                    <Building className="w-3.5 h-3.5 text-slate-400" />
-                                                    <span className="text-slate-700">{r.bank_name}</span>
-                                                </div>
-                                                {r.sub_limit_id && (
-                                                    <div className="mt-1 flex">
-                                                        <span className="text-[10px] font-bold bg-blue-50 border border-blue-200 text-blue-700 px-1.5 py-0.5 rounded uppercase tracking-wider">From Facility</span>
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-700">{r.beneficiary_name}</td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                <>
+                    {/* Mobile View: Cards (< md) */}
+                    <div className="md:hidden space-y-3">
+                        {filtered.map(r => {
+                            const cd = expiryCountdown(r.expiry_date);
+                            return (
+                                <div
+                                    key={`mob-lg-${r.id}`}
+                                    onClick={() => setSelectedLG(r)}
+                                    className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col gap-2.5"
+                                >
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <span className="font-bold text-base text-slate-900 block">{r.internal_serial || '—'}</span>
+                                            <span className="text-xs text-blue-600 font-medium">{r.lg_ref_number}</span>
+                                        </div>
+                                        <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${statusColors[r.status] || 'bg-slate-100 text-slate-600'}`}>
+                                            {statusLabels[r.status] || r.status?.replace(/_/g, ' ')}
+                                        </span>
+                                    </div>
+
+                                    <div className="text-lg font-extrabold text-slate-900">
+                                        {r.currency_code} {r.current_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </div>
+
+                                    <div className="bg-slate-50 p-2.5 rounded-lg text-xs text-slate-600 space-y-1">
+                                        <div className="flex justify-between">
+                                            <span className="text-slate-400">Beneficiary:</span>
+                                            <span className="font-medium text-slate-800 truncate max-w-[200px]">{r.beneficiary_name}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-slate-400">Bank:</span>
+                                            <span className="font-medium text-slate-800">{r.bank_name}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-slate-400">Expiry:</span>
+                                            <span className={`font-semibold ${cd.color}`}>{r.expiry_date || '—'} ({cd.text})</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                                        <span className="text-slate-400 truncate max-w-[180px]">{r.request?.lg_type || 'LG'}</span>
+                                        <span className="text-blue-600 font-bold hover:underline flex items-center">
+                                            View Details →
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
-                </div>
+
+                    {/* Desktop View: Table (>= md) */}
+                    <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-200">
+                                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('internal_serial')}>
+                                            <div className="flex items-center gap-1">Serial # <SortIcon field="internal_serial" /></div>
+                                        </th>
+                                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Status</th>
+                                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">LG Type</th>
+                                        <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('current_amount')}>
+                                            <div className="flex items-center justify-end gap-1">Amount <SortIcon field="current_amount" /></div>
+                                        </th>
+                                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('expiry_date')}>
+                                            <div className="flex items-center gap-1">Expiry <SortIcon field="expiry_date" /></div>
+                                        </th>
+                                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('bank_name')}>
+                                            <div className="flex items-center gap-1">Bank <SortIcon field="bank_name" /></div>
+                                        </th>
+                                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('beneficiary_name')}>
+                                            <div className="flex items-center gap-1">Beneficiary <SortIcon field="beneficiary_name" /></div>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {filtered.map(r => {
+                                        const cd = expiryCountdown(r.expiry_date);
+                                        return (
+                                            <tr
+                                                key={r.id}
+                                                className="hover:bg-slate-50 transition-colors cursor-pointer"
+                                                onClick={() => setSelectedLG(r)}
+                                            >
+                                                <td className="px-4 py-3">
+                                                    <div className="font-bold text-slate-900">{r.internal_serial || '—'}</div>
+                                                    <div className="text-[11px] text-blue-600 font-medium">{r.lg_ref_number}</div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${statusColors[r.status] || 'bg-slate-100 text-slate-600'}`}>
+                                                        {statusLabels[r.status] || r.status?.replace(/_/g, ' ')}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="font-bold text-slate-700 truncate max-w-[150px]" title={r.request?.lg_type || 'Unknown'}>
+                                                        {r.request?.lg_type || '—'}
+                                                    </div>
+                                                    <div className="text-[10px] text-slate-500 truncate max-w-[150px]" title={r.request?.lg_purpose || ''}>
+                                                        {r.request?.lg_purpose || ''}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                                                    {r.currency_code} {r.current_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="text-slate-600 text-xs">{r.expiry_date || '—'}</div>
+                                                    <div className={`text-[11px] ${cd.color}`}>{cd.text}</div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Building className="w-3.5 h-3.5 text-slate-400" />
+                                                        <span className="text-slate-700">{r.bank_name}</span>
+                                                    </div>
+                                                    {r.sub_limit_id && (
+                                                        <div className="mt-1 flex">
+                                                            <span className="text-[10px] font-bold bg-blue-50 border border-blue-200 text-blue-700 px-1.5 py-0.5 rounded uppercase tracking-wider">From Facility</span>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-slate-700">{r.beneficiary_name}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>
             )}
                 </>
             )}
