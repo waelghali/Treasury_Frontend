@@ -101,7 +101,7 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                 </TransitionChild>
 
                 <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
-                    <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                    <div className="flex min-h-full items-center justify-center p-3 text-center sm:p-0">
                         <TransitionChild
                             as={React.Fragment}
                             enter="ease-out duration-300"
@@ -111,140 +111,116 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                             leaveFrom="opacity-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
-                            <DialogPanel className="relative transform overflow-hidden rounded-xl bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl sm:p-6">
-                                <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
+                            <DialogPanel className="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all my-auto sm:my-8 w-full max-w-lg mx-2 sm:mx-auto p-5 sm:p-6 max-h-[92vh] overflow-y-auto">
+                                <div className="absolute right-3 top-3 sm:right-4 sm:top-4 z-10">
                                     <button
                                         type="button"
-                                        className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                        className="rounded-full p-1 bg-gray-100 text-gray-500 hover:text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         onClick={onClose}
                                     >
                                         <span className="sr-only">Close</span>
-                                        <X className="h-6 w-6" aria-hidden="true" />
+                                        <X className="h-5 w-5" aria-hidden="true" />
                                     </button>
                                 </div>
-                                <div className="sm:flex sm:items-start">
-                                    <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                                        <DialogTitle as="h3" className="text-lg font-bold leading-6 text-gray-900 tracking-tight border-b pb-3 mb-4">
-                                            Release LG: {lgRecord.lg_number}
-                                        </DialogTitle>
-                                        <div className="mt-2">
-                                            <p className="text-gray-600 mb-2 text-sm">
-                                                Confirm release of this LG. This action will change the LG status to "Released" and may require approval.
-                                            </p>
-                                            <Formik
-                                                initialValues={initialValues}
-                                                validationSchema={ReleaseLgSchema}
-                                                onSubmit={handleSubmit}
-                                            >
-                                                {({ errors, touched }) => (
-                                                    <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
-                                                        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm ">
-                                                            Current LG Amount: <strong>{Number(lgRecord.lg_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {lgRecord.lg_currency?.iso_code}</strong> | Status: <strong>{lgRecord.lg_status?.name}</strong>
-                                                        </div>
-                                                        <div>
-                                                            <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-2">
-                                                                Reason for Release
-                                                            </label>
-                                                            <Field
-                                                                as="textarea"
-                                                                id="reason"
-                                                                name="reason"
-                                                                rows="1"
-                                                                className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
-                                                                disabled={isGracePeriod}
+                                <div className="w-full">
+                                    <DialogTitle as="h3" className="text-lg font-bold leading-6 text-gray-900 tracking-tight border-b pb-3 mb-4 pr-8">
+                                        Release LG: {lgRecord.lg_number}
+                                    </DialogTitle>
+                                    <div className="mt-2">
+                                        <p className="text-gray-600 mb-3 text-xs sm:text-sm">
+                                            Confirm release of this LG. This action will change the LG status to "Released" and may require approval.
+                                        </p>
+                                        <Formik
+                                            initialValues={initialValues}
+                                            validationSchema={ReleaseLgSchema}
+                                            onSubmit={handleSubmit}
+                                        >
+                                            {({ errors, touched }) => (
+                                                <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
+                                                    <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-lg text-xs sm:text-sm">
+                                                        Current Amount: <strong>{Number(lgRecord.lg_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {lgRecord.lg_currency?.iso_code}</strong> | Status: <strong>{lgRecord.lg_status?.name}</strong>
+                                                    </div>
+                                                    <div>
+                                                        <label htmlFor="reason" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                                            Reason for Release
+                                                        </label>
+                                                        <Field
+                                                            as="textarea"
+                                                            id="reason"
+                                                            name="reason"
+                                                            rows="2"
+                                                            className={`mt-1 block w-full px-3 py-2 text-sm rounded-lg border border-gray-300 ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
+                                                            disabled={isGracePeriod}
+                                                        />
+                                                        <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
+                                                    </div>
+                                                    <div>
+                                                        <label htmlFor="notes" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                                            Additional Notes (Optional)
+                                                        </label>
+                                                        <Field
+                                                            as="textarea"
+                                                            id="notes"
+                                                            name="notes"
+                                                            rows="2"
+                                                            className="mt-1 block w-full px-3 py-2 text-sm rounded-lg border border-gray-300"
+                                                            disabled={isGracePeriod}
+                                                        />
+                                                    </div>
+                                                    <div className="border-t pt-3">
+                                                        <label htmlFor="supporting-document-file" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                                            Supporting Document
+                                                        </label>
+                                                        <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-2">
+                                                            <input
+                                                                id="supporting-document-file"
+                                                                name="internal_supporting_document_file"
+                                                                type="file"
+                                                                onChange={handleFileChange}
+                                                                accept=".pdf,image/*"
+                                                                className="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                                disabled={isGracePeriod || isSubmitting}
                                                             />
-                                                            <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
+                                                            {supportingDocument && (
+                                                                <span className="text-xs text-gray-500 truncate">
+                                                                    <FileText className="inline-block h-3.5 w-3.5 mr-1" />
+                                                                    {supportingDocument.name}
+                                                                </span>
+                                                            )}
                                                         </div>
-                                                        <div>
-                                                            <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
-                                                                Additional Notes (Optional)
-                                                            </label>
-                                                            <Field
-                                                                as="textarea"
-                                                                id="notes"
-                                                                name="notes"
-                                                                rows="2"
-                                                                className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300"
-                                                                disabled={isGracePeriod}
-                                                            />
-                                                        </div>
-                                                        <div className="border-t pt-4">
-                                                            <label htmlFor="supporting-document-file" className="block text-sm font-medium text-gray-700">
-                                                                Supporting Document
-                                                            </label>
-                                                            <div className="mt-1 flex items-center">
-                                                                <input
-                                                                    id="supporting-document-file"
-                                                                    name="internal_supporting_document_file"
-                                                                    type="file"
-                                                                    onChange={handleFileChange}
-                                                                    accept=".pdf,image/*"
-                                                                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                                                    disabled={isGracePeriod || isSubmitting}
-                                                                />
-                                                                {supportingDocument && (
-                                                                    <span className="ml-3 text-sm text-gray-500">
-                                                                        <FileText className="inline-block h-4 w-4 mr-1" />
-                                                                        {supportingDocument.name}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <p className="mt-2 text-sm text-gray-500">Attach any documents related to this request (e.g., formal request from beneficiary).</p>
-                                                        </div>
+                                                        <p className="mt-1 text-xs text-gray-500">Attach any documents related to this request (e.g., formal request from beneficiary).</p>
+                                                    </div>
 
-                                                        {/* Other read-only fields remain the same */}
-                                                        <div>
-                                                            <label htmlFor="totalDocumentsCount" className="block text-sm font-medium text-gray-700">Total Documents on Record</label>
-                                                            <Field
-                                                                type="number"
-                                                                id="totalDocumentsCount"
-                                                                name="totalDocumentsCount"
-                                                                className="mt-1 block w-full px-3 py-1 rounded-md border border-gray-300 bg-gray-100 cursor-not-allowed"
-                                                                disabled
-                                                            />
+                                                    {errors.general && (
+                                                        <div className="text-red-600 text-xs mt-2">
+                                                            <AlertCircle className="inline h-4 w-4 mr-1" />
+                                                            {errors.general}
                                                         </div>
-                                                        <div>
-                                                            <label htmlFor="pendingRepliesCount" className="block text-sm font-medium text-gray-700">Pending Bank Replies</label>
-                                                            <Field
-                                                                type="number"
-                                                                id="pendingRepliesCount"
-                                                                name="pendingRepliesCount"
-                                                                className="mt-1 block w-full px-3 py-1 rounded-md border border-gray-300 bg-gray-100 cursor-not-allowed"
-                                                                disabled
-                                                            />
-                                                        </div>
+                                                    )}
 
-                                                        {errors.general && (
-                                                            <div className="text-red-600 text-sm mt-2">
-                                                                <AlertCircle className="inline h-4 w-4 mr-1" />
-                                                                {errors.general}
-                                                            </div>
-                                                        )}
-
-                                                        <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
-                                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                                <button
-                                                                    type="submit"
-                                                                    className={`${buttonBaseClassNames} sm:col-start-2 bg-green-600 text-white hover:bg-green-700 ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                                    disabled={isSubmitting || isGracePeriod}
-                                                                >
-                                                                    {isSubmitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <CheckCircle className="h-5 w-5 mr-2" />}
-                                                                    {isSubmitting ? 'Processing...' : 'Submit Release Request'}
-                                                                </button>
-                                                            </GracePeriodTooltip>
+                                                    <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3 pt-2 border-t border-gray-100">
+                                                        <button
+                                                            type="button"
+                                                            className={`${buttonBaseClassNames} justify-center w-full sm:w-auto bg-gray-100 text-gray-700 hover:bg-gray-200 py-2.5`}
+                                                            onClick={onClose}
+                                                            disabled={isSubmitting}
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                             <button
-                                                                type="button"
-                                                                className={`${buttonBaseClassNames} sm:col-start-1 bg-gray-200 text-gray-700 hover:bg-gray-300`}
-                                                                onClick={onClose}
-                                                                disabled={isSubmitting}
+                                                                type="submit"
+                                                                className={`${buttonBaseClassNames} justify-center w-full sm:w-auto bg-green-600 text-white hover:bg-green-700 py-2.5 ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                disabled={isSubmitting || isGracePeriod}
                                                             >
-                                                                Cancel
+                                                                {isSubmitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <CheckCircle className="h-5 w-5 mr-2" />}
+                                                                {isSubmitting ? 'Processing...' : 'Submit Release Request'}
                                                             </button>
-                                                        </div>
-                                                    </Form>
-                                                )}
-                                            </Formik>
-                                        </div>
+                                                        </GracePeriodTooltip>
+                                                    </div>
+                                                </Form>
+                                            )}
+                                        </Formik>
                                     </div>
                                 </div>
                             </DialogPanel>

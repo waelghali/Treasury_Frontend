@@ -259,7 +259,7 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
                 </TransitionChild>
 
                 <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
-                    <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                    <div className="flex min-h-full items-center justify-center p-3 text-center sm:p-0">
                         <TransitionChild
                             as={Fragment}
                             enter="ease-out duration-300"
@@ -269,116 +269,117 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
                             leaveFrom="opacity-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
-                            <DialogPanel className="relative transform overflow-hidden rounded-xl bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-3xl sm:p-6">
-                                <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
+                            <DialogPanel className="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all my-auto sm:my-8 w-full max-w-2xl mx-2 sm:mx-auto p-5 sm:p-6 max-h-[92vh] overflow-y-auto">
+                                <div className="absolute right-3 top-3 sm:right-4 sm:top-4 z-10">
                                     <button
                                         type="button"
-                                        className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                        className="rounded-full p-1 bg-gray-100 text-gray-500 hover:text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         onClick={onClose}
                                     >
                                         <span className="sr-only">Close</span>
-                                        <X className="h-6 w-6" aria-hidden="true" />
+                                        <X className="h-5 w-5" aria-hidden="true" />
                                     </button>
                                 </div>
-                                <div className="sm:flex sm:items-start">
-                                    <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                                        <DialogTitle as="h3" className="text-lg font-bold leading-6 text-gray-900 tracking-tight border-b pb-3 mb-3">
-                                            Amend LG Record: {lgRecord.lg_number}
-                                        </DialogTitle>
-                                        <div className="mt-2">
-                                            {error && (
-                                                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 flex items-center">
-                                                    <AlertCircle className="mr-2" size={20} />
-                                                    {error}
+                                <div className="w-full">
+                                    <DialogTitle as="h3" className="text-lg font-bold leading-6 text-gray-900 tracking-tight border-b pb-3 mb-3 pr-8">
+                                        Amend LG Record: {lgRecord.lg_number}
+                                    </DialogTitle>
+                                    <div className="mt-2">
+                                        {error && (
+                                            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 flex items-center text-xs sm:text-sm">
+                                                <AlertCircle className="mr-2 h-4 w-4 shrink-0" />
+                                                {error}
+                                            </div>
+                                        )}
+                                        <form onSubmit={handleSubmit} className="space-y-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                                {getField('lg_number', 'LG Number', 'text', true)}
+                                                <div className="relative">
+                                                  <label htmlFor="beneficiary_name" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Beneficiary</label>
+                                                  <input type="text" name="beneficiary_name" id="beneficiary_name" value={lgRecord.beneficiary_corporate?.entity_name || 'N/A'} readOnly className="block w-full rounded-lg shadow-sm text-sm p-2 border border-gray-300 bg-gray-100 text-gray-500" />
                                                 </div>
-                                            )}
-                                            <form onSubmit={handleSubmit} className="space-y-4">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {getField('lg_number', 'LG Number', 'text', true)}
-                                                    <div className="relative">
-                                                      <label htmlFor="beneficiary_name" className="block text-sm font-medium text-gray-700">Beneficiary</label>
-                                                      <input type="text" name="beneficiary_name" id="beneficiary_name" value={lgRecord.beneficiary_corporate?.entity_name || 'N/A'} readOnly className="mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2 border border-gray-300 bg-gray-100 text-gray-500" />
-                                                    </div>
-                                                    {getField('issuance_date', 'Issuance Date', 'date')}
-                                                    {getField('expiry_date', 'Expiry Date', 'date')}
-                                                    {getField('lg_amount', 'LG Amount', 'number', false, {step: "0.01"})}
-                                                    {getField('auto_renewal', 'Auto-Renewal', 'checkbox')}
-                                                    {getField('payment_conditions', 'Payment Conditions')}
-                                                    {getField('description_purpose', 'Purpose')}
-                                                    {getField('other_conditions', 'Other Conditions')}
-                                                    {getField('notes', 'Notes', 'textarea')}
-                                                </div>
-                                                <div className="border-t pt-4">
-                                                    <label htmlFor="reason" className="block text-sm font-medium text-gray-700">
-                                                        Reason for Amendment <span className="text-red-500">*</span>
-                                                    </label>
-                                                    <textarea
-                                                        id="reason"
-                                                        name="reason"
-                                                        rows={1}
-                                                        value={reason}
-                                                        onChange={(e) => setReason(e.target.value)}
+                                                {getField('issuance_date', 'Issuance Date', 'date')}
+                                                {getField('expiry_date', 'Expiry Date', 'date')}
+                                                {getField('lg_amount', 'LG Amount', 'number', false, {step: "0.01"})}
+                                                {getField('auto_renewal', 'Auto-Renewal', 'checkbox')}
+                                                {getField('payment_conditions', 'Payment Conditions')}
+                                                {getField('description_purpose', 'Purpose')}
+                                                {getField('other_conditions', 'Other Conditions')}
+                                                {getField('notes', 'Notes', 'textarea')}
+                                            </div>
+                                            <div className="border-t pt-3">
+                                                <label htmlFor="reason" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                                    Reason for Amendment <span className="text-red-500">*</span>
+                                                </label>
+                                                <textarea
+                                                    id="reason"
+                                                    name="reason"
+                                                    rows={2}
+                                                    value={reason}
+                                                    onChange={(e) => setReason(e.target.value)}
+                                                    required
+                                                    className="mt-1 block w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500"
+                                                />
+                                            </div>
+                                            <div className="border-t pt-3">
+                                                <label htmlFor="amendment-file" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                                    Amendment Letter from Bank <span className="text-red-500">*</span>
+                                                </label>
+                                                <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-2">
+                                                    <input
+                                                        id="amendment-file"
+                                                        name="amendment_letter_file"
+                                                        type="file"
+                                                        onChange={handleFileChange}
+                                                        accept=".pdf,image/*"
                                                         required
-														className={`mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 : 'border-gray-300'}`}
+                                                        className="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                                                     />
-                                                </div>
-                                                <div className="border-t pt-4">
-                                                    <label htmlFor="amendment-file" className="block text-sm font-medium text-gray-700">
-                                                        Amendment Letter from Bank <span className="text-red-500">*</span>
-                                                    </label>
-                                                    <div className="mt-1 flex items-center">
-                                                        <input
-                                                            id="amendment-file"
-                                                            name="amendment_letter_file"
-                                                            type="file"
-                                                            onChange={handleFileChange}
-                                                            accept=".pdf,image/*"
-                                                            required
-                                                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                                        />
-                                                        {isLoadingAI && (
-                                                            <Loader2 className="h-5 w-5 animate-spin ml-3 text-blue-500" />
-                                                        )}
-                                                        {amendmentFile && (
-                                                            <span className="ml-3 text-sm text-gray-500">
-                                                                <FileText className="inline-block h-4 w-4 mr-1" />
-                                                                {amendmentFile.name}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {aiMessage && (
-                                                        <p className="mt-2 text-sm text-blue-600">{aiMessage}</p>
+                                                    {isLoadingAI && (
+                                                        <div className="flex items-center text-xs text-blue-600">
+                                                            <Loader2 className="h-4 w-4 animate-spin mr-1 text-blue-500" />
+                                                            Analyzing...
+                                                        </div>
                                                     )}
-                                                    {(!amendmentFile) && <p className="mt-2 text-sm text-gray-500">A scanned copy of the bank's amendment letter is mandatory.</p>}
+                                                    {amendmentFile && (
+                                                        <span className="text-xs text-gray-500 truncate">
+                                                            <FileText className="inline-block h-3.5 w-3.5 mr-1" />
+                                                            {amendmentFile.name}
+                                                        </span>
+                                                    )}
                                                 </div>
+                                                {aiMessage && (
+                                                    <p className="mt-1 text-xs text-blue-600">{aiMessage}</p>
+                                                )}
+                                                {(!amendmentFile) && <p className="mt-1 text-xs text-gray-500">A scanned copy of the bank's amendment letter is mandatory.</p>}
+                                            </div>
 
-                                                <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
-                                                    <button
-                                                        type="submit"
-                                                        className={classNames(
-                                                            buttonBaseClassNames,
-                                                            "sm:col-start-2 bg-yellow-600 text-white hover:bg-yellow-700",
-                                                            !hasChanges || !amendmentFile || !reason || !isAmendable ? "opacity-50 cursor-not-allowed" : ""
-                                                        )}
-                                                        disabled={isProcessing || !amendmentFile || !reason}
-                                                    >
-                                                        {isProcessing ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Save className="h-5 w-5 mr-2" />}
-                                                        {isProcessing ? 'Amending...' : 'Submit Amendment'}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className={classNames(
-                                                            buttonBaseClassNames,
-                                                            "sm:col-start-1 text-gray-700 bg-gray-200 hover:bg-gray-300"
-                                                        )}
-                                                        onClick={onClose}
-                                                        disabled={isProcessing}
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                </div>
-                                            </form>
-                                        </div>
+                                            <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3 pt-2 border-t border-gray-100">
+                                                <button
+                                                    type="button"
+                                                    className={classNames(
+                                                        buttonBaseClassNames,
+                                                        "justify-center w-full sm:w-auto text-gray-700 bg-gray-100 hover:bg-gray-200 py-2.5"
+                                                    )}
+                                                    onClick={onClose}
+                                                    disabled={isProcessing}
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    className={classNames(
+                                                        buttonBaseClassNames,
+                                                        "justify-center w-full sm:w-auto bg-amber-600 text-white hover:bg-amber-700 py-2.5 font-bold shadow-md",
+                                                        !hasChanges || !amendmentFile || !reason || !isAmendable ? "opacity-50 cursor-not-allowed" : ""
+                                                    )}
+                                                    disabled={isProcessing || !amendmentFile || !reason}
+                                                >
+                                                    {isProcessing ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Save className="h-5 w-5 mr-2" />}
+                                                    {isProcessing ? 'Amending...' : 'Submit Amendment'}
+                                                </button>
+                                            </div>
+                                        </form>
                                     </div>
                                 </div>
                             </DialogPanel>

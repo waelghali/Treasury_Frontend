@@ -840,27 +840,27 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
 
     return (
         <>
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[96vh] flex flex-col overflow-hidden">
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[96vh] flex flex-col overflow-hidden mx-auto">
                     {/* Header */}
-                    <div className="bg-gradient-to-r from-slate-800 to-slate-700 text-white px-6 py-4 flex justify-between items-start shrink-0">
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <h2 className="text-lg font-black tracking-tight">{lg.lg_ref_number}</h2>
+                    <div className="bg-gradient-to-r from-slate-800 to-slate-700 text-white px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-start shrink-0">
+                        <div className="min-w-0 pr-3">
+                            <div className="flex items-center flex-wrap gap-2 mb-1">
+                                <h2 className="text-base sm:text-lg font-black tracking-tight">{lg.lg_ref_number}</h2>
                                 <CopyBadge text={lg.lg_ref_number} variant="icon" className="text-white/60 hover:text-white hover:bg-slate-700/60" />
                                 <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${statusColors[lg.status] || 'bg-slate-100 text-slate-600'}`}>
                                     {lg.status?.replace(/_/g, ' ')}
                                 </span>
                             </div>
                             {lg.internal_serial && <p className="text-slate-400 text-xs font-mono">{lg.internal_serial}</p>}
-                            <p className="text-slate-300 text-sm">{lg.beneficiary_name} · {lg.currency_code} {parseFloat(lg.current_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                            <p className="text-slate-300 text-xs sm:text-sm truncate">{lg.beneficiary_name} · {lg.currency_code} {parseFloat(lg.current_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                         </div>
-                        <button onClick={onClose} className="text-white/50 hover:text-white mt-1"><X className="w-5 h-5" /></button>
+                        <button onClick={onClose} className="text-white/50 hover:text-white mt-1 p-1 rounded-lg hover:bg-white/10 shrink-0"><X className="w-5 h-5" /></button>
                     </div>
 
                     {/* Key Stats Bar */}
-                    <div className="flex items-center gap-4 px-6 py-3 bg-slate-50 border-b border-slate-200 shrink-0 text-xs">
-                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="flex items-center gap-4 px-4 sm:px-6 py-2.5 sm:py-3 bg-slate-50 border-b border-slate-200 shrink-0 text-xs overflow-x-auto">
+                        <div className="flex items-center gap-4 flex-1 min-w-max">
                             <div><span className="text-slate-400">Bank</span><p className="font-bold text-slate-800">{lg.bank_name}</p></div>
                             <div className="border-l border-slate-200 pl-4"><span className="text-slate-400">Method</span><p className="font-bold text-slate-800">{methodLabels[lg.issuance_method] || lg.issuance_method || '—'}</p></div>
                             <div className="border-l border-slate-200 pl-4"><span className="text-slate-400">Issue Date</span><p className="font-bold text-slate-800">{lg.issue_date || '—'}</p></div>
@@ -879,12 +879,12 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                     </div>
 
                     {/* Tabs */}
-                    <div className="flex border-b border-slate-200 shrink-0">
+                    <div className="flex border-b border-slate-200 shrink-0 overflow-x-auto">
                         {tabs.map(t => (
                             <button
                                 key={t.id}
                                 onClick={() => setActiveTab(t.id)}
-                                className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === t.id ? 'border-b-2 border-slate-900 text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
+                                className={`px-4 sm:px-5 py-2.5 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${activeTab === t.id ? 'border-b-2 border-slate-900 text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
                             >
                                 {t.label}
                             </button>
@@ -892,7 +892,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 overflow-y-auto p-6 min-h-[400px]">
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 min-h-[400px]">
                         {/* TAB: Overview (Details + Bank & Facility + Original Request) */}
                         {activeTab === 'overview' && (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1380,26 +1380,26 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                     </div>
 
                     {/* Footer */}
-                    <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
-                    <div className="flex items-center gap-3">
-                        <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
-                            Close
-                        </button>
-                        {['INTERNAL_PROCESSING', 'DELIVERED_TO_BANK'].includes(lg.status) && (
-                            <button
-                                onClick={() => setCancelModal(true)}
-                                disabled={cancellingLG}
-                                className="flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:text-red-600 rounded-md text-xs transition-colors disabled:opacity-50"
-                            >
-                                <XCircle className="w-3.5 h-3.5" /> Cancel & Reopen
+                    <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 bg-slate-50 flex flex-wrap justify-between items-center gap-3 shrink-0">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                                Close
                             </button>
-                        )}
-                        {lg.status === 'CANCEL_REQUESTED' && (
-                            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 border border-orange-200 text-orange-700 rounded-md text-xs font-medium">
-                                <Clock className="w-3.5 h-3.5" /> Cancellation Pending Approval
-                            </span>
-                        )}
-                    </div>
+                            {['INTERNAL_PROCESSING', 'DELIVERED_TO_BANK'].includes(lg.status) && (
+                                <button
+                                    onClick={() => setCancelModal(true)}
+                                    disabled={cancellingLG}
+                                    className="flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:text-red-600 rounded-md text-xs transition-colors disabled:opacity-50"
+                                >
+                                    <XCircle className="w-3.5 h-3.5" /> Cancel & Reopen
+                                </button>
+                            )}
+                            {lg.status === 'CANCEL_REQUESTED' && (
+                                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 border border-orange-200 text-orange-700 rounded-md text-xs font-medium">
+                                    <Clock className="w-3.5 h-3.5" /> Cancellation Pending Approval
+                                </span>
+                            )}
+                        </div>
                         {!['CANCELLED', 'SLA_EXCEEDED', 'BANK_REJECTED', 'CANCEL_REQUESTED'].includes(lg.status) && (
                         lg.status === 'ACTIVE' ? (
                             <button

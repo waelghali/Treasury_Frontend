@@ -286,46 +286,46 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
     );
 
     return (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50">
-            <div className="relative bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[90vh] flex flex-col mx-4">
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[94vh] flex flex-col mx-auto overflow-hidden">
 
                 {/* Header */}
-                <div className={`${request.status === 'APPROVED_INTERNAL' ? 'bg-emerald-700' : 'bg-blue-800'} text-white px-6 py-4 rounded-t-xl flex justify-between items-center shrink-0`}>
-                    <div>
-                        <h2 className="text-xl font-bold flex items-center">
-                            <FileKey className="w-5 h-5 mr-2" />
-                            {request.serial_number || `Request #${request.id}`}
+                <div className={`${request.status === 'APPROVED_INTERNAL' ? 'bg-emerald-700' : 'bg-blue-800'} text-white px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center shrink-0`}>
+                    <div className="min-w-0 pr-3">
+                        <h2 className="text-base sm:text-xl font-bold flex items-center flex-wrap gap-2">
+                            <FileKey className="w-5 h-5 mr-1 shrink-0" />
+                            <span className="truncate">{request.serial_number || `Request #${request.id}`}</span>
                             {request.status === 'APPROVED_INTERNAL' && (
-                                <span className="ml-3 bg-white/20 text-white text-xs px-2.5 py-0.5 rounded-full font-medium">READY FOR ISSUANCE</span>
+                                <span className="bg-white/20 text-white text-[11px] px-2.5 py-0.5 rounded-full font-medium">READY FOR ISSUANCE</span>
                             )}
                         </h2>
-                        <p className={`${request.status === 'APPROVED_INTERNAL' ? 'text-emerald-200' : 'text-blue-200'} text-sm mt-1`}>
+                        <p className={`${request.status === 'APPROVED_INTERNAL' ? 'text-emerald-200' : 'text-blue-200'} text-xs sm:text-sm mt-1 truncate`}>
                             {request.department || 'General'} • {request.status?.replace(/_/g, ' ')}
                             {request.lg_type?.name && ` • ${request.lg_type.name}`}
                         </p>
                     </div>
-                    <button onClick={onClose} className="text-white hover:text-red-300 transition-colors">
-                        <X className="h-6 w-6" />
+                    <button onClick={onClose} className="text-white hover:text-red-200 transition-colors p-1 rounded-lg hover:bg-white/10 shrink-0">
+                        <X className="h-5 w-5 sm:h-6 sm:w-6" />
                     </button>
                 </div>
 
                 {/* Body */}
-                <div className="p-6 overflow-y-auto flex-1 bg-gray-50 flex flex-col lg:flex-row gap-6">
+                <div className="p-3.5 sm:p-6 overflow-y-auto flex-1 bg-gray-50 flex flex-col lg:flex-row gap-4 sm:gap-6">
 
                     {/* LEFT — Request Details */}
                     <div className="w-full lg:w-2/3 space-y-4">
 
                         {/* Amount Card */}
-                        <div className="bg-white p-5 rounded-lg shadow-sm border flex items-center justify-between">
+                        <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div>
                                 <p className="text-xs text-gray-500 font-medium uppercase">Requested Amount</p>
-                                <h3 className="text-3xl font-extrabold text-gray-900 mt-1">{currencyCode} {requestAmount}</h3>
+                                <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mt-1">{currencyCode} {requestAmount}</h3>
                                 {payableCurrencyCode && payableCurrencyCode !== currencyCode && (
                                     <p className="text-xs text-gray-400 mt-1">Payable in: {payableCurrencyCode}</p>
                                 )}
                             </div>
-                            <div className="text-right">
-                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${request.status === 'APPROVED_INTERNAL' ? 'bg-green-100 text-green-800' :
+                            <div className="flex flex-wrap items-center sm:flex-col sm:items-end gap-2">
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-semibold ${request.status === 'APPROVED_INTERNAL' ? 'bg-green-100 text-green-800' :
                                     request.status === 'REJECTED' || request.status === 'CANCELLATION_REQUESTED' || request.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
                                     request.status === 'PENDING_APPROVAL' ? 'bg-yellow-100 text-yellow-800' :
                                     request.status === 'REVISION_REQUIRED' ? 'bg-amber-100 text-amber-800' :
@@ -336,11 +336,9 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                      request.status?.replace(/_/g, ' ')}
                                 </span>
                                 {request.is_urgent && (
-                                    <div className="mt-2">
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">
-                                            <AlertTriangle className="w-3 h-3" /> URGENT
-                                        </span>
-                                    </div>
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                                        <AlertTriangle className="w-3 h-3" /> URGENT
+                                    </span>
                                 )}
                             </div>
                         </div>
@@ -371,9 +369,9 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                         )}
 
                         {/* Requestor & Business Details */}
-                        <div className="bg-white p-5 rounded-lg shadow-sm border">
+                        <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border">
                             <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2">Requestor & Business Details</h4>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                                 <DetailRow label="Issuing Entity" value={request.issuing_entity?.entity_name || request.issuing_entity_id} icon={Building} highlight />
                                 <DetailRow label="Requestor" value={request.requestor_name} icon={User} />
                                 <DetailRow label="Email" value={request.requestor_email} />
@@ -383,16 +381,16 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                 <DetailRow label="Employee ID" value={request.employee_id} icon={Hash} />
                             </div>
                             {/* Manager Emails - full width to prevent overlap */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 mt-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 mt-1">
                                 <DetailRow label="Direct Manager" value={request.manager_email} />
                                 <DetailRow label="Second Line Manager" value={request.second_line_manager_email} />
                             </div>
                         </div>
 
                         {/* LG Details */}
-                        <div className="bg-white p-5 rounded-lg shadow-sm border">
+                        <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border">
                             <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2">LG Details</h4>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                                 <DetailRow label="LG Type" value={request.lg_type?.name} icon={FileText} />
                                 <DetailRow label="LG Purpose" value={request.lg_purpose} />
                                 <DetailRow label="Amount" value={`${currencyCode} ${requestAmount}`} icon={DollarSign} />
@@ -425,9 +423,9 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
 
                         {/* Underlying Reference */}
                         {(request.reference_type || request.reference_number || request.reference_amount) && (
-                            <div className="bg-white p-5 rounded-lg shadow-sm border">
+                            <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border">
                                 <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2">Underlying Reference</h4>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                                     <DetailRow label="Reference Type" value={request.reference_type?.replace(/_/g, ' ')} icon={FileText} />
                                     <DetailRow label="Reference Number" value={request.reference_number} icon={Hash} />
                                     <DetailRow label="Reference Amount" value={request.reference_amount ? `${refCurrencyCode || currencyCode} ${parseFloat(request.reference_amount).toLocaleString()}` : null} icon={DollarSign} />
@@ -468,9 +466,9 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                         })()}
 
                         {/* Beneficiary */}
-                        <div className="bg-white p-5 rounded-lg shadow-sm border">
+                        <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border">
                             <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2">Beneficiary</h4>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                                 <DetailRow label="Beneficiary ID" value={request.beneficiary_id_number} icon={Hash} />
                                 <DetailRow label="Name" value={request.beneficiary_name} icon={Building} />
                                 <DetailRow label="Country" value={request.beneficiary_country} icon={Globe} />
@@ -509,9 +507,9 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
 
                         {/* Third Party */}
                         {request.is_third_party && (
-                            <div className="bg-white p-5 rounded-lg shadow-sm border">
+                            <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border">
                                 <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2">Third Party</h4>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                                     <DetailRow label="Name" value={request.third_party_name} />
                                     <DetailRow label="Relationship" value={request.third_party_relationship?.replace(/_/g, ' ')} />
                                     <DetailRow label="Address" value={request.third_party_address} />
@@ -525,7 +523,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                 <h4 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2 flex items-center gap-1">
                                     <Globe className="w-4 h-4" /> Cross-Border Issuance
                                 </h4>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                                     <DetailRow label="Issuing Country" value={request.issuance_country} icon={Globe} />
                                     {request.cross_border_details?.advising_bank_name && (
                                         <DetailRow label="Advising Bank" value={request.cross_border_details.advising_bank_name} />
@@ -563,7 +561,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
 
                         {/* Other Conditions */}
                         {request.other_conditions && (
-                            <div className="bg-white p-5 rounded-lg shadow-sm border">
+                            <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border">
                                 <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2 flex items-center gap-1">
                                     <FileText className="w-4 h-4" /> Other Conditions / Requirements
                                 </h4>
@@ -583,7 +581,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
 
                         {/* Comments */}
                         {request.comments && (
-                            <div className="bg-white p-5 rounded-lg shadow-sm border">
+                            <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border">
                                 <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2 flex items-center gap-1">
                                     <MessageSquare className="w-4 h-4" /> Comments
                                 </h4>
@@ -593,11 +591,11 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
 
                         {/* Treasury Enrichment (read-only display) */}
                         {request.treasury_enrichment && Object.keys(request.treasury_enrichment).length > 0 && (
-                            <div className="bg-emerald-50 p-5 rounded-lg border border-emerald-200">
+                            <div className="bg-emerald-50 p-4 sm:p-5 rounded-xl border border-emerald-200">
                                 <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-3 border-b border-emerald-200 pb-2 flex items-center gap-1">
                                     <ShieldCheck className="w-4 h-4" /> Treasury Enrichment
                                 </h4>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                                     {request.treasury_enrichment.applicable_rules && (
                                         <DetailRow label="Rules (Treasury)" value={{
                                             'URDG_758': 'URDG 758', 'ISP_98': 'ISP98', 'LOCAL_LAW': 'Local Law'
