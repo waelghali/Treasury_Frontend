@@ -1518,20 +1518,20 @@ export default function IssuanceRequestForm() {
                 .animate-fadeIn { animation: fadeIn 0.2s ease-out both; }
             `}</style>
 
-            <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6">
+            <div className="max-w-4xl mx-auto px-3.5 py-4 sm:px-6 sm:py-8">
                 {/* Header */}
-                <div className="mb-8 flex items-center justify-between">
+                <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">
+                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
                             {draftId ? 'Edit Draft Request' : isPublic ? t('pages.publicIssuanceForm.externalTitle') : t('pages.publicIssuanceForm.internalTitle')}
                         </h1>
-                        <p className="text-slate-500 text-sm mt-1">{t('pages.publicIssuanceForm.subtitle')}</p>
+                        <p className="text-slate-500 text-xs sm:text-sm mt-1">{t('pages.publicIssuanceForm.subtitle')}</p>
                     </div>
                     {isPublic ? (
                         <button
                             type="button"
                             onClick={() => navigate(`/public-issuance/dashboard?token=${encodeURIComponent(token)}`)}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-200 transition-colors"
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-200 transition-colors w-full sm:w-auto"
                         >
                             <FileText className="w-4 h-4" /> My Requests
                         </button>
@@ -1539,7 +1539,7 @@ export default function IssuanceRequestForm() {
                         <button
                             type="button"
                             onClick={() => navigate(-1)}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors"
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors w-full sm:w-auto"
                         >
                             <ChevronLeft className="w-4 h-4" /> All Requests
                         </button>
@@ -1547,11 +1547,11 @@ export default function IssuanceRequestForm() {
                 </div>
 
                 {/* ─── STEPPER PROGRESS BAR ─── */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-                    <div className="flex items-center justify-between relative">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-6 mb-6 overflow-x-auto">
+                    <div className="flex items-center justify-between min-w-[320px] relative">
                         {/* Connecting line */}
-                        <div className="absolute top-5 left-8 right-8 h-0.5 bg-gray-200 -z-0" />
-                        <div className="absolute top-5 left-8 h-0.5 bg-green-500 transition-all duration-500 -z-0"
+                        <div className="absolute top-4 sm:top-5 left-6 right-6 h-0.5 bg-gray-200 -z-0" />
+                        <div className="absolute top-4 sm:top-5 left-6 h-0.5 bg-green-500 transition-all duration-500 -z-0"
                             style={{ width: `${(currentStep / 3) * (100 - (100 / 3.7))}%` }} />
 
                         {STEP_LABELS.map((label, idx) => {
@@ -1562,11 +1562,9 @@ export default function IssuanceRequestForm() {
                                 <div key={idx} className="flex flex-col items-center relative z-10 cursor-pointer group"
                                     onClick={() => {
                                         if (idx < currentStep) {
-                                            // Go back freely
                                             setSlideDir('left');
                                             setCurrentStep(idx);
                                         } else if (idx > currentStep) {
-                                            // Go forward — validate all intermediate steps
                                             for (let s = currentStep; s < idx; s++) {
                                                 const errors = validateStep(s);
                                                 if (errors.length > 0) {
@@ -1579,13 +1577,13 @@ export default function IssuanceRequestForm() {
                                             setCurrentStep(idx);
                                         }
                                     }}>
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${isDone ? 'bg-green-500 text-white shadow-md shadow-green-200 group-hover:bg-green-600' :
+                                    <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-300 ${isDone ? 'bg-green-500 text-white shadow-md shadow-green-200 group-hover:bg-green-600' :
                                         isActive ? 'bg-blue-500 text-white shadow-lg shadow-blue-200 ring-4 ring-blue-100' :
                                             'bg-white text-slate-400 border-2 border-gray-200 group-hover:border-blue-300 group-hover:text-blue-400'
                                         }`}>
-                                        {isDone ? <CheckCircle className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                                        {isDone ? <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" /> : <Icon className="w-4 h-4 sm:w-5 sm:h-5" />}
                                     </div>
-                                    <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap transition-colors ${isActive ? 'text-blue-600' : isDone ? 'text-green-600' : 'text-slate-400 group-hover:text-slate-600'
+                                    <span className={`text-[10px] sm:text-[11px] font-semibold mt-1.5 sm:mt-2 whitespace-nowrap transition-colors ${isActive ? 'text-blue-600' : isDone ? 'text-green-600' : 'text-slate-400 group-hover:text-slate-600'
                                         }`}>{label}</span>
                                 </div>
                             );
@@ -1595,10 +1593,10 @@ export default function IssuanceRequestForm() {
 
                 {/* ─── STEP CONTENT ─── */}
                 <form onSubmit={(e) => e.preventDefault()}>
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-8 mb-6">
                         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
                             {React.createElement(STEP_ICONS[currentStep], { className: 'w-5 h-5 text-blue-500' })}
-                            <h2 className="text-lg font-bold text-slate-800">{STEP_LABELS[currentStep]}</h2>
+                            <h2 className="text-base sm:text-lg font-bold text-slate-800">{STEP_LABELS[currentStep]}</h2>
                             <span className="ml-auto text-xs text-slate-400 font-medium">Step {currentStep + 1} of 4</span>
                         </div>
 
@@ -1687,45 +1685,43 @@ export default function IssuanceRequestForm() {
                     )}
 
                     {/* ─── NAVIGATION ─── */}
-                    <div className="flex items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 p-4 gap-3 sm:gap-0">
                         <button type="button" onClick={goBack} disabled={currentStep === 0}
-                            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all ${currentStep === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-100'
+                            className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm transition-all ${currentStep === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-100'
                                 }`}>
                             <ChevronLeft className="w-4 h-4" /> Back
                         </button>
 
-                        <div className="flex gap-3">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                             {editingStatus && editingStatus !== 'DRAFT' ? (
-                                /* Post-submission edit: single "Save Changes" button */
                                 currentStep < 3 ? (
                                     <button type="button" onClick={goNext}
-                                        className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-900/20 transition">
+                                        className="inline-flex items-center justify-center gap-2 px-6 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-900/20 transition">
                                         Next <ChevronRight className="w-4 h-4" />
                                     </button>
                                 ) : (
                                     <button type="button" onClick={() => handleAction('SUBMIT')} disabled={submitting || !formData.change_reason}
-                                        className="flex items-center gap-2 px-8 py-3 rounded-xl font-bold text-sm bg-amber-600 text-white hover:bg-amber-700 shadow-lg shadow-amber-600/30 transition disabled:opacity-50">
+                                        className="inline-flex items-center justify-center gap-2 px-8 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm bg-amber-600 text-white hover:bg-amber-700 shadow-lg shadow-amber-600/30 transition disabled:opacity-50">
                                         {submitting ? <Loader2 className="animate-spin w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
                                         Save Changes
                                     </button>
                                 )
                             ) : (
-                                /* Normal DRAFT flow: Save Draft + Next/Submit */
                                 <>
                                     <button type="button" onClick={() => handleAction('DRAFT')} disabled={submitting}
-                                        className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm border-2 border-gray-200 text-slate-600 hover:bg-gray-50 transition">
+                                        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm border-2 border-gray-200 text-slate-600 hover:bg-gray-50 transition">
                                         <Save className="w-4 h-4" />
                                         {t('pages.publicIssuanceForm.saveDraftBtn')}
                                     </button>
 
                                     {currentStep < 3 ? (
                                         <button type="button" onClick={goNext}
-                                            className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-900/20 transition">
+                                            className="inline-flex items-center justify-center gap-2 px-6 py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-900/20 transition">
                                             Next <ChevronRight className="w-4 h-4" />
                                         </button>
                                     ) : (
                                         <button type="button" onClick={() => handleAction('SUBMIT')} disabled={submitting || verifying}
-                                            className="flex items-center gap-2 px-8 py-3 rounded-xl font-bold text-sm bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition">
+                                            className="inline-flex items-center justify-center gap-2 px-8 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition">
                                             {(submitting || verifying) ? <Loader2 className="animate-spin w-4 h-4" /> : <Send className="w-4 h-4" />}
                                             {verifying ? 'Verifying...' : t('pages.publicIssuanceForm.submitBtn')}
                                         </button>

@@ -149,29 +149,29 @@ export default function TreasuryDashboard() {
             </div>
 
             {/* Summary Banner */}
-            <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-6 text-white flex items-center justify-between">
+            <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-4 sm:p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider">Portfolio Overview</p>
-                    <div className="flex items-baseline gap-6 mt-2">
+                    <div className="flex flex-wrap items-baseline gap-4 sm:gap-6 mt-2">
                         <div>
-                            <span className="text-3xl font-bold">{s.total_active_lgs || 0}</span>
-                            <span className="text-indigo-200 text-sm ml-1">Active LGs</span>
+                            <span className="text-2xl sm:text-3xl font-bold">{s.total_active_lgs || 0}</span>
+                            <span className="text-indigo-200 text-xs sm:text-sm ml-1">Active LGs</span>
                         </div>
-                        <div className="h-8 w-px bg-indigo-400/50" />
+                        <div className="hidden sm:block h-8 w-px bg-indigo-400/50" />
                         <div>
-                            <span className="text-3xl font-bold">
+                            <span className="text-2xl sm:text-3xl font-bold">
                                 {(s.total_active_amount || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                             </span>
-                            <span className="text-indigo-200 text-sm ml-1">Total Exposure</span>
+                            <span className="text-indigo-200 text-xs sm:text-sm ml-1">Total Exposure</span>
                         </div>
-                        <div className="h-8 w-px bg-indigo-400/50" />
+                        <div className="hidden sm:block h-8 w-px bg-indigo-400/50" />
                         <div>
-                            <span className="text-3xl font-bold">{s.pending_bank_replies || 0}</span>
-                            <span className="text-indigo-200 text-sm ml-1">Awaiting Bank Reply</span>
+                            <span className="text-2xl sm:text-3xl font-bold">{s.pending_bank_replies || 0}</span>
+                            <span className="text-indigo-200 text-xs sm:text-sm ml-1">Awaiting Bank Reply</span>
                         </div>
                     </div>
                 </div>
-                <TrendingUp className="w-12 h-12 text-indigo-300/40" />
+                <TrendingUp className="hidden sm:block w-12 h-12 text-indigo-300/40 shrink-0" />
             </div>
 
             {/* Main Grid: Facility Utilization + Expiring LGs */}

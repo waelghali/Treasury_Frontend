@@ -338,37 +338,37 @@ function AuditLogs() {
           </div>
         )}
 
-        <div className="flex justify-end space-x-2">
+        <div className="flex flex-wrap justify-end gap-2">
           {showFilters && (
             <button
               onClick={handleClearFilters}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-xs sm:text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              <XCircle className="h-5 w-5 mr-2" />
+              <XCircle className="h-4 w-4 mr-1.5" />
               Clear Filters
             </button>
           )}
           <button
             onClick={fetchAuditLogs}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            disabled={isLoading} // Disable while loading
+            className="inline-flex items-center px-4 py-2 border border-transparent text-xs sm:text-sm font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm"
+            disabled={isLoading}
           >
-            <RefreshCcw className="h-5 w-5 mr-2" />
+            <RefreshCcw className="h-4 w-4 mr-1.5" />
             Apply Filters
           </button>
 
           {/* --- EXPORT BUTTON --- */}
           <button
             onClick={handleExportCSV}
-            className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`inline-flex items-center px-4 py-2 border border-transparent text-xs sm:text-sm font-semibold rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 shadow-sm ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={isExporting}
           >
             {isExporting ? (
-              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
             ) : (
-              <Download className="h-5 w-5 mr-2" />
+              <Download className="h-4 w-4 mr-1.5" />
             )}
-            Export to CSV
+            Export CSV
           </button>
         </div>
       </div>
@@ -376,47 +376,93 @@ function AuditLogs() {
       {isLoading ? (
         <div className="text-center py-8">
           <Loader2 className="h-8 w-8 text-blue-600 mx-auto animate-spin" />
-          <p className="text-gray-600 mt-2">Loading audit logs...</p>
+          <p className="text-gray-600 mt-2 text-sm">Loading audit logs...</p>
         </div>
       ) : logs.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-gray-500 text-sm bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           No audit logs found for the selected filters.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg shadow">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Name</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer ID</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action Type</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity Type</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity ID</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LG Number</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {logs.map((log) => (
-                <tr key={log.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatTimestamp(log.timestamp)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.user_name || log.user_id || 'N/A'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.customer_id || 'N/A'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.action_type}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_type}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.entity_id || 'N/A'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.lg_number || 'N/A'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
+        <>
+          {/* MOBILE CARDS (screen < md) */}
+          <div className="md:hidden space-y-3">
+            {logs.map((log) => (
+              <div key={log.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="font-bold text-gray-900 text-xs">{log.action_type}</span>
+                    <p className="text-[11px] text-gray-500 mt-0.5">{formatTimestamp(log.timestamp)}</p>
+                  </div>
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                    {log.entity_type || 'System'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 p-2.5 rounded-lg text-gray-700">
+                  <div>
+                    <span className="text-gray-400 block text-[10px] uppercase">User</span>
+                    <span className="font-medium truncate block">{log.user_name || log.user_id || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block text-[10px] uppercase">LG Number</span>
+                    <span className="font-medium truncate block">{log.lg_number || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block text-[10px] uppercase">Entity ID</span>
+                    <span className="font-medium truncate block">{log.entity_id || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block text-[10px] uppercase">IP Address</span>
+                    <span className="font-medium truncate block">{log.ip_address || 'N/A'}</span>
+                  </div>
+                </div>
+
+                {log.details && (
+                  <div className="pt-2 border-t border-gray-100 text-xs">
+                    <span className="text-gray-400 block text-[10px] uppercase mb-1">Details</span>
                     {renderDetails(log.details)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.ip_address || 'N/A'}</td>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* DESKTOP TABLE (screen >= md) */}
+          <div className="hidden md:block overflow-x-auto rounded-xl shadow-sm border border-gray-200 bg-white">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Timestamp</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">User Name</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Customer ID</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Action Type</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Entity Type</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Entity ID</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">LG Number</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Details</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">IP Address</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {logs.map((log) => (
+                  <tr key={log.id} className="hover:bg-blue-50/40 transition-colors">
+                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">{formatTimestamp(log.timestamp)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">{log.user_name || log.user_id || 'N/A'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">{log.customer_id || 'N/A'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-gray-900">{log.action_type}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">{log.entity_type}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">{log.entity_id || 'N/A'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900 font-mono">{log.lg_number || 'N/A'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-900 max-w-xs truncate">
+                      {renderDetails(log.details)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{log.ip_address || 'N/A'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

@@ -295,44 +295,44 @@ export default function RequestorDashboard() {
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
             {/* Header */}
             <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-10">
-                <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-600 rounded-xl text-white">
-                            <ShieldCheck className="w-6 h-6" />
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-2 bg-blue-600 rounded-xl text-white shrink-0">
+                            <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
                         </div>
-                        <div>
-                            <h1 className="text-lg font-bold text-gray-900">LG Request Portal</h1>
-                            <p className="text-xs text-gray-500">{email}</p>
+                        <div className="min-w-0">
+                            <h1 className="text-base sm:text-lg font-bold text-gray-900 truncate">LG Request Portal</h1>
+                            <p className="text-xs text-gray-500 truncate">{email}</p>
                         </div>
                     </div>
                     <button
                         onClick={handleNewRequest}
-                        className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5"
+                        className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all shadow-md shrink-0"
                     >
-                        <Plus className="w-4 h-4" /> New Request
+                        <Plus className="w-4 h-4" /> <span className="hidden xs:inline sm:inline">New Request</span><span className="xs:hidden sm:hidden">New</span>
                     </button>
                 </div>
             </header>
 
-            <main className="max-w-6xl mx-auto px-6 py-8">
+            <main className="max-w-6xl mx-auto px-3.5 sm:px-6 py-4 sm:py-8">
                 {/* Tabs */}
-                <div className="flex border-b border-gray-200 mb-6">
+                <div className="flex border-b border-gray-200 mb-6 overflow-x-auto whitespace-nowrap">
                     <button
                         onClick={() => { setActiveTab('requests'); setSearch(''); setStatusFilter('ALL'); }}
-                        className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all ${activeTab === 'requests' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                        className={`flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all shrink-0 ${activeTab === 'requests' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
                     >
                         <FileText className="w-4 h-4" /> My Requests ({requests.length})
                     </button>
                     <button
                         onClick={() => { setActiveTab('lgs'); setSearch(''); setStatusFilter('ALL'); setExpandedLgId(null); }}
-                        className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all ${activeTab === 'lgs' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                        className={`flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all shrink-0 ${activeTab === 'lgs' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
                     >
                         <ShieldCheck className="w-4 h-4" /> My Issued LGs ({issuedLgs.length})
                     </button>
                     {incomingHandovers.length > 0 && (
                         <button
                             onClick={() => { setActiveTab('handovers'); setSearch(''); setStatusFilter('ALL'); setExpandedLgId(null); }}
-                            className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all ${activeTab === 'handovers' ? 'border-amber-500 text-amber-600' : 'border-transparent text-amber-600/70 hover:text-amber-600 hover:border-amber-300'} relative`}
+                            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all shrink-0 ${activeTab === 'handovers' ? 'border-amber-500 text-amber-600' : 'border-transparent text-amber-600/70 hover:text-amber-600 hover:border-amber-300'} relative`}
                         >
                             <Users className="w-4 h-4 animate-pulse" /> 
                             Incoming Handovers 
@@ -341,7 +341,7 @@ export default function RequestorDashboard() {
                     )}
                     <button
                         onClick={() => { setActiveTab('actions'); setSearch(''); setStatusFilter('ALL'); }}
-                        className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all ${activeTab === 'actions' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                        className={`flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all shrink-0 ${activeTab === 'actions' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
                     >
                         <Wrench className="w-4 h-4" /> My Actions ({maintenanceActions.length})
                     </button>
@@ -349,26 +349,26 @@ export default function RequestorDashboard() {
 
                 {/* Stats Cards — only show for Requests tab */}
                 {activeTab === 'requests' && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                        <p className="text-2xl font-bold text-gray-900">{requests.length}</p>
-                        <p className="text-xs text-gray-500 mt-1">Total Requests</p>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+                    <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-gray-200 shadow-sm">
+                        <p className="text-xl sm:text-2xl font-bold text-gray-900">{requests.length}</p>
+                        <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">Total Requests</p>
                     </div>
-                    <div className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm">
-                        <p className="text-2xl font-bold text-amber-600">{(statusCounts['PENDING_APPROVAL'] || 0) + (statusCounts['REVISION_REQUIRED'] || 0)}</p>
-                        <p className="text-xs text-gray-500 mt-1">Pending Actions</p>
+                    <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-amber-200 shadow-sm">
+                        <p className="text-xl sm:text-2xl font-bold text-amber-600">{(statusCounts['PENDING_APPROVAL'] || 0) + (statusCounts['REVISION_REQUIRED'] || 0)}</p>
+                        <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">Pending Actions</p>
                     </div>
-                    <div className="bg-white rounded-xl p-4 border border-emerald-200 shadow-sm">
-                        <p className="text-2xl font-bold text-emerald-600">
+                    <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-emerald-200 shadow-sm">
+                        <p className="text-xl sm:text-2xl font-bold text-emerald-600">
                             {(statusCounts['APPROVED_INTERNAL'] || 0) + (statusCounts['BANK_PROCESSING'] || 0) + (statusCounts['ISSUED'] || 0) + (statusCounts['COMPLETED'] || 0)}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">Approved & Active</p>
+                        <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">Approved & Active</p>
                     </div>
-                    <div className="bg-white rounded-xl p-4 border border-blue-200 shadow-sm">
-                        <p className="text-2xl font-bold text-blue-600">
+                    <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-blue-200 shadow-sm">
+                        <p className="text-xl sm:text-2xl font-bold text-blue-600">
                             {requests.filter(r => r.status && r.status !== 'DRAFT').length}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">Total Submitted</p>
+                        <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">Total Submitted</p>
                     </div>
                 </div>
                 )}

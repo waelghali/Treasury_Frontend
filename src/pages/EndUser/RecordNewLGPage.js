@@ -1507,26 +1507,26 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
         </div>
 
         {/* Form Actions */}
-        <div className="flex justify-end space-x-4">
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 border-t border-gray-100">
           <button
             type="button"
             onClick={handleClearForm}
-            className={`inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={isFormDisabled || isGracePeriod}
           >
-            <XCircle className="h-5 w-5 mr-2" />
+            <XCircle className="h-4 w-4 mr-2" />
             Clear Form
           </button>
           <GracePeriodTooltip isGracePeriod={isGracePeriod}>
             <button
               type="submit"
               disabled={isSaving || isFormDisabled || isGracePeriod}
-              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ease-in-out ${isSaving || isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full sm:w-auto inline-flex items-center justify-center px-6 py-2.5 border border-transparent text-sm font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-md transition-all duration-200 ease-in-out ${isSaving || isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isSaving ? (
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
-                <Save className="h-5 w-5 mr-2" />
+                <Save className="h-4 w-4 mr-2" />
               )}
               {isSaving ? 'Saving...' : 'Save LG Record'}
             </button>
