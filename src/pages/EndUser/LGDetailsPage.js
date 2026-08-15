@@ -605,27 +605,57 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 
             <div>
                 {activeTab === 'details' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-gray-700">
-                        <div className="col-span-2">
-                            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">LG Core Information</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-gray-700">
+                        <div className="col-span-1 md:col-span-2 border-b border-gray-100 pb-2">
+                            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">LG Core Information</p>
                         </div>
-                        <p><strong>LG Number:</strong> {lgRecord.lg_number}</p>
-                        <p><strong>Issuer Name:</strong> {lgRecord.issuer_name || 'N/A'}</p>
-                        <p><strong>Beneficiary:</strong> {lgRecord.beneficiary_corporate?.entity_name || 'N/A'}</p>
-                        <p><strong>Amount:</strong> {formatAmount(lgRecord.lg_amount, lgRecord.lg_currency?.iso_code)}</p>
-                        <p><strong>Issuance Date:</strong> {formatDate(lgRecord.issuance_date)}</p>
-                        <p><strong>Expiry Date:</strong> {formatDate(lgRecord.expiry_date)}</p>
-                        <p><strong>LG Type:</strong> {lgRecord.lg_type?.name || 'N/A'}</p>
-                        <p><strong>Status:</strong> <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            lgRecord.lg_status?.name === 'Valid' ? 'bg-green-100 text-green-800' :
-                            lgRecord.lg_status?.name === 'Expired' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                        }`}>{lgRecord.lg_status?.name || 'N/A'}</span></p>
-                        <p><strong>Operational Status:</strong> {lgRecord.lg_operational_status?.name || 'N/A'}</p>
-                        <p><strong>Purpose:</strong> {lgRecord.description_purpose || 'N/A'}</p>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">LG Number:</span>
+                            <span className="text-gray-700 text-sm break-all font-mono">{lgRecord.lg_number}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Issuer Name:</span>
+                            <span className="text-gray-700 text-sm break-words">{lgRecord.issuer_name || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Beneficiary:</span>
+                            <span className="text-gray-700 text-sm break-words">{lgRecord.beneficiary_corporate?.entity_name || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Amount:</span>
+                            <span className="text-gray-900 font-bold text-sm break-words">{formatAmount(lgRecord.lg_amount, lgRecord.lg_currency?.iso_code)}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Issuance Date:</span>
+                            <span className="text-gray-700 text-sm">{formatDate(lgRecord.issuance_date)}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Expiry Date:</span>
+                            <span className="text-gray-700 text-sm font-semibold">{formatDate(lgRecord.expiry_date)}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">LG Type:</span>
+                            <span className="text-gray-700 text-sm">{lgRecord.lg_type?.name || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Status:</span>
+                            <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full w-fit ${
+                                lgRecord.lg_status?.name === 'Valid' ? 'bg-green-100 text-green-800' :
+                                lgRecord.lg_status?.name === 'Expired' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                            }`}>{lgRecord.lg_status?.name || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Operational Status:</span>
+                            <span className="text-gray-700 text-sm">{lgRecord.lg_operational_status?.name || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Purpose:</span>
+                            <span className="text-gray-700 text-sm break-words">{lgRecord.description_purpose || 'N/A'}</span>
+                        </div>
                         {!isCorporateAdminView && (
-                            <div className="flex items-center">
-                                <strong>Auto Renewal:</strong>
+                            <div className="flex items-center justify-between sm:justify-start gap-3 py-1.5 border-b border-gray-50">
+                                <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Auto Renewal:</span>
                                 <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                     <Switch
                                         checked={lgRecord.auto_renewal}
@@ -633,7 +663,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                                         disabled={isGracePeriod}
                                         className={`${
                                             lgRecord.auto_renewal ? 'bg-blue-600' : 'bg-gray-200'
-                                        } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ml-3 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     >
                                         <span className="sr-only">Enable auto-renewal</span>
                                         <span
@@ -645,49 +675,86 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                                 </GracePeriodTooltip>
                             </div>
                         )}
-                        <p><strong>Period (Months):</strong> {lgRecord.lg_period_months}</p>
-
-                        <div className="col-span-2 mt-6">
-                            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">Bank & Rule Information</p>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Period (Months):</span>
+                            <span className="text-gray-700 text-sm">{lgRecord.lg_period_months}</span>
                         </div>
-                        {/* Conditional display for Issuing Bank and its details */}
-                        <p>
-                            <strong>Issuing Bank:</strong> 
-                            {isForeignBank ? lgRecord.foreign_bank_name || 'N/A' : lgRecord.issuing_bank?.name || 'N/A'}
-                        </p>
-                        <p>
-                            <strong>Bank Address:</strong> 
-                            {isForeignBank ? lgRecord.foreign_bank_address || 'N/A' : lgRecord.issuing_bank_address || 'N/A'}
-                        </p>
-                        <p>
-                            <strong>Bank Phone:</strong> 
-                            {isForeignBank ? lgRecord.foreign_bank_country || 'N/A' : lgRecord.issuing_bank_phone || 'N/A'}
-                        </p>
-                        <p><strong>Issuing Method:</strong> {lgRecord.issuing_method?.name || 'N/A'}</p>
-                        <p><strong>Applicable Rule:</strong> {lgRecord.applicable_rule?.name || 'N/A'}</p>
-                        <p><strong>Rules Text:</strong> {lgRecord.applicable_rules_text || 'N/A'}</p>
-                        {/* NEW: Display Advising Status */}
-                        <p><strong>Advising Status:</strong> {lgRecord.advising_status || 'N/A'}</p>
-                        {/* NEW: Conditionally display Advising Bank */}
+
+                        <div className="col-span-1 md:col-span-2 border-b border-gray-100 pb-2 mt-4">
+                            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Bank & Rule Information</p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Issuing Bank:</span>
+                            <span className="text-gray-700 text-sm break-words">{isForeignBank ? lgRecord.foreign_bank_name || 'N/A' : lgRecord.issuing_bank?.name || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Bank Address:</span>
+                            <span className="text-gray-700 text-sm break-words">{isForeignBank ? lgRecord.foreign_bank_address || 'N/A' : lgRecord.issuing_bank_address || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Bank Phone:</span>
+                            <span className="text-gray-700 text-sm break-words">{isForeignBank ? lgRecord.foreign_bank_country || 'N/A' : lgRecord.issuing_bank_phone || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Issuing Method:</span>
+                            <span className="text-gray-700 text-sm">{lgRecord.issuing_method?.name || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Applicable Rule:</span>
+                            <span className="text-gray-700 text-sm">{lgRecord.applicable_rule?.name || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Rules Text:</span>
+                            <span className="text-gray-700 text-sm break-words">{lgRecord.applicable_rules_text || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Advising Status:</span>
+                            <span className="text-gray-700 text-sm">{lgRecord.advising_status || 'N/A'}</span>
+                        </div>
                         {(lgRecord.advising_status === 'Advised' || lgRecord.advising_status === 'Confirmed') && (
-                            <p>
-                                <strong>Advising Bank:</strong> {communicationBank?.name || 'N/A'}
-                            </p>
+                            <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                                <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Advising Bank:</span>
+                                <span className="text-gray-700 text-sm break-words">{communicationBank?.name || 'N/A'}</span>
+                            </div>
                         )}
-                        <p><strong>Other Conditions:</strong> {lgRecord.other_conditions || 'N/A'}</p>
-
-                        <div className="col-span-2 mt-6">
-                            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">Internal & Category Details</p>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Other Conditions:</span>
+                            <span className="text-gray-700 text-sm break-words">{lgRecord.other_conditions || 'N/A'}</span>
                         </div>
-                        <p><strong>Internal Owner:</strong> {lgRecord.internal_owner_contact?.email || 'N/A'}</p>
-                        <p><strong>Owner Phone:</strong> {lgRecord.internal_owner_contact?.phone_number || 'N/A'}</p>
-                        <p><strong>Owner Manager:</strong> {lgRecord.internal_owner_contact?.manager_email || 'N/A'}</p>
-                        <p><strong>LG Category:</strong> {lgRecord.lg_category?.name || 'N/A'}</p>
+
+                        <div className="col-span-1 md:col-span-2 border-b border-gray-100 pb-2 mt-4">
+                            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Internal & Category Details</p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Internal Owner:</span>
+                            <span className="text-gray-700 text-sm break-all">{lgRecord.internal_owner_contact?.email || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Owner Phone:</span>
+                            <span className="text-gray-700 text-sm">{lgRecord.internal_owner_contact?.phone_number || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Owner Manager:</span>
+                            <span className="text-gray-700 text-sm break-all">{lgRecord.internal_owner_contact?.manager_email || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">LG Category:</span>
+                            <span className="text-gray-700 text-sm">{lgRecord.lg_category?.name || 'N/A'}</span>
+                        </div>
                         {lgRecord.lg_category?.extra_field_name && (
-                             <p><strong>{lgRecord.lg_category.extra_field_name}:</strong> {lgRecord.additional_field_values?.[lgRecord.lg_category.extra_field_name] || 'N/A'}</p>
+                            <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                                <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">{lgRecord.lg_category.extra_field_name}:</span>
+                                <span className="text-gray-700 text-sm break-words">{lgRecord.additional_field_values?.[lgRecord.lg_category.extra_field_name] || 'N/A'}</span>
+                            </div>
                         )}
-                        <p><strong>Internal Project ID:</strong> {lgRecord.internal_contract_project_id || 'N/A'}</p>
-                        <p><strong>Notes:</strong> {lgRecord.notes || 'N/A'}</p>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Contract/Project ID:</span>
+                            <span className="text-gray-700 text-sm break-words">{lgRecord.internal_contract_project_id || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Notes:</span>
+                            <span className="text-gray-700 text-sm break-words">{lgRecord.notes || 'N/A'}</span>
+                        </div>
                     </div>
                 )}
 				{activeTab === 'documents' && (

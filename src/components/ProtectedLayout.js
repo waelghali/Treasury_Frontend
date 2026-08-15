@@ -42,6 +42,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
     }
     else if (role === 'corporate_admin') {
       if (currentPath.startsWith('/corporate-admin/dashboard')) { activeItem = 'corporate-admin-dashboard'; title = 'Dashboard'; }
+      else if (currentPath.startsWith('/corporate-admin/issuance/request')) { activeItem = 'issuance-requests'; title = 'New Issuance Request'; }
       else if (currentPath.startsWith('/corporate-admin/issuance/requests')) { activeItem = 'issuance-requests'; title = 'LG Issuance'; }
       else if (currentPath.startsWith('/corporate-admin/issuance/reconciliation')) { activeItem = 'issuance-reconciliation'; title = 'LG Reconciliation'; }
       else if (currentPath.startsWith('/corporate-admin/issuance/migration-hub')) { activeItem = 'issuance-migration-hub'; title = 'Issuance Migration Hub'; }
@@ -50,14 +51,18 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
       else if (currentPath.startsWith('/corporate-admin/issuance/bank-accounts')) { activeItem = 'issuance-bank-accounts'; title = 'Bank Accounts'; }
       else if (currentPath.startsWith('/corporate-admin/issuance/facilities')) { activeItem = 'issuance-facilities'; title = 'Bank Facilities'; }
       else if (currentPath.startsWith('/corporate-admin/issuance/form-config')) { activeItem = 'issuance-form-config'; title = 'Issuance Form Config'; }
+      else if (currentPath.startsWith('/corporate-admin/quotations/dashboard') || currentPath.startsWith('/corporate-admin/quotations')) { activeItem = 'quotations-dashboard'; title = 'Quotation Control Center'; }
+      else if (currentPath.startsWith('/corporate-admin/quotations/approvals')) { activeItem = 'quotation-approvals'; title = 'Quotation Approvals'; }
       else if (currentPath.startsWith('/corporate-admin/reconciliation/rules')) { activeItem = 'reconciliation-rules'; title = 'Rules Engine'; }
       else if (currentPath.startsWith('/corporate-admin/reconciliation/export')) { activeItem = 'reconciliation-export'; title = 'Accounting Export'; }
       else if (currentPath.startsWith('/corporate-admin/reconciliation')) { activeItem = 'reconciliation-dashboard'; title = 'Statement Dash'; }
       else if (currentPath.startsWith('/corporate-admin/lg-records')) { activeItem = 'lg-records'; title = 'All LG Records'; }
+      else if (currentPath.startsWith('/corporate-admin/expiring-lgs')) { activeItem = 'expiring-lgs'; title = 'Expiring LGs'; }
       else if (currentPath.startsWith('/corporate-admin/approval-requests')) { activeItem = 'approval-center-page'; title = 'Approval Center'; }
+      else if (currentPath.startsWith('/corporate-admin/approval-inbox')) { activeItem = 'approval-center-page'; title = 'Approval Inbox'; }
       else if (currentPath.startsWith('/corporate-admin/action-center')) { activeItem = 'action-center'; title = 'Action Center'; }
-      else if (currentPath.startsWith('/corporate-admin/users')) { activeItem = 'user-management'; title = 'User Management'; }
-      else if (currentPath.startsWith('/corporate-admin/module-configs')) { activeItem = 'module-configs'; title = 'Settings'; }
+      else if (currentPath.startsWith('/corporate-admin/users')) { activeItem = 'users'; title = 'User Management'; }
+      else if (currentPath.startsWith('/corporate-admin/entities') || currentPath.startsWith('/corporate-admin/module-configs')) { activeItem = 'entities'; title = 'Entities & Configurations'; }
       else if (currentPath.startsWith('/corporate-admin/lg-categories')) { activeItem = 'lg-categories'; title = 'LG Categories'; }
       else if (currentPath.startsWith('/corporate-admin/audit-logs')) { activeItem = 'audit-logs'; title = 'Audit Logs'; }
       else if (currentPath.startsWith('/corporate-admin/reports')) { activeItem = 'reports'; title = 'Reports'; }
@@ -67,9 +72,13 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
       if (currentPath.startsWith('/end-user/dashboard')) { activeItem = 'end-user-dashboard'; title = 'Dashboard'; }
       else if (currentPath.startsWith('/end-user/action-center')) { activeItem = 'end-user-action-center'; title = 'Action Center'; }
       else if (currentPath.startsWith('/end-user/lg-records/new')) { activeItem = 'end-user-record-new-lg'; title = 'Record New LG'; }
-      else if (currentPath.startsWith('/end-user/lg-records')) { activeItem = 'end-user-manage-lg-records'; title = 'Manage LG Records'; }
+      else if (currentPath.startsWith('/end-user/lg-records')) { activeItem = 'end-user-lg-records'; title = 'Manage LG Records'; }
+      else if (currentPath.startsWith('/end-user/expiring-lgs')) { activeItem = 'end-user-expiring-lgs'; title = 'Expiring LGs'; }
       else if (currentPath.startsWith('/end-user/pending-approvals')) { activeItem = 'end-user-pending-approvals'; title = 'Withdraw Request'; }
       else if (currentPath.startsWith('/end-user/internal-owners')) { activeItem = 'end-user-internal-owners'; title = 'Manage Internal Owners'; }
+      else if (currentPath.startsWith('/end-user/quotations/new') || currentPath.startsWith('/end-user/quotations/active')) { activeItem = 'end-user-quotations-new'; title = 'New FX / T-Bill Req'; }
+      else if (currentPath.startsWith('/end-user/quotations/dashboard') || currentPath.startsWith('/end-user/quotations/history') || currentPath.startsWith('/end-user/quotations')) { activeItem = 'end-user-quotations-dashboard'; title = 'Quotation Dashboard'; }
+      else if (currentPath.startsWith('/end-user/issuance/request')) { activeItem = 'issuance-request-new'; title = 'New Issuance Req'; }
       else if (currentPath.startsWith('/end-user/issuance/reconciliation')) { activeItem = 'issuance-reconciliation'; title = 'LG Reconciliation'; }
       else if (currentPath.startsWith('/end-user/issuance/issued-lgs')) { activeItem = 'issuance-issued-lgs'; title = 'Issued LGs'; }
       else if (currentPath.startsWith('/end-user/issuance/requests')) { activeItem = 'issuance-requests'; title = 'Issuance Requests'; }

@@ -76,10 +76,14 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIss
       {/* Existing LG Records Views */}
       <Route path="lg-records" element={<LGRecordListReadOnlyPage />} />
       <Route path="lg-records/:id" element={<LGDetailsReadOnlyPage />} />
+      <Route path="expiring-lgs" element={<LGRecordListReadOnlyPage />} />
+      <Route path="entities" element={<CustomerConfigurationManagementPage onLogout={onLogout} isGracePeriod={isGracePeriod} customerId={customerId} />} />
       <Route path="action-center" element={<ActionCenter />} />
 
       {/* Issuance Module Routes */}
       {/* Treasury Dashboard now merged into unified dashboard */}
+      <Route path="issuance/request-new" element={<IssuanceRequestForm />} />
+      <Route path="issuance/requests/new" element={<IssuanceRequestForm />} />
       <Route path="issuance/requests" element={<IssuanceRequestsPage />} />
       <Route path="issuance/requests/edit/:id" element={<IssuanceRequestForm />} />
       <Route path="issuance/form-config" element={<IssuanceFormConfigPage />} />
@@ -102,6 +106,8 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIss
 
       {/* Quotation Module Route */}
       <Route path="quotations" element={<AdminQuotationDashboard />} />
+      <Route path="quotations/dashboard" element={<AdminQuotationDashboard />} />
+      <Route path="quotations/approvals" element={<AdminQuotationDashboard />} />
 
       <Route path="*" element={<Navigate to="dashboard" replace />} />
     </Routes>

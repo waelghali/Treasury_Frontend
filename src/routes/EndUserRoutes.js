@@ -50,6 +50,7 @@ function EndUserRoutes({ onLogout, subscriptionStatus, hasCustodyModule, hasIssu
           <Route path="lg-records/new" element={<RecordNewLGPage isGracePeriod={isGracePeriod} />} />
           <Route path="lg-records" element={<LGRecordList isGracePeriod={isGracePeriod} />} />
           <Route path="lg-records/:id" element={<LGDetailsPage isGracePeriod={isGracePeriod} />} />
+          <Route path="expiring-lgs" element={<LGRecordList isGracePeriod={isGracePeriod} />} />
           <Route path="internal-owners" element={<ManageInternalOwnersPage isGracePeriod={isGracePeriod} />} />
           <Route path="pending-approvals" element={<EndUserPendingApprovalsPage isGracePeriod={isGracePeriod} />} />
         </>
@@ -57,19 +58,24 @@ function EndUserRoutes({ onLogout, subscriptionStatus, hasCustodyModule, hasIssu
         <>
           {/* Redirect custody URLs to dashboard when module is not available */}
           <Route path="lg-records/*" element={<Navigate to="../dashboard" replace />} />
+          <Route path="expiring-lgs" element={<Navigate to="../dashboard" replace />} />
           <Route path="internal-owners" element={<Navigate to="../dashboard" replace />} />
           <Route path="pending-approvals" element={<Navigate to="../dashboard" replace />} />
         </>
       )}
 
       {/* Quotation Module Routes */}
+      <Route path="quotations/new" element={<QuotationRequestDashboard />} />
       <Route path="quotations/active" element={<QuotationRequestDashboard />} />
+      <Route path="quotations/dashboard" element={<QuotationHistoryDashboard />} />
       <Route path="quotations/history" element={<QuotationHistoryDashboard />} />
       <Route path="quotations/results/:id" element={<ResultsView />} />
 
       {/* Issuance Module Routes — only if customer has issuance module */}
       {hasIssuanceModule ? (
         <>
+          <Route path="issuance/request-new" element={<IssuanceRequestForm />} />
+          <Route path="issuance/requests/new" element={<IssuanceRequestForm />} />
           <Route path="issuance/requests" element={<IssuanceRequestsPage />} />
           <Route path="issuance/requests/edit/:id" element={<IssuanceRequestForm />} />
           <Route path="issuance/issued-lgs" element={<IssuedLGsPage />} />
