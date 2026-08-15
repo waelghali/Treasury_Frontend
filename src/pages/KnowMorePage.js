@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 
 function KnowMorePage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
   return (
     <div style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
       <Helmet>
@@ -22,14 +24,17 @@ function KnowMorePage() {
 
       {/* ═══════ HEADER ═══════ */}
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-gray-800/30" style={{ backgroundColor: '#1e2a4a' }}>
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <span className="text-lg font-bold text-white tracking-tight">Grow</span>
             <span className="text-xs text-blue-400 font-medium hidden sm:inline">Business Development</span>
           </div>
-          <nav className="flex items-center space-x-4">
+          
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center space-x-4">
             <Link to="/" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Home</Link>
-            <a href="/grow_brochure.pdf" download="Grow-Brochure.pdf" className="text-sm font-medium text-gray-300 hover:text-white transition-colors hidden md:inline">Brochure</a>
+            <Link to="/portal/issuance" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Issuance Portal</Link>
+            <a href="/grow_brochure.pdf" download="Grow-Brochure.pdf" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Brochure</a>
             <Link to="/free-trial-register" className="px-4 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
               Free Trial
             </Link>
@@ -37,7 +42,67 @@ function KnowMorePage() {
               Sign In
             </Link>
           </nav>
+
+          {/* Mobile Right Actions & Hamburger */}
+          <div className="flex md:hidden items-center space-x-2">
+            <Link to="/login" className="px-3 py-1 text-xs font-semibold text-gray-300 border border-gray-500 rounded-md hover:bg-white/10 transition-colors">
+              Sign In
+            </Link>
+            <Link to="/free-trial-register" className="px-3 py-1 text-xs font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
+              Free Trial
+            </Link>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors focus:outline-none"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileMenuOpen ? (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile Dropdown Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-gray-700/50 bg-[#162038] px-4 py-3 space-y-2 shadow-2xl animate-fade-in-up">
+            <Link
+              to="/"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              Home
+            </Link>
+            <Link
+              to="/portal/issuance"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              Issuance Portal
+            </Link>
+            <a
+              href="/grow_brochure.pdf"
+              download="Grow-Brochure.pdf"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              Brochure
+            </a>
+            <Link
+              to="/#demo-form"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              Book a Demo
+            </Link>
+          </div>
+        )}
       </header>
 
       {/* ═══════ HERO ═══════ */}

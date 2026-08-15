@@ -47,6 +47,8 @@ function LandingPage() {
     if (demoFormRef.current) demoFormRef.current.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const handleDownload = () => {
     const link = document.createElement('a');
     link.href = '/grow_brochure.pdf';
@@ -73,15 +75,17 @@ function LandingPage() {
 
       {/* ═══════ HEADER ═══════ */}
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-gray-800/30" style={{ backgroundColor: '#1e2a4a' }}>
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <span className="text-lg font-bold text-white tracking-tight">Grow</span>
             <span className="text-xs text-blue-400 font-medium hidden sm:inline">Business Development</span>
           </div>
-          <nav className="flex items-center space-x-4">
-            <Link to="/portal/issuance" className="text-sm font-medium text-gray-300 hover:text-white transition-colors hidden md:inline">Issuance Portal</Link>
-            <button onClick={scrollToDemoForm} className="text-sm font-medium text-gray-300 hover:text-white transition-colors hidden md:inline">Book a Demo</button>
-            <button onClick={handleDownload} className="text-sm font-medium text-gray-300 hover:text-white transition-colors hidden md:inline">Brochure</button>
+          
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center space-x-4">
+            <Link to="/portal/issuance" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Issuance Portal</Link>
+            <button onClick={scrollToDemoForm} className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Book a Demo</button>
+            <button onClick={handleDownload} className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Brochure</button>
             <Link to="/free-trial-register" className="px-4 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
               Free Trial
             </Link>
@@ -89,7 +93,64 @@ function LandingPage() {
               Sign In
             </Link>
           </nav>
+
+          {/* Mobile Right Actions & Hamburger */}
+          <div className="flex md:hidden items-center space-x-2">
+            <Link to="/login" className="px-3 py-1 text-xs font-semibold text-gray-300 border border-gray-500 rounded-md hover:bg-white/10 transition-colors">
+              Sign In
+            </Link>
+            <Link to="/free-trial-register" className="px-3 py-1 text-xs font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
+              Free Trial
+            </Link>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors focus:outline-none"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileMenuOpen ? (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile Dropdown Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-gray-700/50 bg-[#162038] px-4 py-3 space-y-2 shadow-2xl animate-fade-in-up">
+            <Link
+              to="/portal/issuance"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              Issuance Portal
+            </Link>
+            <button
+              onClick={() => { scrollToDemoForm(); setMobileMenuOpen(false); }}
+              className="w-full text-left block px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              Book a Demo
+            </button>
+            <button
+              onClick={() => { handleDownload(); setMobileMenuOpen(false); }}
+              className="w-full text-left block px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              Brochure
+            </button>
+            <Link
+              to="/know-more"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              Platform Overview
+            </Link>
+          </div>
+        )}
       </header>
 
       {/* ═══════ HERO SECTION ═══════ */}
