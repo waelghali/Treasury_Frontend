@@ -313,7 +313,7 @@ function CorporateAdminLayout({
         </div>
       )}
 
-      {!isChecker && (
+      {hasReconciliationModule && !isChecker && (
         <div className="pb-2">
           {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Bank Reconciliation</p></div>}
           <Link to="/corporate-admin/reconciliation" title={isCollapsed && !isDrawer ? 'Statement Dash' : ''}
