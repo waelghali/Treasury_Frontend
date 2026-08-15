@@ -643,23 +643,23 @@ export default function QuotationRequestDashboard() {
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-4 flex-1">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-3 sm:gap-4 flex-1">
                             {banks.map(bank => {
                                 const isSelected = selectedBanks.find(b => b.id === bank.bank_id);
                                 return (
                                     <div
                                         key={bank.id}
-                                        className={`p-4 sm:p-6 rounded-2xl border transition-all h-fit ${isSelected ? 'border-black bg-gray-50 shadow-sm' : 'border-gray-100 hover:border-gray-300'
+                                        className={`p-3.5 sm:p-5 rounded-2xl border transition-all h-fit ${isSelected ? 'border-black bg-gray-50 shadow-sm' : 'border-gray-100 hover:border-gray-300'
                                             }`}
                                     >
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-black text-white' : 'bg-gray-100 text-gray-400'}`}>
-                                                    <Landmark size={18} />
+                                        <div className="flex items-center justify-between gap-2 mb-2">
+                                            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 mr-1">
+                                                <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-black text-white' : 'bg-gray-100 text-gray-400'}`}>
+                                                    <Landmark size={17} />
                                                 </div>
-                                                <div className="min-w-0">
-                                                    <h4 className="font-semibold text-sm sm:text-base truncate">{bank.bank?.name || `Bank ${bank.bank_id}`}</h4>
-                                                    <p className="text-[10px] sm:text-xs text-gray-400 truncate">{bank.emails}</p>
+                                                <div className="min-w-0 flex-1">
+                                                    <h4 className="font-semibold text-xs sm:text-base text-gray-900 truncate leading-tight">{bank.bank?.name || `Bank ${bank.bank_id}`}</h4>
+                                                    <p className="text-[10px] sm:text-xs text-gray-400 truncate mt-0.5">{bank.emails}</p>
                                                 </div>
                                             </div>
                                             <button
@@ -674,7 +674,7 @@ export default function QuotationRequestDashboard() {
 
                                          {isSelected && (
                                             <div className="animate-fade-in-up space-y-3 pt-4 mt-2 border-t border-gray-200">
-                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
                                                     <div>
                                                         <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Min Cost</label>
                                                         <input
@@ -752,9 +752,9 @@ export default function QuotationRequestDashboard() {
                         <button
                             type="submit"
                             disabled={isSubmitting || selectedBanks.length === 0}
-                            className="mt-8 w-full py-4 sm:py-5 bg-black text-white rounded-3xl font-semibold text-base sm:text-lg flex items-center justify-center gap-3 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xl shadow-black/10 shrink-0"
+                            className="mt-6 sm:mt-8 w-full py-3.5 sm:py-5 bg-black text-white rounded-2xl sm:rounded-3xl font-semibold text-sm sm:text-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xl shadow-black/10 shrink-0"
                         >
-                            <Send size={20} />
+                            <Send size={18} />
                             {isSubmitting ? 'Processing...' : 'Submit Request for Quotation'}
                         </button>
                     </section>
