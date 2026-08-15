@@ -4,7 +4,7 @@ import {
   Home, Users, FolderKanban, LogOut, Settings, FileText,
   BarChart, Hourglass, ClipboardList, DatabaseZap, Send, Building, Shield,
   ChevronLeft, ChevronRight, FileCheck, Settings2, Download, LayoutTemplate, TrendingUp, CreditCard, BarChart3, Bell, Upload, RefreshCw,
-  Menu, X
+  Menu, X, ListTodo, Layers, Sliders, FileSpreadsheet, BarChart2
 } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner';
@@ -295,20 +295,47 @@ function CorporateAdminLayout({
 
       {hasCustodyModule && (
         <div className="pb-2">
-          {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Custody</p></div>}
-          <Link to={`${basePath}/lg-records`} title={isCollapsed && !isDrawer ? 'LG Records' : ''}
+          {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>LG Custody</p></div>}
+          <Link to="/corporate-admin/lg-records" title={isCollapsed && !isDrawer ? 'All LG Records' : ''}
             className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'lg-records' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
             style={activeMenuItem === 'lg-records' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
           >
-            <FileCheck className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">LG Records</span>}
+            <FileText className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">All LG Records</span>}
           </Link>
-          <Link to={`${basePath}/expiring-lgs`} title={isCollapsed && !isDrawer ? 'Expiring LGs' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'expiring-lgs' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'expiring-lgs' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+          <Link to="/corporate-admin/action-center" title={isCollapsed && !isDrawer ? 'Action Center' : ''}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'action-center' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
+            style={activeMenuItem === 'action-center' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
           >
-            <Hourglass className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Expiring LGs</span>}
+            <ListTodo className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Action Center</span>}
+          </Link>
+        </div>
+      )}
+
+      {!isChecker && (
+        <div className="pb-2">
+          {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Bank Reconciliation</p></div>}
+          <Link to="/corporate-admin/reconciliation" title={isCollapsed && !isDrawer ? 'Statement Dash' : ''}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'reconciliation-dashboard' || activeMenuItem?.includes('workspace') ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
+            style={activeMenuItem === 'reconciliation-dashboard' || activeMenuItem?.includes('workspace') ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+          >
+            <Layers className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Statement Dash</span>}
+          </Link>
+          <Link to="/corporate-admin/reconciliation/rules" title={isCollapsed && !isDrawer ? 'Rules Engine' : ''}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'reconciliation-rules' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
+            style={activeMenuItem === 'reconciliation-rules' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+          >
+            <Sliders className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Rules Engine</span>}
+          </Link>
+          <Link to="/corporate-admin/reconciliation/export" title={isCollapsed && !isDrawer ? 'Accounting Export' : ''}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'reconciliation-export' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
+            style={activeMenuItem === 'reconciliation-export' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+          >
+            <FileSpreadsheet className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Accounting Export</span>}
           </Link>
         </div>
       )}
@@ -316,39 +343,25 @@ function CorporateAdminLayout({
       {hasQuotationModule && !isChecker && (
         <div className="pb-2">
           {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Quotations</p></div>}
-          <Link to="/corporate-admin/quotations/dashboard" title={isCollapsed && !isDrawer ? 'Quotation Control Center' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'quotations-dashboard' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'quotations-dashboard' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+          <Link to="/corporate-admin/quotations" title={isCollapsed && !isDrawer ? 'Quotation Control' : ''}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'quotation-control' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
+            style={activeMenuItem === 'quotation-control' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
           >
-            <FolderKanban className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Control Center</span>}
-          </Link>
-          <Link to="/corporate-admin/quotations/approvals" title={isCollapsed && !isDrawer ? 'Pending Quotation Approvals' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'quotation-approvals' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'quotation-approvals' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <Hourglass className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Quotation Approvals</span>}
+            <BarChart2 className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Quotation Control</span>}
           </Link>
         </div>
       )}
 
       {!isChecker && (
         <div className="pb-2">
-          {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Organization</p></div>}
-          <Link to="/corporate-admin/users" title={isCollapsed && !isDrawer ? 'Users' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'users' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'users' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+          {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Configuration</p></div>}
+          <Link to="/corporate-admin/users" title={isCollapsed && !isDrawer ? 'User Management' : ''}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'user-management' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
+            style={activeMenuItem === 'user-management' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
           >
             <Users className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Users</span>}
-          </Link>
-          <Link to="/corporate-admin/entities" title={isCollapsed && !isDrawer ? 'Entities' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'entities' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'entities' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <Building className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Entities</span>}
+            {(!isCollapsed || isDrawer) && <span className="ml-3">User Management</span>}
           </Link>
           <Link to="/corporate-admin/module-configs" title={isCollapsed && !isDrawer ? 'Settings' : ''}
             className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'module-configs' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}

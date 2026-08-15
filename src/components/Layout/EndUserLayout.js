@@ -3,7 +3,8 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import {
   Home, FileText, PlusCircle, BarChart, LogOut,
   FolderKanban, Users, ListTodo, ChevronLeft, ChevronRight,
-  Building, History, Zap, Bell, RefreshCw, Menu, X
+  Building, History, Zap, Bell, RefreshCw, Menu, X,
+  AlertCircle, TrendingUp
 } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner';
@@ -215,31 +216,45 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
           </Link>
           <Link
             to="/end-user/lg-records"
-            title={isCollapsed && !isDrawer ? "LG Records" : ""}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-lg-records'
+            title={isCollapsed && !isDrawer ? "Manage LG Records" : ""}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-manage-lg-records' || activeMenuItem === 'end-user-lg-records'
               ? 'font-semibold'
               : 'hover:bg-white/[0.07]'
               }`}
-            style={activeMenuItem === 'end-user-lg-records'
+            style={activeMenuItem === 'end-user-manage-lg-records' || activeMenuItem === 'end-user-lg-records'
               ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
               : { color: '#cbd5e1' }}
           >
             <FileText className="h-5 w-5 flex-shrink-0" />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">LG Records</span>}
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Manage LG Records</span>}
           </Link>
           <Link
-            to="/end-user/expiring-lgs"
-            title={isCollapsed && !isDrawer ? "Expiring LGs" : ""}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-expiring-lgs'
+            to="/end-user/pending-approvals"
+            title={isCollapsed && !isDrawer ? "Withdraw Request" : ""}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-pending-approvals'
               ? 'font-semibold'
               : 'hover:bg-white/[0.07]'
               }`}
-            style={activeMenuItem === 'end-user-expiring-lgs'
+            style={activeMenuItem === 'end-user-pending-approvals'
               ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
               : { color: '#cbd5e1' }}
           >
-            <History className="h-5 w-5 flex-shrink-0" />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Expiring LGs</span>}
+            <AlertCircle className="h-5 w-5 flex-shrink-0" />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Withdraw Request</span>}
+          </Link>
+          <Link
+            to="/end-user/internal-owners"
+            title={isCollapsed && !isDrawer ? "Manage Internal Owners" : ""}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-internal-owners'
+              ? 'font-semibold'
+              : 'hover:bg-white/[0.07]'
+              }`}
+            style={activeMenuItem === 'end-user-internal-owners'
+              ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
+              : { color: '#cbd5e1' }}
+          >
+            <Users className="h-5 w-5 flex-shrink-0" />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Manage Internal Owners</span>}
           </Link>
         </>
       )}
@@ -253,32 +268,32 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
             </div>
           )}
           <Link
-            to="/end-user/quotations/new"
-            title={isCollapsed && !isDrawer ? "New FX / T-Bill Request" : ""}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-quotations-new'
+            to="/end-user/quotations/active"
+            title={isCollapsed && !isDrawer ? "Active Quotations" : ""}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-quotations-active' || activeMenuItem === 'end-user-quotations-new'
               ? 'font-semibold'
               : 'hover:bg-white/[0.07]'
               }`}
-            style={activeMenuItem === 'end-user-quotations-new'
+            style={activeMenuItem === 'end-user-quotations-active' || activeMenuItem === 'end-user-quotations-new'
               ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
               : { color: '#cbd5e1' }}
           >
-            <PlusCircle className="h-5 w-5 flex-shrink-0" />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">New FX / T-Bill Req</span>}
+            <TrendingUp className="h-5 w-5 flex-shrink-0" />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Active Quotations</span>}
           </Link>
           <Link
-            to="/end-user/quotations/dashboard"
-            title={isCollapsed && !isDrawer ? "Quotation Dashboard" : ""}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-quotations-dashboard'
+            to="/end-user/quotations/history"
+            title={isCollapsed && !isDrawer ? "Quotation History" : ""}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-quotations-history' || activeMenuItem === 'end-user-quotations-dashboard'
               ? 'font-semibold'
               : 'hover:bg-white/[0.07]'
               }`}
-            style={activeMenuItem === 'end-user-quotations-dashboard'
+            style={activeMenuItem === 'end-user-quotations-history' || activeMenuItem === 'end-user-quotations-dashboard'
               ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
               : { color: '#cbd5e1' }}
           >
-            <FolderKanban className="h-5 w-5 flex-shrink-0" />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Quotation Dashboard</span>}
+            <History className="h-5 w-5 flex-shrink-0" />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Quotation History</span>}
           </Link>
         </>
       )}
@@ -291,20 +306,6 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
               <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>LG Issuance</p>
             </div>
           )}
-          <Link
-            to="/end-user/issuance/request-new"
-            title={isCollapsed && !isDrawer ? "New Issuance Request" : ""}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'issuance-request-new'
-              ? 'font-semibold'
-              : 'hover:bg-white/[0.07]'
-              }`}
-            style={activeMenuItem === 'issuance-request-new'
-              ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
-              : { color: '#cbd5e1' }}
-          >
-            <PlusCircle className="h-5 w-5 flex-shrink-0" />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">New Issuance Req</span>}
-          </Link>
           <Link
             to="/end-user/issuance/requests"
             title={isCollapsed && !isDrawer ? "Issuance Requests" : ""}
