@@ -134,6 +134,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
       <AIQueryAssistantModal
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}
+        userRole={userRole}
       />
     </>
   );

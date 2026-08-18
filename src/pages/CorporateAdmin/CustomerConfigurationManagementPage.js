@@ -5,53 +5,57 @@ import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown
 import { toast } from 'react-toastify';
 import QuotationBanksModal from '../../components/Modals/QuotationBanksModal';
 
-// --- REVISED: Configuration Groupings Mapping ---
+// --- 5-GROUP MASTER SETTINGS ARCHITECTURE ---
 const settingGroups = {
-  'Security & Authentication': { icon: Lock },
-  'Quotation & Treasury': { icon: FileText },
-  'System Limits & Timers': { icon: Clock },
-  'Communication & Alerts': { icon: MessageSquare },
-  'Document Compliance & Requirements': { icon: FileCheck },
-  'Issuance & Facilities': { icon: Layers },
-  'General': { icon: Settings }
+  'Operational Timers, Expiries & Bank Reminder Windows': { icon: Clock },
+  'Document Compliance & Mandatory Evidence Policies': { icon: FileCheck },
+  'Smart Bank Facility Scoring & Recommendation': { icon: Layers },
+  'Operational Governance, Controls & Position Reconciliation': { icon: Shield },
+  'Security, Authentication & Platform Policies': { icon: Lock }
 };
 
-// Helper function to dynamically determine a config's group based on keywords
+// Helper function to dynamically determine a config's group based on 5-pillar domain architecture
 const getGroupKey = (configKey) => {
-  const key = configKey.toUpperCase();
+  const key = (configKey || '').toUpperCase();
 
-  // Group 0: Quotation & Treasury Settings
-  if (key.includes('QUOTATION') || key.includes('RFQ') || key.includes('TREASURY')) {
-    return 'Quotation & Treasury';
+  // Group 2: Document Compliance & Mandatory Evidence Policies
+  if (key.startsWith('DOC_MANDATORY_') || key.includes('DOC_') || key.includes('ATTACHMENT')) {
+    return 'Document Compliance & Mandatory Evidence Policies';
   }
 
-  // Group 1: Security & Authentication
-  if (key.includes('PASSWORD') || key.includes('AUTH') || key.includes('LOCKOUT') || key.includes('LOGIN') || key.includes('ENFORCE') || key.includes('ACCOUNT_LOCKOUT') || key.includes('SESSION')) {
-    return 'Security & Authentication';
+  // Group 3: Smart Bank Facility Scoring & Recommendation
+  if (key.includes('FACILITY_SCORE') || key.includes('RESERVATION_TTL') || key.includes('PUBLIC_ISSUANCE_SESSION')) {
+    return 'Smart Bank Facility Scoring & Recommendation';
   }
 
-  // Group 2: System Limits & Timers
-  if (key.includes('TIMEOUT') || key.includes('IDLE') || key.includes('EXPIRY') || key.includes('DURATION') || key.includes('FREQUENCY') || key.includes('RETENTION') || key.includes('MAX') || key.includes('LIMIT') || key.includes('COUNT')) {
-    return 'System Limits & Timers';
+  // Group 4: Operational Governance, Controls & Position Reconciliation
+  if (
+    key.includes('ALLOW_SIMULTANEOUS_MAINTENANCE') ||
+    key.includes('APPROVAL_REQUEST_MAX_PENDING_DAYS') ||
+    key.includes('DAYS_FOR_RECONCILIATION_REMINDER') ||
+    key.includes('QUOTATION_APPROVAL_REQUIRED') ||
+    key.includes('COMMON_COMMUNICATION_LIST') ||
+    key.includes('REFERENCE_EXPIRY_REMINDER_DAYS')
+  ) {
+    return 'Operational Governance, Controls & Position Reconciliation';
   }
 
-  // Group 3: Communication & Alerts
-  if (key.includes('EMAIL') || key.includes('COMMUNICATION') || key.includes('NOTIFICATION') || key.includes('SENDER') || key.includes('SMS')) {
-    return 'Communication & Alerts';
+  // Group 5: Security, Authentication & Platform Policies
+  if (
+    key.includes('PASSWORD') ||
+    key.includes('AUTH') ||
+    key.includes('LOCKOUT') ||
+    key.includes('SESSION') ||
+    key.includes('GRACE_PERIOD') ||
+    key.includes('STORAGE_BUCKET') ||
+    key.includes('TC_VERSION') ||
+    key.includes('PP_VERSION')
+  ) {
+    return 'Security, Authentication & Platform Policies';
   }
 
-  // Group 4: Document Compliance & Requirements
-  if (key.includes('REQUIRED') || key.includes('MANDATORY') || key.includes('OPTIONAL') || key.includes('DOC') || key.includes('ATTACHMENT') || key.includes('FILE')) {
-    return 'Document Compliance & Requirements';
-  }
-
-  // Group 5: Issuance & Facilities
-  if (key.includes('FACILITY_SCORE') || key.includes('RESERVATION_TTL') || key.includes('ISSUANCE_LG')) {
-    return 'Issuance & Facilities';
-  }
-
-  // Default Group
-  return 'General';
+  // Group 1: Operational Timers, Expiries & Bank Reminder Windows (Default for all reminder, print, cancellation, renewal timers)
+  return 'Operational Timers, Expiries & Bank Reminder Windows';
 };
 
 // --- Toggle Switch Component ---
