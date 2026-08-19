@@ -106,6 +106,7 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
             level: res.level,
             sourceAwareness: res.source_awareness,
             references: res.references || [],
+            suggestedChips: res.suggested_chips || [],
             visualMetadata: res.visual_metadata
           }
         ]);
@@ -450,6 +451,25 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* Interactive In-Chat Clarification Chips */}
+                {msg.suggestedChips && msg.suggestedChips.length > 0 && (
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/50 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mr-1">
+                      Quick Follow-ups:
+                    </span>
+                    {msg.suggestedChips.map((chip, chipIdx) => (
+                      <button
+                        key={chipIdx}
+                        onClick={() => handleSend(chip.query)}
+                        disabled={loading}
+                        className="text-xs bg-indigo-50/90 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/80 text-indigo-700 dark:text-indigo-300 font-medium px-2.5 py-1 rounded-full border border-indigo-200/80 dark:border-indigo-800 hover:border-indigo-400 transition-all hover:scale-105 active:scale-95 flex items-center space-x-1 cursor-pointer shadow-2xs"
+                      >
+                        <span>{chip.label}</span>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
