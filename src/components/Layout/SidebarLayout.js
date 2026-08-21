@@ -1,7 +1,7 @@
 // src/components/SidebarLayout.js
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Home, Users, Briefcase, Settings, FileText, BarChart, LogOut, DollarSign, List, Gavel, File, HardDrive, LayoutDashboard, Clock, BookOpen, UserPlus, Menu, X } from 'lucide-react';
+import { Home, Users, Briefcase, Settings, FileText, BarChart, LogOut, DollarSign, List, Gavel, File, HardDrive, LayoutDashboard, Clock, BookOpen, UserPlus, Menu, X, MessageSquare } from 'lucide-react';
 
 function SidebarLayout({ onLogout, headerTitle }) {
   const [showGlobalConfigSubMenu, setShowGlobalConfigSubMenu] = useState(false);
@@ -186,6 +186,15 @@ function SidebarLayout({ onLogout, headerTitle }) {
       >
         <BookOpen className="h-5 w-5 mr-3" />
         Universal Categories
+      </Link>
+
+      <Link
+        to="/system-owner/feedback"
+        onClick={() => setMobileMenuOpen(false)}
+        className={`flex items-center py-2 px-3 rounded-lg transition-colors duration-200 ${isLinkActive('/system-owner/feedback') ? 'bg-purple-100 text-purple-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}`}
+      >
+        <MessageSquare className="h-5 w-5 mr-3 text-purple-600" />
+        User Feedback
       </Link>
 
       <Link

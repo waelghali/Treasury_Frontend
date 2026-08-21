@@ -36,7 +36,8 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
       else if (currentPath.startsWith('/system-owner/subscription-plans')) { activeItem = 'subscription-plans'; title = 'Subscription Plans'; }
       else if (currentPath.startsWith('/system-owner/global-configurations')) { activeItem = 'Global Configurations'; }
       else if (currentPath.startsWith('/system-owner/reports')) { activeItem = 'reports'; title = 'System Reports'; }
-      else if (currentPath.startsWith('/system-owner/audit-logs')) { activeItem = 'audit-logs'; title = 'Audit Logs'; }
+      else if (currentPath.startsWith('/system-owner/feedback')) { activeItem = 'feedback'; title = 'User Feedback & Feature Requests'; }
+    else if (currentPath.startsWith('/system-owner/audit-logs')) { activeItem = 'audit-logs'; title = 'Audit Logs'; }
       else if (currentPath.startsWith('/system-owner/notifications')) { activeItem = 'notifications'; title = 'Notifications'; }
       else if (currentPath.startsWith('/system-owner/profile')) { activeItem = 'profile'; title = 'My Profile'; }
     }

@@ -17,6 +17,7 @@ import CommonListManagementPage from 'pages/SystemOwner/GlobalConfigurations/Com
 import TemplateList from 'pages/SystemOwner/GlobalConfigurations/TemplateList';
 import TemplateForm from 'pages/SystemOwner/GlobalConfigurations/TemplateForm';
 import AuditLogs from 'pages/SystemOwner/AuditLogs';
+import UserFeedbackDashboard from 'pages/SystemOwner/UserFeedbackDashboard';
 import SchedulerPage from 'pages/SystemOwner/scheduler/SchedulerPage';
 import BankFormManagement from 'pages/SystemOwner/BankFormManagement';
 // NEW: Import System Notification pages
@@ -88,6 +89,9 @@ function SystemOwnerRoutes({ onLogout }) {
 
       {/* Audit Logs */}
       <Route path="audit-logs" element={<AuditLogs onLogout={onLogout} />} />
+
+      {/* User Feedback & Feature Requests Inbox */}
+      <Route path="feedback" element={<UserFeedbackDashboard onLogout={onLogout} />} />
 
       {/* Reports (Updated for System Owner) */}
       <Route path="reports" element={<ReportsPage reports={systemOwnerReports} />}>
