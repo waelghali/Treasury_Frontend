@@ -322,7 +322,7 @@ function SidebarLayout({ onLogout, headerTitle }) {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 p-3.5 sm:p-5 lg:p-8 overflow-y-auto relative z-10">
+      <main className="flex-1 p-3 sm:p-4 lg:p-5 overflow-y-auto lg:overflow-hidden h-full flex flex-col relative z-10">
         <Outlet />
       </main>
 

@@ -1,204 +1,301 @@
+// frontend/src/pages/SystemOwner/SubscriptionPlans/SubscriptionPlanList.js
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { Edit, Trash, PlusCircle, RotateCcw } from 'lucide-react';
+import {
+  Edit,
+  Trash2,
+  PlusCircle,
+  RotateCcw,
+  Briefcase,
+  Search,
+  Download,
+  CheckCircle2,
+  RefreshCw,
+  Sparkles
+} from 'lucide-react';
 
 function SubscriptionPlanList({ onLogout }) {
   const [plans, setPlans] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showDeleted, setShowDeleted] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
-  // Function to fetch subscription plans from the backend
   const fetchSubscriptionPlans = async () => {
     setIsLoading(true);
     setError('');
     try {
       const response = await apiRequest('/system-owner/subscription-plans?include_deleted=true', 'GET');
-      setPlans(response);
+      setPlans(response || []);
     } catch (err) {
       console.error('Failed to fetch subscription plans:', err);
-      setError('Failed to load subscription plans. Please try again.');
+      setError('Failed to load subscription plans.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Fetch plans when the component mounts
   useEffect(() => {
     fetchSubscriptionPlans();
   }, []);
 
-  // Handle Edit action
   const handleEdit = (planId) => {
     navigate(`/system-owner/subscription-plans/edit/${planId}`);
   };
 
-  // Handle Delete (Soft Delete) action
   const handleDelete = async (planId, planName) => {
-    if (window.confirm(`Are you sure you want to soft-delete the plan "${planName}"?`)) {
+    if (window.confirm(`Are you sure you want to soft-delete "${planName}"?`)) {
       try {
         setIsLoading(true);
         await apiRequest(`/system-owner/subscription-plans/${planId}`, 'DELETE');
-        fetchSubscriptionPlans(); // Refresh the list after deletion
+        fetchSubscriptionPlans();
         alert(`Subscription plan "${planName}" soft-deleted successfully.`);
       } catch (err) {
         console.error('Failed to soft-delete subscription plan:', err);
-        setError(`Failed to soft-delete plan "${planName}". ${err.message || ''}`);
+        setError(`Failed to soft-delete plan "${planName}".`);
         setIsLoading(false);
       }
     }
   };
 
-  // Handle Restore action
   const handleRestore = async (planId, planName) => {
-    if (window.confirm(`Are you sure you want to restore the plan "${planName}"?`)) {
+    if (window.confirm(`Are you sure you want to restore "${planName}"?`)) {
       try {
         setIsLoading(true);
         await apiRequest(`/system-owner/subscription-plans/${planId}/restore`, 'POST');
-        fetchSubscriptionPlans(); // Refresh the list after restoration
+        fetchSubscriptionPlans();
         alert(`Subscription plan "${planName}" restored successfully.`);
       } catch (err) {
         console.error('Failed to restore subscription plan:', err);
-        setError(`Failed to restore plan "${planName}". ${err.message || ''}`);
+        setError(`Failed to restore plan "${planName}".`);
         setIsLoading(false);
       }
     }
   };
 
-  const deletedCount = useMemo(() => plans.filter(p => p.is_deleted).length, [plans]);
   const filteredPlans = useMemo(() => {
-    if (showDeleted) return plans;
-    return plans.filter(p => !p.is_deleted);
-  }, [plans, showDeleted]);
+    return plans.filter((p) => {
+      if (!showDeleted && p.is_deleted) return false;
+
+      const matchesSearch =
+        !searchTerm ||
+        p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(p.price).includes(searchTerm);
+
+      return matchesSearch;
+    });
+  }, [plans, showDeleted, searchTerm]);
+
+  const activeCount = useMemo(() => plans.filter((p) => !p.is_deleted).length, [plans]);
+  const deletedCount = useMemo(() => plans.filter((p) => p.is_deleted).length, [plans]);
+
+  const exportToCSV = () => {
+    if (filteredPlans.length === 0) return;
+    const headers = ['Plan ID', 'Plan Name', 'Price', 'Billing Frequency', 'Max Users', 'Max LGs', 'Status'];
+    const rows = filteredPlans.map((p) => [
+      p.id,
+      `"${(p.name || '').replace(/"/g, '""')}"`,
+      p.price || 0,
+      p.billing_frequency || 'MONTHLY',
+      p.max_users || 'Unlimited',
+      p.max_lgs || 'Unlimited',
+      p.is_deleted ? 'Soft Deleted' : 'Active'
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Grow_Subscription_Plans_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center flex-1 space-y-3">
+        <RefreshCw className="h-8 w-8 text-indigo-600 animate-spin" />
+        <p className="text-xs font-medium text-slate-500">Loading Subscription Plans...</p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-800">Subscription Plans</h2>
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
-            <div className="relative">
-              <input type="checkbox" className="sr-only" checked={showDeleted} onChange={() => setShowDeleted(!showDeleted)} />
-              <div className={`w-9 h-5 rounded-full transition-colors ${showDeleted ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
-              <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showDeleted ? 'translate-x-4' : ''}`}></div>
-            </div>
-            Show Deleted ({deletedCount})
-          </label>
+    <div className="flex flex-col h-full space-y-3 overflow-hidden">
+      {/* Compact Header */}
+      <div className="flex-shrink-0 flex items-center justify-between bg-white dark:bg-slate-800 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-purple-600 text-white rounded-lg">
+            <Briefcase className="w-4 h-4" />
+          </div>
+          <div>
+            <h1 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
+              Subscription Plans & Pricing Tiers
+            </h1>
+            <p className="text-[11px] text-slate-400">
+              Define SaaS billing tiers, user quotas, and guarantee volume limits.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportToCSV}
+            disabled={filteredPlans.length === 0}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-all"
+          >
+            <Download className="w-3 h-3" />
+            <span>Export CSV</span>
+          </button>
           <button
             onClick={() => navigate('/system-owner/subscription-plans/new')}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+            className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg transition-all"
           >
-            <PlusCircle className="h-5 w-5 mr-2" /> Add New Plan
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>Create Plan</span>
           </button>
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="text-center py-8">
-          <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <p className="text-gray-600 mt-2">Loading plans...</p>
+      {/* Compact KPI Mini Tiles */}
+      <div className="flex-shrink-0 grid grid-cols-3 gap-2">
+        <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 text-center">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Tiers</span>
+          <span className="text-lg font-black text-slate-900 block">{plans.length}</span>
         </div>
-      ) : error ? (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative" role="alert">
-          <span className="block sm:inline">{error}</span>
+        <div className="bg-emerald-50/40 p-2.5 rounded-xl border border-emerald-200 text-center">
+          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Active Tiers</span>
+          <span className="text-lg font-black text-emerald-700 block">{activeCount}</span>
         </div>
-      ) : filteredPlans.length === 0 ? (
-        <div className="bg-white p-6 rounded-lg shadow-md text-center">
-          <p className="text-gray-500">No subscription plans found. Click "Add New Plan" to get started.</p>
+        <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 text-center">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Archived</span>
+          <span className="text-lg font-black text-slate-600 block">{deletedCount}</span>
         </div>
-      ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow-md">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Plan Name
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Duration (Months)
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Monthly Price
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Annual Price
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Max Users
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Max Records
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Features
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredPlans.map((plan) => (
-                <tr key={plan.id} className={plan.is_deleted ? 'bg-gray-50 opacity-60' : ''}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {plan.name} {plan.is_deleted && <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Deleted</span>}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{plan.duration_months}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${plan.monthly_price.toFixed(2)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${plan.annual_price.toFixed(2)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{plan.max_users}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{plan.max_records}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="flex flex-wrap gap-1">
-                      {plan.has_custody_module && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Custody</span>}
-                      {plan.has_issuance_module && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Issuance</span>}
-                      {plan.has_quotation_module && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">Quotations</span>}
-                      {plan.has_reconciliation_module && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">Reconciliation</span>}
-                      {plan.can_maker_checker && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">M/C</span>}
-                      {plan.can_multi_entity && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Multi-Entity</span>}
-                      {plan.can_ai_integration && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">AI</span>}
-                      {plan.can_image_storage && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Images</span>}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {plan.is_deleted ? (
+      </div>
+
+      {/* Search Bar */}
+      <div className="flex-shrink-0 bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex-1 min-w-[220px] relative">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search plans by name, price, or description..."
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
+
+        {deletedCount > 0 && (
+          <label className="flex items-center gap-1 cursor-pointer select-none text-[11px] font-semibold text-slate-600 bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200">
+            <input
+              type="checkbox"
+              checked={showDeleted}
+              onChange={() => setShowDeleted(!showDeleted)}
+              className="rounded text-purple-600"
+            />
+            <span>Show Archived ({deletedCount})</span>
+          </label>
+        )}
+      </div>
+
+      {/* Main Plans Table (Viewport-Fit Container with Sticky Header) */}
+      <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col min-h-0">
+        {filteredPlans.length === 0 ? (
+          <div className="p-8 text-center text-slate-400 space-y-1">
+            <p className="text-xs font-bold text-slate-600">No subscription plans found.</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead className="sticky top-0 bg-slate-50 z-10 shadow-2xs">
+                <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <th className="py-2.5 px-3">Plan Name</th>
+                  <th className="py-2.5 px-3">Price & Frequency</th>
+                  <th className="py-2.5 px-3">User Limits</th>
+                  <th className="py-2.5 px-3">LG Capacity</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredPlans.map((plan) => (
+                  <tr
+                    key={plan.id}
+                    className={`hover:bg-slate-50 transition-colors ${
+                      plan.is_deleted ? 'bg-rose-50/30 opacity-70' : ''
+                    }`}
+                  >
+                    <td className="py-2 px-3">
+                      <div className="font-bold text-xs text-slate-900 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-purple-600" />
+                        {plan.name}
+                      </div>
+                      <span className="text-[9px] text-slate-400 block truncate max-w-xs">{plan.description || 'Standard tier'}</span>
+                    </td>
+                    <td className="py-2 px-3">
+                      <span className="font-mono font-bold text-xs text-slate-900">
+                        ${Number(plan.price || 0).toLocaleString()}
+                      </span>
+                      <span className="text-[9px] text-slate-400 block uppercase">
+                        / {plan.billing_frequency || 'Month'}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 font-medium text-slate-700">
+                      {plan.max_users ? `${plan.max_users} Users` : 'Unlimited'}
+                    </td>
+                    <td className="py-2 px-3 font-medium text-slate-700">
+                      {plan.max_lgs ? `${plan.max_lgs} LGs` : 'Unlimited'}
+                    </td>
+                    <td className="py-2 px-3">
+                      {plan.is_deleted ? (
+                        <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                          Archived
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          Active
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 px-3 text-right space-x-1 whitespace-nowrap">
                       <button
-                        onClick={() => handleRestore(plan.id, plan.name)}
-                        className="text-green-600 hover:text-green-900 mr-3 p-1 rounded-md hover:bg-gray-100"
-                        title="Restore Plan"
+                        onClick={() => handleEdit(plan.id)}
+                        className="p-1 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded"
+                        title="Edit Plan"
                       >
-                        <RotateCcw className="h-5 w-5" />
+                        <Edit className="w-3.5 h-3.5" />
                       </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => handleEdit(plan.id)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-3 p-1 rounded-md hover:bg-gray-100"
-                          title="Edit Plan"
-                        >
-                          <Edit className="h-5 w-5" />
-                        </button>
+
+                      {!plan.is_deleted ? (
                         <button
                           onClick={() => handleDelete(plan.id, plan.name)}
-                          className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-gray-100"
-                          title="Delete Plan"
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                          title="Archive"
                         >
-                          <Trash className="h-5 w-5" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                      ) : (
+                        <button
+                          onClick={() => handleRestore(plan.id, plan.name)}
+                          className="p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded"
+                          title="Restore"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

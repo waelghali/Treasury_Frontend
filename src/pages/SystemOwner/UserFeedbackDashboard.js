@@ -2,24 +2,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   MessageSquare,
-  Sparkles,
   Search,
-  Filter,
   RefreshCw,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
   Lightbulb,
   Bug,
   Zap,
-  TrendingUp,
-  ChevronDown,
-  User,
-  Building2,
-  Calendar,
   Download,
-  Check,
-  XCircle,
   Eye
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
@@ -29,13 +17,11 @@ const UserFeedbackDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [sentimentFilter, setSentimentFilter] = useState('ALL');
 
-  // Active item detail modal
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
   const [adminNote, setAdminNote] = useState('');
@@ -48,7 +34,7 @@ const UserFeedbackDashboard = () => {
       setFeedbacks(response.data || []);
     } catch (err) {
       console.error('Failed to fetch user feedbacks:', err);
-      setError('Could not load user feedback records. Please ensure your session is active.');
+      setError('Could not load user feedback records.');
     } finally {
       setLoading(false);
     }
@@ -79,7 +65,6 @@ const UserFeedbackDashboard = () => {
     }
   };
 
-  // KPI Calculations
   const stats = useMemo(() => {
     const total = feedbacks.length;
     const newCount = feedbacks.filter((f) => f.status === 'NEW').length;
@@ -90,7 +75,6 @@ const UserFeedbackDashboard = () => {
     return { total, newCount, features, bugs, usability, resolved };
   }, [feedbacks]);
 
-  // Filtered List
   const filteredFeedbacks = useMemo(() => {
     return feedbacks.filter((fb) => {
       const matchesSearch =
@@ -136,30 +120,30 @@ const UserFeedbackDashboard = () => {
     switch (type) {
       case 'FEATURE_REQUEST':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-            <Lightbulb className="w-3 h-3 text-amber-600" />
-            Feature Request
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200">
+            <Lightbulb className="w-2.5 h-2.5 text-amber-600" />
+            Feature
           </span>
         );
       case 'BUG_REPORT':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-            <Bug className="w-3 h-3 text-rose-600" />
-            Bug Report
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200">
+            <Bug className="w-2.5 h-2.5 text-rose-600" />
+            Bug
           </span>
         );
       case 'USABILITY_PAIN_POINT':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-            <Zap className="w-3 h-3 text-purple-600" />
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200">
+            <Zap className="w-2.5 h-2.5 text-purple-600" />
             Usability
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-            <MessageSquare className="w-3 h-3 text-blue-600" />
-            General Feedback
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+            <MessageSquare className="w-2.5 h-2.5 text-blue-600" />
+            General
           </span>
         );
     }
@@ -168,46 +152,44 @@ const UserFeedbackDashboard = () => {
   const getSentimentBadge = (sentiment) => {
     switch (sentiment) {
       case 'POSITIVE':
-        return <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200">🟢 Positive</span>;
+        return <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">🟢 Positive</span>;
       case 'NEGATIVE':
-        return <span className="text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded border border-rose-200">🔴 Critical / Negative</span>;
+        return <span className="text-[11px] font-medium text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">🔴 Critical</span>;
       default:
-        return <span className="text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200">⚪ Neutral</span>;
+        return <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">⚪ Neutral</span>;
     }
   };
 
   const getStatusBadge = (status) => {
     switch (status) {
       case 'NEW':
-        return <span className="bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 text-xs font-bold px-2.5 py-1 rounded-full animate-pulse border border-amber-300">NEW</span>;
+        return <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse border border-amber-300">NEW</span>;
       case 'IN_REVIEW':
-        return <span className="bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-300">IN REVIEW</span>;
+        return <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-300">IN REVIEW</span>;
       case 'RESOLVED':
-        return <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-300">RESOLVED</span>;
+        return <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-300">RESOLVED</span>;
       case 'REJECTED':
-        return <span className="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 text-xs font-bold px-2.5 py-1 rounded-full border border-slate-300">DISMISSED</span>;
+        return <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-300">DISMISSED</span>;
       default:
-        return <span className="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-full">{status}</span>;
+        return <span className="bg-slate-100 text-slate-700 text-[10px] px-2 py-0.5 rounded-full">{status}</span>;
     }
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl text-white shadow-md shadow-indigo-200 dark:shadow-indigo-950">
-              <MessageSquare className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                User Feedback & Feature Requests
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Transparent user suggestions, bug reports, and feedback captured via the AI Assistant & platform.
-              </p>
-            </div>
+    <div className="flex flex-col h-full space-y-3 overflow-hidden">
+      {/* Compact Header */}
+      <div className="flex-shrink-0 flex items-center justify-between bg-white dark:bg-slate-800 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg text-white">
+            <MessageSquare className="w-4 h-4" />
+          </div>
+          <div>
+            <h1 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
+              User Feedback & Feature Requests
+            </h1>
+            <p className="text-[11px] text-slate-400">
+              Live suggestions, bug reports, and UX friction points captured by AI Assistant.
+            </p>
           </div>
         </div>
 
@@ -215,68 +197,68 @@ const UserFeedbackDashboard = () => {
           <button
             onClick={fetchFeedbacks}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-all"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
           <button
             onClick={exportToCSV}
             disabled={filteredFeedbacks.length === 0}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
+            className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-all"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3 h-3" />
             <span>Export CSV</span>
           </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Feedbacks</span>
-          <span className="text-2xl font-black text-slate-900 dark:text-white mt-1 block">{stats.total}</span>
+      {/* Compact KPI Tiles */}
+      <div className="flex-shrink-0 grid grid-cols-3 sm:grid-cols-6 gap-2">
+        <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total</span>
+          <span className="text-lg font-black text-slate-900 dark:text-white block">{stats.total}</span>
         </div>
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-amber-200 dark:border-amber-900/50 shadow-sm bg-amber-50/30">
-          <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider block">Unreviewed (New)</span>
-          <span className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-1 block">{stats.newCount}</span>
+        <div className="bg-amber-50/50 dark:bg-slate-800 p-2.5 rounded-xl border border-amber-200 dark:border-amber-900/50 text-center">
+          <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">New</span>
+          <span className="text-lg font-black text-amber-700 block">{stats.newCount}</span>
         </div>
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          <span className="text-[11px] font-bold text-amber-500 uppercase tracking-wider block">Feature Requests</span>
-          <span className="text-2xl font-black text-amber-600 dark:text-amber-300 mt-1 block">{stats.features}</span>
+        <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
+          <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider block">Features</span>
+          <span className="text-lg font-black text-amber-600 block">{stats.features}</span>
         </div>
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          <span className="text-[11px] font-bold text-rose-500 uppercase tracking-wider block">Bug Reports</span>
-          <span className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1 block">{stats.bugs}</span>
+        <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
+          <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">Bugs</span>
+          <span className="text-lg font-black text-rose-600 block">{stats.bugs}</span>
         </div>
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          <span className="text-[11px] font-bold text-purple-500 uppercase tracking-wider block">Usability Points</span>
-          <span className="text-2xl font-black text-purple-600 dark:text-purple-300 mt-1 block">{stats.usability}</span>
+        <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
+          <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wider block">Usability</span>
+          <span className="text-lg font-black text-purple-600 block">{stats.usability}</span>
         </div>
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          <span className="text-[11px] font-bold text-emerald-500 uppercase tracking-wider block">Resolved</span>
-          <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1 block">{stats.resolved}</span>
+        <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
+          <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block">Resolved</span>
+          <span className="text-lg font-black text-emerald-600 block">{stats.resolved}</span>
         </div>
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col md:flex-row gap-3">
-        <div className="flex-1 relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+      <div className="flex-shrink-0 bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex-1 min-w-[220px] relative">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search feedback notes, user email, or Ref ID..."
-            className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-1.5">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+            className="px-2 py-1.5 text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg"
           >
             <option value="ALL">All Statuses</option>
             <option value="NEW">New (Unreviewed)</option>
@@ -288,7 +270,7 @@ const UserFeedbackDashboard = () => {
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+            className="px-2 py-1.5 text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg"
           >
             <option value="ALL">All Categories</option>
             <option value="FEATURE_REQUEST">Feature Requests</option>
@@ -296,95 +278,78 @@ const UserFeedbackDashboard = () => {
             <option value="USABILITY_PAIN_POINT">Usability Pain Points</option>
             <option value="GENERAL_FEEDBACK">General Feedback</option>
           </select>
-
-          <select
-            value={sentimentFilter}
-            onChange={(e) => setSentimentFilter(e.target.value)}
-            className="px-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
-          >
-            <option value="ALL">All Sentiments</option>
-            <option value="POSITIVE">Positive</option>
-            <option value="NEUTRAL">Neutral</option>
-            <option value="NEGATIVE">Critical / Negative</option>
-          </select>
         </div>
       </div>
 
-      {/* Main List Table */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      {/* Main Table (Viewport-Fit Container with Sticky Header) */}
+      <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden flex flex-col min-h-0">
         {loading ? (
-          <div className="p-12 text-center text-slate-400">
-            <RefreshCw className="w-8 h-8 animate-spin mx-auto text-indigo-600 mb-2" />
-            <p className="text-sm font-medium">Loading feedback inbox...</p>
+          <div className="p-8 text-center text-slate-400">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto text-indigo-600 mb-1" />
+            <p className="text-xs font-medium">Loading feedback inbox...</p>
           </div>
-        ) : error ? (
-          <div className="p-8 text-center text-rose-600 text-sm">{error}</div>
         ) : filteredFeedbacks.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 space-y-2">
-            <MessageSquare className="w-10 h-10 mx-auto text-slate-300" />
-            <p className="text-base font-bold text-slate-600 dark:text-slate-300">No feedback items match your criteria.</p>
-            <p className="text-xs text-slate-400">Try clearing filters or search keywords.</p>
+          <div className="p-8 text-center text-slate-400 space-y-1">
+            <p className="text-xs font-bold text-slate-600">No feedback items match your criteria.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="flex-1 overflow-y-auto">
             <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  <th className="py-3.5 px-4">Ref</th>
-                  <th className="py-3.5 px-4">Category</th>
-                  <th className="py-3.5 px-4">User & Tenant</th>
-                  <th className="py-3.5 px-4">Message / Request</th>
-                  <th className="py-3.5 px-4">Sentiment</th>
-                  <th className="py-3.5 px-4">Submitted</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
+              <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900 z-10 shadow-2xs">
+                <tr className="border-b border-slate-100 dark:border-slate-700 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <th className="py-2.5 px-3">Ref</th>
+                  <th className="py-2.5 px-3">Category</th>
+                  <th className="py-2.5 px-3">User & Tenant</th>
+                  <th className="py-2.5 px-3">Message / Request</th>
+                  <th className="py-2.5 px-3">Sentiment</th>
+                  <th className="py-2.5 px-3">Submitted</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
                 {filteredFeedbacks.map((fb) => (
                   <tr key={fb.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                    <td className="py-2 px-3 font-mono font-bold text-indigo-600">
                       #FB-{fb.id}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-2 px-3">
                       {getTypeBadge(fb.feedback_type)}
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-800 dark:text-slate-200">
+                    <td className="py-2 px-3">
+                      <div className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[140px]">
                         {fb.user_email || 'Anonymous'}
                       </div>
-                      <div className="text-[10px] text-slate-400">Customer #{fb.customer_id}</div>
+                      <div className="text-[9px] text-slate-400">Tenant #{fb.customer_id}</div>
                     </td>
-                    <td className="py-3 px-4 max-w-xs truncate font-medium text-slate-700 dark:text-slate-300" title={fb.message}>
+                    <td className="py-2 px-3 max-w-xs truncate font-medium text-slate-700 dark:text-slate-300" title={fb.message}>
                       {fb.message}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-2 px-3">
                       {getSentimentBadge(fb.sentiment)}
                     </td>
-                    <td className="py-3 px-4 text-slate-500 text-[11px]">
+                    <td className="py-2 px-3 text-slate-500 text-[10px]">
                       {fb.created_at ? new Date(fb.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-2 px-3">
                       {getStatusBadge(fb.status)}
                     </td>
-                    <td className="py-3 px-4 text-right space-x-1.5 whitespace-nowrap">
+                    <td className="py-2 px-3 text-right space-x-1 whitespace-nowrap">
                       <button
                         onClick={() => {
                           setSelectedFeedback(fb);
                           setAdminNote(fb.admin_notes || '');
                         }}
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-all cursor-pointer"
-                        title="View Full Details"
+                        className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-semibold"
                       >
-                        <Eye className="w-3.5 h-3.5 inline mr-1" />
+                        <Eye className="w-3 h-3 inline mr-0.5" />
                         View
                       </button>
 
                       {fb.status === 'NEW' && (
                         <button
                           onClick={() => handleUpdateStatus(fb.id, 'IN_REVIEW')}
-                          disabled={updatingId === fb.id}
-                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                          className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[11px] font-semibold"
                         >
                           Review
                         </button>
@@ -393,8 +358,7 @@ const UserFeedbackDashboard = () => {
                       {fb.status !== 'RESOLVED' && (
                         <button
                           onClick={() => handleUpdateStatus(fb.id, 'RESOLVED')}
-                          disabled={updatingId === fb.id}
-                          className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                          className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[11px] font-semibold"
                         >
                           Resolve
                         </button>
@@ -411,10 +375,10 @@ const UserFeedbackDashboard = () => {
       {/* Feedback Detail Modal */}
       {selectedFeedback && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-xl w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <div className="flex items-center gap-2">
-                <span className="font-mono font-bold text-indigo-600 text-lg">#FB-{selectedFeedback.id}</span>
+                <span className="font-mono font-bold text-indigo-600 text-base">#FB-{selectedFeedback.id}</span>
                 {getTypeBadge(selectedFeedback.feedback_type)}
               </div>
               <button
@@ -425,62 +389,48 @@ const UserFeedbackDashboard = () => {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 dark:bg-slate-900 p-3 rounded-xl">
+            <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl">
               <div>
-                <span className="text-slate-400 font-semibold block">User Email:</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">{selectedFeedback.user_email || 'N/A'}</span>
+                <span className="text-slate-400 font-semibold block text-[10px]">User Email:</span>
+                <span className="font-bold text-slate-800">{selectedFeedback.user_email || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-slate-400 font-semibold block">Customer Tenant ID:</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">Customer #{selectedFeedback.customer_id}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 font-semibold block">Sentiment:</span>
-                <div>{getSentimentBadge(selectedFeedback.sentiment)}</div>
-              </div>
-              <div>
-                <span className="text-slate-400 font-semibold block">Status:</span>
-                <div>{getStatusBadge(selectedFeedback.status)}</div>
+                <span className="text-slate-400 font-semibold block text-[10px]">Customer Tenant:</span>
+                <span className="font-bold text-slate-800">Tenant #{selectedFeedback.customer_id}</span>
               </div>
             </div>
 
             <div>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">User Message:</span>
-              <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 whitespace-pre-wrap">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">User Message:</span>
+              <div className="p-2.5 bg-slate-50 rounded-xl text-xs font-medium text-slate-800 border border-slate-200 whitespace-pre-wrap max-h-32 overflow-y-auto">
                 {selectedFeedback.message}
               </div>
             </div>
 
             <div>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Admin / Engineering Notes:</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Admin Resolution Notes:</span>
               <textarea
                 value={adminNote}
                 onChange={(e) => setAdminNote(e.target.value)}
                 placeholder="Add internal resolution notes, tracking tickets, or action items..."
-                rows={3}
-                className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                rows={2}
+                className="w-full text-xs p-2 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-700">
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
               <div className="flex gap-1.5">
                 <button
                   onClick={() => handleUpdateStatus(selectedFeedback.id, 'IN_REVIEW', adminNote)}
-                  className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-semibold cursor-pointer"
+                  className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold"
                 >
                   Mark In Review
                 </button>
                 <button
                   onClick={() => handleUpdateStatus(selectedFeedback.id, 'RESOLVED', adminNote)}
-                  className="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl text-xs font-semibold cursor-pointer"
+                  className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-semibold"
                 >
                   Resolve
-                </button>
-                <button
-                  onClick={() => handleUpdateStatus(selectedFeedback.id, 'REJECTED', adminNote)}
-                  className="px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl text-xs font-semibold cursor-pointer"
-                >
-                  Dismiss
                 </button>
               </div>
 
@@ -489,7 +439,7 @@ const UserFeedbackDashboard = () => {
                   handleUpdateStatus(selectedFeedback.id, selectedFeedback.status, adminNote);
                   setSelectedFeedback(null);
                 }}
-                className="px-4 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-xs font-bold cursor-pointer"
+                className="px-3.5 py-1 bg-indigo-600 text-white rounded-lg text-xs font-bold"
               >
                 Save Notes
               </button>
