@@ -41,6 +41,7 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   const handleCopy = (msgText, idx) => {
     navigator.clipboard.writeText(msgText);
@@ -177,6 +178,37 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
   }, [messages, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleChipClick = (chip) => {
+    if (!chip) return;
+    const query = chip.query || '';
+
+    // Check if the chip is a prompt/template prefix intended for user input
+    const isPrefill = (
+      query.endsWith(': ') ||
+      query.endsWith(':') ||
+      chip.action === 'prefill' ||
+      query.toLowerCase().startsWith('feature request:') ||
+      query.toLowerCase().startsWith('found an issue with:') ||
+      query.toLowerCase().startsWith('i find it difficult to:') ||
+      query.toLowerCase().startsWith('feedback:')
+    );
+
+    if (isPrefill) {
+      setQuestion(query);
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          const len = query.length;
+          inputRef.current.setSelectionRange(len, len);
+        }
+      }, 50);
+      return;
+    }
+
+    // Direct execute for complete queries
+    handleSend(query);
+  };
 
   const handleSend = async (overrideText = null, cardId = null) => {
     const queryText = overrideText || question;
@@ -594,7 +626,7 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
                     {msg.suggestedChips.map((chip, chipIdx) => (
                       <button
                         key={chipIdx}
-                        onClick={() => handleSend(chip.query)}
+                        onClick={() => handleChipClick(chip)}
                         disabled={loading}
                         className="text-xs bg-indigo-50/90 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/80 text-indigo-700 dark:text-indigo-300 font-medium px-2.5 py-1 rounded-full border border-indigo-200/80 dark:border-indigo-800 hover:border-indigo-400 transition-all hover:scale-105 active:scale-95 flex items-center space-x-1 cursor-pointer shadow-2xs"
                       >
@@ -623,6 +655,7 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
         <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2 flex-shrink-0">
           <div className="flex items-center space-x-2">
             <input
+              ref={inputRef}
               type="text"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
