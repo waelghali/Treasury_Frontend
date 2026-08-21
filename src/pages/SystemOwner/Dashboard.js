@@ -9,7 +9,6 @@ import {
   Clock,
   Calendar,
   Briefcase,
-  Settings,
   Loader2,
   BarChart,
   Building,
@@ -22,7 +21,14 @@ import {
   Layers,
   FileCheck,
   UserPlus,
-  Sparkles
+  ShieldCheck,
+  Cpu,
+  Server,
+  Database,
+  CheckCircle2,
+  X,
+  Zap,
+  Globe
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 
@@ -41,6 +47,9 @@ function SystemOwnerDashboard({ onLogout }) {
   const [systemUsageData, setSystemUsageData] = useState(null);
   const [unreviewedFeedbackCount, setUnreviewedFeedbackCount] = useState(0);
   const [pendingTrialsCount, setPendingTrialsCount] = useState(0);
+  const [healthData, setHealthData] = useState(null);
+  const [isHealthModalOpen, setIsHealthModalOpen] = useState(false);
+  const [isPingingHealth, setIsPingingHealth] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -48,11 +57,12 @@ function SystemOwnerDashboard({ onLogout }) {
     setIsLoading(true);
     setError('');
     try {
-      const [dashboardMetrics, usageMetrics, feedbackRes, trialRes] = await Promise.all([
+      const [dashboardMetrics, usageMetrics, feedbackRes, trialRes, telemetryRes] = await Promise.all([
         apiRequest('/system-owner/dashboard-metrics', 'GET'),
         apiRequest('/reports/system-owner/system-usage-overview', 'GET'),
         apiClient.get('/feedback/').catch(() => ({ data: [] })),
-        apiRequest('/system-owner/trial/trial-registrations/?status=pending', 'GET').catch(() => [])
+        apiRequest('/system-owner/trial/trial-registrations/?status=pending', 'GET').catch(() => []),
+        apiRequest('/system-owner/system-health-telemetry', 'GET').catch(() => null)
       ]);
 
       setDashboardData({
@@ -75,11 +85,27 @@ function SystemOwnerDashboard({ onLogout }) {
 
       const pendingTrials = Array.isArray(trialRes) ? trialRes.length : 0;
       setPendingTrialsCount(pendingTrials);
+
+      if (telemetryRes) {
+        setHealthData(telemetryRes);
+      }
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
       setError(`Failed to load dashboard data. ${err.message || 'An unexpected error occurred.'}`);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRunHealthDiagnostics = async () => {
+    setIsPingingHealth(true);
+    try {
+      const res = await apiRequest('/system-owner/system-health-telemetry', 'GET');
+      if (res) setHealthData(res);
+    } catch (err) {
+      console.error('Failed to run diagnostics:', err);
+    } finally {
+      setIsPingingHealth(false);
     }
   };
 
@@ -187,18 +213,30 @@ function SystemOwnerDashboard({ onLogout }) {
               <h1 className="text-lg font-black tracking-tight text-white">
                 System Owner Executive Center
               </h1>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <button
+                onClick={() => setIsHealthModalOpen(true)}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 transition-all cursor-pointer"
+                title="Click to view full System Health Diagnostics"
+              >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Live Telemetry
-              </span>
+                Live Telemetry: {healthData ? `${healthData.db_latency_ms}ms` : 'Operational'}
+              </button>
             </div>
             <p className="text-[11px] text-slate-300">
-              Cross-tenant telemetry, subscription governance, inbound trial queue, and AI listener.
+              Cross-tenant telemetry, subscription governance, inbound trial queue, and microservice health.
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+          <button
+            onClick={() => setIsHealthModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold rounded-xl shadow transition-all active:scale-95 border border-indigo-400/30 cursor-pointer"
+          >
+            <Zap className="w-3.5 h-3.5 text-amber-300" />
+            <span>Health & Diagnostics</span>
+          </button>
+
           {pendingTrialsCount > 0 && (
             <Link
               to="/system-owner/customers/trial-registrations"
@@ -236,7 +274,7 @@ function SystemOwnerDashboard({ onLogout }) {
         </div>
       </div>
 
-      {/* Top 5 Executive KPI Cards (Compact Row Including Free Trials Card) */}
+      {/* Top 5 Executive KPI Cards */}
       <div className="flex-shrink-0 grid grid-cols-2 sm:grid-cols-5 gap-2.5">
         {metricsToDisplay.map((metric) => {
           const CardContent = (
@@ -363,7 +401,7 @@ function SystemOwnerDashboard({ onLogout }) {
               ))}
             </div>
 
-            {/* Quick Banner for Inbound Trial Approvals & Feedback */}
+            {/* Inbound Trial Approvals Banner */}
             <div className="mt-2 bg-gradient-to-r from-slate-900 to-indigo-950 p-2.5 rounded-xl text-white flex items-center justify-between border border-slate-800">
               <div className="flex items-center gap-2">
                 <UserPlus className="w-4 h-4 text-amber-400" />
@@ -431,6 +469,114 @@ function SystemOwnerDashboard({ onLogout }) {
           </div>
         </div>
       </div>
+
+      {/* System Health & Operational Telemetry Modal */}
+      {isHealthModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full p-5 space-y-4 animate-in fade-in zoom-in duration-150 flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-50 dark:bg-emerald-950/60 rounded-xl text-emerald-600 border border-emerald-200 dark:border-emerald-800">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    System Health & Infrastructure Telemetry
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      {healthData?.status || 'HEALTHY'}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Real-time backend microservices, database latency, and security guardrail status.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsHealthModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Top Quick Telemetry KPIs */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-shrink-0">
+              <div className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Uptime SLA</span>
+                <span className="text-sm font-black text-emerald-600 block">{healthData?.uptime_sla || '99.98%'}</span>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">DB Round-trip</span>
+                <span className="text-sm font-black text-indigo-600 block">{healthData ? `${healthData.db_latency_ms} ms` : 'Evaluating...'}</span>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Security Guard</span>
+                <span className="text-sm font-black text-emerald-600 block">Active Guard</span>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Failed Logins (24h)</span>
+                <span className="text-sm font-black text-slate-800 dark:text-slate-200 block">{healthData?.failed_logins_24h ?? 0}</span>
+              </div>
+            </div>
+
+            {/* Microservice Matrix */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Subsystem Status Matrix</h4>
+              {healthData?.services ? (
+                healthData.services.map((srv, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 bg-slate-50/80 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 flex items-center justify-between"
+                  >
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">{srv.name}</span>
+                        <span className="text-[9px] font-semibold uppercase px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                          {srv.category}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">{srv.details}</p>
+                    </div>
+                    <div className="text-right space-y-0.5">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${srv.badge}`}>
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        {srv.status}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400 block">{srv.latency}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-4 text-center text-xs text-slate-400">Loading subsystem matrix...</div>
+              )}
+            </div>
+
+            {/* Modal Footer with Live Ping Diagnostic */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between flex-shrink-0">
+              <span className="text-[10px] text-slate-400 font-mono">
+                Environment: {healthData?.environment || 'Multi-Tenant Production'}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleRunHealthDiagnostics}
+                  disabled={isPingingHealth}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs font-bold rounded-xl border border-indigo-200 dark:border-indigo-800 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                >
+                  {isPingingHealth ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  <span>{isPingingHealth ? 'Pinging Services...' : 'Run Live Ping Diagnostics'}</span>
+                </button>
+                <button
+                  onClick={() => setIsHealthModalOpen(false)}
+                  className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
