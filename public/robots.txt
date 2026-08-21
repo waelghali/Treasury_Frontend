@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Allow: /know-more
+Allow: /free-trial-register
+Allow: /portal/issuance
+Allow: /public-issuance/form
+
+Disallow: /system-owner/
+Disallow: /corporate-admin/
+Disallow: /end-user/
+Disallow: /checker/
+Disallow: /api/
+
+Sitemap: https://www.growbusinessdevelopment.com/sitemap.xml

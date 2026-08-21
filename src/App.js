@@ -1,6 +1,6 @@
 // frontend/src/App.js
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 
 import LoginPage from './pages/Auth/LoginPage';
@@ -203,6 +203,12 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     return "/login";
   };
 
+  const LGRecordsRedirect = () => {
+    const { id } = useParams();
+    const rolePath = (userRole === 'corporate_admin' || userRole === 'viewer') ? 'corporate-admin' : 'end-user';
+    return <Navigate to={`/${rolePath}/lg-records${id ? `/${id}` : ''}`} replace />;
+  };
+
   const renderAppRoutes = () => {
     if (isLoading) return <div className="flex justify-center items-center min-h-screen bg-gray-100"><p>Loading application...</p></div>;
     return (
@@ -216,6 +222,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
           <Route path="/public-issuance/dashboard" element={<RequestorDashboard />} />
           <Route path="/public-issuance/form" element={<PublicIssuanceForm />} />
           <Route path="/public-quotation/:token" element={<QuotationBankOfferPage />} />
+          <Route path="/public/quotation/:token" element={<QuotationBankOfferPage />} />
           <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -230,6 +237,12 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
                 <Route path="corporate-admin/*" element={<CorporateAdminRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} hasIssuanceModule={hasIssuanceModule} hasCustodyModule={hasCustodyModule} />} />
                 <Route path="checker/*" element={<CheckerRoutes />} />
                 <Route path="end-user/*" element={<EndUserRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} />} />
+                <Route path="lg-records/:id" element={<LGRecordsRedirect />} />
+                <Route path="lg-records" element={<LGRecordsRedirect />} />
+                <Route path="issuance/facilities" element={<Navigate to="/corporate-admin/issuance/facilities" replace />} />
+                <Route path="issuance/requests" element={<Navigate to={`/${(userRole === 'corporate_admin' || userRole === 'viewer') ? 'corporate-admin' : 'end-user'}/issuance/requests`} replace />} />
+                <Route path="issuance/issued-lgs" element={<Navigate to={`/${(userRole === 'corporate_admin' || userRole === 'viewer') ? 'corporate-admin' : 'end-user'}/issuance/issued-lgs`} replace />} />
+                <Route path="issuance/reconciliation" element={<Navigate to={`/${(userRole === 'corporate_admin' || userRole === 'viewer') ? 'corporate-admin' : 'end-user'}/issuance/reconciliation`} replace />} />
                 <Route path="*" element={<Navigate to={getDefaultRedirectPath(userRole)} replace />} />
               </Route>
             )}

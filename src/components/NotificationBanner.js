@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Info, AlertTriangle, Newspaper, Building2, Megaphone, X, CheckCircle } from 'lucide-react';
 import { acknowledgeSystemNotification, logNotificationView } from '../services/notificationService'; 
 
@@ -27,24 +28,68 @@ const animationStyles = `
   .cbe-icon { color: #0097A7 !important; }
 `;
 
-// Helper component to get unique User ID
-const getCurrentUserId = () => {
+// Helper component to get unique User ID & Role
+const getCurrentUserInfo = () => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
         try { 
             const user = JSON.parse(userStr);
-            if (user && user.id) {
-                return `user_${String(user.id)}`;
+            if (user) {
+                return {
+                    userId: user.id ? `user_${String(user.id)}` : 'session_guest',
+                    userRole: user.role || 'end_user'
+                };
             }
         } catch (e) { 
-            return 'session_guest'; 
+            return { userId: 'session_guest', userRole: 'end_user' }; 
         }
     }
-    return 'session_guest';
+    return { userId: 'session_guest', userRole: 'end_user' };
+};
+
+const isExternalLink = (url) => {
+    if (!url) return false;
+    return /^(?:[a-z+]+:)?\/\//i.test(url) || url.startsWith('mailto:') || url.startsWith('tel:');
+};
+
+const resolveInternalLink = (url, userRole) => {
+    if (!url) return '/';
+    if (isExternalLink(url)) return url;
+    
+    let path = url.trim();
+    if (!path.startsWith('/')) path = `/${path}`;
+
+    const isCorpOrViewer = (userRole === 'corporate_admin' || userRole === 'viewer');
+    const rolePrefix = isCorpOrViewer ? '/corporate-admin' : '/end-user';
+
+    // Map un-scoped routes to the user's role prefix
+    if (path.startsWith('/lg-records')) {
+        return `${rolePrefix}${path}`;
+    }
+    if (path.startsWith('/facilities') || path.startsWith('/issuance/facilities')) {
+        return `/corporate-admin/issuance/facilities`;
+    }
+    if (path.startsWith('/issuance/issued-lgs')) {
+        return `${rolePrefix}/issuance/issued-lgs`;
+    }
+    if (path.startsWith('/issuance/requests')) {
+        return `${rolePrefix}/issuance/requests`;
+    }
+    if (path.startsWith('/issuance/reconciliation')) {
+        return `${rolePrefix}/issuance/reconciliation`;
+    }
+    if (path.startsWith('/approval-center') || path.startsWith('/corporate-admin/approval-center')) {
+        return `/corporate-admin/approval-inbox`;
+    }
+    if (path.startsWith('/quotations/')) {
+        return `${rolePrefix}${path}`;
+    }
+    
+    return path;
 };
 
 // --- WRAPPER COMPONENT WITH VIEW LOGGING FIX (USING REF) ---
-const NotificationWithViewLog = ({ notification, onDismiss, getTypeConfig, animationClassMap }) => {
+const NotificationWithViewLog = ({ notification, onDismiss, getTypeConfig, animationClassMap, userRole, navigate }) => {
     
     // CRITICAL FIX: Use a Ref to track if the API call was made in the current mount cycle
     const hasLoggedViewRef = useRef(false); 
@@ -76,11 +121,23 @@ const NotificationWithViewLog = ({ notification, onDismiss, getTypeConfig, anima
     // Dependency only includes notification properties.
     }, [notification.id, notification.display_frequency]);
 
+    const handleLinkClick = (e) => {
+        if (isExternalLink(notification.link)) {
+            onDismiss(notification);
+            return;
+        }
+        e.preventDefault();
+        onDismiss(notification);
+        const targetPath = resolveInternalLink(notification.link, userRole);
+        navigate(targetPath);
+    };
+
     const config = getTypeConfig(notification);
     const IconComponent = config.icon;
     const iconClass = config.iconColor.startsWith('text-') ? config.iconColor : config.iconColor;
     const animType = notification.animation_type || 'fade';
     const animationClass = animationClassMap[animType] || 'banner-anim-fade';
+    const isExternal = isExternalLink(notification.link);
 
     return (
         <div key={notification.id} className={`relative border-l-4 p-4 rounded-md shadow-sm flex items-start ${config.colorClasses} ${animationClass}`} role="alert">
@@ -112,7 +169,13 @@ const NotificationWithViewLog = ({ notification, onDismiss, getTypeConfig, anima
                     {/* Link */}
                     {notification.link && (
                         <div className="mt-2">
-                             <a href={notification.link} className="font-semibold underline opacity-90 hover:opacity-100" target="_blank" rel="noopener noreferrer">
+                             <a 
+                                href={isExternal ? notification.link : resolveInternalLink(notification.link, userRole)} 
+                                onClick={handleLinkClick}
+                                className="font-semibold underline opacity-90 hover:opacity-100 cursor-pointer" 
+                                target={isExternal ? "_blank" : "_self"} 
+                                rel={isExternal ? "noopener noreferrer" : undefined}
+                             >
                                 Learn More &rarr;
                              </a>
                         </div>
@@ -132,8 +195,8 @@ const NotificationWithViewLog = ({ notification, onDismiss, getTypeConfig, anima
 
 function NotificationBanner({ notifications }) {
   const [visibleNotifications, setVisibleNotifications] = useState([]);
-  
-  const userId = getCurrentUserId();
+  const navigate = useNavigate();
+  const { userId, userRole } = getCurrentUserInfo();
 
   // Inject the animation styles globally if they aren't handled elsewhere
   useEffect(() => {
@@ -196,6 +259,17 @@ function NotificationBanner({ notifications }) {
     }
   };
 
+  const handleModalLinkClick = (e, notification) => {
+    if (isExternalLink(notification.link)) {
+        handleDismiss(notification);
+        return;
+    }
+    e.preventDefault();
+    handleDismiss(notification);
+    const targetPath = resolveInternalLink(notification.link, userRole);
+    navigate(targetPath);
+  };
+
   if (!visibleNotifications || visibleNotifications.length === 0) return null;
 
   const modals = visibleNotifications.filter(n => n.is_popup);
@@ -233,6 +307,7 @@ function NotificationBanner({ notifications }) {
         const IconComponent = config.icon;
         const iconClass = config.iconColor.startsWith('text-') ? config.iconColor : config.iconColor;
         const zIndex = 50 + idx; 
+        const isExternal = isExternalLink(notification.link);
 
         return (
           <div key={notification.id} className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" style={{ zIndex }}>
@@ -258,7 +333,15 @@ function NotificationBanner({ notifications }) {
                  <p className="text-gray-800 text-base leading-relaxed whitespace-pre-wrap">{notification.content}</p>
                  {notification.link && (
                     <div className="pt-2">
-                       <a href={notification.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 font-semibold underline hover:text-blue-800">View Details &rarr;</a>
+                       <a 
+                         href={isExternal ? notification.link : resolveInternalLink(notification.link, userRole)} 
+                         onClick={(e) => handleModalLinkClick(e, notification)}
+                         target={isExternal ? "_blank" : "_self"} 
+                         rel={isExternal ? "noopener noreferrer" : undefined} 
+                         className="text-blue-600 font-semibold underline hover:text-blue-800 cursor-pointer"
+                       >
+                         View Details &rarr;
+                       </a>
                     </div>
                  )}
               </div>
@@ -286,6 +369,8 @@ function NotificationBanner({ notifications }) {
             onDismiss={handleDismiss} 
             getTypeConfig={getTypeConfig}
             animationClassMap={animationClassMap}
+            userRole={userRole}
+            navigate={navigate}
           />
         ))}
       </div>
