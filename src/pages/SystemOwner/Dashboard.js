@@ -201,7 +201,7 @@ function SystemOwnerDashboard({ onLogout }) {
   ] : [];
 
   return (
-    <div className="flex flex-col h-full space-y-3 overflow-hidden">
+    <div className="flex flex-col h-full space-y-3 overflow-y-auto">
       {/* Compact Executive Hero Bar */}
       <div className="flex-shrink-0 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl px-4 py-3 text-white shadow-md border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">

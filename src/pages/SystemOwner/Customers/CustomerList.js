@@ -151,7 +151,7 @@ function CustomerList({ onLogout }) {
   }
 
   return (
-    <div className="flex flex-col h-full space-y-3 overflow-hidden">
+    <div className="flex flex-col h-full space-y-3 overflow-y-auto">
       {/* Compact Header */}
       <div className="flex-shrink-0 flex items-center justify-between bg-white dark:bg-slate-800 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
         <div className="flex items-center gap-2.5">
