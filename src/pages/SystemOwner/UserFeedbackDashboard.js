@@ -401,8 +401,8 @@ const UserFeedbackDashboard = () => {
             </div>
 
             <div>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">User Message:</span>
-              <div className="p-2.5 bg-slate-50 rounded-xl text-xs font-medium text-slate-800 border border-slate-200 whitespace-pre-wrap max-h-32 overflow-y-auto">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Feedback Content & AI Evaluation Details:</span>
+              <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed font-sans">
                 {selectedFeedback.message}
               </div>
             </div>

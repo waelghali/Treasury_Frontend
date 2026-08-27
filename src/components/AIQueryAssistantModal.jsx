@@ -54,28 +54,35 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
     setTimeout(() => setFeedbackToast(null), 3500);
   };
 
+  const getAssociatedQuestion = (msg, idx) => {
+    if (msg.userQuestion && msg.userQuestion.trim()) {
+      return msg.userQuestion;
+    }
+    // Fallback: search backwards for the nearest user message
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i] && messages[i].sender === 'user' && messages[i].text) {
+        return messages[i].text;
+      }
+    }
+    return 'General / Unspecified Question';
+  };
+
   const handleThumbsUp = async (msg, idx) => {
     if (ratedMessages[idx]) return;
     setRatedMessages(prev => ({ ...prev, [idx]: 'up' }));
     
-    // Find preceding user question if available
-    let precedingQuestion = '';
-    for (let i = idx - 1; i >= 0; i--) {
-      if (messages[i].sender === 'user') {
-        precedingQuestion = messages[i].text;
-        break;
-      }
-    }
+    const capturedQuestion = getAssociatedQuestion(msg, idx);
+    const capturedAnswer = msg.text || '';
 
     try {
       const payload = {
-        message: `[AI Assistant Rating 👍 - Helpful]\nUser Question: "${precedingQuestion || 'N/A'}"\n\nAI Response Snippet:\n"${(msg.text || '').slice(0, 300)}"`,
+        message: `USER QUESTION:\n"${capturedQuestion}"\n\nAI ASSISTANT ANSWER:\n"${capturedAnswer}"\n\nEVALUATION:\nUser rated this answer as accurate and helpful (👍).`,
         feedback_type: 'GENERAL_FEEDBACK',
         sentiment: 'POSITIVE',
-        ai_summary: `AI Rating 👍 (Helpful): "${(precedingQuestion || 'General Query').slice(0, 60)}"`
+        ai_summary: `AI Rating 👍: "${capturedQuestion.slice(0, 60)}"`
       };
       await apiClient.post('/feedback/', payload);
-      showToast('✅ Thank you! Feedback recorded for System Owner review.');
+      showToast('✅ Thank you! Positive evaluation recorded.');
     } catch (err) {
       console.error('Failed to submit positive rating:', err);
       showToast('✅ Marked as helpful.');
@@ -95,25 +102,20 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
 
   const handleSubmitNegativeFeedback = async (msg, idx) => {
     setIsSubmittingFeedback(true);
-    let precedingQuestion = '';
-    for (let i = idx - 1; i >= 0; i--) {
-      if (messages[i].sender === 'user') {
-        precedingQuestion = messages[i].text;
-        break;
-      }
-    }
+    const capturedQuestion = getAssociatedQuestion(msg, idx);
+    const capturedAnswer = msg.text || '';
 
     try {
       const payload = {
-        message: `[AI Assistant Rating 👎 - Needs Improvement]\nCategory: ${feedbackReason}\nUser Notes: ${feedbackNotes.trim() || 'No additional notes provided'}\nUser Question: "${precedingQuestion || 'N/A'}"\n\nAI Response Snippet:\n"${(msg.text || '').slice(0, 300)}"`,
+        message: `USER QUESTION:\n"${capturedQuestion}"\n\nAI ASSISTANT ANSWER:\n"${capturedAnswer}"\n\nISSUE REPORTED: ${feedbackReason}\nUSER CLARIFICATION NOTES:\n${feedbackNotes.trim() || 'No additional notes provided.'}`,
         feedback_type: 'USABILITY_PAIN_POINT',
         sentiment: 'NEGATIVE',
-        ai_summary: `AI Rating 👎 (${feedbackReason}): "${(precedingQuestion || 'General Query').slice(0, 60)}"`
+        ai_summary: `AI Rating 👎 (${feedbackReason}): "${capturedQuestion.slice(0, 60)}"`
       };
       await apiClient.post('/feedback/', payload);
       setRatedMessages(prev => ({ ...prev, [idx]: 'down' }));
       setActiveFeedbackIdx(null);
-      showToast('📋 Feedback submitted to System Owner Feedback Dashboard!');
+      showToast('📋 Feedback & answer report submitted to System Owner dashboard!');
     } catch (err) {
       console.error('Failed to submit negative feedback:', err);
       setRatedMessages(prev => ({ ...prev, [idx]: 'down' }));
@@ -319,7 +321,8 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
             sourceAwareness: res.source_awareness,
             references: res.references || [],
             suggestedChips: res.suggested_chips || [],
-            visualMetadata: res.visual_metadata
+            visualMetadata: res.visual_metadata,
+            userQuestion: queryText || 'Interactive Inquiry'
           }
         ]);
       } else {
