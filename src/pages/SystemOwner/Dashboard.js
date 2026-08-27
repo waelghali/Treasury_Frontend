@@ -28,7 +28,8 @@ import {
   CheckCircle2,
   X,
   Zap,
-  Globe
+  Globe,
+  AlertTriangle
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 
@@ -50,6 +51,7 @@ function SystemOwnerDashboard({ onLogout }) {
   const [healthData, setHealthData] = useState(null);
   const [isHealthModalOpen, setIsHealthModalOpen] = useState(false);
   const [isPingingHealth, setIsPingingHealth] = useState(false);
+  const [telemetryTab, setTelemetryTab] = useState('subsystems');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -473,89 +475,268 @@ function SystemOwnerDashboard({ onLogout }) {
       {/* System Health & Operational Telemetry Modal */}
       {isHealthModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full p-5 space-y-4 animate-in fade-in zoom-in duration-150 flex flex-col max-h-[90vh]">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-3xl w-full p-6 space-y-4 animate-in fade-in zoom-in duration-150 flex flex-col max-h-[92vh]">
+            {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-emerald-50 dark:bg-emerald-950/60 rounded-xl text-emerald-600 border border-emerald-200 dark:border-emerald-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/60 rounded-2xl text-indigo-600 border border-indigo-200 dark:border-indigo-800">
                   <Zap className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    System Health & Infrastructure Telemetry
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      {healthData?.status || 'HEALTHY'}
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
+                      System Health & Performance Telemetry
+                    </h3>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                      healthData?.status === 'ALL_SYSTEMS_OPERATIONAL' 
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                        : healthData?.status === 'OPERATIONAL_WITH_WARNINGS'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        healthData?.status === 'ALL_SYSTEMS_OPERATIONAL' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                      }`} />
+                      {healthData?.status ? healthData.status.replace(/_/g, ' ') : 'OPERATIONAL'}
                     </span>
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Real-time backend microservices, database latency, and security guardrail status.
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Real-time container RAM, process uptime, OOM watchdog history, and microservice status.
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsHealthModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Top Quick Telemetry KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-shrink-0">
-              <div className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Uptime SLA</span>
-                <span className="text-sm font-black text-emerald-600 block">{healthData?.uptime_sla || '99.98%'}</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 flex-shrink-0">
+              {/* RAM Usage */}
+              <div className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">RAM Utilization</span>
+                <span className={`text-sm font-black block mt-0.5 ${
+                  (healthData?.memory?.peak_percent || 0) >= 88 
+                    ? 'text-rose-600' 
+                    : (healthData?.memory?.peak_percent || 0) >= 70 
+                    ? 'text-amber-600' 
+                    : 'text-indigo-600'
+                }`}>
+                  {healthData?.memory?.current_mb ? `${healthData.memory.current_mb} MB` : 'Evaluating...'}
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium block">
+                  Peak: {healthData?.memory?.peak_mb || 0} MB / {healthData?.memory?.limit_mb || 512} MB
+                </span>
               </div>
-              <div className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+
+              {/* Uptime & Restarts */}
+              <div className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Process Uptime</span>
+                <span className="text-sm font-black text-emerald-600 block mt-0.5">
+                  {healthData?.uptime_human || '< 1m'}
+                </span>
+                <span className={`text-[10px] font-medium block ${
+                  (healthData?.restarts_24h || 0) > 0 ? 'text-amber-600 font-bold' : 'text-slate-400'
+                }`}>
+                  {healthData?.restarts_24h || 0} restart{(healthData?.restarts_24h || 0) === 1 ? '' : 's'} (24h)
+                </span>
+              </div>
+
+              {/* DB Round-trip */}
+              <div className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">DB Round-trip</span>
-                <span className="text-sm font-black text-indigo-600 block">{healthData ? `${healthData.db_latency_ms} ms` : 'Evaluating...'}</span>
+                <span className="text-sm font-black text-indigo-600 block mt-0.5">
+                  {healthData ? `${healthData.db_latency_ms} ms` : 'Evaluating...'}
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium block">PostgreSQL Pool Active</span>
               </div>
-              <div className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+
+              {/* Security Guard */}
+              <div className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Security Guard</span>
-                <span className="text-sm font-black text-emerald-600 block">Active Guard</span>
-              </div>
-              <div className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Failed Logins (24h)</span>
-                <span className="text-sm font-black text-slate-800 dark:text-slate-200 block">{healthData?.failed_logins_24h ?? 0}</span>
+                <span className="text-sm font-black text-emerald-600 block mt-0.5">Active</span>
+                <span className="text-[10px] text-slate-400 font-medium block">
+                  {healthData?.failed_logins_24h ?? 0} Failed Logins (24h)
+                </span>
               </div>
             </div>
 
-            {/* Microservice Matrix */}
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Subsystem Status Matrix</h4>
-              {healthData?.services ? (
-                healthData.services.map((srv, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 bg-slate-50/80 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 flex items-center justify-between"
-                  >
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">{srv.name}</span>
-                        <span className="text-[9px] font-semibold uppercase px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                          {srv.category}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">{srv.details}</p>
-                    </div>
-                    <div className="text-right space-y-0.5">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${srv.badge}`}>
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        {srv.status}
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-400 block">{srv.latency}</span>
+            {/* Real-time RAM & OOM Gauge Card */}
+            {healthData?.memory && (
+              <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-4 rounded-2xl border border-slate-800 shadow-sm flex-shrink-0 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <Cpu className="w-4 h-4 text-indigo-400" />
+                    <span className="font-bold tracking-tight">Container Memory Allocation & Peak High-Watermark</span>
+                  </div>
+                  <span className="font-mono text-[11px] text-slate-300">
+                    {healthData.memory.current_mb} MB ({healthData.memory.current_percent}%) of {healthData.memory.limit_mb} MB Limit
+                  </span>
+                </div>
+
+                {/* Progress Bar with Peak Indicator */}
+                <div className="relative w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                  {/* Current RAM Bar */}
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      healthData.memory.peak_percent >= 88 
+                        ? 'bg-rose-500' 
+                        : healthData.memory.peak_percent >= 70 
+                        ? 'bg-amber-500' 
+                        : 'bg-gradient-to-r from-emerald-500 to-indigo-500'
+                    }`}
+                    style={{ width: `${Math.min(100, healthData.memory.current_percent)}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                  <span>0 MB Baseline</span>
+                  <span className="text-amber-300 font-semibold">
+                    ▲ Peak Reached: {healthData.memory.peak_mb} MB ({healthData.memory.peak_percent}%)
+                  </span>
+                  <span>{healthData.memory.limit_mb} MB (Host OOM Ceiling)</span>
+                </div>
+
+                {/* Warning Message if Near OOM or Restarts Detected */}
+                {((healthData.memory.peak_percent >= 75) || (healthData.restarts_24h > 0)) && (
+                  <div className="mt-2 bg-amber-500/15 border border-amber-400/30 text-amber-200 p-2.5 rounded-xl text-xs flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-300 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-amber-300">Hosting Headroom Notice</p>
+                      <p className="text-[11px] text-amber-200/90 mt-0.5">
+                        {healthData.restarts_24h > 0 
+                          ? `The watchdog detected ${healthData.restarts_24h} container reboot(s) in the last 24h. Peak memory reached ${healthData.memory.peak_mb} MB. Heavy concurrent batch jobs (Document AI / PDF generation) can push memory past the 512MB limit.`
+                          : `Peak memory reached ${healthData.memory.peak_mb} MB (${healthData.memory.peak_percent}%). Monitor memory during large OCR or batch exports to avoid container eviction.`}
+                      </p>
                     </div>
                   </div>
-                ))
+                )}
+              </div>
+            )}
+
+            {/* Navigation Tabs */}
+            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-1 flex-shrink-0">
+              <button
+                onClick={() => setTelemetryTab('subsystems')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  telemetryTab === 'subsystems'
+                    ? 'bg-indigo-600 text-white shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                Subsystem Matrix ({healthData?.services?.length || 0})
+              </button>
+              <button
+                onClick={() => setTelemetryTab('events')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                  telemetryTab === 'events'
+                    ? 'bg-indigo-600 text-white shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <span>Process & Reboot Audit Trail</span>
+                {healthData?.restarts_24h > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-500 text-slate-900">
+                    {healthData.restarts_24h}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Tab Content Area */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
+              {telemetryTab === 'subsystems' ? (
+                healthData?.services ? (
+                  healthData.services.map((srv, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 bg-slate-50/90 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-3"
+                    >
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white truncate">{srv.name}</span>
+                          <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex-shrink-0">
+                            {srv.category}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">{srv.details}</p>
+                      </div>
+                      <div className="text-right space-y-0.5 flex-shrink-0">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${srv.badge}`}>
+                          <CheckCircle2 className="w-3 h-3" />
+                          {srv.status}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400 block">{srv.latency}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-8 text-center text-xs text-slate-400">Loading subsystem matrix...</div>
+                )
               ) : (
-                <div className="p-4 text-center text-xs text-slate-400">Loading subsystem matrix...</div>
+                /* Process Lifecycle & Reboot Events Timeline */
+                <div className="space-y-2">
+                  {healthData?.uptime_stats?.recent_events?.length > 0 ? (
+                    healthData.uptime_stats.recent_events.map((evt) => (
+                      <div 
+                        key={evt.id} 
+                        className={`p-3 rounded-2xl border flex items-start justify-between gap-3 ${
+                          evt.event_type === 'CRASH_REBOOT' 
+                            ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900 text-rose-900 dark:text-rose-200' 
+                            : evt.event_type === 'SHUTDOWN'
+                            ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                            : 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900 text-slate-800 dark:text-slate-200'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            {evt.event_type === 'CRASH_REBOOT' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-600 text-white">
+                                <AlertTriangle className="w-3 h-3" /> UNEXPECTED RESTART DETECTED
+                              </span>
+                            ) : evt.event_type === 'SHUTDOWN' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-600 text-white">
+                                CLEAN SHUTDOWN
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-600 text-white">
+                                SERVER STARTUP
+                              </span>
+                            )}
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                              {evt.action_type.replace(/SYSTEM_/g, '').replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                            {evt.details?.reason || (evt.event_type === 'CRASH_REBOOT' 
+                              ? 'Previous instance terminated abruptly without graceful shutdown (e.g. OOM killer or host eviction).'
+                              : `Instance booted in ${evt.details?.environment || 'Cloud'} with ${evt.details?.initial_rss_mb || 0} MB initial RAM.`
+                            )}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400 whitespace-nowrap">
+                          {evt.formatted_time}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1">
+                      <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto" />
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No ungraceful crashes recorded</p>
+                      <p className="text-[11px] text-slate-400">Current server instance is running continuously without interruptions.</p>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
             {/* Modal Footer with Live Ping Diagnostic */}
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between flex-shrink-0">
-              <span className="text-[10px] text-slate-400 font-mono">
-                Environment: {healthData?.environment || 'Multi-Tenant Production'}
+              <span className="text-[10px] text-slate-400 font-mono truncate max-w-xs">
+                Host: {healthData?.environment || 'Multi-Tenant Production'} (PID {healthData?.memory?.pid || '—'})
               </span>
               <div className="flex items-center gap-2">
                 <button

@@ -1,7 +1,7 @@
 // frontend/src/components/Modals/LiquidateLGModal.js
 import React, { useState } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
-import { X, FileMinus, AlertCircle, FileText, Loader2 } from 'lucide-react';
+import { X, FileMinus, AlertCircle, FileText, Loader2, Sparkles } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { apiRequest } from '../../services/apiService';
@@ -36,7 +36,7 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
         liquidationType: 'full',
         newAmount: '',
         reason: '',
-		notes: '',
+        notes: lgRecord?.mandatory_claim_statement || '',
     };
 
     const LiquidateLgSchema = Yup.object().shape({
@@ -208,6 +208,51 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                                                             disabled={isGracePeriod}
                                                         />
                                                         <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
+                                                    </div>
+
+                                                    {lgRecord?.mandatory_claim_statement && (
+                                                        <div className="bg-gradient-to-r from-amber-50 to-orange-50/50 border border-amber-200/90 rounded-xl p-3.5 space-y-2 shadow-sm">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-1.5 text-amber-950 font-bold text-xs uppercase tracking-wide">
+                                                                    <Sparkles className="w-4 h-4 text-amber-600" />
+                                                                    Mandatory Claim Condition Detected
+                                                                </div>
+                                                                <span className="text-[10px] font-semibold bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300">
+                                                                    Required by Original LG
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-xs text-amber-900 italic bg-white/90 p-2.5 rounded-lg border border-amber-200/80 leading-relaxed font-mono text-[11.5px]">
+                                                                "{lgRecord.mandatory_claim_statement}"
+                                                            </p>
+                                                            <div className="flex items-center justify-between text-[11px] text-amber-800">
+                                                                <span>This declaration is automatically injected into the bank liquidation demand letter.</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setFieldValue('notes', lgRecord.mandatory_claim_statement)}
+                                                                    className="font-bold text-amber-900 hover:text-amber-950 underline ml-2"
+                                                                >
+                                                                    Reset Note to Clause
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    <div>
+                                                        <div className="flex items-center justify-between">
+                                                            <label htmlFor="notes" className="block text-xs sm:text-sm font-medium text-gray-700">
+                                                                Liquidation Notes & Claim Declarations
+                                                            </label>
+                                                            <span className="text-[11px] text-gray-400">Printed on Bank Demand Letter</span>
+                                                        </div>
+                                                        <Field
+                                                            as="textarea"
+                                                            id="notes"
+                                                            name="notes"
+                                                            rows="3"
+                                                            placeholder="Additional notes or mandatory statements for the bank liquidation letter..."
+                                                            className={`mt-1 block w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                                                            disabled={isGracePeriod}
+                                                        />
                                                     </div>
 
                                                     <div>

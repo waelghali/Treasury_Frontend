@@ -4,9 +4,10 @@ import {
     Upload, FileText, Brain, CheckCircle, XCircle, Clock, Loader2,
     ChevronDown, ChevronRight, Eye, Edit3, RefreshCw, AlertTriangle,
     Save, Plus, Trash2, X, Pause, Play, Star, Archive, RotateCcw,
-    Sparkles, Undo2
+    Sparkles, Undo2, Layout
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import VisualBankFormDesignerModal from '../../components/Issuance/VisualBankFormDesignerModal';
 
 const AVAILABLE_SYSTEM_FIELDS = [
     "request_id", "serial_number", "status", "transaction_type",
@@ -51,6 +52,7 @@ export default function BankFormManagement() {
     const [uploadFormType, setUploadFormType] = useState('FILLABLE_PDF');
     const [uploadLgTypeIds, setUploadLgTypeIds] = useState([]);
     const [uploadFormLanguage, setUploadFormLanguage] = useState('BILINGUAL');
+    const [uploadFormRole, setUploadFormRole] = useState('PRIMARY_ISSUER');
     const [uploadFile, setUploadFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [analyzing, setAnalyzing] = useState(null);
@@ -61,6 +63,7 @@ export default function BankFormManagement() {
     const [savingMapping, setSavingMapping] = useState(false);
     const [selectedRows, setSelectedRows] = useState(new Set());
     const [showArchived, setShowArchived] = useState(false);
+    const [isVisualDesignerOpen, setIsVisualDesignerOpen] = useState(false);
 
     // Issue reports state
     const [issueReports, setIssueReports] = useState([]);
@@ -163,7 +166,7 @@ export default function BankFormManagement() {
             const formData = new FormData();
             formData.append('file', uploadFile);
 
-            let url = `/issuance/bank-forms/upload?bank_id=${uploadBankId}&form_name=${encodeURIComponent(uploadFormName)}&form_type=${uploadFormType}&form_language=${uploadFormLanguage}`;
+            let url = `/issuance/bank-forms/upload?bank_id=${uploadBankId}&form_name=${encodeURIComponent(uploadFormName)}&form_type=${uploadFormType}&form_language=${uploadFormLanguage}&form_role=${uploadFormRole}`;
             if (uploadLgTypeIds.length > 0) url += `&lg_type_ids=${uploadLgTypeIds.join(',')}`;
             const result = await apiRequest(url, 'POST', formData, 'multipart/form-data');
 
@@ -174,6 +177,7 @@ export default function BankFormManagement() {
             setUploadBankId('');
             setUploadLgTypeIds([]);
             setUploadFormLanguage('BILINGUAL');
+            setUploadFormRole('PRIMARY_ISSUER');
             await fetchForms();
         } catch (err) {
             toast.error(err.message || 'Upload failed');
@@ -252,6 +256,16 @@ export default function BankFormManagement() {
             setEditingMapping(false);
         } catch (err) {
             toast.error('Failed to load form details');
+        }
+    };
+
+    const handleOpenVisualDesigner = async (formId) => {
+        try {
+            const data = await apiRequest(`/issuance/bank-forms/${formId}`);
+            setSelectedForm(data);
+            setIsVisualDesignerOpen(true);
+        } catch (err) {
+            toast.error('Failed to load form for Visual Designer');
         }
     };
 
@@ -480,6 +494,19 @@ export default function BankFormManagement() {
                             </div>
 
                             <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Form Role</label>
+                                <select
+                                    value={uploadFormRole}
+                                    onChange={e => setUploadFormRole(e.target.value)}
+                                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                >
+                                    <option value="PRIMARY_ISSUER">Primary Issuance Form (Applicant / Issuer)</option>
+                                    <option value="THIRD_PARTY_INDEMNITY">Third-Party Co-Application / Indemnity Form</option>
+                                </select>
+                                <p className="text-xs text-gray-400 mt-1">Select role for standard issuance or third-party co-obligation</p>
+                            </div>
+
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Form Language</label>
                                 <select
                                     value={uploadFormLanguage}
@@ -602,6 +629,7 @@ export default function BankFormManagement() {
                                     <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
                                         <tr>
                                             <th className="px-5 py-2 text-left">Form Name</th>
+                                            <th className="px-5 py-2 text-left">Role</th>
                                             <th className="px-5 py-2 text-left">Version</th>
                                             <th className="px-5 py-2 text-left">Type</th>
                                             <th className="px-5 py-2 text-left">AI Status</th>
@@ -621,6 +649,14 @@ export default function BankFormManagement() {
                                                         {form.priority > 0 && <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium bg-yellow-100 text-yellow-700 rounded">★ {form.priority}</span>}
                                                     </div>
                                                     <span className="text-xs text-gray-400 ml-6">{form.original_filename}</span>
+                                                </td>
+                                                <td className="px-5 py-3">
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${form.form_role === 'THIRD_PARTY_INDEMNITY'
+                                                        ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                                                        : 'bg-blue-100 text-blue-700 border border-blue-200'
+                                                        }`}>
+                                                        {form.form_role === 'THIRD_PARTY_INDEMNITY' ? 'Third-Party' : 'Primary'}
+                                                    </span>
                                                 </td>
                                                 <td className="px-5 py-3">
                                                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-mono">
@@ -650,87 +686,105 @@ export default function BankFormManagement() {
                                                     <span className="text-sm text-gray-600">{form.mapped_fields_count || 0}</span>
                                                 </td>
                                                 <td className="px-5 py-3 text-right">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        {form.ai_analysis_status !== 'COMPLETED' && (
+                                                    <div className="flex items-center justify-end gap-1.5 flex-nowrap">
+                                                        {/* Primary Workflow Actions */}
+                                                        {form.ai_analysis_status !== 'COMPLETED' ? (
                                                             <button
                                                                 onClick={() => handleAnalyze(form.id)}
                                                                 disabled={analyzing === form.id}
-                                                                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100 disabled:opacity-50 transition-colors"
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 disabled:opacity-50 transition-colors whitespace-nowrap shadow-sm"
                                                                 title="Run AI Analysis"
                                                             >
-                                                                {analyzing === form.id
-                                                                    ? <Loader2 className="w-3 h-3 animate-spin" />
-                                                                    : <Brain className="w-3 h-3" />
-                                                                }
-                                                                {analyzing === form.id ? 'Analyzing...' : 'AI Analyze'}
+                                                                {analyzing === form.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Brain className="w-3.5 h-3.5" />}
+                                                                {analyzing === form.id ? 'Analyzing...' : 'Run AI Analysis'}
                                                             </button>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleOpenVisualDesigner(form.id)}
+                                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200/80 rounded-lg transition-all shadow-xs whitespace-nowrap"
+                                                                    title="Open interactive Drag & Drop Designer"
+                                                                >
+                                                                    <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Visual Designer
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handlePreviewFill(form.id)}
+                                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-all shadow-xs whitespace-nowrap"
+                                                                    title="Test fill template with sample data"
+                                                                >
+                                                                    <Eye className="w-3.5 h-3.5 text-slate-500" /> Preview Fill
+                                                                </button>
+                                                            </>
                                                         )}
-                                                        {form.ai_analysis_status === 'COMPLETED' && (
-                                                            <button
-                                                                onClick={() => handleAnalyze(form.id)}
-                                                                disabled={analyzing === form.id}
-                                                                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100 disabled:opacity-50 transition-colors"
-                                                                title="Re-analyze"
-                                                            >
-                                                                <RefreshCw className="w-3 h-3" />
-                                                                Re-analyze
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => handleViewPdf(form.id)}
-                                                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md hover:bg-emerald-100 transition-colors"
-                                                            title="View uploaded PDF"
-                                                        >
-                                                            <FileText className="w-3 h-3" /> View PDF
-                                                        </button>
-                                                        {form.ai_analysis_status === 'COMPLETED' && (
-                                                            <button
-                                                                onClick={() => handlePreviewFill(form.id)}
-                                                                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-cyan-700 bg-cyan-50 border border-cyan-200 rounded-md hover:bg-cyan-100 transition-colors"
-                                                                title="Test fill with dummy data"
-                                                            >
-                                                                <Eye className="w-3 h-3" /> Preview Fill
-                                                            </button>
-                                                        )}
+
                                                         <button
                                                             onClick={() => handleViewDetails(form.id)}
-                                                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50/60 hover:bg-blue-100/80 border border-blue-200/70 rounded-lg transition-all whitespace-nowrap"
+                                                            title="View mapping details"
                                                         >
-                                                            <Eye className="w-3 h-3" /> Details
+                                                            Details
                                                         </button>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleToggleActive(form); }}
-                                                            className={`flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-md border transition-colors ${form.is_active
-                                                                ? 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'
-                                                                : 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
+
+                                                        {/* Secondary Utilities Toolbar */}
+                                                        <div className="inline-flex items-center bg-gray-50 border border-gray-200 rounded-lg p-0.5 gap-0.5 ml-1">
+                                                            <button
+                                                                onClick={() => handleViewPdf(form.id)}
+                                                                className="p-1 text-gray-500 hover:text-emerald-700 hover:bg-white rounded transition-colors"
+                                                                title="View Original Uploaded PDF"
+                                                            >
+                                                                <FileText className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            
+                                                            {form.ai_analysis_status === 'COMPLETED' && (
+                                                                <button
+                                                                    onClick={() => handleAnalyze(form.id)}
+                                                                    disabled={analyzing === form.id}
+                                                                    className="p-1 text-gray-500 hover:text-purple-700 hover:bg-white rounded transition-colors disabled:opacity-50"
+                                                                    title="Re-run AI Form Analysis"
+                                                                >
+                                                                    <RefreshCw className={`w-3.5 h-3.5 ${analyzing === form.id ? 'animate-spin' : ''}`} />
+                                                                </button>
+                                                            )}
+
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleToggleActive(form); }}
+                                                                className={`p-1 rounded transition-colors ${form.is_active
+                                                                    ? 'text-emerald-600 hover:bg-white hover:text-emerald-700'
+                                                                    : 'text-amber-600 hover:bg-white hover:text-amber-700'
                                                                 }`}
-                                                            title={form.is_active ? 'Suspend' : 'Activate'}
-                                                        >
-                                                            {form.is_active ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                                                        </button>
-                                                        <select
-                                                            value={form.priority || 0}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            onChange={(e) => handleSetPriority(form, Number(e.target.value))}
-                                                            className="px-1 py-1 text-[10px] border border-gray-200 rounded bg-white cursor-pointer w-12"
-                                                            title="Priority (higher = preferred)"
-                                                        >
-                                                            {[0, 1, 2, 3, 5, 10, 20, 50].map(v => <option key={v} value={v}>{v === 0 ? '—' : `★${v}`}</option>)}
-                                                        </select>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleDeleteForm(form); }}
-                                                            className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 transition-colors"
-                                                            title="Delete form"
-                                                        >
-                                                            <Trash2 className="w-3 h-3" />
-                                                        </button>
+                                                                title={form.is_active ? 'Active (Click to Suspend)' : 'Suspended (Click to Activate)'}
+                                                            >
+                                                                {form.is_active ? <Play className="w-3.5 h-3.5 fill-current" /> : <Pause className="w-3.5 h-3.5" />}
+                                                            </button>
+
+                                                            <select
+                                                                value={form.priority || 0}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onChange={(e) => handleSetPriority(form, Number(e.target.value))}
+                                                                className="px-1 py-0.5 text-[11px] font-medium border-0 bg-transparent text-gray-600 hover:bg-white rounded cursor-pointer outline-none"
+                                                                title="Template Priority (higher = preferred)"
+                                                            >
+                                                                {[0, 1, 2, 3, 5, 10, 20, 50].map(v => (
+                                                                    <option key={v} value={v}>{v === 0 ? 'P0' : `★${v}`}</option>
+                                                                ))}
+                                                            </select>
+
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteForm(form); }}
+                                                                className="p-1 text-gray-400 hover:text-red-600 hover:bg-white rounded transition-colors"
+                                                                title="Delete Form Template"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+
                                                         {form.is_deleted && (
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); handleRestoreForm(form); }}
-                                                                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md hover:bg-emerald-100 transition-colors"
+                                                                className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
                                                                 title="Restore form"
                                                             >
-                                                                <RotateCcw className="w-3 h-3" /> Restore
+                                                                <RotateCcw className="w-3.5 h-3.5" />
                                                             </button>
                                                         )}
                                                     </div>
@@ -921,6 +975,13 @@ export default function BankFormManagement() {
                                 {selectedForm.ai_analysis_status === 'COMPLETED' && (
                                     <>
                                         <button
+                                            onClick={() => setIsVisualDesignerOpen(true)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors shadow-sm"
+                                            title="Open interactive drag-and-drop field designer"
+                                        >
+                                            <Sparkles className="w-4 h-4 text-purple-600" /> Visual Designer
+                                        </button>
+                                        <button
                                             onClick={() => handlePreviewFill(selectedForm.id)}
                                             className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-cyan-700 bg-cyan-50 border border-cyan-200 rounded-lg hover:bg-cyan-100 transition-colors"
                                         >
@@ -1023,10 +1084,10 @@ export default function BankFormManagement() {
                                                 {['PHYSICAL_OVERLAY', 'SCANNED_FILL'].includes(selectedForm.form_type) && (
                                                     <div className="flex items-center gap-1 ml-2 pl-2 border-l border-gray-200">
                                                         <span className="text-[10px] text-gray-400 mr-1">{selectedRows.size > 0 ? `Nudge ${selectedRows.size}:` : 'Nudge All:'}</span>
-                                                        <button onClick={() => nudgeAllFields('x', -0.1)} title="Move all fields left 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">{'\u2190'}</button>
-                                                        <button onClick={() => nudgeAllFields('x', 0.1)} title="Move all fields right 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">{'\u2192'}</button>
-                                                        <button onClick={() => nudgeAllFields('y', -0.1)} title="Move all fields up 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">{'\u2191'}</button>
-                                                        <button onClick={() => nudgeAllFields('y', 0.1)} title="Move all fields down 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">{'\u2193'}</button>
+                                                        <button onClick={() => nudgeAllFields('x', -0.1)} title="Move all fields left 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">←</button>
+                                                        <button onClick={() => nudgeAllFields('x', 0.1)} title="Move all fields right 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">→</button>
+                                                        <button onClick={() => nudgeAllFields('y', -0.1)} title="Move all fields up 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">↑</button>
+                                                        <button onClick={() => nudgeAllFields('y', 0.1)} title="Move all fields down 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">↓</button>
                                                     </div>
                                                 )}
                                                 <button
@@ -1261,6 +1322,17 @@ export default function BankFormManagement() {
                     <option key={i} value={val} />
                 ))}
             </datalist>
+
+            {/* Visual Drag-and-Drop Designer Modal */}
+            <VisualBankFormDesignerModal
+                isOpen={isVisualDesignerOpen}
+                onClose={() => setIsVisualDesignerOpen(false)}
+                formTemplate={selectedForm}
+                onSaveSuccess={(newMapping) => {
+                    setSelectedForm(prev => prev ? { ...prev, field_mapping: newMapping } : null);
+                    fetchForms();
+                }}
+            />
         </div>
     );
 }

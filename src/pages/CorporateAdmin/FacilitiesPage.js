@@ -387,6 +387,40 @@ export default function FacilitiesPage() {
                     })()}
                   </div>
 
+                  {/* SLA & Turnaround Intelligence */}
+                  <div className="mb-6 p-3 rounded-2xl bg-gradient-to-br from-slate-50 to-indigo-50/40 border border-slate-100/80">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                        <Clock size={12} className="text-indigo-500" /> SLA Turnaround
+                      </span>
+                      {fac.sla_commitment_pct != null && (
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                          Number(fac.sla_commitment_pct) >= 80 ? 'bg-emerald-100 text-emerald-700' :
+                          Number(fac.sla_commitment_pct) >= 60 ? 'bg-amber-100 text-amber-700' :
+                          'bg-rose-100 text-rose-700'
+                        }`}>
+                          {Math.round(Number(fac.sla_commitment_pct))}% On-Time
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-semibold block">Agreed</span>
+                        <span>{fac.sla_agreement_days ? `${fac.sla_agreement_days} days` : 'Not set'}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 font-semibold block">Actual (Moving Avg)</span>
+                        <span className={
+                          fac.actual_avg_sla_days && fac.sla_agreement_days && Number(fac.actual_avg_sla_days) > Number(fac.sla_agreement_days) + 1
+                            ? 'text-rose-600 font-extrabold'
+                            : 'text-slate-800'
+                        }>
+                          {fac.actual_avg_sla_days ? `${Number(fac.actual_avg_sla_days).toFixed(1)} days (${fac.total_completed_issuances || 0} LGs)` : 'No track record yet'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Features Grid */}
                   <div className="grid grid-cols-2 gap-3 mb-6">
                     <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${fac.multi_currency_allowed ? 'border-blue-100 bg-blue-50/50 text-blue-700' : 'border-slate-100 text-slate-400'}`}>

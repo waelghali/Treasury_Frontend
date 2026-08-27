@@ -58,7 +58,10 @@
     "pending": "قيد الانتظار",
     "approved": "معتمد",
     "rejected": "مرفوض",
-    "draft": "مسودة"
+    "draft": "مسودة",
+    "thirdPartyCR": "السجل التجاري للطرف الثالث",
+    "primaryForm": "نموذج طلب الإصدار الأساسي",
+    "thirdPartyForm": "نموذج تعهد/طلب الطرف الثالث"
   },
   "auth": {
     "renewal": {
@@ -2329,15 +2332,26 @@
       "cancel": "إلغاء"
     },
     "runAutoRenewalModal": {
-      "title": "تشغيل التجديد التلقائي/الإجباري لخطابات الضمان",
-      "messageEligible": "ستحدد هذه العملية جميع خطابات الضمان المؤهلة للتجديد التلقائي وللتجديد الإجباري.",
-      "messageDetailed": "لكل خطاب ضمان مؤهل (والذي قد يختلف عن القائمة الموضحة أدناه)، سيقوم النظام تلقائيًا بتمديد تاريخ انتهاء صلاحيته، وإنشاء خطاب تعليمات فردي، وإرسال إشعار بريد إلكتروني فردي. سيتم توفير ملف PDF واحد مجمع يحتوي على جميع خطابات التعليمات المنشأة للتنزيل.",
-      "successfullyRenewed": "تم التجديد بنجاح:",
-      "lgs": "خطابات ضمان",
+      "title": "مراجعة وتأكيد التجديد التلقائي والإجباري لخطابات الضمان",
+      "subtitle": "مراجعة خطابات الضمان المرشحة، والتحقق من حدود التجديد الإجباري، وتخصيص تواريخ التمديد الجديدة.",
+      "policyNoticeTitle": "ضوابط الامتثال وإدارة المخاطر مفعلة",
+      "policyNoticeDesc": "خطابات الضمان التي تقع في منطقة التجديد الإجباري مقفلة ولا يمكن إلغاء تحديدها تجنباً لمخاطر التخلف أو المطالبات. يمكنك تعديل تواريخ التمديد حسب الحاجة.",
+      "mandatoryForced": "تجديد إجباري إلزامي",
+      "proactiveAuto": "تجديد تلقائي استباقي",
+      "selectAllOptional": "تحديد الكل الاختياري",
+      "deselectAllOptional": "إلغاء تحديد الكل الاختياري",
+      "suggestedExtensionDate": "تاريخ التمديد المقترح",
+      "currentExpiry": "تاريخ الانتهاء الحالي",
+      "renewalTier": "مستوى التجديد",
+      "lgDetails": "تفاصيل خطاب الضمان",
+      "noLgsTitle": "لا توجد خطابات ضمان تتطلب التجديد الفوري",
+      "noLgsDesc": "لا توجد حالياً خطابات ضمان تقترب من حد التجديد الإجباري الحرج أو محددة للتجديد التلقائي الاستباقي.",
+      "successfullyRenewed": "تم التجديد بنجاح: {{count}} خطاب ضمان.",
       "close": "إغلاق",
-      "confirmAndRun": "تأكيد وتشغيل التجديد",
-      "processing": "جاري المعالجة...",
-      "cancel": "إلغاء"
+      "confirmAndRun": "تأكيد وتمديد",
+      "processing": "جاري معالجة التجديد...",
+      "cancel": "إلغاء",
+      "downloadLetter": "تنزيل خطاب التعليمات"
     }
   },
   "subscriptionPlans": {
@@ -2796,5 +2810,16 @@
   "/corporate-admin/migration/staged/delete-multiple": "/Corporate-Admin/Migration/Staged/Delete-Multiple",
   "/system-owner/system-notifications/": "/System-Owner/System-Notifications/",
   "/system-owner/dashboard-metrics": "/System-Owner/Dashboard-Metrics",
-  "Failed to send emails: ": "Failed To Send Emails:"
+  "Failed to send emails: ": "Failed To Send Emails:",
+  "sla_actualization": {
+    "title": "ذكاء الالتزام الزمني واتفاقية الخدمة",
+    "agreed_sla": "الوقت المتفق عليه",
+    "actual_sla": "الوقت الفعلي (المتوسط المتحرك)",
+    "on_time": "في الموعد",
+    "fast_track": "تنفيذ سريع",
+    "sla_slippage_risk": "مخاطر تأخير البنك",
+    "banking_calendar": "التقويم المصرفي والعطلات",
+    "weekend_scheme": "نظام العطلة الأسبوعية",
+    "business_days": "أيام عمل"
+  }
 }

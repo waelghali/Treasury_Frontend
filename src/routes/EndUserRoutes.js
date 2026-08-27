@@ -18,6 +18,7 @@ import IssuanceRequestsPage from 'pages/CorporateAdmin/IssuanceRequestsPage';
 import IssuanceRequestForm from 'pages/Public/PublicIssuanceForm';
 import IssuedLGsPage from 'pages/EndUser/IssuedLGsPage';
 import LGReconciliationPage from 'pages/EndUser/LGReconciliationPage';
+import InboxPage from 'pages/EndUser/InboxPage';
 
 // NEW: Import the generic ReportsPage and the single report component for this role
 import ReportsPage from 'pages/Reports/ReportsPage';
@@ -84,6 +85,9 @@ function EndUserRoutes({ onLogout, subscriptionStatus, hasCustodyModule, hasIssu
       ) : (
         <Route path="issuance/*" element={<Navigate to="../dashboard" replace />} />
       )}
+
+      {/* Smart Inbox Route */}
+      <Route path="inbox" element={<InboxPage />} />
 
       {/* Reports (Updated for End User) */}
       <Route path="reports" element={<ReportsPage reports={endUserReports} />}>

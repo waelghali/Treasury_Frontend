@@ -115,7 +115,7 @@ export default function IssuanceRequestForm() {
         requested_expiry_date: '', operational_status: '', lg_language: 'EN', is_auto_reducing: false, reduction_trigger: '',
         other_conditions: '', beneficiary_id_number: '', beneficiary_name: '', beneficiary_address: '',
         beneficiary_contact_person: '', beneficiary_phone: '', beneficiary_email: '', beneficiary_country: '',
-        is_third_party: false, third_party_name: '', third_party_address: '', third_party_relationship: '',
+        is_third_party: false, third_party_name: '', third_party_cr: '', third_party_address: '', third_party_relationship: '',
         is_cross_border: false, issuance_country: '', applicable_rules: '',
         cross_border_details: {},
         requires_special_wording: false,
@@ -1278,6 +1278,7 @@ export default function IssuanceRequestForm() {
                 {renderToggle('is_third_party', 'This is a Third Party Request',
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {renderField('third_party_name', 'Third Party Name')}
+                        {renderField('third_party_cr', 'Third Party Commercial Registration (CR)')}
                         {renderField('third_party_relationship', 'Relationship', 'select', THIRD_PARTY_RELATIONSHIPS)}
                         <div className="md:col-span-2">
                             {renderField('third_party_address', 'Third Party Address')}

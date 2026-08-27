@@ -4,7 +4,7 @@ import { apiRequest } from 'services/apiService.js';
 import { toast } from 'react-toastify';
 import { 
   PlusCircle, Edit, RotateCcw, Search, Filter, Settings, Save, Loader2,
-  ChevronUp, ChevronDown, Lock, Clock, MessageSquare, FileCheck, Layers 
+  ChevronUp, ChevronDown, Lock, Clock, MessageSquare, FileCheck, Layers, Calendar 
 } from 'lucide-react';
 
 // --- Configuration Groupings Mapping ---
@@ -207,12 +207,20 @@ function GlobalConfigurationList({ onLogout }) {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold text-gray-800">Global Ranges Configurations</h2>
-        <button
-          onClick={() => navigate('/system-owner/global-configurations/new')}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-        >
-          <PlusCircle className="h-5 w-5 mr-2" /> Add New Configuration
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/system-owner/global-configurations/holidays')}
+            className="inline-flex items-center px-4 py-2 border border-slate-200 text-sm font-medium rounded-md shadow-sm text-slate-700 bg-white hover:bg-slate-50 focus:outline-none transition-colors duration-200"
+          >
+            <Calendar className="h-4 w-4 mr-2 text-indigo-600" /> Banking Calendar & Holidays
+          </button>
+          <button
+            onClick={() => navigate('/system-owner/global-configurations/new')}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+          >
+            <PlusCircle className="h-5 w-5 mr-2" /> Add New Configuration
+          </button>
+        </div>
       </div>
 
       {error && (

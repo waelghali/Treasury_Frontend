@@ -34,6 +34,8 @@ import AccountingExport from '../pages/CorporateAdmin/BankReconciliation/Account
 // NEW: Import Admin Quotation Dashboard
 import AdminQuotationDashboard from '../pages/CorporateAdmin/AdminQuotationDashboard';
 import TreasuryDashboard from '../pages/CorporateAdmin/TreasuryDashboard';
+import InboxPage from '../pages/EndUser/InboxPage';
+import InboxScheduleConfigPage from '../pages/CorporateAdmin/InboxScheduleConfigPage';
 
 // NEW: Import the generic ReportsPage and the single report component for this role
 import ReportsPage from '../pages/Reports/ReportsPage';
@@ -108,6 +110,10 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIss
       <Route path="quotations" element={<AdminQuotationDashboard />} />
       <Route path="quotations/dashboard" element={<AdminQuotationDashboard />} />
       <Route path="quotations/approvals" element={<AdminQuotationDashboard />} />
+
+      {/* Smart Inbox Routes */}
+      <Route path="inbox" element={<InboxPage />} />
+      <Route path="inbox/schedule" element={<InboxScheduleConfigPage />} />
 
       <Route path="*" element={<Navigate to="dashboard" replace />} />
     </Routes>

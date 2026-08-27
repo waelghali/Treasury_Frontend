@@ -511,6 +511,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                 <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2">Third Party</h4>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                                     <DetailRow label="Name" value={request.third_party_name} />
+                                    <DetailRow label="Commercial Registration (CR)" value={request.third_party_cr} />
                                     <DetailRow label="Relationship" value={request.third_party_relationship?.replace(/_/g, ' ')} />
                                     <DetailRow label="Address" value={request.third_party_address} />
                                 </div>

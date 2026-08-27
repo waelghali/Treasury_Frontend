@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
 import { toast } from 'react-toastify';
 import {
@@ -29,6 +30,9 @@ const MISMATCH_LABELS = {
 // Main Component
 // ═══════════════════════════════════════════════
 export default function LGReconciliationPage() {
+    const [searchParams] = useSearchParams();
+    const urlSessionId = searchParams.get('sessionId');
+
     const [banks, setBanks] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [selectedSession, setSelectedSession] = useState(null);
@@ -52,7 +56,13 @@ export default function LGReconciliationPage() {
     // Tab
     const [activeTab, setActiveTab] = useState('sessions'); // sessions | upload | detail
 
-    useEffect(() => { fetchBanks(); fetchSessions(); }, []);
+    useEffect(() => {
+        fetchBanks();
+        fetchSessions();
+        if (urlSessionId) {
+            fetchSessionDetail(urlSessionId);
+        }
+    }, [urlSessionId]);
 
     const fetchBanks = async () => {
         try {

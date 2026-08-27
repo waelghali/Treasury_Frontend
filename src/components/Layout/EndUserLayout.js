@@ -4,7 +4,7 @@ import {
   Home, FileText, PlusCircle, BarChart, LogOut,
   FolderKanban, Users, ListTodo, ChevronLeft, ChevronRight,
   Building, History, Zap, Bell, RefreshCw, Menu, X,
-  AlertCircle, TrendingUp
+  AlertCircle, TrendingUp, Inbox
 } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner';
@@ -73,8 +73,10 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
     loadNotifications();
   }, []);
 
-  // Fetch UserNotification records (issuance, maintenance, etc.) efficiently
+  // Fetch UserNotification records efficiently (every 5 minutes)
   useEffect(() => {
+    let timer = null;
+
     const fetchUserNotifs = () => {
       if (document.hidden) return;
       apiRequest('/notifications/', 'GET')
@@ -83,22 +85,19 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
           setUserNotifications(list);
           setUnreadCount(list.filter(n => !n.is_read).length);
         })
-        .catch(() => {});
+        .catch((err) => {
+          // If token expired / unauthorized, stop polling
+          if (err?.status === 401 || err?.detail?.includes('token') || err?.detail?.includes('credentials')) {
+            if (timer) clearInterval(timer);
+          }
+        });
     };
 
     fetchUserNotifs();
-    const interval = setInterval(fetchUserNotifs, 60000);
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        fetchUserNotifs();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    timer = setInterval(fetchUserNotifs, 300000); // 5 minutes
 
     return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (timer) clearInterval(timer);
     };
   }, []);
 
@@ -190,6 +189,21 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
       >
         <ListTodo className="h-5 w-5 flex-shrink-0" />
         {(!isCollapsed || isDrawer) && <span className="ml-3">Action Center</span>}
+      </Link>
+
+      <Link
+        to="/end-user/inbox"
+        title={isCollapsed && !isDrawer ? "Smart Inbox" : ""}
+        className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'smart-inbox'
+          ? 'font-semibold'
+          : 'hover:bg-white/[0.07]'
+          }`}
+        style={activeMenuItem === 'smart-inbox'
+          ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
+          : { color: '#cbd5e1' }}
+      >
+        <Inbox className="h-5 w-5 flex-shrink-0" />
+        {(!isCollapsed || isDrawer) && <span className="ml-3">Smart Inbox</span>}
       </Link>
 
       {/* LG Custody - only if plan includes custody module */}

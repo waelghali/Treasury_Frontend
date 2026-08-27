@@ -1,7 +1,7 @@
 // frontend/src/components/Modals/ApprovalRequestDetailsModal.js
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
-import { X, Check, FileText, AlertCircle, Loader2, XCircle } from 'lucide-react';
+import { X, Check, FileText, AlertCircle, Loader2, XCircle, Sparkles } from 'lucide-react';
 import moment from 'moment';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
@@ -226,6 +226,15 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
 						)}
 						<p><strong>Reason:</strong> {details.reason || 'No reason provided'}</p>
 						<p><strong>Additional Notes:</strong> {details.notes || 'No notes provided'}</p>
+						{request.lg_record?.mandatory_claim_statement && (
+							<div className="mt-2.5 p-2.5 bg-amber-50 border border-amber-200 rounded-md text-xs">
+								<span className="font-semibold text-amber-900 flex items-center gap-1">
+									<Sparkles className="w-3.5 h-3.5 text-amber-600 inline" />
+									Original LG Mandatory Claim Clause:
+								</span>
+								<p className="text-amber-950 italic mt-1 font-mono">{request.lg_record.mandatory_claim_statement}</p>
+							</div>
+						)}
 						{/* FIX: Add conditional rendering for the supporting document */}
 						{details.supporting_document_id && (
 							<p className="mt-2">

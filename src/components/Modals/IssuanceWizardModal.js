@@ -339,10 +339,25 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                     const docRes = await apiRequest(`/issuance/requests/${request.id}/documents/${swDocId}/download`);
                     if (docRes?.download_url) {
                         window.open(docRes.download_url, '_blank');
-                        toast.info('\ud83d\udcc4 Special wording document opened in a new tab.', { autoClose: 5000 });
+                        toast.info('Special wording document opened in a new tab.', { autoClose: 5000 });
                     }
                 } catch (swErr) {
                     console.warn('Could not auto-open special wording:', swErr);
+                }
+            }
+
+            // If third-party request and bank has a third-party indemnity template, also download it
+            if (request.is_third_party && formFillInfo?.has_third_party_form) {
+                try {
+                    const tpBlob = await apiRequest(
+                        `/issuance/bank-forms/auto-fill/${request.id}?bank_id=${bankId}&form_role=THIRD_PARTY_INDEMNITY`,
+                        'POST', values, 'application/json', 'blob'
+                    );
+                    const tpBlobUrl = window.URL.createObjectURL(tpBlob);
+                    window.open(tpBlobUrl, '_blank');
+                    toast.info('Third-Party Indemnity Form opened in a new tab.', { autoClose: 6000 });
+                } catch (tpErr) {
+                    console.warn('Could not auto-open third-party form:', tpErr);
                 }
             }
 
@@ -752,6 +767,37 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                     </div>
                                 )}
                             </div>
+
+                            {/* Third-Party Bank Form Notice */}
+                            {selectedMethod?.strategy_code === 'BANK_FORM' && request.is_third_party && (
+                                <div className="bg-purple-50 rounded-xl p-4 border border-purple-200 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <FileText className="w-4 h-4 text-purple-700" />
+                                        <h4 className="text-xs font-bold text-purple-900 uppercase">Third-Party LG: Dual Bank Forms Required</h4>
+                                    </div>
+                                    <p className="text-xs text-purple-700">
+                                        This request requires two separate bank forms: the <strong>Primary Issuance Request Form</strong> (for the issuer) and the <strong>Third-Party Indemnity Form</strong> (for {request.third_party_name || 'the third party'}). Both will be auto-generated upon confirmation.
+                                    </p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                                        <div className="bg-white p-2.5 rounded-lg border border-purple-100 flex items-center justify-between">
+                                            <div className="text-xs">
+                                                <span className="font-semibold text-slate-800 block">1. Primary Form</span>
+                                                <span className="text-slate-500 text-[11px]">Applicant & Facility Holder</span>
+                                            </div>
+                                            <span className="text-[10px] font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Ready</span>
+                                        </div>
+                                        <div className="bg-white p-2.5 rounded-lg border border-purple-100 flex items-center justify-between">
+                                            <div className="text-xs">
+                                                <span className="font-semibold text-slate-800 block">2. Third-Party Form</span>
+                                                <span className="text-slate-500 text-[11px]">Co-Applicant / Indemnity</span>
+                                            </div>
+                                            <span className="text-[10px] font-medium bg-purple-100 text-purple-800 px-2 py-0.5 rounded">
+                                                {formFillInfo?.has_third_party_form ? 'Matched' : 'Universal'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Missing Fields Form (shown after Phase 1 detects empty fields) */}
                             {showMissingFields && missingFields.length > 0 && (

@@ -4,7 +4,7 @@ import {
   Home, Users, FolderKanban, LogOut, Settings, FileText,
   BarChart, Hourglass, ClipboardList, DatabaseZap, Send, Building, Shield,
   ChevronLeft, ChevronRight, FileCheck, Settings2, Download, LayoutTemplate, TrendingUp, CreditCard, BarChart3, Bell, Upload, RefreshCw,
-  Menu, X, ListTodo, Layers, Sliders, FileSpreadsheet, BarChart2
+  Menu, X, ListTodo, Layers, Sliders, FileSpreadsheet, BarChart2, Inbox, Calendar
 } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner';
@@ -115,8 +115,10 @@ function CorporateAdminLayout({
     loadNotifications();
   }, []);
 
-  // Fetch UserNotification records (issuance, maintenance, etc.) efficiently
+  // Fetch UserNotification records efficiently (every 5 minutes)
   useEffect(() => {
+    let timer = null;
+
     const fetchUserNotifs = () => {
       if (document.hidden) return;
       apiRequest('/notifications/', 'GET')
@@ -125,22 +127,19 @@ function CorporateAdminLayout({
           setUserNotifications(list);
           setUnreadCount(list.filter(n => !n.is_read).length);
         })
-        .catch(() => {});
+        .catch((err) => {
+          // If token expired / unauthorized, stop polling
+          if (err?.status === 401 || err?.detail?.includes('token') || err?.detail?.includes('credentials')) {
+            if (timer) clearInterval(timer);
+          }
+        });
     };
 
     fetchUserNotifs();
-    const interval = setInterval(fetchUserNotifs, 60000);
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        fetchUserNotifs();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    timer = setInterval(fetchUserNotifs, 300000); // 5 minutes
 
     return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (timer) clearInterval(timer);
     };
   }, []);
 
@@ -369,6 +368,13 @@ function CorporateAdminLayout({
           >
             <Settings className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
             {(!isCollapsed || isDrawer) && <span className="ml-3">Settings</span>}
+          </Link>
+          <Link to="/corporate-admin/inbox" title={isCollapsed && !isDrawer ? 'Smart Inbox' : ''}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'smart-inbox' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
+            style={activeMenuItem === 'smart-inbox' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+          >
+            <Inbox className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Smart Inbox</span>}
           </Link>
           {hasIssuanceModule && (
             <Link to="/corporate-admin/issuance/form-config" title={isCollapsed && !isDrawer ? 'Issuance Form Config' : ''}

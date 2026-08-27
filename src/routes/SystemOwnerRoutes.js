@@ -20,6 +20,7 @@ import AuditLogs from 'pages/SystemOwner/AuditLogs';
 import UserFeedbackDashboard from 'pages/SystemOwner/UserFeedbackDashboard';
 import SchedulerPage from 'pages/SystemOwner/scheduler/SchedulerPage';
 import BankFormManagement from 'pages/SystemOwner/BankFormManagement';
+import SystemHolidaysManagementPage from 'pages/SystemOwner/GlobalConfigurations/SystemHolidaysManagementPage';
 // NEW: Import System Notification pages
 import SystemNotificationList from 'pages/SystemOwner/SystemNotifications/SystemNotificationList';
 import SystemNotificationForm from 'pages/SystemOwner/SystemNotifications/SystemNotificationForm';
@@ -72,6 +73,7 @@ function SystemOwnerRoutes({ onLogout }) {
       <Route path="global-configurations/templates" element={<TemplateList onLogout={onLogout} />} />
       <Route path="global-configurations/templates/new" element={<TemplateForm onLogout={onLogout} />} />
       <Route path="global-configurations/templates/edit/:id" element={<TemplateForm onLogout={onLogout} />} />
+      <Route path="global-configurations/holidays" element={<SystemHolidaysManagementPage onLogout={onLogout} />} />
       <Route path="scheduler" element={<SchedulerPage onLogout={onLogout} />} />
 
       {/* Bank Form Templates (AI-Powered) */}

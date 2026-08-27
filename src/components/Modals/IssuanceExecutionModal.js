@@ -206,6 +206,24 @@ export default function IssuanceExecutionModal({ request, onClose, onSuccess }) 
                                 <span>Cash Margin: <strong>{fac.price_cash_margin_pct}%</strong></span>
                                 {parseFloat(fac.price_cash_margin_pct) === 0 && <span className="ml-2 text-blue-600 font-bold text-[10px]">ZERO MARGIN</span>}
                               </div>
+                              {fac.agreed_sla_days && (
+                                <div className="col-span-2 flex items-center justify-between text-[11px] pt-1 border-t border-gray-50 text-slate-600">
+                                  <span>
+                                    ⚡ <strong>SLA:</strong> {fac.agreed_sla_days}d agreed
+                                    {fac.actual_avg_sla_days ? ` • ${fac.actual_avg_sla_days}d actual (${fac.sla_commitment_pct}% on-time)` : ''}
+                                  </span>
+                                  {fac.recommendation_tags?.includes("FAST_TRACK") && (
+                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                      FAST TRACK
+                                    </span>
+                                  )}
+                                  {fac.recommendation_tags?.includes("SLA_SLIPPAGE_RISK") && (
+                                    <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                                      SLA DELAY RISK
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         );

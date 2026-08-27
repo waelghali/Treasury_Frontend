@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
-import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, CheckCircle, MinusCircle, Eye, Edit, PlayCircle, Copy } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, CheckCircle, MinusCircle, Eye, Edit, PlayCircle, Copy, Sparkles } from 'lucide-react';
 import moment from 'moment';
 import LGLifecycleHistoryComponent from '../../components/LGLifecycleHistoryComponent';
 import ChangeLGOwnerModal from '../../components/Modals/ChangeLGOwnerModal';
@@ -721,6 +721,22 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                             <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Other Conditions:</span>
                             <span className="text-gray-700 text-sm break-words">{lgRecord.other_conditions || 'N/A'}</span>
                         </div>
+                        {lgRecord.mandatory_claim_statement && (
+                            <div className="col-span-1 md:col-span-2 py-2.5 px-3.5 bg-amber-50/70 border border-amber-200/80 rounded-xl my-1">
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-1.5 text-amber-950 font-bold text-xs uppercase tracking-wide">
+                                        <Sparkles className="w-4 h-4 text-amber-600" />
+                                        Mandatory Liquidation / Claim Statement
+                                    </div>
+                                    <span className="text-[10px] font-semibold bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300">
+                                        Required by Original LG
+                                    </span>
+                                </div>
+                                <p className="text-gray-800 text-xs italic font-mono bg-white/90 p-2.5 rounded-lg border border-amber-200/70 leading-relaxed break-words">
+                                    "{lgRecord.mandatory_claim_statement}"
+                                </p>
+                            </div>
+                        )}
 
                         <div className="col-span-1 md:col-span-2 border-b border-gray-100 pb-2 mt-4">
                             <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Internal & Category Details</p>

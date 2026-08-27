@@ -59,6 +59,8 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
       else if (currentPath.startsWith('/corporate-admin/quotations')) { activeItem = 'quotation-control'; title = 'Quotation Control'; }
       else if (currentPath.startsWith('/corporate-admin/users')) { activeItem = 'user-management'; title = 'User Management'; }
       else if (currentPath.startsWith('/corporate-admin/module-configs')) { activeItem = 'module-configs'; title = 'Settings'; }
+      else if (currentPath.startsWith('/corporate-admin/inbox/schedule')) { activeItem = 'inbox-schedule'; title = 'Position Schedules'; }
+      else if (currentPath.startsWith('/corporate-admin/inbox')) { activeItem = 'smart-inbox'; title = 'Smart Inbox'; }
       else if (currentPath.startsWith('/corporate-admin/issuance/form-config')) { activeItem = 'issuance-form-config'; title = 'Issuance Form Config'; }
       else if (currentPath.startsWith('/corporate-admin/lg-categories')) { activeItem = 'lg-categories'; title = 'LG Categories'; }
       else if (currentPath.startsWith('/corporate-admin/audit-logs')) { activeItem = 'audit-logs'; title = 'Audit Logs'; }
@@ -68,6 +70,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
     else if (role === 'end_user') {
       if (currentPath.startsWith('/end-user/dashboard')) { activeItem = 'end-user-dashboard'; title = 'Dashboard'; }
       else if (currentPath.startsWith('/end-user/action-center')) { activeItem = 'end-user-action-center'; title = 'Action Center'; }
+      else if (currentPath.startsWith('/end-user/inbox')) { activeItem = 'smart-inbox'; title = 'Smart Inbox'; }
       else if (currentPath.startsWith('/end-user/lg-records/new')) { activeItem = 'end-user-record-new-lg'; title = 'Record New LG'; }
       else if (currentPath.startsWith('/end-user/lg-records')) { activeItem = 'end-user-manage-lg-records'; title = 'Manage LG Records'; }
       else if (currentPath.startsWith('/end-user/pending-approvals')) { activeItem = 'end-user-pending-approvals'; title = 'Withdraw Request'; }

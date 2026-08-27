@@ -9,7 +9,8 @@ import {
     AlertCircle, Copy, CheckCircle, Plus, ArrowUpRight,
     ArrowDownRight, RotateCcw, Trash2, Edit3, Zap,
     Send, Check, Ban, Download, Users, AlertTriangle,
-    ArrowUp, ArrowDown, SlidersHorizontal, Filter, XCircle
+    ArrowUp, ArrowDown, SlidersHorizontal, Filter, XCircle,
+    Key, Settings, HelpCircle
 } from 'lucide-react';
 import PostIssuanceTracker from '../../components/PostIssuanceTracker';
 import RecordDeliveryModal from '../../components/Modals/RecordDeliveryModal';
@@ -521,9 +522,9 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
 
     const allTabs = [
         { id: 'overview', label: 'Overview' },
-        { id: 'timeline', label: '📍 Timeline' },
-        { id: 'maintenance', label: '⚙️ Maintenance' },
-        { id: 'documents', label: '📄 Documents' },
+        { id: 'timeline', label: 'Timeline', icon: Key, iconColor: 'text-red-500' },
+        { id: 'maintenance', label: 'Maintenance', icon: Settings },
+        { id: 'documents', label: 'Documents', icon: FileText },
     ];
     // Show all tabs for all roles — Maintenance history is valuable for corporate admin / checker
     const tabs = allTabs;
@@ -840,59 +841,115 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
 
     return (
         <>
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[96vh] flex flex-col overflow-hidden mx-auto">
-                    {/* Header */}
-                    <div className="bg-gradient-to-r from-slate-800 to-slate-700 text-white px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-start shrink-0">
-                        <div className="min-w-0 pr-3">
-                            <div className="flex items-center flex-wrap gap-2 mb-1">
-                                <h2 className="text-base sm:text-lg font-black tracking-tight">{lg.lg_ref_number}</h2>
-                                <CopyBadge text={lg.lg_ref_number} variant="icon" className="text-white/60 hover:text-white hover:bg-slate-700/60" />
-                                <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${statusColors[lg.status] || 'bg-slate-100 text-slate-600'}`}>
-                                    {lg.status?.replace(/_/g, ' ')}
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-[90vh] max-h-[90vh] flex flex-col overflow-hidden mx-auto border border-slate-200/50">
+                    {/* Modal Header */}
+                    <header className="bg-gradient-to-r from-[#0d2a54] via-[#154689] to-[#0d2a54] text-white p-5 sm:p-6 shrink-0 border-b border-blue-900/40 shadow-inner">
+                        <div className="flex justify-between items-start mb-3 sm:mb-4">
+                            <div className="flex items-center flex-wrap gap-2.5 sm:gap-3">
+                                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight m-0">
+                                    {lg.lg_ref_number}
+                                </h1>
+                                <button
+                                    onClick={() => handleCopy(lg.lg_ref_number)}
+                                    title="Copy Reference"
+                                    className="text-blue-200 hover:text-white transition-colors p-1 rounded hover:bg-white/10"
+                                >
+                                    <Copy className="w-4 h-4" />
+                                </button>
+                                <span className={`inline-flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                                    lg.status === 'INTERNAL_PROCESSING'
+                                        ? 'bg-[#fef3c7] text-[#92400e]'
+                                        : lg.status === 'ACTIVE' || lg.status === 'LG_ISSUED'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : lg.status === 'DELIVERED_TO_BANK'
+                                        ? 'bg-indigo-100 text-indigo-800'
+                                        : lg.status === 'BANK_INQUIRY'
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : lg.status === 'BANK_REJECTED' || lg.status === 'SLA_EXCEEDED' || lg.status === 'CANCELLED'
+                                        ? 'bg-red-100 text-red-800'
+                                        : 'bg-slate-100 text-slate-700'
+                                }`}>
+                                    {statusLabels[lg.status] || lg.status?.replace(/_/g, ' ')}
                                 </span>
                             </div>
-                            {lg.internal_serial && <p className="text-slate-400 text-xs font-mono">{lg.internal_serial}</p>}
-                            <p className="text-slate-300 text-xs sm:text-sm truncate">{lg.beneficiary_name} · {lg.currency_code} {parseFloat(lg.current_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                        </div>
-                        <button onClick={onClose} className="text-white/50 hover:text-white mt-1 p-1 rounded-lg hover:bg-white/10 shrink-0"><X className="w-5 h-5" /></button>
-                    </div>
-
-                    {/* Key Stats Bar */}
-                    <div className="flex items-center gap-4 px-4 sm:px-6 py-2.5 sm:py-3 bg-slate-50 border-b border-slate-200 shrink-0 text-xs overflow-x-auto">
-                        <div className="flex items-center gap-4 flex-1 min-w-max">
-                            <div><span className="text-slate-400">Bank</span><p className="font-bold text-slate-800">{lg.bank_name}</p></div>
-                            <div className="border-l border-slate-200 pl-4"><span className="text-slate-400">Method</span><p className="font-bold text-slate-800">{methodLabels[lg.issuance_method] || lg.issuance_method || '—'}</p></div>
-                            <div className="border-l border-slate-200 pl-4"><span className="text-slate-400">Issue Date</span><p className="font-bold text-slate-800">{lg.issue_date || '—'}</p></div>
-                            <div className="border-l border-slate-200 pl-4"><span className="text-slate-400">Expiry</span><p className="font-bold text-slate-800">{lg.expiry_date || '—'}</p></div>
-                            <div className="border-l border-slate-200 pl-4"><span className="text-slate-400">Request</span><p className="font-bold text-blue-600">{req?.id ? <button onClick={() => navigate('/end-user/issuance/requests', { state: { openRequestId: req.id } })} className="hover:underline cursor-pointer">{req.serial_number} ↗</button> : (req?.serial_number || '—')}</p></div>
-                        </div>
-                        {!readOnly && availableActions.some(a => a.type === 'CHANGE_OWNERSHIP') && (
                             <button
-                                onClick={() => setShowChangeOwnerModal(true)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-600 text-white text-xs font-bold rounded-lg hover:bg-slate-700 transition-all shadow-sm shrink-0"
+                                onClick={onClose}
+                                className="text-blue-200 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10 shrink-0"
                             >
-                                <Users className="w-3.5 h-3.5" />
-                                Change Owner
+                                <X className="w-5 h-5" />
                             </button>
+                        </div>
+
+                        {lg.internal_serial && (
+                            <div className="text-xs text-blue-200/80 font-mono mb-1.5">{lg.internal_serial}</div>
                         )}
-                    </div>
+                        <div className="text-base sm:text-lg font-semibold text-white tracking-wide flex items-center flex-wrap gap-1.5">
+                            <span>{lg.beneficiary_name}</span>
+                            <span className="text-white/40">·</span>
+                            <span className="text-emerald-300 font-bold">{lg.currency_code} {parseFloat(lg.current_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
 
-                    {/* Tabs */}
-                    <div className="flex border-b border-slate-200 shrink-0 overflow-x-auto">
-                        {tabs.map(t => (
-                            <button
-                                key={t.id}
-                                onClick={() => setActiveTab(t.id)}
-                                className={`px-4 sm:px-5 py-2.5 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${activeTab === t.id ? 'border-b-2 border-slate-900 text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                {t.label}
-                            </button>
-                        ))}
+                        {/* Info Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mt-5 sm:mt-6 pt-5 sm:pt-6 border-t border-white/15">
+                            <div>
+                                <div className="text-[11px] font-semibold text-blue-200/80 uppercase tracking-wider mb-1">Bank</div>
+                                <div className="text-base font-semibold text-white truncate" title={lg.bank_name}>{lg.bank_name || '—'}</div>
+                            </div>
+                            <div>
+                                <div className="text-[11px] font-semibold text-blue-200/80 uppercase tracking-wider mb-1">Method</div>
+                                <div className="text-base font-semibold text-white">{methodLabels[lg.issuance_method] || lg.issuance_method || '—'}</div>
+                            </div>
+                            <div>
+                                <div className="text-[11px] font-semibold text-blue-200/80 uppercase tracking-wider mb-1">Issue Date</div>
+                                <div className="text-base font-semibold text-white">{lg.issue_date || '—'}</div>
+                            </div>
+                            <div>
+                                <div className="text-[11px] font-semibold text-blue-200/80 uppercase tracking-wider mb-1">Expiry</div>
+                                <div className="text-base font-semibold text-white">{lg.expiry_date || '—'}</div>
+                            </div>
+                            <div>
+                                <div className="text-[11px] font-semibold text-blue-200/80 uppercase tracking-wider mb-1">Request</div>
+                                {req?.id ? (
+                                    <button
+                                        onClick={() => navigate('/end-user/issuance/requests', { state: { openRequestId: req.id } })}
+                                        className="text-base font-semibold text-sky-300 hover:text-white transition-colors flex items-center gap-1 cursor-pointer truncate"
+                                        title={req.serial_number}
+                                    >
+                                        <span className="truncate">{req.serial_number}</span>
+                                        <ArrowUpRight className="w-4 h-4 shrink-0" />
+                                    </button>
+                                ) : (
+                                    <div className="text-base font-semibold text-blue-200/60">{req?.serial_number || '—'}</div>
+                                )}
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Navigation Tabs */}
+                    <div className="border-b border-slate-200 bg-slate-50/80 px-4 sm:px-6 pt-2 flex gap-2 shrink-0 overflow-x-auto">
+                        {tabs.map(t => {
+                            const IconComp = t.icon;
+                            const isActive = activeTab === t.id;
+                            return (
+                                <button
+                                    key={t.id}
+                                    onClick={() => setActiveTab(t.id)}
+                                    className={`px-4 sm:px-5 py-3 text-xs uppercase tracking-wider whitespace-nowrap transition-all flex items-center gap-2 rounded-t-xl ${
+                                        isActive
+                                            ? 'bg-white text-[#0058be] font-extrabold border-t-2 border-x border-[#0058be] -mb-px shadow-sm'
+                                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-bold'
+                                    }`}
+                                >
+                                    {IconComp && <IconComp className={`w-4 h-4 ${t.iconColor || (isActive ? 'text-[#0058be]' : 'text-slate-500')}`} />}
+                                    <span>{t.label}</span>
+                                </button>
+                            );
+                        })}
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 min-h-[400px]">
+                    <div className="flex-1 overflow-y-auto min-h-0 bg-[#f8f9ff] p-5 sm:p-6">
                         {/* TAB: Overview (Details + Bank & Facility + Original Request) */}
                         {activeTab === 'overview' && (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1035,9 +1092,9 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
 
                         {/* TAB: Timeline (Tracking + Activity Log) */}
                         {activeTab === 'timeline' && (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="flex flex-col lg:flex-row gap-8 items-start">
                                 {/* Left: Post-Issuance Tracker */}
-                                <div>
+                                <div className="flex-1 max-w-2xl w-full">
                                     <PostIssuanceTracker
                                         lgId={lg.id}
                                         readOnly={readOnly}
@@ -1045,32 +1102,39 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                     />
                                 </div>
                                 {/* Right: Activity Log */}
-                                <div>
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Activity Log</h4>
+                                <div className="w-full lg:w-80 shrink-0 pt-2">
+                                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-6">Activity Log</h3>
                                     {lifecycleTimeline.length > 0 ? (
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-200" />
+                                        <div className="relative">
+                                            {/* Log Connecting Line */}
+                                            <div className="absolute left-[7px] top-4 bottom-4 w-px bg-slate-200" />
                                             <div className="space-y-4">
                                                 {lifecycleTimeline.map((evt, i) => (
-                                                    <div key={i} className="relative flex items-start gap-3">
-                                                        <div className={`absolute -left-6 mt-1 w-[22px] h-[22px] rounded-full flex items-center justify-center text-xs z-10 border-2 border-white shadow-sm ${evt.color}`}>
-                                                            <span style={{ fontSize: '11px' }}>{evt.icon}</span>
+                                                    <div key={i} className="flex gap-4 relative z-10 group">
+                                                        <div className="shrink-0 w-4 h-4 rounded bg-white border border-slate-300 flex items-center justify-center mt-1 z-10 group-hover:border-slate-500 transition-colors">
+                                                            {evt.label?.includes('Issued') ? (
+                                                                <Building className="w-2.5 h-2.5 text-emerald-600" />
+                                                            ) : evt.label?.includes('Request') ? (
+                                                                <FileText className="w-2.5 h-2.5 text-slate-500" />
+                                                            ) : (
+                                                                <RefreshCw className="w-2.5 h-2.5 text-blue-600" />
+                                                            )}
                                                         </div>
-                                                        <div className="flex-1 bg-slate-50 rounded-xl p-3 border border-slate-200">
-                                                            <div className="flex items-center justify-between flex-wrap gap-1">
-                                                                <p className="text-sm font-bold text-slate-800">{evt.label}</p>
-                                                                <p className="text-[10px] text-slate-400">
+                                                        <div className="flex-1 bg-white border border-slate-200 rounded-lg p-3 text-xs shadow-sm group-hover:shadow transition-shadow">
+                                                            <div className="flex justify-between items-start gap-1 mb-1">
+                                                                <span className="font-semibold text-[13px] text-slate-900">{evt.label}</span>
+                                                                <span className="text-[10px] text-slate-400 shrink-0">
                                                                     {evt.timestamp ? new Date(evt.timestamp).toLocaleString() : '—'}
-                                                                </p>
+                                                                </span>
                                                             </div>
                                                             {evt.actor && (
-                                                                <p className="text-xs text-slate-500 mt-0.5">By: {evt.actor}</p>
+                                                                <div className="text-[11px] text-slate-500 mb-0.5">By: {evt.actor}</div>
                                                             )}
                                                             {evt.detail && (
-                                                                <p className="text-xs text-slate-500 mt-0.5">{evt.detail}</p>
+                                                                <div className="text-[11px] text-slate-500">{evt.detail}</div>
                                                             )}
                                                             {evt.notes && (
-                                                                <p className="text-xs text-slate-400 mt-1 italic">"{evt.notes}"</p>
+                                                                <div className="text-[11px] text-slate-400 mt-1 italic">"{evt.notes}"</div>
                                                             )}
                                                         </div>
                                                     </div>
@@ -1078,10 +1142,10 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="text-center py-8 text-slate-400">
-                                            <Clock className="w-8 h-8 mx-auto mb-2" />
-                                            <p className="font-medium">No activity recorded yet</p>
-                                            <p className="text-xs mt-1">The lifecycle timeline will populate as actions occur</p>
+                                        <div className="text-center py-8 text-slate-400 bg-white rounded-xl border border-slate-200 p-6">
+                                            <Clock className="w-7 h-7 mx-auto mb-2 opacity-40" />
+                                            <p className="text-xs font-semibold text-slate-600">No activity recorded yet</p>
+                                            <p className="text-[10px] text-slate-400 mt-1">Lifecycle events will populate as actions occur</p>
                                         </div>
                                     )}
                                 </div>
@@ -1379,19 +1443,23 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                         )}
                     </div>
 
-                    {/* Footer */}
-                    <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 bg-slate-50 flex flex-wrap justify-between items-center gap-3 shrink-0">
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                    {/* Modal Footer */}
+                    <footer className="border-t border-slate-200 bg-white px-5 sm:px-6 py-4 flex flex-wrap justify-between items-center gap-3 shrink-0">
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={onClose}
+                                className="px-4 py-2 text-slate-600 hover:text-slate-900 font-semibold text-sm hover:bg-slate-100 rounded-lg transition-colors"
+                            >
                                 Close
                             </button>
                             {['INTERNAL_PROCESSING', 'DELIVERED_TO_BANK'].includes(lg.status) && (
                                 <button
                                     onClick={() => setCancelModal(true)}
                                     disabled={cancellingLG}
-                                    className="flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:text-red-600 rounded-md text-xs transition-colors disabled:opacity-50"
+                                    className="px-4 py-2 text-slate-500 hover:text-red-600 font-semibold text-sm flex items-center gap-2 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                                 >
-                                    <XCircle className="w-3.5 h-3.5" /> Cancel & Reopen
+                                    <XCircle className="w-4 h-4" />
+                                    Cancel & Reopen
                                 </button>
                             )}
                             {lg.status === 'CANCEL_REQUESTED' && (
@@ -1400,46 +1468,49 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                 </span>
                             )}
                         </div>
-                        {!['CANCELLED', 'SLA_EXCEEDED', 'BANK_REJECTED', 'CANCEL_REQUESTED'].includes(lg.status) && (
-                        lg.status === 'ACTIVE' ? (
-                            <button
-                                onClick={handleReprint}
-                                disabled={reprinting}
-                                className="flex items-center gap-2 px-5 py-2 bg-teal-600 text-white text-sm font-bold rounded-xl hover:bg-teal-700 disabled:opacity-50 shadow-lg transition-all"
-                            >
-                                {reprinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
-                                View LG
-                            </button>
-                        ) : lg.issuance_method === 'COMPANY_LETTER' ? (
-                            <button
-                                onClick={handleReprint}
-                                disabled={reprinting}
-                                className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 shadow-lg transition-all"
-                            >
-                                {reprinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
-                                Reprint Letter
-                            </button>
-                        ) : lg.issuance_method === 'BANK_FORM' ? (
-                            <button
-                                onClick={handleReprint}
-                                disabled={reprinting}
-                                className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 shadow-lg transition-all"
-                            >
-                                {reprinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
-                                Reprint Bank Form
-                            </button>
-                        ) : lg.issuance_method && lg.issuance_method !== 'MANUAL' ? (
-                            <button
-                                onClick={handleReprint}
-                                disabled={reprinting}
-                                className="flex items-center gap-2 px-5 py-2 bg-slate-600 text-white text-sm font-bold rounded-xl hover:bg-slate-700 disabled:opacity-50 shadow-lg transition-all"
-                            >
-                                {reprinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                                View LG Document
-                            </button>
-                        ) : null
-                        )}
-                    </div>
+
+                        <div>
+                            {!['CANCELLED', 'SLA_EXCEEDED', 'BANK_REJECTED', 'CANCEL_REQUESTED'].includes(lg.status) && (
+                                lg.status === 'ACTIVE' ? (
+                                    <button
+                                        onClick={handleReprint}
+                                        disabled={reprinting}
+                                        className="bg-[#0058be] hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        {reprinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+                                        View LG
+                                    </button>
+                                ) : lg.issuance_method === 'COMPANY_LETTER' ? (
+                                    <button
+                                        onClick={handleReprint}
+                                        disabled={reprinting}
+                                        className="bg-[#0058be] hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        {reprinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                                        Reprint Letter
+                                    </button>
+                                ) : lg.issuance_method === 'BANK_FORM' ? (
+                                    <button
+                                        onClick={handleReprint}
+                                        disabled={reprinting}
+                                        className="bg-[#0058be] hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        {reprinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                                        Reprint Bank Form
+                                    </button>
+                                ) : lg.issuance_method && lg.issuance_method !== 'MANUAL' ? (
+                                    <button
+                                        onClick={handleReprint}
+                                        disabled={reprinting}
+                                        className="bg-slate-700 hover:bg-slate-800 text-white px-6 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        {reprinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                                        View LG Document
+                                    </button>
+                                ) : null
+                            )}
+                        </div>
+                    </footer>
                 </div>
             </div>
 

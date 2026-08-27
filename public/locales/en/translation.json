@@ -58,7 +58,10 @@
     "pending": "Pending",
     "approved": "Approved",
     "rejected": "Rejected",
-    "draft": "Draft"
+    "draft": "Draft",
+    "thirdPartyCR": "Third-Party Commercial Registration (CR)",
+    "primaryForm": "Primary Issuance Form",
+    "thirdPartyForm": "Third-Party Indemnity Form"
   },
   "auth": {
     "renewal": {
@@ -2329,15 +2332,26 @@
       "cancel": "Cancel"
     },
     "runAutoRenewalModal": {
-      "title": "Run Auto/Forced LG Renewal",
-      "messageEligible": "This process will identify all your eligible Letters of Guarantee for auto-renewal and for forced renewal.",
-      "messageDetailed": "For each eligible LG (which may differ from the list shown below), the system will automatically extend its expiry date, generate an individual instruction letter, and send an individual email notification. A single, combined PDF containing all generated instruction letters will be provided for download.",
-      "successfullyRenewed": "Successfully renewed: result.renewed_count LGs.",
-      "lgs": "Successfully renewed: result.renewed_count LGs.",
+      "title": "LG Auto & Forced Renewal Review",
+      "subtitle": "Review candidate LGs, verify forced risk cutoffs, and customize new extension dates.",
+      "policyNoticeTitle": "Corporate Risk & Compliance Control Active",
+      "policyNoticeDesc": "LGs in the Mandatory Forced Zone are locked and cannot be deselected to prevent default risk. You may adjust extension dates as needed.",
+      "mandatoryForced": "Mandatory Forced",
+      "proactiveAuto": "Proactive Auto-Renew",
+      "selectAllOptional": "Select All Optional",
+      "deselectAllOptional": "Deselect All Optional",
+      "suggestedExtensionDate": "Suggested Extension Date",
+      "currentExpiry": "Current Expiry",
+      "renewalTier": "Renewal Tier",
+      "lgDetails": "LG Details",
+      "noLgsTitle": "No LGs Require Immediate Renewal",
+      "noLgsDesc": "There are currently no Letters of Guarantee approaching the critical forced cutoff or marked for proactive auto-renewal.",
+      "successfullyRenewed": "Successfully renewed: {{count}} LGs.",
       "close": "Close",
-      "confirmAndRun": "isProcessing ? 'Processing...' : 'Confirm & Run Renewal'",
-      "processing": "isProcessing ? 'Processing...' : 'Confirm & Run Renewal'",
-      "cancel": "Cancel"
+      "confirmAndRun": "Confirm & Extend",
+      "processing": "Processing Renewals...",
+      "cancel": "Cancel",
+      "downloadLetter": "Download Instruction Letter"
     }
   },
   "subscriptionPlans": {
@@ -2796,5 +2810,16 @@
   "/corporate-admin/migration/staged/delete-multiple": "/Corporate-Admin/Migration/Staged/Delete-Multiple",
   "/system-owner/system-notifications/": "/System-Owner/System-Notifications/",
   "/system-owner/dashboard-metrics": "/System-Owner/Dashboard-Metrics",
-  "Failed to send emails: ": "Failed To Send Emails:"
+  "Failed to send emails: ": "Failed To Send Emails:",
+  "sla_actualization": {
+    "title": "SLA Turnaround Intelligence",
+    "agreed_sla": "Agreed SLA",
+    "actual_sla": "Actual SLA (Moving Avg)",
+    "on_time": "On-Time",
+    "fast_track": "FAST TRACK",
+    "sla_slippage_risk": "SLA DELAY RISK",
+    "banking_calendar": "Banking Calendar & Holidays",
+    "weekend_scheme": "Weekend Convention",
+    "business_days": "Business Days"
+  }
 }

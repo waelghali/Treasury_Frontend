@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { ChevronDown, ChevronUp, Upload, Scan, Save, AlertCircle, XCircle, Loader2, CheckCircle, Search, FileUp, FileText } from 'lucide-react';
+import { ChevronDown, ChevronUp, Upload, Scan, Save, AlertCircle, XCircle, Loader2, CheckCircle, Search, FileUp, FileText, Sparkles } from 'lucide-react';
 import moment from 'moment';
 
 // A reusable component to provide a tooltip for disabled elements during the grace period.
@@ -295,6 +295,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
     applicable_rule_id: '',
     applicable_rules_text: '',
     other_conditions: '',
+    mandatory_claim_statement: '',
     internal_owner_email: '',
     internal_owner_phone: '',
     internal_owner_id: '',
@@ -656,6 +657,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
           applicable_rule_id: extractedData.applicable_rule_id ? String(extractedData.applicable_rule_id) : '',
           applicable_rules_text: extractedData.applicable_rules_text || '',
           other_conditions: otherConditionsString,
+          mandatory_claim_statement: extractedData.mandatory_claim_statement || '',
           lg_category_id: extractedData.lg_category_id ? String(extractedData.lg_category_id) : '',
           additional_field_values: extractedData.additional_field_values || {},
           internal_owner_email: extractedData.internal_owner_email || '',
@@ -1342,6 +1344,36 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                 <label htmlFor="other_conditions" className={labelClassNames}>Other Conditions</label>
                 <textarea name="other_conditions" id="other_conditions" value={formData.other_conditions} onChange={handleChange} maxLength="8000" rows="2" className={inputClassNames} disabled={isFormDisabled || isGracePeriod}></textarea>
                 <CharCounter currentLength={(formData.other_conditions || '').length} maxLength={8000} />
+              </div>
+              <div className="md:col-span-2 mb-2 bg-gradient-to-r from-amber-50/70 to-orange-50/40 border border-amber-200/90 rounded-2xl p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-amber-100 text-amber-700 rounded-lg">
+                      <Sparkles size={16} />
+                    </div>
+                    <div>
+                      <label htmlFor="mandatory_claim_statement" className="block text-xs font-bold text-amber-950 uppercase tracking-wide">
+                        Mandatory Liquidation / Claim Statement
+                      </label>
+                      <span className="block text-[11px] text-amber-800/80">
+                        Exact sentence/declaration required by the LG to be quoted in liquidation demand letters
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-semibold text-amber-800 bg-amber-200/60 px-2.5 py-0.5 rounded-full border border-amber-300">
+                    Smart Claim Intelligence
+                  </span>
+                </div>
+                <textarea
+                  name="mandatory_claim_statement"
+                  id="mandatory_claim_statement"
+                  value={formData.mandatory_claim_statement || ''}
+                  onChange={handleChange}
+                  rows="2"
+                  placeholder="e.g. 'Any demand must explicitly declare that the Contractor has defaulted on contractual obligations...' / 'يشترط تقديم إقرار يفيد إخلال العميل بالتزاماته التعاقدية'"
+                  className="w-full text-xs sm:text-sm rounded-xl border border-amber-300 p-2.5 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white text-gray-900 shadow-inner mt-1"
+                  disabled={isFormDisabled || isGracePeriod}
+                />
               </div>
             </div>
           )}

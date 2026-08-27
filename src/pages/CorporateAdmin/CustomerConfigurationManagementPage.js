@@ -177,10 +177,18 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     smtp_password: '',
     sender_email: '',
     sender_display_name: '',
-    is_active: true
+    is_active: true,
+    imap_host: '',
+    imap_port: 993,
+    imap_username: '',
+    imap_password: '',
+    imap_use_ssl: true,
+    imap_inbox_folder: 'INBOX',
+    imap_is_active: false
   });
   const [isNewSettings, setIsNewSettings] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showImapPassword, setShowImapPassword] = useState(false);
 
   // --- Email List Modal State ---
   const [showEmailListModal, setShowEmailListModal] = useState(false);
@@ -228,13 +236,20 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
       if (response) {
         setEmailSettings(response);
         setEmailSettingsForm({
-          smtp_host: response.smtp_host,
-          smtp_port: response.smtp_port,
-          smtp_username: response.smtp_username,
+          smtp_host: response.smtp_host || '',
+          smtp_port: response.smtp_port || 587,
+          smtp_username: response.smtp_username || '',
           smtp_password: '',
-          sender_email: response.sender_email,
+          sender_email: response.sender_email || '',
           sender_display_name: response.sender_display_name || '',
-          is_active: response.is_active,
+          is_active: response.is_active ?? true,
+          imap_host: response.imap_host || '',
+          imap_port: response.imap_port || 993,
+          imap_username: response.imap_username || '',
+          imap_password: '',
+          imap_use_ssl: response.imap_use_ssl ?? true,
+          imap_inbox_folder: response.imap_inbox_folder || 'INBOX',
+          imap_is_active: response.imap_is_active ?? false
         });
         setIsNewSettings(false);
       } else {
@@ -412,9 +427,13 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
       const url = emailSettings?.id ? `/corporate-admin/email-settings/${emailSettings.id}` : '/corporate-admin/email-settings/';
       const method = emailSettings?.id ? 'PUT' : 'POST';
 
-      const payload = emailSettingsForm.smtp_password
-        ? emailSettingsForm
-        : { ...emailSettingsForm, smtp_password: null };
+      const payload = {
+        ...emailSettingsForm,
+        smtp_password: emailSettingsForm.smtp_password ? emailSettingsForm.smtp_password : null,
+        imap_password: emailSettingsForm.imap_password ? emailSettingsForm.imap_password : null,
+        smtp_port: parseInt(emailSettingsForm.smtp_port, 10) || 587,
+        imap_port: parseInt(emailSettingsForm.imap_port, 10) || 993,
+      };
 
       const response = await apiRequest(url, method, payload);
       if (response && response.status === 'PENDING') {
@@ -1431,7 +1450,8 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                         disabled={isGracePeriod}
                       />
                     </div>
-                    <div className="flex items-center">
+
+                    <div className="flex items-center pt-1">
                       <input
                         id="is_active"
                         name="is_active"
@@ -1441,9 +1461,139 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                         className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         disabled={isGracePeriod}
                       />
-                      <label htmlFor="is_active" className="ml-2 block text-sm text-gray-900">
-                        Activate Custom Settings
+                      <label htmlFor="is_active" className="ml-2 block text-sm font-medium text-gray-900">
+                        Activate Custom SMTP Outbound Sending
                       </label>
+                    </div>
+
+                    {/* --- INBOUND (IMAP) SETTINGS --- */}
+                    <div className="pt-4 border-t border-gray-200 mt-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                          Inbound Email Listener (IMAP / Smart Inbox)
+                        </h4>
+                        <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-medium">
+                          Smart Inbox
+                        </span>
+                      </div>
+
+                      <div className="flex items-center">
+                        <input
+                          id="imap_is_active"
+                          name="imap_is_active"
+                          type="checkbox"
+                          checked={emailSettingsForm.imap_is_active}
+                          onChange={handleEmailSettingsChange}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          disabled={isGracePeriod}
+                        />
+                        <label htmlFor="imap_is_active" className="ml-2 block text-sm font-bold text-gray-900">
+                          Enable Inbound Email Polling
+                        </label>
+                      </div>
+
+                      {emailSettingsForm.imap_is_active && (
+                        <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                          <div>
+                            <label htmlFor="imap_host" className={labelClassNames}>IMAP Server Host</label>
+                            <input
+                              type="text"
+                              id="imap_host"
+                              name="imap_host"
+                              placeholder="e.g. imap.mail.yahoo.com or imap.gmail.com"
+                              value={emailSettingsForm.imap_host}
+                              onChange={handleEmailSettingsChange}
+                              className={inputClassNames}
+                              disabled={isGracePeriod}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label htmlFor="imap_port" className={labelClassNames}>IMAP Port</label>
+                              <input
+                                type="number"
+                                id="imap_port"
+                                name="imap_port"
+                                placeholder="993"
+                                value={emailSettingsForm.imap_port}
+                                onChange={handleEmailSettingsChange}
+                                className={inputClassNames}
+                                disabled={isGracePeriod}
+                              />
+                            </div>
+                            <div className="flex items-center pt-6">
+                              <input
+                                id="imap_use_ssl"
+                                name="imap_use_ssl"
+                                type="checkbox"
+                                checked={emailSettingsForm.imap_use_ssl}
+                                onChange={handleEmailSettingsChange}
+                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                disabled={isGracePeriod}
+                              />
+                              <label htmlFor="imap_use_ssl" className="ml-2 block text-sm text-gray-900">
+                                Use SSL / TLS
+                              </label>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="imap_username" className={labelClassNames}>IMAP Username / Email</label>
+                            <input
+                              type="text"
+                              id="imap_username"
+                              name="imap_username"
+                              placeholder="e.g. treasury@company.com"
+                              value={emailSettingsForm.imap_username}
+                              onChange={handleEmailSettingsChange}
+                              className={inputClassNames}
+                              disabled={isGracePeriod}
+                            />
+                          </div>
+
+                          <div>
+                            <div className="flex justify-between items-center">
+                              <label htmlFor="imap_password" className={labelClassNames}>
+                                IMAP App Password {isNewSettings ? '' : '(Leave blank to keep existing)'}
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setShowImapPassword(!showImapPassword)}
+                                className="text-xs text-blue-500 hover:text-blue-700"
+                                disabled={isGracePeriod}
+                              >
+                                {showImapPassword ? 'Hide' : 'Show'}
+                              </button>
+                            </div>
+                            <input
+                              type={showImapPassword ? "text" : "password"}
+                              id="imap_password"
+                              name="imap_password"
+                              placeholder="16-character App Password"
+                              value={emailSettingsForm.imap_password}
+                              onChange={handleEmailSettingsChange}
+                              className={inputClassNames}
+                              disabled={isGracePeriod}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label htmlFor="imap_inbox_folder" className={labelClassNames}>Inbox Folder</label>
+                              <input
+                                type="text"
+                                id="imap_inbox_folder"
+                                name="imap_inbox_folder"
+                                value={emailSettingsForm.imap_inbox_folder}
+                                onChange={handleEmailSettingsChange}
+                                className={inputClassNames}
+                                disabled={isGracePeriod}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </form>

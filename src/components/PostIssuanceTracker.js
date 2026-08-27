@@ -5,7 +5,8 @@ import {
     CheckCircle, Clock, AlertTriangle, XCircle, Send, Upload,
     FileText, Truck, MessageSquare, ShieldCheck, Loader2,
     ChevronDown, ChevronUp, Calendar, DollarSign, ArrowRight,
-    Sparkles, X, Eye, Package, UserCheck, Ban, Download
+    Sparkles, X, Eye, Package, UserCheck, Ban, Download,
+    Check, HelpCircle
 } from 'lucide-react';
 
 const STEP_ICONS = {
@@ -18,15 +19,15 @@ const STEP_ICONS = {
 };
 
 const STATUS_STYLES = {
-    completed: { color: 'text-emerald-600', bg: 'bg-emerald-100', ring: 'ring-emerald-500', line: 'bg-emerald-400' },
-    pending: { color: 'text-blue-600', bg: 'bg-blue-100', ring: 'ring-blue-400', line: 'bg-gray-200' },
-    pending_delivery: { color: 'text-orange-600', bg: 'bg-orange-100', ring: 'ring-orange-400', line: 'bg-orange-200' },
-    pending_reply: { color: 'text-indigo-600', bg: 'bg-indigo-100', ring: 'ring-indigo-400', line: 'bg-indigo-200' },
-    not_generated: { color: 'text-gray-400', bg: 'bg-gray-100', ring: 'ring-gray-300', line: 'bg-gray-200' },
-    future: { color: 'text-gray-400', bg: 'bg-gray-100', ring: 'ring-gray-300', line: 'bg-gray-200' },
-    sla_breach: { color: 'text-red-600', bg: 'bg-red-100', ring: 'ring-red-500', line: 'bg-red-300' },
-    discrepancy: { color: 'text-amber-600', bg: 'bg-amber-100', ring: 'ring-amber-500', line: 'bg-amber-300' },
-    rejected: { color: 'text-red-600', bg: 'bg-red-100', ring: 'ring-red-500', line: 'bg-red-300' },
+    completed: { color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-500', line: 'bg-slate-200' },
+    pending: { color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-500', line: 'bg-slate-200' },
+    pending_delivery: { color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-500', line: 'bg-orange-200' },
+    pending_reply: { color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-500', line: 'bg-indigo-200' },
+    not_generated: { color: 'text-slate-400', bg: 'bg-slate-50', border: 'border-slate-300', line: 'bg-slate-200' },
+    future: { color: 'text-slate-400', bg: 'bg-slate-50', border: 'border-slate-300', line: 'bg-slate-200' },
+    sla_breach: { color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-500', line: 'bg-red-200' },
+    discrepancy: { color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-500', line: 'bg-amber-200' },
+    rejected: { color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-500', line: 'bg-red-200' },
 };
 
 const DELIVERY_METHODS = [
@@ -37,10 +38,42 @@ const DELIVERY_METHODS = [
 ];
 
 const REPLY_TYPES = [
-    { value: 'LG_ISSUED', label: '✅ LG Issued', desc: 'Upload scanned LG & auto-verify' },
-    { value: 'INQUIRY', label: '❓ Inquiry', desc: 'Bank needs more info/documents' },
-    { value: 'REJECTED', label: '❌ Rejected', desc: 'Bank declined the request' },
-    { value: 'NO_RESPONSE', label: '⏰ No Response', desc: 'Bank exceeded SLA' },
+    {
+        value: 'LG_ISSUED',
+        label: 'LG Issued',
+        desc: 'Upload scanned LG & auto-verify',
+        icon: Check,
+        iconType: 'badge-green',
+        hoverBorder: 'hover:border-green-500 hover:bg-green-50/30',
+        activeBorder: 'border-green-500 bg-green-50/40 ring-2 ring-green-200'
+    },
+    {
+        value: 'INQUIRY',
+        label: 'Inquiry',
+        desc: 'Bank needs more info/documents',
+        icon: HelpCircle,
+        iconType: 'orange',
+        hoverBorder: 'hover:border-amber-500 hover:bg-amber-50/30',
+        activeBorder: 'border-amber-500 bg-amber-50/40 ring-2 ring-amber-200'
+    },
+    {
+        value: 'REJECTED',
+        label: 'Rejected',
+        desc: 'Bank declined the request',
+        icon: XCircle,
+        iconType: 'red',
+        hoverBorder: 'hover:border-red-500 hover:bg-red-50/30',
+        activeBorder: 'border-red-500 bg-red-50/40 ring-2 ring-red-200'
+    },
+    {
+        value: 'NO_RESPONSE',
+        label: 'No Response',
+        desc: 'Bank exceeded SLA',
+        icon: Clock,
+        iconType: 'slate',
+        hoverBorder: 'hover:border-slate-400 hover:bg-slate-50/50',
+        activeBorder: 'border-slate-500 bg-slate-50 ring-2 ring-slate-200'
+    },
 ];
 
 const today = () => new Date().toISOString().split('T')[0];
@@ -383,8 +416,8 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h3 className="text-base font-bold text-gray-900">Post-Issuance Tracker</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">LG Ref: {data.lg_ref} • Status: <span className="font-semibold">{data.overall_status}</span></p>
+                    <h3 className="text-lg font-bold text-slate-900">Post-Issuance Tracker</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">LG Ref: {data.lg_ref} • Status: <span className="font-semibold text-slate-700">{data.overall_status}</span></p>
                 </div>
             </div>
 
@@ -413,9 +446,9 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                             )}
 
                             {/* Node */}
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ${style.ring} ${style.bg} z-10 ${step.status === 'pending' ? 'animate-pulse' : ''}`}>
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border-2 ${style.border} ${style.bg} z-10 ${step.status === 'pending' ? 'animate-pulse' : ''}`}>
                                 {step.status === 'completed' ? (
-                                    <CheckCircle className={`w-5 h-5 ${style.color}`} />
+                                    <Check className={`w-5 h-5 ${style.color}`} />
                                 ) : step.status === 'sla_breach' ? (
                                     <AlertTriangle className={`w-5 h-5 ${style.color}`} />
                                 ) : step.status === 'discrepancy' ? (
@@ -428,95 +461,98 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                             {/* Content */}
                             <div className={`flex-1 pb-8 ${isLast ? 'pb-0' : ''}`}>
                                 <div
-                                    className={`rounded-xl border p-4 transition-all ${isActionable ? 'border-blue-200 bg-blue-50/30' : 'border-gray-200 bg-white'
-                                        } ${step.status === 'sla_breach' ? 'border-red-200 bg-red-50/30' : ''}`}
+                                    className={`rounded-xl border p-4 transition-all shadow-sm ${
+                                        isActionable
+                                            ? 'border-blue-200 bg-blue-50/20'
+                                            : 'border-slate-200 bg-white'
+                                    } ${step.status === 'sla_breach' ? 'border-red-200 bg-white' : ''}`}
                                 >
                                     <div className="flex items-center justify-between cursor-pointer" onClick={() => setExpandedStep(isExpanded ? null : step.step)}>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-semibold text-sm text-gray-900">{step.label}</span>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-semibold text-[15px] text-slate-900">{step.label}</span>
                                             {step.status === 'sla_breach' && (
-                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-red-100 text-red-600 rounded-full">SLA BREACH</span>
+                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-[#fee2e2] text-[#991b1b] rounded-full uppercase tracking-wider">SLA BREACH</span>
                                             )}
                                             {step.status === 'discrepancy' && (
-                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded-full">DISCREPANCY</span>
+                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded-full uppercase tracking-wider">DISCREPANCY</span>
                                             )}
                                             {step.details?.reply_type === 'INQUIRY' && (
-                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded-full">INQUIRY</span>
+                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded-full uppercase tracking-wider">INQUIRY</span>
                                             )}
                                             {step.details?.reply_type === 'REJECTED' && (
-                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-red-100 text-red-600 rounded-full">REJECTED</span>
+                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-red-100 text-red-700 rounded-full uppercase tracking-wider">REJECTED</span>
                                             )}
                                             {step.status === 'future' && (
-                                                <span className="px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-400 rounded-full">UPCOMING</span>
+                                                <span className="px-2 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-500 rounded-full uppercase tracking-wider">UPCOMING</span>
                                             )}
                                             {step.step === 'BANK_REPLY' && verificationStep?.status === 'completed' && (
-                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-600 rounded-full">
+                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 rounded-full uppercase tracking-wider">
                                                     VERIFIED {verificationStep.details?.verification_status === 'MATCHED' ? '✓' : '(accepted)'}
                                                 </span>
                                             )}
                                             {step.step === 'BANK_REPLY' && verificationStep?.status === 'discrepancy' && (
-                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded-full animate-pulse">
+                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded-full uppercase tracking-wider animate-pulse">
                                                     {isApprover ? '⚠ APPROVAL NEEDED' : '⚠ DISCREPANCY'}
                                                 </span>
                                             )}
                                             {step.step === 'BANK_REPLY' && verificationStep?.status === 'rejected' && (
-                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-red-100 text-red-600 rounded-full animate-pulse">
+                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-red-100 text-red-700 rounded-full uppercase tracking-wider animate-pulse">
                                                     ✕ REJECTED — RE-UPLOAD REQUIRED
                                                 </span>
                                             )}
                                         </div>
                                         <div className="flex items-center gap-2">
                                             {step.date && (
-                                                <span className="text-xs text-gray-400 flex items-center gap-1">
-                                                    <Calendar className="w-3 h-3" /> {new Date(step.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                <span className="text-xs text-slate-500 flex items-center gap-1">
+                                                    <Calendar className="w-3.5 h-3.5 text-slate-400" /> {new Date(step.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                 </span>
                                             )}
-                                            {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                                            {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400 hover:text-slate-700" /> : <ChevronDown className="w-4 h-4 text-slate-400 hover:text-slate-700" />}
                                         </div>
                                     </div>
 
                                     {/* Expanded Content */}
                                     {isExpanded && (
-                                        <div className="mt-4 border-t border-gray-100 pt-4" onClick={e => e.stopPropagation()}>
+                                        <div className="mt-4 border-t border-slate-100 pt-4" onClick={e => e.stopPropagation()}>
                                             {/* ===== DELIVERY ACTION ===== */}
                                             {step.step === 'DELIVERY' && step.status !== 'completed' && !readOnly && (
                                                 <div className="space-y-3">
-                                                    <p className="text-xs text-gray-500 mb-2">Record when the bank form was delivered to the bank.</p>
+                                                    <p className="text-xs text-slate-500 mb-2">Record when the bank form was delivered to the bank.</p>
                                                     <div className="grid grid-cols-2 gap-3">
                                                         <div>
-                                                            <label className="text-xs font-medium text-gray-600">Delivery Date</label>
+                                                            <label className="text-xs font-medium text-slate-600">Delivery Date</label>
                                                             <input type="date" value={deliveryForm.delivery_date}
                                                                 min={dateConstraints.deliveryMin || ''}
                                                                 max={dateConstraints.deliveryMax || ''}
                                                                 onChange={e => setDeliveryForm({ ...deliveryForm, delivery_date: e.target.value })}
-                                                                className="w-full mt-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                                                className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500" />
                                                         </div>
                                                         <div>
-                                                            <label className="text-xs font-medium text-gray-600">Method</label>
+                                                            <label className="text-xs font-medium text-slate-600">Method</label>
                                                             <select value={deliveryForm.delivery_method}
                                                                 onChange={e => setDeliveryForm({ ...deliveryForm, delivery_method: e.target.value })}
-                                                                className="w-full mt-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500">
+                                                                className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500">
                                                                 {DELIVERY_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                                                             </select>
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <label className="text-xs font-medium text-gray-600">Notes</label>
+                                                        <label className="text-xs font-medium text-slate-600">Notes</label>
                                                         <textarea value={deliveryForm.delivery_notes}
                                                             onChange={e => setDeliveryForm({ ...deliveryForm, delivery_notes: e.target.value })}
                                                             placeholder="Any delivery notes..."
-                                                            className="w-full mt-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" rows={2} />
+                                                            className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500" rows={2} />
                                                     </div>
 
                                                     {/* Delivery proof upload */}
                                                     <div>
-                                                        <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                                                        <label className="text-xs font-medium text-slate-600 flex items-center gap-1">
                                                             Evidence of Delivery {step.details?.proof_required ? <span className="text-red-500">*</span> : '(optional)'}
                                                         </label>
                                                         {!deliveryProofFile ? (
                                                             <div
                                                                 className={`mt-1 border-2 border-dashed rounded-xl p-5 text-center transition-all cursor-pointer
-                                                                    ${deliveryDragActive ? 'border-blue-500 bg-blue-100/50 scale-[1.01]' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/30'}`}
+                                                                    ${deliveryDragActive ? 'border-blue-500 bg-blue-100/50 scale-[1.01]' : 'border-slate-300 hover:border-blue-400 hover:bg-blue-50/30'}`}
                                                                 onDragOver={e => { e.preventDefault(); setDeliveryDragActive(true); }}
                                                                 onDragLeave={() => setDeliveryDragActive(false)}
                                                                 onDrop={e => { e.preventDefault(); setDeliveryDragActive(false); if (e.dataTransfer.files?.[0]) setDeliveryProofFile(e.dataTransfer.files[0]); }}
@@ -526,19 +562,19 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                     accept=".pdf,.jpg,.jpeg,.png,.tiff,.webp"
                                                                     onChange={e => { if (e.target.files?.[0]) setDeliveryProofFile(e.target.files[0]); }} />
                                                                 <Upload className="w-7 h-7 text-blue-400 mx-auto mb-2" />
-                                                                <p className="text-sm font-medium text-gray-700">
+                                                                <p className="text-sm font-medium text-slate-700">
                                                                     {deliveryDragActive ? 'Drop the file here...' : 'Upload proof of delivery'}
                                                                 </p>
-                                                                <p className="text-[10px] text-gray-400 mt-1">PDF, JPEG, PNG, TIFF or WebP • Max 10 MB</p>
+                                                                <p className="text-[10px] text-slate-400 mt-1">PDF, JPEG, PNG, TIFF or WebP • Max 10 MB</p>
                                                             </div>
                                                         ) : (
                                                             <div className="mt-1 flex items-center gap-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg">
                                                                 <FileText className="w-4 h-4 text-emerald-500" />
-                                                                <span className="text-xs font-medium text-gray-700 flex-1 truncate">{deliveryProofFile.name}</span>
-                                                                <span className="text-[10px] text-gray-400">{(deliveryProofFile.size / 1024).toFixed(0)} KB</span>
+                                                                <span className="text-xs font-medium text-slate-700 flex-1 truncate">{deliveryProofFile.name}</span>
+                                                                <span className="text-[10px] text-slate-400">{(deliveryProofFile.size / 1024).toFixed(0)} KB</span>
                                                                 <button onClick={() => setDeliveryProofFile(null)}
                                                                     className="p-1 hover:bg-emerald-100 rounded-full">
-                                                                    <X className="w-3 h-3 text-gray-400" />
+                                                                    <X className="w-3 h-3 text-slate-400" />
                                                                 </button>
                                                             </div>
                                                         )}
@@ -557,7 +593,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                             Record Delivery
                                                         </button>
                                                         <button onClick={() => handleAction('record-delivery', { delivery_method: 'SKIPPED', delivery_notes: 'Delivery step skipped' })} disabled={actionLoading}
-                                                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-500 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors">
+                                                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-500 bg-slate-100 rounded-lg hover:bg-slate-200 disabled:opacity-50 transition-colors">
                                                             Skip
                                                         </button>
                                                     </div>
@@ -567,16 +603,16 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                             {/* DELIVERY completed info */}
                                             {step.step === 'DELIVERY' && step.status === 'completed' && (
                                                 <div className="grid grid-cols-3 gap-3 text-sm">
-                                                    <div><span className="text-gray-500">Method:</span> <span className="font-medium">{step.details?.method === 'SKIPPED' ? 'Skipped' : (step.details?.method || '—')}</span></div>
-                                                    <div><span className="text-gray-500">Date:</span> <span className="font-medium">{step.date || '—'}</span></div>
-                                                    {step.details?.notes && <div className="col-span-3"><span className="text-gray-500">Notes:</span> {step.details.notes}</div>}
+                                                    <div><span className="text-slate-500">Method:</span> <span className="font-medium">{step.details?.method === 'SKIPPED' ? 'Skipped' : (step.details?.method || '—')}</span></div>
+                                                    <div><span className="text-slate-500">Date:</span> <span className="font-medium">{step.date || '—'}</span></div>
+                                                    {step.details?.notes && <div className="col-span-3"><span className="text-slate-500">Notes:</span> {step.details.notes}</div>}
                                                 </div>
                                             )}
 
                                             {/* ===== BANK REPLY ACTION (with AI-powered LG Issued + Verify) ===== */}
                                             {step.step === 'BANK_REPLY' && (!step.details?.reply_type || verificationStep?.status === 'rejected') && step.status !== 'future' && !readOnly && (
-                                                <div className="space-y-3">
-                                                    <p className="text-xs text-gray-500 mb-2">Record the bank's response to the issuance request.</p>
+                                                <div className="space-y-4">
+                                                    <p className="text-xs text-slate-500">Record the bank's response to the issuance request.</p>
 
                                                     {/* Inquiry History — show past inquiries/corrections */}
                                                     {step.details?.inquiry_log?.length > 0 && (
@@ -589,7 +625,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                     <div key={i} className="flex items-start gap-2 text-xs bg-white/60 rounded px-2.5 py-1.5">
                                                                         <span className="text-blue-500 font-semibold whitespace-nowrap">{entry.date}</span>
                                                                         <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-[9px] font-bold">{entry.type}</span>
-                                                                        <span className="text-gray-600 flex-1">{entry.notes || '—'}</span>
+                                                                        <span className="text-slate-600 flex-1">{entry.notes || '—'}</span>
                                                                     </div>
                                                                 ))}
                                                             </div>
@@ -598,19 +634,40 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
 
                                                     {/* Reply type selector */}
                                                     <div>
-                                                        <label className="text-xs font-medium text-gray-600">Reply Type</label>
-                                                        <div className="grid grid-cols-2 gap-2 mt-1">
-                                                            {REPLY_TYPES.map(rt => (
-                                                                <button key={rt.value}
-                                                                    onClick={() => { setReplyForm({ ...replyForm, bank_reply_type: rt.value }); setAiResult(null); setUploadFile(null); }}
-                                                                    className={`p-2.5 text-left border rounded-lg text-sm transition-all ${replyForm.bank_reply_type === rt.value
-                                                                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                                                                        : 'border-gray-200 hover:border-gray-300'
-                                                                        }`}>
-                                                                    <div className="font-medium">{rt.label}</div>
-                                                                    <div className="text-[10px] text-gray-400 mt-0.5">{rt.desc}</div>
-                                                                </button>
-                                                            ))}
+                                                        <div className="mb-2 text-xs font-semibold text-slate-600">Reply Type</div>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                            {REPLY_TYPES.map(rt => {
+                                                                const IconComp = rt.icon;
+                                                                const isSelected = replyForm.bank_reply_type === rt.value;
+                                                                return (
+                                                                    <button
+                                                                        key={rt.value}
+                                                                        type="button"
+                                                                        onClick={() => { setReplyForm({ ...replyForm, bank_reply_type: rt.value }); setAiResult(null); setUploadFile(null); }}
+                                                                        className={`text-left p-4 rounded-xl border transition-all ${
+                                                                            isSelected
+                                                                                ? rt.activeBorder
+                                                                                : `border-slate-200 bg-white ${rt.hoverBorder}`
+                                                                        }`}
+                                                                    >
+                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                            {rt.iconType === 'badge-green' ? (
+                                                                                <div className="w-5 h-5 rounded bg-green-500 text-white flex items-center justify-center shrink-0">
+                                                                                    <IconComp className="w-3.5 h-3.5" />
+                                                                                </div>
+                                                                            ) : rt.iconType === 'orange' ? (
+                                                                                <IconComp className="w-5 h-5 text-orange-500 shrink-0" />
+                                                                            ) : rt.iconType === 'red' ? (
+                                                                                <IconComp className="w-5 h-5 text-red-500 shrink-0" />
+                                                                            ) : (
+                                                                                <IconComp className="w-5 h-5 text-slate-400 shrink-0" />
+                                                                            )}
+                                                                            <span className="font-semibold text-sm text-slate-900">{rt.label}</span>
+                                                                        </div>
+                                                                        <p className="text-xs text-slate-500 pl-7">{rt.desc}</p>
+                                                                    </button>
+                                                                );
+                                                            })}
                                                         </div>
                                                     </div>
 
