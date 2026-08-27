@@ -21,7 +21,9 @@ import {
   Mic,
   MicOff,
   Sun,
-  MessageSquare
+  MessageSquare,
+  ThumbsUp,
+  ThumbsDown
 } from 'lucide-react';
 import { sendAIQuery } from '../services/aiQueryService';
 
@@ -38,6 +40,21 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState(null);
+  const [ratedMessages, setRatedMessages] = useState({});
+
+  const handleRateAnswer = async (msg, idx, rating) => {
+    if (ratedMessages[idx]) return;
+    setRatedMessages(prev => ({ ...prev, [idx]: rating }));
+    try {
+      const summaryText = msg.text ? msg.text.slice(0, 120) : 'General Answer';
+      const feedbackMessage = rating === 'up'
+        ? `[AI Assistant Positive Rating] Helpful response for query: "${summaryText}"`
+        : `[AI Assistant Negative Rating] Inaccurate/Unhelpful response for query: "${summaryText}"`;
+      await sendAIQuery(feedbackMessage);
+    } catch (e) {
+      console.warn("Feedback rating log error:", e);
+    }
+  };
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -518,6 +535,29 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
                         className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
                       >
                         <Download className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="w-px h-3 bg-slate-200 dark:bg-slate-700 mx-0.5" />
+                      <button
+                        onClick={() => handleRateAnswer(msg, idx, 'up')}
+                        title={ratedMessages[idx] === 'up' ? "Rated as Helpful" : "Mark answer as helpful"}
+                        className={`p-1 rounded transition-colors ${
+                          ratedMessages[idx] === 'up'
+                            ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50'
+                            : 'text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <ThumbsUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleRateAnswer(msg, idx, 'down')}
+                        title={ratedMessages[idx] === 'down' ? "Rated as Needs Improvement" : "Report inaccurate or unhelpful answer"}
+                        className={`p-1 rounded transition-colors ${
+                          ratedMessages[idx] === 'down'
+                            ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50'
+                            : 'text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <ThumbsDown className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
