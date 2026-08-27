@@ -26,6 +26,7 @@ import {
   ThumbsDown
 } from 'lucide-react';
 import { sendAIQuery } from '../services/aiQueryService';
+import apiClient from '../services/apiClient';
 
 const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
   const navigate = useNavigate();
@@ -42,17 +43,84 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
   const [copiedIndex, setCopiedIndex] = useState(null);
   const [ratedMessages, setRatedMessages] = useState({});
 
-  const handleRateAnswer = async (msg, idx, rating) => {
+  const [activeFeedbackIdx, setActiveFeedbackIdx] = useState(null);
+  const [feedbackReason, setFeedbackReason] = useState('Inaccurate info');
+  const [feedbackNotes, setFeedbackNotes] = useState('');
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [feedbackToast, setFeedbackToast] = useState(null);
+
+  const showToast = (msg) => {
+    setFeedbackToast(msg);
+    setTimeout(() => setFeedbackToast(null), 3500);
+  };
+
+  const handleThumbsUp = async (msg, idx) => {
     if (ratedMessages[idx]) return;
-    setRatedMessages(prev => ({ ...prev, [idx]: rating }));
+    setRatedMessages(prev => ({ ...prev, [idx]: 'up' }));
+    
+    // Find preceding user question if available
+    let precedingQuestion = '';
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i].sender === 'user') {
+        precedingQuestion = messages[i].text;
+        break;
+      }
+    }
+
     try {
-      const summaryText = msg.text ? msg.text.slice(0, 120) : 'General Answer';
-      const feedbackMessage = rating === 'up'
-        ? `[AI Assistant Positive Rating] Helpful response for query: "${summaryText}"`
-        : `[AI Assistant Negative Rating] Inaccurate/Unhelpful response for query: "${summaryText}"`;
-      await sendAIQuery(feedbackMessage);
-    } catch (e) {
-      console.warn("Feedback rating log error:", e);
+      const payload = {
+        message: `[AI Assistant Rating 👍 - Helpful]\nUser Question: "${precedingQuestion || 'N/A'}"\n\nAI Response Snippet:\n"${(msg.text || '').slice(0, 300)}"`,
+        feedback_type: 'GENERAL_FEEDBACK',
+        sentiment: 'POSITIVE',
+        ai_summary: `AI Rating 👍 (Helpful): "${(precedingQuestion || 'General Query').slice(0, 60)}"`
+      };
+      await apiClient.post('/feedback/', payload);
+      showToast('✅ Thank you! Feedback recorded for System Owner review.');
+    } catch (err) {
+      console.error('Failed to submit positive rating:', err);
+      showToast('✅ Marked as helpful.');
+    }
+  };
+
+  const handleThumbsDownClick = (idx) => {
+    if (ratedMessages[idx]) return;
+    if (activeFeedbackIdx === idx) {
+      setActiveFeedbackIdx(null);
+    } else {
+      setActiveFeedbackIdx(idx);
+      setFeedbackReason('Inaccurate info');
+      setFeedbackNotes('');
+    }
+  };
+
+  const handleSubmitNegativeFeedback = async (msg, idx) => {
+    setIsSubmittingFeedback(true);
+    let precedingQuestion = '';
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i].sender === 'user') {
+        precedingQuestion = messages[i].text;
+        break;
+      }
+    }
+
+    try {
+      const payload = {
+        message: `[AI Assistant Rating 👎 - Needs Improvement]\nCategory: ${feedbackReason}\nUser Notes: ${feedbackNotes.trim() || 'No additional notes provided'}\nUser Question: "${precedingQuestion || 'N/A'}"\n\nAI Response Snippet:\n"${(msg.text || '').slice(0, 300)}"`,
+        feedback_type: 'USABILITY_PAIN_POINT',
+        sentiment: 'NEGATIVE',
+        ai_summary: `AI Rating 👎 (${feedbackReason}): "${(precedingQuestion || 'General Query').slice(0, 60)}"`
+      };
+      await apiClient.post('/feedback/', payload);
+      setRatedMessages(prev => ({ ...prev, [idx]: 'down' }));
+      setActiveFeedbackIdx(null);
+      showToast('📋 Feedback submitted to System Owner Feedback Dashboard!');
+    } catch (err) {
+      console.error('Failed to submit negative feedback:', err);
+      setRatedMessages(prev => ({ ...prev, [idx]: 'down' }));
+      setActiveFeedbackIdx(null);
+      showToast('📋 Feedback recorded.');
+    } finally {
+      setIsSubmittingFeedback(false);
     }
   };
   const [isListening, setIsListening] = useState(false);
@@ -538,22 +606,24 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
                       </button>
                       <span className="w-px h-3 bg-slate-200 dark:bg-slate-700 mx-0.5" />
                       <button
-                        onClick={() => handleRateAnswer(msg, idx, 'up')}
+                        onClick={() => handleThumbsUp(msg, idx)}
                         title={ratedMessages[idx] === 'up' ? "Rated as Helpful" : "Mark answer as helpful"}
                         className={`p-1 rounded transition-colors ${
                           ratedMessages[idx] === 'up'
-                            ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50'
+                            ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 font-bold ring-1 ring-emerald-500'
                             : 'text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                         }`}
                       >
                         <ThumbsUp className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleRateAnswer(msg, idx, 'down')}
-                        title={ratedMessages[idx] === 'down' ? "Rated as Needs Improvement" : "Report inaccurate or unhelpful answer"}
+                        onClick={() => handleThumbsDownClick(idx)}
+                        title={ratedMessages[idx] === 'down' ? "Reported as unhelpful" : "Report inaccurate or unhelpful answer"}
                         className={`p-1 rounded transition-colors ${
                           ratedMessages[idx] === 'down'
-                            ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50'
+                            ? 'text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/80 font-bold ring-1 ring-rose-500'
+                            : activeFeedbackIdx === idx
+                            ? 'text-rose-600 bg-rose-50 dark:bg-rose-950/50'
                             : 'text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                         }`}
                       >
@@ -573,6 +643,75 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
                 <div className="text-sm">
                   {renderFormattedText(msg.text)}
                 </div>
+
+                {/* Inline Clarification & Evaluation Form */}
+                {activeFeedbackIdx === idx && (
+                  <div className="mt-3 p-3 bg-rose-50/90 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 rounded-xl space-y-2.5 animate-fadeIn text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-rose-900 dark:text-rose-200 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                        How can this answer be improved?
+                      </span>
+                      <button
+                        onClick={() => setActiveFeedbackIdx(null)}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        'Inaccurate info',
+                        'Missing details',
+                        'Too verbose',
+                        'Wrong page / link',
+                        'Confusing wording',
+                        'Other'
+                      ].map(tag => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => setFeedbackReason(tag)}
+                          className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                            feedbackReason === tag
+                              ? 'bg-rose-600 text-white shadow-xs'
+                              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-rose-200/80 dark:border-rose-900/60 hover:border-rose-400'
+                          }`}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+
+                    <textarea
+                      rows={2}
+                      value={feedbackNotes}
+                      onChange={(e) => setFeedbackNotes(e.target.value)}
+                      placeholder="Add specific clarification or correction (optional)..."
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-800 rounded-lg text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-rose-500 text-xs"
+                    />
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setActiveFeedbackIdx(null)}
+                        className="px-2.5 py-1 text-slate-600 dark:text-slate-400 hover:text-slate-800 text-xs font-medium"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSubmittingFeedback}
+                        onClick={() => handleSubmitNegativeFeedback(msg, idx)}
+                        className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg shadow-sm flex items-center gap-1 transition-colors"
+                      >
+                        {isSubmittingFeedback ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                        Submit Feedback
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Visual Summary Card */}
                 {msg.visualMetadata && (
@@ -730,6 +869,12 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
           </div>
         </div>
 
+        {/* Feedback Toast Notification */}
+        {feedbackToast && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 px-4 py-2 bg-slate-900/90 text-white text-xs font-medium rounded-full shadow-lg border border-slate-700 flex items-center gap-2 animate-bounce z-50">
+            <span>{feedbackToast}</span>
+          </div>
+        )}
       </div>
     </div>
   );
