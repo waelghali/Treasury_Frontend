@@ -74,7 +74,13 @@
     "privacy": "Privacy Policy (v{{version}})",
     "loading": "Loading policies...",
     "accepting": "Accepting...",
-    "acceptButton": "I Accept the Policies"
+    "acceptButton": "I Accept the Policies",
+    "declineButton": "Decline / Come Back Later",
+    "closeTooltip": "Close and come back later",
+    "declineToast": "You can review and accept the policies whenever you're ready to sign in.",
+    "loadFailed": "Failed to load legal policies. Please try again later.",
+    "acceptSuccess": "Policies accepted successfully!",
+    "acceptFailed": "Failed to accept policies. Please try again."
   },
   "layout": {
     "treasury": "Treasury",
