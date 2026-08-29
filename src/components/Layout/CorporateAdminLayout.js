@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import {
   Home, Users, FolderKanban, LogOut, Settings, FileText,
   BarChart, Hourglass, ClipboardList, DatabaseZap, Send, Building, Shield,
-  ChevronLeft, ChevronRight, FileCheck, Settings2, Download, LayoutTemplate, TrendingUp, CreditCard, BarChart3, Bell, Upload, RefreshCw,
+  ChevronLeft, ChevronRight, ChevronDown, FileCheck, Settings2, Download, LayoutTemplate, TrendingUp, CreditCard, BarChart3, Bell, Upload, RefreshCw,
   Menu, X, ListTodo, Layers, Sliders, FileSpreadsheet, BarChart2, Inbox, Calendar
 } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
@@ -193,240 +193,485 @@ function CorporateAdminLayout({
     return () => clearInterval(interval);
   }, [fetchPendingCount]);
 
-  // Reusable Nav Links
-  const renderNavLinks = (isDrawer = false) => (
-    <>
-      {!isChecker && (
-        <div className="pb-2">
-          {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Overview</p></div>}
-          <Link to={`${basePath}/dashboard`} title={isCollapsed && !isDrawer ? 'Dashboard' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'corporate-admin-dashboard' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'corporate-admin-dashboard' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <Home className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Dashboard</span>}
-          </Link>
-        </div>
-      )}
+  // Accordion Expanded State
+  const [expandedSections, setExpandedSections] = useState({
+    issuance: false,
+    custody: false,
+    reconciliation: false,
+    admin: false,
+  });
 
-      <div className="pb-2">
-        {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Approvals</p></div>}
-        <Link to={`${basePath}/approval-requests`} title={isCollapsed && !isDrawer ? 'Approval Center' : ''}
-          className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'approval-center-page' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-          style={activeMenuItem === 'approval-center-page' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+  const toggleSection = (key) => {
+    setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // Auto-expand active module on navigation
+  useEffect(() => {
+    const path = location.pathname;
+    const item = activeMenuItem || '';
+
+    if (item.startsWith('issuance') || path.includes('/issuance')) {
+      setExpandedSections(prev => ({ ...prev, issuance: true }));
+    } else if (item === 'lg-records' || item === 'lg-categories' || path.includes('/lg-records') || path.includes('/lg-categories')) {
+      setExpandedSections(prev => ({ ...prev, custody: true }));
+    } else if (item.includes('reconciliation') || path.includes('/reconciliation')) {
+      setExpandedSections(prev => ({ ...prev, reconciliation: true }));
+    } else if (['user-management', 'module-configs', 'smart-inbox', 'audit-logs', 'reports'].includes(item) || path.includes('/users') || path.includes('/module-configs') || path.includes('/inbox') || path.includes('/audit-logs') || path.includes('/reports')) {
+      setExpandedSections(prev => ({ ...prev, admin: true }));
+    }
+  }, [location.pathname, activeMenuItem]);
+
+  // Reusable Nav Links (Collapsible Accordion Model)
+  const renderNavLinks = (isDrawer = false) => {
+    const isExpandedMode = !isCollapsed || isDrawer;
+
+    const isIssuanceActive = activeMenuItem?.startsWith('issuance') || location.pathname.includes('/issuance');
+    const isCustodyActive = activeMenuItem === 'lg-records' || activeMenuItem === 'lg-categories' || (activeMenuItem === 'migration-hub' && !hasIssuanceModule);
+    const isReconActive = activeMenuItem?.includes('reconciliation') || location.pathname.includes('/reconciliation');
+    const isAdminActive = ['user-management', 'module-configs', 'smart-inbox', 'audit-logs', 'reports'].includes(activeMenuItem) || ['/users', '/module-configs', '/inbox', '/audit-logs', '/reports'].some(p => location.pathname.includes(p));
+
+    return (
+      <div className="space-y-1">
+        {/* --- CORE WORKSPACE --- */}
+        {!isChecker && (
+          <Link
+            to={`${basePath}/dashboard`}
+            title={!isExpandedMode ? 'Dashboard' : ''}
+            className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+              activeMenuItem === 'corporate-admin-dashboard'
+                ? 'font-semibold bg-blue-500/15 text-blue-400'
+                : 'text-slate-300 hover:text-white hover:bg-white/[0.07]'
+            }`}
+          >
+            <Home className={`h-5 w-5 flex-shrink-0 ${!isExpandedMode ? 'mx-auto' : ''}`} />
+            {isExpandedMode && <span className="ml-3">Dashboard</span>}
+          </Link>
+        )}
+
+        {/* Approval Center */}
+        <Link
+          to={`${basePath}/approval-requests`}
+          title={!isExpandedMode ? 'Approval Center' : ''}
+          className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+            activeMenuItem === 'approval-center-page'
+              ? 'font-semibold bg-blue-500/15 text-blue-400'
+              : 'text-slate-300 hover:text-white hover:bg-white/[0.07]'
+          }`}
         >
-          <div className={`flex items-center ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`}>
-            <Shield className={`h-5 w-5 flex-shrink-0`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Approval Center</span>}
+          <div className={`flex items-center ${!isExpandedMode ? 'mx-auto' : ''}`}>
+            <Shield className="h-5 w-5 flex-shrink-0" />
+            {isExpandedMode && <span className="ml-3">Approval Center</span>}
           </div>
-          {(!isCollapsed || isDrawer) && pendingCount > 0 && (
+          {isExpandedMode && pendingCount > 0 && (
             <span className="inline-flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
               {pendingCount > 9 ? '9+' : pendingCount}
             </span>
           )}
         </Link>
+
+        {/* Action Center (Expiries, Claims & Renewals for both Issuance & Custody) */}
+        {(hasCustodyModule || hasIssuanceModule) && (
+          <Link
+            to="/corporate-admin/action-center"
+            title={!isExpandedMode ? 'Action Center' : ''}
+            className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+              activeMenuItem === 'action-center'
+                ? 'font-semibold bg-blue-500/15 text-blue-400'
+                : 'text-slate-300 hover:text-white hover:bg-white/[0.07]'
+            }`}
+          >
+            <ListTodo className={`h-5 w-5 flex-shrink-0 text-amber-400 ${!isExpandedMode ? 'mx-auto' : ''}`} />
+            {isExpandedMode && <span className="ml-3">Action Center</span>}
+          </Link>
+        )}
+
+        {/* Divider */}
+        {isExpandedMode && <div className="pt-2 pb-1 px-3"><hr className="border-white/10" /></div>}
+
+        {/* --- ACCORDION 1: LG ISSUANCE --- */}
+        {hasIssuanceModule && (
+          <div>
+            {isExpandedMode ? (
+              <button
+                type="button"
+                onClick={() => toggleSection('issuance')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all text-sm select-none ${
+                  isIssuanceActive
+                    ? 'text-blue-400 font-semibold bg-white/[0.04]'
+                    : 'text-slate-300 hover:text-white hover:bg-white/[0.05]'
+                }`}
+              >
+                <div className="flex items-center">
+                  <Send className="h-5 w-5 flex-shrink-0 text-indigo-400" />
+                  <span className="ml-3 font-semibold text-xs tracking-wide uppercase text-slate-200">LG Issuance</span>
+                </div>
+                <ChevronDown
+                  className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
+                    expandedSections.issuance ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+            ) : (
+              <Link
+                to={`${basePath}/issuance/requests`}
+                title="LG Issuance"
+                className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+                  isIssuanceActive ? 'font-semibold bg-blue-500/15 text-blue-400' : 'text-slate-300 hover:bg-white/[0.07]'
+                }`}
+              >
+                <Send className="h-5 w-5 flex-shrink-0 mx-auto text-indigo-400" />
+              </Link>
+            )}
+
+            {isExpandedMode && expandedSections.issuance && (
+              <div className="mt-1 ml-4 pl-3 border-l border-indigo-500/30 space-y-0.5 animate-fadeIn">
+                <Link
+                  to={`${basePath}/issuance/requests`}
+                  className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                    activeMenuItem === 'issuance-requests'
+                      ? 'font-bold text-blue-400 bg-blue-500/15'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <span>Requests Inbox</span>
+                </Link>
+                <Link
+                  to={`${basePath}/issuance/issued-lgs`}
+                  className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                    activeMenuItem === 'issuance-issued-lgs'
+                      ? 'font-bold text-blue-400 bg-blue-500/15'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <span>Issued LGs</span>
+                </Link>
+                {!isChecker && (
+                  <>
+                    <Link
+                      to={`${basePath}/issuance/facilities`}
+                      className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                        activeMenuItem === 'issuance-facilities'
+                          ? 'font-bold text-blue-400 bg-blue-500/15'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <span>Bank Facilities</span>
+                    </Link>
+                    <Link
+                      to={`${basePath}/issuance/bank-accounts`}
+                      className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                        activeMenuItem === 'issuance-bank-accounts'
+                          ? 'font-bold text-blue-400 bg-blue-500/15'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <span>Bank Accounts</span>
+                    </Link>
+                    <Link
+                      to={`${basePath}/issuance/owner-management`}
+                      className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                        activeMenuItem === 'issuance-owner-management'
+                          ? 'font-bold text-blue-400 bg-blue-500/15'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <span>Owner Management</span>
+                    </Link>
+                    <Link
+                      to={`${basePath}/issuance/reconciliation`}
+                      className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                        activeMenuItem === 'issuance-reconciliation'
+                          ? 'font-bold text-blue-400 bg-blue-500/15'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <span>Position Reconciliation</span>
+                    </Link>
+                    <Link
+                      to="/corporate-admin/issuance/form-config"
+                      className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                        activeMenuItem === 'issuance-form-config'
+                          ? 'font-bold text-blue-400 bg-blue-500/15'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <span>Form Configuration</span>
+                    </Link>
+                    <Link
+                      to={`${basePath}/issuance/migration-hub`}
+                      className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                        activeMenuItem === 'issuance-migration-hub'
+                          ? 'font-bold text-blue-400 bg-blue-500/15'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <span>Migration Hub</span>
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- ACCORDION 2: LG CUSTODY --- */}
+        {hasCustodyModule && (
+          <div>
+            {isExpandedMode ? (
+              <button
+                type="button"
+                onClick={() => toggleSection('custody')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all text-sm select-none ${
+                  isCustodyActive
+                    ? 'text-blue-400 font-semibold bg-white/[0.04]'
+                    : 'text-slate-300 hover:text-white hover:bg-white/[0.05]'
+                }`}
+              >
+                <div className="flex items-center">
+                  <FileText className="h-5 w-5 flex-shrink-0 text-emerald-400" />
+                  <span className="ml-3 font-semibold text-xs tracking-wide uppercase text-slate-200">LG Custody</span>
+                </div>
+                <ChevronDown
+                  className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
+                    expandedSections.custody ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+            ) : (
+              <Link
+                to="/corporate-admin/lg-records"
+                title="LG Custody"
+                className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+                  isCustodyActive ? 'font-semibold bg-blue-500/15 text-blue-400' : 'text-slate-300 hover:bg-white/[0.07]'
+                }`}
+              >
+                <FileText className="h-5 w-5 flex-shrink-0 mx-auto text-emerald-400" />
+              </Link>
+            )}
+
+            {isExpandedMode && expandedSections.custody && (
+              <div className="mt-1 ml-4 pl-3 border-l border-emerald-500/30 space-y-0.5 animate-fadeIn">
+                <Link
+                  to="/corporate-admin/lg-records"
+                  className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                    activeMenuItem === 'lg-records'
+                      ? 'font-bold text-blue-400 bg-blue-500/15'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <span>All LG Records</span>
+                </Link>
+                {!isChecker && (
+                  <Link
+                    to="/corporate-admin/lg-categories"
+                    className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                      activeMenuItem === 'lg-categories'
+                        ? 'font-bold text-blue-400 bg-blue-500/15'
+                        : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <span>LG Categories</span>
+                  </Link>
+                )}
+                {!isChecker && !hasIssuanceModule && (
+                  <Link
+                    to="/corporate-admin/migration-hub"
+                    className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                      activeMenuItem === 'migration-hub'
+                        ? 'font-bold text-blue-400 bg-blue-500/15'
+                        : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <span>Migration Hub</span>
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- ACCORDION 3: BANK RECONCILIATION --- */}
+        {hasReconciliationModule && !isChecker && (
+          <div>
+            {isExpandedMode ? (
+              <button
+                type="button"
+                onClick={() => toggleSection('reconciliation')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all text-sm select-none ${
+                  isReconActive
+                    ? 'text-blue-400 font-semibold bg-white/[0.04]'
+                    : 'text-slate-300 hover:text-white hover:bg-white/[0.05]'
+                }`}
+              >
+                <div className="flex items-center">
+                  <Layers className="h-5 w-5 flex-shrink-0 text-cyan-400" />
+                  <span className="ml-3 font-semibold text-xs tracking-wide uppercase text-slate-200">Reconciliation</span>
+                </div>
+                <ChevronDown
+                  className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
+                    expandedSections.reconciliation ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+            ) : (
+              <Link
+                to="/corporate-admin/reconciliation"
+                title="Bank Reconciliation"
+                className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+                  isReconActive ? 'font-semibold bg-blue-500/15 text-blue-400' : 'text-slate-300 hover:bg-white/[0.07]'
+                }`}
+              >
+                <Layers className="h-5 w-5 flex-shrink-0 mx-auto text-cyan-400" />
+              </Link>
+            )}
+
+            {isExpandedMode && expandedSections.reconciliation && (
+              <div className="mt-1 ml-4 pl-3 border-l border-cyan-500/30 space-y-0.5 animate-fadeIn">
+                <Link
+                  to="/corporate-admin/reconciliation"
+                  className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                    activeMenuItem === 'reconciliation-dashboard' || activeMenuItem?.includes('workspace')
+                      ? 'font-bold text-blue-400 bg-blue-500/15'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <span>Statement Dash</span>
+                </Link>
+                <Link
+                  to="/corporate-admin/reconciliation/rules"
+                  className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                    activeMenuItem === 'reconciliation-rules'
+                      ? 'font-bold text-blue-400 bg-blue-500/15'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <span>Rules Engine</span>
+                </Link>
+                <Link
+                  to="/corporate-admin/reconciliation/export"
+                  className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                    activeMenuItem === 'reconciliation-export'
+                      ? 'font-bold text-blue-400 bg-blue-500/15'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <span>Accounting Export</span>
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- QUOTATION CONTROL --- */}
+        {hasQuotationModule && !isChecker && (
+          <Link
+            to="/corporate-admin/quotations"
+            title={!isExpandedMode ? 'RFQ Quotations' : ''}
+            className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+              activeMenuItem === 'quotation-control'
+                ? 'font-semibold bg-blue-500/15 text-blue-400'
+                : 'text-slate-300 hover:text-white hover:bg-white/[0.07]'
+            }`}
+          >
+            <BarChart2 className={`h-5 w-5 flex-shrink-0 text-amber-400 ${!isExpandedMode ? 'mx-auto' : ''}`} />
+            {isExpandedMode && <span className="ml-3">RFQ Quotations</span>}
+          </Link>
+        )}
+
+        {/* --- ACCORDION 4: ADMINISTRATION & SETUP --- */}
+        {!isChecker && (
+          <div>
+            {isExpandedMode ? (
+              <button
+                type="button"
+                onClick={() => toggleSection('admin')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all text-sm select-none ${
+                  isAdminActive
+                    ? 'text-blue-400 font-semibold bg-white/[0.04]'
+                    : 'text-slate-300 hover:text-white hover:bg-white/[0.05]'
+                }`}
+              >
+                <div className="flex items-center">
+                  <Settings className="h-5 w-5 flex-shrink-0 text-slate-400" />
+                  <span className="ml-3 font-semibold text-xs tracking-wide uppercase text-slate-200">Administration</span>
+                </div>
+                <ChevronDown
+                  className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
+                    expandedSections.admin ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+            ) : (
+              <Link
+                to="/corporate-admin/module-configs"
+                title="Administration"
+                className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+                  isAdminActive ? 'font-semibold bg-blue-500/15 text-blue-400' : 'text-slate-300 hover:bg-white/[0.07]'
+                }`}
+              >
+                <Settings className="h-5 w-5 flex-shrink-0 mx-auto text-slate-400" />
+              </Link>
+            )}
+
+            {isExpandedMode && expandedSections.admin && (
+              <div className="mt-1 ml-4 pl-3 border-l border-slate-500/30 space-y-0.5 animate-fadeIn">
+                <Link
+                  to="/corporate-admin/users"
+                  className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                    activeMenuItem === 'user-management'
+                      ? 'font-bold text-blue-400 bg-blue-500/15'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <span>User Management</span>
+                </Link>
+                <Link
+                  to="/corporate-admin/module-configs"
+                  className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                    activeMenuItem === 'module-configs'
+                      ? 'font-bold text-blue-400 bg-blue-500/15'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <span>Settings</span>
+                </Link>
+                <Link
+                  to="/corporate-admin/inbox"
+                  className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                    activeMenuItem === 'smart-inbox'
+                      ? 'font-bold text-blue-400 bg-blue-500/15'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <span>Smart Inbox</span>
+                </Link>
+                <Link
+                  to="/corporate-admin/reports"
+                  className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                    activeMenuItem === 'reports'
+                      ? 'font-bold text-blue-400 bg-blue-500/15'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <span>Reports & Analytics</span>
+                </Link>
+                <Link
+                  to="/corporate-admin/audit-logs"
+                  className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                    activeMenuItem === 'audit-logs'
+                      ? 'font-bold text-blue-400 bg-blue-500/15'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <span>Audit Logs</span>
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-
-      {hasIssuanceModule && (
-        <div className="pb-2">
-          {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Issuance</p></div>}
-          {!isChecker && (
-            <>
-              <Link to={`${basePath}/issuance/requests`} title={isCollapsed && !isDrawer ? 'Requests Inbox' : ''}
-                className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'issuance-requests' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-                style={activeMenuItem === 'issuance-requests' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-              >
-                <Send className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-                {(!isCollapsed || isDrawer) && <span className="ml-3">Requests Inbox</span>}
-              </Link>
-              <Link to={`${basePath}/issuance/facilities`} title={isCollapsed && !isDrawer ? 'Bank Facilities' : ''}
-                className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'issuance-facilities' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-                style={activeMenuItem === 'issuance-facilities' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-              >
-                <Building className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-                {(!isCollapsed || isDrawer) && <span className="ml-3">Bank Facilities</span>}
-              </Link>
-              <Link to={`${basePath}/issuance/bank-accounts`} title={isCollapsed && !isDrawer ? 'Bank Accounts' : ''}
-                className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'issuance-bank-accounts' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-                style={activeMenuItem === 'issuance-bank-accounts' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-              >
-                <CreditCard className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-                {(!isCollapsed || isDrawer) && <span className="ml-3">Bank Accounts</span>}
-              </Link>
-            </>
-          )}
-          <Link to={`${basePath}/issuance/issued-lgs`} title={isCollapsed && !isDrawer ? 'Issued LGs' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'issuance-issued-lgs' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'issuance-issued-lgs' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <FileText className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Issued LGs</span>}
-          </Link>
-          {!isChecker && (
-            <Link to={`${basePath}/issuance/owner-management`} title={isCollapsed && !isDrawer ? 'Owner Management' : ''}
-              className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'issuance-owner-management' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-              style={activeMenuItem === 'issuance-owner-management' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-            >
-              <Users className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-              {(!isCollapsed || isDrawer) && <span className="ml-3">Owner Management</span>}
-            </Link>
-          )}
-          {!isChecker && (
-            <Link to={`${basePath}/issuance/reconciliation`} title={isCollapsed && !isDrawer ? 'Position Reconciliation' : ''}
-              className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'issuance-reconciliation' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-              style={activeMenuItem === 'issuance-reconciliation' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-            >
-              <RefreshCw className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-              {(!isCollapsed || isDrawer) && <span className="ml-3">Position Reconciliation</span>}
-            </Link>
-          )}
-          {!isChecker && (
-            <Link to={`${basePath}/issuance/migration-hub`} title={isCollapsed && !isDrawer ? 'Issuance Migration' : ''}
-              className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'issuance-migration-hub' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-              style={activeMenuItem === 'issuance-migration-hub' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-            >
-              <Upload className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-              {(!isCollapsed || isDrawer) && <span className="ml-3">Migration Hub</span>}
-            </Link>
-          )}
-        </div>
-      )}
-
-      {hasCustodyModule && (
-        <div className="pb-2">
-          {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>LG Custody</p></div>}
-          <Link to="/corporate-admin/lg-records" title={isCollapsed && !isDrawer ? 'All LG Records' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'lg-records' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'lg-records' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <FileText className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">All LG Records</span>}
-          </Link>
-          <Link to="/corporate-admin/action-center" title={isCollapsed && !isDrawer ? 'Action Center' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'action-center' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'action-center' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <ListTodo className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Action Center</span>}
-          </Link>
-        </div>
-      )}
-
-      {hasReconciliationModule && !isChecker && (
-        <div className="pb-2">
-          {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Bank Reconciliation</p></div>}
-          <Link to="/corporate-admin/reconciliation" title={isCollapsed && !isDrawer ? 'Statement Dash' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'reconciliation-dashboard' || activeMenuItem?.includes('workspace') ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'reconciliation-dashboard' || activeMenuItem?.includes('workspace') ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <Layers className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Statement Dash</span>}
-          </Link>
-          <Link to="/corporate-admin/reconciliation/rules" title={isCollapsed && !isDrawer ? 'Rules Engine' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'reconciliation-rules' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'reconciliation-rules' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <Sliders className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Rules Engine</span>}
-          </Link>
-          <Link to="/corporate-admin/reconciliation/export" title={isCollapsed && !isDrawer ? 'Accounting Export' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'reconciliation-export' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'reconciliation-export' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <FileSpreadsheet className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Accounting Export</span>}
-          </Link>
-        </div>
-      )}
-
-      {hasQuotationModule && !isChecker && (
-        <div className="pb-2">
-          {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Quotations</p></div>}
-          <Link to="/corporate-admin/quotations" title={isCollapsed && !isDrawer ? 'Quotation Control' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'quotation-control' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'quotation-control' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <BarChart2 className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Quotation Control</span>}
-          </Link>
-        </div>
-      )}
-
-      {!isChecker && (
-        <div className="pb-2">
-          {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Configuration</p></div>}
-          <Link to="/corporate-admin/users" title={isCollapsed && !isDrawer ? 'User Management' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'user-management' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'user-management' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <Users className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">User Management</span>}
-          </Link>
-          <Link to="/corporate-admin/module-configs" title={isCollapsed && !isDrawer ? 'Settings' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'module-configs' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'module-configs' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <Settings className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Settings</span>}
-          </Link>
-          <Link to="/corporate-admin/inbox" title={isCollapsed && !isDrawer ? 'Smart Inbox' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'smart-inbox' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'smart-inbox' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <Inbox className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Smart Inbox</span>}
-          </Link>
-          {hasIssuanceModule && (
-            <Link to="/corporate-admin/issuance/form-config" title={isCollapsed && !isDrawer ? 'Issuance Form Config' : ''}
-              className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'issuance-form-config' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-              style={activeMenuItem === 'issuance-form-config' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-            >
-              <LayoutTemplate className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-              {(!isCollapsed || isDrawer) && <span className="ml-3">Issuance Form Config</span>}
-            </Link>
-          )}
-          {hasCustodyModule && (
-            <Link to="/corporate-admin/lg-categories" title={isCollapsed && !isDrawer ? 'LG Categories' : ''}
-              className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'lg-categories' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-              style={activeMenuItem === 'lg-categories' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-            >
-              <FileText className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-              {(!isCollapsed || isDrawer) && <span className="ml-3">LG Categories</span>}
-            </Link>
-          )}
-        </div>
-      )}
-
-      {!isChecker && (
-        <div className="pb-2">
-          {(!isCollapsed || isDrawer) && <div className="pt-3 pb-1 px-3"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>System</p></div>}
-          <Link to="/corporate-admin/audit-logs" title={isCollapsed && !isDrawer ? 'Audit Logs' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'audit-logs' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'audit-logs' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <FileText className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Audit Logs</span>}
-          </Link>
-          <Link to="/corporate-admin/reports" title={isCollapsed && !isDrawer ? 'Reports' : ''}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'reports' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'reports' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-          >
-            <BarChart className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Reports</span>}
-          </Link>
-          {hasCustodyModule && (
-            <Link to="/corporate-admin/migration-hub" title={isCollapsed && !isDrawer ? 'Migration Hub' : ''}
-              className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'migration-hub' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-              style={activeMenuItem === 'migration-hub' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
-            >
-              <DatabaseZap className={`h-5 w-5 flex-shrink-0 ${isCollapsed && !isDrawer ? 'mx-auto' : ''}`} />
-              {(!isCollapsed || isDrawer) && <span className="ml-3">Migration Hub</span>}
-            </Link>
-          )}
-        </div>
-      )}
-    </>
-  );
+    );
+  };
 
   return (
     <div className="relative flex flex-col md:flex-row h-screen bg-[#f8fafc] overflow-hidden" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
