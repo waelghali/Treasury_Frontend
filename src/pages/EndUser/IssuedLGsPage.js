@@ -841,13 +841,13 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
 
     return (
         <>
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-[90vh] max-h-[90vh] flex flex-col overflow-hidden mx-auto border border-slate-200/50">
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-[95vh] max-h-[95vh] flex flex-col overflow-hidden mx-auto border border-slate-200/50">
                     {/* Modal Header */}
-                    <header className="bg-gradient-to-r from-[#0d2a54] via-[#154689] to-[#0d2a54] text-white p-5 sm:p-6 shrink-0 border-b border-blue-900/40 shadow-inner">
-                        <div className="flex justify-between items-start mb-3 sm:mb-4">
-                            <div className="flex items-center flex-wrap gap-2.5 sm:gap-3">
-                                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight m-0">
+                    <header className="bg-gradient-to-r from-[#0d2a54] via-[#154689] to-[#0d2a54] text-white px-5 py-3 sm:px-6 sm:py-3.5 shrink-0 border-b border-blue-900/40 shadow-inner">
+                        <div className="flex justify-between items-center mb-1">
+                            <div className="flex items-center flex-wrap gap-2 sm:gap-2.5">
+                                <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight m-0">
                                     {lg.lg_ref_number}
                                 </h1>
                                 <button
@@ -855,9 +855,9 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                     title="Copy Reference"
                                     className="text-blue-200 hover:text-white transition-colors p-1 rounded hover:bg-white/10"
                                 >
-                                    <Copy className="w-4 h-4" />
+                                    <Copy className="w-3.5 h-3.5" />
                                 </button>
-                                <span className={`inline-flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                                <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                                     lg.status === 'INTERNAL_PROCESSING'
                                         ? 'bg-[#fef3c7] text-[#92400e]'
                                         : lg.status === 'ACTIVE' || lg.status === 'LG_ISSUED'
@@ -875,59 +875,59 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                             </div>
                             <button
                                 onClick={onClose}
-                                className="text-blue-200 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10 shrink-0"
+                                className="text-blue-200 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10 shrink-0"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
                         {lg.internal_serial && (
-                            <div className="text-xs text-blue-200/80 font-mono mb-1.5">{lg.internal_serial}</div>
+                            <div className="text-[11px] text-blue-200/80 font-mono mb-1">{lg.internal_serial}</div>
                         )}
-                        <div className="text-base sm:text-lg font-semibold text-white tracking-wide flex items-center flex-wrap gap-1.5">
+                        <div className="text-sm sm:text-base font-semibold text-white tracking-wide flex items-center flex-wrap gap-1.5">
                             <span>{lg.beneficiary_name}</span>
                             <span className="text-white/40">·</span>
                             <span className="text-emerald-300 font-bold">{lg.currency_code} {parseFloat(lg.current_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
 
                         {/* Info Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mt-5 sm:mt-6 pt-5 sm:pt-6 border-t border-white/15">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-2.5 pt-2.5 border-t border-white/15">
                             <div>
-                                <div className="text-[11px] font-semibold text-blue-200/80 uppercase tracking-wider mb-1">Bank</div>
-                                <div className="text-base font-semibold text-white truncate" title={lg.bank_name}>{lg.bank_name || '—'}</div>
+                                <div className="text-[10px] font-semibold text-blue-200/80 uppercase tracking-wider mb-0.5">Bank</div>
+                                <div className="text-sm font-semibold text-white truncate" title={lg.bank_name}>{lg.bank_name || '—'}</div>
                             </div>
                             <div>
-                                <div className="text-[11px] font-semibold text-blue-200/80 uppercase tracking-wider mb-1">Method</div>
-                                <div className="text-base font-semibold text-white">{methodLabels[lg.issuance_method] || lg.issuance_method || '—'}</div>
+                                <div className="text-[10px] font-semibold text-blue-200/80 uppercase tracking-wider mb-0.5">Method</div>
+                                <div className="text-sm font-semibold text-white">{methodLabels[lg.issuance_method] || lg.issuance_method || '—'}</div>
                             </div>
                             <div>
-                                <div className="text-[11px] font-semibold text-blue-200/80 uppercase tracking-wider mb-1">Issue Date</div>
-                                <div className="text-base font-semibold text-white">{lg.issue_date || '—'}</div>
+                                <div className="text-[10px] font-semibold text-blue-200/80 uppercase tracking-wider mb-0.5">Issue Date</div>
+                                <div className="text-sm font-semibold text-white">{lg.issue_date || '—'}</div>
                             </div>
                             <div>
-                                <div className="text-[11px] font-semibold text-blue-200/80 uppercase tracking-wider mb-1">Expiry</div>
-                                <div className="text-base font-semibold text-white">{lg.expiry_date || '—'}</div>
+                                <div className="text-[10px] font-semibold text-blue-200/80 uppercase tracking-wider mb-0.5">Expiry</div>
+                                <div className="text-sm font-semibold text-white">{lg.expiry_date || '—'}</div>
                             </div>
                             <div>
-                                <div className="text-[11px] font-semibold text-blue-200/80 uppercase tracking-wider mb-1">Request</div>
+                                <div className="text-[10px] font-semibold text-blue-200/80 uppercase tracking-wider mb-0.5">Request</div>
                                 {req?.id ? (
                                     <button
                                         onClick={() => navigate('/end-user/issuance/requests', { state: { openRequestId: req.id } })}
-                                        className="text-base font-semibold text-sky-300 hover:text-white transition-colors flex items-center gap-1 cursor-pointer truncate"
+                                        className="text-sm font-semibold text-sky-300 hover:text-white transition-colors flex items-center gap-1 cursor-pointer truncate"
                                         title={req.serial_number}
                                     >
                                         <span className="truncate">{req.serial_number}</span>
-                                        <ArrowUpRight className="w-4 h-4 shrink-0" />
+                                        <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
                                     </button>
                                 ) : (
-                                    <div className="text-base font-semibold text-blue-200/60">{req?.serial_number || '—'}</div>
+                                    <div className="text-sm font-semibold text-blue-200/60">{req?.serial_number || '—'}</div>
                                 )}
                             </div>
                         </div>
                     </header>
 
                     {/* Navigation Tabs */}
-                    <div className="border-b border-slate-200 bg-slate-50/80 px-4 sm:px-6 pt-2 flex gap-2 shrink-0 overflow-x-auto">
+                    <div className="border-b border-slate-200 bg-slate-50/80 px-4 sm:px-6 pt-1 flex gap-2 shrink-0 overflow-x-auto">
                         {tabs.map(t => {
                             const IconComp = t.icon;
                             const isActive = activeTab === t.id;
@@ -935,13 +935,13 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                 <button
                                     key={t.id}
                                     onClick={() => setActiveTab(t.id)}
-                                    className={`px-4 sm:px-5 py-3 text-xs uppercase tracking-wider whitespace-nowrap transition-all flex items-center gap-2 rounded-t-xl ${
+                                    className={`px-4 sm:px-5 py-2 text-xs uppercase tracking-wider whitespace-nowrap transition-all flex items-center gap-1.5 rounded-t-xl ${
                                         isActive
                                             ? 'bg-white text-[#0058be] font-extrabold border-t-2 border-x border-[#0058be] -mb-px shadow-sm'
                                             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-bold'
                                     }`}
                                 >
-                                    {IconComp && <IconComp className={`w-4 h-4 ${t.iconColor || (isActive ? 'text-[#0058be]' : 'text-slate-500')}`} />}
+                                    {IconComp && <IconComp className={`w-3.5 h-3.5 ${t.iconColor || (isActive ? 'text-[#0058be]' : 'text-slate-500')}`} />}
                                     <span>{t.label}</span>
                                 </button>
                             );
@@ -949,7 +949,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 overflow-y-auto min-h-0 bg-[#f8f9ff] p-5 sm:p-6">
+                    <div className="flex-1 overflow-y-auto min-h-0 bg-[#f8f9ff] p-4 sm:p-6">
                         {/* TAB: Overview (Details + Bank & Facility + Original Request) */}
                         {activeTab === 'overview' && (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
