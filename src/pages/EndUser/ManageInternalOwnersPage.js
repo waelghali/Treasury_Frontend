@@ -276,11 +276,16 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {filteredAndSortedOwners.map((owner) => (
-                                <tr key={owner.id}>
+                                <tr
+                                    key={owner.id}
+                                    onClick={() => handleEdit(owner)}
+                                    className="hover:bg-indigo-50/40 cursor-pointer transition-colors"
+                                >
                                     {/* UPDATED: Email Column with mailto: link */}
                                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                                         <a 
                                             href={`mailto:${owner.email}`} 
+                                            onClick={(e) => e.stopPropagation()}
                                             className="text-blue-600 hover:text-blue-800 hover:underline"
                                             title={`Send email to ${owner.email}`}
                                         >
@@ -292,6 +297,7 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                                         {owner.phone_number ? (
                                             <a 
                                                 href={`tel:${owner.phone_number}`} 
+                                                onClick={(e) => e.stopPropagation()}
                                                 className="hover:text-blue-600 hover:underline"
                                                 title={`Call ${owner.phone_number}`}
                                             >
@@ -301,7 +307,7 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                                     </td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{owner.internal_id || 'N/A'}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{owner.manager_email || 'N/A'}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                                    <td className="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-500" onClick={(e) => e.stopPropagation()}>
                                         <button
                                             onClick={() => handleViewOwnedLGs(owner.id)}
                                             className={`inline-flex items-center space-x-1 font-semibold
@@ -316,7 +322,7 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                                             <Eye className="h-4 w-4" />
                                         </button>
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                             <button
                                                 onClick={() => handleEdit(owner)}

@@ -144,7 +144,11 @@ function EndUserPendingApprovalsPage({ isGracePeriod }) { // NEW: Accept isGrace
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {approvalRequests.map((request) => (
-                                <tr key={request.id}>
+                                <tr
+                                    key={request.id}
+                                    onClick={() => handleViewDetails(request)}
+                                    className="hover:bg-yellow-50/40 cursor-pointer transition-colors"
+                                >
                                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                         {request.lg_record?.lg_number || 'N/A'}
                                     </td>
@@ -164,7 +168,7 @@ function EndUserPendingApprovalsPage({ isGracePeriod }) { // NEW: Accept isGrace
                                             {request.status}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                         <button
                                             onClick={() => handleViewDetails(request)}
                                             className="text-blue-600 hover:text-blue-900 mr-2 p-1 rounded-md hover:bg-gray-100"

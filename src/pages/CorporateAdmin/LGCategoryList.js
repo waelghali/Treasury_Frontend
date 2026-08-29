@@ -213,105 +213,116 @@ function LGCategoryList({ onLogout, isGracePeriod, userRole }) {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {categories.map((category) => (
-                <tr key={category.id} className={category.is_deleted ? 'bg-gray-50 opacity-60' : ''}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {category.name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {category.code || 'N/A'}
-                  </td>
-                  {!isSystemOwner && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                      {category.customer_id === null ? 'Universal' : 'Customer-specific'}
+              {categories.map((category) => {
+                const isEditable = (category.customer_id !== null || isSystemOwner) && !category.is_deleted && !isGracePeriod;
+                return (
+                  <tr
+                    key={category.id}
+                    onClick={() => {
+                      if (isEditable) handleEdit(category);
+                    }}
+                    className={`transition-colors ${
+                      isEditable ? 'hover:bg-indigo-50/40 cursor-pointer' : ''
+                    } ${category.is_deleted ? 'bg-gray-50 opacity-60' : ''}`}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {category.name}
                     </td>
-                  )}
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {category.extra_field_name || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {category.is_mandatory ? 'Yes' : 'No'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {Array.isArray(category.communication_list) && category.communication_list.length > 0
-                      ? category.communication_list.join(', ')
-                      : 'N/A'}
-                  </td>
-                  {!isSystemOwner && (
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                        {category.has_all_entity_access ? (
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                All Entities
-                            </span>
-                        ) : (
-                            Array.isArray(category.entities_with_access) && category.entities_with_access.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                    {category.entities_with_access.map(entity => (
-                                        <span key={entity.id} className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                            {entity.entity_name}
-                                        </span>
-                                    ))}
-                                </div>
-                            ) : (
-                                'N/A'
-                            )
-                        )}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {category.code || 'N/A'}
                     </td>
-                  )}
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {category.is_deleted ? (
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                        Deleted
-                      </span>
-                    ) : (
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                        Active
-                      </span>
+                    {!isSystemOwner && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
+                        {category.customer_id === null ? 'Universal' : 'Customer-specific'}
+                      </td>
                     )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {category.customer_id === null && !isSystemOwner ? (
-                        <span className="text-gray-400">System Default</span>
-                    ) : (
-                        category.is_deleted ? (
-                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                <button
-                                    onClick={() => handleRestore(category)}
-                                    className={`text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    title="Restore"
-                                    disabled={isGracePeriod}
-                                >
-                                    <RotateCcw className="h-5 w-5" />
-                                </button>
-                            </GracePeriodTooltip>
-                        ) : (
-                        <>
-                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                <button
-                                    onClick={() => handleEdit(category)}
-                                    className={`text-indigo-600 hover:text-indigo-900 mr-3 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    title="Edit"
-                                    disabled={isGracePeriod}
-                                >
-                                    <Edit className="h-5 w-5" />
-                                </button>
-                            </GracePeriodTooltip>
-                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                <button
-                                    onClick={() => handleDelete(category)}
-                                    className={`text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    title="Delete"
-                                    disabled={isGracePeriod}
-                                >
-                                    <Trash className="h-5 w-5" />
-                                </button>
-                            </GracePeriodTooltip>
-                        </>
-                        )
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {category.extra_field_name || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {category.is_mandatory ? 'Yes' : 'No'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {Array.isArray(category.communication_list) && category.communication_list.length > 0
+                        ? category.communication_list.join(', ')
+                        : 'N/A'}
+                    </td>
+                    {!isSystemOwner && (
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                          {category.has_all_entity_access ? (
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                  All Entities
+                              </span>
+                          ) : (
+                              Array.isArray(category.entities_with_access) && category.entities_with_access.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                      {category.entities_with_access.map(entity => (
+                                          <span key={entity.id} className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                              {entity.entity_name}
+                                          </span>
+                                      ))}
+                                  </div>
+                              ) : (
+                                  'N/A'
+                              )
+                          )}
+                      </td>
                     )}
-                  </td>
-                </tr>
-              ))}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {category.is_deleted ? (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                          Deleted
+                        </span>
+                      ) : (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                          Active
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                      {category.customer_id === null && !isSystemOwner ? (
+                          <span className="text-gray-400">System Default</span>
+                      ) : (
+                          category.is_deleted ? (
+                              <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                  <button
+                                      onClick={() => handleRestore(category)}
+                                      className={`text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                      title="Restore"
+                                      disabled={isGracePeriod}
+                                  >
+                                      <RotateCcw className="h-5 w-5" />
+                                  </button>
+                              </GracePeriodTooltip>
+                          ) : (
+                          <>
+                              <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                  <button
+                                      onClick={() => handleEdit(category)}
+                                      className={`text-indigo-600 hover:text-indigo-900 mr-3 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                      title="Edit"
+                                      disabled={isGracePeriod}
+                                  >
+                                      <Edit className="h-5 w-5" />
+                                  </button>
+                              </GracePeriodTooltip>
+                              <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                  <button
+                                      onClick={() => handleDelete(category)}
+                                      className={`text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                      title="Delete"
+                                      disabled={isGracePeriod}
+                                  >
+                                      <Trash className="h-5 w-5" />
+                                  </button>
+                              </GracePeriodTooltip>
+                          </>
+                          )
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

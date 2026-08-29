@@ -319,7 +319,14 @@ const UserFeedbackDashboard = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
                 {filteredFeedbacks.map((fb) => (
-                  <tr key={fb.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors">
+                  <tr
+                    key={fb.id}
+                    onClick={() => {
+                      setSelectedFeedback(fb);
+                      setAdminNote(fb.admin_notes || '');
+                    }}
+                    className="hover:bg-indigo-50/40 dark:hover:bg-slate-700/40 cursor-pointer transition-colors"
+                  >
                     <td className="py-2 px-3 font-mono font-bold text-indigo-600">
                       #FB-{fb.id}
                     </td>
@@ -344,7 +351,7 @@ const UserFeedbackDashboard = () => {
                     <td className="py-2 px-3">
                       {getStatusBadge(fb.status)}
                     </td>
-                    <td className="py-2 px-3 text-right space-x-1 whitespace-nowrap">
+                    <td className="py-2 px-3 text-right space-x-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => {
                           setSelectedFeedback(fb);

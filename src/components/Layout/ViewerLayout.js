@@ -106,7 +106,7 @@ function ViewerLayout({ onLogout, activeMenuItem, customerName, headerTitle, sys
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 overflow-y-auto relative z-10">
+      <main className="flex-1 pb-24 overflow-y-auto relative z-10">
         {isGracePeriod && (
           <div className="sticky top-0 z-20">
             <SubscriptionBanner subscriptionEndDate={subscriptionEndDate} />

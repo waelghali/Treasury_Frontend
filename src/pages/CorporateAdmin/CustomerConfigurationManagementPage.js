@@ -1,9 +1,67 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, Shield, Layers, Cpu, HardDrive, Settings, Clock, Server, Lock, MessageSquare, FileCheck, Building, LayoutTemplate } from 'lucide-react';
+import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, X, Shield, Layers, Cpu, HardDrive, Settings, Clock, Server, Lock, MessageSquare, FileCheck, Building, LayoutTemplate, Sparkles, Sliders, KeyRound, Check } from 'lucide-react';
 import { toast } from 'react-toastify';
 import QuotationBanksModal from '../../components/Modals/QuotationBanksModal';
+
+// Email Provider Preset Auto-Detector
+const detectEmailProvider = (email) => {
+  if (!email || !email.includes('@')) return null;
+  const domain = email.split('@')[1].toLowerCase();
+  
+  if (domain === 'yahoo.com' || domain.endsWith('.yahoo.com')) {
+    return {
+      name: 'Yahoo Mail',
+      smtp_host: 'smtp.mail.yahoo.com',
+      smtp_port: 465,
+      imap_host: 'imap.mail.yahoo.com',
+      imap_port: 993,
+      imap_use_ssl: true
+    };
+  }
+  if (domain === 'gmail.com' || domain === 'googlemail.com') {
+    return {
+      name: 'Google Workspace / Gmail',
+      smtp_host: 'smtp.gmail.com',
+      smtp_port: 587,
+      imap_host: 'imap.gmail.com',
+      imap_port: 993,
+      imap_use_ssl: true
+    };
+  }
+  if (domain === 'outlook.com' || domain === 'hotmail.com' || domain === 'live.com' || domain === 'office365.com') {
+    return {
+      name: 'Microsoft 365 / Outlook',
+      smtp_host: 'smtp.office365.com',
+      smtp_port: 587,
+      imap_host: 'outlook.office365.com',
+      imap_port: 993,
+      imap_use_ssl: true
+    };
+  }
+  if (domain === 'zoho.com') {
+    return {
+      name: 'Zoho Mail',
+      smtp_host: 'smtp.zoho.com',
+      smtp_port: 465,
+      imap_host: 'imap.zoho.com',
+      imap_port: 993,
+      imap_use_ssl: true
+    };
+  }
+  if (domain === 'icloud.com' || domain === 'me.com' || domain === 'mac.com') {
+    return {
+      name: 'Apple iCloud',
+      smtp_host: 'smtp.mail.me.com',
+      smtp_port: 587,
+      imap_host: 'imap.mail.me.com',
+      imap_port: 993,
+      imap_use_ssl: true
+    };
+  }
+  return null;
+};
 
 // --- 5-GROUP MASTER SETTINGS ARCHITECTURE ---
 const settingGroups = {
@@ -189,6 +247,8 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
   const [isNewSettings, setIsNewSettings] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showImapPassword, setShowImapPassword] = useState(false);
+  const [showAdvancedEmailSettings, setShowAdvancedEmailSettings] = useState(false);
+  const [useSeparateImapCredentials, setUseSeparateImapCredentials] = useState(false);
 
   // --- Email List Modal State ---
   const [showEmailListModal, setShowEmailListModal] = useState(false);
@@ -252,6 +312,10 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
           imap_is_active: response.imap_is_active ?? false
         });
         setIsNewSettings(false);
+        setShowAdvancedEmailSettings(false); // Collapsed if it has existing details/data
+        if (response.imap_username && response.imap_username !== response.smtp_username) {
+          setUseSeparateImapCredentials(true);
+        }
       } else {
         setEmailSettings(null);
         setIsNewSettings(true);
@@ -264,6 +328,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
           sender_display_name: '',
           is_active: true
         });
+        setShowAdvancedEmailSettings(true); // Expanded by default when there are no settings at all
       }
     } catch (err) {
       console.error('Failed to fetch email settings:', err);
@@ -290,6 +355,29 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     fetchEmailSettings();
     fetchSubscription();
   }, []);
+
+  // Handle ESC key to dismiss active modals
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (showEmailSettingsModal && !isEmailSettingsSaving) {
+          setShowEmailSettingsModal(false);
+        }
+        if (showEmailListModal && !isSaving) {
+          setShowEmailListModal(false);
+          setEditEmailList([]);
+          setNewEmail('');
+          setEmailListError('');
+          setCurrentConfigToEdit(null);
+        }
+        if (showQuotationBanksModal) {
+          setShowQuotationBanksModal(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showEmailSettingsModal, showEmailListModal, showQuotationBanksModal, isEmailSettingsSaving, isSaving]);
 
 
   const handleEditClick = (config) => {
@@ -409,10 +497,37 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
 
   const handleEmailSettingsChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setEmailSettingsForm(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    const newVal = type === 'checkbox' ? checked : value;
+
+    setEmailSettingsForm(prev => {
+      const next = {
+        ...prev,
+        [name]: newVal,
+      };
+
+      if (name === 'sender_email') {
+        const rawEmail = newVal || '';
+        const trimmedEmail = rawEmail.trim();
+
+        // If not using separate IMAP credentials, sync usernames automatically
+        if (!useSeparateImapCredentials) {
+          next.smtp_username = trimmedEmail;
+          next.imap_username = trimmedEmail;
+        }
+
+        // Auto-detect provider preset if available
+        const preset = detectEmailProvider(trimmedEmail);
+        if (preset) {
+          next.smtp_host = preset.smtp_host;
+          next.smtp_port = preset.smtp_port;
+          next.imap_host = preset.imap_host;
+          next.imap_port = preset.imap_port;
+          next.imap_use_ssl = preset.imap_use_ssl;
+        }
+      }
+
+      return next;
+    });
   };
 
   const handleSaveEmailSettings = async () => {
@@ -427,12 +542,34 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
       const url = emailSettings?.id ? `/corporate-admin/email-settings/${emailSettings.id}` : '/corporate-admin/email-settings/';
       const method = emailSettings?.id ? 'PUT' : 'POST';
 
+      const email = emailSettingsForm.sender_email?.trim() || '';
+      const smtpUsername = emailSettingsForm.smtp_username?.trim() || email;
+      const imapUsername = useSeparateImapCredentials
+        ? (emailSettingsForm.imap_username?.trim() || email)
+        : smtpUsername;
+
+      const smtpPassword = emailSettingsForm.smtp_password ? emailSettingsForm.smtp_password : null;
+      const imapPassword = useSeparateImapCredentials
+        ? (emailSettingsForm.imap_password ? emailSettingsForm.imap_password : null)
+        : smtpPassword;
+
+      // Auto-fallback hosts if user left them blank
+      const preset = detectEmailProvider(email);
+      const smtpHost = emailSettingsForm.smtp_host?.trim() || preset?.smtp_host || 'smtp.office365.com';
+      const imapHost = emailSettingsForm.imap_host?.trim() || preset?.imap_host || 'outlook.office365.com';
+
       const payload = {
         ...emailSettingsForm,
-        smtp_password: emailSettingsForm.smtp_password ? emailSettingsForm.smtp_password : null,
-        imap_password: emailSettingsForm.imap_password ? emailSettingsForm.imap_password : null,
-        smtp_port: parseInt(emailSettingsForm.smtp_port, 10) || 587,
-        imap_port: parseInt(emailSettingsForm.imap_port, 10) || 993,
+        sender_email: email,
+        smtp_host: smtpHost,
+        smtp_username: smtpUsername,
+        smtp_password: smtpPassword,
+        imap_host: imapHost,
+        imap_username: imapUsername,
+        imap_password: imapPassword,
+        imap_inbox_folder: emailSettingsForm.imap_inbox_folder?.trim() || 'INBOX',
+        smtp_port: parseInt(emailSettingsForm.smtp_port, 10) || preset?.smtp_port || 587,
+        imap_port: parseInt(emailSettingsForm.imap_port, 10) || preset?.imap_port || 993,
       };
 
       const response = await apiRequest(url, method, payload);
@@ -788,7 +925,11 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
           <div className="flex space-x-3">
             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
               <button
-                onClick={() => setShowEmailSettingsModal(true)}
+                onClick={() => {
+                  const hasExistingData = Boolean(emailSettings?.id || emailSettingsForm.sender_email?.trim());
+                  setShowAdvancedEmailSettings(!hasExistingData);
+                  setShowEmailSettingsModal(true);
+                }}
                 className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isGracePeriod}
               >
@@ -1252,60 +1393,32 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
       }
       {
         showEmailListModal && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
-            <div className="relative bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-              <h3 className="text-xl font-semibold mb-4 text-gray-800">
-                Edit {currentConfigToEdit?.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
-              </h3>
-
-              <p className="text-sm text-gray-600 mb-4">{currentConfigToEdit?.global_description}</p>
-
-              {emailListError && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
-                  <AlertCircle className="h-5 w-5 mr-2" />
-                  <span className="block sm:inline">{emailListError}</span>
+          <div 
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 md:p-6 z-50 animate-fadeIn"
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !isSaving) {
+                setShowEmailListModal(false);
+                setEditEmailList([]);
+                setNewEmail('');
+                setEmailListError('');
+                setCurrentConfigToEdit(null);
+              }
+            }}
+          >
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                    <Mail className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 tracking-tight">
+                      Edit {currentConfigToEdit?.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                    </h3>
+                    <p className="text-xs text-slate-500 line-clamp-1">{currentConfigToEdit?.global_description}</p>
+                  </div>
                 </div>
-              )}
-
-              <div className={`border border-gray-300 rounded-md p-3 flex flex-wrap gap-2 mb-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
-                {editEmailList.map((email, index) => (
-                  <span key={index} className="inline-flex items-center text-sm font-medium bg-blue-100 text-blue-800 rounded-full py-1 pl-3 pr-2">
-                    {email}
-                    <button type="button" onClick={() => handleRemoveEmail(email)} className="ml-2 text-blue-500 hover:text-blue-700" disabled={isGracePeriod}>
-                      <XCircle className="h-4 w-4" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-
-              <div className={`flex space-x-2 ${isGracePeriod ? 'opacity-50' : ''}`}>
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddEmail();
-                    }
-                  }}
-                  className={`${inputClassNames} flex-1`}
-                  placeholder="Enter new email address"
-                  disabled={isGracePeriod}
-                />
-                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                  <button
-                    type="button"
-                    onClick={handleAddEmail}
-                    className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isGracePeriod}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </GracePeriodTooltip>
-              </div>
-
-              <div className="mt-6 flex justify-end space-x-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -1315,20 +1428,104 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                     setEmailListError('');
                     setCurrentConfigToEdit(null);
                   }}
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isSaving}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-full transition-colors focus:outline-none"
+                  title="Close (Esc)"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {emailListError && (
+                  <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-xs flex items-center gap-2" role="alert">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    <span>{emailListError}</span>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Configured Email Recipients</label>
+                  <div className={`min-h-[60px] max-h-48 overflow-y-auto border border-slate-200 bg-slate-50/50 rounded-xl p-3 flex flex-wrap gap-2 ${isGracePeriod ? 'opacity-50' : ''}`}>
+                    {editEmailList.length === 0 ? (
+                      <span className="text-xs text-slate-400 italic py-2">No email recipients added yet.</span>
+                    ) : (
+                      editEmailList.map((email, index) => (
+                        <span key={index} className="inline-flex items-center text-xs font-semibold bg-blue-100/80 text-blue-900 rounded-lg py-1 pl-2.5 pr-1.5 border border-blue-200/60">
+                          {email}
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemoveEmail(email)} 
+                            className="ml-1.5 p-0.5 text-blue-500 hover:text-rose-600 hover:bg-blue-200/50 rounded transition-colors" 
+                            disabled={isGracePeriod}
+                            title="Remove recipient"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </span>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className={`space-y-1.5 ${isGracePeriod ? 'opacity-50' : ''}`}>
+                  <label className="text-xs font-bold text-slate-700">Add New Recipient</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddEmail();
+                        }
+                      }}
+                      className={`${inputClassNames} flex-1`}
+                      placeholder="e.g. treasury.team@company.com"
+                      disabled={isGracePeriod}
+                    />
+                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                      <button
+                        type="button"
+                        onClick={handleAddEmail}
+                        className="inline-flex items-center px-4 py-2 text-xs font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={isGracePeriod}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        <span>Add</span>
+                      </button>
+                    </GracePeriodTooltip>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/90 flex justify-between items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEmailListModal(false);
+                    setEditEmailList([]);
+                    setNewEmail('');
+                    setEmailListError('');
+                    setCurrentConfigToEdit(null);
+                  }}
+                  className="px-4 py-2 text-xs font-bold rounded-xl text-slate-700 bg-slate-200 hover:bg-slate-300 transition-colors disabled:opacity-50"
                   disabled={isSaving}
                 >
-                  Cancel
+                  Cancel (Esc)
                 </button>
                 <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                   <button
                     type="button"
                     onClick={handleSaveEmailList}
-                    className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-5 py-2 text-xs font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-200 flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={isSaving || isGracePeriod}
                   >
-                    {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4 mr-1" />}
-                    Save List
+                    {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
+                    <span>Save List</span>
                   </button>
                 </GracePeriodTooltip>
               </div>
@@ -1339,301 +1536,387 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
 
       {
         showEmailSettingsModal && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
-            <div className="relative bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-              <h3 className="text-xl font-semibold mb-4 text-gray-800">Manage Email Settings</h3>
-              <div className="text-sm text-gray-600 mb-4 flex items-center p-3 border border-blue-200 rounded-md bg-blue-50">
-                <Globe className="h-5 w-5 mr-2 text-blue-500" />
-                <span>
-                  These settings override the global defaults. If inactive or not configured, the system will use global settings.
-                </span>
+          <div 
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 md:p-6 z-50 animate-fadeIn"
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !isEmailSettingsSaving) {
+                setShowEmailSettingsModal(false);
+              }
+            }}
+          >
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+              
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <Mail className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 tracking-tight">Company Mailbox & Smart Inbox</h3>
+                    <p className="text-xs text-slate-500">Connect your corporate email for notifications and smart inbound processing</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowEmailSettingsModal(false)}
+                  disabled={isEmailSettingsSaving}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-full transition-colors focus:outline-none"
+                  title="Close (Esc)"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
 
-              {isEmailSettingsLoading ? (
-                <div className="text-center py-8">
-                  <Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto" />
-                  <p className="text-gray-600 mt-2">Loading settings...</p>
-                </div>
-              ) : (
-                <form className={isGracePeriod ? 'opacity-50 pointer-events-none' : ''}>
-                  {emailSettingsError && (
-                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
-                      <AlertCircle className="h-5 w-5 mr-2" />
-                      <span className="block sm:inline">{emailSettingsError}</span>
-                    </div>
-                  )}
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="sender_email" className={labelClassNames}>Sender Email</label>
-                      <input
-                        type="email"
-                        id="sender_email"
-                        name="sender_email"
-                        value={emailSettingsForm.sender_email}
-                        onChange={handleEmailSettingsChange}
-                        className={inputClassNames}
-                        required
-                        disabled={isGracePeriod}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="sender_display_name" className={labelClassNames}>Sender Display Name (Optional)</label>
-                      <input
-                        type="text"
-                        id="sender_display_name"
-                        name="sender_display_name"
-                        value={emailSettingsForm.sender_display_name}
-                        onChange={handleEmailSettingsChange}
-                        className={inputClassNames}
-                        disabled={isGracePeriod}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="smtp_host" className={labelClassNames}>SMTP Host</label>
-                      <input
-                        type="text"
-                        id="smtp_host"
-                        name="smtp_host"
-                        value={emailSettingsForm.smtp_host}
-                        onChange={handleEmailSettingsChange}
-                        className={inputClassNames}
-                        required
-                        disabled={isGracePeriod}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="smtp_port" className={labelClassNames}>SMTP Port</label>
-                      <input
-                        type="number"
-                        id="smtp_port"
-                        name="smtp_port"
-                        value={emailSettingsForm.smtp_port}
-                        onChange={handleEmailSettingsChange}
-                        className={inputClassNames}
-                        required
-                        disabled={isGracePeriod}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="smtp_username" className={labelClassNames}>SMTP Username</label>
-                      <input
-                        type="text"
-                        id="smtp_username"
-                        name="smtp_username"
-                        value={emailSettingsForm.smtp_username}
-                        onChange={handleEmailSettingsChange}
-                        className={inputClassNames}
-                        required
-                        disabled={isGracePeriod}
-                      />
-                    </div>
-                    <div>
-                      <div className="flex justify-between items-center">
-                        <label htmlFor="smtp_password" className={labelClassNames}>SMTP Password {isNewSettings ? '' : '(Leave blank to keep existing)'}</label>
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="text-xs text-blue-500 hover:text-blue-700"
-                          disabled={isGracePeriod}
-                        >
-                          {showPassword ? 'Hide' : 'Show'}
-                        </button>
+              {/* Modal Scrollable Body */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                {isEmailSettingsLoading ? (
+                  <div className="text-center py-12">
+                    <Loader2 className="animate-spin h-8 w-8 text-indigo-600 mx-auto" />
+                    <p className="text-xs font-semibold text-slate-500 mt-2">Loading email configurations...</p>
+                  </div>
+                ) : (
+                  <form className={`space-y-5 ${isGracePeriod ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {emailSettingsError && (
+                      <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-xs flex items-center gap-2" role="alert">
+                        <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                        <span>{emailSettingsError}</span>
                       </div>
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        id="smtp_password"
-                        name="smtp_password"
-                        value={emailSettingsForm.smtp_password}
-                        onChange={handleEmailSettingsChange}
-                        className={inputClassNames}
-                        {...(isNewSettings ? { required: true } : {})}
-                        disabled={isGracePeriod}
-                      />
-                    </div>
+                    )}
 
-                    <div className="flex items-center pt-1">
-                      <input
-                        id="is_active"
-                        name="is_active"
-                        type="checkbox"
-                        checked={emailSettingsForm.is_active}
-                        onChange={handleEmailSettingsChange}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        disabled={isGracePeriod}
-                      />
-                      <label htmlFor="is_active" className="ml-2 block text-sm font-medium text-gray-900">
-                        Activate Custom SMTP Outbound Sending
-                      </label>
-                    </div>
+                    {/* MAIN SECTION: 3 CORE INPUTS */}
+                    <div className="space-y-4">
+                      {/* Row 1: Email Address & Sender Name */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label htmlFor="sender_email" className={labelClassNames}>Company Email Address</label>
+                            {(() => {
+                              const preset = detectEmailProvider(emailSettingsForm.sender_email);
+                              return preset ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-full">
+                                  <Sparkles className="h-2.5 w-2.5" />
+                                  {preset.name}
+                                </span>
+                              ) : null;
+                            })()}
+                          </div>
+                          <input
+                            type="email"
+                            id="sender_email"
+                            name="sender_email"
+                            value={emailSettingsForm.sender_email}
+                            onChange={handleEmailSettingsChange}
+                            placeholder="e.g. treasury@company.com"
+                            className={inputClassNames}
+                            required
+                            disabled={isGracePeriod}
+                          />
+                          <p className="text-[11px] text-slate-400 mt-1">Used as your default sender & inbox login</p>
+                        </div>
 
-                    {/* --- INBOUND (IMAP) SETTINGS --- */}
-                    <div className="pt-4 border-t border-gray-200 mt-4 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-                          Inbound Email Listener (IMAP / Smart Inbox)
-                        </h4>
-                        <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-medium">
-                          Smart Inbox
-                        </span>
+                        <div>
+                          <label htmlFor="sender_display_name" className={`${labelClassNames} mb-1`}>Sender Display Name (Optional)</label>
+                          <input
+                            type="text"
+                            id="sender_display_name"
+                            name="sender_display_name"
+                            value={emailSettingsForm.sender_display_name}
+                            onChange={handleEmailSettingsChange}
+                            placeholder="e.g. Grow Business Treasury"
+                            className={inputClassNames}
+                            disabled={isGracePeriod}
+                          />
+                          <p className="text-[11px] text-slate-400 mt-1">Name visible to recipients in email headers</p>
+                        </div>
                       </div>
 
-                      <div className="flex items-center">
+                      {/* Row 2: Mailbox Password / App Password */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label htmlFor="smtp_password" className={labelClassNames}>
+                            Mailbox / App Password {isNewSettings ? '' : '(Leave blank to keep existing)'}
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800"
+                            disabled={isGracePeriod}
+                          >
+                            {showPassword ? 'Hide' : 'Show'}
+                          </button>
+                        </div>
                         <input
-                          id="imap_is_active"
-                          name="imap_is_active"
-                          type="checkbox"
-                          checked={emailSettingsForm.imap_is_active}
+                          type={showPassword ? "text" : "password"}
+                          id="smtp_password"
+                          name="smtp_password"
+                          value={emailSettingsForm.smtp_password}
                           onChange={handleEmailSettingsChange}
-                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          placeholder={isNewSettings ? "Enter password or App Password" : "••••••••••••••••"}
+                          className={inputClassNames}
+                          {...(isNewSettings ? { required: true } : {})}
                           disabled={isGracePeriod}
                         />
-                        <label htmlFor="imap_is_active" className="ml-2 block text-sm font-bold text-gray-900">
-                          Enable Inbound Email Polling
-                        </label>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          For Gmail/Yahoo/Outlook 2FA accounts, generate an <strong>App Password</strong> in your provider's security settings.
+                        </p>
                       </div>
 
-                      {emailSettingsForm.imap_is_active && (
-                        <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      {/* Row 3: Active Service Switches */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        {/* Outbound SMTP Toggle Card */}
+                        <div 
+                          onClick={() => {
+                            if (!isGracePeriod) {
+                              setEmailSettingsForm(prev => ({ ...prev, is_active: !prev.is_active }));
+                            }
+                          }}
+                          className={`p-3.5 rounded-xl border transition-all cursor-pointer select-none flex items-start justify-between gap-3 ${
+                            emailSettingsForm.is_active 
+                              ? 'bg-indigo-50/40 border-indigo-200' 
+                              : 'bg-slate-50 border-slate-200 opacity-60'
+                          }`}
+                        >
                           <div>
-                            <label htmlFor="imap_host" className={labelClassNames}>IMAP Server Host</label>
-                            <input
-                              type="text"
-                              id="imap_host"
-                              name="imap_host"
-                              placeholder="e.g. imap.mail.yahoo.com or imap.gmail.com"
-                              value={emailSettingsForm.imap_host}
-                              onChange={handleEmailSettingsChange}
-                              className={inputClassNames}
-                              disabled={isGracePeriod}
-                            />
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-black text-slate-900">Outbound Emails</span>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${emailSettingsForm.is_active ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600'}`}>
+                                SMTP
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5">Send alerts & reminders from this email</p>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={emailSettingsForm.is_active}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              setEmailSettingsForm(prev => ({ ...prev, is_active: e.target.checked }));
+                            }}
+                            className="h-4 w-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 mt-0.5"
+                            disabled={isGracePeriod}
+                          />
+                        </div>
+
+                        {/* Inbound IMAP Toggle Card */}
+                        <div 
+                          onClick={() => {
+                            if (!isGracePeriod) {
+                              setEmailSettingsForm(prev => ({ ...prev, imap_is_active: !prev.imap_is_active }));
+                            }
+                          }}
+                          className={`p-3.5 rounded-xl border transition-all cursor-pointer select-none flex items-start justify-between gap-3 ${
+                            emailSettingsForm.imap_is_active 
+                              ? 'bg-indigo-50/40 border-indigo-200' 
+                              : 'bg-slate-50 border-slate-200 opacity-60'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-black text-slate-900">Smart Inbox Polling</span>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${emailSettingsForm.imap_is_active ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600'}`}>
+                                IMAP
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5">Auto-parse incoming guarantee emails</p>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={emailSettingsForm.imap_is_active}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              setEmailSettingsForm(prev => ({ ...prev, imap_is_active: e.target.checked }));
+                            }}
+                            className="h-4 w-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 mt-0.5"
+                            disabled={isGracePeriod}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* SECTION 4: ADVANCED SERVER SETTINGS ACCORDION (COLLAPSED BY DEFAULT) */}
+                    <div className="pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setShowAdvancedEmailSettings(!showAdvancedEmailSettings)}
+                        className="w-full flex items-center justify-between py-2 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors focus:outline-none"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Sliders className="h-3.5 w-3.5 text-slate-500" />
+                          Advanced Server Settings (Hosts, Custom Ports & Separate Logins)
+                        </span>
+                        {showAdvancedEmailSettings ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+                      </button>
+
+                      {showAdvancedEmailSettings && (
+                        <div className="mt-3 p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4 animate-fadeIn">
+                          {/* SMTP Server Details */}
+                          <div className="space-y-2">
+                            <h5 className="text-[11px] font-black uppercase tracking-wider text-slate-600">Outbound SMTP Server</h5>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              <div className="sm:col-span-2">
+                                <label htmlFor="smtp_host" className="block text-[11px] font-semibold text-slate-600 mb-0.5">SMTP Host</label>
+                                <input
+                                  type="text"
+                                  id="smtp_host"
+                                  name="smtp_host"
+                                  value={emailSettingsForm.smtp_host}
+                                  onChange={handleEmailSettingsChange}
+                                  placeholder="e.g. smtp.mail.yahoo.com"
+                                  className={inputClassNames}
+                                  disabled={isGracePeriod}
+                                />
+                              </div>
+                              <div>
+                                <label htmlFor="smtp_port" className="block text-[11px] font-semibold text-slate-600 mb-0.5">SMTP Port</label>
+                                <input
+                                  type="number"
+                                  id="smtp_port"
+                                  name="smtp_port"
+                                  value={emailSettingsForm.smtp_port}
+                                  onChange={handleEmailSettingsChange}
+                                  placeholder="587 or 465"
+                                  className={inputClassNames}
+                                  disabled={isGracePeriod}
+                                />
+                              </div>
+                            </div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label htmlFor="imap_port" className={labelClassNames}>IMAP Port</label>
-                              <input
-                                type="number"
-                                id="imap_port"
-                                name="imap_port"
-                                placeholder="993"
-                                value={emailSettingsForm.imap_port}
-                                onChange={handleEmailSettingsChange}
-                                className={inputClassNames}
-                                disabled={isGracePeriod}
-                              />
+                          {/* IMAP Server Details */}
+                          <div className="space-y-2 pt-2 border-t border-slate-200/60">
+                            <h5 className="text-[11px] font-black uppercase tracking-wider text-slate-600">Inbound IMAP Server</h5>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              <div className="sm:col-span-2">
+                                <label htmlFor="imap_host" className="block text-[11px] font-semibold text-slate-600 mb-0.5">IMAP Host</label>
+                                <input
+                                  type="text"
+                                  id="imap_host"
+                                  name="imap_host"
+                                  value={emailSettingsForm.imap_host}
+                                  onChange={handleEmailSettingsChange}
+                                  placeholder="e.g. imap.mail.yahoo.com"
+                                  className={inputClassNames}
+                                  disabled={isGracePeriod}
+                                />
+                              </div>
+                              <div>
+                                <label htmlFor="imap_port" className="block text-[11px] font-semibold text-slate-600 mb-0.5">IMAP Port</label>
+                                <input
+                                  type="number"
+                                  id="imap_port"
+                                  name="imap_port"
+                                  value={emailSettingsForm.imap_port}
+                                  onChange={handleEmailSettingsChange}
+                                  placeholder="993"
+                                  className={inputClassNames}
+                                  disabled={isGracePeriod}
+                                />
+                              </div>
                             </div>
-                            <div className="flex items-center pt-6">
+                          </div>
+
+                          {/* Separate Credentials Toggle */}
+                          <div className="pt-2 border-t border-slate-200/60">
+                            <label className="flex items-center gap-2 cursor-pointer select-none mb-2">
                               <input
-                                id="imap_use_ssl"
-                                name="imap_use_ssl"
                                 type="checkbox"
-                                checked={emailSettingsForm.imap_use_ssl}
-                                onChange={handleEmailSettingsChange}
-                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                checked={useSeparateImapCredentials}
+                                onChange={(e) => setUseSeparateImapCredentials(e.target.checked)}
+                                className="h-3.5 w-3.5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
                                 disabled={isGracePeriod}
                               />
-                              <label htmlFor="imap_use_ssl" className="ml-2 block text-sm text-gray-900">
-                                Use SSL / TLS
-                              </label>
-                            </div>
-                          </div>
+                              <span className="text-[11px] font-bold text-slate-700">Use separate username/password for Inbound IMAP</span>
+                            </label>
 
-                          <div>
-                            <label htmlFor="imap_username" className={labelClassNames}>IMAP Username / Email</label>
-                            <input
-                              type="text"
-                              id="imap_username"
-                              name="imap_username"
-                              placeholder="e.g. treasury@company.com"
-                              value={emailSettingsForm.imap_username}
-                              onChange={handleEmailSettingsChange}
-                              className={inputClassNames}
-                              disabled={isGracePeriod}
-                            />
-                          </div>
-
-                          <div>
-                            <div className="flex justify-between items-center">
-                              <label htmlFor="imap_password" className={labelClassNames}>
-                                IMAP App Password {isNewSettings ? '' : '(Leave blank to keep existing)'}
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() => setShowImapPassword(!showImapPassword)}
-                                className="text-xs text-blue-500 hover:text-blue-700"
-                                disabled={isGracePeriod}
-                              >
-                                {showImapPassword ? 'Hide' : 'Show'}
-                              </button>
-                            </div>
-                            <input
-                              type={showImapPassword ? "text" : "password"}
-                              id="imap_password"
-                              name="imap_password"
-                              placeholder="16-character App Password"
-                              value={emailSettingsForm.imap_password}
-                              onChange={handleEmailSettingsChange}
-                              className={inputClassNames}
-                              disabled={isGracePeriod}
-                            />
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label htmlFor="imap_inbox_folder" className={labelClassNames}>Inbox Folder</label>
-                              <input
-                                type="text"
-                                id="imap_inbox_folder"
-                                name="imap_inbox_folder"
-                                value={emailSettingsForm.imap_inbox_folder}
-                                onChange={handleEmailSettingsChange}
-                                className={inputClassNames}
-                                disabled={isGracePeriod}
-                              />
-                            </div>
+                            {useSeparateImapCredentials && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-white rounded-lg border border-slate-200 mt-2">
+                                <div>
+                                  <label htmlFor="imap_username" className="block text-[11px] font-semibold text-slate-600 mb-0.5">IMAP Username</label>
+                                  <input
+                                    type="text"
+                                    id="imap_username"
+                                    name="imap_username"
+                                    value={emailSettingsForm.imap_username}
+                                    onChange={handleEmailSettingsChange}
+                                    placeholder="e.g. inbox@company.com"
+                                    className={inputClassNames}
+                                    disabled={isGracePeriod}
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor="imap_password" className="block text-[11px] font-semibold text-slate-600 mb-0.5">IMAP Password</label>
+                                  <input
+                                    type="password"
+                                    id="imap_password"
+                                    name="imap_password"
+                                    value={emailSettingsForm.imap_password}
+                                    onChange={handleEmailSettingsChange}
+                                    placeholder="Separate IMAP password"
+                                    className={inputClassNames}
+                                    disabled={isGracePeriod}
+                                  />
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
                     </div>
-                  </div>
-                </form>
-              )}
+                  </form>
+                )}
+              </div>
 
-              <div className="mt-6 flex justify-between items-center">
+              {/* Modal Pinned Footer */}
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/90 flex justify-between items-center">
                 <button
                   type="button"
                   onClick={() => setShowEmailSettingsModal(false)}
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-xs font-bold rounded-xl text-slate-700 bg-slate-200 hover:bg-slate-300 transition-colors disabled:opacity-50"
                   disabled={isEmailSettingsSaving}
                 >
-                  Cancel
+                  Cancel (Esc)
                 </button>
-                <div className="flex space-x-2">
+
+                <div className="flex items-center gap-2">
                   {emailSettings && (
                     <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                       <button
                         type="button"
                         onClick={handleDeleteEmailSettings}
-                        className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3.5 py-2 text-xs font-bold rounded-xl text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                         disabled={isEmailSettingsSaving || isGracePeriod}
+                        title="Delete Custom Email Settings"
                       >
                         <Trash2 className="h-4 w-4" />
+                        <span>Delete</span>
                       </button>
                     </GracePeriodTooltip>
                   )}
+
                   <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                     <button
                       type="button"
                       onClick={handleSaveEmailSettings}
-                      className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-5 py-2 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-200 flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={isEmailSettingsSaving || isGracePeriod}
                     >
-                      {isEmailSettingsSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4 mr-1" />}
-                      Save Settings
+                      {isEmailSettingsSaving ? (
+                        <>
+                          <Loader2 className="animate-spin h-4 w-4" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4" />
+                          <span>Save Email Settings</span>
+                        </>
+                      )}
                     </button>
                   </GracePeriodTooltip>
                 </div>
               </div>
+
             </div>
           </div>
         )

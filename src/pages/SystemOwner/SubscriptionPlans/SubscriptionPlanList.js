@@ -226,7 +226,8 @@ function SubscriptionPlanList({ onLogout }) {
                 {filteredPlans.map((plan) => (
                   <tr
                     key={plan.id}
-                    className={`hover:bg-slate-50 transition-colors ${
+                    onClick={() => handleEdit(plan.id)}
+                    className={`hover:bg-purple-50/40 cursor-pointer transition-colors ${
                       plan.is_deleted ? 'bg-rose-50/30 opacity-70' : ''
                     }`}
                   >
@@ -262,7 +263,7 @@ function SubscriptionPlanList({ onLogout }) {
                         </span>
                       )}
                     </td>
-                    <td className="py-2 px-3 text-right space-x-1 whitespace-nowrap">
+                    <td className="py-2 px-3 text-right space-x-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleEdit(plan.id)}
                         className="p-1 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded"

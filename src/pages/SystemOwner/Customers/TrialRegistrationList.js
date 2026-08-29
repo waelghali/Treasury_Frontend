@@ -143,7 +143,11 @@ function TrialRegistrationList() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {registrations.map((reg) => (
-                  <tr key={reg.id}>
+                  <tr
+                    key={reg.id}
+                    onClick={() => handleViewDetails(reg)}
+                    className="hover:bg-blue-50/50 cursor-pointer transition-colors"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{reg.organization_name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{reg.admin_email}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -164,7 +168,7 @@ function TrialRegistrationList() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(reg.accepted_terms_at).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                       {/* --- NEW DOCUMENT BUTTON --- */}
                       <button 
                         onClick={() => handleViewDocument(reg.commercial_register_document_path)} 

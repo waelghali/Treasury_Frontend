@@ -646,7 +646,7 @@ function CorporateAdminLayout({
       )}
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 overflow-y-auto relative z-10 flex flex-col min-w-0">
+      <main className="flex-1 pb-24 overflow-y-auto relative z-10 flex flex-col min-w-0">
         {(isGrace || isExpired) && (
           <div className="sticky top-0 z-20">
             <SubscriptionBanner

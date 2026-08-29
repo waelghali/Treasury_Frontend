@@ -115,24 +115,74 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
     loadNotifications();
   }, [userRole]);
 
+  const [isAiMinimized, setIsAiMinimized] = useState(() => {
+    try {
+      return localStorage.getItem('ai_assistant_minimized') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleAiMinimized = (e) => {
+    e.stopPropagation();
+    setIsAiMinimized((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('ai_assistant_minimized', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   // Helper to wrap layout with AI Assistant trigger & modal
   const renderWithAiAssistant = (layoutComponent) => (
     <>
       {layoutComponent}
 
-      {/* Floating AI Assistant Trigger Button */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <button
-          onClick={() => setIsAiModalOpen(true)}
-          className="flex items-center space-x-2 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-full shadow-2xl transition-all duration-300 transform hover:scale-105 group border border-white/20"
-          title="AI Assistant — Experimental"
-        >
-          <Sparkles className="w-5 h-5 text-amber-300 animate-pulse group-hover:rotate-12 transition-transform" />
-          <span className="font-bold text-sm tracking-wide">AI Assistant</span>
-          <span className="bg-amber-400 text-slate-900 text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-full">
-            POC
-          </span>
-        </button>
+      {/* Floating AI Assistant Trigger Button (Minimizable & Non-obstructive) */}
+      <div className="fixed bottom-4 right-4 z-40 flex items-center pointer-events-auto">
+        {isAiMinimized ? (
+          <div className="relative group">
+            <button
+              onClick={() => setIsAiModalOpen(true)}
+              className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 flex items-center justify-center border border-white/30"
+              title="Open AI Assistant (Click '+' to expand button)"
+              aria-label="Open AI Assistant"
+            >
+              <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
+            </button>
+            <button
+              onClick={toggleAiMinimized}
+              className="absolute -top-1 -left-1 w-4 h-4 bg-slate-800 hover:bg-slate-950 text-white rounded-full text-[10px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow"
+              title="Expand AI Assistant label"
+              aria-label="Expand AI button"
+            >
+              +
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full shadow-2xl border border-white/20 p-0.5 group">
+            <button
+              onClick={() => setIsAiModalOpen(true)}
+              className="flex items-center space-x-2 pl-3.5 pr-2 py-1.5 text-white transition-all duration-200"
+              title="AI Assistant — Experimental"
+            >
+              <Sparkles className="w-4 h-4 text-amber-300 animate-pulse group-hover:rotate-12 transition-transform" />
+              <span className="font-bold text-xs sm:text-sm tracking-wide">AI Assistant</span>
+              <span className="bg-amber-400 text-slate-900 text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-full">
+                POC
+              </span>
+            </button>
+            <button
+              onClick={toggleAiMinimized}
+              className="w-6 h-6 mr-1 rounded-full text-white/70 hover:text-white hover:bg-white/20 flex items-center justify-center text-xs font-bold transition-colors"
+              title="Minimize AI button to icon"
+              aria-label="Minimize button"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
       <AIQueryAssistantModal

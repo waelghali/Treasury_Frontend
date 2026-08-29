@@ -432,7 +432,12 @@ function SystemNotificationList({ onLogout }) {
           </TableHeader>
           <TableBody>
             {notifications.map((notification) => (
-              <TableRow key={notification.id} isDeleted={notification.is_deleted}>
+              <TableRow
+                key={notification.id}
+                isDeleted={notification.is_deleted}
+                onClick={() => handleEdit(notification.id)}
+                className="hover:bg-blue-50/40"
+              >
                 <TableCell className="font-medium text-gray-900 w-1/3 max-w-sm truncate">{notification.content}</TableCell>
                 <TableCell>
                   {getTargetText(notification)}

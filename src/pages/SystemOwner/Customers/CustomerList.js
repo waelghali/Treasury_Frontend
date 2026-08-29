@@ -270,7 +270,8 @@ function CustomerList({ onLogout }) {
                 {filteredCustomers.map((customer) => (
                   <tr
                     key={customer.id}
-                    className={`hover:bg-slate-50 transition-colors ${
+                    onClick={() => handleViewDetails(customer.id)}
+                    className={`hover:bg-indigo-50/40 cursor-pointer transition-colors ${
                       customer.is_deleted ? 'bg-rose-50/30 opacity-70' : ''
                     }`}
                   >
@@ -309,7 +310,7 @@ function CustomerList({ onLogout }) {
                         </span>
                       )}
                     </td>
-                    <td className="py-2 px-3 text-right space-x-1 whitespace-nowrap">
+                    <td className="py-2 px-3 text-right space-x-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleViewDetails(customer.id)}
                         className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded"
