@@ -1742,6 +1742,19 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                 </div>
                                             )}
 
+                                            {/* ===== HANDOVER READONLY STATE ===== */}
+                                            {step.step === 'HANDOVER' && step.status === 'pending' && readOnly && (
+                                                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <Package className="w-4 h-4 text-blue-600" />
+                                                        <span className="text-xs font-bold text-slate-800">Physical Handover Pending</span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500">
+                                                        The Letter of Guarantee is ready. The operations / end-user team can record the physical handover to the recipient (<strong>{step.details?.requestor_defaults?.name || 'Requestor'}</strong>).
+                                                    </p>
+                                                </div>
+                                            )}
+
                                             {/* CANCELLATION_NOTICE step */}
                                             {step.step === 'CANCELLATION_NOTICE' && (
                                                 <div className="space-y-3">
