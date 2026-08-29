@@ -1650,6 +1650,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                           type={showPassword ? "text" : "password"}
                           id="smtp_password"
                           name="smtp_password"
+                          autoComplete="new-password"
                           value={emailSettingsForm.smtp_password}
                           onChange={handleEmailSettingsChange}
                           placeholder={isNewSettings ? "Enter password or App Password" : "••••••••••••••••"}
@@ -1850,6 +1851,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                                     type="password"
                                     id="imap_password"
                                     name="imap_password"
+                                    autoComplete="new-password"
                                     value={emailSettingsForm.imap_password}
                                     onChange={handleEmailSettingsChange}
                                     placeholder="Separate IMAP password"
