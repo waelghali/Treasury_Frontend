@@ -93,10 +93,16 @@ export default function IssuanceRequestForm() {
     const [pendingSubmitPayload, setPendingSubmitPayload] = useState(null); // payload to submit after verification
     // { file: File, type: 'CONTRACT'|'PURCHASE_ORDER'|'THIRD_PARTY'|'SPECIAL_WORDING'|'OTHER' }
 
+    // Track the contract file in memory for AI verification across retries
+    const lastContractFileRef = useRef(null);
+
     const addFile = (file, docType) => {
         if (file.size > 10 * 1024 * 1024) {
             toast.error('File size exceeds 10MB limit');
             return;
+        }
+        if (docType === 'CONTRACT' && file.name?.toLowerCase().endsWith('.pdf')) {
+            lastContractFileRef.current = file;
         }
         setPendingFiles(prev => [...prev, { file, type: docType, name: file.name }]);
     };
@@ -621,27 +627,40 @@ export default function IssuanceRequestForm() {
     // FILE UPLOAD HELPER
     // ──────────────────────────────────────────────
     const uploadPendingFiles = async (requestId, usePublicApi) => {
-        for (const pf of pendingFiles) {
+        if (!pendingFiles || pendingFiles.length === 0) return;
+        const toUpload = [...pendingFiles];
+        const uploadedList = [];
+        for (const pf of toUpload) {
             try {
                 const fd = new FormData();
                 fd.append('file', pf.file);
                 const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
+                let res;
                 if (usePublicApi) {
                     const safeToken = encodeURIComponent(token);
-                    await fetch(`${API_URL}/public-issuance/requests/${requestId}/documents?token=${safeToken}&document_type=${pf.type}`, {
+                    res = await fetch(`${API_URL}/public-issuance/requests/${requestId}/documents?token=${safeToken}&document_type=${pf.type}`, {
                         method: 'POST', body: fd
                     });
                 } else {
                     const authToken = localStorage.getItem('jwt_token');
-                    await fetch(`${API_URL}/issuance/requests/${requestId}/documents?document_type=${pf.type}`, {
+                    res = await fetch(`${API_URL}/issuance/requests/${requestId}/documents?document_type=${pf.type}`, {
                         method: 'POST', body: fd,
                         headers: { 'Authorization': `Bearer ${authToken}` }
                     });
+                }
+                if (res && res.ok) {
+                    const data = await res.json();
+                    uploadedList.push(data);
                 }
             } catch (e) {
                 console.error('File upload failed:', pf.name, e);
                 toast.warning(`Document "${pf.name}" upload failed — you can re-upload later`);
             }
+        }
+        // Clear pending files so subsequent edits on this draft don't re-upload duplicates
+        setPendingFiles([]);
+        if (uploadedList.length > 0) {
+            setExistingDocuments(prev => [...prev, ...uploadedList]);
         }
     };
 
@@ -682,13 +701,13 @@ export default function IssuanceRequestForm() {
                         await uploadPendingFiles(draftId, true);
                     }
                     if (actionType === 'SUBMIT') {
-                        // Check for CONTRACT documents to verify with AI
-                        const contractFiles = pendingFiles.filter(pf => pf.type === 'CONTRACT' && pf.file.name?.toLowerCase().endsWith('.pdf'));
-                        if (contractFiles.length > 0) {
+                        // Check for CONTRACT documents to verify with AI (from memory or pending)
+                        const contractFileObj = lastContractFileRef.current || pendingFiles.find(pf => pf.type === 'CONTRACT' && pf.file.name?.toLowerCase().endsWith('.pdf'))?.file;
+                        if (contractFileObj) {
                             setVerifying(true);
                             try {
                                 const fd = new FormData();
-                                fd.append('file', contractFiles[0].file);
+                                fd.append('file', contractFileObj);
                                 const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
                                 const resp = await fetch(`${API_URL}/public-issuance/requests/${draftId}/analyze-document?token=${safeToken}&doc_type=CONTRACT`, {
                                     method: 'POST', body: fd
@@ -736,16 +755,16 @@ export default function IssuanceRequestForm() {
                     }
                     // CRITICAL: Store the draft ID so "Cancel & Edit" reuses it
                     setDraftId(created.id);
+                    const contractFileObj = lastContractFileRef.current || pendingFiles.find(pf => pf.type === 'CONTRACT' && pf.file.name?.toLowerCase().endsWith('.pdf'))?.file;
                     if (pendingFiles.length > 0) {
                         await uploadPendingFiles(created.id, true);
                     }
                     // AI verification on CONTRACT documents
-                    const contractFiles = pendingFiles.filter(pf => pf.type === 'CONTRACT' && pf.file.name?.toLowerCase().endsWith('.pdf'));
-                    if (contractFiles.length > 0) {
+                    if (contractFileObj) {
                         setVerifying(true);
                         try {
                             const fd = new FormData();
-                            fd.append('file', contractFiles[0].file);
+                            fd.append('file', contractFileObj);
                             const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
                             const resp = await fetch(`${API_URL}/public-issuance/requests/${created.id}/analyze-document?token=${safeToken}&doc_type=CONTRACT`, {
                                 method: 'POST', body: fd
