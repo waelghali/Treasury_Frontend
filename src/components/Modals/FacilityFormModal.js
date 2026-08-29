@@ -186,7 +186,7 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
         if (isEdit && facility) {
           setFormData({
             ...facility,
-            bank_id: facility.bank_id ? String(facility.bank_id) : '',
+            bank_id: facility.bank_id ? String(facility.bank_id) : (facility.bank?.id ? String(facility.bank.id) : ''),
             bank_account_id: facility.bank_account_id ? String(facility.bank_account_id) : '',
             currency_id: facility.currency_id ? String(facility.currency_id) : '',
             customer_id: facility.customer_id || getCustomerIdFromToken(),
@@ -270,6 +270,11 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
     if (e) e.preventDefault();
     if (formData.sub_limits.length === 0) {
       alert('At least one sub-limit is required.');
+      return;
+    }
+    if (formData.facility_type !== 'FOREIGN' && (!formData.bank_id || parseInt(formData.bank_id) === 0)) {
+      alert('Please select an Issuing Bank for this facility.');
+      setActiveTab('basic');
       return;
     }
     if (loading) return;

@@ -155,7 +155,7 @@ export default function IssuanceExecutionModal({ request, onClose, onSuccess }) 
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                    <div className="space-y-4 max-h-64 overflow-y-auto pt-3.5 pb-2 px-1 pr-2">
                       {facilities.map((fac, idx) => {
                         const isSelected = selectedOption?.sub_limit_id === fac.sub_limit_id;
                         const isBest = fac.recommendation_tags?.includes("BEST_PRICE");
