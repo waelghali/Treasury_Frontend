@@ -685,7 +685,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                             {lgId ? (
                                                 <button onClick={(e) => { e.stopPropagation(); handleViewDetails(lgId); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
                                             ) : issLgId ? (
-                                                <button onClick={(e) => { e.stopPropagation(); navigate('/end-user/issuance/issued-lgs', { state: { openLgId: issLgId } }); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
+                                                <button onClick={(e) => { e.stopPropagation(); navigate(isCorporateAdminView ? '/corporate-admin/issuance/issued-lgs' : '/end-user/issuance/issued-lgs', { state: { openLgId: issLgId } }); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
                                             ) : (
                                                 <span className="text-sm font-bold text-gray-900">{lgNum}</span>
                                             )}
@@ -792,7 +792,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                     {lgId ? (
                                         <button onClick={(e) => { e.stopPropagation(); handleViewDetails(lgId); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
                                     ) : issLgId ? (
-                                        <button onClick={(e) => { e.stopPropagation(); navigate('/end-user/issuance/issued-lgs', { state: { openLgId: issLgId } }); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
+                                        <button onClick={(e) => { e.stopPropagation(); navigate(isCorporateAdminView ? '/corporate-admin/issuance/issued-lgs' : '/end-user/issuance/issued-lgs', { state: { openLgId: issLgId } }); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
                                     ) : (
                                         <span className="text-sm font-bold text-gray-900">{lgNum}</span>
                                     )}
@@ -910,7 +910,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                     <td className="px-6 py-4 text-sm text-gray-500">{formatDate(r.approved_at)}</td>
                                     {!isCorporateAdminView && (
                                         <td className="px-6 py-4 text-right">
-                                            <button onClick={() => navigate('/end-user/issuance-requests')}
+                                            <button onClick={() => navigate(isCorporateAdminView ? '/corporate-admin/issuance/requests' : '/end-user/issuance/requests', { state: { executeRequestId: r.id, openRequestId: r.id } })}
                                                 className="inline-flex items-center px-3 py-1.5 border border-green-200 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-all active:scale-95">
                                                 <ArrowRight className="h-4 w-4 mr-1.5" /> Process
                                             </button>
@@ -957,7 +957,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                     <td className="px-6 py-4 text-sm text-gray-500">{formatDate(a.approved_at)}</td>
                                     {!isCorporateAdminView && (
                                         <td className="px-6 py-4 text-right">
-                                            <button onClick={() => navigate('/end-user/issued-lgs')}
+                                            <button onClick={() => navigate(isCorporateAdminView ? '/corporate-admin/issuance/issued-lgs' : '/end-user/issuance/issued-lgs', { state: { openLgNumber: a.lg_number, actionId: a.id } })}
                                                 className="inline-flex items-center px-3 py-1.5 border border-rose-200 text-sm font-medium rounded-md text-rose-700 bg-rose-50 hover:bg-rose-100 transition-all active:scale-95">
                                                 <ArrowRight className="h-4 w-4 mr-1.5" /> Execute
                                             </button>

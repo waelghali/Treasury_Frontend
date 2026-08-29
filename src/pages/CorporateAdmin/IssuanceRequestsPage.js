@@ -28,18 +28,26 @@ export default function IssuanceRequestsPage() {
 
   const location = useLocation();
   const openRequestId = location.state?.openRequestId;
+  const executeRequestId = location.state?.executeRequestId;
 
   // Auto-open requested modal if passed via navigation state
   useEffect(() => {
-    if (openRequestId && requests.length > 0) {
-      const match = requests.find(r => String(r.id) === String(openRequestId));
-      if (match && !selectedRequest) {
-        setSelectedRequest(match);
-        // Clean up the location state so it doesn't re-trigger on refresh
-        navigate(location.pathname, { replace: true, state: {} });
+    if (requests.length > 0) {
+      if (executeRequestId) {
+        const match = requests.find(r => String(r.id) === String(executeRequestId));
+        if (match && !selectedRequestForExecution) {
+          setSelectedRequestForExecution(match);
+          navigate(location.pathname, { replace: true, state: {} });
+        }
+      } else if (openRequestId) {
+        const match = requests.find(r => String(r.id) === String(openRequestId));
+        if (match && !selectedRequest) {
+          setSelectedRequest(match);
+          navigate(location.pathname, { replace: true, state: {} });
+        }
       }
     }
-  }, [openRequestId, requests, selectedRequest, navigate, location.pathname]);
+  }, [openRequestId, executeRequestId, requests, selectedRequest, selectedRequestForExecution, navigate, location.pathname]);
 
   // --- Path B: Invite Testing State ---
   const [showInviteModal, setShowInviteModal] = useState(false);
