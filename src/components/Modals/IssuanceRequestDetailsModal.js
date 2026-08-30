@@ -241,14 +241,24 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
         || ((userRole === 'corporate_admin' || userRole === 'checker') && request.status === 'PENDING_APPROVAL')
     );
 
-    const DetailRow = ({ label, value, icon: Icon, highlight }) => {
-        if (!value && value !== 0 && value !== false) return null;
+    const pendingDiff = request.metadata_json?.pending_edit?.diff || {};
+    const isFieldModified = (key) => Boolean(pendingDiff[key]);
+
+    const DetailRow = ({ label, value, icon: Icon, highlight, modified }) => {
+        if (!value && value !== 0 && value !== false && !modified) return null;
         return (
-            <div className="flex items-start gap-2 py-1.5 min-w-0">
-                {Icon && <Icon className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${highlight ? 'text-blue-500' : 'text-gray-400'}`} />}
-                <div className="min-w-0">
-                    <span className="text-xs text-gray-500">{label}</span>
-                    <p className={`text-sm font-medium break-all ${highlight ? 'text-blue-700' : 'text-gray-900'}`}>{String(value)}</p>
+            <div className={`flex items-start gap-2 py-1.5 min-w-0 transition-colors ${modified ? 'bg-amber-50/90 px-2 py-1.5 rounded-lg border border-amber-200/80' : ''}`}>
+                {Icon && <Icon className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${modified ? 'text-amber-600' : highlight ? 'text-blue-500' : 'text-gray-400'}`} />}
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs text-gray-500">{label}</span>
+                        {modified && (
+                            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 ring-1 ring-amber-300">
+                                ✏️ Proposed Change
+                            </span>
+                        )}
+                    </div>
+                    <p className={`text-sm font-medium break-all ${modified ? 'text-amber-950 font-bold' : highlight ? 'text-blue-700' : 'text-gray-900'}`}>{String(value ?? '—')}</p>
                 </div>
             </div>
         );
@@ -291,9 +301,16 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                     <div className="w-full lg:w-2/3 space-y-4">
 
                         {/* Amount Card */}
-                        <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className={`bg-white p-4 sm:p-5 rounded-xl shadow-sm border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${isFieldModified('amount') || isFieldModified('currency_id') ? 'ring-2 ring-amber-400 bg-amber-50/30' : ''}`}>
                             <div>
-                                <p className="text-xs text-gray-500 font-medium uppercase">Requested Amount</p>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-xs text-gray-500 font-medium uppercase">Requested Amount</p>
+                                    {(isFieldModified('amount') || isFieldModified('currency_id')) && (
+                                        <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 ring-1 ring-amber-300">
+                                            ✏️ Proposed Change
+                                        </span>
+                                    )}
+                                </div>
                                 <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mt-1">{currencyCode} {requestAmount}</h3>
                                 {payableCurrencyCode && payableCurrencyCode !== currencyCode && (
                                     <p className="text-xs text-gray-400 mt-1">Payable in: {payableCurrencyCode}</p>
@@ -302,11 +319,13 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                             <div className="flex flex-wrap items-center sm:flex-col sm:items-end gap-2">
                                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-semibold ${request.status === 'APPROVED_INTERNAL' ? 'bg-green-100 text-green-800' :
                                     request.status === 'REJECTED' || request.status === 'CANCELLATION_REQUESTED' || request.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                                    request.status === 'EDIT_REQUESTED' ? 'bg-amber-100 text-amber-900 ring-1 ring-amber-300' :
                                     request.status === 'PENDING_APPROVAL' ? 'bg-yellow-100 text-yellow-800' :
                                     request.status === 'REVISION_REQUIRED' ? 'bg-amber-100 text-amber-800' :
                                         'bg-blue-100 text-blue-800'
                                     }`}>
                                     {request.status === 'CANCELLATION_REQUESTED' ? '🚫 Cancel Pending' :
+                                     request.status === 'EDIT_REQUESTED' ? '✏️ Edit Pending Review' :
                                      request.status === 'REVISION_REQUIRED' ? '🔄 Revision Required' :
                                      request.status?.replace(/_/g, ' ')}
                                 </span>
@@ -345,33 +364,97 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
 
                         {/* Pending Edit Request Banner */}
                         {(request.status === 'EDIT_REQUESTED' || request.metadata_json?.pending_edit) && (
-                            <div className="bg-amber-50/90 border border-amber-300 rounded-xl p-4 sm:p-5 shadow-sm space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <h4 className="text-sm font-bold text-amber-950 flex items-center gap-2">
-                                        <Edit3 className="w-4 h-4 text-amber-600" />
-                                        Pending Edit Request (Post-Submission)
-                                    </h4>
-                                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900 ring-1 ring-amber-300">
+                            <div className="bg-gradient-to-br from-amber-50 to-orange-50/70 border border-amber-300 rounded-xl p-4 sm:p-5 shadow-sm space-y-3.5">
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                                            <Edit3 className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-amber-950">
+                                                Pending Edit Request (Post-Submission)
+                                            </h4>
+                                            <p className="text-xs text-amber-700">
+                                                {request.metadata_json?.pending_edit?.requested_at
+                                                    ? `Requested on ${new Date(request.metadata_json.pending_edit.requested_at).toLocaleDateString()}`
+                                                    : 'Awaiting Corporate Admin review'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-200 text-amber-950 ring-1 ring-amber-300 shadow-xs">
                                         Awaiting Admin Review
                                     </span>
                                 </div>
+
                                 {request.metadata_json?.pending_edit?.change_reason && (
-                                    <p className="text-xs text-amber-900 bg-white/80 p-2.5 rounded-lg border border-amber-200">
-                                        <strong className="font-semibold">Reason for edit:</strong> {request.metadata_json.pending_edit.change_reason}
-                                    </p>
+                                    <div className="text-xs text-amber-900 bg-white/90 p-3 rounded-lg border border-amber-200 shadow-xs">
+                                        <span className="font-bold text-amber-950 uppercase tracking-wider text-[10px] block mb-1">Reason for modification:</span>
+                                        <p className="italic">"{request.metadata_json.pending_edit.change_reason}"</p>
+                                    </div>
                                 )}
+
+                                {/* Executive Comparison Table for Modified Fields */}
                                 {request.metadata_json?.pending_edit?.diff && Object.keys(request.metadata_json.pending_edit.diff).length > 0 && (
-                                    <div className="space-y-1.5">
-                                        <p className="text-[11px] font-bold text-amber-900 uppercase tracking-wider">Proposed Field Changes:</p>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                            {Object.entries(request.metadata_json.pending_edit.diff).map(([key, change]) => (
-                                                <div key={key} className="text-xs bg-white/90 p-2.5 rounded-lg border border-amber-200/80 shadow-xs">
-                                                    <span className="font-semibold text-slate-700 block mb-0.5 capitalize">{key.replace(/_/g, ' ')}</span>
-                                                    <span className="line-through text-red-500 mr-1.5">{String(change?.old ?? '—')}</span>
-                                                    <span className="text-slate-400 font-bold mr-1.5">→</span>
-                                                    <span className="font-bold text-emerald-700">{String(change?.new ?? '—')}</span>
-                                                </div>
-                                            ))}
+                                    <div className="space-y-2">
+                                        <p className="text-[11px] font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                                            <span>Proposed Changes Overview</span>
+                                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-200 text-amber-900">
+                                                {Object.keys(request.metadata_json.pending_edit.diff).length} field{Object.keys(request.metadata_json.pending_edit.diff).length > 1 ? 's' : ''} modified
+                                            </span>
+                                        </p>
+                                        <div className="bg-white rounded-lg border border-amber-200 overflow-hidden shadow-xs">
+                                            <table className="w-full text-xs">
+                                                <thead className="bg-amber-100/60 text-amber-900 font-bold border-b border-amber-200">
+                                                    <tr>
+                                                        <th className="px-3 py-2 text-left w-1/3">Field</th>
+                                                        <th className="px-3 py-2 text-left w-1/3 text-slate-500">Current Value</th>
+                                                        <th className="px-3 py-2 text-left w-1/3 text-emerald-800">Proposed Value</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-amber-100">
+                                                    {Object.entries(request.metadata_json.pending_edit.diff).map(([key, change]) => {
+                                                        const fieldLabels = {
+                                                            reference_currency_id: 'Reference Currency',
+                                                            currency_id: 'LG Currency',
+                                                            payable_currency_id: 'Payable Currency',
+                                                            amount: 'LG Amount',
+                                                            reference_amount: 'Reference Amount',
+                                                            requested_expiry_date: 'Maturity / Expiry Date',
+                                                            requested_issue_date: 'Suggested Issue Date',
+                                                            beneficiary_name: 'Beneficiary Name',
+                                                            beneficiary_address: 'Beneficiary Address',
+                                                            beneficiary_country: 'Beneficiary Country',
+                                                            reference_number: 'Reference Number',
+                                                            reference_type: 'Reference Type',
+                                                            lg_purpose: 'LG Purpose',
+                                                            lg_type_id: 'LG Type',
+                                                            project_id: 'Linked Project',
+                                                            issuing_entity_id: 'Issuing Entity',
+                                                            department: 'Department',
+                                                            manager_email: 'Manager Email',
+                                                            second_line_manager_email: '2nd Line Manager Email',
+                                                            phone_number: 'Phone Number',
+                                                            employee_id: 'Employee ID',
+                                                            job_title: 'Job Title',
+                                                        };
+                                                        const label = fieldLabels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                                        return (
+                                                            <tr key={key} className="hover:bg-amber-50/40">
+                                                                <td className="px-3 py-2.5 font-bold text-slate-800">{label}</td>
+                                                                <td className="px-3 py-2.5 text-red-600 bg-red-50/30">
+                                                                    <span className="line-through">{String(change?.old ?? '—')}</span>
+                                                                </td>
+                                                                <td className="px-3 py-2.5 text-emerald-800 font-bold bg-emerald-50/30">
+                                                                    <span className="inline-flex items-center gap-1">
+                                                                        <CheckCircle className="w-3 h-3 text-emerald-600 shrink-0" />
+                                                                        {String(change?.new ?? '—')}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 )}
@@ -382,18 +465,18 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                         <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border">
                             <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2">Requestor & Business Details</h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                                <DetailRow label="Issuing Entity" value={request.issuing_entity?.entity_name || request.issuing_entity_id} icon={Building} highlight />
-                                <DetailRow label="Requestor" value={request.requestor_name} icon={User} />
-                                <DetailRow label="Email" value={request.requestor_email} />
-                                <DetailRow label="Department" value={request.department} />
-                                <DetailRow label="Job Title" value={request.job_title} icon={Briefcase} />
-                                <DetailRow label="Phone" value={request.phone_number} />
-                                <DetailRow label="Employee ID" value={request.employee_id} icon={Hash} />
+                                <DetailRow label="Issuing Entity" value={request.issuing_entity?.entity_name || request.issuing_entity_id} icon={Building} highlight modified={isFieldModified('issuing_entity_id')} />
+                                <DetailRow label="Requestor" value={request.requestor_name} icon={User} modified={isFieldModified('requestor_name')} />
+                                <DetailRow label="Email" value={request.requestor_email} modified={isFieldModified('requestor_email')} />
+                                <DetailRow label="Department" value={request.department} modified={isFieldModified('department')} />
+                                <DetailRow label="Job Title" value={request.job_title} icon={Briefcase} modified={isFieldModified('job_title')} />
+                                <DetailRow label="Phone" value={request.phone_number} modified={isFieldModified('phone_number')} />
+                                <DetailRow label="Employee ID" value={request.employee_id} icon={Hash} modified={isFieldModified('employee_id')} />
                             </div>
                             {/* Manager Emails - full width to prevent overlap */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 mt-1">
-                                <DetailRow label="Direct Manager" value={request.manager_email} />
-                                <DetailRow label="Second Line Manager" value={request.second_line_manager_email} />
+                                <DetailRow label="Direct Manager" value={request.manager_email} modified={isFieldModified('manager_email')} />
+                                <DetailRow label="Second Line Manager" value={request.second_line_manager_email} modified={isFieldModified('second_line_manager_email')} />
                             </div>
                         </div>
 
@@ -401,22 +484,24 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                         <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border">
                             <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2">LG Details</h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                                <DetailRow label="LG Type" value={request.lg_type?.name} icon={FileText} />
-                                <DetailRow label="LG Purpose" value={request.lg_purpose} />
-                                <DetailRow label="Amount" value={`${currencyCode} ${requestAmount}`} icon={DollarSign} />
+                                <DetailRow label="LG Type" value={request.lg_type?.name} icon={FileText} modified={isFieldModified('lg_type_id')} />
+                                <DetailRow label="LG Purpose" value={request.lg_purpose} modified={isFieldModified('lg_purpose')} />
+                                <DetailRow label="Amount" value={`${currencyCode} ${requestAmount}`} icon={DollarSign} modified={isFieldModified('amount') || isFieldModified('currency_id')} />
                                 {payableCurrencyCode && payableCurrencyCode !== currencyCode && (
-                                    <DetailRow label="Payable Currency" value={payableCurrencyCode} />
+                                    <DetailRow label="Payable Currency" value={payableCurrencyCode} modified={isFieldModified('payable_currency_id')} />
                                 )}
-                                <DetailRow label="Suggested Issue Date" value={request.requested_issue_date} icon={Calendar} />
-                                <DetailRow label="Maturity Date" value={request.requested_expiry_date} icon={Calendar} />
+                                <DetailRow label="Suggested Issue Date" value={request.requested_issue_date} icon={Calendar} modified={isFieldModified('requested_issue_date')} />
+                                <DetailRow label="Maturity Date" value={request.requested_expiry_date} icon={Calendar} modified={isFieldModified('requested_expiry_date')} />
+                                <DetailRow label="Beneficiary Name" value={request.beneficiary_name} modified={isFieldModified('beneficiary_name')} />
+                                <DetailRow label="Beneficiary Address" value={request.beneficiary_address} modified={isFieldModified('beneficiary_address')} />
                                 {request.operational_status && (
-                                    <DetailRow label="Operational Status" value={request.operational_status.replace(/_/g, ' ')} icon={Settings} />
+                                    <DetailRow label="Operational Status" value={request.operational_status.replace(/_/g, ' ')} icon={Settings} modified={isFieldModified('operational_status')} />
                                 )}
-                                <DetailRow label="LG Language" value={request.lg_language === 'EN' ? 'English' : 'العربية (Arabic)'} icon={Globe} />
+                                <DetailRow label="LG Language" value={request.lg_language === 'EN' ? 'English' : 'العربية (Arabic)'} icon={Globe} modified={isFieldModified('lg_language')} />
                                 {request.applicable_rules && (
                                     <DetailRow label="Applicable Rules" value={{
                                         'URDG_758': 'URDG 758 (ICC)', 'ISP_98': 'ISP98 (ICC)', 'LOCAL_LAW': 'Local Law'
-                                    }[request.applicable_rules] || request.applicable_rules} icon={ShieldCheck} />
+                                    }[request.applicable_rules] || request.applicable_rules} icon={ShieldCheck} modified={isFieldModified('applicable_rules')} />
                                 )}
                             </div>
                         </div>
@@ -432,17 +517,17 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                         )}
 
                         {/* Underlying Reference */}
-                        {(request.reference_type || request.reference_number || request.reference_amount) && (
-                            <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border">
+                        {(request.reference_type || request.reference_number || request.reference_amount || isFieldModified('reference_currency_id') || isFieldModified('reference_type') || isFieldModified('reference_number')) && (
+                            <div className={`bg-white p-4 sm:p-5 rounded-xl shadow-sm border ${isFieldModified('reference_currency_id') || isFieldModified('reference_amount') || isFieldModified('reference_number') ? 'border-amber-300 ring-1 ring-amber-200' : ''}`}>
                                 <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-3 border-b pb-2">Underlying Reference</h4>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                                    <DetailRow label="Reference Type" value={request.reference_type?.replace(/_/g, ' ')} icon={FileText} />
-                                    <DetailRow label="Reference Number" value={request.reference_number} icon={Hash} />
-                                    <DetailRow label="Reference Amount" value={request.reference_amount ? `${refCurrencyCode || currencyCode} ${parseFloat(request.reference_amount).toLocaleString()}` : null} icon={DollarSign} />
-                                    <DetailRow label="Start Date" value={request.reference_start_date} icon={Calendar} />
-                                    <DetailRow label="End Date" value={request.reference_end_date} icon={Calendar} />
+                                    <DetailRow label="Reference Type" value={request.reference_type?.replace(/_/g, ' ')} icon={FileText} modified={isFieldModified('reference_type')} />
+                                    <DetailRow label="Reference Number" value={request.reference_number} icon={Hash} modified={isFieldModified('reference_number')} />
+                                    <DetailRow label="Reference Amount" value={request.reference_amount ? `${refCurrencyCode || currencyCode} ${parseFloat(request.reference_amount).toLocaleString()}` : null} icon={DollarSign} modified={isFieldModified('reference_amount') || isFieldModified('reference_currency_id')} />
+                                    <DetailRow label="Start Date" value={request.reference_start_date} icon={Calendar} modified={isFieldModified('reference_start_date')} />
+                                    <DetailRow label="End Date" value={request.reference_end_date} icon={Calendar} modified={isFieldModified('reference_end_date')} />
                                     {request.project && (
-                                        <DetailRow label="Linked Project" value={`${request.project.name} (${request.project.project_type?.replace(/_/g, ' ')}${request.project.reference_number ? ' · #' + request.project.reference_number : ''})`} icon={Briefcase} highlight />
+                                        <DetailRow label="Linked Project" value={`${request.project.name} (${request.project.project_type?.replace(/_/g, ' ')}${request.project.reference_number ? ' · #' + request.project.reference_number : ''})`} icon={Briefcase} highlight modified={isFieldModified('project_id')} />
                                     )}
                                 </div>
                             </div>
@@ -813,6 +898,10 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                 'SKIPPED_STEP': { icon: '⏭️', color: 'text-gray-500', bg: 'bg-gray-50 border-gray-200', label: 'Step skipped' },
                                 'RE_APPROVAL_TRIGGERED': { icon: '🔁', color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200', label: 'Re-approval required (fields edited)' },
                                 'SAFE_EDIT': { icon: '✏️', color: 'text-indigo-600', bg: 'bg-indigo-50 border-indigo-200', label: 'Request edited (no re-approval needed)' },
+                                'EDIT_REQUESTED': { icon: '✏️', color: 'text-amber-800', bg: 'bg-amber-50 border-amber-200', label: 'Post-submission edit requested' },
+                                'EDIT_RESOLVED': { icon: '📝', color: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200', label: 'Edit decision' },
+                                'EDIT_APPROVED': { icon: '✅', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200', label: 'Edit approved by admin' },
+                                'EDIT_REJECTED': { icon: '❌', color: 'text-red-700', bg: 'bg-red-50 border-red-200', label: 'Edit rejected by admin' },
                                 'CANCELLATION_REQUESTED': { icon: '🚫', color: 'text-red-700', bg: 'bg-red-50 border-red-200', label: 'Cancellation requested' },
                                 'CANCELLATION_APPROVED': { icon: '✅', color: 'text-red-700', bg: 'bg-red-50 border-red-200', label: 'Cancellation approved — request cancelled' },
                                 'CANCELLATION_REJECTED': { icon: '↩️', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200', label: 'Cancellation rejected — request restored' },
