@@ -162,34 +162,9 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
     const handleAnalyzeDoc = async (doc) => {
         setAnalyzingDocId(doc.id);
         try {
-            // Fetch the file bytes (works for both local and GCS)
-            const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
-            const authToken = localStorage.getItem('jwt_token');
-            const resp = await fetch(`${API_URL}/issuance/requests/${request.id}/documents/${doc.id}/download`, {
-                headers: { 'Authorization': `Bearer ${authToken}` }
-            });
-            if (!resp.ok) { toast.error('Cannot access document'); return; }
-
-            const contentType = resp.headers.get('content-type') || '';
-            let fileBlob;
-            if (contentType.includes('application/json')) {
-                // GCS: get signed URL, then fetch the file
-                const data = await resp.json();
-                if (!data?.download_url) { toast.error('Cannot access document'); return; }
-                const fileResp = await fetch(data.download_url);
-                fileBlob = await fileResp.blob();
-            } else {
-                // Local file: direct blob
-                fileBlob = await resp.blob();
-            }
-
-            // Map document_type to our API doc_type
-            const docTypeMap = { 'CONTRACT': 'CONTRACT', 'PURCHASE_ORDER': 'PURCHASE_ORDER', 'FORMAL_REQUEST': 'FORMAL_REQUEST' };
-            const docType = docTypeMap[doc.document_type] || 'CONTRACT';
-
             const formData = new FormData();
-            formData.append('file', fileBlob, doc.file_name);
-            formData.append('doc_type', docType);
+            formData.append('document_id', doc.id);
+            formData.append('doc_type', doc.document_type || 'CONTRACT');
 
             const result = await apiRequest(`/issuance/requests/${request.id}/analyze-document`, 'POST', formData, true);
             setDocAnalysis({ docName: doc.file_name, docType: doc.document_type, ...result });
@@ -365,6 +340,41 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                     )}
                                     <p className="text-xs text-amber-600 mt-1">Please edit the request and resubmit for approval.</p>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Pending Edit Request Banner */}
+                        {(request.status === 'EDIT_REQUESTED' || request.metadata_json?.pending_edit) && (
+                            <div className="bg-amber-50/90 border border-amber-300 rounded-xl p-4 sm:p-5 shadow-sm space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                                        <Edit3 className="w-4 h-4 text-amber-600" />
+                                        Pending Edit Request (Post-Submission)
+                                    </h4>
+                                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900 ring-1 ring-amber-300">
+                                        Awaiting Admin Review
+                                    </span>
+                                </div>
+                                {request.metadata_json?.pending_edit?.change_reason && (
+                                    <p className="text-xs text-amber-900 bg-white/80 p-2.5 rounded-lg border border-amber-200">
+                                        <strong className="font-semibold">Reason for edit:</strong> {request.metadata_json.pending_edit.change_reason}
+                                    </p>
+                                )}
+                                {request.metadata_json?.pending_edit?.diff && Object.keys(request.metadata_json.pending_edit.diff).length > 0 && (
+                                    <div className="space-y-1.5">
+                                        <p className="text-[11px] font-bold text-amber-900 uppercase tracking-wider">Proposed Field Changes:</p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {Object.entries(request.metadata_json.pending_edit.diff).map(([key, change]) => (
+                                                <div key={key} className="text-xs bg-white/90 p-2.5 rounded-lg border border-amber-200/80 shadow-xs">
+                                                    <span className="font-semibold text-slate-700 block mb-0.5 capitalize">{key.replace(/_/g, ' ')}</span>
+                                                    <span className="line-through text-red-500 mr-1.5">{String(change?.old ?? '—')}</span>
+                                                    <span className="text-slate-400 font-bold mr-1.5">→</span>
+                                                    <span className="font-bold text-emerald-700">{String(change?.new ?? '—')}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -1202,6 +1212,41 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-bold hover:bg-slate-50 transition-colors"
                                 >
                                     <XCircle className="w-3.5 h-3.5" /> Reject Cancel
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Admin: Approve/Reject Edit Request */}
+                        {userRole === 'corporate_admin' && request.status === 'EDIT_REQUESTED' && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-amber-700 font-bold mr-1">Edit pending approval:</span>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            await apiRequest(`/issuance/requests/${request.id}/resolve-edit`, 'POST', { approved: true, note: '' });
+                                            toast.success('Edit approved. Changes applied successfully.');
+                                            if (typeof onStatusChange === 'function') onStatusChange('REFRESH');
+                                            onClose();
+                                        } catch (err) { toast.error(err.message || 'Failed to approve edit.'); }
+                                    }}
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 text-white rounded-md text-xs font-bold hover:bg-emerald-700 transition-colors shadow-xs"
+                                >
+                                    <CheckCircle className="w-3.5 h-3.5" /> Approve Edit
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        const note = window.prompt('Reason for rejecting edit (optional):');
+                                        if (note === null) return;
+                                        try {
+                                            await apiRequest(`/issuance/requests/${request.id}/resolve-edit`, 'POST', { approved: false, note: note || '' });
+                                            toast.info('Edit rejected. Request restored to previous values.');
+                                            if (typeof onStatusChange === 'function') onStatusChange('REFRESH');
+                                            onClose();
+                                        } catch (err) { toast.error(err.message || 'Failed to reject edit.'); }
+                                    }}
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-bold hover:bg-slate-50 transition-colors"
+                                >
+                                    <XCircle className="w-3.5 h-3.5" /> Reject Edit
                                 </button>
                             </div>
                         )}

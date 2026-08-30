@@ -562,7 +562,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
     const loggedInEmail = currentUser?.email || localStorage.getItem('userEmail');
 
     const pendingCustodyCount = approvalRequests.filter(r => r.status === 'PENDING' && r.maker_user?.email !== loggedInEmail).length;
-    const pendingIssuanceCount = issuanceRequests.filter(r => r.status === 'PENDING_APPROVAL' && r.requestor_email !== loggedInEmail).length;
+    const pendingIssuanceCount = issuanceRequests.filter(r => (r.status === 'PENDING_APPROVAL' || r.status === 'EDIT_REQUESTED' || r.status === 'CANCELLATION_REQUESTED') && r.requestor_email !== loggedInEmail).length;
     const pendingDiscrepancyCount = discrepancyLGs.filter(lg => lg.verification_status === 'DISCREPANCY').length;
     const pendingAdminChangeCount = adminChanges.filter(c => c.status === 'PENDING' && c.requested_by_user_id !== currentUserId).length;
     const pendingMaintenanceCount = maintenanceActions.filter(a => a.status === 'PENDING_APPROVAL' && a.initiated_by_email !== loggedInEmail).length;
@@ -1199,6 +1199,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                     {[
                                         { key: 'ALL', label: 'All', count: issuanceRequests.length },
                                         { key: 'PENDING_APPROVAL', label: 'Pending', count: issuanceRequests.filter(r => r.status === 'PENDING_APPROVAL').length },
+                                        { key: 'EDIT_REQUESTED', label: 'Edit Pending', count: issuanceRequests.filter(r => r.status === 'EDIT_REQUESTED').length },
                                         { key: 'CANCELLATION_REQUESTED', label: 'Cancel Pending', count: issuanceRequests.filter(r => r.status === 'CANCELLATION_REQUESTED').length },
                                         { key: 'APPROVED_INTERNAL', label: 'Approved', count: issuanceRequests.filter(r => r.status === 'APPROVED_INTERNAL').length },
                                         { key: 'REJECTED', label: 'Rejected', count: issuanceRequests.filter(r => r.status === 'REJECTED').length },
@@ -1266,6 +1267,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                 <td className="px-3 py-2 text-center">
                                                     <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full whitespace-nowrap ${
                                                         req.status === 'PENDING_APPROVAL' ? 'bg-yellow-100 text-yellow-800' :
+                                                        req.status === 'EDIT_REQUESTED' ? 'bg-amber-100 text-amber-900 ring-1 ring-amber-300' :
                                                         req.status === 'APPROVED_INTERNAL' ? 'bg-green-100 text-green-800' :
                                                         req.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
                                                         req.status === 'REVISION_REQUIRED' ? 'bg-orange-100 text-orange-800' :
@@ -1275,6 +1277,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                         'bg-gray-100 text-gray-800'
                                                     }`}>
                                                         {req.status === 'PENDING_APPROVAL' ? 'Pending' : 
+                                                         req.status === 'EDIT_REQUESTED' ? '✏️ Edit Pending' :
                                                          req.status === 'APPROVED_INTERNAL' ? 'Approved' : 
                                                          req.status === 'REVISION_REQUIRED' ? 'Revision' :
                                                          req.status === 'INTERNAL_PROCESSING' ? 'Processing' :
@@ -1296,6 +1299,33 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                             </button>
                                                             <button onClick={() => handleIssuanceReject(req.id)} disabled={processingIssuanceId === req.id}
                                                                 className="px-1.5 py-1 text-[11px] font-medium rounded text-white bg-red-600 hover:bg-red-700 disabled:opacity-50" title="Reject">
+                                                                <X className="h-3 w-3" />
+                                                            </button>
+                                                        </div>
+                                                    ) : req.status === 'EDIT_REQUESTED' ? (
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <button
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await apiRequest(`/issuance/requests/${req.id}/resolve-edit`, 'POST', { approved: true, note: '' });
+                                                                        toast.success('Edit approved. Changes applied.');
+                                                                        fetchIssuanceApprovals();
+                                                                    } catch (err) { toast.error(err.message || 'Failed to approve edit'); }
+                                                                }}
+                                                                className="px-2 py-1 text-[11px] font-medium rounded text-white bg-emerald-600 hover:bg-emerald-700" title="Approve Edit">
+                                                                <Check className="h-3 w-3 inline mr-0.5" />Approve
+                                                            </button>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    const note = window.prompt('Reason for rejecting edit (optional):');
+                                                                    if (note === null) return;
+                                                                    try {
+                                                                        await apiRequest(`/issuance/requests/${req.id}/resolve-edit`, 'POST', { approved: false, note: note || '' });
+                                                                        toast.info('Edit rejected.');
+                                                                        fetchIssuanceApprovals();
+                                                                    } catch (err) { toast.error(err.message || 'Failed to reject edit'); }
+                                                                }}
+                                                                className="px-1.5 py-1 text-[11px] font-medium rounded text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300" title="Reject Edit">
                                                                 <X className="h-3 w-3" />
                                                             </button>
                                                         </div>
