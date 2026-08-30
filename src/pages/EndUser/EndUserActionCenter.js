@@ -903,14 +903,14 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {issuanceApprovedRequests.map(r => (
-                                <tr key={r.id} className="hover:bg-gray-50">
+                                <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(isCorporateAdminView ? '/corporate-admin/issuance/requests' : '/end-user/issuance/requests', { state: { openRequestId: r.id } })}>
                                     <td className="px-6 py-4 text-sm font-bold text-indigo-600">{r.serial_number}</td>
                                     <td className="px-6 py-4 text-sm text-gray-700">{r.beneficiary_name || '—'}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{r.department || '—'}</td>
                                     <td className="px-6 py-4 text-sm text-gray-500">{formatDate(r.approved_at)}</td>
                                     {!isCorporateAdminView && (
-                                        <td className="px-6 py-4 text-right">
-                                            <button onClick={() => navigate(isCorporateAdminView ? '/corporate-admin/issuance/requests' : '/end-user/issuance/requests', { state: { executeRequestId: r.id, openRequestId: r.id } })}
+                                        <td className="px-6 py-4 text-right" onClick={e => e.stopPropagation()}>
+                                            <button onClick={() => navigate(isCorporateAdminView ? '/corporate-admin/issuance/requests' : '/end-user/issuance/requests', { state: { openRequestId: r.id } })}
                                                 className="inline-flex items-center px-3 py-1.5 border border-green-200 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-all active:scale-95">
                                                 <ArrowRight className="h-4 w-4 mr-1.5" /> Process
                                             </button>
