@@ -1452,7 +1452,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                             >
                                 Close
                             </button>
-                            {['INTERNAL_PROCESSING', 'DELIVERED_TO_BANK'].includes(lg.status) && (
+                            {['INTERNAL_PROCESSING', 'DELIVERED_TO_BANK'].includes(lg.status) && !['LG_ISSUED', 'ACTIVE', 'VERIFIED'].includes(lg.status) && (
                                 <button
                                     onClick={() => setCancelModal(true)}
                                     disabled={cancellingLG}
