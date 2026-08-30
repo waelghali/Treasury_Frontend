@@ -1253,6 +1253,11 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                 <td className="px-3 py-2">
                                                     <div className="text-sm font-semibold text-gray-900 truncate">{req.serial_number || `#${req.id}`}</div>
                                                     <div className="text-[11px] text-gray-400 truncate">by {req.requestor_name || req.requestor_email || 'Treasury'} · {moment(req.created_at).fromNow()}</div>
+                                                    {req.status === 'EDIT_REQUESTED' && req.metadata_json?.pending_edit?.change_reason && (
+                                                        <div className="text-[10px] text-amber-900 bg-amber-50 rounded px-1.5 py-0.5 mt-1 border border-amber-200 truncate" title={req.metadata_json.pending_edit.change_reason}>
+                                                            <span className="font-bold text-amber-950">Reason:</span> "{req.metadata_json.pending_edit.change_reason}"
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-3 py-2">
                                                     <div className="text-sm text-gray-900 truncate">{req.beneficiary_name}</div>
