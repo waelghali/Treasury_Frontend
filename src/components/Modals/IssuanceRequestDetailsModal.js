@@ -239,10 +239,41 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
     const isApprover = currentUserId && (
         request.pending_approver_users?.map(String).includes(String(currentUserId))
         || ((userRole === 'corporate_admin' || userRole === 'checker') && request.status === 'PENDING_APPROVAL')
-    );
-
-    const pendingDiff = request.metadata_json?.pending_edit?.diff || {};
+    );    const pendingDiff = request.metadata_json?.pending_edit?.diff || {};
     const isFieldModified = (key) => Boolean(pendingDiff[key]);
+    const pendingEditRequestedAt = request.metadata_json?.pending_edit?.requested_at;
+    const newlyAttachedDocs = documents.filter(d => {
+        if (!pendingEditRequestedAt) return false;
+        const docTime = new Date(d.created_at).getTime();
+        const editTime = new Date(pendingEditRequestedAt).getTime();
+        // Uploaded within 15 minutes before edit was submitted or after
+        return docTime >= editTime - 15 * 60 * 1000;
+    });
+
+    const formatDiffValue = (key, val) => {
+        if (val === null || val === undefined || val === '' || val === 'None' || val === 'null') {
+            return '— (Removed / None)';
+        }
+        if (key.includes('currency')) {
+            const currencyMap = {
+                '1': 'EGP', '2': 'USD', '3': 'EUR', '4': 'GBP', '5': 'SAR', '6': 'AED', '7': 'QAR', '8': 'KWD'
+            };
+            const mapped = currencyMap[String(val)] || (request.currency?.iso_code && String(val) === String(request.currency_id) ? request.currency.iso_code : null);
+            return mapped ? `${mapped}` : `Currency #${val}`;
+        }
+        if (key === 'lg_type_id') {
+            return request.lg_type?.name ? `${request.lg_type.name}` : `Type #${val}`;
+        }
+        if (key === 'issuing_entity_id') {
+            return request.issuing_entity?.entity_name ? `${request.issuing_entity.entity_name}` : `Entity #${val}`;
+        }
+        if (key.includes('amount')) {
+            const num = parseFloat(val);
+            if (!isNaN(num)) return num.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        }
+        if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+        return String(val);
+    };
 
     const DetailRow = ({ label, value, icon: Icon, highlight, modified }) => {
         if (!value && value !== 0 && value !== false && !modified) return null;
@@ -389,7 +420,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                 {request.metadata_json?.pending_edit?.change_reason && (
                                     <div className="text-xs text-amber-900 bg-white/90 p-3 rounded-lg border border-amber-200 shadow-xs">
                                         <span className="font-bold text-amber-950 uppercase tracking-wider text-[10px] block mb-1">Reason for modification:</span>
-                                        <p className="italic">"{request.metadata_json.pending_edit.change_reason}"</p>
+                                        <p className="italic font-medium">"{request.metadata_json.pending_edit.change_reason}"</p>
                                     </div>
                                 )}
 
@@ -397,8 +428,8 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                 {request.metadata_json?.pending_edit?.diff && Object.keys(request.metadata_json.pending_edit.diff).length > 0 && (
                                     <div className="space-y-2">
                                         <p className="text-[11px] font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
-                                            <span>Proposed Changes Overview</span>
-                                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-200 text-amber-900">
+                                            <span>Modified Fields Overview</span>
+                                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-200 text-amber-900 font-bold">
                                                 {Object.keys(request.metadata_json.pending_edit.diff).length} field{Object.keys(request.metadata_json.pending_edit.diff).length > 1 ? 's' : ''} modified
                                             </span>
                                         </p>
@@ -438,16 +469,18 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                                             job_title: 'Job Title',
                                                         };
                                                         const label = fieldLabels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                                        const oldFormatted = formatDiffValue(key, change?.old);
+                                                        const newFormatted = formatDiffValue(key, change?.new);
                                                         return (
                                                             <tr key={key} className="hover:bg-amber-50/40">
                                                                 <td className="px-3 py-2.5 font-bold text-slate-800">{label}</td>
                                                                 <td className="px-3 py-2.5 text-red-600 bg-red-50/30">
-                                                                    <span className="line-through">{String(change?.old ?? '—')}</span>
+                                                                    <span className="line-through">{oldFormatted}</span>
                                                                 </td>
                                                                 <td className="px-3 py-2.5 text-emerald-800 font-bold bg-emerald-50/30">
                                                                     <span className="inline-flex items-center gap-1">
                                                                         <CheckCircle className="w-3 h-3 text-emerald-600 shrink-0" />
-                                                                        {String(change?.new ?? '—')}
+                                                                        {newFormatted}
                                                                     </span>
                                                                 </td>
                                                             </tr>
@@ -455,6 +488,31 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                                     })}
                                                 </tbody>
                                             </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Newly Added Documents in this Edit */}
+                                {newlyAttachedDocs.length > 0 && (
+                                    <div className="space-y-2 pt-1">
+                                        <p className="text-[11px] font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                                            <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                                            <span>Newly Attached Supporting Document(s) ({newlyAttachedDocs.length})</span>
+                                        </p>
+                                        <div className="space-y-1.5">
+                                            {newlyAttachedDocs.map(doc => (
+                                                <div key={doc.id} className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-emerald-200 text-xs shadow-xs">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase tracking-wider">
+                                                            🆕 New Document
+                                                        </span>
+                                                        <span className="font-semibold text-slate-800 truncate">{doc.file_name}</span>
+                                                    </div>
+                                                    <button onClick={() => handleDownloadDoc(doc.id, doc.file_name)} className="text-blue-600 hover:text-blue-800 text-xs font-semibold px-2 py-1 bg-blue-50 rounded">
+                                                        View Document
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 )}
@@ -746,10 +804,15 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                                     <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
                                                     <div className="min-w-0">
                                                         <p className="text-sm font-medium text-gray-900 truncate">{doc.file_name}</p>
-                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                                             <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${typeColors[doc.document_type] || 'bg-gray-100 text-gray-600'}`}>
                                                                 {typeLabels[doc.document_type] || doc.document_type}
                                                             </span>
+                                                            {newlyAttachedDocs.some(d => d.id === doc.id) && (
+                                                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase ring-1 ring-emerald-300">
+                                                                    🆕 Added in this edit
+                                                                </span>
+                                                            )}
                                                             {doc.created_at && <span className="text-[10px] text-gray-400">{new Date(doc.created_at).toLocaleDateString()}</span>}
                                                         </div>
                                                     </div>
