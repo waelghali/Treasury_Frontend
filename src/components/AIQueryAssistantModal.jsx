@@ -395,37 +395,60 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
     }
   };
 
-  // Helper to parse basic markdown elements (bold, links, code, bullets)
+  // Helper to parse basic markdown elements (code blocks, bold, links, inline code, bullets, numbered lists)
   const renderFormattedText = (rawText) => {
     if (!rawText) return null;
 
-    const lines = rawText.split('\n');
-    return lines.map((line, lIdx) => {
-      // Check if line is a bullet item
-      const isBullet = line.trim().startsWith('- ') || line.trim().startsWith('* ');
-      const cleanLine = isBullet ? line.trim().replace(/^[-*]\s+/, '') : line;
+    // 1. Extract multi-line code blocks ```lang ... ```
+    const segments = [];
+    const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
+    let lastSegIdx = 0;
+    let codeMatch;
 
-      // Parse inline formatting: **bold**, `code`, [link](url)
+    while ((codeMatch = codeBlockRegex.exec(rawText)) !== null) {
+      if (codeMatch.index > lastSegIdx) {
+        segments.push({
+          type: 'text',
+          content: rawText.substring(lastSegIdx, codeMatch.index)
+        });
+      }
+      segments.push({
+        type: 'code',
+        language: codeMatch[1] || 'text',
+        code: codeMatch[2].trim()
+      });
+      lastSegIdx = codeBlockRegex.lastIndex;
+    }
+
+    if (lastSegIdx < rawText.length) {
+      segments.push({
+        type: 'text',
+        content: rawText.substring(lastSegIdx)
+      });
+    }
+
+    const parseInline = (textStr, keyPrefix) => {
       const parts = [];
       let lastIndex = 0;
-      const regex = /(\*\*.*?\*\*|`.*?`|\[.*?\]\(.*?\))/g;
+      // Matches **bold**, `code`, [title](url), *italic*
+      const regex = /(\*\*.*?\*\*|`[^`\n]+`|\[.*?\]\(.*?\)|(?<!\*)\*[^*\n]+\*(?!\*))/g;
       let match;
 
-      while ((match = regex.exec(cleanLine)) !== null) {
+      while ((match = regex.exec(textStr)) !== null) {
         if (match.index > lastIndex) {
-          parts.push(cleanLine.substring(lastIndex, match.index));
+          parts.push(textStr.substring(lastIndex, match.index));
         }
 
         const token = match[0];
         if (token.startsWith('**') && token.endsWith('**')) {
           parts.push(
-            <strong key={`${lIdx}-${match.index}`} className="font-bold text-slate-900 dark:text-white">
+            <strong key={`${keyPrefix}-${match.index}`} className="font-bold text-slate-900 dark:text-white">
               {token.slice(2, -2)}
             </strong>
           );
         } else if (token.startsWith('`') && token.endsWith('`')) {
           parts.push(
-            <code key={`${lIdx}-${match.index}`} className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-xs font-mono text-indigo-600 dark:text-indigo-400">
+            <code key={`${keyPrefix}-${match.index}`} className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-xs font-mono text-indigo-600 dark:text-indigo-400 border border-slate-200 dark:border-slate-700">
               {token.slice(1, -1)}
             </code>
           );
@@ -434,41 +457,99 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
           const url = token.substring(token.indexOf('](') + 2, token.length - 1);
           parts.push(
             <button
-              key={`${lIdx}-${match.index}`}
+              key={`${keyPrefix}-${match.index}`}
               onClick={() => handleDirectLink(url)}
               className="inline-flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 underline decoration-indigo-300 underline-offset-2 mx-1 cursor-pointer"
             >
               <span>{title}</span>
-              <ExternalLink className="w-3 h-3" />
+              <ExternalLink className="w-3 h-3 inline" />
             </button>
+          );
+        } else if (token.startsWith('*') && token.endsWith('*')) {
+          parts.push(
+            <em key={`${keyPrefix}-${match.index}`} className="italic text-slate-700 dark:text-slate-300">
+              {token.slice(1, -1)}
+            </em>
           );
         }
 
         lastIndex = regex.lastIndex;
       }
 
-      if (lastIndex < cleanLine.length) {
-        parts.push(cleanLine.substring(lastIndex));
+      if (lastIndex < textStr.length) {
+        parts.push(textStr.substring(lastIndex));
       }
 
-      if (isBullet) {
+      return parts;
+    };
+
+    return segments.map((seg, sIdx) => {
+      if (seg.type === 'code') {
         return (
-          <div key={lIdx} className="flex items-start space-x-2 my-1 pl-1">
-            <span className="text-indigo-500 font-bold leading-tight select-none">•</span>
-            <div className="flex-1 leading-relaxed">{parts}</div>
+          <div key={`code-${sIdx}`} className="my-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-900 text-slate-100 overflow-hidden shadow-sm">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-slate-800 text-slate-400 text-xs border-b border-slate-700 font-mono">
+              <span className="text-[11px] uppercase tracking-wider text-slate-400 font-medium">{seg.language || 'code'}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(seg.code);
+                  showToast('Copied to clipboard!');
+                }}
+                className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer text-[11px]"
+              >
+                <Copy className="w-3 h-3" />
+                Copy
+              </button>
+            </div>
+            <pre className="p-3 text-xs font-mono overflow-x-auto text-emerald-400 select-all leading-relaxed">
+              <code>{seg.code}</code>
+            </pre>
           </div>
         );
       }
 
-      if (!line.trim()) {
-        return <div key={lIdx} className="h-2" />;
-      }
+      const lines = seg.content.split('\n');
+      return lines.map((line, lIdx) => {
+        const trimmed = line.trim();
+        const lineKey = `${sIdx}-${lIdx}`;
 
-      return (
-        <div key={lIdx} className="leading-relaxed my-0.5">
-          {parts}
-        </div>
-      );
+        if (!trimmed) {
+          return <div key={lineKey} className="h-1.5" />;
+        }
+
+        // Ordered list item (e.g. "1. ", "2. ")
+        const numMatch = line.match(/^(\s*)(\d+)\.\s+(.*)$/);
+        if (numMatch) {
+          const indent = numMatch[1].length > 0 ? 'pl-5' : 'pl-1';
+          const num = numMatch[2];
+          const rest = numMatch[3];
+          return (
+            <div key={lineKey} className={`flex items-start space-x-2 my-1 ${indent}`}>
+              <span className="font-bold text-indigo-600 dark:text-indigo-400 text-xs mt-0.5 select-none min-w-[1.25rem]">{num}.</span>
+              <div className="flex-1 leading-relaxed text-slate-800 dark:text-slate-200">{parseInline(rest, lineKey)}</div>
+            </div>
+          );
+        }
+
+        // Bullet list item (e.g. "- ", "* ", "• ")
+        const bulletMatch = line.match(/^(\s*)([-*•])\s+(.*)$/);
+        if (bulletMatch) {
+          const indent = bulletMatch[1].length > 0 ? 'pl-5' : 'pl-1';
+          const rest = bulletMatch[3];
+          return (
+            <div key={lineKey} className={`flex items-start space-x-2 my-1 ${indent}`}>
+              <span className="text-indigo-500 font-bold leading-tight select-none mt-0.5">•</span>
+              <div className="flex-1 leading-relaxed text-slate-800 dark:text-slate-200">{parseInline(rest, lineKey)}</div>
+            </div>
+          );
+        }
+
+        return (
+          <div key={lineKey} className="leading-relaxed my-0.5 text-slate-800 dark:text-slate-200">
+            {parseInline(line, lineKey)}
+          </div>
+        );
+      });
     });
   };
 

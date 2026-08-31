@@ -319,6 +319,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
     issuingMethods: [],
     rules: [],
     lgCategories: [],
+    internalOwners: [],
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -354,7 +355,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
       try {
         const [
           customerEntities, currencies, lgTypes, lgStatuses, lgOperationalStatuses,
-          banks, issuingMethods, rules, lgCategories
+          banks, issuingMethods, rules, lgCategories, internalOwners
         ] = await Promise.all([
           apiRequest('/end-user/customer-entities/', 'GET'),
           apiRequest('/end-user/currencies/', 'GET'),
@@ -365,11 +366,13 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
           apiRequest('/end-user/issuing-methods/', 'GET'),
           apiRequest('/end-user/rules/', 'GET'),
           apiRequest('/end-user/lg-categories/', 'GET'),
+          apiRequest('/end-user/internal-owner-contacts/with-lg-count', 'GET').catch(() => []),
         ]);
 
         setDropdownData({
           customerEntities, currencies, lgTypes, lgStatuses, lgOperationalStatuses,
-          banks, issuingMethods, rules, lgCategories
+          banks, issuingMethods, rules, lgCategories,
+          internalOwners: Array.isArray(internalOwners) ? internalOwners : []
         });
 
         // Set the default issuing method to "Manual Delivery" after fetching
@@ -478,6 +481,25 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
       }
       if (name === 'lg_amount') {
         return { ...prevData, [name]: parseFloat(value) || '' };
+      }
+      if (name === 'internal_owner_email') {
+        const trimmed = value.trim();
+        const matched = (dropdownData.internalOwners || []).find(
+          o => o.email && o.email.toLowerCase() === trimmed.toLowerCase()
+        );
+        if (matched) {
+          setIsInternalOwnerFieldsLocked(true);
+          return {
+            ...prevData,
+            internal_owner_email: value,
+            internal_owner_phone: matched.phone_number || '',
+            internal_owner_id: matched.internal_id || '',
+            internal_owner_manager_email: matched.manager_email || '',
+          };
+        } else {
+          setIsInternalOwnerFieldsLocked(false);
+          return { ...prevData, [name]: value };
+        }
       }
       if (['beneficiary_corporate_id', 'lg_currency_id', 'lg_payable_currency_id', 'lg_type_id',
 			 'lg_operational_status_id', 'issuing_bank_id', 'issuing_method_id', 'applicable_rule_id',
@@ -684,7 +706,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
   };
 
   const handleInternalOwnerEmailLookup = async () => {
-    const email = formData.internal_owner_email;
+    const email = formData.internal_owner_email ? formData.internal_owner_email.trim() : '';
     if (!email) {
       setFormData(prev => ({
         ...prev,
@@ -696,14 +718,25 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
       setError('');
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("Please enter a valid email format for lookup.");
+
+    // Check existing customer internal owners from local cache first
+    const cachedOwner = (dropdownData.internalOwners || []).find(
+      o => o.email && o.email.toLowerCase() === email.toLowerCase()
+    );
+    if (cachedOwner) {
       setFormData(prev => ({
         ...prev,
-        internal_owner_phone: '',
-        internal_owner_id: '',
-        internal_owner_manager_email: '',
+        internal_owner_phone: cachedOwner.phone_number || '',
+        internal_owner_id: cachedOwner.internal_id || '',
+        internal_owner_manager_email: cachedOwner.manager_email || '',
       }));
+      setIsInternalOwnerFieldsLocked(true);
+      setError('');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email format for lookup.");
       setIsInternalOwnerFieldsLocked(false);
       return;
     }
@@ -714,37 +747,19 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
       const contactDetails = await apiRequest(`/end-user/internal-owner-contacts/lookup-by-email/?email=${encodeURIComponent(email)}`, 'GET');
       
       if (contactDetails) {
-        setFormData(prev => {
-          const newContactData = {
-            ...prev,
-            internal_owner_phone: contactDetails.phone_number || '',
-            internal_owner_id: contactDetails.internal_id || '',
-            internal_owner_manager_email: contactDetails.manager_email || '',
-          };
-          return newContactData;
-        });
-        setIsInternalOwnerFieldsLocked(true);
-      } else {
         setFormData(prev => ({
           ...prev,
-          internal_owner_phone: '',
-          internal_owner_id: '',
-          internal_owner_manager_email: '',
+          internal_owner_phone: contactDetails.phone_number || '',
+          internal_owner_id: contactDetails.internal_id || '',
+          internal_owner_manager_email: contactDetails.manager_email || '',
         }));
+        setIsInternalOwnerFieldsLocked(true);
+      } else {
         setIsInternalOwnerFieldsLocked(false);
-        setError(`Internal Owner contact '${email}' not found. Please fill in details for a new contact.`);
       }
     } catch (err) {
       console.error('Internal Owner lookup failed:', err);
-      setFormData(prev => ({
-        ...prev,
-        internal_owner_phone: '',
-        internal_owner_id: '',
-        internal_owner_manager_email: '',
-      }));
       setIsInternalOwnerFieldsLocked(false);
-      setError(`Internal Owner lookup failed: ${err.message || 'An unexpected error occurred.'}`);
-    } finally {
     }
   };
 
@@ -811,6 +826,9 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
     if (issuanceMoment.isValid() && expiryMoment.isValid()) {
       if (expiryMoment.isSameOrBefore(issuanceMoment)) {
         errors.push("Expiry Date must be after Issuance Date.");
+      }
+      if (expiryMoment.isBefore(moment(), 'day')) {
+        errors.push("Cannot record an expired LG. The Expiry Date must be today or in the future. For historical records or LGs that have been extended, please use the Migration Hub.");
       }
     } else {
       if (formData.issuance_date && !issuanceMoment.isValid()) errors.push("Invalid Issuance Date format.");
@@ -1154,7 +1172,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                 </div>
                 <div className="mb-2">
                   <label htmlFor="expiry_date" className={labelClassNames}>Expiry Date {requiredSpan}</label>
-                  <input type="date" name="expiry_date" id="expiry_date" value={formData.expiry_date} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
+                  <input type="date" name="expiry_date" id="expiry_date" value={formData.expiry_date} min={formatDateForInput(moment())} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
                 </div>
               </div>
               <div className="flex items-center mb-2">
@@ -1401,18 +1419,45 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
           {accordionsOpen.internalData && (
             <div className={`p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
               <div className="mb-2">
-                <label htmlFor="internal_owner_email" className={labelClassNames}>Internal Owner (Email) {requiredSpan}</label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="internal_owner_email" className={labelClassNames}>
+                    Internal Owner (Email) {requiredSpan}
+                  </label>
+                  {isInternalOwnerFieldsLocked && (
+                    <button
+                      type="button"
+                      onClick={() => setIsInternalOwnerFieldsLocked(false)}
+                      className="text-xs text-blue-600 hover:text-blue-800 underline font-normal cursor-pointer"
+                    >
+                      Edit fields
+                    </button>
+                  )}
+                </div>
                 <input
                     type="email"
                     name="internal_owner_email"
                     id="internal_owner_email"
+                    list="customer-internal-owners-list"
                     value={formData.internal_owner_email}
                     onChange={handleChange}
                     onBlur={handleInternalOwnerEmailLookup}
+                    placeholder="Type or pick owner email..."
                     required
 					className={inputClassNames}
                     disabled={isFormDisabled || isGracePeriod}
                 />
+                <datalist id="customer-internal-owners-list">
+                  {(dropdownData.internalOwners || []).map(owner => (
+                    <option key={`internal-owner-${owner.id}`} value={owner.email}>
+                      {owner.email} {owner.internal_id ? `[ID: ${owner.internal_id}]` : ''} {owner.phone_number ? `— Tel: ${owner.phone_number}` : ''}
+                    </option>
+                  ))}
+                </datalist>
+                <p className="mt-1 text-xs text-slate-500">
+                  {dropdownData.internalOwners && dropdownData.internalOwners.length > 0
+                    ? `Filtered to your company (${dropdownData.internalOwners.length} registered)`
+                    : "Enter employee email"}
+                </p>
               </div>
               <div className="mb-2">
                 <label htmlFor="internal_owner_phone" className={labelClassNames}>Internal Owner (Phone) {requiredSpan}</label>
@@ -1424,7 +1469,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                   onChange={handleChange}
                   required
                   readOnly={isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod}
-                  className={`${inputClassNames} ${isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod ? 'bg-gray-200' : ''}`}
+                  className={`${inputClassNames} ${isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod ? 'bg-gray-100 text-gray-700 cursor-not-allowed' : ''}`}
                 />
               </div>
               <div className="mb-2">
@@ -1437,7 +1482,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                   onChange={handleChange}
                   maxLength="10"
                   readOnly={isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod}
-                  className={`${inputClassNames} ${isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod ? 'bg-gray-200' : ''}`}
+                  className={`${inputClassNames} ${isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod ? 'bg-gray-100 text-gray-700 cursor-not-allowed' : ''}`}
                 />
               </div>
               <div className="mb-2">
@@ -1450,7 +1495,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                   onChange={handleChange}
                   required
                   readOnly={isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod}
-                  className={`${inputClassNames} ${isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod ? 'bg-gray-200' : ''}`}
+                  className={`${inputClassNames} ${isInternalOwnerFieldsLocked || isFormDisabled || isGracePeriod ? 'bg-gray-100 text-gray-700 cursor-not-allowed' : ''}`}
                 />
               </div>
               <div className="mb-2">

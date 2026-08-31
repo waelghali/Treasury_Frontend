@@ -189,8 +189,8 @@ function SmartSuggestions({ lg }) {
 
     // Rule 1: Expiring soon
     if (lg.expiry_date && ['ACTIVE', 'LG_ISSUED'].includes(lg.status)) {
-        const today = new Date(); today.setHours(0,0,0,0);
-        const exp = new Date(lg.expiry_date); exp.setHours(0,0,0,0);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const exp = new Date(lg.expiry_date); exp.setHours(0, 0, 0, 0);
         const daysLeft = Math.ceil((exp - today) / 86400000);
         if (daysLeft < 0) {
             suggestions.push({ icon: '🔴', text: `This LG expired ${Math.abs(daysLeft)} days ago — consider closing or returning it.`, severity: 'critical' });
@@ -207,7 +207,7 @@ function SmartSuggestions({ lg }) {
     if (lg.bank_lg_amount && lg.current_amount) {
         const diff = Math.abs(parseFloat(lg.current_amount) - parseFloat(lg.bank_lg_amount));
         if (diff > 0.01) {
-            suggestions.push({ icon: '⚠️', text: `Bank amount differs by ${lg.currency_code || ''} ${diff.toLocaleString(undefined, {minimumFractionDigits: 2})} — review reconciliation.`, severity: 'warning' });
+            suggestions.push({ icon: '⚠️', text: `Bank amount differs by ${lg.currency_code || ''} ${diff.toLocaleString(undefined, { minimumFractionDigits: 2 })} — review reconciliation.`, severity: 'warning' });
         }
     }
 
@@ -560,10 +560,10 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                 const decision = step.decision || step.action || 'REVIEWED';
                 const decisionLabel = decision === 'APPROVED' ? 'Approved' :
                     decision === 'REJECTED' ? 'Rejected' :
-                    decision === 'REVISION_REQUIRED' ? 'Revision Required' : decision;
+                        decision === 'REVISION_REQUIRED' ? 'Revision Required' : decision;
                 const decisionColor = decision === 'APPROVED' ? 'bg-green-100 text-green-600' :
                     decision === 'REJECTED' ? 'bg-red-100 text-red-600' :
-                    'bg-amber-100 text-amber-600';
+                        'bg-amber-100 text-amber-600';
                 events.push({
                     icon: decision === 'APPROVED' ? '✅' : decision === 'REJECTED' ? '❌' : '🔄',
                     color: decisionColor,
@@ -601,7 +601,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
         if (lg.bank_reply_date) {
             const replyLabel = lg.bank_reply_type === 'LG_ISSUED' ? 'Bank Confirmed LG Issued' :
                 lg.bank_reply_type === 'REJECTED' ? 'Bank Rejected' :
-                lg.bank_reply_type === 'INQUIRY' ? 'Bank Sent Inquiry' : 'Bank Replied';
+                    lg.bank_reply_type === 'INQUIRY' ? 'Bank Sent Inquiry' : 'Bank Replied';
             events.push({
                 icon: '🏦', color: lg.bank_reply_type === 'LG_ISSUED' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600',
                 label: replyLabel,
@@ -857,19 +857,18 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                 >
                                     <Copy className="w-3.5 h-3.5" />
                                 </button>
-                                <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                                    lg.status === 'INTERNAL_PROCESSING'
+                                <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${lg.status === 'INTERNAL_PROCESSING'
                                         ? 'bg-[#fef3c7] text-[#92400e]'
                                         : lg.status === 'ACTIVE' || lg.status === 'LG_ISSUED'
-                                        ? 'bg-emerald-100 text-emerald-800'
-                                        : lg.status === 'DELIVERED_TO_BANK'
-                                        ? 'bg-indigo-100 text-indigo-800'
-                                        : lg.status === 'BANK_INQUIRY'
-                                        ? 'bg-amber-100 text-amber-800'
-                                        : lg.status === 'BANK_REJECTED' || lg.status === 'SLA_EXCEEDED' || lg.status === 'CANCELLED'
-                                        ? 'bg-red-100 text-red-800'
-                                        : 'bg-slate-100 text-slate-700'
-                                }`}>
+                                            ? 'bg-emerald-100 text-emerald-800'
+                                            : lg.status === 'DELIVERED_TO_BANK'
+                                                ? 'bg-indigo-100 text-indigo-800'
+                                                : lg.status === 'BANK_INQUIRY'
+                                                    ? 'bg-amber-100 text-amber-800'
+                                                    : lg.status === 'BANK_REJECTED' || lg.status === 'SLA_EXCEEDED' || lg.status === 'CANCELLED'
+                                                        ? 'bg-red-100 text-red-800'
+                                                        : 'bg-slate-100 text-slate-700'
+                                    }`}>
                                     {statusLabels[lg.status] || lg.status?.replace(/_/g, ' ')}
                                 </span>
                             </div>
@@ -935,11 +934,10 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                 <button
                                     key={t.id}
                                     onClick={() => setActiveTab(t.id)}
-                                    className={`px-4 sm:px-5 py-2 text-xs uppercase tracking-wider whitespace-nowrap transition-all flex items-center gap-1.5 rounded-t-xl ${
-                                        isActive
+                                    className={`px-4 sm:px-5 py-2 text-xs uppercase tracking-wider whitespace-nowrap transition-all flex items-center gap-1.5 rounded-t-xl ${isActive
                                             ? 'bg-white text-[#0058be] font-extrabold border-t-2 border-x border-[#0058be] -mb-px shadow-sm'
                                             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-bold'
-                                    }`}
+                                        }`}
                                 >
                                     {IconComp && <IconComp className={`w-3.5 h-3.5 ${t.iconColor || (isActive ? 'text-[#0058be]' : 'text-slate-500')}`} />}
                                     <span>{t.label}</span>
@@ -1156,33 +1154,33 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                             <div className="space-y-4">
                                 {/* Action Buttons — hidden for readOnly (corporate admin / checker) */}
                                 {!readOnly && (
-                                <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-4 rounded-xl border border-slate-200">
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                        {availableActions.map(action => {
-                                            const cfg = actionButtonConfig[action.type];
-                                            if (!cfg) return null;
-                                            const BtnIcon = cfg.icon;
-                                            return (
-                                                <button key={action.type} onClick={() => { 
+                                    <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-4 rounded-xl border border-slate-200">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                            {availableActions.map(action => {
+                                                const cfg = actionButtonConfig[action.type];
+                                                if (!cfg) return null;
+                                                const BtnIcon = cfg.icon;
+                                                return (
+                                                    <button key={action.type} onClick={() => {
                                                         if (action.type === 'CHANGE_OWNERSHIP') {
                                                             setShowChangeOwnerModal(true);
                                                         } else {
-                                                            setActionModal(action.type); setFormData({}); 
+                                                            setActionModal(action.type); setFormData({});
                                                         }
                                                     }}
-                                                    className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-white text-xs font-bold shadow-sm transition-all ${cfg.color}`}
-                                                >
-                                                    <BtnIcon className="w-4 h-4" />
-                                                    {action.label || cfg.label}
-                                                </button>
-                                            );
-                                        })}
-                                        <button onClick={() => { setBankInitiatedModal(true); setBankInitiatedFile(null); }}
-                                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-white text-xs font-bold shadow-sm transition-all bg-violet-600 hover:bg-violet-700">
-                                            🏦 Record Bank Action
-                                        </button>
+                                                        className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-white text-xs font-bold shadow-sm transition-all ${cfg.color}`}
+                                                    >
+                                                        <BtnIcon className="w-4 h-4" />
+                                                        {action.label || cfg.label}
+                                                    </button>
+                                                );
+                                            })}
+                                            <button onClick={() => { setBankInitiatedModal(true); setBankInitiatedFile(null); }}
+                                                className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-white text-xs font-bold shadow-sm transition-all bg-violet-600 hover:bg-violet-700">
+                                                🏦 Record Bank Action
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
                                 )}
 
                                 {/* AI Bank-Initiated Diff Result */}
@@ -1284,38 +1282,36 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                             {a.delivery_date ? (
                                                                 a.delivery_document_path ? (
                                                                     <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/delivery`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url) window.open(res.download_url, '_blank'); } } catch { toast.error('Failed to load delivery document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors" title="Click to download delivery proof">
-                                                                        📦 Delivered {new Date(a.delivery_date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})} ⬇
+                                                                        📦 Delivered {new Date(a.delivery_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} ⬇
                                                                     </button>
                                                                 ) : (
                                                                     <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                                                        📦 Delivered {new Date(a.delivery_date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})}
+                                                                        📦 Delivered {new Date(a.delivery_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                                     </span>
                                                                 )
                                                             ) : null}
                                                             {a.bank_reply_date ? (
                                                                 a.bank_reply_document_path ? (
                                                                     <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/bank_reply`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url) window.open(res.download_url, '_blank'); } } catch { toast.error('Failed to load bank reply document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 cursor-pointer transition-colors" title="Click to download bank reply document">
-                                                                        🏦 Replied {new Date(a.bank_reply_date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})} ⬇
+                                                                        🏦 Replied {new Date(a.bank_reply_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} ⬇
                                                                     </button>
                                                                 ) : (
                                                                     <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-50 text-teal-700 border border-teal-200">
-                                                                        🏦 Replied {new Date(a.bank_reply_date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})}
+                                                                        🏦 Replied {new Date(a.bank_reply_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                                     </span>
                                                                 )
                                                             ) : null}
                                                         </div>
                                                         {/* F3: AI Verification Result */}
                                                         {a.action_data?.ai_verification && (
-                                                            <div className={`mt-1.5 p-2 rounded-lg border ${
-                                                                a.action_data.ai_verification.status === 'verified' ? 'bg-emerald-50 border-emerald-200' :
-                                                                a.action_data.ai_verification.status === 'mismatch' ? 'bg-amber-50 border-amber-200' :
-                                                                'bg-slate-50 border-slate-200'
-                                                            }`}>
-                                                                <p className={`text-[10px] font-bold uppercase ${
-                                                                    a.action_data.ai_verification.status === 'verified' ? 'text-emerald-700' :
-                                                                    a.action_data.ai_verification.status === 'mismatch' ? 'text-amber-700' :
-                                                                    'text-slate-600'
+                                                            <div className={`mt-1.5 p-2 rounded-lg border ${a.action_data.ai_verification.status === 'verified' ? 'bg-emerald-50 border-emerald-200' :
+                                                                    a.action_data.ai_verification.status === 'mismatch' ? 'bg-amber-50 border-amber-200' :
+                                                                        'bg-slate-50 border-slate-200'
                                                                 }`}>
+                                                                <p className={`text-[10px] font-bold uppercase ${a.action_data.ai_verification.status === 'verified' ? 'text-emerald-700' :
+                                                                        a.action_data.ai_verification.status === 'mismatch' ? 'text-amber-700' :
+                                                                            'text-slate-600'
+                                                                    }`}>
                                                                     🤖 AI Verification: {a.action_data.ai_verification.status}
                                                                 </p>
                                                                 {(a.action_data.ai_verification.matches || []).map((m, i) => (
@@ -1668,11 +1664,10 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                     <div className="flex gap-1.5">
                                         {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(s => (
                                             <button key={s} onClick={() => setFormIssueData({ ...formIssueData, severity: s })}
-                                                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${
-                                                    formIssueData.severity === s
+                                                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${formIssueData.severity === s
                                                         ? s === 'CRITICAL' ? 'bg-red-600 text-white' : s === 'HIGH' ? 'bg-orange-500 text-white' : s === 'MEDIUM' ? 'bg-amber-500 text-white' : 'bg-slate-500 text-white'
                                                         : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                                }`}>
+                                                    }`}>
                                                 {s}
                                             </button>
                                         ))}
@@ -1781,7 +1776,7 @@ export default function IssuedLGsPage() {
 
     // Fetch all banks for the report modal
     useEffect(() => {
-        apiRequest('/issuance/banks', 'GET').then(data => setAllBanks(data || [])).catch(() => {});
+        apiRequest('/issuance/banks', 'GET').then(data => setAllBanks(data || [])).catch(() => { });
     }, []);
 
     // Fetch form templates when bank changes
@@ -2016,10 +2011,10 @@ export default function IssuedLGsPage() {
                         </div>
                     </div>
                     {!isCorporateAdmin && (
-                    <button onClick={() => setShowPageFormIssue(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-xl text-sm font-medium hover:bg-amber-100 transition-colors border border-amber-200">
-                        <AlertCircle className="w-4 h-4" /> Report Form Issue
-                    </button>
+                        <button onClick={() => setShowPageFormIssue(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-xl text-sm font-medium hover:bg-amber-100 transition-colors border border-amber-200">
+                            <AlertCircle className="w-4 h-4" /> Report Form Issue
+                        </button>
                     )}
                     <button onClick={fetchRecords} className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-200 transition-colors">
                         <RefreshCw className="w-4 h-4" /> Refresh
@@ -2048,265 +2043,265 @@ export default function IssuedLGsPage() {
             ) : (
                 <>
                     {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <p className="text-xs text-slate-500 font-bold uppercase">Total</p>
-                    <p className="text-2xl font-black text-slate-900 mt-1">{stats.total}</p>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-emerald-200 shadow-sm">
-                    <p className="text-xs text-emerald-600 font-bold uppercase">Active</p>
-                    <p className="text-2xl font-black text-emerald-700 mt-1">{stats.active}</p>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-amber-200 shadow-sm">
-                    <p className="text-xs text-amber-600 font-bold uppercase">Expiring ≤30d</p>
-                    <p className="text-2xl font-black text-amber-700 mt-1">{stats.expiring}</p>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-red-200 shadow-sm">
-                    <p className="text-xs text-red-600 font-bold uppercase">Expired</p>
-                    <p className="text-2xl font-black text-red-700 mt-1">{stats.expired}</p>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-purple-200 shadow-sm">
-                    <p className="text-xs text-purple-600 font-bold uppercase">Pending</p>
-                    <p className="text-2xl font-black text-purple-700 mt-1">{stats.pending}</p>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-blue-200 shadow-sm">
-                    <p className="text-xs text-blue-600 font-bold uppercase">Exposure</p>
-                    <p className="text-lg font-black text-blue-700 mt-1">{stats.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                </div>
-            </div>
-
-            {/* Filters */}
-            <div className="space-y-3">
-                <div className="flex gap-3 flex-wrap items-center">
-                    <div className="relative flex-1 min-w-[200px]">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            placeholder="Search by serial, ref, beneficiary, bank, or request..."
-                            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-sm bg-white"
-                        />
-                    </div>
-                    <select
-                        value={statusFilter}
-                        onChange={e => setStatusFilter(e.target.value)}
-                        className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium"
-                    >
-                        <option value="ALL">All Statuses</option>
-                        {[...new Set(records.map(r => r.status))].sort().map(st => (
-                            <option key={st} value={st}>{statusLabels[st] || st}</option>
-                        ))}
-                    </select>
-                    <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-sm font-medium transition-colors ${showFilters || activeFilterCount > 0 ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
-                    >
-                        <SlidersHorizontal className="w-4 h-4" />
-                        Filters
-                        {activeFilterCount > 0 && (
-                            <span className="bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{activeFilterCount}</span>
-                        )}
-                    </button>
-                    {(activeFilterCount > 0 || searchTerm) && (
-                        <button onClick={clearAllFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors font-medium">
-                            <X className="w-3.5 h-3.5" /> Clear All
-                        </button>
-                    )}
-                </div>
-
-                {/* Expanded filter panel */}
-                {showFilters && (
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-4 items-end">
-                        <div className="min-w-[160px]">
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Bank</label>
-                            <select value={bankFilter} onChange={e => setBankFilter(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                                <option value="ALL">All Banks</option>
-                                {uniqueBanks.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <p className="text-xs text-slate-500 font-bold uppercase">Total</p>
+                            <p className="text-2xl font-black text-slate-900 mt-1">{stats.total}</p>
                         </div>
-                        <div className="min-w-[120px]">
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Currency</label>
-                            <select value={currencyFilter} onChange={e => setCurrencyFilter(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                                <option value="ALL">All</option>
-                                {uniqueCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
+                        <div className="bg-white p-4 rounded-xl border border-emerald-200 shadow-sm">
+                            <p className="text-xs text-emerald-600 font-bold uppercase">Active</p>
+                            <p className="text-2xl font-black text-emerald-700 mt-1">{stats.active}</p>
                         </div>
-                        <div className="min-w-[140px]">
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Expiry From</label>
-                            <input type="date" value={expiryFrom} onChange={e => setExpiryFrom(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" />
+                        <div className="bg-white p-4 rounded-xl border border-amber-200 shadow-sm">
+                            <p className="text-xs text-amber-600 font-bold uppercase">Expiring ≤30d</p>
+                            <p className="text-2xl font-black text-amber-700 mt-1">{stats.expiring}</p>
                         </div>
-                        <div className="min-w-[140px]">
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Expiry To</label>
-                            <input type="date" value={expiryTo} onChange={e => setExpiryTo(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" />
+                        <div className="bg-white p-4 rounded-xl border border-red-200 shadow-sm">
+                            <p className="text-xs text-red-600 font-bold uppercase">Expired</p>
+                            <p className="text-2xl font-black text-red-700 mt-1">{stats.expired}</p>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl border border-purple-200 shadow-sm">
+                            <p className="text-xs text-purple-600 font-bold uppercase">Pending</p>
+                            <p className="text-2xl font-black text-purple-700 mt-1">{stats.pending}</p>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl border border-blue-200 shadow-sm">
+                            <p className="text-xs text-blue-600 font-bold uppercase">Exposure</p>
+                            <p className="text-lg font-black text-blue-700 mt-1">{stats.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                         </div>
                     </div>
-                )}
-            </div>
 
-            {/* Result Count */}
-            {!loading && (
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span>Showing <strong className="text-slate-700">{filtered.length}</strong> of <strong className="text-slate-700">{records.length}</strong> issued LGs</span>
-                    {sortField !== 'created_at' && (
-                        <button onClick={() => { setSortField('created_at'); setSortDir('desc'); }} className="text-blue-600 hover:text-blue-700 font-medium">
-                            Reset sort
-                        </button>
-                    )}
-                </div>
-            )}
+                    {/* Filters */}
+                    <div className="space-y-3">
+                        <div className="flex gap-3 flex-wrap items-center">
+                            <div className="relative flex-1 min-w-[200px]">
+                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                    placeholder="Search by serial, ref, beneficiary, bank, or request..."
+                                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-sm bg-white"
+                                />
+                            </div>
+                            <select
+                                value={statusFilter}
+                                onChange={e => setStatusFilter(e.target.value)}
+                                className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium"
+                            >
+                                <option value="ALL">All Statuses</option>
+                                {[...new Set(records.map(r => r.status))].sort().map(st => (
+                                    <option key={st} value={st}>{statusLabels[st] || st}</option>
+                                ))}
+                            </select>
+                            <button
+                                onClick={() => setShowFilters(!showFilters)}
+                                className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-sm font-medium transition-colors ${showFilters || activeFilterCount > 0 ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+                            >
+                                <SlidersHorizontal className="w-4 h-4" />
+                                Filters
+                                {activeFilterCount > 0 && (
+                                    <span className="bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{activeFilterCount}</span>
+                                )}
+                            </button>
+                            {(activeFilterCount > 0 || searchTerm) && (
+                                <button onClick={clearAllFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors font-medium">
+                                    <X className="w-3.5 h-3.5" /> Clear All
+                                </button>
+                            )}
+                        </div>
 
-            {/* Table */}
-            {loading ? (
-                <div className="text-center py-12 text-slate-400">
-                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                    Loading issued LGs...
-                </div>
-            ) : filtered.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-xl border border-slate-200">
-                    <Shield className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 font-medium">No issued LGs found</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                        {activeFilterCount > 0 || searchTerm
-                            ? 'Try adjusting your filters or search term'
-                            : 'Issued LGs will appear here after you complete the issuance process'}
-                    </p>
-                </div>
-            ) : (
-                <>
-                    {/* Mobile View: Cards (< md) */}
-                    <div className="md:hidden space-y-3">
-                        {filtered.map(r => {
-                            const cd = expiryCountdown(r.expiry_date);
-                            return (
-                                <div
-                                    key={`mob-lg-${r.id}`}
-                                    onClick={() => setSelectedLG(r)}
-                                    className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col gap-2.5"
-                                >
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <span className="font-bold text-base text-slate-900 block">{r.internal_serial || '—'}</span>
-                                            <span className="text-xs text-blue-600 font-medium">{r.lg_ref_number}</span>
-                                        </div>
-                                        <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${statusColors[r.status] || 'bg-slate-100 text-slate-600'}`}>
-                                            {statusLabels[r.status] || r.status?.replace(/_/g, ' ')}
-                                        </span>
-                                    </div>
-
-                                    <div className="text-lg font-extrabold text-slate-900">
-                                        {r.currency_code} {r.current_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                    </div>
-
-                                    <div className="bg-slate-50 p-2.5 rounded-lg text-xs text-slate-600 space-y-1">
-                                        <div className="flex justify-between">
-                                            <span className="text-slate-400">Beneficiary:</span>
-                                            <span className="font-medium text-slate-800 truncate max-w-[200px]">{r.beneficiary_name}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-slate-400">Bank:</span>
-                                            <span className="font-medium text-slate-800">{r.bank_name}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-slate-400">Expiry:</span>
-                                            <span className={`font-semibold ${cd.color}`}>{r.expiry_date || '—'} ({cd.text})</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
-                                        <span className="text-slate-400 truncate max-w-[180px]">{r.request?.lg_type || 'LG'}</span>
-                                        <span className="text-blue-600 font-bold hover:underline flex items-center">
-                                            View Details →
-                                        </span>
-                                    </div>
+                        {/* Expanded filter panel */}
+                        {showFilters && (
+                            <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-4 items-end">
+                                <div className="min-w-[160px]">
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Bank</label>
+                                    <select value={bankFilter} onChange={e => setBankFilter(e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                                        <option value="ALL">All Banks</option>
+                                        {uniqueBanks.map(b => <option key={b} value={b}>{b}</option>)}
+                                    </select>
                                 </div>
-                            );
-                        })}
+                                <div className="min-w-[120px]">
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Currency</label>
+                                    <select value={currencyFilter} onChange={e => setCurrencyFilter(e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                                        <option value="ALL">All</option>
+                                        {uniqueCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                                <div className="min-w-[140px]">
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Expiry From</label>
+                                    <input type="date" value={expiryFrom} onChange={e => setExpiryFrom(e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" />
+                                </div>
+                                <div className="min-w-[140px]">
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Expiry To</label>
+                                    <input type="date" value={expiryTo} onChange={e => setExpiryTo(e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" />
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Desktop View: Table (>= md) */}
-                    <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-slate-50 border-b border-slate-200">
-                                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('internal_serial')}>
-                                            <div className="flex items-center gap-1">Serial # <SortIcon field="internal_serial" /></div>
-                                        </th>
-                                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Status</th>
-                                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">LG Type</th>
-                                        <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('current_amount')}>
-                                            <div className="flex items-center justify-end gap-1">Amount <SortIcon field="current_amount" /></div>
-                                        </th>
-                                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('expiry_date')}>
-                                            <div className="flex items-center gap-1">Expiry <SortIcon field="expiry_date" /></div>
-                                        </th>
-                                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('bank_name')}>
-                                            <div className="flex items-center gap-1">Bank <SortIcon field="bank_name" /></div>
-                                        </th>
-                                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('beneficiary_name')}>
-                                            <div className="flex items-center gap-1">Beneficiary <SortIcon field="beneficiary_name" /></div>
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {filtered.map(r => {
-                                        const cd = expiryCountdown(r.expiry_date);
-                                        return (
-                                            <tr
-                                                key={r.id}
-                                                className="hover:bg-slate-50 transition-colors cursor-pointer"
-                                                onClick={() => setSelectedLG(r)}
-                                            >
-                                                <td className="px-4 py-3">
-                                                    <div className="font-bold text-slate-900">{r.internal_serial || '—'}</div>
-                                                    <div className="text-[11px] text-blue-600 font-medium">{r.lg_ref_number}</div>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${statusColors[r.status] || 'bg-slate-100 text-slate-600'}`}>
-                                                        {statusLabels[r.status] || r.status?.replace(/_/g, ' ')}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="font-bold text-slate-700 truncate max-w-[150px]" title={r.request?.lg_type || 'Unknown'}>
-                                                        {r.request?.lg_type || '—'}
-                                                    </div>
-                                                    <div className="text-[10px] text-slate-500 truncate max-w-[150px]" title={r.request?.lg_purpose || ''}>
-                                                        {r.request?.lg_purpose || ''}
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
-                                                    {r.currency_code} {r.current_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="text-slate-600 text-xs">{r.expiry_date || '—'}</div>
-                                                    <div className={`text-[11px] ${cd.color}`}>{cd.text}</div>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Building className="w-3.5 h-3.5 text-slate-400" />
-                                                        <span className="text-slate-700">{r.bank_name}</span>
-                                                    </div>
-                                                    {r.sub_limit_id && (
-                                                        <div className="mt-1 flex">
-                                                            <span className="text-[10px] font-bold bg-blue-50 border border-blue-200 text-blue-700 px-1.5 py-0.5 rounded uppercase tracking-wider">From Facility</span>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3 text-slate-700">{r.beneficiary_name}</td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
+                    {/* Result Count */}
+                    {!loading && (
+                        <div className="flex items-center justify-between text-xs text-slate-500">
+                            <span>Showing <strong className="text-slate-700">{filtered.length}</strong> of <strong className="text-slate-700">{records.length}</strong> issued LGs</span>
+                            {sortField !== 'created_at' && (
+                                <button onClick={() => { setSortField('created_at'); setSortDir('desc'); }} className="text-blue-600 hover:text-blue-700 font-medium">
+                                    Reset sort
+                                </button>
+                            )}
                         </div>
-                    </div>
-                </>
-            )}
+                    )}
+
+                    {/* Table */}
+                    {loading ? (
+                        <div className="text-center py-12 text-slate-400">
+                            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                            Loading issued LGs...
+                        </div>
+                    ) : filtered.length === 0 ? (
+                        <div className="text-center py-12 bg-white rounded-xl border border-slate-200">
+                            <Shield className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                            <p className="text-slate-500 font-medium">No issued LGs found</p>
+                            <p className="text-xs text-slate-400 mt-1">
+                                {activeFilterCount > 0 || searchTerm
+                                    ? 'Try adjusting your filters or search term'
+                                    : 'Issued LGs will appear here after you complete the issuance process'}
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Mobile View: Cards (< md) */}
+                            <div className="md:hidden space-y-3">
+                                {filtered.map(r => {
+                                    const cd = expiryCountdown(r.expiry_date);
+                                    return (
+                                        <div
+                                            key={`mob-lg-${r.id}`}
+                                            onClick={() => setSelectedLG(r)}
+                                            className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col gap-2.5"
+                                        >
+                                            <div className="flex items-start justify-between">
+                                                <div>
+                                                    <span className="font-bold text-base text-slate-900 block">{r.internal_serial || '—'}</span>
+                                                    <span className="text-xs text-blue-600 font-medium">{r.lg_ref_number}</span>
+                                                </div>
+                                                <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${statusColors[r.status] || 'bg-slate-100 text-slate-600'}`}>
+                                                    {statusLabels[r.status] || r.status?.replace(/_/g, ' ')}
+                                                </span>
+                                            </div>
+
+                                            <div className="text-lg font-extrabold text-slate-900">
+                                                {r.currency_code} {r.current_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </div>
+
+                                            <div className="bg-slate-50 p-2.5 rounded-lg text-xs text-slate-600 space-y-1">
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400">Beneficiary:</span>
+                                                    <span className="font-medium text-slate-800 truncate max-w-[200px]">{r.beneficiary_name}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400">Bank:</span>
+                                                    <span className="font-medium text-slate-800">{r.bank_name}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400">Expiry:</span>
+                                                    <span className={`font-semibold ${cd.color}`}>{r.expiry_date || '—'} ({cd.text})</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                                                <span className="text-slate-400 truncate max-w-[180px]">{r.request?.lg_type || 'LG'}</span>
+                                                <span className="text-blue-600 font-bold hover:underline flex items-center">
+                                                    View Details →
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Desktop View: Table (>= md) */}
+                            <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="bg-slate-50 border-b border-slate-200">
+                                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('internal_serial')}>
+                                                    <div className="flex items-center gap-1">Serial # <SortIcon field="internal_serial" /></div>
+                                                </th>
+                                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Status</th>
+                                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">LG Type</th>
+                                                <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('current_amount')}>
+                                                    <div className="flex items-center justify-end gap-1">Amount <SortIcon field="current_amount" /></div>
+                                                </th>
+                                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('expiry_date')}>
+                                                    <div className="flex items-center gap-1">Expiry <SortIcon field="expiry_date" /></div>
+                                                </th>
+                                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('bank_name')}>
+                                                    <div className="flex items-center gap-1">Bank <SortIcon field="bank_name" /></div>
+                                                </th>
+                                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('beneficiary_name')}>
+                                                    <div className="flex items-center gap-1">Beneficiary <SortIcon field="beneficiary_name" /></div>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {filtered.map(r => {
+                                                const cd = expiryCountdown(r.expiry_date);
+                                                return (
+                                                    <tr
+                                                        key={r.id}
+                                                        className="hover:bg-slate-50 transition-colors cursor-pointer"
+                                                        onClick={() => setSelectedLG(r)}
+                                                    >
+                                                        <td className="px-4 py-3">
+                                                            <div className="font-bold text-slate-900">{r.internal_serial || '—'}</div>
+                                                            <div className="text-[11px] text-blue-600 font-medium">{r.lg_ref_number}</div>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${statusColors[r.status] || 'bg-slate-100 text-slate-600'}`}>
+                                                                {statusLabels[r.status] || r.status?.replace(/_/g, ' ')}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="font-bold text-slate-700 truncate max-w-[150px]" title={r.request?.lg_type || 'Unknown'}>
+                                                                {r.request?.lg_type || '—'}
+                                                            </div>
+                                                            <div className="text-[10px] text-slate-500 truncate max-w-[150px]" title={r.request?.lg_purpose || ''}>
+                                                                {r.request?.lg_purpose || ''}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                                                            {r.currency_code} {r.current_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="text-slate-600 text-xs">{r.expiry_date || '—'}</div>
+                                                            <div className={`text-[11px] ${cd.color}`}>{cd.text}</div>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Building className="w-3.5 h-3.5 text-slate-400" />
+                                                                <span className="text-slate-700">{r.bank_name}</span>
+                                                            </div>
+                                                            {r.sub_limit_id && (
+                                                                <div className="mt-1 flex">
+                                                                    <span className="text-[10px] font-bold bg-blue-50 border border-blue-200 text-blue-700 px-1.5 py-0.5 rounded uppercase tracking-wider">From Facility</span>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-slate-700">{r.beneficiary_name}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </>
             )}
 
@@ -2389,11 +2384,10 @@ export default function IssuedLGsPage() {
                                     <div className="flex gap-1.5">
                                         {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(s => (
                                             <button key={s} onClick={() => setPageFormIssueData({ ...pageFormIssueData, severity: s })}
-                                                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${
-                                                    pageFormIssueData.severity === s
+                                                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${pageFormIssueData.severity === s
                                                         ? s === 'CRITICAL' ? 'bg-red-600 text-white' : s === 'HIGH' ? 'bg-orange-500 text-white' : s === 'MEDIUM' ? 'bg-amber-500 text-white' : 'bg-slate-500 text-white'
                                                         : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                                }`}>
+                                                    }`}>
                                                 {s}
                                             </button>
                                         ))}
