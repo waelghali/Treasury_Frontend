@@ -212,7 +212,17 @@ export const publicApiRequest = async (url, method = 'GET', data = null, customH
  */
 
 // System Notifications
-export const getSystemNotifications = async () => apiRequest('/system-owner/system-notifications/');
+export const getSystemNotifications = async (filters = {}) => {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      params.append(key, value);
+    }
+  });
+  const qs = params.toString();
+  return apiRequest(`/system-owner/system-notifications/${qs ? `?${qs}` : ''}`);
+};
+export const getSystemNotificationTypes = async () => apiRequest('/system-owner/system-notifications-types');
 export const getSystemNotificationById = async (id) => apiRequest(`/system-owner/system-notifications/${id}`, 'GET');
 export const createSystemNotification = async (notificationData) => apiRequest('/system-owner/system-notifications/', 'POST', notificationData);
 export const updateSystemNotification = async (id, notificationData) => apiRequest(`/system-owner/system-notifications/${id}`, 'PUT', notificationData);
