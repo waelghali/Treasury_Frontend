@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiRequest } from 'services/apiService.js'; // Correct path
+import { apiRequest } from 'services/apiService.js';
+import RangeBarController from '../../../components/RangeBarController';
 
 function GlobalConfigurationForm({ onLogout }) {
   const { id } = useParams(); // Get config ID from URL for editing (will be undefined for new)
@@ -31,12 +32,12 @@ function GlobalConfigurationForm({ onLogout }) {
         try {
           const config = await apiRequest(`/system-owner/global-configurations/${id}`, 'GET');
           setFormData({
-            key: config.key || '',
-            value_min: config.value_min || '',
-            value_max: config.value_max || '',
-            value_default: config.value_default || '',
-            unit: config.unit || '',
-            description: config.description || '',
+            key: config.key ?? '',
+            value_min: config.value_min != null && config.value_min !== 'null' ? String(config.value_min) : '',
+            value_max: config.value_max != null && config.value_max !== 'null' ? String(config.value_max) : '',
+            value_default: config.value_default != null && config.value_default !== 'null' ? String(config.value_default) : '',
+            unit: config.unit ?? '',
+            description: config.description ?? '',
           });
         } catch (err) {
           console.error('Failed to fetch config for editing:', err);
@@ -68,6 +69,26 @@ function GlobalConfigurationForm({ onLogout }) {
     e.preventDefault();
     setIsSaving(true);
     setError('');
+
+    // Validate min <= default <= max for numeric settings
+    const numMin = parseFloat(formData.value_min);
+    const numMax = parseFloat(formData.value_max);
+    const numDef = parseFloat(formData.value_default);
+
+    if (!isNaN(numMin) && !isNaN(numMax)) {
+      if (numMin > numMax) {
+        setError(`Minimum value (${numMin}) cannot exceed Maximum value (${numMax}).`);
+        setIsSaving(false);
+        return;
+      }
+      if (!isNaN(numDef)) {
+        if (numDef < numMin || numDef > numMax) {
+          setError(`Default value (${numDef}) must be between Minimum (${numMin}) and Maximum (${numMax}).`);
+          setIsSaving(false);
+          return;
+        }
+      }
+    }
 
     try {
       if (id) {
@@ -172,16 +193,49 @@ function GlobalConfigurationForm({ onLogout }) {
             {/* Default Value */}
             <div>
               <label htmlFor="value_default" className="block text-sm font-medium text-gray-700">Default Value (as string)</label>
-              <input
-                type="text"
-                name="value_default"
-                id="value_default"
-                value={formData.value_default}
-                onChange={handleChange}
-                className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-200 transition-all duration-200 shadow-sm:text-sm"
-              />
+              {formData.unit === 'json' || formData.unit === 'emails_json_array' || (typeof formData.value_default === 'string' && formData.value_default.startsWith('{')) ? (
+                <textarea
+                  name="value_default"
+                  id="value_default"
+                  rows={4}
+                  value={formData.value_default}
+                  onChange={handleChange}
+                  className="mb-2 mt-1 block w-full text-sm font-mono px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-200 transition-all duration-200"
+                />
+              ) : (
+                <input
+                  type="text"
+                  name="value_default"
+                  id="value_default"
+                  value={formData.value_default}
+                  onChange={handleChange}
+                  className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-200 transition-all duration-200 shadow-sm:text-sm"
+                />
+              )}
             </div>
           </div>
+
+          {/* Visual Range Bar Controller Preview (For numeric settings) */}
+          {!isNaN(parseFloat(formData.value_min)) && !isNaN(parseFloat(formData.value_max)) && parseFloat(formData.value_max) > parseFloat(formData.value_min) && (
+            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+                Range Bar Controller Preview (Min / Default / Max)
+              </label>
+              <RangeBarController
+                min={parseFloat(formData.value_min)}
+                max={parseFloat(formData.value_max)}
+                defaultVal={parseFloat(formData.value_default || formData.value_min)}
+                value={parseFloat(formData.value_default || formData.value_min)}
+                onChange={(v) => setFormData(prev => ({ ...prev, value_default: String(v) }))}
+                unit={formData.unit || ''}
+                compact={false}
+                showLabels={true}
+              />
+              <p className="text-[11px] text-slate-500 mt-2">
+                Drag the slider or click along the track to adjust the default value within the specified [Min - Max] bounds.
+              </p>
+            </div>
+          )}
 
           {/* Unit */}
           <div>

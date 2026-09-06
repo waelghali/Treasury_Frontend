@@ -27,7 +27,8 @@ import {
   Bell,
   Sparkles,
   Layers,
-  FileCheck
+  FileCheck,
+  Gift
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 
@@ -154,6 +155,17 @@ function SidebarLayout({ onLogout, headerTitle }) {
           <span className="flex items-center gap-2.5">
             <Briefcase className="w-4 h-4" />
             Subscription Plans
+          </span>
+        </Link>
+
+        <Link
+          to="/system-owner/campaigns"
+          onClick={() => setMobileMenuOpen(false)}
+          className={navItemClass(isLinkActive('/system-owner/campaigns'))}
+        >
+          <span className="flex items-center gap-2.5">
+            <Gift className="w-4 h-4 text-emerald-400" />
+            Partner Campaigns & Cashback
           </span>
         </Link>
       </div>

@@ -20,6 +20,7 @@ import ChangeRequestorModal from '../../components/Modals/ChangeRequestorModal';
 import IssuanceRequestDetailsModal from '../../components/Modals/IssuanceRequestDetailsModal';
 import RequestorDirectoryTab from '../../components/Issuance/RequestorDirectoryTab';
 import CopyBadge from '../../components/CopyBadge';
+import CustomerCashbackWidget from '../../components/CustomerCashbackWidget';
 
 // Status display labels (module-level so both modal and page can use)
 const statusLabels = {
@@ -2042,6 +2043,9 @@ export default function IssuedLGsPage() {
                 <RequestorDirectoryTab />
             ) : (
                 <>
+                    {/* Partner Promotional & Cashback Incentive Widget */}
+                    <CustomerCashbackWidget />
+
                     {/* Stats */}
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">

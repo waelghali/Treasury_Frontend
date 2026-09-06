@@ -4,6 +4,7 @@ import { apiRequest } from 'services/apiService.js';
 import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, X, Shield, Layers, Cpu, HardDrive, Settings, Clock, Server, Lock, MessageSquare, FileCheck, Building, LayoutTemplate, Sparkles, Sliders, KeyRound, Check } from 'lucide-react';
 import { toast } from 'react-toastify';
 import QuotationBanksModal from '../../components/Modals/QuotationBanksModal';
+import RangeBarController from '../../components/RangeBarController';
 
 // Email Provider Preset Auto-Detector
 const detectEmailProvider = (email) => {
@@ -63,57 +64,91 @@ const detectEmailProvider = (email) => {
   return null;
 };
 
-// --- 5-GROUP MASTER SETTINGS ARCHITECTURE ---
+// --- 7-GROUP MASTER DOMAIN SETTINGS ARCHITECTURE ---
 const settingGroups = {
-  'Operational Timers, Expiries & Bank Reminder Windows': { icon: Clock },
-  'Document Compliance & Mandatory Evidence Policies': { icon: FileCheck },
+  'General Platform & Security Policies': { icon: Lock },
+  'LG Custody Lifecycle & Evidences': { icon: Shield },
+  'LG Issuance Lifecycle & Compliance': { icon: FileCheck },
   'Smart Bank Facility Scoring & Recommendation': { icon: Layers },
-  'Operational Governance, Controls & Position Reconciliation': { icon: Shield },
-  'Security, Authentication & Platform Policies': { icon: Lock }
+  'RFQ Quotations Module': { icon: Building },
+  'Bank Position Reconciliation': { icon: CheckCircle },
+  'Cross-Module Operations & Banking Timers': { icon: Clock }
 };
 
-// Helper function to dynamically determine a config's group based on 5-pillar domain architecture
-const getGroupKey = (configKey) => {
-  const key = (configKey || '').toUpperCase();
+// Helper function to dynamically determine a config's group based on domain architecture and module tags
+const getGroupKey = (configOrKey, moduleTags = null) => {
+  let key = '';
+  let tags = [];
 
-  // Group 2: Document Compliance & Mandatory Evidence Policies
-  if (key.startsWith('DOC_MANDATORY_') || key.includes('DOC_') || key.includes('ATTACHMENT')) {
-    return 'Document Compliance & Mandatory Evidence Policies';
+  if (typeof configOrKey === 'object' && configOrKey !== null) {
+    key = (configOrKey.global_config_key || '').toUpperCase();
+    tags = Array.isArray(configOrKey.global_module_tags) ? configOrKey.global_module_tags : [];
+  } else {
+    key = (configOrKey || '').toUpperCase();
+    tags = Array.isArray(moduleTags) ? moduleTags : [];
   }
 
-  // Group 3: Smart Bank Facility Scoring & Recommendation
-  if (key.includes('FACILITY_SCORE') || key.includes('RESERVATION_TTL') || key.includes('PUBLIC_ISSUANCE_SESSION')) {
+  // 1. RFQ Quotations Module
+  if (tags.includes('quotation') || tags.includes('quotations') || key.includes('QUOTATION')) {
+    return 'RFQ Quotations Module';
+  }
+
+  // 2. Bank Position Reconciliation
+  if (key.includes('RECONCILIATION')) {
+    return 'Bank Position Reconciliation';
+  }
+
+  // 3. Smart Bank Facility Scoring & Recommendation
+  if (
+    key.includes('FACILITY_SCORE') ||
+    key.includes('FACILITY_UTILIZATION') ||
+    key.includes('RESERVATION_TTL') ||
+    key.includes('PUBLIC_ISSUANCE_SESSION') ||
+    key.includes('FX_DRIFT')
+  ) {
     return 'Smart Bank Facility Scoring & Recommendation';
   }
 
-  // Group 4: Operational Governance, Controls & Position Reconciliation
+  // 4. LG Custody Lifecycle & Evidences
   if (
+    key.includes('AUTO_RENEW') ||
+    key.includes('FORCED_RENEW') ||
+    key.includes('NUMBER_OF_DAYS_FOR_NEXT_REMINDER') ||
+    ((key.startsWith('DOC_MANDATORY_') || key.includes('DOC_')) && tags.length === 1 && tags.includes('custody'))
+  ) {
+    return 'LG Custody Lifecycle & Evidences';
+  }
+
+  // 5. LG Issuance Lifecycle & Compliance
+  if (
+    key.includes('ISSUANCE_LG_EXPIRY') ||
+    key.includes('ISSUED_LG_VERIFICATION') ||
     key.includes('ALLOW_SIMULTANEOUS_MAINTENANCE') ||
-    key.includes('APPROVAL_REQUEST_MAX_PENDING_DAYS') ||
-    key.includes('DAYS_FOR_RECONCILIATION_REMINDER') ||
-    key.includes('QUOTATION_APPROVAL_REQUIRED') ||
-    key.includes('COMMON_COMMUNICATION_LIST') ||
-    key.includes('REFERENCE_EXPIRY_REMINDER_DAYS')
+    key.includes('INVITE_LINK_EXPIRY') ||
+    key.includes('REFERENCE_EXPIRY') ||
+    ((key.startsWith('DOC_MANDATORY_') || key.includes('DOC_')) && tags.length === 1 && tags.includes('issuance'))
   ) {
-    return 'Operational Governance, Controls & Position Reconciliation';
+    return 'LG Issuance Lifecycle & Compliance';
   }
 
-  // Group 5: Security, Authentication & Platform Policies
+  // 6. General Platform & Security Policies
   if (
-    key.includes('PASSWORD') ||
-    key.includes('AUTH') ||
-    key.includes('LOCKOUT') ||
-    key.includes('SESSION') ||
-    key.includes('GRACE_PERIOD') ||
-    key.includes('STORAGE_BUCKET') ||
-    key.includes('TC_VERSION') ||
-    key.includes('PP_VERSION')
+    (!tags || tags.length === 0) &&
+    (
+      key.includes('PASSWORD') ||
+      key.includes('LOCKOUT') ||
+      key.includes('GRACE_PERIOD') ||
+      key.includes('PP_VERSION') ||
+      key.includes('TC_VERSION') ||
+      key.includes('STORAGE_BUCKET') ||
+      key.includes('AUTH')
+    )
   ) {
-    return 'Security, Authentication & Platform Policies';
+    return 'General Platform & Security Policies';
   }
 
-  // Group 1: Operational Timers, Expiries & Bank Reminder Windows (Default for all reminder, print, cancellation, renewal timers)
-  return 'Operational Timers, Expiries & Bank Reminder Windows';
+  // 7. Cross-Module Operations & Banking Timers (Cross-module / operational timers)
+  return 'Cross-Module Operations & Banking Timers';
 };
 
 // --- Toggle Switch Component ---
@@ -277,7 +312,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
       const response = await apiRequest('/corporate-admin/customer-configurations/', 'GET');
       const groupedConfigurations = response.map(config => ({
         ...config,
-        group: getGroupKey(config.global_config_key)
+        group: getGroupKey(config)
       }));
       setConfigurations(groupedConfigurations);
     } catch (err) {
@@ -388,7 +423,8 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     if (config.global_config_key === 'COMMON_COMMUNICATION_LIST') {
       setCurrentConfigToEdit(config);
       try {
-        const parsed = JSON.parse(config.effective_value);
+        const raw = config.effective_value || config.configured_value || config.global_value_default;
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
         setEditEmailList(Array.isArray(parsed) ? parsed : []);
       } catch (e) {
         setEditEmailList([]);
@@ -396,7 +432,15 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
       setShowEmailListModal(true);
     } else {
       setEditingConfigId(config.global_config_id);
-      setEditValue(config.configured_value !== null ? String(config.configured_value) : String(config.global_value_default));
+      let rawVal = config.effective_value;
+      if (rawVal == null || rawVal === 'undefined' || rawVal === 'null') {
+        rawVal = config.configured_value;
+      }
+      if (rawVal == null || rawVal === 'undefined' || rawVal === 'null') {
+        rawVal = config.global_value_default;
+      }
+      const activeVal = (rawVal != null && rawVal !== 'undefined' && rawVal !== 'null') ? String(rawVal) : '';
+      setEditValue(activeVal);
       setSaveError('');
     }
   };
@@ -713,7 +757,24 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
       } catch (e) {
       }
     }
+    if (config.effective_value == null || config.effective_value === 'undefined' || config.effective_value === 'null') {
+      return config.global_value_default != null ? String(config.global_value_default) : 'N/A';
+    }
     return String(config.effective_value);
+  };
+
+  const formatPolicySummary = (val) => {
+    if (!val || val === 'N/A') return '-';
+    try {
+      const p = typeof val === 'string' ? JSON.parse(val) : val;
+      if (typeof p !== 'object' || p === null) return String(val);
+      const mode = p.enforcement_mode || 'TOLERANCE';
+      const days = p.expiry_date_tolerance_days !== undefined ? `±${p.expiry_date_tolerance_days}d` : '±3d';
+      const ben = p.beneficiary_match_pct !== undefined ? `${p.beneficiary_match_pct}%` : '90%';
+      return `${mode} (${days}, ${ben})`;
+    } catch (e) {
+      return typeof val === 'string' && val.length > 25 ? val.substring(0, 25) + '...' : String(val);
+    }
   };
 
   const getPlaceholderText = (config) => {
@@ -725,27 +786,61 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     return "";
   };
 
-  const groupedAndSortedConfigurations = useMemo(() => {
-    // Build a set of active module tags from the subscription plan
-    const activeModules = new Set(['quotation', 'quotations']);
-    if (subscriptionData?.subscription_plan?.has_custody_module) activeModules.add('custody');
-    if (subscriptionData?.subscription_plan?.has_issuance_module) activeModules.add('issuance');
+  // Active module flags based on subscription plan
+  const hasCustody = subscriptionData ? Boolean(subscriptionData?.subscription_plan?.has_custody_module) : true;
+  const hasIssuance = subscriptionData ? Boolean(subscriptionData?.subscription_plan?.has_issuance_module) : false;
+  const hasQuotation = subscriptionData ? Boolean(subscriptionData?.subscription_plan?.has_quotation_module) : false;
+  const hasReconciliation = subscriptionData ? Boolean(subscriptionData?.subscription_plan?.has_reconciliation_module) : false;
 
+  // Filter available setting groups based on active subscription modules
+  const availableGroups = useMemo(() => {
+    return Object.keys(settingGroups).filter(groupName => {
+      if (!subscriptionData) return true;
+      if (groupName === 'RFQ Quotations Module' && !hasQuotation) return false;
+      if (groupName === 'LG Custody Lifecycle & Evidences' && !hasCustody) return false;
+      if (groupName === 'LG Issuance Lifecycle & Compliance' && !hasIssuance) return false;
+      if (groupName === 'Smart Bank Facility Scoring & Recommendation' && !hasIssuance) return false;
+      if (groupName === 'Bank Position Reconciliation' && !hasReconciliation && !hasIssuance) return false;
+      if (groupName === 'Cross-Module Operations & Banking Timers' && !hasCustody && !hasIssuance) return false;
+      return true;
+    });
+  }, [subscriptionData, hasCustody, hasIssuance, hasQuotation, hasReconciliation]);
+
+  // If active filter group becomes invalid due to subscription, reset to All Groups
+  useEffect(() => {
+    if (selectedGroup !== 'All Groups' && !availableGroups.includes(selectedGroup)) {
+      setSelectedGroup('All Groups');
+    }
+  }, [availableGroups, selectedGroup]);
+
+  const groupedAndSortedConfigurations = useMemo(() => {
     let filtered = [...configurations]
       .filter(config => {
-        // Module-based filtering: null/undefined = system (always shown)
-        const tags = config.global_module_tags;
-        if (tags && Array.isArray(tags) && tags.length > 0) {
-          // Show only if customer has at least one of the required modules
-          const hasAccess = tags.some(tag => activeModules.has(tag));
-          if (!hasAccess) return false;
+        // Module-based filtering when subscriptionData is loaded
+        if (subscriptionData) {
+          const tags = config.global_module_tags;
+          if (tags && Array.isArray(tags) && tags.length > 0) {
+            const hasAccess = tags.some(tag => {
+              if (tag === 'custody') return hasCustody;
+              if (tag === 'issuance') return hasIssuance;
+              if (tag === 'quotation' || tag === 'quotations') return hasQuotation;
+              if (tag === 'reconciliation') return hasReconciliation || hasIssuance;
+              return false;
+            });
+            if (!hasAccess) return false;
+          }
+          // If group itself is not available under subscription, filter out
+          if (config.group && !availableGroups.includes(config.group)) {
+            return false;
+          }
         }
+
         // Existing group and text filters
         const search = filterText.toLowerCase();
-        const humanizedKey = config.global_config_key.replace(/_/g, ' ').toLowerCase();
+        const humanizedKey = (config.global_config_key || '').replace(/_/g, ' ').toLowerCase();
         return (
           (selectedGroup === 'All Groups' || config.group === selectedGroup) &&
-          (config.global_config_key.toLowerCase().includes(search) ||
+          (config.global_config_key?.toLowerCase().includes(search) ||
             humanizedKey.includes(search) ||
             (config.global_description && config.global_description.toLowerCase().includes(search)) ||
             (config.effective_value && String(config.effective_value).toLowerCase().includes(search)))
@@ -769,12 +864,9 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
         return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
       });
 
-    // Group the filtered and sorted list
+    // Group the filtered and sorted list preserving domain order
     const grouped = {};
-    // Use the explicit keys from settingGroups for consistent display order
-    const groupKeys = Object.keys(settingGroups);
-
-    groupKeys.forEach(groupKey => {
+    availableGroups.forEach(groupKey => {
       const configsInGroup = filtered.filter(config => config.group === groupKey);
       if (configsInGroup.length > 0) {
         grouped[groupKey] = configsInGroup;
@@ -782,7 +874,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     });
 
     return grouped;
-  }, [configurations, filterText, sortKey, sortDirection, selectedGroup, subscriptionData]);
+  }, [configurations, filterText, sortKey, sortDirection, selectedGroup, subscriptionData, availableGroups, hasCustody, hasIssuance, hasQuotation, hasReconciliation]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -937,18 +1029,6 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                 Manage Email Settings
               </button>
             </GracePeriodTooltip>
-            {(customerId === 1 || customerId === "1") && (
-              <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                <button
-                  onClick={() => setShowQuotationBanksModal(true)}
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isGracePeriod}
-                >
-                  <Building className="h-4 w-4 mr-2" />
-                  Quotation Banks
-                </button>
-              </GracePeriodTooltip>
-            )}
           </div>
         </div>
 
@@ -982,7 +1062,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
               disabled={isGracePeriod}
             >
               <option value="All Groups">All Groups</option>
-              {Object.keys(settingGroups).map(groupName => (
+              {availableGroups.map(groupName => (
                 <option key={groupName} value={groupName}>{groupName}</option>
               ))}
             </select>
@@ -1000,9 +1080,25 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
               const GroupIcon = settingGroups[groupName]?.icon || Settings;
               return (
                 <div key={groupName} className="border border-gray-200 rounded-lg shadow-sm">
-                  <div className="bg-gray-100 px-4 py-3 rounded-t-lg flex items-center">
-                    <GroupIcon className="h-5 w-5 mr-2 text-gray-600" />
-                    <h3 className="text-lg font-semibold text-gray-800">{groupName} ({configs.length})</h3>
+                  <div className="bg-gray-100 px-4 py-3 rounded-t-lg flex items-center justify-between">
+                    <div className="flex items-center">
+                      <GroupIcon className="h-5 w-5 mr-2 text-gray-600" />
+                      <h3 className="text-lg font-semibold text-gray-800">{groupName} ({configs.length})</h3>
+                    </div>
+                    {groupName === 'RFQ Quotations Module' && hasQuotation && (
+                      <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                        <button
+                          type="button"
+                          onClick={() => setShowQuotationBanksModal(true)}
+                          className="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={isGracePeriod}
+                          title="Manage banks participating in RFQ Quotations"
+                        >
+                          <Building className="h-4 w-4 mr-1.5" />
+                          Quotation Banks
+                        </button>
+                      </GracePeriodTooltip>
+                    )}
                   </div>
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
@@ -1068,8 +1164,9 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {configs.filter(c =>
-                          // Hide weight configs from table — they're managed by the slider panel below
-                          !c.global_config_key.startsWith('FACILITY_SCORE_WEIGHT_')
+                          // Hide weight configs and verification policy from table — they're managed by dedicated visual panels below
+                          !c.global_config_key.startsWith('FACILITY_SCORE_WEIGHT_') &&
+                          c.global_config_key !== 'ISSUED_LG_VERIFICATION_POLICY'
                         ).map((config) => {
                           // Determine if this config is a boolean and check its state
                           const isBoolean = config.global_unit === 'boolean';
@@ -1084,33 +1181,76 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                                 {config.global_description || 'N/A'}
                               </td>
                               <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                                {config.global_value_min !== null ? config.global_value_min : 'N/A'}
+                                {config.global_unit === 'json' ? '-' : (config.global_value_min !== null ? config.global_value_min : '-')}
                               </td>
                               <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                                {config.global_value_max !== null ? config.global_value_max : 'N/A'}
+                                {config.global_unit === 'json' ? '-' : (config.global_value_max !== null ? config.global_value_max : '-')}
                               </td>
                               <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                                {config.global_value_default !== null ? config.global_value_default : 'N/A'}
+                                {config.global_unit === 'json' || (typeof config.global_value_default === 'string' && config.global_value_default.startsWith('{')) ? (
+                                  <span 
+                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200 cursor-help"
+                                    title={typeof config.global_value_default === 'string' ? config.global_value_default : JSON.stringify(config.global_value_default, null, 2)}
+                                  >
+                                    {formatPolicySummary(config.global_value_default)}
+                                  </span>
+                                ) : (
+                                  config.global_value_default !== null ? config.global_value_default : 'N/A'
+                                )}
                               </td>
 
                               {/* --- Current Value Column (Always Text) --- */}
                               <td className="px-3 py-2 text-sm text-gray-900 text-center">
-                                {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' && !isBoolean ? (
+                                {config.global_unit === 'json' || (typeof config.effective_value === 'string' && config.effective_value.startsWith('{')) ? (
+                                  <span 
+                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200 cursor-help"
+                                    title={typeof config.effective_value === 'string' ? config.effective_value : JSON.stringify(config.effective_value, null, 2)}
+                                  >
+                                    {formatPolicySummary(config.effective_value)}
+                                  </span>
+                                ) : editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' && !isBoolean ? (
                                   /* EDIT MODE (TEXT INPUT) - Only for non-boolean */
-                                  <input
-                                    type="text"
-                                    value={editValue}
-                                    onChange={(e) => setEditValue(e.target.value)}
-                                    className={`${inputClassNames} w-24 text-center`}
-                                    placeholder={getPlaceholderText(config)}
-                                    autoFocus
-                                    disabled={isGracePeriod}
-                                  />
+                                  <div className="flex flex-col items-center gap-1.5">
+                                    <input
+                                      type="text"
+                                      value={editValue}
+                                      onChange={(e) => setEditValue(e.target.value)}
+                                      className={`${inputClassNames} w-24 text-center`}
+                                      placeholder={getPlaceholderText(config)}
+                                      autoFocus
+                                      disabled={isGracePeriod}
+                                    />
+                                    {config.global_value_min !== null && config.global_value_max !== null && !isNaN(parseFloat(config.global_value_min)) && !isNaN(parseFloat(config.global_value_max)) && (
+                                      <RangeBarController
+                                        min={config.global_value_min}
+                                        max={config.global_value_max}
+                                        defaultVal={config.global_value_default}
+                                        value={editValue}
+                                        onChange={(v) => setEditValue(String(v))}
+                                        unit={config.global_unit || ''}
+                                        compact={true}
+                                        disabled={isGracePeriod}
+                                      />
+                                    )}
+                                  </div>
                                 ) : (
                                   /* VIEW MODE (TEXT) - For ALL types, including boolean */
-                                  <span className={`font-semibold ${isBoolean ? (isChecked ? 'text-green-600' : 'text-red-600') : ''}`}>
-                                    {getEffectiveValue(config)}
-                                  </span>
+                                  <div className="flex flex-col items-center gap-1">
+                                    <span className={`font-semibold ${isBoolean ? (isChecked ? 'text-green-600' : 'text-red-600') : ''}`}>
+                                      {getEffectiveValue(config)}
+                                    </span>
+                                    {config.global_value_min !== null && config.global_value_max !== null && !isNaN(parseFloat(config.global_value_min)) && !isNaN(parseFloat(config.global_value_max)) && (
+                                      <RangeBarController
+                                        min={config.global_value_min}
+                                        max={config.global_value_max}
+                                        defaultVal={config.global_value_default}
+                                        value={config.effective_value}
+                                        unit={config.global_unit || ''}
+                                        compact={true}
+                                        disabled={true}
+                                      />
+                                    )}
+                                  </div>
                                 )}
                               </td>
 
@@ -1156,6 +1296,16 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                                       />
                                     </GracePeriodTooltip>
                                   </div>
+                                ) : config.global_unit === 'json' || config.global_config_key === 'ISSUED_LG_VERIFICATION_POLICY' ? (
+                                  /* DEDICATED CONFIGURE BUTTON - Navigates to friendly Form Settings page */
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate('/corporate-admin/issuance-form-config')}
+                                    className="inline-flex items-center px-2.5 py-1 border border-blue-200 text-xs font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                                    title="Manage verification rules in Issuance Form Settings"
+                                  >
+                                    Configure
+                                  </button>
                                 ) : (
                                   /* EDIT BUTTON - For Non-Boolean types */
                                   /* CONDITION UPDATED: && config.global_unit - if unit is null/missing, button is hidden */
@@ -1181,8 +1331,8 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                     </table>
                   </div>
 
-                  {/* Linked Weight Editor — only for Issuance & Facilities group */}
-                  {groupName === 'Issuance & Facilities' && (() => {
+                  {/* Linked Weight Editor — for Smart Bank Facility Scoring & Recommendation group */}
+                  {(groupName === 'Smart Bank Facility Scoring & Recommendation' || groupName === 'Issuance & Facilities') && (() => {
                     const WEIGHT_DEFS = [
                       { label: 'Cost', color: '#3b82f6', key: 'FACILITY_SCORE_WEIGHT_COST', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_COST', desc: 'Commission & fees' },
                       { label: 'Margin', color: '#8b5cf6', key: 'FACILITY_SCORE_WEIGHT_MARGIN', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_MARGIN', desc: 'Cash margin impact' },
@@ -1283,7 +1433,10 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                             <span className="text-sm font-semibold text-gray-700">{title}</span>
                             {!editing ? (
                               <button
-                                onClick={() => setEditing(true)}
+                                onClick={() => {
+                                  setWeights(WEIGHT_DEFS.map(w => ({ ...w, val: getVal(w[keyProp]) })));
+                                  setEditing(true);
+                                }}
                                 disabled={isGracePeriod}
                                 className="text-xs px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 font-medium"
                               >
@@ -1375,6 +1528,445 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                         </div>
                       </div>
                     );
+                  })()}
+
+                  {/* Dedicated Verification & Compliance Policy Widget — for LG Issuance Lifecycle & Compliance group */}
+                  {(groupName === 'LG Issuance Lifecycle & Compliance' || groupName === 'Document Compliance & Mandatory Evidence Policies' || groupName === 'Document Compliance & Requirements') && (() => {
+                    const policyConfig = configurations.find(x => x.global_config_key === 'ISSUED_LG_VERIFICATION_POLICY') || configs.find(x => x.global_config_key === 'ISSUED_LG_VERIFICATION_POLICY');
+                    const rawPolicy = policyConfig?.effective_value || policyConfig?.configured_value || policyConfig?.global_value_default;
+                    const rawMin = policyConfig?.global_value_min;
+                    const rawMax = policyConfig?.global_value_max;
+                    const rawDef = policyConfig?.global_value_default;
+
+                    const fallbackPolicy = {
+                      enforcement_mode: 'TOLERANCE',
+                      expiry_date_tolerance_days: 3,
+                      beneficiary_match_pct: 90,
+                      issuer_match_pct: 90,
+                      verify_issuing_bank: true,
+                      verify_issuer_name: true,
+                      block_issuance_without_scan: false,
+                    };
+                    const fallbackMin = {
+                      expiry_date_tolerance_days: 0,
+                      beneficiary_match_pct: 70,
+                      issuer_match_pct: 70,
+                    };
+                    const fallbackMax = {
+                      expiry_date_tolerance_days: 15,
+                      beneficiary_match_pct: 100,
+                      issuer_match_pct: 100,
+                    };
+
+                    const safeParseObj = (val, fb) => {
+                      if (!val) return fb;
+                      try {
+                        const p = typeof val === 'string' ? JSON.parse(val) : val;
+                        if (typeof p === 'object' && p !== null) return { ...fb, ...p };
+                      } catch (e) {}
+                      return fb;
+                    };
+
+                    const boundsMin = safeParseObj(rawMin, fallbackMin);
+                    const boundsMax = safeParseObj(rawMax, fallbackMax);
+                    const defPolicy = safeParseObj(rawDef, fallbackPolicy);
+                    const activePolicy = safeParseObj(rawPolicy, fallbackPolicy);
+
+                    const PolicyPanel = () => {
+                      const [policy, setPolicy] = React.useState(activePolicy);
+                      const [isEditing, setIsEditing] = React.useState(false);
+                      const [isSaving, setIsSaving] = React.useState(false);
+
+                      // Ensure state is updated when data loads from server
+                      React.useEffect(() => {
+                        if (!isEditing) {
+                          setPolicy(safeParseObj(rawPolicy, fallbackPolicy));
+                        }
+                      }, [rawPolicy, isEditing]);
+
+                      const handleStartEdit = () => {
+                        // Always read freshest data from policyConfig when entering edit mode
+                        const currentRaw = policyConfig?.effective_value || policyConfig?.configured_value || policyConfig?.global_value_default;
+                        setPolicy(safeParseObj(currentRaw, fallbackPolicy));
+                        setIsEditing(true);
+                      };
+
+                      const handleSavePolicy = async () => {
+                        const expDays = parseInt(policy.expiry_date_tolerance_days, 10) || 0;
+                        const benPct = parseInt(policy.beneficiary_match_pct, 10) || 0;
+                        const issPct = parseInt(policy.issuer_match_pct, 10) || 0;
+
+                        // Validate Option A bounds set by System Owner
+                        if (expDays < boundsMin.expiry_date_tolerance_days || expDays > boundsMax.expiry_date_tolerance_days) {
+                          toast.warn(`Expiry Date Tolerance (${expDays} days) must be between ${boundsMin.expiry_date_tolerance_days} and ${boundsMax.expiry_date_tolerance_days} days.`);
+                          return;
+                        }
+                        if (benPct < boundsMin.beneficiary_match_pct || benPct > boundsMax.beneficiary_match_pct) {
+                          toast.warn(`Beneficiary Match (${benPct}%) must be between ${boundsMin.beneficiary_match_pct}% and ${boundsMax.beneficiary_match_pct}%.`);
+                          return;
+                        }
+                        if (issPct < boundsMin.issuer_match_pct || issPct > boundsMax.issuer_match_pct) {
+                          toast.warn(`Issuer Match (${issPct}%) must be between ${boundsMin.issuer_match_pct}% and ${boundsMax.issuer_match_pct}%.`);
+                          return;
+                        }
+
+                        setIsSaving(true);
+                        try {
+                          const payload = JSON.stringify({
+                            ...policy,
+                            expiry_date_tolerance_days: expDays,
+                            beneficiary_match_pct: benPct,
+                            issuer_match_pct: issPct,
+                          });
+                          const result = await apiRequest(`/corporate-admin/customer-configurations/ISSUED_LG_VERIFICATION_POLICY`, 'PUT', {
+                            configured_value: payload,
+                          });
+                          if (result && result.status === 'PENDING') {
+                            toast.info('Verification Policy — change submitted for approval by a second administrator.', { autoClose: 6000 });
+                          } else {
+                            toast.success('Verification policy updated successfully!');
+                          }
+                          setIsEditing(false);
+                          fetchConfigurations(true);
+                        } catch (err) {
+                          toast.error(`Failed to save policy: ${err.message || 'Error saving configuration'}`);
+                        } finally {
+                          setIsSaving(false);
+                        }
+                      };
+
+                      const handleCancel = () => {
+                        setPolicy(safeParseObj(rawPolicy, fallbackPolicy));
+                        setIsEditing(false);
+                      };
+
+                      const modeBadgeColor = policy.enforcement_mode === 'STRICT' 
+                        ? 'bg-amber-100 text-amber-800 border-amber-300' 
+                        : policy.enforcement_mode === 'ADVISORY'
+                        ? 'bg-blue-100 text-blue-800 border-blue-300'
+                        : 'bg-emerald-100 text-emerald-800 border-emerald-300';
+
+                      return (
+                        <div className="px-4 py-4 bg-slate-50 border-t border-slate-200 rounded-b-lg">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-3 border-b border-slate-200 gap-2">
+                            <div className="flex items-center gap-2">
+                              <Shield className="h-5 w-5 text-indigo-600 flex-shrink-0" />
+                              <div>
+                                <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                  Bank-Issued LG Copy Verification & Compliance Policy
+                                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${modeBadgeColor}`}>
+                                    {policy.enforcement_mode || 'TOLERANCE'}
+                                  </span>
+                                </h4>
+                                <p className="text-xs text-slate-500">
+                                  Custom company tolerances enforced during bank-issued scan verification (bounded by System Owner platform rules).
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 self-start sm:self-auto">
+                              {!isEditing ? (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleStartEdit}
+                                    disabled={isGracePeriod}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                  >
+                                    <Edit className="h-3.5 w-3.5" /> Edit Policy
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate('/corporate-admin/issuance-form-config')}
+                                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition-colors"
+                                    title="Go to detailed form settings"
+                                  >
+                                    Form Settings
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleSavePolicy}
+                                    disabled={isSaving}
+                                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                                  >
+                                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save Policy
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleCancel}
+                                    disabled={isSaving}
+                                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {!isEditing ? (
+                            /* Visual Metric Badges with RangeBarController */
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                              <div className="bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                                <div>
+                                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Maturity Date Tolerance</span>
+                                  <div className="text-lg font-bold text-slate-800 flex items-baseline gap-1">
+                                    ±{policy.expiry_date_tolerance_days ?? 3} <span className="text-xs font-normal text-slate-500">days</span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    Allowed Range: [{boundsMin.expiry_date_tolerance_days} – {boundsMax.expiry_date_tolerance_days} days]
+                                  </p>
+                                </div>
+                                <div className="pt-2 mt-2 border-t border-slate-100">
+                                  <RangeBarController
+                                    min={boundsMin.expiry_date_tolerance_days}
+                                    max={boundsMax.expiry_date_tolerance_days}
+                                    defaultVal={defPolicy.expiry_date_tolerance_days}
+                                    value={policy.expiry_date_tolerance_days}
+                                    unit="days"
+                                    compact={false}
+                                    showLabels={true}
+                                    disabled={true}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                                <div>
+                                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Beneficiary Match</span>
+                                  <div className="text-lg font-bold text-slate-800 flex items-baseline gap-1">
+                                    {policy.beneficiary_match_pct ?? 90}% <span className="text-xs font-normal text-slate-500">similarity</span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    Allowed Range: [{boundsMin.beneficiary_match_pct}% – {boundsMax.beneficiary_match_pct}%]
+                                  </p>
+                                </div>
+                                <div className="pt-2 mt-2 border-t border-slate-100">
+                                  <RangeBarController
+                                    min={boundsMin.beneficiary_match_pct}
+                                    max={boundsMax.beneficiary_match_pct}
+                                    defaultVal={defPolicy.beneficiary_match_pct}
+                                    value={policy.beneficiary_match_pct}
+                                    unit="%"
+                                    compact={false}
+                                    showLabels={true}
+                                    disabled={true}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                                <div>
+                                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Issuer / Applicant Match</span>
+                                  <div className="text-lg font-bold text-slate-800 flex items-baseline gap-1">
+                                    {policy.issuer_match_pct ?? 90}% <span className="text-xs font-normal text-slate-500">similarity</span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    Allowed Range: [{boundsMin.issuer_match_pct}% – {boundsMax.issuer_match_pct}%]
+                                  </p>
+                                </div>
+                                <div className="pt-2 mt-2 border-t border-slate-100">
+                                  <RangeBarController
+                                    min={boundsMin.issuer_match_pct}
+                                    max={boundsMax.issuer_match_pct}
+                                    defaultVal={defPolicy.issuer_match_pct}
+                                    value={policy.issuer_match_pct}
+                                    unit="%"
+                                    compact={false}
+                                    showLabels={true}
+                                    disabled={true}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                                <div>
+                                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Active Checkpoints</span>
+                                  <div className="space-y-1.5 mt-2">
+                                    <div className="flex items-center justify-between text-xs text-slate-700">
+                                      <span>Issuing Bank:</span>
+                                      <span className={`font-semibold ${policy.verify_issuing_bank !== false ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                        {policy.verify_issuing_bank !== false ? '✓ Verified' : 'Skipped'}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-slate-700">
+                                      <span>Applicant Entity:</span>
+                                      <span className={`font-semibold ${policy.verify_issuer_name !== false ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                        {policy.verify_issuer_name !== false ? '✓ Verified' : 'Skipped'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="pt-2 mt-2 border-t border-slate-100 text-[11px] text-slate-400 flex items-center gap-1">
+                                  <span className="inline-block w-2 h-2 rounded-full bg-blue-500" />
+                                  Company Policy Active
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Edit Mode: Interactive Controls with Option A bounds & RangeBarController */
+                            <div className="bg-white p-4 rounded-lg border border-slate-300 shadow-xs space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-3 border-b border-slate-100">
+                                <div>
+                                  <label className="block text-xs font-semibold text-slate-700 mb-1">Enforcement Mode</label>
+                                  <select
+                                    value={policy.enforcement_mode || 'TOLERANCE'}
+                                    onChange={e => setPolicy({ ...policy, enforcement_mode: e.target.value })}
+                                    className="w-full text-xs border border-slate-300 rounded-md p-2 bg-white focus:ring-1 focus:ring-blue-500"
+                                  >
+                                    <option value="TOLERANCE">TOLERANCE (Pass with minor variances within threshold)</option>
+                                    <option value="STRICT">STRICT (Strict exact match required across all fields)</option>
+                                    <option value="ADVISORY">ADVISORY (Log warnings without blocking confirmation)</option>
+                                  </select>
+                                </div>
+                                <div className="flex flex-col justify-end">
+                                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 pb-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={policy.verify_issuing_bank !== false}
+                                      onChange={e => setPolicy({ ...policy, verify_issuing_bank: e.target.checked })}
+                                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
+                                    />
+                                    Verify Bank matches selected facility
+                                  </label>
+                                </div>
+                                <div className="flex flex-col justify-end">
+                                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 pb-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={policy.verify_issuer_name !== false}
+                                      onChange={e => setPolicy({ ...policy, verify_issuer_name: e.target.checked })}
+                                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
+                                    />
+                                    Verify Applicant matches company entity name
+                                  </label>
+                                </div>
+                              </div>
+
+                              {/* Interactive Scalar Tolerances with RangeBarController */}
+                              <div className="space-y-4">
+                                <div className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                                  <span>Policy Tolerances (Adjust within Platform Bounds)</span>
+                                  <span className="text-[11px] font-normal text-slate-500 lowercase">
+                                    Platform rules constrain values between Min and Max
+                                  </span>
+                                </div>
+
+                                {/* Metric 1: Expiry Date Tolerance */}
+                                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div>
+                                      <label className="text-xs font-semibold text-slate-800 block">Expiry Date Tolerance (Days)</label>
+                                      <span className="text-[11px] text-slate-500">
+                                        Allowed: {boundsMin.expiry_date_tolerance_days} to {boundsMax.expiry_date_tolerance_days} days
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-semibold text-slate-500">±</span>
+                                      <input
+                                        type="number"
+                                        min={boundsMin.expiry_date_tolerance_days}
+                                        max={boundsMax.expiry_date_tolerance_days}
+                                        value={policy.expiry_date_tolerance_days ?? 3}
+                                        onChange={e => {
+                                          const val = parseInt(e.target.value || 0, 10);
+                                          setPolicy({ ...policy, expiry_date_tolerance_days: val });
+                                        }}
+                                        className="w-20 text-xs font-bold border border-blue-300 rounded px-2 py-1 text-center bg-white focus:ring-1 focus:ring-blue-500"
+                                      />
+                                      <span className="text-xs text-slate-500">days</span>
+                                    </div>
+                                  </div>
+                                  <RangeBarController
+                                    min={boundsMin.expiry_date_tolerance_days}
+                                    max={boundsMax.expiry_date_tolerance_days}
+                                    defaultVal={defPolicy.expiry_date_tolerance_days}
+                                    value={policy.expiry_date_tolerance_days ?? 3}
+                                    onChange={v => setPolicy({ ...policy, expiry_date_tolerance_days: v })}
+                                    unit="days"
+                                    showLabels={true}
+                                  />
+                                </div>
+
+                                {/* Metric 2: Beneficiary Match % */}
+                                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div>
+                                      <label className="text-xs font-semibold text-slate-800 block">Beneficiary Match Threshold (%)</label>
+                                      <span className="text-[11px] text-slate-500">
+                                        Allowed: {boundsMin.beneficiary_match_pct}% to {boundsMax.beneficiary_match_pct}%
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="number"
+                                        min={boundsMin.beneficiary_match_pct}
+                                        max={boundsMax.beneficiary_match_pct}
+                                        value={policy.beneficiary_match_pct ?? 90}
+                                        onChange={e => {
+                                          const val = parseInt(e.target.value || 0, 10);
+                                          setPolicy({ ...policy, beneficiary_match_pct: val });
+                                        }}
+                                        className="w-20 text-xs font-bold border border-blue-300 rounded px-2 py-1 text-center bg-white focus:ring-1 focus:ring-blue-500"
+                                      />
+                                      <span className="text-xs text-slate-500">% similarity</span>
+                                    </div>
+                                  </div>
+                                  <RangeBarController
+                                    min={boundsMin.beneficiary_match_pct}
+                                    max={boundsMax.beneficiary_match_pct}
+                                    defaultVal={defPolicy.beneficiary_match_pct}
+                                    value={policy.beneficiary_match_pct ?? 90}
+                                    onChange={v => setPolicy({ ...policy, beneficiary_match_pct: v })}
+                                    unit="%"
+                                    showLabels={true}
+                                  />
+                                </div>
+
+                                {/* Metric 3: Issuer Match % */}
+                                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div>
+                                      <label className="text-xs font-semibold text-slate-800 block">Issuer / Applicant Match Threshold (%)</label>
+                                      <span className="text-[11px] text-slate-500">
+                                        Allowed: {boundsMin.issuer_match_pct}% to {boundsMax.issuer_match_pct}%
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="number"
+                                        min={boundsMin.issuer_match_pct}
+                                        max={boundsMax.issuer_match_pct}
+                                        value={policy.issuer_match_pct ?? 90}
+                                        onChange={e => {
+                                          const val = parseInt(e.target.value || 0, 10);
+                                          setPolicy({ ...policy, issuer_match_pct: val });
+                                        }}
+                                        className="w-20 text-xs font-bold border border-blue-300 rounded px-2 py-1 text-center bg-white focus:ring-1 focus:ring-blue-500"
+                                      />
+                                      <span className="text-xs text-slate-500">% similarity</span>
+                                    </div>
+                                  </div>
+                                  <RangeBarController
+                                    min={boundsMin.issuer_match_pct}
+                                    max={boundsMax.issuer_match_pct}
+                                    defaultVal={defPolicy.issuer_match_pct}
+                                    value={policy.issuer_match_pct ?? 90}
+                                    onChange={v => setPolicy({ ...policy, issuer_match_pct: v })}
+                                    unit="%"
+                                    showLabels={true}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    };
+
+                    return <PolicyPanel />;
                   })()}
                 </div>
               );
@@ -1923,15 +2515,6 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
           </div>
         )
       }
-
-
-
-      {showQuotationBanksModal && (
-        <QuotationBanksModal
-          isOpen={showQuotationBanksModal}
-          onClose={() => setShowQuotationBanksModal(false)}
-        />
-      )}
     </div >
   );
 }

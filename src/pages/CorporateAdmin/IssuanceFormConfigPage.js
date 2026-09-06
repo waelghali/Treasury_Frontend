@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
-import { Loader2, Save, ShieldAlert, LayoutTemplate, Settings2, Plus, X, Lock } from 'lucide-react';
+import { Loader2, Save, ShieldAlert, LayoutTemplate, Settings2, Plus, X, Lock, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import RangeBarController from '../../components/RangeBarController';
 
 // Hardcoded system constraints: These fields cannot be hidden.
 const UNHIDEABLE_FIELDS = [
@@ -31,7 +32,17 @@ export default function IssuanceFormConfigPage() {
         custom_field_1_config: null,
         custom_field_2_config: null,
         mandatory_document_types: ["FORMAL_REQUEST"],
-        reference_types: null
+        reference_types: null,
+        issued_lg_scan_mandatory: false,
+        verification_policy: {
+            enforcement_mode: 'TOLERANCE',
+            expiry_date_tolerance_days: 3,
+            beneficiary_match_pct: 90,
+            issuer_match_pct: 90,
+            verify_issuing_bank: true,
+            verify_issuer_name: true,
+            block_issuance_without_scan: false,
+        }
     });
 
     const DEFAULT_REFERENCE_TYPES = [
@@ -42,6 +53,11 @@ export default function IssuanceFormConfigPage() {
         { id: 'OTHER', name: 'Other' }
     ];
     const [newRefType, setNewRefType] = useState('');
+    const [policyBounds, setPolicyBounds] = useState({
+        min: { expiry_date_tolerance_days: 0, beneficiary_match_pct: 70, issuer_match_pct: 70 },
+        max: { expiry_date_tolerance_days: 15, beneficiary_match_pct: 100, issuer_match_pct: 100 },
+        defaultVal: { expiry_date_tolerance_days: 3, beneficiary_match_pct: 90, issuer_match_pct: 90 },
+    });
 
     useEffect(() => {
         fetchConfig();
@@ -49,10 +65,29 @@ export default function IssuanceFormConfigPage() {
 
     const fetchConfig = async () => {
         try {
-            const [data, policies] = await Promise.all([
+            const [data, policies, custConfigs] = await Promise.all([
                 apiRequest('/issuance/form-config', 'GET'),
-                apiRequest('/issuance/workflow-policies', 'GET').catch(() => [])
+                apiRequest('/issuance/workflow-policies', 'GET').catch(() => []),
+                apiRequest('/corporate-admin/customer-configurations', 'GET').catch(() => [])
             ]);
+
+            const vConfig = Array.isArray(custConfigs) ? custConfigs.find(c => c.global_config_key === 'ISSUED_LG_VERIFICATION_POLICY') : null;
+            if (vConfig) {
+                const parseSafe = (v, fb) => {
+                    if (!v) return fb;
+                    try {
+                        const p = typeof v === 'string' ? JSON.parse(v) : v;
+                        return typeof p === 'object' && p ? { ...fb, ...p } : fb;
+                    } catch (e) {
+                        return fb;
+                    }
+                };
+                setPolicyBounds({
+                    min: parseSafe(vConfig.global_value_min, { expiry_date_tolerance_days: 0, beneficiary_match_pct: 70, issuer_match_pct: 70 }),
+                    max: parseSafe(vConfig.global_value_max, { expiry_date_tolerance_days: 15, beneficiary_match_pct: 100, issuer_match_pct: 100 }),
+                    defaultVal: parseSafe(vConfig.global_value_default, { expiry_date_tolerance_days: 3, beneficiary_match_pct: 90, issuer_match_pct: 90 }),
+                });
+            }
 
             // Detect if any DEPT_MATCH workflow policy exists
             const hasDeptPolicy = (policies || []).some(p => p.condition_type === 'DEPT_MATCH' && p.is_active);
@@ -71,9 +106,30 @@ export default function IssuanceFormConfigPage() {
                 initializedFields['department'] = { is_visible: true, is_mandatory: true };
             }
 
+            let parsedPolicy = data.verification_policy;
+            if (typeof parsedPolicy === 'string') {
+                try {
+                    parsedPolicy = JSON.parse(parsedPolicy);
+                } catch (e) {
+                    parsedPolicy = null;
+                }
+            }
+
+            const defaultPolicyFallback = {
+                enforcement_mode: 'TOLERANCE',
+                expiry_date_tolerance_days: 3,
+                beneficiary_match_pct: 90,
+                issuer_match_pct: 90,
+                verify_issuing_bank: true,
+                verify_issuer_name: true,
+                block_issuance_without_scan: false,
+            };
+
             setConfig({
                 ...data,
-                field_configurations: initializedFields
+                field_configurations: initializedFields,
+                issued_lg_scan_mandatory: data.issued_lg_scan_mandatory ?? false,
+                verification_policy: parsedPolicy ? { ...defaultPolicyFallback, ...parsedPolicy } : defaultPolicyFallback
             });
         } catch (error) {
             toast.error("Failed to load form configuration.");
@@ -156,6 +212,35 @@ export default function IssuanceFormConfigPage() {
             const payload = { ...config };
             if (payload.custom_field_1_config && !payload.custom_field_1_config.label) payload.custom_field_1_config = null;
             if (payload.custom_field_2_config && !payload.custom_field_2_config.label) payload.custom_field_2_config = null;
+
+            if (payload.verification_policy) {
+                const vp = payload.verification_policy;
+                const expDays = parseInt(vp.expiry_date_tolerance_days, 10) || 0;
+                const benPct = parseInt(vp.beneficiary_match_pct, 10) || 0;
+                const issPct = parseInt(vp.issuer_match_pct, 10) || 0;
+
+                if (expDays < policyBounds.min.expiry_date_tolerance_days || expDays > policyBounds.max.expiry_date_tolerance_days) {
+                    toast.warn(`Expiry Date Tolerance (${expDays} days) must be between ${policyBounds.min.expiry_date_tolerance_days} and ${policyBounds.max.expiry_date_tolerance_days} days.`);
+                    setSaving(false);
+                    return;
+                }
+                if (benPct < policyBounds.min.beneficiary_match_pct || benPct > policyBounds.max.beneficiary_match_pct) {
+                    toast.warn(`Beneficiary Match (${benPct}%) must be between ${policyBounds.min.beneficiary_match_pct}% and ${policyBounds.max.beneficiary_match_pct}%.`);
+                    setSaving(false);
+                    return;
+                }
+                if (issPct < policyBounds.min.issuer_match_pct || issPct > policyBounds.max.issuer_match_pct) {
+                    toast.warn(`Issuer Match (${issPct}%) must be between ${policyBounds.min.issuer_match_pct}% and ${policyBounds.max.issuer_match_pct}%.`);
+                    setSaving(false);
+                    return;
+                }
+                payload.verification_policy = {
+                    ...vp,
+                    expiry_date_tolerance_days: expDays,
+                    beneficiary_match_pct: benPct,
+                    issuer_match_pct: issPct,
+                };
+            }
 
             const result = await apiRequest('/issuance/form-config', 'PUT', payload);
             if (result?.status === 'PENDING') {
@@ -387,6 +472,221 @@ export default function IssuanceFormConfigPage() {
                                 </div>
                             );
                         })}
+                    </div>
+                </div>
+            </div>
+
+            {/* LG Copy Verification & Compliance Policy */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-gray-50 px-6 py-3 border-b border-gray-200 font-semibold text-gray-700 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                        <span>LG Copy Verification & Compliance Policy</span>
+                    </div>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        Promotions & Core Audit
+                    </span>
+                </div>
+                <div className="p-6 space-y-6">
+                    {/* Mandatory Scan Toggle */}
+                    <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                        <div>
+                            <span className="font-semibold text-gray-900 block text-sm">
+                                Require Bank Issued LG Copy Scan
+                            </span>
+                            <span className="text-xs text-gray-500 mt-0.5 block">
+                                When enabled, users cannot finalize LG issuance without attaching the official bank scanned document.
+                            </span>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={config.issued_lg_scan_mandatory || false}
+                                onChange={(e) => setConfig(prev => ({ ...prev, issued_lg_scan_mandatory: e.target.checked }))}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
+                    </div>
+
+                    {/* Policy Tolerance Controls */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                        {/* Enforcement Mode */}
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                Enforcement Mode
+                            </label>
+                            <select
+                                className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                                value={config.verification_policy?.enforcement_mode || 'TOLERANCE'}
+                                onChange={(e) => {
+                                    const mode = e.target.value;
+                                    setConfig(prev => ({
+                                        ...prev,
+                                        verification_policy: { ...prev.verification_policy, enforcement_mode: mode }
+                                    }));
+                                }}
+                            >
+                                <option value="TOLERANCE">TOLERANCE — Auto-accept within tolerances (Recommended)</option>
+                                <option value="STRICT">STRICT — Require 100% exact match across all fields</option>
+                                <option value="ADVISORY">ADVISORY — Flag differences in notes without blocking</option>
+                            </select>
+                            <span className="text-[11px] text-gray-400 mt-1 block">
+                                Controls whether minor differences raise a blocking discrepancy or pass with tolerance.
+                            </span>
+                        </div>
+
+                        {/* Expiry Date Tolerance */}
+                        <div className="p-3 bg-slate-50/70 rounded-lg border border-slate-200/80">
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                Expiry Date Tolerance (Days)
+                            </label>
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="text-sm font-semibold text-gray-500">±</span>
+                                <input
+                                    type="number"
+                                    min={policyBounds.min.expiry_date_tolerance_days}
+                                    max={policyBounds.max.expiry_date_tolerance_days}
+                                    className="flex-1 border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 text-sm font-bold text-center"
+                                    value={config.verification_policy?.expiry_date_tolerance_days ?? policyBounds.defaultVal.expiry_date_tolerance_days}
+                                    onChange={(e) => {
+                                        const days = parseInt(e.target.value, 10) || 0;
+                                        setConfig(prev => ({
+                                            ...prev,
+                                            verification_policy: { ...prev.verification_policy, expiry_date_tolerance_days: days }
+                                        }));
+                                    }}
+                                />
+                                <span className="text-xs text-gray-500 font-medium">days</span>
+                            </div>
+                            <RangeBarController
+                                min={policyBounds.min.expiry_date_tolerance_days}
+                                max={policyBounds.max.expiry_date_tolerance_days}
+                                defaultVal={policyBounds.defaultVal.expiry_date_tolerance_days}
+                                value={config.verification_policy?.expiry_date_tolerance_days ?? policyBounds.defaultVal.expiry_date_tolerance_days}
+                                onChange={(days) => setConfig(prev => ({
+                                    ...prev,
+                                    verification_policy: { ...prev.verification_policy, expiry_date_tolerance_days: days }
+                                }))}
+                                unit="days"
+                                showLabels={true}
+                            />
+                            <span className="text-[11px] text-gray-400 mt-1 block">
+                                Allowed range: [{policyBounds.min.expiry_date_tolerance_days} – {policyBounds.max.expiry_date_tolerance_days} days]. Platform default: {policyBounds.defaultVal.expiry_date_tolerance_days} days.
+                            </span>
+                        </div>
+
+                        {/* Beneficiary Matching Threshold */}
+                        <div className="p-3 bg-slate-50/70 rounded-lg border border-slate-200/80">
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                Beneficiary Match Threshold (%)
+                            </label>
+                            <div className="flex items-center gap-2 mb-2">
+                                <input
+                                    type="number"
+                                    min={policyBounds.min.beneficiary_match_pct}
+                                    max={policyBounds.max.beneficiary_match_pct}
+                                    className="flex-1 border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 text-sm font-bold text-center"
+                                    value={config.verification_policy?.beneficiary_match_pct ?? policyBounds.defaultVal.beneficiary_match_pct}
+                                    onChange={(e) => {
+                                        const pct = parseInt(e.target.value, 10) || policyBounds.defaultVal.beneficiary_match_pct;
+                                        setConfig(prev => ({
+                                            ...prev,
+                                            verification_policy: { ...prev.verification_policy, beneficiary_match_pct: pct }
+                                        }));
+                                    }}
+                                />
+                                <span className="text-xs text-gray-500 font-medium">% similarity</span>
+                            </div>
+                            <RangeBarController
+                                min={policyBounds.min.beneficiary_match_pct}
+                                max={policyBounds.max.beneficiary_match_pct}
+                                defaultVal={policyBounds.defaultVal.beneficiary_match_pct}
+                                value={config.verification_policy?.beneficiary_match_pct ?? policyBounds.defaultVal.beneficiary_match_pct}
+                                onChange={(pct) => setConfig(prev => ({
+                                    ...prev,
+                                    verification_policy: { ...prev.verification_policy, beneficiary_match_pct: pct }
+                                }))}
+                                unit="%"
+                                showLabels={true}
+                            />
+                            <span className="text-[11px] text-gray-400 mt-1 block">
+                                Allowed range: [{policyBounds.min.beneficiary_match_pct}% – {policyBounds.max.beneficiary_match_pct}%]. Platform default: {policyBounds.defaultVal.beneficiary_match_pct}%.
+                            </span>
+                        </div>
+
+                        {/* Issuer / Applicant Matching Threshold */}
+                        <div className="p-3 bg-slate-50/70 rounded-lg border border-slate-200/80">
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                Issuer / Applicant Match Threshold (%)
+                            </label>
+                            <div className="flex items-center gap-2 mb-2">
+                                <input
+                                    type="number"
+                                    min={policyBounds.min.issuer_match_pct}
+                                    max={policyBounds.max.issuer_match_pct}
+                                    className="flex-1 border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 text-sm font-bold text-center"
+                                    value={config.verification_policy?.issuer_match_pct ?? policyBounds.defaultVal.issuer_match_pct}
+                                    onChange={(e) => {
+                                        const pct = parseInt(e.target.value, 10) || policyBounds.defaultVal.issuer_match_pct;
+                                        setConfig(prev => ({
+                                            ...prev,
+                                            verification_policy: { ...prev.verification_policy, issuer_match_pct: pct }
+                                        }));
+                                    }}
+                                />
+                                <span className="text-xs text-gray-500 font-medium">% similarity</span>
+                            </div>
+                            <RangeBarController
+                                min={policyBounds.min.issuer_match_pct}
+                                max={policyBounds.max.issuer_match_pct}
+                                defaultVal={policyBounds.defaultVal.issuer_match_pct}
+                                value={config.verification_policy?.issuer_match_pct ?? policyBounds.defaultVal.issuer_match_pct}
+                                onChange={(pct) => setConfig(prev => ({
+                                    ...prev,
+                                    verification_policy: { ...prev.verification_policy, issuer_match_pct: pct }
+                                }))}
+                                unit="%"
+                                showLabels={true}
+                            />
+                            <span className="text-[11px] text-gray-400 mt-1 block">
+                                Allowed range: [{policyBounds.min.issuer_match_pct}% – {policyBounds.max.issuer_match_pct}%]. Platform default: {policyBounds.defaultVal.issuer_match_pct}%.
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Party Checks Toggles */}
+                    <div className="pt-2 border-t border-gray-100 flex flex-wrap gap-8">
+                        <label className="flex items-center gap-2.5 cursor-pointer text-sm font-medium text-gray-700">
+                            <input
+                                type="checkbox"
+                                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                                checked={config.verification_policy?.verify_issuing_bank !== false}
+                                onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setConfig(prev => ({
+                                        ...prev,
+                                        verification_policy: { ...prev.verification_policy, verify_issuing_bank: checked }
+                                    }));
+                                }}
+                            />
+                            <span>Verify Issuing Bank against Facility Bank</span>
+                        </label>
+                        <label className="flex items-center gap-2.5 cursor-pointer text-sm font-medium text-gray-700">
+                            <input
+                                type="checkbox"
+                                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                                checked={config.verification_policy?.verify_issuer_name !== false}
+                                onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setConfig(prev => ({
+                                        ...prev,
+                                        verification_policy: { ...prev.verification_policy, verify_issuer_name: checked }
+                                    }));
+                                }}
+                            />
+                            <span>Verify Applicant / Issuer Name against Corporate Entity</span>
+                        </label>
                     </div>
                 </div>
             </div>

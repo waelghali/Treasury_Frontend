@@ -78,6 +78,23 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
             .catch(() => setAllBanks([]));
     }, []);
 
+    // Load active promotional campaigns for partner incentives
+    const [activePromotions, setActivePromotions] = useState([]);
+    useEffect(() => {
+        apiRequest('/customer/campaigns/active-bank-promotions', 'GET')
+            .then(data => setActivePromotions(Array.isArray(data) ? data : []))
+            .catch(() => setActivePromotions([]));
+    }, []);
+
+    const getBankPromo = (bankId) => {
+        if (!activePromotions || !activePromotions.length) return null;
+        if (bankId) {
+            const specific = activePromotions.find(p => p.bank_id === parseInt(bankId));
+            if (specific) return specific;
+        }
+        return activePromotions.find(p => p.bank_id === null || p.bank_id === undefined);
+    };
+
     // For reserved requests: resolve the bank/facility
     const [resolvingFacility, setResolvingFacility] = useState(isReserved && !selectedFacility);
     useEffect(() => {
@@ -495,6 +512,26 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+            {/* Full-screen dimming overlay while processing issuance */}
+            {isExecuting && (
+                <div className="fixed inset-0 z-[70] bg-slate-950/75 backdrop-blur-sm flex flex-col items-center justify-center p-4 transition-all duration-300">
+                    <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border border-slate-100 flex flex-col items-center text-center space-y-4">
+                        <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-inner">
+                            <Loader2 className="w-8 h-8 animate-spin" />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="text-base font-bold text-slate-900">Processing Issuance...</h3>
+                            <p className="text-xs text-slate-500 leading-relaxed">
+                                Generating documents, reserving bank facility, and recording transaction. Please wait.
+                            </p>
+                        </div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-emerald-500 h-full rounded-full animate-pulse w-3/4"></div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[94vh] flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center shrink-0">
@@ -538,6 +575,9 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                     {matchedFacilities.map(f => {
                                         const pct = f.utilization_pct || 0;
                                         const isSelected = selectedFacility?.type === 'facility' && selectedFacility?.data?.id === f.id && selectedFacility?.data?.reference_number === f.reference_number;
+                                        const bankId = f.bank_id || f.bank?.id;
+                                        const promo = getBankPromo(bankId);
+                                        const estCashback = promo && request?.amount ? Math.min(request.amount * (promo.cashback_rate_pct / 100), promo.max_per_lg) : 0;
                                         return (
                                             <button
                                                 key={f.id + '-' + f.reference_number}
@@ -550,6 +590,11 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                                         <p className="text-xs text-slate-500 mt-0.5">{f.facility_name}</p>
                                                     </div>
                                                     <div className="flex gap-1 flex-wrap justify-end">
+                                                        {promo && (
+                                                            <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shadow-xs">
+                                                                🎁 {promo.cashback_rate_pct}% Cashback
+                                                            </span>
+                                                        )}
                                                         {f.tags?.includes('BEST_OVERALL') && <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">★ Best</span>}
                                                         {f.tags?.includes('BEST_PRICE') && <span className="bg-green-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">Low Cost</span>}
                                                         {!f.isRecommended && <span className="bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">Insufficient</span>}
@@ -561,6 +606,16 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                                         Available: {f.currency} {f.availableFormatted}
                                                     </span>
                                                 </div>
+                                                {promo && (
+                                                    <div className="mt-2.5 pt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs text-emerald-800">
+                                                        <span className="font-medium flex items-center gap-1">
+                                                            <span>🎁</span> Partner Offer: <strong>{promo.campaign_name}</strong>
+                                                        </span>
+                                                        <span className="font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
+                                                            Est. +{estCashback > 0 ? estCashback.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : promo.max_per_lg.toLocaleString()} EGP Cashback
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </button>
                                         );
                                     })}
@@ -598,20 +653,30 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                             );
                                             return filtered.length > 0 ? (
                                                 <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                                                    {filtered.map(b => (
-                                                        <button key={b.id}
-                                                            className={`w-full text-left px-4 py-2.5 text-sm hover:bg-emerald-50 transition flex items-center gap-2 ${String(b.id) === otherBankId ? 'bg-emerald-50 font-bold text-emerald-700' : 'text-slate-700'}`}
-                                                            onClick={() => {
-                                                                setOtherBankId(String(b.id));
-                                                                setBankSearch(b.name);
-                                                                setShowBankDropdown(false);
-                                                                setSelectedFacility({ type: 'other_bank', bank_id: b.id, bank_name: b.name });
-                                                            }}
-                                                        >
-                                                            <Building className="w-4 h-4 text-slate-400" />
-                                                            {b.name}
-                                                        </button>
-                                                    ))}
+                                                    {filtered.map(b => {
+                                                        const bPromo = getBankPromo(b.id);
+                                                        return (
+                                                            <button key={b.id}
+                                                                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-emerald-50 transition flex items-center justify-between ${String(b.id) === otherBankId ? 'bg-emerald-50 font-bold text-emerald-700' : 'text-slate-700'}`}
+                                                                onClick={() => {
+                                                                    setOtherBankId(String(b.id));
+                                                                    setBankSearch(b.name);
+                                                                    setShowBankDropdown(false);
+                                                                    setSelectedFacility({ type: 'other_bank', bank_id: b.id, bank_name: b.name });
+                                                                }}
+                                                            >
+                                                                <span className="flex items-center gap-2">
+                                                                    <Building className="w-4 h-4 text-slate-400" />
+                                                                    {b.name}
+                                                                </span>
+                                                                {bPromo && (
+                                                                    <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                                                                        🎁 {bPromo.cashback_rate_pct}%
+                                                                    </span>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             ) : bankSearch ? (
                                                 <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-sm text-slate-400">
@@ -620,6 +685,21 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                             ) : null;
                                         })()}
                                     </div>
+                                    {selectedFacility?.type === 'other_bank' && (() => {
+                                        const promo = getBankPromo(selectedFacility?.bank_id);
+                                        if (!promo) return null;
+                                        const est = request?.amount ? Math.min(request.amount * (promo.cashback_rate_pct / 100), promo.max_per_lg) : 0;
+                                        return (
+                                            <div className="mt-2.5 p-2 bg-emerald-100/90 border border-emerald-300 rounded-lg flex items-center justify-between text-xs text-emerald-900">
+                                                <span className="font-semibold flex items-center gap-1">
+                                                    <span>🎁</span> <strong>{promo.campaign_name}</strong> ({promo.cashback_rate_pct}% Cashback)
+                                                </span>
+                                                <span className="font-bold bg-white text-emerald-800 px-2 py-0.5 rounded shadow-2xs">
+                                                    Est. +{est > 0 ? est.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : promo.max_per_lg.toLocaleString()} EGP
+                                                </span>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         </div>

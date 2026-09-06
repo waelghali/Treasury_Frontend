@@ -4,8 +4,9 @@ import { apiRequest } from 'services/apiService.js';
 import { toast } from 'react-toastify';
 import { 
   PlusCircle, Edit, RotateCcw, Search, Filter, Settings, Save, Loader2,
-  ChevronUp, ChevronDown, Lock, Clock, MessageSquare, FileCheck, Layers, Calendar 
+  ChevronUp, ChevronDown, Lock, Clock, MessageSquare, FileCheck, Layers, Calendar, Shield 
 } from 'lucide-react';
+import RangeBarController from 'components/RangeBarController.js';
 
 // --- Configuration Groupings Mapping ---
 const settingGroups = {
@@ -30,10 +31,10 @@ const getGroupKey = (configKey) => {
     if (key.includes('EMAIL') || key.includes('COMMUNICATION') || key.includes('NOTIFICATION') || key.includes('SENDER') || key.includes('SMS')) {
         return 'Communication & Alerts';
     }
-    if (key.includes('REQUIRED') || key.includes('MANDATORY') || key.includes('OPTIONAL') || key.includes('DOC') || key.includes('ATTACHMENT') || key.includes('FILE')) {
+    if (key.includes('REQUIRED') || key.includes('MANDATORY') || key.includes('OPTIONAL') || key.includes('DOC') || key.includes('ATTACHMENT') || key.includes('FILE') || key.includes('VERIFICATION') || key.includes('POLICY')) {
         return 'Document Compliance & Requirements';
     }
-    if (key.includes('FACILITY_SCORE') || key.includes('RESERVATION_TTL') || key.includes('ISSUANCE_LG')) {
+    if (key.includes('FACILITY_SCORE') || key.includes('RESERVATION_TTL') || key.includes('ISSUANCE_LG') || key.includes('ISSUED_LG')) {
         return 'Issuance & Facilities';
     }
     return 'General';
@@ -290,7 +291,7 @@ function GlobalConfigurationList({ onLogout }) {
                                 <tr>
                                     <th 
                                         scope="col" 
-                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap"
                                         onClick={() => handleSort('key')}
                                     >
                                         <div className="flex items-center">
@@ -306,32 +307,32 @@ function GlobalConfigurationList({ onLogout }) {
                                             Description {getSortIcon('description')}
                                         </div>
                                     </th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                         Min
                                     </th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                         Max
                                     </th>
                                     <th 
                                         scope="col" 
-                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap"
                                         onClick={() => handleSort('value_default')}
                                     >
                                         <div className="flex items-center">
                                             Default {getSortIcon('value_default')}
                                         </div>
                                     </th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                         Unit
                                     </th>
                                     {/* Status Column Removed */}
-                                    <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                         Actions
                                     </th>
                                 </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                {configsInGroup.filter(c => !c.key?.startsWith('FACILITY_SCORE_WEIGHT_')).map((config) => {
+                                {configsInGroup.filter(c => !c.key?.startsWith('FACILITY_SCORE_WEIGHT_') && c.key !== 'ISSUED_LG_VERIFICATION_POLICY').map((config) => {
                                     const isBool = isBooleanConfig(config);
                                     const valStr = String(config.value_default).toLowerCase();
                                     const isOn = valStr === 'true';
@@ -342,15 +343,40 @@ function GlobalConfigurationList({ onLogout }) {
                                     }
 
                                     return (
-                                    <tr key={config.id} className={`hover:bg-gray-50 ${config.is_deleted ? 'bg-gray-50 opacity-60' : ''}`}>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900 break-all w-[30%]">
+                                    <tr key={config.id} className={`hover:bg-gray-50 transition-colors ${config.is_deleted ? 'bg-gray-50 opacity-60' : ''}`}>
+                                        <td className="px-6 py-4 text-sm font-semibold font-mono text-gray-900 whitespace-nowrap">
                                             {config.key}
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500 w-[25%]">{config.description || 'N/A'}</td>
+                                        <td className="px-6 py-4 text-sm text-gray-600 max-w-sm">{config.description || 'N/A'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{config.value_min || '-'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{config.value_max || '-'}</td>
-                                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${valueTextColor}`}>
-                                            {config.value_default || 'N/A'}
+                                        <td className="px-6 py-4 text-sm">
+                                            {isBool ? (
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${isOn ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                    {isOn ? 'True' : 'False'}
+                                                </span>
+                                            ) : (config.unit === 'json' || (typeof config.value_default === 'string' && config.value_default.startsWith('{'))) ? (
+                                                <div className="max-w-[240px] truncate font-mono text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200" title={config.value_default}>
+                                                    {config.value_default}
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                                    <span className={`whitespace-nowrap font-semibold ${valueTextColor}`}>
+                                                        {config.value_default || 'N/A'}
+                                                    </span>
+                                                    {config.value_min !== null && config.value_max !== null && !isNaN(parseFloat(config.value_min)) && !isNaN(parseFloat(config.value_max)) && (
+                                                        <RangeBarController
+                                                            min={config.value_min}
+                                                            max={config.value_max}
+                                                            defaultVal={config.value_default}
+                                                            value={config.value_default}
+                                                            unit={config.unit || ''}
+                                                            compact={true}
+                                                            disabled={true}
+                                                        />
+                                                    )}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{config.unit || 'N/A'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
@@ -501,6 +527,21 @@ function GlobalConfigurationList({ onLogout }) {
                               }
                             };
 
+                            const handleStartEdit = () => {
+                              setRows(WEIGHT_DEFS.map(w => {
+                                const c = getConfig(w[keyProp]);
+                                return {
+                                  ...w,
+                                  configId: c?.id,
+                                  configKey: w[keyProp],
+                                  min: parseInt(c?.value_min || 0),
+                                  max: parseInt(c?.value_max || 100),
+                                  def: parseInt(c?.value_default || 20),
+                                };
+                              }));
+                              setEditing(true);
+                            };
+
                             const handleCancel = () => {
                               setRows(WEIGHT_DEFS.map(w => {
                                 const c = getConfig(w[keyProp]);
@@ -520,7 +561,7 @@ function GlobalConfigurationList({ onLogout }) {
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-sm font-semibold text-gray-700">{title}</span>
                                   {!editing ? (
-                                    <button onClick={() => setEditing(true)} className="text-xs px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium">
+                                    <button onClick={handleStartEdit} className="text-xs px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium">
                                       <Edit className="h-3 w-3 inline mr-1" />Edit Ranges
                                     </button>
                                   ) : (
@@ -604,6 +645,528 @@ function GlobalConfigurationList({ onLogout }) {
                               </div>
                             </div>
                           );
+                        })()}
+
+                        {/* Dedicated Verification & Compliance Policy Widget — for Document Compliance group */}
+                        {groupName === 'Document Compliance & Requirements' && (() => {
+                          const policyConfig = configs.find(x => x.key === 'ISSUED_LG_VERIFICATION_POLICY');
+                          const rawPolicy = policyConfig?.value_default;
+                          const rawMin = policyConfig?.value_min;
+                          const rawMax = policyConfig?.value_max;
+
+                          let initialPolicy = {
+                            enforcement_mode: 'TOLERANCE',
+                            expiry_date_tolerance_days: 3,
+                            beneficiary_match_pct: 90,
+                            issuer_match_pct: 90,
+                            verify_issuing_bank: true,
+                            verify_issuer_name: true,
+                            block_issuance_without_scan: false,
+                          };
+                          let initialMin = {
+                            expiry_date_tolerance_days: 0,
+                            beneficiary_match_pct: 70,
+                            issuer_match_pct: 70,
+                          };
+                          let initialMax = {
+                            expiry_date_tolerance_days: 15,
+                            beneficiary_match_pct: 100,
+                            issuer_match_pct: 100,
+                          };
+
+                          try {
+                            if (rawPolicy) {
+                              const parsed = typeof rawPolicy === 'string' ? JSON.parse(rawPolicy) : rawPolicy;
+                              if (typeof parsed === 'object' && parsed !== null) {
+                                initialPolicy = { ...initialPolicy, ...parsed };
+                              }
+                            }
+                            if (rawMin) {
+                              const parsedMin = typeof rawMin === 'string' ? JSON.parse(rawMin) : rawMin;
+                              if (typeof parsedMin === 'object' && parsedMin !== null) {
+                                initialMin = { ...initialMin, ...parsedMin };
+                              }
+                            }
+                            if (rawMax) {
+                              const parsedMax = typeof rawMax === 'string' ? JSON.parse(rawMax) : rawMax;
+                              if (typeof parsedMax === 'object' && parsedMax !== null) {
+                                initialMax = { ...initialMax, ...parsedMax };
+                              }
+                            }
+                          } catch (e) {}
+
+                          const SysPolicyPanel = () => {
+                            const [policy, setPolicy] = useState(initialPolicy);
+                            const [policyMin, setPolicyMin] = useState(initialMin);
+                            const [policyMax, setPolicyMax] = useState(initialMax);
+                            const [isEditing, setIsEditing] = useState(false);
+                            const [isSaving, setIsSaving] = useState(false);
+
+                            useEffect(() => {
+                              if (!isEditing) {
+                                if (rawPolicy) {
+                                  try {
+                                    const parsed = typeof rawPolicy === 'string' ? JSON.parse(rawPolicy) : rawPolicy;
+                                    if (typeof parsed === 'object' && parsed !== null) setPolicy(prev => ({ ...prev, ...parsed }));
+                                  } catch (e) {}
+                                }
+                                if (rawMin) {
+                                  try {
+                                    const parsedMin = typeof rawMin === 'string' ? JSON.parse(rawMin) : rawMin;
+                                    if (typeof parsedMin === 'object' && parsedMin !== null) setPolicyMin(prev => ({ ...prev, ...parsedMin }));
+                                  } catch (e) {}
+                                }
+                                if (rawMax) {
+                                  try {
+                                    const parsedMax = typeof rawMax === 'string' ? JSON.parse(rawMax) : rawMax;
+                                    if (typeof parsedMax === 'object' && parsedMax !== null) setPolicyMax(prev => ({ ...prev, ...parsedMax }));
+                                  } catch (e) {}
+                                }
+                              }
+                            }, [rawPolicy, rawMin, rawMax, isEditing]);
+
+                            const handleSavePolicy = async () => {
+                              if (!policyConfig) {
+                                toast.error('Configuration record not found.');
+                                return;
+                              }
+                              // Validate min <= default <= max
+                              if (policyMin.expiry_date_tolerance_days > policy.expiry_date_tolerance_days || policy.expiry_date_tolerance_days > policyMax.expiry_date_tolerance_days) {
+                                toast.warn(`Expiry Date Tolerance: Min (${policyMin.expiry_date_tolerance_days}) cannot exceed Default (${policy.expiry_date_tolerance_days}), and Default cannot exceed Max (${policyMax.expiry_date_tolerance_days}).`);
+                                return;
+                              }
+                              if (policyMin.beneficiary_match_pct > policy.beneficiary_match_pct || policy.beneficiary_match_pct > policyMax.beneficiary_match_pct) {
+                                toast.warn(`Beneficiary Match: Min (${policyMin.beneficiary_match_pct}%) cannot exceed Default (${policy.beneficiary_match_pct}%), and Default cannot exceed Max (${policyMax.beneficiary_match_pct}%).`);
+                                return;
+                              }
+                              if (policyMin.issuer_match_pct > policy.issuer_match_pct || policy.issuer_match_pct > policyMax.issuer_match_pct) {
+                                toast.warn(`Issuer Match: Min (${policyMin.issuer_match_pct}%) cannot exceed Default (${policy.issuer_match_pct}%), and Default cannot exceed Max (${policyMax.issuer_match_pct}%).`);
+                                return;
+                              }
+
+                              setIsSaving(true);
+                              try {
+                                await apiRequest(`/system-owner/global-configurations/${policyConfig.id}`, 'PUT', {
+                                  ...policyConfig,
+                                  value_default: JSON.stringify(policy),
+                                  value_min: JSON.stringify(policyMin),
+                                  value_max: JSON.stringify(policyMax),
+                                });
+                                toast.success('Global verification policy & corporate bounds updated successfully!');
+                                setIsEditing(false);
+                                fetchGlobalConfigurations();
+                              } catch (err) {
+                                toast.error(`Failed to save policy: ${err.message || 'Error updating configuration'}`);
+                              } finally {
+                                setIsSaving(false);
+                              }
+                            };
+
+                            const handleStartEdit = () => {
+                              const curPolicy = policyConfig?.value_default;
+                              const curMin = policyConfig?.value_min;
+                              const curMax = policyConfig?.value_max;
+                              if (curPolicy) {
+                                try {
+                                  const parsed = typeof curPolicy === 'string' ? JSON.parse(curPolicy) : curPolicy;
+                                  if (typeof parsed === 'object' && parsed !== null) setPolicy(prev => ({ ...prev, ...parsed }));
+                                } catch (e) {}
+                              }
+                              if (curMin) {
+                                try {
+                                  const parsedMin = typeof curMin === 'string' ? JSON.parse(curMin) : curMin;
+                                  if (typeof parsedMin === 'object' && parsedMin !== null) setPolicyMin(prev => ({ ...prev, ...parsedMin }));
+                                } catch (e) {}
+                              }
+                              if (curMax) {
+                                try {
+                                  const parsedMax = typeof curMax === 'string' ? JSON.parse(curMax) : curMax;
+                                  if (typeof parsedMax === 'object' && parsedMax !== null) setPolicyMax(prev => ({ ...prev, ...parsedMax }));
+                                } catch (e) {}
+                              }
+                              setIsEditing(true);
+                            };
+
+                            const handleCancel = () => {
+                              const curPolicy = policyConfig?.value_default;
+                              const curMin = policyConfig?.value_min;
+                              const curMax = policyConfig?.value_max;
+                              if (curPolicy) {
+                                try {
+                                  const parsed = typeof curPolicy === 'string' ? JSON.parse(curPolicy) : curPolicy;
+                                  if (typeof parsed === 'object' && parsed !== null) setPolicy(prev => ({ ...prev, ...parsed }));
+                                } catch (e) {}
+                              }
+                              if (curMin) {
+                                try {
+                                  const parsedMin = typeof curMin === 'string' ? JSON.parse(curMin) : curMin;
+                                  if (typeof parsedMin === 'object' && parsedMin !== null) setPolicyMin(prev => ({ ...prev, ...parsedMin }));
+                                } catch (e) {}
+                              }
+                              if (curMax) {
+                                try {
+                                  const parsedMax = typeof curMax === 'string' ? JSON.parse(curMax) : curMax;
+                                  if (typeof parsedMax === 'object' && parsedMax !== null) setPolicyMax(prev => ({ ...prev, ...parsedMax }));
+                                } catch (e) {}
+                              }
+                              setIsEditing(false);
+                            };
+
+                            const modeBadgeColor = policy.enforcement_mode === 'STRICT' 
+                              ? 'bg-amber-100 text-amber-800 border-amber-300' 
+                              : policy.enforcement_mode === 'ADVISORY'
+                              ? 'bg-blue-100 text-blue-800 border-blue-300'
+                              : 'bg-emerald-100 text-emerald-800 border-emerald-300';
+
+                            return (
+                              <div className="px-4 py-4 bg-slate-50 border-t border-slate-200 rounded-b-lg">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-3 border-b border-slate-200 gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <Shield className="h-5 w-5 text-indigo-600 flex-shrink-0" />
+                                    <div>
+                                      <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                        Bank-Issued LG Copy Verification & Compliance Policy
+                                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${modeBadgeColor}`}>
+                                          {policy.enforcement_mode || 'TOLERANCE'}
+                                        </span>
+                                      </h4>
+                                      <p className="text-xs text-slate-500">
+                                        System-wide platform default multi-factor criteria and allowed corporate adjustment bounds for bank-issued LG scan verification.
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                                    {!isEditing ? (
+                                      <button
+                                        type="button"
+                                        onClick={handleStartEdit}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                                      >
+                                        <Edit className="h-3.5 w-3.5" /> Edit Policy & Bounds
+                                      </button>
+                                    ) : (
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={handleSavePolicy}
+                                          disabled={isSaving}
+                                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                                        >
+                                          {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save Policy
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={handleCancel}
+                                          disabled={isSaving}
+                                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition-colors"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {!isEditing ? (
+                                  /* Visual Metric Badges with RangeBarController */
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                    <div className="bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                                      <div>
+                                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Maturity Date Tolerance</span>
+                                        <div className="text-lg font-bold text-slate-800 flex items-baseline gap-1">
+                                          ±{policy.expiry_date_tolerance_days ?? 3} <span className="text-xs font-normal text-slate-500">days (Default)</span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-400 mt-0.5">
+                                          Corporate Range: [{policyMin.expiry_date_tolerance_days ?? 0} – {policyMax.expiry_date_tolerance_days ?? 15} days]
+                                        </p>
+                                      </div>
+                                      <div className="pt-2 mt-2 border-t border-slate-100">
+                                        <RangeBarController
+                                          min={policyMin.expiry_date_tolerance_days ?? 0}
+                                          max={policyMax.expiry_date_tolerance_days ?? 15}
+                                          defaultVal={policy.expiry_date_tolerance_days ?? 3}
+                                          value={policy.expiry_date_tolerance_days ?? 3}
+                                          unit="days"
+                                          compact={false}
+                                          showLabels={true}
+                                          disabled={true}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                                      <div>
+                                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Beneficiary Match</span>
+                                        <div className="text-lg font-bold text-slate-800 flex items-baseline gap-1">
+                                          {policy.beneficiary_match_pct ?? 90}% <span className="text-xs font-normal text-slate-500">similarity (Default)</span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-400 mt-0.5">
+                                          Corporate Range: [{policyMin.beneficiary_match_pct ?? 70}% – {policyMax.beneficiary_match_pct ?? 100}%]
+                                        </p>
+                                      </div>
+                                      <div className="pt-2 mt-2 border-t border-slate-100">
+                                        <RangeBarController
+                                          min={policyMin.beneficiary_match_pct ?? 70}
+                                          max={policyMax.beneficiary_match_pct ?? 100}
+                                          defaultVal={policy.beneficiary_match_pct ?? 90}
+                                          value={policy.beneficiary_match_pct ?? 90}
+                                          unit="%"
+                                          compact={false}
+                                          showLabels={true}
+                                          disabled={true}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                                      <div>
+                                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Issuer / Applicant Match</span>
+                                        <div className="text-lg font-bold text-slate-800 flex items-baseline gap-1">
+                                          {policy.issuer_match_pct ?? 90}% <span className="text-xs font-normal text-slate-500">similarity (Default)</span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-400 mt-0.5">
+                                          Corporate Range: [{policyMin.issuer_match_pct ?? 70}% – {policyMax.issuer_match_pct ?? 100}%]
+                                        </p>
+                                      </div>
+                                      <div className="pt-2 mt-2 border-t border-slate-100">
+                                        <RangeBarController
+                                          min={policyMin.issuer_match_pct ?? 70}
+                                          max={policyMax.issuer_match_pct ?? 100}
+                                          defaultVal={policy.issuer_match_pct ?? 90}
+                                          value={policy.issuer_match_pct ?? 90}
+                                          unit="%"
+                                          compact={false}
+                                          showLabels={true}
+                                          disabled={true}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="bg-white p-3 rounded-lg border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                                      <div>
+                                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Active Checkpoints</span>
+                                        <div className="space-y-1.5 mt-2">
+                                          <div className="flex items-center justify-between text-xs text-slate-700">
+                                            <span>Issuing Bank:</span>
+                                            <span className={`font-semibold ${policy.verify_issuing_bank !== false ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                              {policy.verify_issuing_bank !== false ? '✓ Verified' : 'Skipped'}
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center justify-between text-xs text-slate-700">
+                                            <span>Applicant Entity:</span>
+                                            <span className={`font-semibold ${policy.verify_issuer_name !== false ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                              {policy.verify_issuer_name !== false ? '✓ Verified' : 'Skipped'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="pt-2 mt-2 border-t border-slate-100 text-[11px] text-slate-400 flex items-center gap-1">
+                                        <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
+                                        Platform Default Active
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  /* Edit Mode: Interactive Controls with Min, Default, and Max Bounds */
+                                  <div className="bg-white p-4 rounded-lg border border-slate-300 shadow-xs space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-3 border-b border-slate-100">
+                                      <div>
+                                        <label className="block text-xs font-semibold text-slate-700 mb-1">Enforcement Mode</label>
+                                        <select
+                                          value={policy.enforcement_mode || 'TOLERANCE'}
+                                          onChange={e => setPolicy({ ...policy, enforcement_mode: e.target.value })}
+                                          className="w-full text-xs border border-slate-300 rounded-md p-2 bg-white focus:ring-1 focus:ring-blue-500"
+                                        >
+                                          <option value="TOLERANCE">TOLERANCE (Pass with minor variances within threshold)</option>
+                                          <option value="STRICT">STRICT (Strict exact match required across all fields)</option>
+                                          <option value="ADVISORY">ADVISORY (Log warnings without blocking confirmation)</option>
+                                        </select>
+                                      </div>
+                                      <div className="flex flex-col justify-end">
+                                        <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 pb-2">
+                                          <input
+                                            type="checkbox"
+                                            checked={policy.verify_issuing_bank !== false}
+                                            onChange={e => setPolicy({ ...policy, verify_issuing_bank: e.target.checked })}
+                                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
+                                          />
+                                          Verify Bank matches selected facility
+                                        </label>
+                                      </div>
+                                      <div className="flex flex-col justify-end">
+                                        <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 pb-2">
+                                          <input
+                                            type="checkbox"
+                                            checked={policy.verify_issuer_name !== false}
+                                            onChange={e => setPolicy({ ...policy, verify_issuer_name: e.target.checked })}
+                                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
+                                          />
+                                          Verify Applicant matches company entity name
+                                        </label>
+                                      </div>
+                                    </div>
+
+                                    {/* Scalar Parameters: Option A Min / Default / Max Range Controls */}
+                                    <div className="space-y-4">
+                                      <div className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                                        <span>Scalar Policy Tolerances (Option A: Min Bound – Default – Max Bound)</span>
+                                        <span className="text-[11px] font-normal text-slate-500 lowercase">Corporate Admins can adjust within Min and Max</span>
+                                      </div>
+
+                                      {/* Metric 1: Expiry Date Tolerance */}
+                                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center mb-2">
+                                          <div>
+                                            <label className="block text-[11px] font-semibold text-gray-500 uppercase">Min Allowed (Days)</label>
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              max="30"
+                                              value={policyMin.expiry_date_tolerance_days ?? 0}
+                                              onChange={e => setPolicyMin({ ...policyMin, expiry_date_tolerance_days: parseInt(e.target.value || 0, 10) })}
+                                              className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-500"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[11px] font-semibold text-blue-700 uppercase">Platform Default (Days)</label>
+                                            <input
+                                              type="number"
+                                              min={policyMin.expiry_date_tolerance_days ?? 0}
+                                              max={policyMax.expiry_date_tolerance_days ?? 15}
+                                              value={policy.expiry_date_tolerance_days ?? 3}
+                                              onChange={e => setPolicy({ ...policy, expiry_date_tolerance_days: parseInt(e.target.value || 0, 10) })}
+                                              className="w-full text-xs font-bold border border-blue-300 bg-blue-50/50 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-500"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[11px] font-semibold text-gray-500 uppercase">Max Allowed (Days)</label>
+                                            <input
+                                              type="number"
+                                              min="1"
+                                              max="60"
+                                              value={policyMax.expiry_date_tolerance_days ?? 15}
+                                              onChange={e => setPolicyMax({ ...policyMax, expiry_date_tolerance_days: parseInt(e.target.value || 0, 10) })}
+                                              className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-500"
+                                            />
+                                          </div>
+                                        </div>
+                                        <RangeBarController
+                                          label="Expiry Date Tolerance"
+                                          min={policyMin.expiry_date_tolerance_days ?? 0}
+                                          max={policyMax.expiry_date_tolerance_days ?? 15}
+                                          defaultVal={policy.expiry_date_tolerance_days ?? 3}
+                                          value={policy.expiry_date_tolerance_days ?? 3}
+                                          onChange={v => setPolicy({ ...policy, expiry_date_tolerance_days: v })}
+                                          unit="days"
+                                          showLabels={true}
+                                        />
+                                      </div>
+
+                                      {/* Metric 2: Beneficiary Match % */}
+                                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center mb-2">
+                                          <div>
+                                            <label className="block text-[11px] font-semibold text-gray-500 uppercase">Min Allowed (%)</label>
+                                            <input
+                                              type="number"
+                                              min="50"
+                                              max="100"
+                                              value={policyMin.beneficiary_match_pct ?? 70}
+                                              onChange={e => setPolicyMin({ ...policyMin, beneficiary_match_pct: parseInt(e.target.value || 0, 10) })}
+                                              className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-500"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[11px] font-semibold text-blue-700 uppercase">Platform Default (%)</label>
+                                            <input
+                                              type="number"
+                                              min={policyMin.beneficiary_match_pct ?? 70}
+                                              max={policyMax.beneficiary_match_pct ?? 100}
+                                              value={policy.beneficiary_match_pct ?? 90}
+                                              onChange={e => setPolicy({ ...policy, beneficiary_match_pct: parseInt(e.target.value || 0, 10) })}
+                                              className="w-full text-xs font-bold border border-blue-300 bg-blue-50/50 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-500"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[11px] font-semibold text-gray-500 uppercase">Max Allowed (%)</label>
+                                            <input
+                                              type="number"
+                                              min="50"
+                                              max="100"
+                                              value={policyMax.beneficiary_match_pct ?? 100}
+                                              onChange={e => setPolicyMax({ ...policyMax, beneficiary_match_pct: parseInt(e.target.value || 0, 10) })}
+                                              className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-500"
+                                            />
+                                          </div>
+                                        </div>
+                                        <RangeBarController
+                                          label="Beneficiary Similarity Threshold"
+                                          min={policyMin.beneficiary_match_pct ?? 70}
+                                          max={policyMax.beneficiary_match_pct ?? 100}
+                                          defaultVal={policy.beneficiary_match_pct ?? 90}
+                                          value={policy.beneficiary_match_pct ?? 90}
+                                          onChange={v => setPolicy({ ...policy, beneficiary_match_pct: v })}
+                                          unit="%"
+                                          showLabels={true}
+                                        />
+                                      </div>
+
+                                      {/* Metric 3: Issuer / Applicant Match % */}
+                                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center mb-2">
+                                          <div>
+                                            <label className="block text-[11px] font-semibold text-gray-500 uppercase">Min Allowed (%)</label>
+                                            <input
+                                              type="number"
+                                              min="50"
+                                              max="100"
+                                              value={policyMin.issuer_match_pct ?? 70}
+                                              onChange={e => setPolicyMin({ ...policyMin, issuer_match_pct: parseInt(e.target.value || 0, 10) })}
+                                              className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-500"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[11px] font-semibold text-blue-700 uppercase">Platform Default (%)</label>
+                                            <input
+                                              type="number"
+                                              min={policyMin.issuer_match_pct ?? 70}
+                                              max={policyMax.issuer_match_pct ?? 100}
+                                              value={policy.issuer_match_pct ?? 90}
+                                              onChange={e => setPolicy({ ...policy, issuer_match_pct: parseInt(e.target.value || 0, 10) })}
+                                              className="w-full text-xs font-bold border border-blue-300 bg-blue-50/50 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-500"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[11px] font-semibold text-gray-500 uppercase">Max Allowed (%)</label>
+                                            <input
+                                              type="number"
+                                              min="50"
+                                              max="100"
+                                              value={policyMax.issuer_match_pct ?? 100}
+                                              onChange={e => setPolicyMax({ ...policyMax, issuer_match_pct: parseInt(e.target.value || 0, 10) })}
+                                              className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-500"
+                                            />
+                                          </div>
+                                        </div>
+                                        <RangeBarController
+                                          label="Issuer / Applicant Similarity Threshold"
+                                          min={policyMin.issuer_match_pct ?? 70}
+                                          max={policyMax.issuer_match_pct ?? 100}
+                                          defaultVal={policy.issuer_match_pct ?? 90}
+                                          value={policy.issuer_match_pct ?? 90}
+                                          onChange={v => setPolicy({ ...policy, issuer_match_pct: v })}
+                                          unit="%"
+                                          showLabels={true}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          };
+
+                          return <SysPolicyPanel />;
                         })()}
                     </div>
                 );

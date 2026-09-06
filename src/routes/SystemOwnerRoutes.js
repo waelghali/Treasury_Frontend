@@ -18,6 +18,7 @@ import TemplateList from 'pages/SystemOwner/GlobalConfigurations/TemplateList';
 import TemplateForm from 'pages/SystemOwner/GlobalConfigurations/TemplateForm';
 import AuditLogs from 'pages/SystemOwner/AuditLogs';
 import UserFeedbackDashboard from 'pages/SystemOwner/UserFeedbackDashboard';
+import CampaignsManagement from 'pages/SystemOwner/CampaignsManagement';
 import SchedulerPage from 'pages/SystemOwner/scheduler/SchedulerPage';
 import BankFormManagement from 'pages/SystemOwner/BankFormManagement';
 import SystemHolidaysManagementPage from 'pages/SystemOwner/GlobalConfigurations/SystemHolidaysManagementPage';
@@ -94,6 +95,9 @@ function SystemOwnerRoutes({ onLogout }) {
 
       {/* User Feedback & Feature Requests Inbox */}
       <Route path="feedback" element={<UserFeedbackDashboard onLogout={onLogout} />} />
+
+      {/* Partner Campaigns & Cashback Offers */}
+      <Route path="campaigns" element={<CampaignsManagement onLogout={onLogout} />} />
 
       {/* Reports (Updated for System Owner) */}
       <Route path="reports" element={<ReportsPage reports={systemOwnerReports} />}>

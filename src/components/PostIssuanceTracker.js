@@ -6,7 +6,7 @@ import {
     FileText, Truck, MessageSquare, ShieldCheck, Loader2,
     ChevronDown, ChevronUp, Calendar, DollarSign, ArrowRight,
     Sparkles, X, Eye, Package, UserCheck, Ban, Download,
-    Check, HelpCircle
+    Check, HelpCircle, Info, ShieldAlert
 } from 'lucide-react';
 
 const STEP_ICONS = {
@@ -107,7 +107,8 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
     const [replyForm, setReplyForm] = useState({
         bank_reply_type: '', bank_reply_date: today(), bank_reply_notes: '',
         bank_lg_number: '', bank_lg_amount: '', bank_lg_issue_date: '', bank_lg_expiry_date: '',
-        bank_beneficiary_name: '', verification_notes: '', force_accept: false, force_no_number: false,
+        bank_beneficiary_name: '', issuing_bank_name: '', issuer_name: '',
+        verification_notes: '', force_accept: false, force_no_number: false,
         issue_cancellation_letter: true, // Default ON for NO_RESPONSE
     });
     const [cnDeliveryForm, setCnDeliveryForm] = useState({ delivery_date: today(), delivery_method: 'HAND_DELIVERY', delivery_notes: '' });
@@ -255,6 +256,8 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                 bank_lg_issue_date: (result.extracted.bank_lg_issue_date && !result.extracted.bank_lg_issue_date.startsWith('0000')) ? result.extracted.bank_lg_issue_date.split('T')[0] : prev.bank_lg_issue_date,
                 bank_lg_expiry_date: (result.extracted.bank_lg_expiry_date && !result.extracted.bank_lg_expiry_date.startsWith('0000')) ? result.extracted.bank_lg_expiry_date.split('T')[0] : prev.bank_lg_expiry_date,
                 bank_beneficiary_name: result.extracted.bank_beneficiary_name || prev.bank_beneficiary_name,
+                issuing_bank_name: result.extracted.issuing_bank_name || prev.issuing_bank_name,
+                issuer_name: result.extracted.issuer_name || prev.issuer_name,
             }));
 
             toast.success('✨ AI extracted LG details successfully!');
@@ -266,20 +269,33 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
         }
     };
 
-    // Build comparison from manually entered values vs expected request values
+    // Build comparison from manually entered values vs expected request values (with verification policy tolerances)
     const buildManualComparison = (formValues) => {
         const expected = data?.expected_values;
         if (!expected) return null;
 
+        const policy = data?.verification_policy || {};
+        const expiryTolerance = parseInt(policy.expiry_date_tolerance_days ?? 3, 10);
+        const benThreshold = (parseFloat(policy.beneficiary_match_pct ?? 90) / 100.0);
+        const issThreshold = (parseFloat(policy.issuer_match_pct ?? 90) / 100.0);
+
         // Normalize datetime strings to YYYY-MM-DD for comparison
         const toDateStr = (v) => v ? String(v).slice(0, 10) : null;
 
-        // Name match: substring containment (bank may use expanded legal name)
-        const nameMatch = (a, b) => {
-            if (!a || !b) return true; // blank = no mismatch
+        const nameMatch = (a, b, thresh = 0.8) => {
+            if (!a || !b) return { match: true, pct: 100 };
             const al = a.trim().toLowerCase();
             const bl = b.trim().toLowerCase();
-            return al.includes(bl) || bl.includes(al);
+            if (al.includes(bl) || bl.includes(al)) return { match: true, pct: 100 };
+            let longer = al.length > bl.length ? al : bl;
+            let shorter = al.length > bl.length ? bl : al;
+            if (longer.length === 0) return { match: true, pct: 100 };
+            let matches = 0;
+            for (let ch of shorter) {
+                if (longer.includes(ch)) matches++;
+            }
+            let ratio = matches / longer.length;
+            return { match: ratio >= thresh, pct: Math.round(ratio * 100) };
         };
 
         const fields = [];
@@ -287,25 +303,76 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
         if (expected.amount) {
             const enteredAmt = formValues.bank_lg_amount ? parseFloat(formValues.bank_lg_amount) : null;
             const expectedAmt = parseFloat(expected.amount);
-            const match = enteredAmt !== null ? Math.abs(enteredAmt - expectedAmt) < 0.01 : true; // blank = no mismatch
+            const match = enteredAmt !== null ? Math.abs(enteredAmt - expectedAmt) < 0.01 : true;
             fields.push({ field: 'Amount', requested: expected.amount, extracted: formValues.bank_lg_amount || '—', match, severity: match ? 'OK' : 'HIGH' });
         }
-        // Expiry Date — normalize to YYYY-MM-DD to avoid datetime format mismatches
+        // Expiry Date with tolerance
         if (expected.expiry_date) {
             const expNorm = toDateStr(expected.expiry_date);
             const enteredNorm = toDateStr(formValues.bank_lg_expiry_date);
-            const match = !enteredNorm || enteredNorm === expNorm;
-            fields.push({ field: 'Expiry Date', requested: expNorm, extracted: enteredNorm || '—', match, severity: match ? 'OK' : 'HIGH' });
+            let match = true;
+            let tolerance_applied = false;
+            let diffDays = 0;
+            if (enteredNorm && expNorm && enteredNorm !== expNorm) {
+                const d1 = new Date(enteredNorm);
+                const d2 = new Date(expNorm);
+                diffDays = Math.round(Math.abs((d1 - d2) / (1000 * 60 * 60 * 24)));
+                if (diffDays <= expiryTolerance) {
+                    match = true;
+                    tolerance_applied = true;
+                } else {
+                    match = false;
+                }
+            }
+            fields.push({
+                field: 'Expiry Date',
+                requested: expNorm,
+                extracted: enteredNorm || '—',
+                match,
+                severity: match ? 'OK' : 'HIGH',
+                tolerance_applied,
+                note: tolerance_applied ? `Within ±${expiryTolerance}d tolerance (${diffDays}d diff)` : null
+            });
         }
-        // Beneficiary Name — substring containment allowed (legal name may be expanded)
+        // Beneficiary Name
         if (expected.beneficiary_name) {
-            const match = !formValues.bank_beneficiary_name || nameMatch(formValues.bank_beneficiary_name, expected.beneficiary_name);
-            fields.push({ field: 'Beneficiary Name', requested: expected.beneficiary_name, extracted: formValues.bank_beneficiary_name || '—', match, severity: match ? 'OK' : 'HIGH' });
+            const { match, pct } = nameMatch(formValues.bank_beneficiary_name, expected.beneficiary_name, benThreshold);
+            fields.push({
+                field: 'Beneficiary Name',
+                requested: expected.beneficiary_name,
+                extracted: formValues.bank_beneficiary_name || '—',
+                match,
+                match_pct: pct,
+                severity: match ? 'OK' : 'HIGH'
+            });
+        }
+        // Issuing Bank
+        if (policy.verify_issuing_bank !== false && expected.issuing_bank_name) {
+            const { match, pct } = nameMatch(formValues.issuing_bank_name, expected.issuing_bank_name, 0.80);
+            fields.push({
+                field: 'Issuing Bank',
+                requested: expected.issuing_bank_name,
+                extracted: formValues.issuing_bank_name || '—',
+                match,
+                match_pct: pct,
+                severity: match ? 'OK' : 'HIGH'
+            });
+        }
+        // Issuer / Applicant
+        if (policy.verify_issuer_name !== false && expected.issuer_name) {
+            const { match, pct } = nameMatch(formValues.issuer_name, expected.issuer_name, issThreshold);
+            fields.push({
+                field: 'Issuer / Applicant',
+                requested: expected.issuer_name,
+                extracted: formValues.issuer_name || '—',
+                match,
+                match_pct: pct,
+                severity: match ? 'OK' : 'HIGH'
+            });
         }
 
         return { fields, has_discrepancy: fields.some(f => !f.match) };
     };
-
 
     // Live-update comparison table when user types in manual entry mode
     useEffect(() => {
@@ -315,7 +382,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                 setAiResult(prev => ({ ...prev, comparison }));
             }
         }
-    }, [isManualEntry, replyForm.bank_lg_amount, replyForm.bank_lg_expiry_date, replyForm.bank_beneficiary_name]);
+    }, [isManualEntry, replyForm.bank_lg_amount, replyForm.bank_lg_expiry_date, replyForm.bank_beneficiary_name, replyForm.issuing_bank_name, replyForm.issuer_name]);
 
     const handleResubmitDiscrepancy = async () => {
         if (!resubmitNotes.trim()) {
@@ -344,6 +411,11 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
 
     // Combined handler: record bank reply as LG_ISSUED + verify in one go
     const handleLgIssuedAndVerify = async (isForceAccept = false) => {
+        if (data?.issued_lg_scan_mandatory && !uploadFile && !data?.has_scan) {
+            toast.error('A scanned copy of the issued bank LG is mandatory per corporate policy before confirmation. Please upload the LG copy scan.');
+            return;
+        }
+
         setActionLoading(true);
         try {
             // Step 1: Record bank reply
@@ -355,6 +427,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
             if (replyForm.bank_lg_amount) formData.append('bank_lg_amount', replyForm.bank_lg_amount);
             if (replyForm.bank_lg_issue_date) formData.append('bank_lg_issue_date', replyForm.bank_lg_issue_date);
             if (replyForm.bank_lg_expiry_date) formData.append('bank_lg_expiry_date', replyForm.bank_lg_expiry_date);
+            if (uploadFile) formData.append('bank_reply_file', uploadFile);
             
             await apiRequest(`/issuance/lg-records/${lgId}/record-bank-reply`, 'PATCH', formData);
 
@@ -365,6 +438,8 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                 bank_lg_issue_date: replyForm.bank_lg_issue_date,
                 bank_lg_expiry_date: replyForm.bank_lg_expiry_date,
                 bank_beneficiary_name: replyForm.bank_beneficiary_name,
+                issuing_bank_name: replyForm.issuing_bank_name,
+                issuer_name: replyForm.issuer_name,
                 verification_notes: replyForm.verification_notes,
                 force_accept: isForceAccept,
                 force_no_number: replyForm.force_no_number,
@@ -688,9 +763,27 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                     {/* === LG ISSUED: AI-powered scan + verification === */}
                                                     {replyForm.bank_reply_type === 'LG_ISSUED' && (
                                                         <div className="space-y-4 p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl">
-                                                            <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
-                                                                <Sparkles className="w-4 h-4" /> Upload LG Copy for AI Verification
-                                                            </h4>
+                                                            <div className="flex items-center justify-between">
+                                                                <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
+                                                                    <Sparkles className="w-4 h-4" /> Upload LG Copy for AI Verification
+                                                                </h4>
+                                                                {data?.issued_lg_scan_mandatory && (
+                                                                    <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded-full border border-amber-300">
+                                                                        Scan Mandatory
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Corporate Policy Notice if Scan is Mandatory */}
+                                                            {data?.issued_lg_scan_mandatory && (
+                                                                <div className="flex items-center gap-2.5 p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900">
+                                                                    <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
+                                                                    <div>
+                                                                        <p className="font-semibold text-amber-900">Corporate Policy: Bank LG Scan Mandatory</p>
+                                                                        <p className="text-amber-700 mt-0.5">Confirmation requires an uploaded bank LG scan document.</p>
+                                                                    </div>
+                                                                </div>
+                                                            )}
 
                                                             {/* File Upload Area */}
                                                             {!aiResult && !aiExtracting && (
@@ -722,7 +815,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                     </div>
                                                                     <div className="text-center">
                                                                         <p className="text-sm font-semibold text-gray-700">AI is analyzing your LG scan...</p>
-                                                                        <p className="text-xs text-gray-400 mt-0.5">Extracting LG number, amount, dates, beneficiary</p>
+                                                                        <p className="text-xs text-gray-400 mt-0.5">Extracting LG number, amount, dates, bank, and parties</p>
                                                                     </div>
                                                                 </div>
                                                             )}
@@ -757,6 +850,21 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                         </div>
                                                                     )}
 
+                                                                    {/* Informative banner for manual entry */}
+                                                                    {isManualEntry && (
+                                                                        <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 flex items-start gap-2">
+                                                                            <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                                                                            <div>
+                                                                                <span className="font-semibold">Manual Mode: </span>
+                                                                                {data?.issued_lg_scan_mandatory ? (
+                                                                                    <span>Corporate policy requires a scanned copy. You can prepare values manually, but a scan document must be uploaded before confirmation.</span>
+                                                                                ) : (
+                                                                                    <span>Confirmation will be recorded as <strong>Manual Entry</strong>. Cashback claims will remain in <em>Pending Scan Verification</em> until a scan is uploaded or bank reconciliation completes.</span>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
                                                                     {/* Comparison Table */}
                                                                     {aiResult.comparison && (
                                                                         <div className="border rounded-lg overflow-hidden bg-white">
@@ -783,18 +891,31 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                                 </thead>
                                                                                 <tbody className="divide-y divide-gray-100">
                                                                                     {aiResult.comparison.fields.map((f, i) => (
-                                                                                        <tr key={i} className={!f.match ? 'bg-amber-50/50' : ''}>
-                                                                                            <td className="px-3 py-2 font-medium text-gray-700">{f.field}</td>
+                                                                                        <tr key={i} className={!f.match ? 'bg-amber-50/50' : (f.tolerance_applied ? 'bg-emerald-50/40' : '')}>
+                                                                                            <td className="px-3 py-2 font-medium text-gray-700">
+                                                                                                {f.field}
+                                                                                                {f.tolerance_applied && (
+                                                                                                    <span className="block text-[9px] text-emerald-600 font-normal">
+                                                                                                        {f.note || 'Within tolerance'}
+                                                                                                    </span>
+                                                                                                )}
+                                                                                            </td>
                                                                                             <td className="px-3 py-2 text-gray-600">{f.requested || '—'}</td>
                                                                                             <td className={`px-3 py-2 font-medium ${!f.match ? 'text-amber-700' : 'text-gray-800'}`}>{f.extracted || '—'}</td>
                                                                                             <td className="px-3 py-2 text-center">
-                                                                                                {f.match
-                                                                                                    ? <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />
-                                                                                                    : <div className="flex flex-col items-center">
+                                                                                                {f.match ? (
+                                                                                                    <div className="flex flex-col items-center">
+                                                                                                        <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />
+                                                                                                        {f.tolerance_applied && <span className="text-[8px] text-emerald-600 font-bold mt-0.5">TOLERANCE</span>}
+                                                                                                        {f.match_pct != null && f.match_pct < 100 && <span className="text-[8px] text-emerald-600 font-bold mt-0.5">{f.match_pct}%</span>}
+                                                                                                    </div>
+                                                                                                ) : (
+                                                                                                    <div className="flex flex-col items-center">
                                                                                                         <AlertTriangle className="w-4 h-4 text-amber-500" />
                                                                                                         {f.match_pct != null && <span className="text-[9px] text-amber-500 mt-0.5">{f.match_pct}%</span>}
+                                                                                                        {f.diff_days != null && <span className="text-[9px] text-amber-500 mt-0.5">±{f.diff_days}d</span>}
                                                                                                     </div>
-                                                                                                }
+                                                                                                )}
                                                                                             </td>
                                                                                         </tr>
                                                                                     ))}
@@ -845,6 +966,20 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                             <label className="text-xs font-medium text-gray-600">Beneficiary</label>
                                                                             <input type="text" value={replyForm.bank_beneficiary_name}
                                                                                 onChange={e => setReplyForm({ ...replyForm, bank_beneficiary_name: e.target.value })}
+                                                                                className="w-full mt-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-emerald-50/30" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="text-xs font-medium text-gray-600">Issuing Bank</label>
+                                                                            <input type="text" value={replyForm.issuing_bank_name || ''}
+                                                                                placeholder="e.g. CIB, QNB, HSBC..."
+                                                                                onChange={e => setReplyForm({ ...replyForm, issuing_bank_name: e.target.value })}
+                                                                                className="w-full mt-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-emerald-50/30" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="text-xs font-medium text-gray-600">Issuer / Applicant Name</label>
+                                                                            <input type="text" value={replyForm.issuer_name || ''}
+                                                                                placeholder="Corporate or Entity name"
+                                                                                onChange={e => setReplyForm({ ...replyForm, issuer_name: e.target.value })}
                                                                                 className="w-full mt-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-emerald-50/30" />
                                                                         </div>
                                                                     </div>
@@ -916,13 +1051,20 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
 
                                                             {/* Manual fallback */}
                                                             {!aiResult && !aiExtracting && (
-                                                                <p className="text-[10px] text-gray-400 text-center">
-                                                                    Or <button onClick={() => {
-                                                                        setIsManualEntry(true);
-                                                                        const comparison = buildManualComparison(replyForm);
-                                                                        setAiResult({ extracted: {}, comparison });
-                                                                    }} className="text-emerald-600 underline hover:text-emerald-700">enter details manually</button>
-                                                                </p>
+                                                                <div className="space-y-1.5 text-center">
+                                                                    <p className="text-[11px] text-gray-500">
+                                                                        Or <button onClick={() => {
+                                                                            setIsManualEntry(true);
+                                                                            const comparison = buildManualComparison(replyForm);
+                                                                            setAiResult({ extracted: {}, comparison });
+                                                                        }} className="text-emerald-600 underline font-medium hover:text-emerald-700">enter details manually</button>
+                                                                    </p>
+                                                                    {data?.issued_lg_scan_mandatory && (
+                                                                        <p className="text-[10px] text-amber-600 font-medium">
+                                                                            ⚠️ Bank scan is mandatory per policy before confirmation.
+                                                                        </p>
+                                                                    )}
+                                                                </div>
                                                             )}
                                                         </div>
                                                     )}
