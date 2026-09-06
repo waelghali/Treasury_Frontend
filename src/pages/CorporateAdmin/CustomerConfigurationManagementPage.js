@@ -296,6 +296,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
   const [sortKey, setSortKey] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
   const [filterText, setFilterText] = useState('');
+  const [selectedModule, setSelectedModule] = useState('ALL');
   const [selectedGroup, setSelectedGroup] = useState('All Groups');
 
   // --- Subscription State ---
@@ -792,21 +793,94 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
   const hasQuotation = subscriptionData ? Boolean(subscriptionData?.subscription_plan?.has_quotation_module) : false;
   const hasReconciliation = subscriptionData ? Boolean(subscriptionData?.subscription_plan?.has_reconciliation_module) : false;
 
-  // Filter available setting groups based on active subscription modules
+  // Available modules based on subscription with real-time config count
+  const availableModules = useMemo(() => {
+    const list = [
+      { id: 'ALL', label: 'All Modules', icon: Layers },
+      { id: 'general', label: 'General Platform', icon: Lock },
+    ];
+    if (hasIssuance) {
+      list.push({ id: 'issuance', label: 'LG Issuance', icon: FileCheck });
+    }
+    if (hasCustody) {
+      list.push({ id: 'custody', label: 'LG Custody', icon: Shield });
+    }
+    if (hasReconciliation || hasIssuance) {
+      list.push({ id: 'reconciliation', label: 'Reconciliation', icon: CheckCircle });
+    }
+    if (hasQuotation) {
+      list.push({ id: 'quotation', label: 'RFQ Quotations', icon: Building });
+    }
+
+    return list.map(mod => {
+      if (mod.id === 'ALL') {
+        return { ...mod, count: configurations.length };
+      }
+      const count = configurations.filter(c => {
+        const tags = c.global_module_tags || [];
+        if (mod.id === 'general') {
+          return (!tags || tags.length === 0) || c.group === 'General Platform & Security Policies';
+        }
+        if (mod.id === 'issuance') {
+          return tags.includes('issuance') || c.group === 'LG Issuance Lifecycle & Compliance' || c.group === 'Smart Bank Facility Scoring & Recommendation';
+        }
+        if (mod.id === 'custody') {
+          return tags.includes('custody') || c.group === 'LG Custody Lifecycle & Evidences';
+        }
+        if (mod.id === 'quotation') {
+          return tags.includes('quotation') || tags.includes('quotations') || c.group === 'RFQ Quotations Module';
+        }
+        if (mod.id === 'reconciliation') {
+          return tags.includes('reconciliation') || c.group === 'Bank Position Reconciliation' || c.global_config_key?.includes('RECONCILIATION');
+        }
+        return false;
+      }).length;
+      return { ...mod, count };
+    });
+  }, [configurations, hasIssuance, hasCustody, hasQuotation, hasReconciliation]);
+
+  // Filter available setting groups based on active subscription modules AND selected module
   const availableGroups = useMemo(() => {
     return Object.keys(settingGroups).filter(groupName => {
-      if (!subscriptionData) return true;
-      if (groupName === 'RFQ Quotations Module' && !hasQuotation) return false;
-      if (groupName === 'LG Custody Lifecycle & Evidences' && !hasCustody) return false;
-      if (groupName === 'LG Issuance Lifecycle & Compliance' && !hasIssuance) return false;
-      if (groupName === 'Smart Bank Facility Scoring & Recommendation' && !hasIssuance) return false;
-      if (groupName === 'Bank Position Reconciliation' && !hasReconciliation && !hasIssuance) return false;
-      if (groupName === 'Cross-Module Operations & Banking Timers' && !hasCustody && !hasIssuance) return false;
+      // 1. Subscription plan availability
+      if (subscriptionData) {
+        if (groupName === 'RFQ Quotations Module' && !hasQuotation) return false;
+        if (groupName === 'LG Custody Lifecycle & Evidences' && !hasCustody) return false;
+        if (groupName === 'LG Issuance Lifecycle & Compliance' && !hasIssuance) return false;
+        if (groupName === 'Smart Bank Facility Scoring & Recommendation' && !hasIssuance) return false;
+        if (groupName === 'Bank Position Reconciliation' && !hasReconciliation && !hasIssuance) return false;
+        if (groupName === 'Cross-Module Operations & Banking Timers' && !hasCustody && !hasIssuance) return false;
+      }
+
+      // 2. Selected module filter
+      if (selectedModule === 'general') {
+        return groupName === 'General Platform & Security Policies';
+      }
+      if (selectedModule === 'issuance') {
+        return (
+          groupName === 'LG Issuance Lifecycle & Compliance' ||
+          groupName === 'Smart Bank Facility Scoring & Recommendation' ||
+          groupName === 'Cross-Module Operations & Banking Timers'
+        );
+      }
+      if (selectedModule === 'custody') {
+        return (
+          groupName === 'LG Custody Lifecycle & Evidences' ||
+          groupName === 'Cross-Module Operations & Banking Timers'
+        );
+      }
+      if (selectedModule === 'quotation') {
+        return groupName === 'RFQ Quotations Module';
+      }
+      if (selectedModule === 'reconciliation') {
+        return groupName === 'Bank Position Reconciliation';
+      }
+
       return true;
     });
-  }, [subscriptionData, hasCustody, hasIssuance, hasQuotation, hasReconciliation]);
+  }, [subscriptionData, selectedModule, hasCustody, hasIssuance, hasQuotation, hasReconciliation]);
 
-  // If active filter group becomes invalid due to subscription, reset to All Groups
+  // If active filter group becomes invalid due to subscription or module change, reset to All Groups
   useEffect(() => {
     if (selectedGroup !== 'All Groups' && !availableGroups.includes(selectedGroup)) {
       setSelectedGroup('All Groups');
@@ -832,6 +906,27 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
           // If group itself is not available under subscription, filter out
           if (config.group && !availableGroups.includes(config.group)) {
             return false;
+          }
+        }
+
+        // Active module filter (from tabs/dropdown)
+        if (selectedModule !== 'ALL') {
+          const tags = config.global_module_tags || [];
+          if (selectedModule === 'general') {
+            const isGeneral = (!tags || tags.length === 0) || config.group === 'General Platform & Security Policies';
+            if (!isGeneral) return false;
+          } else if (selectedModule === 'issuance') {
+            const isIssuance = tags.includes('issuance') || config.group === 'LG Issuance Lifecycle & Compliance' || config.group === 'Smart Bank Facility Scoring & Recommendation';
+            if (!isIssuance) return false;
+          } else if (selectedModule === 'custody') {
+            const isCustody = tags.includes('custody') || config.group === 'LG Custody Lifecycle & Evidences';
+            if (!isCustody) return false;
+          } else if (selectedModule === 'quotation') {
+            const isQuotation = tags.includes('quotation') || tags.includes('quotations') || config.group === 'RFQ Quotations Module';
+            if (!isQuotation) return false;
+          } else if (selectedModule === 'reconciliation') {
+            const isReconciliation = tags.includes('reconciliation') || config.group === 'Bank Position Reconciliation' || config.global_config_key?.includes('RECONCILIATION');
+            if (!isReconciliation) return false;
           }
         }
 
@@ -874,7 +969,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     });
 
     return grouped;
-  }, [configurations, filterText, sortKey, sortDirection, selectedGroup, subscriptionData, availableGroups, hasCustody, hasIssuance, hasQuotation, hasReconciliation]);
+  }, [configurations, filterText, sortKey, sortDirection, selectedModule, selectedGroup, subscriptionData, availableGroups, hasCustody, hasIssuance, hasQuotation, hasReconciliation]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -1039,10 +1134,47 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
           </div>
         )}
 
+        {/* Module Filter Pills */}
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1 flex items-center gap-1.5">
+            <Sliders className="h-3.5 w-3.5 text-slate-400" /> Filter by Module:
+          </span>
+          {availableModules.map(mod => {
+            const isSelected = selectedModule === mod.id;
+            const ModIcon = mod.icon || Layers;
+            return (
+              <button
+                key={mod.id}
+                type="button"
+                onClick={() => {
+                  setSelectedModule(mod.id);
+                  setSelectedGroup('All Groups');
+                }}
+                disabled={isGracePeriod}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/80'
+                }`}
+              >
+                <ModIcon className={`h-3.5 w-3.5 ${isSelected ? 'text-white' : 'text-slate-500'}`} />
+                <span>{mod.label}</span>
+                {mod.count !== undefined && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                    isSelected ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {mod.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Combined Filters */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:space-x-4 space-y-3 sm:space-y-0">
-          <div className="flex items-center space-x-2 w-full sm:w-auto">
-            <Filter className="h-5 w-5 text-gray-500" />
+        <div className="mb-6 flex flex-col md:flex-row md:space-x-4 space-y-3 md:space-y-0">
+          <div className="flex items-center space-x-2 flex-1">
+            <Filter className="h-5 w-5 text-gray-500 flex-shrink-0" />
             <input
               type="text"
               placeholder="Filter by setting, description, or value..."
@@ -1053,15 +1185,32 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
             />
           </div>
 
-          <div className="flex items-center space-x-2 w-full sm:w-auto">
-            <Settings className="h-5 w-5 text-gray-500" />
+          <div className="flex items-center space-x-2 w-full md:w-auto">
+            <Layers className="h-5 w-5 text-gray-500 flex-shrink-0" />
+            <select
+              value={selectedModule}
+              onChange={(e) => {
+                setSelectedModule(e.target.value);
+                setSelectedGroup('All Groups');
+              }}
+              className={`${inputClassNames} flex-1 md:w-48`}
+              disabled={isGracePeriod}
+            >
+              {availableModules.map(mod => (
+                <option key={mod.id} value={mod.id}>{mod.label} ({mod.count})</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center space-x-2 w-full md:w-auto">
+            <Settings className="h-5 w-5 text-gray-500 flex-shrink-0" />
             <select
               value={selectedGroup}
               onChange={(e) => setSelectedGroup(e.target.value)}
-              className={`${inputClassNames} flex-1`}
+              className={`${inputClassNames} flex-1 md:w-64`}
               disabled={isGracePeriod}
             >
-              <option value="All Groups">All Groups</option>
+              <option value="All Groups">All Setting Groups</option>
               {availableGroups.map(groupName => (
                 <option key={groupName} value={groupName}>{groupName}</option>
               ))}
