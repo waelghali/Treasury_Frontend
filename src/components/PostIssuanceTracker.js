@@ -307,7 +307,52 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
             fields.push({ field: 'Amount', requested: expected.amount, extracted: formValues.bank_lg_amount || '—', match, severity: match ? 'OK' : 'HIGH' });
         }
         // Expiry Date with tolerance
-        if (expected.expiry_date) {
+        if (expected.is_open_ended) {
+            const enteredNorm = toDateStr(formValues.bank_lg_expiry_date);
+            fields.push({
+                field: 'Expiry Date',
+                requested: 'Open-Ended',
+                extracted: enteredNorm || 'Open-Ended',
+                match: true,
+                severity: 'OK',
+                note: 'Open-ended guarantee'
+            });
+        } else if (expected.expiry_type === 'PERIOD_FROM_ISSUANCE' && expected.validity_period_value && formValues.bank_lg_issue_date) {
+            const start = new Date(formValues.bank_lg_issue_date);
+            const val = parseInt(expected.validity_period_value, 10);
+            const u = (expected.validity_period_unit || 'MONTHS').toUpperCase();
+            if (u === 'DAYS') start.setDate(start.getDate() + val);
+            else if (u === 'MONTHS') {
+                const cur = start.getDate();
+                start.setMonth(start.getMonth() + val);
+                if (start.getDate() < cur) start.setDate(0);
+            } else if (u === 'YEARS') start.setFullYear(start.getFullYear() + val);
+            const expNorm = toDateStr(start.toISOString().split('T')[0]);
+            const enteredNorm = toDateStr(formValues.bank_lg_expiry_date);
+            let match = true;
+            let tolerance_applied = false;
+            let diffDays = 0;
+            if (enteredNorm && expNorm && enteredNorm !== expNorm) {
+                const d1 = new Date(enteredNorm);
+                const d2 = new Date(expNorm);
+                diffDays = Math.round(Math.abs((d1 - d2) / (1000 * 60 * 60 * 24)));
+                if (diffDays <= expiryTolerance) {
+                    match = true;
+                    tolerance_applied = true;
+                } else {
+                    match = false;
+                }
+            }
+            fields.push({
+                field: 'Expiry Date',
+                requested: `${expected.validity_period_value} ${expected.validity_period_unit} (${expNorm})`,
+                extracted: enteredNorm || '—',
+                match,
+                severity: match ? 'OK' : 'HIGH',
+                tolerance_applied,
+                note: tolerance_applied ? `Within ±${expiryTolerance}d tolerance (${diffDays}d diff)` : null
+            });
+        } else if (expected.expiry_date) {
             const expNorm = toDateStr(expected.expiry_date);
             const enteredNorm = toDateStr(formValues.bank_lg_expiry_date);
             let match = true;
@@ -953,7 +998,32 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                             <label className="text-xs font-medium text-gray-600">Issue Date</label>
                                                                             <input type="date" value={replyForm.bank_lg_issue_date}
                                                                                 max={today()}
-                                                                                onChange={e => setReplyForm({ ...replyForm, bank_lg_issue_date: e.target.value })}
+                                                                                onChange={e => {
+                                                                                    const newIssueDate = e.target.value;
+                                                                                    setReplyForm(prev => {
+                                                                                        const updated = { ...prev, bank_lg_issue_date: newIssueDate };
+                                                                                        const expType = data?.expected_values?.expiry_type;
+                                                                                        const periodVal = data?.expected_values?.validity_period_value;
+                                                                                        const periodUnit = (data?.expected_values?.validity_period_unit || 'MONTHS').toUpperCase();
+                                                                                        if (newIssueDate && expType === 'PERIOD_FROM_ISSUANCE' && periodVal) {
+                                                                                            const start = new Date(newIssueDate);
+                                                                                            const val = parseInt(periodVal, 10);
+                                                                                            if (periodUnit === 'DAYS') {
+                                                                                                start.setDate(start.getDate() + val);
+                                                                                            } else if (periodUnit === 'MONTHS') {
+                                                                                                const curDay = start.getDate();
+                                                                                                start.setMonth(start.getMonth() + val);
+                                                                                                if (start.getDate() < curDay) {
+                                                                                                    start.setDate(0);
+                                                                                                }
+                                                                                            } else if (periodUnit === 'YEARS') {
+                                                                                                start.setFullYear(start.getFullYear() + val);
+                                                                                            }
+                                                                                            updated.bank_lg_expiry_date = start.toISOString().split('T')[0];
+                                                                                        }
+                                                                                        return updated;
+                                                                                    });
+                                                                                }}
                                                                                 className="w-full mt-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-emerald-50/30" />
                                                                         </div>
                                                                         <div>
@@ -961,6 +1031,16 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                             <input type="date" value={replyForm.bank_lg_expiry_date}
                                                                                 onChange={e => setReplyForm({ ...replyForm, bank_lg_expiry_date: e.target.value })}
                                                                                 className="w-full mt-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-emerald-50/30" />
+                                                                            {data?.expected_values?.expiry_type === 'PERIOD_FROM_ISSUANCE' && (
+                                                                                <span className="text-[10px] text-blue-600 block mt-0.5 leading-tight">
+                                                                                    Requested: {data.expected_values.validity_period_value} {data.expected_values.validity_period_unit} from issuance. Auto-suggested (editable).
+                                                                                </span>
+                                                                            )}
+                                                                            {data?.expected_values?.is_open_ended && (
+                                                                                <span className="text-[10px] text-amber-700 block mt-0.5 leading-tight">
+                                                                                    Requested as Open-Ended (leave empty if confirmed open-ended).
+                                                                                </span>
+                                                                            )}
                                                                         </div>
                                                                         <div className="col-span-2">
                                                                             <label className="text-xs font-medium text-gray-600">Beneficiary</label>

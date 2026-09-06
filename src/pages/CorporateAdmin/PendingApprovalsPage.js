@@ -1544,7 +1544,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                                 <p className="text-xs font-bold text-gray-400 uppercase mb-1">Requested</p>
                                                                 <p className="text-gray-700">Amount: {lg.currency_code} {req ? parseFloat(req.amount).toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</p>
                                                                 <p className="text-gray-700">Beneficiary: {req?.beneficiary_name || lg.beneficiary_name}</p>
-                                                                <p className="text-gray-700">Expiry: {req?.requested_expiry_date || 'N/A'}</p>
+                                                                <p className="text-gray-700">Expiry: {req?.is_open_ended ? 'Open-Ended' : (req?.expiry_type === 'PERIOD_FROM_ISSUANCE' ? `${req?.validity_period_value} ${req?.validity_period_unit || 'MONTHS'} from issuance` : (req?.requested_expiry_date || 'N/A'))}</p>
                                                             </div>
                                                             <div>
                                                                 <p className="text-xs font-bold text-gray-400 uppercase mb-1">Bank Confirmed</p>

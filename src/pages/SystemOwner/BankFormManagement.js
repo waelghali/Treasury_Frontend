@@ -53,6 +53,7 @@ export default function BankFormManagement() {
     const [uploadLgTypeIds, setUploadLgTypeIds] = useState([]);
     const [uploadFormLanguage, setUploadFormLanguage] = useState('BILINGUAL');
     const [uploadFormRole, setUploadFormRole] = useState('PRIMARY_ISSUER');
+    const [uploadAllowsPeriodExpiry, setUploadAllowsPeriodExpiry] = useState(false);
     const [uploadFile, setUploadFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [analyzing, setAnalyzing] = useState(null);
@@ -166,7 +167,7 @@ export default function BankFormManagement() {
             const formData = new FormData();
             formData.append('file', uploadFile);
 
-            let url = `/issuance/bank-forms/upload?bank_id=${uploadBankId}&form_name=${encodeURIComponent(uploadFormName)}&form_type=${uploadFormType}&form_language=${uploadFormLanguage}&form_role=${uploadFormRole}`;
+            let url = `/issuance/bank-forms/upload?bank_id=${uploadBankId}&form_name=${encodeURIComponent(uploadFormName)}&form_type=${uploadFormType}&form_language=${uploadFormLanguage}&form_role=${uploadFormRole}&allows_period_expiry=${uploadAllowsPeriodExpiry}`;
             if (uploadLgTypeIds.length > 0) url += `&lg_type_ids=${uploadLgTypeIds.join(',')}`;
             const result = await apiRequest(url, 'POST', formData, 'multipart/form-data');
 
@@ -178,6 +179,7 @@ export default function BankFormManagement() {
             setUploadLgTypeIds([]);
             setUploadFormLanguage('BILINGUAL');
             setUploadFormRole('PRIMARY_ISSUER');
+            setUploadAllowsPeriodExpiry(false);
             await fetchForms();
         } catch (err) {
             toast.error(err.message || 'Upload failed');
@@ -223,6 +225,19 @@ export default function BankFormManagement() {
             }
         } catch (err) {
             toast.error(err.message || 'Failed to toggle form status.');
+        }
+    };
+
+    const handleTogglePeriodExpiry = async (form) => {
+        try {
+            const res = await apiRequest(`/issuance/bank-forms/${form.id}/toggle-period-expiry`, 'PATCH');
+            toast.success(res.message);
+            fetchForms();
+            if (selectedForm?.id === form.id) {
+                setSelectedForm(prev => ({ ...prev, allows_period_expiry: res.allows_period_expiry }));
+            }
+        } catch (err) {
+            toast.error(err.message || 'Failed to toggle period expiry acceptance.');
         }
     };
 
@@ -584,6 +599,26 @@ export default function BankFormManagement() {
                                     onChange={e => setUploadFile(e.target.files[0])}
                                 />
                             </div>
+
+                            {/* Row 4: Period Expiry Acceptance Toggle */}
+                            <div className="col-span-2 pt-2 border-t border-gray-100">
+                                <label className="flex items-start gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={uploadAllowsPeriodExpiry}
+                                        onChange={e => setUploadAllowsPeriodExpiry(e.target.checked)}
+                                        className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <div>
+                                        <span className="text-sm font-semibold text-gray-800">
+                                            Accepts Validity Period Wording (يقبل مدة سريان كنص)
+                                        </span>
+                                        <p className="text-xs text-gray-500 mt-0.5">
+                                            Check this if this bank form accepts period text (e.g. "٣ أشهر من تاريخ الإصدار" / "3 Months from issuance") directly in the expiry date field. If unchecked, the system calculates and prints an exact calendar date.
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
 
                         <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
@@ -632,6 +667,7 @@ export default function BankFormManagement() {
                                             <th className="px-5 py-2 text-left">Role</th>
                                             <th className="px-5 py-2 text-left">Version</th>
                                             <th className="px-5 py-2 text-left">Type</th>
+                                            <th className="px-5 py-2 text-left">Period Expiry</th>
                                             <th className="px-5 py-2 text-left">AI Status</th>
                                             <th className="px-5 py-2 text-left">Fields</th>
                                             <th className="px-5 py-2 text-right">Actions</th>
@@ -675,6 +711,19 @@ export default function BankFormManagement() {
                                                             {form.form_language === 'AR' ? 'عربي' : 'EN'}
                                                         </span>
                                                     )}
+                                                </td>
+                                                <td className="px-5 py-3">
+                                                    <button
+                                                        onClick={() => handleTogglePeriodExpiry(form)}
+                                                        title={form.allows_period_expiry ? 'Click to toggle: Form accepts period text' : 'Click to toggle: Form requires exact calendar date'}
+                                                        className={`text-xs px-2.5 py-1 rounded-full font-medium border transition-colors ${
+                                                            form.allows_period_expiry
+                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                                                        }`}
+                                                    >
+                                                        {form.allows_period_expiry ? '✓ Period Accepted' : 'Fixed Date Only'}
+                                                    </button>
                                                 </td>
                                                 <td className="px-5 py-3">
                                                     <div className="flex items-center gap-1.5">

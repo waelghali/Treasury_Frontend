@@ -832,7 +832,7 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span className="text-slate-500">Expiry</span>
-                                    <span className="font-bold text-slate-900">{request.requested_expiry_date || 'N/A'}</span>
+                                    <span className="font-bold text-slate-900">{request.is_open_ended ? 'Open-Ended' : (request.expiry_type === 'PERIOD_FROM_ISSUANCE' ? `${request.validity_period_value} ${request.validity_period_unit || 'MONTHS'} from issuance` : (request.requested_expiry_date || 'N/A'))}</span>
                                 </div>
                                 {selectedFacility?.type === 'facility' && (
                                     <div className="flex justify-between text-sm">

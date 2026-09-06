@@ -4,7 +4,7 @@ import { apiRequest, publicApiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 import {
     Loader2, Save, Send, AlertCircle, Info, CheckCircle, User, FileText, DollarSign,
-    Building, ChevronLeft, ChevronRight, Search, X, Upload, Trash2, Clock, AlertTriangle, Edit3
+    Building, ChevronLeft, ChevronRight, Search, X, Upload, Trash2, Clock, AlertTriangle, Edit3, Calendar
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { COUNTRIES_FOR_SELECT as COUNTRIES } from '../../constants/countries';
@@ -118,7 +118,8 @@ export default function IssuanceRequestForm() {
         project_id: '',
         reference_start_date: '', reference_end_date: '', lg_type_id: '', lg_purpose: '', amount: '',
         currency_id: '', payable_currency_id: '', requested_issue_date: new Date().toISOString().split('T')[0],
-        requested_expiry_date: '', operational_status: '', lg_language: 'EN', is_auto_reducing: false, reduction_trigger: '',
+        requested_expiry_date: '', expiry_type: 'FIXED_DATE', validity_period_value: '', validity_period_unit: 'MONTHS', is_open_ended: false,
+        operational_status: '', lg_language: 'EN', is_auto_reducing: false, reduction_trigger: '',
         other_conditions: '', beneficiary_id_number: '', beneficiary_name: '', beneficiary_address: '',
         beneficiary_contact_person: '', beneficiary_phone: '', beneficiary_email: '', beneficiary_country: '',
         is_third_party: false, third_party_name: '', third_party_cr: '', third_party_address: '', third_party_relationship: '',
@@ -542,6 +543,17 @@ export default function IssuanceRequestForm() {
 
     // Tenor calculation
     const calcTenor = () => {
+        if (formData.expiry_type === 'OPEN_ENDED' || formData.is_open_ended) {
+            return 'Open-Ended';
+        }
+        if (formData.expiry_type === 'PERIOD_FROM_ISSUANCE' && formData.validity_period_value) {
+            const v = parseInt(formData.validity_period_value, 10);
+            const u = formData.validity_period_unit || 'MONTHS';
+            if (u === 'DAYS') return `${v} day${v > 1 ? 's' : ''}`;
+            if (u === 'MONTHS') return `${v} month${v > 1 ? 's' : ''}`;
+            if (u === 'YEARS') return `${v} year${v > 1 ? 's' : ''}`;
+            return `${v} ${u}`;
+        }
         if (!formData.requested_issue_date || !formData.requested_expiry_date) return null;
         const start = new Date(formData.requested_issue_date);
         const end = new Date(formData.requested_expiry_date);
@@ -552,6 +564,27 @@ export default function IssuanceRequestForm() {
         const remainDays = days % 30;
         if (months > 0) return `${months} month${months > 1 ? 's' : ''}${remainDays > 0 ? `, ${remainDays} day${remainDays > 1 ? 's' : ''}` : ''}`;
         return `${days} day${days > 1 ? 's' : ''}`;
+    };
+
+    const getProjectedExpiryPreview = () => {
+        if (formData.expiry_type !== 'PERIOD_FROM_ISSUANCE' || !formData.validity_period_value) return null;
+        const base = formData.requested_issue_date ? new Date(formData.requested_issue_date) : new Date();
+        const val = parseInt(formData.validity_period_value, 10);
+        if (isNaN(val) || val <= 0) return null;
+        const d = new Date(base.getTime());
+        const u = (formData.validity_period_unit || 'MONTHS').toUpperCase();
+        if (u === 'DAYS') {
+            d.setDate(d.getDate() + val);
+        } else if (u === 'MONTHS') {
+            const curDay = d.getDate();
+            d.setMonth(d.getMonth() + val);
+            if (d.getDate() < curDay) {
+                d.setDate(0);
+            }
+        } else if (u === 'YEARS') {
+            d.setFullYear(d.getFullYear() + val);
+        }
+        return d.toISOString().split('T')[0];
     };
 
     // ──────────────────────────────────────────────
@@ -580,9 +613,20 @@ export default function IssuanceRequestForm() {
             if (!formData.amount || parseFloat(formData.amount) <= 0) errors.push('LG Amount must be greater than 0');
             if (!formData.currency_id) errors.push('LG Currency is required');
             if (!formData.lg_purpose) errors.push('LG Purpose is required');
-            if (!formData.requested_expiry_date) errors.push('Maturity Date is required');
-            if (formData.requested_issue_date && formData.requested_expiry_date && formData.requested_expiry_date <= formData.requested_issue_date) {
-                errors.push('Maturity Date must be after Issue Date');
+            if (formData.expiry_type === 'PERIOD_FROM_ISSUANCE') {
+                if (!formData.validity_period_value || parseInt(formData.validity_period_value, 10) <= 0) {
+                    errors.push('Validity Period Value is required and must be greater than 0');
+                }
+                if (!formData.validity_period_unit) {
+                    errors.push('Validity Period Unit (Days, Months, Years) is required');
+                }
+            } else if (formData.expiry_type === 'OPEN_ENDED' || formData.is_open_ended) {
+                // Open ended guarantees do not have a fixed maturity date
+            } else {
+                if (!formData.requested_expiry_date) errors.push('Maturity Date is required');
+                if (formData.requested_issue_date && formData.requested_expiry_date && formData.requested_expiry_date <= formData.requested_issue_date) {
+                    errors.push('Maturity Date must be after Issue Date');
+                }
             }
             if (isAdvancePayment && !formData.operational_status) {
                 errors.push('Operational Status is required for Advance Payment Guarantees');
@@ -681,13 +725,29 @@ export default function IssuanceRequestForm() {
             const payload = { ...formData };
             Object.keys(payload).forEach(key => { if (payload[key] === '') payload[key] = null; });
 
-            const intFields = ['issuing_entity_id', 'lg_type_id', 'currency_id', 'payable_currency_id', 'reference_currency_id', 'project_id'];
+            const intFields = ['issuing_entity_id', 'lg_type_id', 'currency_id', 'payable_currency_id', 'reference_currency_id', 'project_id', 'validity_period_value'];
             intFields.forEach(f => {
                 if (payload[f] !== null && payload[f] !== undefined) {
                     payload[f] = parseInt(payload[f], 10);
                     if (isNaN(payload[f])) payload[f] = null;
                 }
             });
+
+            if (payload.expiry_type === 'OPEN_ENDED' || payload.is_open_ended) {
+                payload.is_open_ended = true;
+                payload.expiry_type = 'OPEN_ENDED';
+                payload.requested_expiry_date = null;
+                payload.validity_period_value = null;
+                payload.validity_period_unit = null;
+            } else if (payload.expiry_type === 'PERIOD_FROM_ISSUANCE') {
+                payload.is_open_ended = false;
+                payload.requested_expiry_date = null;
+            } else {
+                payload.expiry_type = 'FIXED_DATE';
+                payload.is_open_ended = false;
+                payload.validity_period_value = null;
+                payload.validity_period_unit = null;
+            }
 
             if (payload.amount) payload.amount = parseFloat(payload.amount);
             if (payload.reference_amount) payload.reference_amount = parseFloat(payload.reference_amount);
@@ -1171,21 +1231,158 @@ export default function IssuanceRequestForm() {
 
                 {renderField('lg_purpose', 'LG Purpose / Wording', 'textarea', [], 'Describe the guarantee purpose exactly as it should appear in the LG text...')}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {renderField('requested_issue_date', 'Suggested Issue Date', 'date', [], '', { min: new Date().toISOString().split('T')[0] })}
-                    <div key="requested_expiry_date" className="space-y-1.5">
-                        <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                            Maturity Date <span className="text-red-400 ml-0.5">*</span>
-                        </label>
-                        <input type="date" name="requested_expiry_date" value={formData.requested_expiry_date || ''}
-                            onChange={handleChange} required className={inputClasses(false)}
-                            min={formData.requested_issue_date || new Date().toISOString().split('T')[0]} />
-                        {tenor && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold mt-1">
-                                <Clock className="w-3 h-3" /> Tenor: {tenor}
-                            </span>
-                        )}
+                {/* Validity Mode Selection */}
+                <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <span className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Validity / Maturity Type <span className="text-red-400 ml-0.5">*</span>
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                            Select date structure: fixed calendar date, period from issuance, or open-ended
+                        </span>
                     </div>
+                    <div className="inline-flex rounded-lg bg-slate-200/70 p-1 border border-slate-300/60 self-start sm:self-auto">
+                        <button
+                            type="button"
+                            onClick={() => setFormData(p => ({ ...p, expiry_type: 'FIXED_DATE', is_open_ended: false }))}
+                            className={`py-1.5 px-3 text-xs font-medium rounded-md transition-all ${
+                                formData.expiry_type === 'FIXED_DATE'
+                                    ? 'bg-white text-blue-700 shadow-sm font-semibold'
+                                    : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            Specific Date
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setFormData(p => ({ ...p, expiry_type: 'PERIOD_FROM_ISSUANCE', is_open_ended: false, validity_period_unit: p.validity_period_unit || 'MONTHS' }))}
+                            className={`py-1.5 px-3 text-xs font-medium rounded-md transition-all ${
+                                formData.expiry_type === 'PERIOD_FROM_ISSUANCE'
+                                    ? 'bg-white text-blue-700 shadow-sm font-semibold'
+                                    : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            Period from Issuance
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setFormData(p => ({ ...p, expiry_type: 'OPEN_ENDED', is_open_ended: true, requested_expiry_date: '' }))}
+                            className={`py-1.5 px-3 text-xs font-medium rounded-md transition-all ${
+                                formData.expiry_type === 'OPEN_ENDED'
+                                    ? 'bg-white text-blue-700 shadow-sm font-semibold'
+                                    : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            Open-Ended
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+                    {renderField('requested_issue_date', 'Suggested Issue Date', 'date', [], '', { min: new Date().toISOString().split('T')[0] })}
+                    
+                    {/* Mode 1: Specific Date */}
+                    {formData.expiry_type === 'FIXED_DATE' && (
+                        <div key="requested_expiry_date" className="space-y-1.5">
+                            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                Requested Expiry Date <span className="text-red-400 ml-0.5">*</span>
+                            </label>
+                            <input
+                                type="date"
+                                name="requested_expiry_date"
+                                value={formData.requested_expiry_date || ''}
+                                onChange={handleChange}
+                                required
+                                className={inputClasses(false)}
+                                min={formData.requested_issue_date || new Date().toISOString().split('T')[0]}
+                            />
+                            {tenor && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold mt-1">
+                                    <Clock className="w-3 h-3" /> Tenor: {tenor}
+                                </span>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Mode 2: Period from Issuance */}
+                    {formData.expiry_type === 'PERIOD_FROM_ISSUANCE' && (
+                        <div key="period_validity" className="space-y-1.5">
+                            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                Validity Period <span className="text-red-400 ml-0.5">*</span>
+                            </label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="number"
+                                    name="validity_period_value"
+                                    min="1"
+                                    placeholder="Value (e.g. 3)"
+                                    value={formData.validity_period_value || ''}
+                                    onChange={handleChange}
+                                    required
+                                    className={`${inputClasses(false)} w-1/2`}
+                                />
+                                <select
+                                    name="validity_period_unit"
+                                    value={formData.validity_period_unit || 'MONTHS'}
+                                    onChange={handleChange}
+                                    className={`${inputClasses(false)} w-1/2`}
+                                >
+                                    <option value="DAYS">Days</option>
+                                    <option value="MONTHS">Months</option>
+                                    <option value="YEARS">Years</option>
+                                </select>
+                            </div>
+                            {/* Presets */}
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                                {[
+                                    { v: 30, u: 'DAYS', label: '30d' },
+                                    { v: 90, u: 'DAYS', label: '90d' },
+                                    { v: 180, u: 'DAYS', label: '180d' },
+                                    { v: 3, u: 'MONTHS', label: '3m' },
+                                    { v: 6, u: 'MONTHS', label: '6m' },
+                                    { v: 1, u: 'YEARS', label: '1y' },
+                                ].map(preset => (
+                                    <button
+                                        key={preset.label}
+                                        type="button"
+                                        onClick={() => setFormData(p => ({ ...p, validity_period_value: preset.v, validity_period_unit: preset.u }))}
+                                        className={`px-2 py-0.5 text-[11px] rounded border transition-colors ${
+                                            String(formData.validity_period_value) === String(preset.v) && formData.validity_period_unit === preset.u
+                                                ? 'bg-blue-100 border-blue-300 text-blue-800 font-semibold'
+                                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        {preset.label}
+                                    </button>
+                                ))}
+                            </div>
+                            {/* Projected Date Preview */}
+                            {getProjectedExpiryPreview() && (
+                                <div className="flex items-center gap-1.5 text-[11px] text-blue-700 bg-blue-50/80 border border-blue-100 rounded-md px-2.5 py-1.5 mt-1">
+                                    <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                                    <span>Tentative Expiry: <strong>{getProjectedExpiryPreview()}</strong> (Calculated based on suggested issue date)</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Mode 3: Open-Ended */}
+                    {formData.expiry_type === 'OPEN_ENDED' && (
+                        <div key="open_ended" className="space-y-1.5">
+                            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                Expiry / Maturity <span className="text-red-400 ml-0.5">*</span>
+                            </label>
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
+                                <div className="font-semibold flex items-center gap-1.5">
+                                    <Clock className="w-4 h-4 text-amber-600" />
+                                    Open-Ended Guarantee (بدون تاريخ انتهاء)
+                                </div>
+                                <p className="text-amber-700 text-[11px] leading-relaxed">
+                                    This guarantee will remain in force until cancelled or returned. Note: Sub-limit approval requires open-ended authorization.
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Advance Payment conditional */}

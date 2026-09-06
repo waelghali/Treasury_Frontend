@@ -549,7 +549,24 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                     <DetailRow label="Payable Currency" value={payableCurrencyCode} modified={isFieldModified('payable_currency_id')} />
                                 )}
                                 <DetailRow label="Suggested Issue Date" value={request.requested_issue_date} icon={Calendar} modified={isFieldModified('requested_issue_date')} />
-                                <DetailRow label="Maturity Date" value={request.requested_expiry_date} icon={Calendar} modified={isFieldModified('requested_expiry_date')} />
+                                {(() => {
+                                    let maturityLabel = "Maturity Date";
+                                    let maturityValue = request.requested_expiry_date;
+                                    if (request.expiry_type === 'OPEN_ENDED' || request.is_open_ended) {
+                                        maturityLabel = "Validity";
+                                        maturityValue = "Open-Ended (ساري حتى الإلغاء)";
+                                    } else if (request.expiry_type === 'PERIOD_FROM_ISSUANCE' && request.validity_period_value) {
+                                        maturityLabel = "Validity Period";
+                                        const u = request.validity_period_unit === 'DAYS' ? 'Days' : (request.validity_period_unit === 'MONTHS' ? 'Months' : 'Years');
+                                        maturityValue = `${request.validity_period_value} ${u} from issuance`;
+                                        if (request.requested_expiry_date) {
+                                            maturityValue += ` (Tentative: ${request.requested_expiry_date})`;
+                                        }
+                                    }
+                                    return (
+                                        <DetailRow label={maturityLabel} value={maturityValue} icon={Calendar} modified={isFieldModified('requested_expiry_date') || isFieldModified('validity_period_value')} />
+                                    );
+                                })()}
                                 <DetailRow label="Beneficiary Name" value={request.beneficiary_name} modified={isFieldModified('beneficiary_name')} />
                                 <DetailRow label="Beneficiary Address" value={request.beneficiary_address} modified={isFieldModified('beneficiary_address')} />
                                 {request.operational_status && (

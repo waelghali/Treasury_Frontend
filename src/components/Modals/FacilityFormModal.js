@@ -214,6 +214,7 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
               ...sl,
               lg_type_ids: sl.lg_types ? sl.lg_types.map(t => t.id) : (sl.lg_type_ids || []),
               allows_confirmation: Boolean(sl.allows_confirmation),
+              allows_open_ended: Boolean(sl.allows_open_ended),
               max_tenor_days: sl.max_tenor_days ?? '',
               // Pricing
               default_commission_rate: sl.default_commission_rate || '0',
@@ -243,6 +244,7 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
       country_rule_type: 'ALLOW',
       allowed_countries_input: [],
       allows_confirmation: false,
+      allows_open_ended: false,
       default_commission_rate: '0',
       default_flat_fee: '0',
       default_cash_margin_pct: '0',
@@ -315,6 +317,7 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
           max_tenor_days: sl.max_tenor_days !== '' ? parseInt(sl.max_tenor_days) : null,
           max_amount_per_lg: sl.max_amount_per_lg !== '' ? parseFloat(sl.max_amount_per_lg) : null,
           allows_confirmation: Boolean(sl.allows_confirmation),
+          allows_open_ended: Boolean(sl.allows_open_ended),
 
           default_commission_rate: parseFloat(sl.default_commission_rate) || 0,
           default_cash_margin_pct: parseFloat(sl.default_cash_margin_pct) || 0,
@@ -802,6 +805,19 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
                                 className="w-4 h-4 accent-emerald-600 cursor-pointer shadow-sm"
                                 checked={sl.allows_confirmation}
                                 onChange={e => updateSubLimit(index, 'allows_confirmation', e.target.checked)}
+                              />
+                            </div>
+
+                            {/* Allows Open-Ended */}
+                            <label className="text-[12px] font-bold text-slate-500 flex items-center h-8">
+                              Allows Open-Ended
+                            </label>
+                            <div className="flex items-center justify-end h-8">
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 accent-blue-600 cursor-pointer shadow-sm"
+                                checked={sl.allows_open_ended || false}
+                                onChange={e => updateSubLimit(index, 'allows_open_ended', e.target.checked)}
                               />
                             </div>
                           </div>

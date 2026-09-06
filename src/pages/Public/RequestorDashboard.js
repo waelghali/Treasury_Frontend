@@ -531,7 +531,7 @@ export default function RequestorDashboard() {
                                                     <Calendar className="w-3 h-3" />
                                                     {formatDate(req.requested_issue_date)}
                                                     <span className="text-gray-300 mx-0.5">→</span>
-                                                    {formatDate(req.requested_expiry_date)}
+                                                    {req.is_open_ended ? 'Open-Ended' : (req.expiry_type === 'PERIOD_FROM_ISSUANCE' ? `${req.validity_period_value} ${req.validity_period_unit || 'm'}` : formatDate(req.requested_expiry_date))}
                                                 </div>
                                             </td>
                                             <td className="px-5 py-4 text-right">
@@ -868,8 +868,7 @@ export default function RequestorDashboard() {
                                         {viewingRequest.amount && <div><span className="text-gray-400">Amount</span><p className="font-semibold text-gray-800">{viewingRequest.currency?.iso_code} {parseFloat(viewingRequest.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}</p></div>}
                                         {viewingRequest.lg_type?.name && <div><span className="text-gray-400">LG Type</span><p className="font-semibold text-gray-800">{viewingRequest.lg_type.name}</p></div>}
                                         {viewingRequest.lg_purpose && <div><span className="text-gray-400">Purpose</span><p className="font-semibold text-gray-800">{viewingRequest.lg_purpose}</p></div>}
-                                        {viewingRequest.requested_issue_date && <div><span className="text-gray-400">Issue Date</span><p className="font-medium text-gray-700">{formatDate(viewingRequest.requested_issue_date)}</p></div>}
-                                        {viewingRequest.requested_expiry_date && <div><span className="text-gray-400">Expiry Date</span><p className="font-medium text-gray-700">{formatDate(viewingRequest.requested_expiry_date)}</p></div>}
+                                        <div><span className="text-gray-400">Validity / Expiry</span><p className="font-medium text-gray-700">{viewingRequest.is_open_ended ? 'Open-Ended' : (viewingRequest.expiry_type === 'PERIOD_FROM_ISSUANCE' ? `${viewingRequest.validity_period_value} ${viewingRequest.validity_period_unit} from issuance` : formatDate(viewingRequest.requested_expiry_date))}</p></div>
                                         {viewingRequest.reference_type && <div><span className="text-gray-400">Reference</span><p className="font-medium text-gray-700">{viewingRequest.reference_type}: {viewingRequest.reference_number}</p></div>}
                                         {viewingRequest.department && <div><span className="text-gray-400">Department</span><p className="font-medium text-gray-700">{viewingRequest.department}</p></div>}
                                         {viewingRequest.lg_language && <div><span className="text-gray-400">LG Language</span><p className="font-medium text-gray-700">{viewingRequest.lg_language === 'EN' ? 'English' : 'Arabic'}</p></div>}
