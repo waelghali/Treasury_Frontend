@@ -19,6 +19,7 @@ const RangeBarController = ({
   step = 1,
   disabled = false,
   compact = false,
+  showValue = false,
   label = '',
   showLabels = true,
   className = '',
@@ -100,10 +101,12 @@ const RangeBarController = ({
           )}
         </div>
 
-        {/* Small Value Readout */}
-        <span className="text-[11px] font-mono font-semibold text-slate-700 whitespace-nowrap min-w-[28px]">
-          {currentNum}
-        </span>
+        {/* Small Value Readout (only when explicitly requested) */}
+        {showValue && (
+          <span className="text-[11px] font-mono font-semibold text-slate-700 whitespace-nowrap min-w-[28px]">
+            {currentNum}
+          </span>
+        )}
       </div>
     );
   }
