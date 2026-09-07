@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { 
@@ -15,7 +15,7 @@ import { format } from 'date-fns';
 import { 
   PlusCircle, Edit, Trash, RotateCcw, Loader2, ToggleRight, ToggleLeft, 
   BarChart2, X, Eye, Search, Filter, Users, Building2, Bot, 
-  Megaphone, ChevronDown, ChevronUp, ExternalLink, Sparkles, RefreshCw
+  Megaphone, ChevronDown, ChevronUp, ExternalLink, Sparkles, RefreshCw, Check
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -123,14 +123,238 @@ const AlertDialog = ({ title, description, onConfirm, onCancel, confirmText = 'C
   );
 };
 
+// --- SEARCHABLE COMBOBOX COMPONENT ---
+
+const SearchableCombobox = ({
+  label,
+  icon: Icon,
+  value,
+  onChange,
+  options = [],
+  placeholder = 'Select...',
+  searchPlaceholder = 'Search...',
+  emptyText = 'No matching items found',
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [showDeleted, setShowDeleted] = useState(false);
+  const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  const selectedItem = useMemo(() => {
+    return options.find(o => String(o.id) === String(value));
+  }, [options, value]);
+
+  const deletedCount = useMemo(() => {
+    return options.filter(o => o.is_deleted).length;
+  }, [options]);
+
+  const filteredOptions = useMemo(() => {
+    return options.filter(opt => {
+      if (!showDeleted && opt.is_deleted && String(opt.id) !== String(value)) {
+        return false;
+      }
+      if (!search.trim()) return true;
+      const term = search.toLowerCase();
+      const labelMatch = opt.label?.toLowerCase().includes(term);
+      const subMatch = opt.subtitle?.toLowerCase().includes(term);
+      return labelMatch || subMatch;
+    });
+  }, [options, search, showDeleted, value]);
+
+  return (
+    <div className="space-y-1 relative" ref={dropdownRef}>
+      <div className="flex items-center justify-between">
+        <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+          {label}
+        </label>
+        {deletedCount > 0 && isOpen && (
+          <button
+            type="button"
+            onClick={() => setShowDeleted(prev => !prev)}
+            className="text-[10px] text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
+          >
+            {showDeleted ? 'Hide deleted' : `Show deleted (${deletedCount})`}
+          </button>
+        )}
+      </div>
+
+      {/* Trigger button */}
+      <div
+        onClick={() => setIsOpen(prev => !prev)}
+        className={`w-full px-3 py-2 text-xs rounded-lg border bg-white cursor-pointer flex items-center justify-between transition-all ${
+          isOpen ? 'ring-2 ring-blue-500 border-blue-500' : 'border-gray-200 hover:border-gray-300'
+        }`}
+      >
+        <div className="flex items-center gap-2 truncate pr-2">
+          {Icon && <Icon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />}
+          {selectedItem ? (
+            <div className="flex items-center gap-1.5 truncate">
+              <span className="font-semibold text-slate-900 truncate">{selectedItem.label}</span>
+              {selectedItem.is_deleted && (
+                <span className="px-1.5 py-0.2 text-[9px] font-bold rounded bg-red-100 text-red-700 border border-red-200 flex-shrink-0">
+                  Deleted
+                </span>
+              )}
+              {selectedItem.subtitle && (
+                <span className="text-[10px] text-slate-400 truncate">({selectedItem.subtitle})</span>
+              )}
+            </div>
+          ) : (
+            <span className="text-slate-400">{placeholder}</span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {value && (
+            <span
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange('');
+              }}
+              className="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+              title="Clear selection"
+            >
+              <X className="w-3.5 h-3.5" />
+            </span>
+          )}
+          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </div>
+      </div>
+
+      {/* Dropdown Menu */}
+      {isOpen && (
+        <div className="absolute z-50 mt-1 w-full bg-white rounded-xl shadow-xl border border-gray-200 py-2 space-y-1.5 animate-in fade-in zoom-in-95">
+          {/* Search Header */}
+          <div className="px-2.5 pb-1.5 border-b border-gray-100 space-y-1.5">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="w-full pl-8 pr-7 py-1.5 text-xs rounded-md border border-gray-200 bg-slate-50 focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {deletedCount > 0 && (
+              <div className="flex items-center justify-between text-[10px] text-slate-500 px-0.5">
+                <span>{options.length - deletedCount} active · {deletedCount} deleted</span>
+                <label className="flex items-center gap-1 cursor-pointer select-none text-blue-600 font-semibold hover:text-blue-800">
+                  <input
+                    type="checkbox"
+                    checked={showDeleted}
+                    onChange={(e) => setShowDeleted(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 w-3 h-3"
+                  />
+                  <span>Show deleted</span>
+                </label>
+              </div>
+            )}
+          </div>
+
+          {/* Options List */}
+          <div className="max-h-56 overflow-y-auto px-1 space-y-0.5">
+            {/* "All" Reset option */}
+            <div
+              onClick={() => {
+                onChange('');
+                setIsOpen(false);
+                setSearch('');
+              }}
+              className={`px-2.5 py-1.5 text-xs rounded-md cursor-pointer flex items-center justify-between transition ${
+                !value ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <span>{placeholder}</span>
+              {!value && <Check className="w-3.5 h-3.5 text-blue-600" />}
+            </div>
+
+            {filteredOptions.length === 0 ? (
+              <div className="px-3 py-4 text-center text-xs text-slate-400 italic">
+                {emptyText}
+              </div>
+            ) : (
+              filteredOptions.map((opt) => {
+                const isSelected = String(opt.id) === String(value);
+                return (
+                  <div
+                    key={opt.id}
+                    onClick={() => {
+                      onChange(opt.id);
+                      setIsOpen(false);
+                      setSearch('');
+                    }}
+                    className={`px-2.5 py-1.5 text-xs rounded-md cursor-pointer flex items-center justify-between transition ${
+                      isSelected
+                        ? 'bg-blue-50 text-blue-700 font-bold'
+                        : opt.is_deleted
+                        ? 'text-slate-400 hover:bg-slate-50 bg-slate-50/50'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 truncate pr-2">
+                      <span className="truncate">{opt.label}</span>
+                      {opt.subtitle && (
+                        <span className="text-[10px] text-slate-400 truncate">({opt.subtitle})</span>
+                      )}
+                      {opt.is_deleted && (
+                        <span className="px-1 py-0.2 text-[9px] font-bold rounded bg-red-100 text-red-600 border border-red-200">
+                          Deleted
+                        </span>
+                      )}
+                    </div>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // --- NOTIFICATION INSPECTION MODAL ---
 
 const NotificationDetailsModal = ({ isOpen, onClose, notification, onOpenAnalytics }) => {
   if (!isOpen || !notification) return null;
 
-  const isAutomated = notification.created_by_user_name === 'System Automation' ||
-    notification.notification_type?.includes('EXPIRED') ||
-    notification.notification_type?.includes('ALERT');
+  const manualTypes = ['system_info', 'system_critical', 'cbe', 'news', 'ad'];
+  const isAutomated = !manualTypes.includes(notification.notification_type?.toLowerCase());
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
@@ -526,6 +750,24 @@ function SystemNotificationList({ onLogout }) {
     return count;
   }, [filters]);
 
+  // Options formatted for SearchableCombobox
+  const customerOptions = useMemo(() => {
+    return customers.map(c => ({
+      id: c.id,
+      label: c.name,
+      is_deleted: !!c.is_deleted
+    }));
+  }, [customers]);
+
+  const userOptions = useMemo(() => {
+    return users.map(u => ({
+      id: u.id,
+      label: u.email,
+      subtitle: u.role,
+      is_deleted: !!u.is_deleted
+    }));
+  }, [users]);
+
   const handleResetFilters = () => {
     const defaultFilters = {
       search: '',
@@ -665,11 +907,10 @@ function SystemNotificationList({ onLogout }) {
   };
 
   const getOriginBadge = (notification) => {
-    const isAutomated = notification.created_by_user_name === 'System Automation' ||
-      notification.notification_type?.includes('EXPIRED') ||
-      notification.notification_type?.includes('ALERT');
+    const manualTypes = ['system_info', 'system_critical', 'cbe', 'news', 'ad'];
+    const isManual = manualTypes.includes(notification.notification_type?.toLowerCase());
 
-    if (isAutomated) {
+    if (!isManual) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
           <Bot className="w-3 h-3 text-purple-600" /> System Automation
@@ -678,7 +919,7 @@ function SystemNotificationList({ onLogout }) {
     }
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-        <Megaphone className="w-3 h-3 text-emerald-600" /> {notification.created_by_user_name || 'Admin'}
+        <Megaphone className="w-3 h-3 text-emerald-600" /> {notification.created_by_user_name || 'System Owner'}
       </span>
     );
   };
@@ -885,39 +1126,29 @@ function SystemNotificationList({ onLogout }) {
         {isAdvancedFiltersOpen && (
           <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fadeIn">
             
-            {/* Target Customer Dropdown */}
-            <div className="space-y-1">
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
-                Target Customer
-              </label>
-              <select
-                value={filters.customerId}
-                onChange={(e) => setFilters(p => ({ ...p, customerId: e.target.value }))}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">— All Customers —</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
+            {/* Target Customer Searchable Dropdown */}
+            <SearchableCombobox
+              label="Target Customer"
+              icon={Building2}
+              value={filters.customerId}
+              onChange={(val) => setFilters(p => ({ ...p, customerId: val }))}
+              options={customerOptions}
+              placeholder="— All Customers —"
+              searchPlaceholder="Search customers by name..."
+              emptyText="No matching customers found"
+            />
 
-            {/* Target User Dropdown */}
-            <div className="space-y-1">
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
-                Target Recipient User
-              </label>
-              <select
-                value={filters.targetUserId}
-                onChange={(e) => setFilters(p => ({ ...p, targetUserId: e.target.value }))}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">— All Users —</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.email} ({u.role})</option>
-                ))}
-              </select>
-            </div>
+            {/* Target User Searchable Dropdown */}
+            <SearchableCombobox
+              label="Target Recipient User"
+              icon={Users}
+              value={filters.targetUserId}
+              onChange={(val) => setFilters(p => ({ ...p, targetUserId: val }))}
+              options={userOptions}
+              placeholder="— All Users —"
+              searchPlaceholder="Search users by email or role..."
+              emptyText="No matching users found"
+            />
 
             {/* Notification Type Dropdown */}
             <div className="space-y-1">
