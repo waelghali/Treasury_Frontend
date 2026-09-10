@@ -101,6 +101,7 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIss
 
       {/* NEW: Reconciliation Module Route */}
       <Route path="reconciliation" element={<ImportDashboard />} />
+      <Route path="reconciliation/dashboard" element={<ImportDashboard />} />
       <Route path="reconciliation/workspace" element={<ReconciliationWorkspace />} />
       <Route path="reconciliation/workspace/:statementId" element={<ReconciliationWorkspace />} />
       <Route path="reconciliation/rules" element={<RuleManagement />} />

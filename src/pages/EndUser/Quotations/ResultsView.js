@@ -394,7 +394,14 @@ export default function ResultsView({ rfqId }) {
                                     </div>
                                     <div className="flex items-center gap-3 mt-1 flex-wrap">
                                         {result.submitted_at ? (
-                                            <p className="text-xs text-gray-400">Submitted at {new Date(result.submitted_at).toLocaleTimeString()}</p>
+                                            <p className="text-xs text-gray-400">
+                                                Submitted at {new Date(result.submitted_at).toLocaleTimeString()}
+                                                {result.submitted_by_email && (
+                                                    <span className="ml-2 font-mono text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                                        by {result.submitted_by_email}
+                                                    </span>
+                                                )}
+                                            </p>
                                         ) : (
                                             <p className="text-xs text-amber-500 font-medium">No quote submitted</p>
                                         )}

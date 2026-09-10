@@ -91,7 +91,7 @@ function AuditLogs() {
   const [entityFilter, setEntityFilter] = useState('ALL');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [userIdFilter, setUserIdFilter] = useState('');
+  const [userEmailFilter, setUserEmailFilter] = useState('');
 
   const [showFilters, setShowFilters] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -115,7 +115,7 @@ function AuditLogs() {
       if (customerFilter !== 'ALL') queryParams.append('customer_id', customerFilter);
       if (actionFilter !== 'ALL') queryParams.append('action_type', actionFilter);
       if (entityFilter !== 'ALL') queryParams.append('entity_type', entityFilter);
-      if (userIdFilter.trim()) queryParams.append('user_id', userIdFilter.trim());
+      if (userEmailFilter.trim()) queryParams.append('user_email', userEmailFilter.trim());
       if (startDate) queryParams.append('start_date', startDate);
       if (endDate) queryParams.append('end_date', endDate);
 
@@ -147,7 +147,7 @@ function AuditLogs() {
     setEntityFilter('ALL');
     setStartDate('');
     setEndDate('');
-    setUserIdFilter('');
+    setUserEmailFilter('');
   };
 
   const activeFilterCount = useMemo(() => {
@@ -155,11 +155,11 @@ function AuditLogs() {
     if (customerFilter !== 'ALL') count++;
     if (actionFilter !== 'ALL') count++;
     if (entityFilter !== 'ALL') count++;
-    if (userIdFilter.trim()) count++;
+    if (userEmailFilter.trim()) count++;
     if (startDate) count++;
     if (endDate) count++;
     return count;
-  }, [customerFilter, actionFilter, entityFilter, userIdFilter, startDate, endDate]);
+  }, [customerFilter, actionFilter, entityFilter, userEmailFilter, startDate, endDate]);
 
   // CSV Export handler
   const handleExportCSV = async () => {
@@ -170,7 +170,7 @@ function AuditLogs() {
       if (customerFilter !== 'ALL') queryParams.append('customer_id', customerFilter);
       if (actionFilter !== 'ALL') queryParams.append('action_type', actionFilter);
       if (entityFilter !== 'ALL') queryParams.append('entity_type', entityFilter);
-      if (userIdFilter.trim()) queryParams.append('user_id', userIdFilter.trim());
+      if (userEmailFilter.trim()) queryParams.append('user_email', userEmailFilter.trim());
       if (startDate) queryParams.append('start_date', startDate);
       if (endDate) queryParams.append('end_date', endDate);
 
@@ -422,16 +422,16 @@ function AuditLogs() {
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
               />
             </div>
-            <div className="min-w-[140px]">
+            <div className="min-w-[180px]">
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                User ID
+                User Email
               </label>
               <input
                 type="text"
-                value={userIdFilter}
-                onChange={(e) => setUserIdFilter(e.target.value)}
-                placeholder="e.g., 1"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+                value={userEmailFilter}
+                onChange={(e) => setUserEmailFilter(e.target.value)}
+                placeholder="e.g., user@company.com"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
