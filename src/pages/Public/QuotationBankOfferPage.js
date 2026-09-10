@@ -369,191 +369,211 @@ export default function QuotationBankOfferPage() {
     const isViewOnly = authSession?.role === 'VIEW_ONLY';
 
     return (
-        <div className="w-full max-w-[1400px] mx-auto p-4 sm:p-8 py-8 sm:py-12 font-sans">
-            
-            {/* Top Navigation & Brand Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-6">
-                <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-slate-950 text-white rounded-2xl flex items-center justify-center shadow-lg shrink-0">
-                        <Landmark size={28} />
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{rfq.bank_name}</h1>
-                            <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200">
-                                Treasury Desk
-                            </span>
-                        </div>
-                        <p className="text-gray-400 text-xs mt-0.5">Counterparty Quotation Bidding & Execution System</p>
-                    </div>
-                </div>
+        <div className="relative min-h-screen">
+            {/* 1. Security Gate Modal Overlay (Displayed whenever unauthenticated) */}
+            {!authSession && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-2xl p-4 sm:p-6 overflow-y-auto animate-fade-in">
+                    <div className="max-w-xl w-full p-6 sm:p-10 bg-gradient-to-br from-slate-900 via-slate-900 to-gray-950 text-white rounded-3xl shadow-2xl border border-slate-700/80 relative animate-fade-in-up">
+                        <div className="text-center">
+                            <div className="w-14 h-14 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-5 border border-blue-500/30 shadow-lg shadow-blue-500/10">
+                                <KeyRound size={28} />
+                            </div>
 
-                {/* View Tabs & Countdown */}
-                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
-                        <button
-                            onClick={() => handleTabSwitch('LIVE')}
-                            className={`px-3.5 py-1.5 rounded-lg transition-all ${activeTab === 'LIVE' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}
-                        >
-                            ⚡ Live RFQ
-                        </button>
-                        <button
-                            onClick={() => handleTabSwitch('HISTORY')}
-                            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${activeTab === 'HISTORY' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}
-                        >
-                            <History size={14} /> Desk History
-                        </button>
-                    </div>
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-3">
+                                <Landmark size={13} className="text-blue-400" />
+                                {rfq.bank_name} • Treasury Desk
+                            </div>
 
-                    <div className={`px-4 py-2 rounded-xl font-mono text-sm font-bold shadow-xs border shrink-0 transition-colors ${
-                        timeLeft.status === 'OPEN' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 animate-pulse' :
-                        timeLeft.status === 'PRE' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                        'bg-slate-100 text-slate-500 border-slate-200'
-                    }`}>
-                        {timeLeft.label}
-                    </div>
-                </div>
-            </div>
+                            <h3 className="text-xl sm:text-2xl font-bold tracking-tight mb-2 text-white">
+                                Trader Identity Verification Required
+                            </h3>
+                            <p className="text-slate-300 text-xs sm:text-sm mb-6 leading-relaxed">
+                                To ensure institutional auditability and secure access, please select your bank desk email. We will send a 6-digit access code (or 1-click magic link) to unlock deal specifications.
+                            </p>
 
-            {/* Authentication Bar / Modal */}
-            {!authSession ? (
-                <div className="mb-8 p-6 sm:p-8 bg-gradient-to-br from-slate-900 to-gray-950 text-white rounded-3xl shadow-xl border border-slate-800 animate-fade-in-up">
-                    <div className="max-w-xl mx-auto text-center">
-                        <div className="w-12 h-12 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-4 border border-blue-500/30">
-                            <KeyRound size={24} />
-                        </div>
-                        <h3 className="text-xl font-bold tracking-tight mb-2">Trader Identity Verification Required</h3>
-                        <p className="text-slate-300 text-xs sm:text-sm mb-6 leading-relaxed">
-                            To ensure institutional auditability and access permissions, please select your bank desk email. We will send a secure 6-digit access code (and 1-click magic link) to verify your identity.
-                        </p>
-
-                        {!otpSent ? (
-                            <form onSubmit={handleRequestOtp} className="space-y-4">
-                                <div className="text-left">
-                                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                                        Select Your Registered Desk Email
-                                    </label>
-                                    <select
-                                        className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                                        value={selectedEmail}
-                                        onChange={(e) => setSelectedEmail(e.target.value)}
-                                    >
-                                        {(rfq.contacts || []).map((c, i) => (
-                                            <option key={i} value={c.email}>
-                                                {c.email} {c.name ? `(${c.name})` : ''} - {c.role === 'EXECUTION' ? '⚡ Execution Dealer' : '👁️ View-Only'}
-                                            </option>
-                                        ))}
-                                        <option value="__custom">-- Enter Another Email --</option>
-                                    </select>
-                                </div>
-
-                                {selectedEmail === '__custom' && (
+                            {!otpSent ? (
+                                <form onSubmit={handleRequestOtp} className="space-y-4">
                                     <div className="text-left">
-                                        <input
-                                            type="email"
-                                            required
-                                            placeholder="Enter your registered bank email"
-                                            className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm outline-none focus:border-blue-500"
-                                            value={customEmail}
-                                            onChange={(e) => setCustomEmail(e.target.value)}
-                                        />
+                                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                                            Select Your Registered Desk Email
+                                        </label>
+                                        <select
+                                            className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                                            value={selectedEmail}
+                                            onChange={(e) => setSelectedEmail(e.target.value)}
+                                        >
+                                            {(rfq.contacts || []).map((c, i) => (
+                                                <option key={i} value={c.email}>
+                                                    {c.email} {c.name ? `(${c.name})` : ''} - {c.role === 'EXECUTION' ? '⚡ Execution Dealer' : '👁️ View-Only'}
+                                                </option>
+                                            ))}
+                                            <option value="__custom">-- Enter Another Email --</option>
+                                        </select>
                                     </div>
-                                )}
 
-                                {otpError && (
-                                    <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl text-left">
-                                        {otpError}
-                                    </div>
-                                )}
+                                    {selectedEmail === '__custom' && (
+                                        <div className="text-left">
+                                            <input
+                                                type="email"
+                                                required
+                                                placeholder="Enter your registered bank email"
+                                                className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm outline-none focus:border-blue-500"
+                                                value={customEmail}
+                                                onChange={(e) => setCustomEmail(e.target.value)}
+                                            />
+                                        </div>
+                                    )}
 
-                                <button
-                                    type="submit"
-                                    disabled={isRequestingOtp}
-                                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50"
-                                >
-                                    {isRequestingOtp ? 'Sending Access Code...' : 'Send 6-Digit Access Code'}
-                                </button>
-                            </form>
-                        ) : (
-                            <form onSubmit={handleVerifyOtp} className="space-y-4">
-                                <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700 text-left">
-                                    <p className="text-xs text-slate-300">
-                                        Access code sent to <strong className="text-white font-mono">{selectedEmail === '__custom' ? customEmail : selectedEmail}</strong>.
-                                    </p>
-                                    <p className="text-[11px] text-slate-400 mt-1">Please check your inbox (or click the 1-click magic link in the email).</p>
-                                </div>
+                                    {otpError && (
+                                        <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl text-left flex items-center gap-2">
+                                            <AlertCircle size={14} className="shrink-0" />
+                                            <span>{otpError}</span>
+                                        </div>
+                                    )}
 
-                                <div>
-                                    <input
-                                        type="text"
-                                        maxLength="6"
-                                        required
-                                        placeholder="Enter 6-digit code"
-                                        className="w-full text-center tracking-[0.4em] font-mono text-2xl font-bold py-3.5 px-4 rounded-xl bg-slate-800 border border-slate-700 text-white outline-none focus:border-blue-500"
-                                        value={otpCode}
-                                        onChange={(e) => setOtpCode(e.target.value)}
-                                    />
-                                </div>
-
-                                {otpError && (
-                                    <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl text-left">
-                                        {otpError}
-                                    </div>
-                                )}
-
-                                <div className="flex gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setOtpSent(false)}
-                                        className="w-1/3 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition-colors"
-                                    >
-                                        Back
-                                    </button>
                                     <button
                                         type="submit"
-                                        disabled={isVerifyingOtp}
-                                        className="w-2/3 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+                                        disabled={isRequestingOtp}
+                                        className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 cursor-pointer"
                                     >
-                                        {isVerifyingOtp ? 'Verifying...' : 'Verify & Enter Portal'}
+                                        {isRequestingOtp ? 'Sending Access Code...' : 'Send 6-Digit Access Code'}
                                     </button>
-                                </div>
-                            </form>
-                        )}
+                                </form>
+                            ) : (
+                                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                                    <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700 text-left">
+                                        <p className="text-xs text-slate-300">
+                                            Access code sent to <strong className="text-white font-mono">{selectedEmail === '__custom' ? customEmail : selectedEmail}</strong>.
+                                        </p>
+                                        <p className="text-[11px] text-slate-400 mt-1">Please check your inbox (or click the 1-click magic link in the email).</p>
+                                    </div>
+
+                                    <div>
+                                        <input
+                                            type="text"
+                                            maxLength="6"
+                                            required
+                                            autoFocus
+                                            placeholder="Enter 6-digit code"
+                                            className="w-full text-center tracking-[0.4em] font-mono text-2xl font-bold py-3.5 px-4 rounded-xl bg-slate-800 border border-slate-700 text-white outline-none focus:border-blue-500"
+                                            value={otpCode}
+                                            onChange={(e) => setOtpCode(e.target.value)}
+                                        />
+                                    </div>
+
+                                    {otpError && (
+                                        <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl text-left flex items-center gap-2">
+                                            <AlertCircle size={14} className="shrink-0" />
+                                            <span>{otpError}</span>
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setOtpSent(false)}
+                                            className="w-1/3 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                                        >
+                                            Back
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={isVerifyingOtp}
+                                            className="w-2/3 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
+                                        >
+                                            {isVerifyingOtp ? 'Verifying...' : 'Verify & Enter Portal'}
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+                        </div>
                     </div>
                 </div>
-            ) : (
-                /* Authenticated User Status Bar */
-                <div className="mb-6 p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-xl ${authSession.role === 'EXECUTION' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-                            {authSession.role === 'EXECUTION' ? <UserCheck size={18} /> : <Eye size={18} />}
+            )}
+
+            {/* 2. Main Portal Workspace (Completely blurred & locked until verified) */}
+            <div className={`w-full max-w-[1400px] mx-auto p-4 sm:p-8 py-8 sm:py-12 font-sans transition-all duration-500 ${
+                !authSession ? 'filter blur-2xl opacity-10 pointer-events-none select-none overflow-hidden max-h-[85vh]' : ''
+            }`}>
+                
+                {/* Top Navigation & Brand Header */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-6">
+                    <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 bg-slate-950 text-white rounded-2xl flex items-center justify-center shadow-lg shrink-0">
+                            <Landmark size={28} />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-gray-900 font-mono">{authSession.email}</span>
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide border ${
-                                    authSession.role === 'EXECUTION' 
-                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                                        : 'bg-blue-50 text-blue-700 border-blue-200'
-                                }`}>
-                                    {authSession.role === 'EXECUTION' ? '⚡ AUTHORIZED EXECUTION DEALER' : '👁️ VIEW-ONLY OBSERVER'}
+                                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{rfq.bank_name}</h1>
+                                <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200">
+                                    Treasury Desk
                                 </span>
                             </div>
-                            <p className="text-[11px] text-gray-400">
-                                {authSession.role === 'EXECUTION' 
-                                    ? 'Your quote submissions are binding and logged with your verified identity.' 
-                                    : 'You are viewing this RFQ in read-only mode.'}
-                            </p>
+                            <p className="text-gray-400 text-xs mt-0.5">Counterparty Quotation Bidding & Execution System</p>
                         </div>
                     </div>
 
-                    <button
-                        onClick={handleLogout}
-                        className="text-xs text-gray-400 hover:text-red-600 transition-colors font-medium self-end sm:self-center"
-                    >
-                        Switch Identity / Sign Out
-                    </button>
+                    {/* View Tabs & Countdown */}
+                    <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+                            <button
+                                onClick={() => handleTabSwitch('LIVE')}
+                                className={`px-3.5 py-1.5 rounded-lg transition-all ${activeTab === 'LIVE' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}
+                            >
+                                ⚡ Live RFQ
+                            </button>
+                            <button
+                                onClick={() => handleTabSwitch('HISTORY')}
+                                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${activeTab === 'HISTORY' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}
+                            >
+                                <History size={14} /> Desk History
+                            </button>
+                        </div>
+
+                        <div className={`px-4 py-2 rounded-xl font-mono text-sm font-bold shadow-xs border shrink-0 transition-colors ${
+                            timeLeft.status === 'OPEN' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 animate-pulse' :
+                            timeLeft.status === 'PRE' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                            'bg-slate-100 text-slate-500 border-slate-200'
+                        }`}>
+                            {timeLeft.label}
+                        </div>
+                    </div>
                 </div>
+
+                {/* Authenticated User Status Bar */}
+                {authSession && (
+                    <div className="mb-6 p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-xl ${authSession.role === 'EXECUTION' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                {authSession.role === 'EXECUTION' ? <UserCheck size={18} /> : <Eye size={18} />}
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-gray-900 font-mono">{authSession.email}</span>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide border ${
+                                        authSession.role === 'EXECUTION' 
+                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                            : 'bg-blue-50 text-blue-700 border-blue-200'
+                                    }`}>
+                                        {authSession.role === 'EXECUTION' ? '⚡ AUTHORIZED EXECUTION DEALER' : '👁️ VIEW-ONLY OBSERVER'}
+                                    </span>
+                                </div>
+                                <p className="text-[11px] text-gray-400">
+                                    {authSession.role === 'EXECUTION' 
+                                        ? 'Your quote submissions are binding and logged with your verified identity.' 
+                                        : 'You are viewing this RFQ in read-only mode.'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleLogout}
+                            className="text-xs text-gray-400 hover:text-red-600 transition-colors font-medium self-end sm:self-center cursor-pointer"
+                        >
+                            Switch Identity / Sign Out
+                        </button>
+                    </div>
+                )}
             )}
 
             {/* TAB 1: LIVE RFQ VIEW */}
@@ -938,6 +958,7 @@ export default function QuotationBankOfferPage() {
                 </div>
             )}
 
+            </div>
         </div>
     );
 }
