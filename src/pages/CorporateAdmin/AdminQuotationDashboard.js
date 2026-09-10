@@ -7,6 +7,36 @@ import {
     Search, Filter, AlertCircle, TrendingUp, ArrowUpRight, ArrowDownRight, FileText, Download
 } from 'lucide-react';
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const formatDate = (d) => {
+    if (!d) return '—';
+    try {
+        const date = new Date(d);
+        if (isNaN(date.getTime())) return d;
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = MONTHS[date.getMonth()];
+        const year = date.getFullYear();
+        return `${day} ${month} ${year}`;
+    } catch {
+        return d;
+    }
+};
+
+const formatDateTime = (d) => {
+    if (!d) return '—';
+    try {
+        const date = new Date(d);
+        if (isNaN(date.getTime())) return d;
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = MONTHS[date.getMonth()];
+        const year = date.getFullYear();
+        const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `${day} ${month} ${year}, ${time}`;
+    } catch {
+        return d;
+    }
+};
+
 export default function AdminQuotationDashboard() {
     const handleExportCSV = async () => {
         try {
@@ -239,13 +269,13 @@ export default function AdminQuotationDashboard() {
                                         {rfq.type === 'TBILL' ? `${rfq.direction} Quotation` : `${rfq.direction} ${rfq.amount?.toLocaleString()} ${rfq.buy_currency}`}
                                     </div>
                                     <div className="text-sm text-gray-500 mt-1">
-                                        Requested by {rfq.creator_name || 'End User'} • {new Date(rfq.created_at).toLocaleString()}
+                                        Requested by {rfq.creator_name || 'End User'} • {formatDateTime(rfq.created_at)}
                                     </div>
                                     {rfq.window_end && (
                                         <div className="flex items-center gap-2 mt-2">
                                             <Clock size={12} className="text-gray-400" />
                                             <span className="text-xs text-gray-500">
-                                                Window closes: {new Date(rfq.window_end).toLocaleString()}
+                                                Window closes: {formatDateTime(rfq.window_end)}
                                             </span>
                                         </div>
                                     )}
@@ -415,7 +445,7 @@ export default function AdminQuotationDashboard() {
                                         <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs text-gray-600 whitespace-nowrap">
                                             {rfq.creator_name || 'End User'}
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs text-gray-500 whitespace-nowrap">{new Date(rfq.created_at).toLocaleDateString()}</td>
+                                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs text-gray-500 whitespace-nowrap">{formatDate(rfq.created_at)}</td>
                                         <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold whitespace-nowrap">
                                             {rfq.type === 'TBILL' ? rfq.direction : `${rfq.buy_currency}/${rfq.sell_currency}`}
                                         </td>

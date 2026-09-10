@@ -587,54 +587,55 @@ export default function QuotationBankOfferPage() {
                         {/* Trade Execution / Outcome Result Banner */}
                         {resultStatus && (
                             <div
-                                className={`mb-4 p-5 sm:p-6 rounded-3xl border text-center animate-fade-in-up ${
+                                className={`mb-3.5 p-3.5 sm:p-4 rounded-2xl border text-center animate-fade-in-up ${
                                     resultStatus === 'WINNER' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-gray-50 border-gray-200 text-gray-600'
                                 }`}
                             >
                                 {resultStatus === 'WINNER' ? (
                                     <div className="flex flex-col items-center">
-                                        <CheckCircle2 className="mb-2 text-emerald-500" size={32} />
-                                        <h2 className="text-lg sm:text-xl font-bold">Trade Execution Confirmed!</h2>
+                                        <CheckCircle2 className="mb-1 text-emerald-500" size={24} />
+                                        <h2 className="text-base sm:text-lg font-bold">Trade Execution Confirmed!</h2>
                                         <p className="text-xs sm:text-sm mt-0.5">Congratulations, your quote was selected as the winning offer. Our treasury team will contact you shortly.</p>
                                     </div>
                                 ) : resultStatus === 'AWAITING_SELECTION' ? (
                                     <div className="flex flex-col items-center">
-                                        <Clock className="mb-2 text-amber-500 animate-spin-slow" size={32} />
-                                        <h2 className="text-lg sm:text-xl font-bold">Selection in Progress</h2>
+                                        <Clock className="mb-1 text-amber-500 animate-spin-slow" size={24} />
+                                        <h2 className="text-base sm:text-lg font-bold">Selection in Progress</h2>
                                         <p className="text-xs sm:text-sm mt-0.5">Thank you for your quote. The corporate treasury team is currently evaluating all counterparties.</p>
                                     </div>
                                 ) : resultStatus === 'INDICATIVE_ONLY' ? (
                                     <div className="flex flex-col items-center">
-                                        <h2 className="text-lg sm:text-xl font-bold text-gray-800">Indicative Quotation Completed</h2>
+                                        <h2 className="text-base sm:text-lg font-bold text-gray-800">Indicative Quotation Completed</h2>
                                         <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Thank you for providing market sounding pricing for this request.</p>
                                     </div>
                                 ) : resultStatus === 'INCONCLUSIVE' ? (
                                     <div className="flex flex-col items-center">
-                                        <h2 className="text-lg sm:text-xl font-bold text-gray-800">Quotation Closed Without Winner</h2>
+                                        <h2 className="text-base sm:text-lg font-bold text-gray-800">Quotation Closed Without Winner</h2>
                                         <p className="text-xs sm:text-sm text-gray-500 mt-0.5">This request closed without trade execution due to tolerance limits or market conditions.</p>
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center">
-                                        <h2 className="text-lg sm:text-xl font-bold">Quotation Completed</h2>
+                                        <h2 className="text-base sm:text-lg font-bold">Quotation Completed</h2>
                                         <p className="text-xs sm:text-sm mt-0.5">Thank you for your prompt quote. Another counterparty was executed for this deal.</p>
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* Perfectly Symmetrical 2-Column Desktop Grid */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+                        {/* Clean Symmetrical 2-Column Desktop Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
                             
-                            {/* COLUMN 1: Integrated Trade Specifications & Guidelines Card */}
-                            <section className="bg-white p-6 sm:p-7 rounded-3xl shadow-xs border border-slate-200 flex flex-col justify-between h-full">
-                                <div>
-                                    {/* Merged Corporate Client & RFQ Ref Top Section */}
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-6 border-b border-slate-100 gap-3">
+                            {/* COLUMN 1: Left Side Specifications & Guidelines */}
+                            <div className="flex flex-col gap-5">
+                                {/* Top Card: Corporate Client & Trade Specifications */}
+                                <section className="bg-white p-6 sm:p-7 rounded-3xl shadow-xs border border-slate-200">
+                                    {/* Corporate Client & RFQ Ref Top Header */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-5 border-b border-slate-100 gap-3">
                                         <div>
                                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Corporate Client</p>
                                             <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">{rfq.customer_name}</h2>
                                         </div>
-                                        <div className="flex items-center sm:flex-col sm:items-end gap-2">
+                                        <div className="flex items-center sm:flex-col sm:items-end gap-1.5">
                                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest sm:block">RFQ Reference</span>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-xs font-mono font-bold text-black bg-slate-50 px-3 py-1 rounded-lg border border-slate-200">
@@ -650,7 +651,7 @@ export default function QuotationBankOfferPage() {
                                     </div>
 
                                     {/* Specifications Grid */}
-                                    <div className="grid grid-cols-2 gap-y-6 gap-x-6 sm:gap-x-10">
+                                    <div className="grid grid-cols-2 gap-y-5 gap-x-6 sm:gap-x-10">
                                         {rfq.type === 'TBILL' ? (
                                             <>
                                                 <div>
@@ -701,7 +702,7 @@ export default function QuotationBankOfferPage() {
                                     </div>
 
                                     {((rfq.documents && rfq.documents.length > 0) || rfq.document_path) && (
-                                        <div className="mt-6 pt-4 border-t border-slate-100 space-y-2">
+                                        <div className="mt-5 pt-4 border-t border-slate-100 space-y-2">
                                             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Supporting Documents</label>
                                             <div className="space-y-2">
                                                 {(rfq.documents && rfq.documents.length > 0 ? rfq.documents : [{ name: 'Attached Supporting Document', path: rfq.document_path }]).map((doc, idx) => (
@@ -724,14 +725,14 @@ export default function QuotationBankOfferPage() {
                                             </div>
                                         </div>
                                     )}
-                                </div>
+                                </section>
 
-                                {/* Complete Trading Guidelines Section inside Left Card */}
-                                <div className="mt-8 pt-5 border-t border-slate-100 bg-slate-50/50 -mx-6 sm:-mx-7 -mb-6 sm:-mb-7 p-6 sm:p-7 rounded-b-3xl">
-                                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2">
+                                {/* Bottom Card: Complete Trading Guidelines */}
+                                <section className="bg-white p-5 sm:p-6 rounded-3xl shadow-xs border border-slate-200 flex-1">
+                                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3.5 flex items-center gap-2">
                                         <Clock size={14} className="text-blue-600" /> Trading Guidelines
                                     </h3>
-                                    <ul className="space-y-3.5 text-xs text-gray-600 leading-relaxed">
+                                    <ul className="space-y-3 text-xs text-gray-600 leading-relaxed">
                                         <li className="flex gap-3">
                                             <span className="w-5 h-5 bg-black text-white rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5">!</span>
                                             <span className="font-semibold text-gray-900">
@@ -753,34 +754,47 @@ export default function QuotationBankOfferPage() {
                                             <span>Trade confirmations will be dispatched to all registered desk contacts upon execution.</span>
                                         </li>
                                     </ul>
-                                </div>
-                            </section>
+                                </section>
+                            </div>
 
-                            {/* COLUMN 2: Symmetrical Bidding & Execution Console Card */}
-                            <section
-                                className={`p-6 sm:p-7 rounded-3xl shadow-xs border flex flex-col justify-between h-full transition-all ${
-                                    isViewOnly
-                                        ? 'bg-slate-50 border-slate-200 opacity-80'
-                                        : timeLeft.status === 'OPEN' 
-                                            ? 'bg-white border-2 border-slate-950 shadow-md' 
-                                            : 'bg-white border-slate-200'
-                                }`}
-                            >
-                                <div>
-                                    {/* Bidding Header with Integrated Status Pill */}
-                                    <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-100">
+                            {/* COLUMN 2: Right Side Bidding & Execution Console */}
+                            <div className="flex flex-col gap-4">
+                                {/* Success Status Notification Card when Quote is Active */}
+                                {submitted && !isViewOnly && (
+                                    <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-2xl p-3 text-center flex flex-col items-center justify-center animate-fade-in shadow-xs">
+                                        <div className="w-7 h-7 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mb-1">
+                                            <CheckCircle2 size={16} className="text-emerald-600" />
+                                        </div>
+                                        <h3 className="text-sm font-bold text-emerald-950">Quote Recorded Successfully</h3>
+                                        <p className="text-xs text-emerald-800 mt-0.5">
+                                            {rfq.type === 'TBILL' ? 'Your T-Bill quote lines are actively registered with the client.' : 'Your spot price is actively registered with the client.'}
+                                        </p>
+                                    </div>
+                                )}
+                                {/* Main Bidding Console Card */}
+                                <section
+                                    className={`p-5 sm:p-6 rounded-3xl shadow-xs border transition-all flex-1 flex flex-col ${
+                                        isViewOnly
+                                            ? 'bg-slate-50 border-slate-200 opacity-80'
+                                            : timeLeft.status === 'OPEN' 
+                                                ? 'bg-white border-2 border-slate-950 shadow-md' 
+                                                : 'bg-white border-slate-200'
+                                    }`}
+                                >
+                                    {/* Bidding Header */}
+                                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
                                         <div>
                                             <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 flex items-center gap-2">
                                                 <TrendingUp size={14} className="text-emerald-600" /> {rfq.type === 'TBILL' ? 'T-Bill Quotation Lines' : 'Your Price Quote'}
                                             </h3>
-                                            <p className="text-xs text-gray-500 mt-0.5">
+                                            <p className="text-[11px] text-gray-500 mt-0.5">
                                                 {timeLeft.status === 'OPEN' ? 'Enter your binding rate for this quotation request.' : 'Quotation window is currently closed.'}
                                             </p>
                                         </div>
                                         
                                         {submitted ? (
                                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                                <CheckCircle2 size={14} className="text-emerald-600" /> Quote Recorded
+                                                <CheckCircle2 size={14} className="text-emerald-600" /> Active Quote
                                             </span>
                                         ) : isViewOnly ? (
                                             <span className="px-3 py-1 bg-blue-100 text-blue-800 text-[10px] font-bold rounded-full border border-blue-200">
@@ -790,15 +804,15 @@ export default function QuotationBankOfferPage() {
                                     </div>
 
                                     {isViewOnly ? (
-                                        <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200 text-blue-900 text-xs leading-relaxed mb-6">
+                                        <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200 text-blue-900 text-xs leading-relaxed mb-4">
                                             <strong>View-Only Notice:</strong> Your registered account has observer permissions. You can inspect trade parameters and history, but only dealers tagged for <strong>Execution</strong> can enter binding quotes.
                                         </div>
                                     ) : (
-                                        <form id="quote-form" onSubmit={handleSubmit}>
+                                        <form id="quote-form" onSubmit={handleSubmit} className="space-y-4">
                                             {rfq.type === 'TBILL' ? (
-                                                <div className="space-y-4 mb-6">
+                                                <div className="space-y-3.5">
                                                     {tbillLines.map((line, index) => (
-                                                        <div key={index} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 relative group">
+                                                        <div key={index} className="p-3.5 sm:p-4 bg-slate-50 rounded-2xl border border-slate-200 relative group">
                                                             {tbillLines.length > 1 && timeLeft.status === 'OPEN' && (
                                                                 <button
                                                                     type="button"
@@ -866,14 +880,14 @@ export default function QuotationBankOfferPage() {
                                                         <button
                                                             type="button"
                                                             onClick={addTbillLine}
-                                                            className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 px-4 py-2 rounded-xl transition-all cursor-pointer"
+                                                            className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 px-3.5 py-2 rounded-xl transition-all cursor-pointer"
                                                         >
                                                             + Add Line Item
                                                         </button>
                                                     )}
                                                 </div>
                                             ) : (
-                                                <div className="relative mb-6">
+                                                <div>
                                                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">
                                                         Spot Exchange Rate
                                                     </label>
@@ -885,7 +899,7 @@ export default function QuotationBankOfferPage() {
                                                             disabled={timeLeft.status !== 'OPEN' || isSubmitting}
                                                             onWheel={(e) => e.currentTarget.blur()}
                                                             placeholder="Enter spot rate (e.g. 48.6500)"
-                                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-2xl font-bold focus:bg-white focus:ring-4 focus:ring-black/5 transition-all outline-none"
+                                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-2xl font-bold focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none"
                                                             value={price}
                                                             onChange={e => setPrice(e.target.value)}
                                                         />
@@ -897,42 +911,39 @@ export default function QuotationBankOfferPage() {
                                             )}
 
                                             {/* Trader Comments / Notes */}
-                                            <div className="mb-6">
+                                            <div>
                                                 <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1.5">
                                                     <MessageSquare size={13} className="text-gray-400" />
                                                     Trader Comments / Execution Notes (Optional)
                                                 </label>
                                                 <textarea
-                                                    rows={3}
+                                                    rows={2}
                                                     disabled={timeLeft.status !== 'OPEN' || isSubmitting}
                                                     placeholder="Add any settlement notes, execution remarks, or comments for the treasury desk..."
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-gray-800 focus:bg-white focus:ring-4 focus:ring-black/5 transition-all outline-none resize-none"
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-gray-800 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none resize-none"
                                                     value={traderNotes}
                                                     onChange={(e) => setTraderNotes(e.target.value)}
                                                 />
                                             </div>
+
+                                            {/* Form Submit Action directly below */}
+                                            <div className="pt-1">
+                                                <button
+                                                    type="submit"
+                                                    disabled={timeLeft.status !== 'OPEN' || isSubmitting || !authSession || (rfq.type === 'TBILL' ? tbillLines.some(l => !l.discountRate || !l.maxAmount) : !price)}
+                                                    className="w-full py-3.5 bg-slate-950 text-white rounded-2xl font-bold text-base hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all shadow-md cursor-pointer"
+                                                >
+                                                    {isSubmitting ? 'Submitting Quote...' : timeLeft.status === 'PRE' ? 'Waiting for Window to Open' : timeLeft.status === 'CLOSED' ? 'Window Closed' : (submitted ? 'Update Quote' : 'Submit Binding Quote')}
+                                                </button>
+                                                <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400 mt-2">
+                                                    <Shield size={12} className="text-emerald-600" />
+                                                    <span>Institutional End-to-End Encryption & Audit Logging Active</span>
+                                                </div>
+                                            </div>
                                         </form>
                                     )}
-                                </div>
-
-                                {/* Form Submit Action at Bottom */}
-                                {!isViewOnly && (
-                                    <div className="pt-4 border-t border-slate-100 mt-4">
-                                        <button
-                                            type="submit"
-                                            form="quote-form"
-                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || !authSession || (rfq.type === 'TBILL' ? tbillLines.some(l => !l.discountRate || !l.maxAmount) : !price)}
-                                            className="w-full py-4 bg-slate-950 text-white rounded-2xl font-bold text-base hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all shadow-lg cursor-pointer"
-                                        >
-                                            {isSubmitting ? 'Submitting Quote...' : timeLeft.status === 'PRE' ? 'Waiting for Window to Open' : timeLeft.status === 'CLOSED' ? 'Window Closed' : (submitted ? 'Update Quote' : 'Submit Binding Quote')}
-                                        </button>
-                                        <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400 mt-3">
-                                            <Shield size={12} className="text-emerald-600" />
-                                            <span>Institutional End-to-End Encryption & Audit Logging Active</span>
-                                        </div>
-                                    </div>
-                                )}
-                            </section>
+                                </section>
+                            </div>
                         </div>
                     </>
                 )}

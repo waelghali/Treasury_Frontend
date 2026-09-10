@@ -3,6 +3,21 @@ import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, DollarSign, Copy, 
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const formatDate = (d) => {
+    if (!d) return '—';
+    try {
+        const date = new Date(d);
+        if (isNaN(date.getTime())) return d;
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = MONTHS[date.getMonth()];
+        const year = date.getFullYear();
+        return `${day} ${month} ${year}`;
+    } catch {
+        return d;
+    }
+};
+
 export default function QuotationRequestDashboard() {
     const [banks, setBanks] = useState([]);
     const [selectedBanks, setSelectedBanks] = useState([]);
@@ -248,8 +263,8 @@ export default function QuotationRequestDashboard() {
                                                         : `RFQ: ${refNo} - ${formData.buyCurrency}/${formData.sellCurrency} - ${formData.amount}`
                                                     );
                                                     const body = encodeURIComponent(isTBill
-                                                        ? `Dear FX/Treasury Desk,\n\nWe are requesting a T-Bill quote for the following:\n\nREFERENCE: ${refNo}\n- Direction: ${formData.direction}\n- Min Ticket Amount: ${formData.minTicketAmount}\n- Settlement: ${formData.settlementDateStart}${formData.settlementDateEnd ? ` to ${formData.settlementDateEnd}` : ''}\n- Maturity: ${formData.maturityDateStart}${formData.maturityDateEnd ? ` to ${formData.maturityDateEnd}` : ''}\n\nQUOTATION WINDOW:\n- Starts at: ${startTime}\n- Duration: ${duration} seconds\n\nPlease provide your quote via our secure portal:\n${link}\n\nBest regards,\nTreasury Team`
-                                                        : `Dear FX Desk,\n\nWe are requesting a price for the following transaction:\n\nREFERENCE: ${refNo}\n- Pair: ${formData.buyCurrency}/${formData.sellCurrency}\n- Amount to Buy: ${formData.amount}\n- Value Date: ${formData.valueDate}\n- Type: ${formData.quotationBase}\n\nQUOTATION WINDOW:\n- Starts at: ${startTime}\n- Duration: ${duration} seconds\n\nPlease provide your best quote via our secure portal:\n${link}\n\nBest regards,\nTreasury Team`
+                                                        ? `Dear FX/Treasury Desk,\n\nWe are requesting a T-Bill quote for the following:\n\nREFERENCE: ${refNo}\n- Direction: ${formData.direction}\n- Min Ticket Amount: ${formData.minTicketAmount}\n- Settlement: ${formatDate(formData.settlementDateStart)}${formData.settlementDateEnd ? ` to ${formatDate(formData.settlementDateEnd)}` : ''}\n- Maturity: ${formatDate(formData.maturityDateStart)}${formData.maturityDateEnd ? ` to ${formatDate(formData.maturityDateEnd)}` : ''}\n\nQUOTATION WINDOW:\n- Starts at: ${startTime}\n- Duration: ${duration} seconds\n\nPlease provide your quote via our secure portal:\n${link}\n\nBest regards,\nTreasury Team`
+                                                        : `Dear FX Desk,\n\nWe are requesting a price for the following transaction:\n\nREFERENCE: ${refNo}\n- Pair: ${formData.buyCurrency}/${formData.sellCurrency}\n- Amount to Buy: ${formData.amount}\n- Value Date: ${formatDate(formData.valueDate)}\n- Type: ${formData.quotationBase}\n\nQUOTATION WINDOW:\n- Starts at: ${startTime}\n- Duration: ${duration} seconds\n\nPlease provide your best quote via our secure portal:\n${link}\n\nBest regards,\nTreasury Team`
                                                     );
                                                     const mailtoUrl = `mailto:${bank?.emails}?subject=${subject}&body=${body}`;
 
