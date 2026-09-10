@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 
 export default function ResultsView({ rfqId }) {
@@ -330,6 +330,13 @@ export default function ResultsView({ rfqId }) {
                                 </div>
                             </div>
 
+                            {result.notes && (
+                                <div className="mb-4 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-700 flex items-start gap-2">
+                                    <MessageSquare size={14} className="text-blue-500 shrink-0 mt-0.5" />
+                                    <span className="leading-snug"><strong className="text-slate-900 font-semibold">Trader Notes:</strong> {result.notes}</span>
+                                </div>
+                            )}
+
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm">
                                     <thead>
@@ -428,6 +435,12 @@ export default function ResultsView({ rfqId }) {
                                             </button>
                                         )}
                                     </div>
+                                    {result.notes && (
+                                        <div className="mt-2 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 flex items-start gap-2 max-w-lg">
+                                            <MessageSquare size={13} className="text-blue-500 shrink-0 mt-0.5" />
+                                            <span className="leading-snug"><strong className="text-slate-900 font-semibold">Trader Notes:</strong> {result.notes}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

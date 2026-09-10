@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { 
     Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, 
-    ShieldCheck, Lock, Mail, KeyRound, UserCheck, Eye, History, ArrowLeft, RefreshCw
+    ShieldCheck, Lock, Mail, KeyRound, UserCheck, Eye, History, ArrowLeft, RefreshCw, MessageSquare
 } from 'lucide-react';
 import './quotation-animations.css';
 
@@ -28,6 +28,7 @@ export default function QuotationBankOfferPage() {
     const [rfq, setRfq] = useState(null);
     const [error, setError] = useState(null);
     const [price, setPrice] = useState('');
+    const [traderNotes, setTraderNotes] = useState('');
     const [tbillLines, setTbillLines] = useState([{ settlementDate: '', maturityDate: '', discountRate: '', maxAmount: '' }]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
@@ -196,6 +197,9 @@ export default function QuotationBankOfferPage() {
                     discountRate: o.discount_rate.toString(),
                     maxAmount: o.max_amount.toString()
                 })));
+                if (rfq.offers[0].notes) {
+                    setTraderNotes(rfq.offers[0].notes);
+                }
                 setSubmitted(true);
             } else {
                 setTbillLines([{
@@ -207,6 +211,9 @@ export default function QuotationBankOfferPage() {
             }
         } else if (rfq.type === 'FX_SPOT' && rfq.offers && rfq.offers.length > 0) {
             setPrice(rfq.offers[0].price.toString());
+            if (rfq.offers[0].notes) {
+                setTraderNotes(rfq.offers[0].notes);
+            }
             setSubmitted(true);
         }
     }, [rfq]);
@@ -310,12 +317,14 @@ export default function QuotationBankOfferPage() {
                 ? { 
                     token, 
                     lines: tbillLines.map(l => ({ ...l, discountRate: parseFloat(l.discountRate), maxAmount: parseFloat(l.maxAmount) })),
+                    notes: traderNotes.trim() || undefined,
                     session_token: authSession.session_token,
                     email: authSession.email
                 }
                 : { 
                     token, 
                     price: parseFloat(price),
+                    notes: traderNotes.trim() || undefined,
                     session_token: authSession.session_token,
                     email: authSession.email
                 };
@@ -838,10 +847,25 @@ export default function QuotationBankOfferPage() {
                                             </div>
                                         )}
 
+                                        <div className="mb-6">
+                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1.5">
+                                                <MessageSquare size={13} className="text-gray-400" />
+                                                Trader Comments / Execution Notes (Optional)
+                                            </label>
+                                            <textarea
+                                                rows={2}
+                                                disabled={timeLeft.status !== 'OPEN' || isSubmitting}
+                                                placeholder="Add any settlement notes, execution remarks, or comments for the treasury desk..."
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-gray-800 focus:bg-white focus:ring-4 focus:ring-black/5 transition-all outline-none resize-none"
+                                                value={traderNotes}
+                                                onChange={(e) => setTraderNotes(e.target.value)}
+                                            />
+                                        </div>
+
                                         <button
                                             type="submit"
                                             disabled={timeLeft.status !== 'OPEN' || isSubmitting || !authSession || (rfq.type === 'TBILL' ? tbillLines.some(l => !l.discountRate || !l.maxAmount) : !price)}
-                                            className="w-full py-4 bg-slate-950 text-white rounded-2xl font-bold text-base hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all shadow-lg"
+                                            className="w-full py-4 bg-slate-950 text-white rounded-2xl font-bold text-base hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all shadow-lg cursor-pointer"
                                         >
                                             {isSubmitting ? 'Submitting Quote...' : timeLeft.status === 'PRE' ? 'Waiting for Window' : timeLeft.status === 'CLOSED' ? 'Window Closed' : (submitted ? 'Update Quote' : 'Submit Binding Quote')}
                                         </button>
@@ -935,7 +959,12 @@ export default function QuotationBankOfferPage() {
                                                 {h.best_quote !== null ? h.best_quote : <span className="text-gray-400 font-sans font-normal">No Quote</span>}
                                             </td>
                                             <td className="py-3.5 px-4 text-gray-500 font-mono">
-                                                {h.submitted_by || '—'}
+                                                <div>{h.submitted_by || '—'}</div>
+                                                {h.notes && (
+                                                    <div className="text-[11px] font-sans text-slate-600 bg-slate-100 px-2 py-0.5 rounded mt-1 max-w-xs truncate" title={h.notes}>
+                                                        💬 {h.notes}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="py-3.5 px-4 text-right">
                                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${
