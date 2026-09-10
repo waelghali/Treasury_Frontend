@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { 
     Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, 
-    ShieldCheck, Lock, Mail, KeyRound, UserCheck, Eye, History, ArrowLeft, RefreshCw, MessageSquare
+    ShieldCheck, Lock, Mail, KeyRound, UserCheck, Eye, History, ArrowLeft, RefreshCw, MessageSquare, Info
 } from 'lucide-react';
 import './quotation-animations.css';
 
@@ -43,8 +43,7 @@ export default function QuotationBankOfferPage() {
 
     // Authentication / OTP State
     const [authSession, setAuthSession] = useState(null);
-    const [selectedEmail, setSelectedEmail] = useState('');
-    const [customEmail, setCustomEmail] = useState('');
+    const [inputEmail, setInputEmail] = useState('');
     const [otpCode, setOtpCode] = useState('');
     const [otpSent, setOtpSent] = useState(false);
     const [isRequestingOtp, setIsRequestingOtp] = useState(false);
@@ -63,11 +62,6 @@ export default function QuotationBankOfferPage() {
             const localTime = Date.now();
             setTimeOffset(serverTime - localTime);
             setRfq(data);
-
-            // Pre-select first contact if available
-            if (data.contacts && data.contacts.length > 0) {
-                setSelectedEmail(data.contacts[0].email);
-            }
         } catch (err) {
             setError(err.response?.data?.detail || err.message || 'Failed to load RFQ');
         }
@@ -108,7 +102,6 @@ export default function QuotationBankOfferPage() {
         }
 
         if (magicTokenParam) {
-            // Auto verify magic token
             const verifyMagic = async () => {
                 setIsVerifyingOtp(true);
                 try {
@@ -172,7 +165,7 @@ export default function QuotationBankOfferPage() {
                 const diff = Math.floor((end.getTime() - now.getTime()) / 1000);
                 const mins = Math.floor(diff / 60);
                 const secs = diff % 60;
-                setTimeLeft({ label: `Window Closes in ${mins}:${secs.toString().padStart(2, '0')}`, status: 'OPEN' });
+                setTimeLeft({ label: `Closes in ${mins}:${secs.toString().padStart(2, '0')}`, status: 'OPEN' });
             } else {
                 setTimeLeft({ label: 'Window Closed', status: 'CLOSED' });
                 clearInterval(timer);
@@ -238,12 +231,12 @@ export default function QuotationBankOfferPage() {
         }
     };
 
-    // 8. OTP Actions
+    // 8. OTP Actions (Blind Work Email Verification)
     const handleRequestOtp = async (e) => {
         e?.preventDefault();
-        const targetEmail = (selectedEmail === '__custom' ? customEmail : selectedEmail).trim();
+        const targetEmail = inputEmail.trim();
         if (!targetEmail) {
-            setOtpError('Please select or enter your email address.');
+            setOtpError('Please enter your official bank desk email address.');
             return;
         }
 
@@ -256,7 +249,7 @@ export default function QuotationBankOfferPage() {
             });
             setOtpSent(true);
         } catch (err) {
-            setOtpError(err.response?.data?.detail || 'Failed to send verification code. Please check that your email is registered.');
+            setOtpError(err.response?.data?.detail || 'Verification failed. Please ensure your email is registered for this quotation desk.');
         } finally {
             setIsRequestingOtp(false);
         }
@@ -264,7 +257,7 @@ export default function QuotationBankOfferPage() {
 
     const handleVerifyOtp = async (e) => {
         e?.preventDefault();
-        const targetEmail = (selectedEmail === '__custom' ? customEmail : selectedEmail).trim();
+        const targetEmail = inputEmail.trim();
         if (!otpCode || otpCode.trim().length !== 6) {
             setOtpError('Please enter the 6-digit access code.');
             return;
@@ -293,6 +286,7 @@ export default function QuotationBankOfferPage() {
         setAuthSession(null);
         setOtpSent(false);
         setOtpCode('');
+        setInputEmail('');
     };
 
     // 9. Submit Offer
@@ -378,60 +372,45 @@ export default function QuotationBankOfferPage() {
     const isViewOnly = authSession?.role === 'VIEW_ONLY';
 
     return (
-        <div className="relative min-h-screen">
+        <div className="relative min-h-screen bg-slate-100/60">
             {/* 1. Security Gate Modal Overlay (Displayed whenever unauthenticated) */}
             {!authSession && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-2xl p-4 sm:p-6 overflow-y-auto animate-fade-in">
-                    <div className="max-w-xl w-full p-6 sm:p-10 bg-gradient-to-br from-slate-900 via-slate-900 to-gray-950 text-white rounded-3xl shadow-2xl border border-slate-700/80 relative animate-fade-in-up">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-2xl p-4 sm:p-6 overflow-y-auto animate-fade-in">
+                    <div className="max-w-md w-full p-6 sm:p-8 bg-gradient-to-br from-slate-900 via-slate-900 to-gray-950 text-white rounded-3xl shadow-2xl border border-slate-700/80 relative animate-fade-in-up">
                         <div className="text-center">
-                            <div className="w-14 h-14 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-5 border border-blue-500/30 shadow-lg shadow-blue-500/10">
-                                <KeyRound size={28} />
+                            <div className="w-12 h-12 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-4 border border-blue-500/30 shadow-lg shadow-blue-500/10">
+                                <KeyRound size={24} />
                             </div>
 
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-3">
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-2">
                                 <Landmark size={13} className="text-blue-400" />
                                 {rfq.bank_name} • Treasury Desk
                             </div>
 
-                            <h3 className="text-xl sm:text-2xl font-bold tracking-tight mb-2 text-white">
-                                Trader Identity Verification Required
+                            <h3 className="text-lg sm:text-xl font-bold tracking-tight mb-2 text-white">
+                                Trader Identity Verification
                             </h3>
-                            <p className="text-slate-300 text-xs sm:text-sm mb-6 leading-relaxed">
-                                To ensure institutional auditability and secure access, please select your bank desk email. We will send a 6-digit access code (or 1-click magic link) to unlock deal specifications.
+                            <p className="text-slate-300 text-xs mb-6 leading-relaxed">
+                                Enter your registered work email for <strong>{rfq.bank_name}</strong> to receive a secure 6-digit access code and unlock deal specifications.
                             </p>
 
                             {!otpSent ? (
                                 <form onSubmit={handleRequestOtp} className="space-y-4">
                                     <div className="text-left">
-                                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                                            Select Your Registered Desk Email
+                                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
+                                            <Mail size={13} className="text-blue-400" />
+                                            Registered Desk Email
                                         </label>
-                                        <select
-                                            className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                                            value={selectedEmail}
-                                            onChange={(e) => setSelectedEmail(e.target.value)}
-                                        >
-                                            {(rfq.contacts || []).map((c, i) => (
-                                                <option key={i} value={c.email}>
-                                                    {c.email} {c.name ? `(${c.name})` : ''} - {c.role === 'EXECUTION' ? '⚡ Execution Dealer' : '👁️ View-Only'}
-                                                </option>
-                                            ))}
-                                            <option value="__custom">-- Enter Another Email --</option>
-                                        </select>
+                                        <input
+                                            type="email"
+                                            required
+                                            placeholder="e.g. name@bank.com"
+                                            className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-medium placeholder:text-slate-500"
+                                            value={inputEmail}
+                                            onChange={(e) => setInputEmail(e.target.value)}
+                                            autoFocus
+                                        />
                                     </div>
-
-                                    {selectedEmail === '__custom' && (
-                                        <div className="text-left">
-                                            <input
-                                                type="email"
-                                                required
-                                                placeholder="Enter your registered bank email"
-                                                className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm outline-none focus:border-blue-500"
-                                                value={customEmail}
-                                                onChange={(e) => setCustomEmail(e.target.value)}
-                                            />
-                                        </div>
-                                    )}
 
                                     {otpError && (
                                         <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl text-left flex items-center gap-2">
@@ -442,29 +421,32 @@ export default function QuotationBankOfferPage() {
 
                                     <button
                                         type="submit"
-                                        disabled={isRequestingOtp}
-                                        className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 cursor-pointer"
+                                        disabled={isRequestingOtp || !inputEmail.trim()}
+                                        className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 cursor-pointer"
                                     >
-                                        {isRequestingOtp ? 'Sending Access Code...' : 'Send 6-Digit Access Code'}
+                                        {isRequestingOtp ? 'Sending Access Code...' : 'Send Access Code'}
                                     </button>
                                 </form>
                             ) : (
                                 <form onSubmit={handleVerifyOtp} className="space-y-4">
-                                    <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700 text-left">
+                                    <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700 text-left">
                                         <p className="text-xs text-slate-300">
-                                            Access code sent to <strong className="text-white font-mono">{selectedEmail === '__custom' ? customEmail : selectedEmail}</strong>.
+                                            Access code sent to <strong className="text-white font-mono">{inputEmail}</strong>.
                                         </p>
-                                        <p className="text-[11px] text-slate-400 mt-1">Please check your inbox (or click the 1-click magic link in the email).</p>
+                                        <p className="text-[11px] text-slate-400 mt-0.5">Check your inbox or click the 1-click magic link in the email.</p>
                                     </div>
 
-                                    <div>
+                                    <div className="text-left">
+                                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                                            Enter 6-Digit Code
+                                        </label>
                                         <input
                                             type="text"
-                                            maxLength="6"
                                             required
+                                            maxLength={6}
+                                            placeholder="123456"
                                             autoFocus
-                                            placeholder="Enter 6-digit code"
-                                            className="w-full text-center tracking-[0.4em] font-mono text-2xl font-bold py-3.5 px-4 rounded-xl bg-slate-800 border border-slate-700 text-white outline-none focus:border-blue-500"
+                                            className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-center text-xl font-mono tracking-widest outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                                             value={otpCode}
                                             onChange={(e) => setOtpCode(e.target.value)}
                                         />
@@ -477,20 +459,20 @@ export default function QuotationBankOfferPage() {
                                         </div>
                                     )}
 
-                                    <div className="flex gap-3">
+                                    <div className="flex gap-2">
                                         <button
                                             type="button"
-                                            onClick={() => setOtpSent(false)}
-                                            className="w-1/3 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                                            onClick={() => { setOtpSent(false); setOtpError(''); }}
+                                            className="w-1/3 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-all cursor-pointer"
                                         >
-                                            Back
+                                            Change Email
                                         </button>
                                         <button
                                             type="submit"
-                                            disabled={isVerifyingOtp}
+                                            disabled={isVerifyingOtp || otpCode.length !== 6}
                                             className="w-2/3 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
                                         >
-                                            {isVerifyingOtp ? 'Verifying...' : 'Verify & Enter Portal'}
+                                            {isVerifyingOtp ? 'Verifying...' : 'Unlock Workspace'}
                                         </button>
                                     </div>
                                 </form>
@@ -500,46 +482,67 @@ export default function QuotationBankOfferPage() {
                 </div>
             )}
 
-            {/* 2. Main Portal Workspace (Completely blurred & locked until verified) */}
-            <div className={`w-full max-w-[1400px] mx-auto p-4 sm:p-8 py-8 sm:py-12 font-sans transition-all duration-500 ${
+            {/* 2. Main Portal Trading Cockpit (Blurred & locked until verified) */}
+            <div className={`w-full max-w-[1440px] mx-auto p-3 sm:p-6 font-sans transition-all duration-500 ${
                 !authSession ? 'filter blur-2xl opacity-10 pointer-events-none select-none overflow-hidden max-h-[85vh]' : ''
             }`}>
                 
-                {/* Top Navigation & Brand Header */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 bg-slate-950 text-white rounded-2xl flex items-center justify-center shadow-lg shrink-0">
-                            <Landmark size={28} />
+                {/* Sleek Integrated Top Navigation Bar */}
+                <header className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center shadow-md shrink-0">
+                            <Landmark size={20} />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{rfq.bank_name}</h1>
-                                <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200">
+                                <h1 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">{rfq.bank_name}</h1>
+                                <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
                                     Treasury Desk
                                 </span>
                             </div>
-                            <p className="text-gray-400 text-xs mt-0.5">Counterparty Quotation Bidding & Execution System</p>
+                            <p className="text-gray-400 text-[11px] leading-tight">Client: <strong className="text-gray-700 font-semibold">{rfq.customer_name}</strong> &bull; Ref: <span className="font-mono text-gray-900 font-bold">{rfq.ref_no}</span></p>
                         </div>
                     </div>
 
-                    {/* View Tabs & Countdown */}
-                    <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+                    <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end flex-wrap">
+                        {/* Dealer Identity Badge */}
+                        {authSession && (
+                            <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                                <div className={`w-2 h-2 rounded-full ${authSession.role === 'EXECUTION' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
+                                <span className="font-mono font-medium text-gray-800 text-[11px]">{authSession.email}</span>
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                    authSession.role === 'EXECUTION' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
+                                }`}>
+                                    {authSession.role === 'EXECUTION' ? '⚡ EXECUTION' : '👁️ VIEW-ONLY'}
+                                </span>
+                                <button
+                                    onClick={handleLogout}
+                                    title="Sign out / Switch email"
+                                    className="text-[11px] text-gray-400 hover:text-red-600 transition-colors ml-1 cursor-pointer"
+                                >
+                                    Sign Out
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Tabs */}
+                        <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-bold">
                             <button
                                 onClick={() => handleTabSwitch('LIVE')}
-                                className={`px-3.5 py-1.5 rounded-lg transition-all ${activeTab === 'LIVE' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}
+                                className={`px-3 py-1 rounded-lg transition-all ${activeTab === 'LIVE' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}
                             >
                                 ⚡ Live RFQ
                             </button>
                             <button
                                 onClick={() => handleTabSwitch('HISTORY')}
-                                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${activeTab === 'HISTORY' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}
+                                className={`flex items-center gap-1 px-3 py-1 rounded-lg transition-all ${activeTab === 'HISTORY' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}
                             >
-                                <History size={14} /> Desk History
+                                <History size={13} /> Desk History
                             </button>
                         </div>
 
-                        <div className={`px-4 py-2 rounded-xl font-mono text-sm font-bold shadow-xs border shrink-0 transition-colors ${
+                        {/* Live Window Status */}
+                        <div className={`px-3 py-1.5 rounded-xl font-mono text-xs font-bold shadow-xs border shrink-0 transition-colors ${
                             timeLeft.status === 'OPEN' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 animate-pulse' :
                             timeLeft.status === 'PRE' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                             'bg-slate-100 text-slate-500 border-slate-200'
@@ -547,123 +550,45 @@ export default function QuotationBankOfferPage() {
                             {timeLeft.label}
                         </div>
                     </div>
-                </div>
+                </header>
 
-                {/* Authenticated User Status Bar */}
-                {authSession && (
-                    <div className="mb-6 p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
-                        <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-xl ${authSession.role === 'EXECUTION' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-                                {authSession.role === 'EXECUTION' ? <UserCheck size={18} /> : <Eye size={18} />}
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-gray-900 font-mono">{authSession.email}</span>
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide border ${
-                                        authSession.role === 'EXECUTION' 
-                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                                            : 'bg-blue-50 text-blue-700 border-blue-200'
-                                    }`}>
-                                        {authSession.role === 'EXECUTION' ? '⚡ AUTHORIZED EXECUTION DEALER' : '👁️ VIEW-ONLY OBSERVER'}
+                {/* TAB 1: LIVE RFQ COCKPIT (Zero-scroll 2-column layout) */}
+                {activeTab === 'LIVE' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
+                        
+                        {/* COLUMN 1: Trade Specifications & Guidelines (5 cols) */}
+                        <div className="lg:col-span-5 space-y-4">
+                            <section className="bg-white p-5 rounded-2xl shadow-xs border border-slate-200">
+                                <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                                    <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                                        <TrendingUp size={14} className="text-blue-600" /> Trade Specifications
+                                    </h3>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                                        {rfq.quotation_base || 'Execution'}
                                     </span>
                                 </div>
-                                <p className="text-[11px] text-gray-400">
-                                    {authSession.role === 'EXECUTION' 
-                                        ? 'Your quote submissions are binding and logged with your verified identity.' 
-                                        : 'You are viewing this RFQ in read-only mode.'}
-                                </p>
-                            </div>
-                        </div>
 
-                        <button
-                            onClick={handleLogout}
-                            className="text-xs text-gray-400 hover:text-red-600 transition-colors font-medium self-end sm:self-center cursor-pointer"
-                        >
-                            Switch Identity / Sign Out
-                        </button>
-                    </div>
-                )}
-            )}
-
-            {/* TAB 1: LIVE RFQ VIEW */}
-            {activeTab === 'LIVE' && (
-                <>
-                    {resultStatus && (
-                        <div
-                            className={`mb-8 p-6 rounded-3xl border text-center animate-fade-in-up ${
-                                resultStatus === 'WINNER' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-gray-50 border-gray-200 text-gray-600'
-                            }`}
-                        >
-                            {resultStatus === 'WINNER' ? (
-                                <div className="flex flex-col items-center">
-                                    <CheckCircle2 className="mb-2 text-emerald-500" size={32} />
-                                    <h2 className="text-xl font-bold">Trade Execution Confirmed!</h2>
-                                    <p className="text-sm">Congratulations, your quote was selected as the winning offer. Our treasury team will contact you shortly.</p>
-                                </div>
-                            ) : resultStatus === 'AWAITING_SELECTION' ? (
-                                <div className="flex flex-col items-center">
-                                    <Clock className="mb-2 text-amber-500 animate-spin-slow" size={32} />
-                                    <h2 className="text-xl font-bold">Selection in Progress</h2>
-                                    <p className="text-sm">Thank you for your quote. The corporate treasury team is currently evaluating all counterparties.</p>
-                                </div>
-                            ) : resultStatus === 'INDICATIVE_ONLY' ? (
-                                <div className="flex flex-col items-center">
-                                    <h2 className="text-xl font-bold text-gray-800">Indicative Quotation Completed</h2>
-                                    <p className="text-sm text-gray-500 mt-1">Thank you for providing market sounding pricing for this request.</p>
-                                </div>
-                            ) : resultStatus === 'INCONCLUSIVE' ? (
-                                <div className="flex flex-col items-center">
-                                    <h2 className="text-xl font-bold text-gray-800">Quotation Closed Without Winner</h2>
-                                    <p className="text-sm text-gray-500 mt-1">This request closed without trade execution due to tolerance limits or market conditions.</p>
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center">
-                                    <h2 className="text-xl font-bold">Quotation Completed</h2>
-                                    <p className="text-sm">Thank you for your prompt quote. Another counterparty was executed for this deal.</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    <div className="mb-6 p-4 sm:p-6 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Corporate Client</p>
-                            <h2 className="text-lg sm:text-xl font-bold text-gray-900">{rfq.customer_name}</h2>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">RFQ Reference</p>
-                            <p className="text-sm font-mono font-bold text-black bg-white px-3 py-1.5 rounded-lg border border-slate-200">{rfq.ref_no}</p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-                        <div className="md:col-span-2 space-y-6 order-2 md:order-1">
-                            <section className="bg-white p-6 sm:p-8 rounded-3xl shadow-xs border border-slate-200">
-                                <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-400 mb-6 flex items-center gap-2">
-                                    <TrendingUp size={14} /> Trade Specifications
-                                </h3>
-
-                                <div className="grid grid-cols-2 gap-y-6 sm:gap-y-8 gap-x-6 sm:gap-x-12">
+                                <div className="grid grid-cols-2 gap-4">
                                     {rfq.type === 'TBILL' ? (
                                         <>
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Direction</label>
-                                                <p className="text-xl sm:text-2xl font-bold text-gray-900">{rfq.direction}</p>
+                                            <div className="col-span-1">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase">Direction</label>
+                                                <p className="text-lg font-bold text-gray-900">{rfq.direction}</p>
                                             </div>
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Min Ticket Amount</label>
-                                                <p className="text-xl sm:text-2xl font-bold text-gray-900">{new Intl.NumberFormat().format(rfq.min_ticket_amount)}</p>
+                                            <div className="col-span-1">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase">Min Ticket</label>
+                                                <p className="text-lg font-bold text-gray-900">{new Intl.NumberFormat().format(rfq.min_ticket_amount)}</p>
                                             </div>
-                                            <div className="col-span-2 sm:col-span-1">
-                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Settlement Date</label>
-                                                <p className="text-base sm:text-lg font-semibold text-gray-900">
+                                            <div className="col-span-2">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase">Settlement Date</label>
+                                                <p className="text-sm font-semibold text-gray-900">
                                                     {new Date(rfq.settlement_date_start).toLocaleDateString()}
                                                     {rfq.settlement_date_end ? ` to ${new Date(rfq.settlement_date_end).toLocaleDateString()}` : ''}
                                                 </p>
                                             </div>
-                                            <div className="col-span-2 sm:col-span-1">
-                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Maturity Date</label>
-                                                <p className="text-base sm:text-lg font-semibold text-gray-900">
+                                            <div className="col-span-2">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase">Maturity Date</label>
+                                                <p className="text-sm font-semibold text-gray-900">
                                                     {new Date(rfq.maturity_date_start).toLocaleDateString()}
                                                     {rfq.maturity_date_end ? ` to ${new Date(rfq.maturity_date_end).toLocaleDateString()}` : ''}
                                                 </p>
@@ -671,45 +596,45 @@ export default function QuotationBankOfferPage() {
                                         </>
                                     ) : (
                                         <>
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Currency Pair</label>
-                                                <p className="text-xl sm:text-2xl font-bold text-emerald-900 bg-emerald-50 px-3 py-1 rounded-xl inline-block border border-emerald-200">
+                                            <div className="col-span-1">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Currency Pair</label>
+                                                <p className="text-xl font-bold text-emerald-900 bg-emerald-50 px-2.5 py-0.5 rounded-lg inline-block border border-emerald-200">
                                                     {rfq.buy_currency} / {rfq.sell_currency}
                                                 </p>
                                             </div>
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Amount to {rfq.direction || 'Trade'}</label>
-                                                <p className="text-xl sm:text-2xl font-bold text-gray-900">{new Intl.NumberFormat().format(rfq.amount)} {rfq.buy_currency}</p>
+                                            <div className="col-span-1">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Volume</label>
+                                                <p className="text-xl font-bold text-gray-900">{new Intl.NumberFormat().format(rfq.amount)} <span className="text-xs font-normal text-gray-500">{rfq.buy_currency}</span></p>
                                             </div>
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Value Date</label>
-                                                <p className="text-base sm:text-lg font-semibold text-gray-900">{new Date(rfq.value_date).toLocaleDateString()}</p>
+                                            <div className="col-span-1">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Value Date</label>
+                                                <p className="text-sm font-semibold text-gray-900">{new Date(rfq.value_date).toLocaleDateString()}</p>
+                                            </div>
+                                            <div className="col-span-1">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Quotation Base</label>
+                                                <p className="text-sm font-semibold text-gray-900">{rfq.quotation_base}</p>
                                             </div>
                                         </>
                                     )}
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Quotation Base</label>
-                                        <p className="text-base sm:text-lg font-semibold text-gray-900">{rfq.quotation_base}</p>
-                                    </div>
                                 </div>
 
                                 {((rfq.documents && rfq.documents.length > 0) || rfq.document_path) && (
-                                    <div className="mt-8 pt-6 border-t border-slate-100 space-y-3">
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Supporting Documents</label>
-                                        <div className="space-y-2">
+                                    <div className="mt-4 pt-3 border-t border-slate-100">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Supporting Documents</label>
+                                        <div className="space-y-1.5">
                                             {(rfq.documents && rfq.documents.length > 0 ? rfq.documents : [{ name: 'Attached Supporting Document', path: rfq.document_path }]).map((doc, idx) => (
                                                 <a
                                                     key={idx}
                                                     href={doc.path?.startsWith('http') ? doc.path : `${API_BASE_URL}${doc.path?.startsWith('/') ? '' : '/'}${doc.path}`}
                                                     target="_blank"
                                                     rel="noreferrer"
-                                                    className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all text-xs font-medium text-gray-800"
+                                                    className="flex items-center justify-between p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all text-xs font-medium text-gray-800"
                                                 >
                                                     <span className="flex items-center gap-2 truncate">
-                                                        <FileText size={16} className="text-slate-500 shrink-0" />
+                                                        <FileText size={14} className="text-slate-500 shrink-0" />
                                                         <span className="truncate">{doc.name || `Document ${idx + 1}`}</span>
                                                     </span>
-                                                    <span className="text-[10px] font-bold bg-white text-slate-800 border border-slate-200 px-3 py-1 rounded-lg uppercase tracking-wider shrink-0 hover:bg-black hover:text-white transition-colors">
+                                                    <span className="text-[9px] font-bold bg-white text-slate-800 border border-slate-200 px-2 py-0.5 rounded uppercase tracking-wider shrink-0 hover:bg-black hover:text-white transition-colors">
                                                         Download
                                                     </span>
                                                 </a>
@@ -719,98 +644,153 @@ export default function QuotationBankOfferPage() {
                                 )}
                             </section>
 
-                            {submitted && (
-                                <div className="bg-emerald-50 p-6 rounded-3xl border border-emerald-200 text-center animate-fade-in-up">
-                                    <CheckCircle2 className="mx-auto text-emerald-500 mb-2" size={36} />
-                                    <h2 className="text-lg font-bold text-emerald-900 mb-1">Quote Recorded Successfully</h2>
-                                    <p className="text-xs text-emerald-700">Your {rfq.type === 'TBILL' ? 'multi-line quote' : 'spot price'} is actively registered with the client.</p>
+                            {/* Compact Trading Guidelines Card */}
+                            <section className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200 text-xs">
+                                <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1.5">
+                                    <Info size={13} /> Trading Guidelines
+                                </h4>
+                                <ul className="space-y-1.5 text-gray-600 text-[11px] leading-relaxed">
+                                    <li className="flex items-start gap-2">
+                                        <span className="w-4 h-4 bg-slate-900 text-white rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold mt-0.5">!</span>
+                                        <span>{rfq.quotation_base === 'Execution' ? 'Quotes are binding upon window close.' : 'Indicative soundings for market review.'}</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="w-4 h-4 bg-slate-100 text-slate-700 rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold mt-0.5">1</span>
+                                        <span>Quotes can be amended in real-time until window close.</span>
+                                    </li>
+                                </ul>
+                            </section>
+                        </div>
+
+                        {/* COLUMN 2: Bidding & Execution Console (7 cols) */}
+                        <div className="lg:col-span-7 space-y-4">
+                            
+                            {/* Prominent Result Status Banner (Integrated directly at the top of the action card) */}
+                            {resultStatus && (
+                                <div
+                                    className={`p-4 rounded-2xl border text-center animate-fade-in-up ${
+                                        resultStatus === 'WINNER' ? 'bg-emerald-50 border-emerald-200 text-emerald-900 shadow-xs' : 
+                                        resultStatus === 'AWAITING_SELECTION' ? 'bg-amber-50 border-amber-200 text-amber-900' :
+                                        'bg-slate-50 border-slate-200 text-slate-700'
+                                    }`}
+                                >
+                                    {resultStatus === 'WINNER' ? (
+                                        <div className="flex items-center justify-center gap-3">
+                                            <CheckCircle2 className="text-emerald-500 shrink-0" size={24} />
+                                            <div className="text-left">
+                                                <h3 className="text-sm font-bold">Trade Execution Confirmed!</h3>
+                                                <p className="text-xs text-emerald-700">Congratulations, your quote was selected as the winning offer.</p>
+                                            </div>
+                                        </div>
+                                    ) : resultStatus === 'AWAITING_SELECTION' ? (
+                                        <div className="flex items-center justify-center gap-3">
+                                            <Clock className="text-amber-500 shrink-0 animate-spin-slow" size={24} />
+                                            <div className="text-left">
+                                                <h3 className="text-sm font-bold">Selection in Progress</h3>
+                                                <p className="text-xs text-amber-700">Thank you. The treasury team is evaluating all submitted counterparty quotes.</p>
+                                            </div>
+                                        </div>
+                                    ) : resultStatus === 'INDICATIVE_ONLY' ? (
+                                        <div>
+                                            <h3 className="text-sm font-bold text-gray-800">Indicative Quotation Completed</h3>
+                                            <p className="text-xs text-gray-500 mt-0.5">Thank you for providing market pricing sounding.</p>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <h3 className="text-sm font-bold">Quotation Completed</h3>
+                                            <p className="text-xs text-gray-500 mt-0.5">Thank you for your prompt quote. Another counterparty was executed for this deal.</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
                             {/* Bidding Form Card */}
                             <section
-                                className={`p-6 sm:p-8 rounded-3xl shadow-sm border transition-all ${
+                                className={`p-5 sm:p-6 rounded-2xl shadow-xs border transition-all ${
                                     isViewOnly
                                         ? 'bg-slate-50 border-slate-200 opacity-80'
                                         : timeLeft.status === 'OPEN' 
                                             ? 'bg-white border-2 border-slate-950 shadow-md' 
-                                            : 'bg-slate-50 border-slate-200 opacity-60'
+                                            : 'bg-white border-slate-200'
                                 }`}
                             >
-                                <div className="flex items-center justify-between mb-6">
-                                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                                <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                                    <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
                                         <TrendingUp size={14} /> {rfq.type === 'TBILL' ? 'T-Bill Quotation Lines' : 'Your Price Quote'}
                                     </h3>
-                                    {isViewOnly && (
-                                        <span className="px-3 py-1 bg-blue-100 text-blue-800 text-[10px] font-bold rounded-full border border-blue-200">
-                                            👁️ View-Only Observer
+                                    
+                                    {submitted && (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            <CheckCircle2 size={12} /> Quote Active
                                         </span>
                                     )}
                                 </div>
 
                                 {isViewOnly ? (
-                                    <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200 text-blue-900 text-xs leading-relaxed">
-                                        <strong>View-Only Notice:</strong> Your registered account has observer permissions. You can inspect trade parameters and history, but only dealers tagged for <strong>Execution</strong> can enter binding quotes.
+                                    <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs leading-relaxed">
+                                        <strong>View-Only Notice:</strong> Your registered account has observer permissions. Only dealers with <strong>Execution</strong> permissions can enter binding quotes.
                                     </div>
                                 ) : (
                                     <form onSubmit={handleSubmit}>
                                         {rfq.type === 'TBILL' ? (
-                                            <div className="space-y-4 mb-6">
+                                            <div className="space-y-3 mb-4">
                                                 {tbillLines.map((line, index) => (
-                                                    <div key={index} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 relative group">
+                                                    <div key={index} className="p-3 bg-slate-50 rounded-xl border border-slate-200 relative group">
                                                         {tbillLines.length > 1 && timeLeft.status === 'OPEN' && (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => removeTbillLine(index)}
-                                                                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-sm"
+                                                                className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-xs cursor-pointer"
                                                             >
                                                                 ×
                                                             </button>
                                                         )}
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                                             <div>
-                                                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Settlement Date</label>
+                                                                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-0.5">Settlement</label>
                                                                 <input
                                                                     type="date"
                                                                     required
                                                                     disabled={timeLeft.status !== 'OPEN'}
-                                                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black"
+                                                                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold outline-none focus:border-black"
                                                                     value={line.settlementDate}
                                                                     onChange={e => updateTbillLine(index, 'settlementDate', e.target.value)}
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Maturity Date</label>
+                                                                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-0.5">Maturity</label>
                                                                 <input
                                                                     type="date"
                                                                     required
                                                                     disabled={timeLeft.status !== 'OPEN'}
-                                                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black"
+                                                                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold outline-none focus:border-black"
                                                                     value={line.maturityDate}
                                                                     onChange={e => updateTbillLine(index, 'maturityDate', e.target.value)}
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Discount Rate (%)</label>
+                                                                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-0.5">Discount Rate (%)</label>
                                                                 <input
                                                                     type="number"
                                                                     step="0.0001"
                                                                     required
                                                                     disabled={timeLeft.status !== 'OPEN'}
-                                                                    placeholder="e.g. 18.50"
-                                                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-black"
+                                                                    onWheel={(e) => e.currentTarget.blur()}
+                                                                    placeholder="18.50"
+                                                                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none focus:border-black"
                                                                     value={line.discountRate}
                                                                     onChange={e => updateTbillLine(index, 'discountRate', e.target.value)}
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Max Amount</label>
+                                                                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-0.5">Max Amount</label>
                                                                 <input
                                                                     type="number"
                                                                     required
                                                                     disabled={timeLeft.status !== 'OPEN'}
+                                                                    onWheel={(e) => e.currentTarget.blur()}
                                                                     placeholder="0.00"
-                                                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-black"
+                                                                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none focus:border-black"
                                                                     value={line.maxAmount}
                                                                     onChange={e => updateTbillLine(index, 'maxAmount', e.target.value)}
                                                                 />
@@ -823,40 +803,42 @@ export default function QuotationBankOfferPage() {
                                                     <button
                                                         type="button"
                                                         onClick={addTbillLine}
-                                                        className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 px-4 py-2 rounded-xl transition-all"
+                                                        className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
                                                     >
                                                         + Add Line Item
                                                     </button>
                                                 )}
                                             </div>
                                         ) : (
-                                            <div className="relative mb-6">
+                                            <div className="relative mb-4">
                                                 <input
                                                     type="number"
                                                     step="0.00001"
                                                     required
                                                     disabled={timeLeft.status !== 'OPEN' || isSubmitting}
-                                                    placeholder="Enter spot exchange rate (e.g. 48.6500)"
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xl font-bold focus:bg-white focus:ring-4 focus:ring-black/5 transition-all outline-none"
+                                                    onWheel={(e) => e.currentTarget.blur()}
+                                                    placeholder="Enter spot rate (e.g. 48.6500)"
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-2xl font-bold focus:bg-white focus:ring-4 focus:ring-black/5 transition-all outline-none"
                                                     value={price}
                                                     onChange={e => setPrice(e.target.value)}
                                                 />
-                                                <div className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">
+                                                <div className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-base">
                                                     {rfq.sell_currency}
                                                 </div>
                                             </div>
                                         )}
 
-                                        <div className="mb-6">
-                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1.5">
-                                                <MessageSquare size={13} className="text-gray-400" />
+                                        {/* Trader Comments / Notes */}
+                                        <div className="mb-4">
+                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 flex items-center gap-1.5">
+                                                <MessageSquare size={12} className="text-gray-400" />
                                                 Trader Comments / Execution Notes (Optional)
                                             </label>
                                             <textarea
                                                 rows={2}
                                                 disabled={timeLeft.status !== 'OPEN' || isSubmitting}
-                                                placeholder="Add any settlement notes, execution remarks, or comments for the treasury desk..."
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-gray-800 focus:bg-white focus:ring-4 focus:ring-black/5 transition-all outline-none resize-none"
+                                                placeholder="Add any settlement notes or execution remarks for the client..."
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium text-gray-800 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none resize-none"
                                                 value={traderNotes}
                                                 onChange={(e) => setTraderNotes(e.target.value)}
                                             />
@@ -865,130 +847,97 @@ export default function QuotationBankOfferPage() {
                                         <button
                                             type="submit"
                                             disabled={timeLeft.status !== 'OPEN' || isSubmitting || !authSession || (rfq.type === 'TBILL' ? tbillLines.some(l => !l.discountRate || !l.maxAmount) : !price)}
-                                            className="w-full py-4 bg-slate-950 text-white rounded-2xl font-bold text-base hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all shadow-lg cursor-pointer"
+                                            className="w-full py-3.5 bg-slate-950 text-white rounded-xl font-bold text-sm hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all shadow-md cursor-pointer"
                                         >
-                                            {isSubmitting ? 'Submitting Quote...' : timeLeft.status === 'PRE' ? 'Waiting for Window' : timeLeft.status === 'CLOSED' ? 'Window Closed' : (submitted ? 'Update Quote' : 'Submit Binding Quote')}
+                                            {isSubmitting ? 'Submitting Quote...' : timeLeft.status === 'PRE' ? 'Waiting for Window to Open' : timeLeft.status === 'CLOSED' ? 'Window Closed' : (submitted ? 'Update Quote' : 'Submit Binding Quote')}
                                         </button>
                                     </form>
                                 )}
                             </section>
                         </div>
-
-                        {/* Guidelines Sidebar */}
-                        <div className="md:col-span-1 order-3">
-                            <section className="bg-white p-6 rounded-3xl shadow-xs border border-slate-200 sticky top-8">
-                                <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-6 flex items-center gap-2">
-                                    <Clock size={14} /> Trading Guidelines
-                                </h3>
-                                <ul className="space-y-4 text-xs text-gray-600 leading-relaxed">
-                                    <li className="flex gap-3">
-                                        <span className="w-5 h-5 bg-black text-white rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold">!</span>
-                                        <span className="font-semibold text-gray-900">
-                                            {rfq.quotation_base === 'Execution'
-                                                ? 'This is an EXECUTION request. Your submitted quote is binding upon window close.'
-                                                : 'This is an INDICATIVE request for market pricing sounding.'}
-                                        </span>
-                                    </li>
-                                    <li className="flex gap-3">
-                                        <span className="w-5 h-5 bg-slate-100 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-slate-600">1</span>
-                                        Review currency volume, value dates, and document attachments thoroughly.
-                                    </li>
-                                    <li className="flex gap-3">
-                                        <span className="w-5 h-5 bg-slate-100 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-slate-600">2</span>
-                                        You may amend your quote in real-time as market conditions change until the window closes.
-                                    </li>
-                                    <li className="flex gap-3">
-                                        <span className="w-5 h-5 bg-slate-100 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-slate-600">3</span>
-                                        Trade confirmations will be dispatched to all registered desk contacts upon execution.
-                                    </li>
-                                </ul>
-                            </section>
-                        </div>
                     </div>
-                </>
-            )}
+                )}
 
-            {/* TAB 2: COUNTERPARTY QUOTATION HISTORY */}
-            {activeTab === 'HISTORY' && (
-                <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-xs border border-slate-200 animate-fade-in-up">
-                    <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
-                        <div>
-                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                <History className="text-blue-600" size={20} />
-                                Desk Quotation History with {rfq.customer_name}
-                            </h2>
-                            <p className="text-xs text-gray-400 mt-0.5">Past request submissions, win rates, and execution status records for {rfq.bank_name}.</p>
+                {/* TAB 2: COUNTERPARTY QUOTATION HISTORY */}
+                {activeTab === 'HISTORY' && (
+                    <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-xs border border-slate-200 animate-fade-in-up">
+                        <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                            <div>
+                                <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                                    <History className="text-blue-600" size={18} />
+                                    Desk Quotation History with {rfq.customer_name}
+                                </h2>
+                                <p className="text-[11px] text-gray-400">Past request submissions and execution records for {rfq.bank_name}.</p>
+                            </div>
+                            <button
+                                onClick={fetchHistory}
+                                disabled={isLoadingHistory}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                            >
+                                <RefreshCw size={13} className={isLoadingHistory ? 'animate-spin' : ''} /> Refresh
+                            </button>
                         </div>
-                        <button
-                            onClick={fetchHistory}
-                            disabled={isLoadingHistory}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
-                        >
-                            <RefreshCw size={14} className={isLoadingHistory ? 'animate-spin' : ''} /> Refresh
-                        </button>
-                    </div>
 
-                    {isLoadingHistory ? (
-                        <div className="py-16 text-center text-slate-400 text-xs">Loading quotation history...</div>
-                    ) : historyData.length === 0 ? (
-                        <div className="py-16 text-center text-slate-400 text-xs">No previous quotations found for this desk.</div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600">
-                                        <th className="py-3 px-4 text-[11px] font-bold uppercase tracking-wider">RFQ Reference</th>
-                                        <th className="py-3 px-4 text-[11px] font-bold uppercase tracking-wider">Product & Direction</th>
-                                        <th className="py-3 px-4 text-[11px] font-bold uppercase tracking-wider">Deal Volume</th>
-                                        <th className="py-3 px-4 text-[11px] font-bold uppercase tracking-wider">Your Submitted Rate</th>
-                                        <th className="py-3 px-4 text-[11px] font-bold uppercase tracking-wider">Submitted By</th>
-                                        <th className="py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-right">Outcome</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 text-xs">
-                                    {historyData.map((h, idx) => (
-                                        <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
-                                            <td className="py-3.5 px-4 font-mono font-bold text-gray-900">{h.ref_no}</td>
-                                            <td className="py-3.5 px-4">
-                                                <span className="font-semibold text-gray-800">{h.type}</span> &bull; <span className="text-gray-500">{h.direction || 'N/A'}</span>
-                                            </td>
-                                            <td className="py-3.5 px-4 font-semibold text-gray-900">
-                                                {h.amount ? `${new Intl.NumberFormat().format(h.amount)}` : 'N/A'} {h.currency_pair ? `(${h.currency_pair})` : ''}
-                                            </td>
-                                            <td className="py-3.5 px-4 font-mono font-bold text-blue-600">
-                                                {h.best_quote !== null ? h.best_quote : <span className="text-gray-400 font-sans font-normal">No Quote</span>}
-                                            </td>
-                                            <td className="py-3.5 px-4 text-gray-500 font-mono">
-                                                <div>{h.submitted_by || '—'}</div>
-                                                {h.notes && (
-                                                    <div className="text-[11px] font-sans text-slate-600 bg-slate-100 px-2 py-0.5 rounded mt-1 max-w-xs truncate" title={h.notes}>
-                                                        💬 {h.notes}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="py-3.5 px-4 text-right">
-                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                                                    h.outcome === 'WON' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
-                                                    h.outcome === 'NOT_SELECTED' ? 'bg-slate-100 text-slate-600 border-slate-200' :
-                                                    h.outcome === 'SUBMITTED' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                                    'bg-gray-100 text-gray-600 border-gray-200'
-                                                }`}>
-                                                    {h.outcome === 'WON' ? '🏆 Won Trade' :
-                                                     h.outcome === 'NOT_SELECTED' ? 'Not Selected' :
-                                                     h.outcome === 'SUBMITTED' ? '⏳ Submitted' : h.outcome}
-                                                </span>
-                                            </td>
+                        {isLoadingHistory ? (
+                            <div className="py-12 text-center text-slate-400 text-xs">Loading quotation history...</div>
+                        ) : historyData.length === 0 ? (
+                            <div className="py-12 text-center text-slate-400 text-xs">No previous quotations found for this desk.</div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                                            <th className="py-2.5 px-3 text-[10px] font-bold uppercase tracking-wider">RFQ Reference</th>
+                                            <th className="py-2.5 px-3 text-[10px] font-bold uppercase tracking-wider">Product & Direction</th>
+                                            <th className="py-2.5 px-3 text-[10px] font-bold uppercase tracking-wider">Deal Volume</th>
+                                            <th className="py-2.5 px-3 text-[10px] font-bold uppercase tracking-wider">Submitted Rate</th>
+                                            <th className="py-2.5 px-3 text-[10px] font-bold uppercase tracking-wider">Submitted By</th>
+                                            <th className="py-2.5 px-3 text-[10px] font-bold uppercase tracking-wider text-right">Outcome</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-            )}
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 text-xs">
+                                        {historyData.map((h, idx) => (
+                                            <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                                                <td className="py-2.5 px-3 font-mono font-bold text-gray-900">{h.ref_no}</td>
+                                                <td className="py-2.5 px-3">
+                                                    <span className="font-semibold text-gray-800">{h.type}</span> &bull; <span className="text-gray-500">{h.direction || 'N/A'}</span>
+                                                </td>
+                                                <td className="py-2.5 px-3 font-semibold text-gray-900">
+                                                    {h.amount ? `${new Intl.NumberFormat().format(h.amount)}` : 'N/A'} {h.currency_pair ? `(${h.currency_pair})` : ''}
+                                                </td>
+                                                <td className="py-2.5 px-3 font-mono font-bold text-blue-600">
+                                                    {h.best_quote !== null ? h.best_quote : <span className="text-gray-400 font-sans font-normal">No Quote</span>}
+                                                </td>
+                                                <td className="py-2.5 px-3 text-gray-500 font-mono">
+                                                    <div>{h.submitted_by || '—'}</div>
+                                                    {h.notes && (
+                                                        <div className="text-[11px] font-sans text-slate-600 bg-slate-100 px-2 py-0.5 rounded mt-0.5 max-w-xs truncate" title={h.notes}>
+                                                            💬 {h.notes}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="py-2.5 px-3 text-right">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                                        h.outcome === 'WON' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                                                        h.outcome === 'NOT_SELECTED' ? 'bg-slate-100 text-slate-600 border-slate-200' :
+                                                        h.outcome === 'SUBMITTED' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                        'bg-gray-100 text-gray-600 border-gray-200'
+                                                    }`}>
+                                                        {h.outcome === 'WON' ? '🏆 Won Trade' :
+                                                         h.outcome === 'NOT_SELECTED' ? 'Not Selected' :
+                                                         h.outcome === 'SUBMITTED' ? '⏳ Submitted' : h.outcome}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
 
             </div>
         </div>
     );
 }
-
