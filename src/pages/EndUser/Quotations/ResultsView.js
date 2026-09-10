@@ -2,6 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const formatDate = (d) => {
+    if (!d) return '—';
+    try {
+        const date = new Date(d);
+        if (isNaN(date.getTime())) return d;
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = MONTHS[date.getMonth()];
+        const year = date.getFullYear();
+        return `${day} ${month} ${year}`;
+    } catch {
+        return d;
+    }
+};
+
 export default function ResultsView({ rfqId }) {
     const [results, setResults] = useState([]);
     const [rfq, setRfq] = useState(null);
@@ -351,8 +366,8 @@ export default function ResultsView({ rfqId }) {
                                     <tbody className="divide-y divide-gray-50">
                                         {result.offers?.map((offer, i) => (
                                             <tr key={i} className="group hover:bg-gray-50/50">
-                                                <td className="py-3 font-medium">{new Date(offer.settlement_date).toLocaleDateString()}</td>
-                                                <td className="py-3 font-medium">{new Date(offer.maturity_date).toLocaleDateString()}</td>
+                                                <td className="py-3 font-medium">{formatDate(offer.settlement_date)}</td>
+                                                <td className="py-3 font-medium">{formatDate(offer.maturity_date)}</td>
                                                 <td className="py-3 font-mono font-bold text-emerald-600">{offer.discount_rate.toFixed(4)}%</td>
                                                 <td className="py-3 font-mono font-bold">{new Intl.NumberFormat().format(offer.max_amount)}</td>
                                                 <td className="py-3 text-right text-xs text-gray-400">
@@ -468,7 +483,7 @@ export default function ResultsView({ rfqId }) {
                                                 );
 
                                                 const body = encodeURIComponent(isWinner
-                                                    ? `Dear ${result.bank_name} FX Desk,\n\nWe are pleased to confirm the execution of the following trade based on your winning quote:\n\nREFERENCE: ${refNo}\n- Pair: ${rfq.buy_currency}/${rfq.sell_currency}\n- Amount: ${rfq.amount}\n- Executed Rate: ${result.price.toFixed(5)}\n- Value Date: ${rfq.value_date}\n\nPlease proceed with the standard settlement instructions.\n\nBest regards,\nTreasury Team`
+                                                    ? `Dear ${result.bank_name} FX Desk,\n\nWe are pleased to confirm the execution of the following trade based on your winning quote:\n\nREFERENCE: ${refNo}\n- Pair: ${rfq.buy_currency}/${rfq.sell_currency}\n- Amount: ${rfq.amount}\n- Executed Rate: ${result.price.toFixed(5)}\n- Value Date: ${formatDate(rfq.value_date)}\n\nPlease proceed with the standard settlement instructions.\n\nBest regards,\nTreasury Team`
                                                     : `Dear ${result.bank_name} FX Desk,\n\nThank you for participating in our Request for Quotation (RFQ) for ${rfq.buy_currency}/${rfq.sell_currency}.\n\nREFERENCE: ${refNo}\n\nWe are writing to inform you that your quote was not selected for this specific transaction as we have executed with another counterparty at a more competitive all-in rate.\n\nWe appreciate your participation and look forward to your quotes on future requests.\n\nBest regards,\nTreasury Team`
                                                 );
 
