@@ -1188,9 +1188,16 @@ export default function QuotationBankOfferPage() {
                                                         </div>
                                                     ) : (
                                                         <div>
-                                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2">
-                                                                Spot Rate Quote ({rfq.sell_currency} per 1 {rfq.buy_currency})
-                                                            </label>
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <label className="block text-[10px] font-bold text-gray-500 uppercase">
+                                                                    Spot Rate Quote ({rfq.sell_currency} per 1 {rfq.buy_currency})
+                                                                </label>
+                                                                {rfq.cbe_benchmark_rate && (
+                                                                    <span className="text-[10px] font-mono text-gray-400 font-semibold" title="Central Bank of Egypt benchmark reference">
+                                                                        CBE Ref: ~{parseFloat(rfq.cbe_benchmark_rate).toFixed(4)}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <div className="relative">
                                                                 <input
                                                                     type="number"
@@ -1199,7 +1206,19 @@ export default function QuotationBankOfferPage() {
                                                                     disabled={timeLeft.status !== 'OPEN' || isSubmitting}
                                                                     onWheel={(e) => e.currentTarget.blur()}
                                                                     placeholder="Enter spot rate (e.g. 48.6500)"
-                                                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-2xl font-bold focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none"
+                                                                    className={`w-full bg-slate-50 border rounded-2xl px-5 py-3.5 text-2xl font-bold focus:bg-white focus:ring-2 transition-all outline-none ${
+                                                                        (() => {
+                                                                            if (!rfq?.cbe_benchmark_rate || !price) return 'border-slate-200 focus:ring-black/5';
+                                                                            const bm = parseFloat(rfq.cbe_benchmark_rate);
+                                                                            const val = parseFloat(price);
+                                                                            if (isNaN(bm) || isNaN(val) || val <= 0 || bm <= 0) return 'border-slate-200 focus:ring-black/5';
+                                                                            const inv = 1 / val;
+                                                                            if (Math.abs(inv - bm) / bm < 0.15 || (val / bm >= 8 && val / bm <= 12) || (val / bm >= 0.08 && val / bm <= 0.12)) {
+                                                                                return 'border-amber-400 bg-amber-50/40 text-amber-950 focus:ring-amber-500/20';
+                                                                            }
+                                                                            return 'border-slate-200 focus:ring-black/5';
+                                                                        })()
+                                                                    }`}
                                                                     value={price}
                                                                     onChange={e => setPrice(e.target.value)}
                                                                 />
@@ -1207,6 +1226,104 @@ export default function QuotationBankOfferPage() {
                                                                     {rfq.sell_currency}
                                                                 </div>
                                                             </div>
+
+                                                            {/* Fat-Finger Guardian Smart Advisory Banner */}
+                                                            {(() => {
+                                                                if (rfq?.type !== 'FX_SPOT' || !rfq?.cbe_benchmark_rate || !price) return null;
+                                                                const bm = parseFloat(rfq.cbe_benchmark_rate);
+                                                                const val = parseFloat(price);
+                                                                if (isNaN(bm) || isNaN(val) || val <= 0 || bm <= 0) return null;
+
+                                                                // Inversion Check
+                                                                const inv = 1 / val;
+                                                                if (Math.abs(inv - bm) / bm < 0.15) {
+                                                                    const suggested = (1 / val).toFixed(4);
+                                                                    return (
+                                                                        <div className="mt-2.5 p-3 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex items-start gap-2.5 shadow-xs animate-fade-in">
+                                                                            <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                                                                            <div className="flex-1 text-xs">
+                                                                                <strong className="block font-bold text-[11px] uppercase tracking-wider text-amber-950">
+                                                                                    ⚠️ Possible Inverted Rate Detected
+                                                                                </strong>
+                                                                                <p className="mt-0.5 leading-relaxed text-amber-800">
+                                                                                    You entered <strong>{val}</strong> (looks like {rfq.buy_currency}/{rfq.sell_currency}). This quotation asks for {rfq.sell_currency} per 1 {rfq.buy_currency} (CBE benchmark is ~{bm.toFixed(4)}).
+                                                                                </p>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setPrice(suggested)}
+                                                                                    className="mt-2 px-3 py-1 bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold rounded-xl text-[11px] transition-colors cursor-pointer"
+                                                                                >
+                                                                                    Apply Inverted Rate: {suggested}
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                }
+
+                                                                // Decimal Magnitude Check
+                                                                const ratio = val / bm;
+                                                                if (ratio >= 8 && ratio <= 12) {
+                                                                    const suggested = (val / 10).toFixed(4);
+                                                                    return (
+                                                                        <div className="mt-2.5 p-3 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex items-start gap-2.5 shadow-xs animate-fade-in">
+                                                                            <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                                                                            <div className="flex-1 text-xs">
+                                                                                <strong className="block font-bold text-[11px] uppercase tracking-wider text-amber-950">
+                                                                                    ⚠️ Decimal Magnitude Alert (~10x High)
+                                                                                </strong>
+                                                                                <p className="mt-0.5 leading-relaxed text-amber-800">
+                                                                                    Your quote (<strong>{val}</strong>) appears approximately 10x higher than the prevailing CBE reference rate (~{bm.toFixed(4)}).
+                                                                                </p>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setPrice(suggested)}
+                                                                                    className="mt-2 px-3 py-1 bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold rounded-xl text-[11px] transition-colors cursor-pointer"
+                                                                                >
+                                                                                    Correct Decimal: {suggested}
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                                if (ratio >= 0.08 && ratio <= 0.12) {
+                                                                    const suggested = (val * 10).toFixed(4);
+                                                                    return (
+                                                                        <div className="mt-2.5 p-3 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex items-start gap-2.5 shadow-xs animate-fade-in">
+                                                                            <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                                                                            <div className="flex-1 text-xs">
+                                                                                <strong className="block font-bold text-[11px] uppercase tracking-wider text-amber-950">
+                                                                                    ⚠️ Decimal Magnitude Alert (~10x Low)
+                                                                                </strong>
+                                                                                <p className="mt-0.5 leading-relaxed text-amber-800">
+                                                                                    Your quote (<strong>{val}</strong>) appears approximately 10x lower than the prevailing CBE reference rate (~{bm.toFixed(4)}).
+                                                                                </p>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setPrice(suggested)}
+                                                                                    className="mt-2 px-3 py-1 bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold rounded-xl text-[11px] transition-colors cursor-pointer"
+                                                                                >
+                                                                                    Correct Decimal: {suggested}
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                }
+
+                                                                // Deviation check (> 5%)
+                                                                const pctDiff = ((val - bm) / bm) * 100;
+                                                                if (Math.abs(pctDiff) >= 5) {
+                                                                    return (
+                                                                        <div className="mt-2.5 p-2.5 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-900 flex items-center gap-2 text-xs animate-fade-in">
+                                                                            <AlertCircle size={15} className="text-blue-600 shrink-0" />
+                                                                            <span className="text-[11px]">
+                                                                                CBE benchmark is <strong>{bm.toFixed(4)}</strong> (Quote deviates by {pctDiff > 0 ? '+' : ''}{pctDiff.toFixed(1)}%).
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                }
+
+                                                                return null;
+                                                            })()}
                                                         </div>
                                                     )}
 

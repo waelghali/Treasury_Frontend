@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, DollarSign, Copy, ExternalLink, Mail, AlertCircle } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, DollarSign, Copy, ExternalLink, Mail, AlertCircle, Sparkles } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 
@@ -21,6 +21,7 @@ const formatDate = (d) => {
 export default function QuotationRequestDashboard() {
     const [banks, setBanks] = useState([]);
     const [selectedBanks, setSelectedBanks] = useState([]);
+    const [recommendations, setRecommendations] = useState([]);
     const [formData, setFormData] = useState({
         type: 'FX_SPOT',
         direction: 'Buy',
@@ -53,6 +54,55 @@ export default function QuotationRequestDashboard() {
         // Clear previously selected banks when the trade type changes so we don't accidentally send TBILL banks to an FX RFQ
         setSelectedBanks([]);
     }, [formData.type]);
+
+    // Mind-Reader: Fetch counterparty recommendations based on asset type & currency pair
+    useEffect(() => {
+        apiClient.get('/end-user/quotations/recommendations', {
+            params: {
+                trade_type: formData.type,
+                buy_currency: formData.type === 'FX_SPOT' ? formData.buyCurrency : undefined,
+                sell_currency: formData.type === 'FX_SPOT' ? formData.sellCurrency : undefined,
+            }
+        })
+        .then(res => {
+            setRecommendations(res.data?.recommendations || []);
+        })
+        .catch(err => {
+            console.error("Failed to load recommendations", err);
+            setRecommendations([]);
+        });
+    }, [formData.type, formData.buyCurrency, formData.sellCurrency]);
+
+    const handleApplySmartSelection = async () => {
+        if (!recommendations || recommendations.length === 0 || !banks || banks.length === 0) return;
+        
+        const banksToSelect = [];
+        for (const rec of recommendations) {
+            const matchedBank = banks.find(b => b.bank_id === rec.bank_id);
+            if (matchedBank && !banksToSelect.find(b => b.id === matchedBank.bank_id)) {
+                let costData = { cost_min: 0, cost_percent: 0, cost_max: 0, cost_flat: 0, quotation_base: formData.quotationBase };
+                try {
+                    const costRes = await apiClient.get(`/end-user/quotations/banks/latest-costs?bank_id=${matchedBank.bank_id}`);
+                    if (costRes.data) {
+                        costData = costRes.data;
+                    }
+                } catch (e) {}
+
+                banksToSelect.push({
+                    id: matchedBank.bank_id,
+                    name: matchedBank.bank?.name || `Bank ${matchedBank.bank_id}`,
+                    costMin: costData.cost_min || 0,
+                    costPercent: costData.cost_percent || 0,
+                    costMax: costData.cost_max || 0,
+                    costFlat: costData.cost_flat || 0,
+                    quotationBase: costData.quotation_base || formData.quotationBase
+                });
+            }
+        }
+        if (banksToSelect.length > 0) {
+            setSelectedBanks(banksToSelect);
+        }
+    };
 
     const handleBankToggle = async (bank) => {
         if (selectedBanks.find(b => b.id === bank.bank_id)) { // Adjusted ID tracking
@@ -698,9 +748,41 @@ export default function QuotationRequestDashboard() {
                             </div>
                         )}
 
+                        {/* Mind-Reader Smart Recommendation Banner */}
+                        {recommendations.length > 0 && (
+                            <div className="mb-5 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-indigo-50/90 to-sky-50/90 border border-blue-200/90 flex flex-wrap items-center justify-between gap-3 shadow-xs animate-fade-in">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                                        <Sparkles size={17} />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-xs font-extrabold text-blue-950 uppercase tracking-wide">
+                                                Smart Counterparty Suggestions
+                                            </span>
+                                            <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full border border-blue-200">
+                                                {formData.type === 'FX_SPOT' ? `${formData.buyCurrency}/${formData.sellCurrency}` : 'T-Bills'}
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-blue-800/80 mt-0.5 font-medium">
+                                            Historical leaders: {recommendations.map(r => r.bank_name).join(', ')}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleApplySmartSelection}
+                                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer shrink-0"
+                                >
+                                    <Sparkles size={13} /> Auto-Select Top {recommendations.length}
+                                </button>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-3 sm:gap-4 flex-1">
                             {banks.map(bank => {
                                 const isSelected = selectedBanks.find(b => b.id === bank.bank_id);
+                                const rec = recommendations.find(r => r.bank_id === bank.bank_id);
                                 return (
                                     <div
                                         key={bank.id}
@@ -722,6 +804,14 @@ export default function QuotationRequestDashboard() {
                                                         )}
                                                     </div>
                                                     <p className="text-[10px] sm:text-xs text-gray-400 truncate mt-0.5">{bank.emails}</p>
+                                                    {rec?.highlight && (
+                                                        <div className="mt-1">
+                                                            <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold text-blue-700 bg-blue-50/90 border border-blue-200/90 px-2 py-0.5 rounded-full">
+                                                                <Sparkles size={10} className="text-blue-500 shrink-0" />
+                                                                {rec.highlight}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             <button
