@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { 
@@ -47,9 +47,14 @@ export default function QuotationBankOfferPage() {
     const [tbillLines, setTbillLines] = useState([{ settlementDate: '', maturityDate: '', discountRate: '', maxAmount: '' }]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
-    const [timeLeft, setTimeLeft] = useState({ label: '', status: 'PRE' });
+    const [timeLeft, setTimeLeft] = useState({ label: '', status: 'PRE', secondsRemaining: null });
     const [resultStatus, setResultStatus] = useState(null);
     const [timeOffset, setTimeOffset] = useState(0);
+
+    // Attention cues for window opening and title
+    const prevStatusRef = useRef(null);
+    const [showWindowOpenedAlert, setShowWindowOpenedAlert] = useState(false);
+    const originalTitleRef = useRef(typeof document !== 'undefined' ? document.title : 'Grow Treasury');
 
     // Active View Tab: 'LIVE' or 'HISTORY'
     const [activeTab, setActiveTab] = useState('LIVE');
@@ -172,7 +177,7 @@ export default function QuotationBankOfferPage() {
         };
     }, [timeLeft.status, resultStatus, checkResult]);
 
-    // 5. Live Countdown Timer
+    // 5. Live Countdown Timer with Dynamic Browser Titles & Urgency Tracking
     useEffect(() => {
         if (!rfq) return;
 
@@ -182,24 +187,57 @@ export default function QuotationBankOfferPage() {
             const end = new Date(rfq.window_end);
 
             if (now < start) {
-                const diff = Math.floor((start.getTime() - now.getTime()) / 1000);
+                const diff = Math.max(0, Math.floor((start.getTime() - now.getTime()) / 1000));
                 const mins = Math.floor(diff / 60);
                 const secs = diff % 60;
-                setTimeLeft({ label: `Starts in ${mins}:${secs.toString().padStart(2, '0')}`, status: 'PRE' });
+                setTimeLeft({ label: `Starts in ${mins}:${secs.toString().padStart(2, '0')}`, status: 'PRE', secondsRemaining: diff });
+                if (typeof document !== 'undefined') {
+                    document.title = `Starts in ${mins}:${secs.toString().padStart(2, '0')} - Grow Treasury`;
+                }
             } else if (now >= start && now <= end) {
-                const diff = Math.floor((end.getTime() - now.getTime()) / 1000);
+                const diff = Math.max(0, Math.floor((end.getTime() - now.getTime()) / 1000));
                 const mins = Math.floor(diff / 60);
                 const secs = diff % 60;
-                setTimeLeft({ label: `Window Closes in ${mins}:${secs.toString().padStart(2, '0')}`, status: 'OPEN' });
+                setTimeLeft({ label: `Window Closes in ${mins}:${secs.toString().padStart(2, '0')}`, status: 'OPEN', secondsRemaining: diff });
+                
+                if (typeof document !== 'undefined') {
+                    if (diff <= 5) {
+                        document.title = `⚠️ [${diff}s] CLOSING SOON - Grow Treasury`;
+                    } else if (diff <= 30) {
+                        document.title = `⏱️ [${diff}s] Quote Now - Grow Treasury`;
+                    } else {
+                        document.title = `🟢 [OPEN] Quote Now - Grow Treasury`;
+                    }
+                }
             } else {
-                setTimeLeft({ label: 'Window Closed', status: 'CLOSED' });
+                setTimeLeft({ label: 'Window Closed', status: 'CLOSED', secondsRemaining: 0 });
+                if (typeof document !== 'undefined') {
+                    document.title = 'Window Closed - Grow Treasury';
+                }
                 clearInterval(timer);
                 checkResult();
             }
         }, 1000);
 
-        return () => clearInterval(timer);
+        return () => {
+            clearInterval(timer);
+            if (typeof document !== 'undefined' && originalTitleRef.current) {
+                document.title = originalTitleRef.current;
+            }
+        };
     }, [rfq, timeOffset, checkResult]);
+
+    // 5b. Window Just Opened Transition Alert
+    useEffect(() => {
+        if (prevStatusRef.current === 'PRE' && timeLeft.status === 'OPEN') {
+            setShowWindowOpenedAlert(true);
+            const card = document.getElementById('bidding-quote-card');
+            if (card) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+        prevStatusRef.current = timeLeft.status;
+    }, [timeLeft.status]);
 
     // 6. Pre-fill existing offers
     useEffect(() => {
@@ -574,12 +612,30 @@ export default function QuotationBankOfferPage() {
                             </button>
                         </div>
 
-                        <div className={`px-4 py-2 rounded-xl font-mono text-xs sm:text-sm font-bold shadow-xs border shrink-0 transition-colors ${
-                            timeLeft.status === 'OPEN' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 animate-pulse' :
-                            timeLeft.status === 'PRE' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                            'bg-slate-100 text-slate-500 border-slate-200'
+                        <div className={`px-4 py-2 rounded-xl font-mono text-xs sm:text-sm font-bold shadow-xs border shrink-0 transition-all ${
+                            timeLeft.status === 'OPEN'
+                                ? timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 5
+                                    ? 'bg-rose-50 text-rose-700 border-rose-300 ring-2 ring-rose-400/50 animate-pulse font-extrabold flex items-center gap-1.5'
+                                    : timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 30
+                                    ? 'bg-amber-50 text-amber-800 border-amber-300 ring-2 ring-amber-400/40 animate-pulse flex items-center gap-1.5'
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200 animate-pulse'
+                                : timeLeft.status === 'PRE'
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : 'bg-slate-100 text-slate-500 border-slate-200'
                         }`}>
-                            {timeLeft.label}
+                            {timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 5 ? (
+                                <>
+                                    <span className="inline-block w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                                    <span>⚠️ Closing in {timeLeft.secondsRemaining}s!</span>
+                                </>
+                            ) : timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 30 ? (
+                                <>
+                                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+                                    <span>⏱️ {timeLeft.secondsRemaining}s remaining</span>
+                                </>
+                            ) : (
+                                timeLeft.label
+                            )}
                         </div>
                     </div>
                 </div>
@@ -677,6 +733,32 @@ export default function QuotationBankOfferPage() {
                                         <p className="text-xs sm:text-sm mt-0.5">Thank you for your prompt quote. Another counterparty was executed for this deal.</p>
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Window Just Opened Announcement Banner */}
+                        {showWindowOpenedAlert && timeLeft.status === 'OPEN' && (
+                            <div className="mb-4 p-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 text-white shadow-md border border-emerald-400/40 flex items-center justify-between gap-4 animate-fade-in-up">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-xs text-white shrink-0">
+                                        <CheckCircle2 size={24} className="animate-pulse text-emerald-100" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm sm:text-base font-extrabold tracking-tight flex items-center gap-2">
+                                            🟢 Quotation Window is Now Live!
+                                        </h3>
+                                        <p className="text-xs text-emerald-100 mt-0.5 font-medium">
+                                            The bidding window has opened. You can now enter your firm pricing and submit your quote.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowWindowOpenedAlert(false)}
+                                    className="px-3.5 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer"
+                                >
+                                    Dismiss
+                                </button>
                             </div>
                         )}
 
@@ -963,6 +1045,7 @@ export default function QuotationBankOfferPage() {
 
                                         {/* Main Bidding Console Card */}
                                         <section
+                                            id="bidding-quote-card"
                                             className={`p-5 sm:p-6 rounded-3xl shadow-xs border transition-all flex-1 flex flex-col ${
                                                 isViewOnly
                                                     ? 'bg-slate-50 border-slate-200 opacity-80'
@@ -994,6 +1077,17 @@ export default function QuotationBankOfferPage() {
                                                     <span className="px-3 py-1 bg-blue-100 text-blue-800 text-[10px] font-bold rounded-full border border-blue-200">
                                                         👁️ View-Only Observer
                                                     </span>
+                                                ) : timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 30 ? (
+                                                    timeLeft.secondsRemaining <= 5 ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
+                                                            <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
+                                                            Closing in {timeLeft.secondsRemaining}s!
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+                                                            ⏱️ {timeLeft.secondsRemaining}s left
+                                                        </span>
+                                                    )
                                                 ) : null}
                                             </div>
 
