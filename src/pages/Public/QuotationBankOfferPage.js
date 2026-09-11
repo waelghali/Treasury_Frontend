@@ -96,7 +96,9 @@ export default function QuotationBankOfferPage() {
 
             if (status === 'WINNER') {
                 setResultStatus('WINNER');
-            } else if (status === 'AWAITING_MANUAL_SELECTION' || status === 'INCONCLUSIVE') {
+            } else if (status === 'INCONCLUSIVE') {
+                setResultStatus('INCONCLUSIVE');
+            } else if (status === 'AWAITING_MANUAL_SELECTION' || status === 'PENDING') {
                 setResultStatus('AWAITING_SELECTION');
             } else if (status === 'NOT_SELECTED') {
                 setResultStatus('NOT_SELECTED');
@@ -149,16 +151,19 @@ export default function QuotationBankOfferPage() {
     // 4. Polling for results when closed
     useEffect(() => {
         let interval = null;
-        if (timeLeft.status === 'CLOSED' && !resultStatus) {
+        const terminalStatuses = ['WINNER', 'NOT_SELECTED', 'INCONCLUSIVE', 'INDICATIVE_ONLY', 'COMPLETED'];
+        const isTerminal = terminalStatuses.includes(resultStatus);
+
+        if (timeLeft.status === 'CLOSED' && !isTerminal) {
             const startPolling = async () => {
                 const initialStatus = await checkResult();
-                if (initialStatus && initialStatus !== 'PENDING') return;
+                if (initialStatus && terminalStatuses.includes(initialStatus)) return;
                 interval = setInterval(async () => {
                     const status = await checkResult();
-                    if (status && status !== 'PENDING') {
+                    if (status && terminalStatuses.includes(status)) {
                         if (interval) clearInterval(interval);
                     }
-                }, 10000);
+                }, 3000);
             };
             startPolling();
         }
@@ -189,11 +194,12 @@ export default function QuotationBankOfferPage() {
             } else {
                 setTimeLeft({ label: 'Window Closed', status: 'CLOSED' });
                 clearInterval(timer);
+                checkResult();
             }
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [rfq, timeOffset]);
+    }, [rfq, timeOffset, checkResult]);
 
     // 6. Pre-fill existing offers
     useEffect(() => {
@@ -636,7 +642,10 @@ export default function QuotationBankOfferPage() {
                         {resultStatus && (
                             <div
                                 className={`mb-3.5 p-3.5 sm:p-4 rounded-2xl border text-center animate-fade-in-up ${
-                                    resultStatus === 'WINNER' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-gray-50 border-gray-200 text-gray-600'
+                                    resultStatus === 'WINNER' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+                                    resultStatus === 'INCONCLUSIVE' ? 'bg-amber-50 border-amber-200 text-amber-900' :
+                                    resultStatus === 'AWAITING_SELECTION' ? 'bg-blue-50/70 border-blue-200 text-blue-900' :
+                                    'bg-gray-50 border-gray-200 text-gray-600'
                                 }`}
                             >
                                 {resultStatus === 'WINNER' ? (
@@ -647,7 +656,7 @@ export default function QuotationBankOfferPage() {
                                     </div>
                                 ) : resultStatus === 'AWAITING_SELECTION' ? (
                                     <div className="flex flex-col items-center">
-                                        <Clock className="mb-1 text-amber-500 animate-spin-slow" size={24} />
+                                        <Clock className="mb-1 text-blue-500 animate-spin-slow" size={24} />
                                         <h2 className="text-base sm:text-lg font-bold">Selection in Progress</h2>
                                         <p className="text-xs sm:text-sm mt-0.5">Thank you for your quote. The corporate treasury team is currently evaluating all counterparties.</p>
                                     </div>
@@ -658,8 +667,9 @@ export default function QuotationBankOfferPage() {
                                     </div>
                                 ) : resultStatus === 'INCONCLUSIVE' ? (
                                     <div className="flex flex-col items-center">
-                                        <h2 className="text-base sm:text-lg font-bold text-gray-800">Quotation Closed Without Winner</h2>
-                                        <p className="text-xs sm:text-sm text-gray-500 mt-0.5">This request closed without trade execution due to tolerance limits or market conditions.</p>
+                                        <AlertCircle className="mb-1 text-amber-500" size={24} />
+                                        <h2 className="text-base sm:text-lg font-bold text-amber-900">Quotation Closed Without Winner</h2>
+                                        <p className="text-xs sm:text-sm text-amber-700 mt-0.5">This quotation closed without trade execution due to tolerance limits or counterparty responses. Thank you for your participation.</p>
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center">

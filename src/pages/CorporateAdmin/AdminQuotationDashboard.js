@@ -487,7 +487,7 @@ export default function AdminQuotationDashboard() {
             {/* Selected RFQ Detail Modal */}
             {selectedRfqId && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 sm:p-6 overflow-hidden">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-fade-in-up">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl xl:max-w-6xl max-h-[85vh] sm:max-h-[82vh] overflow-hidden flex flex-col animate-fade-in-up">
                         <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-white z-10">
                             <h3 className="font-bold text-sm sm:text-base text-gray-900 truncate pr-4">
                                 RFQ Details: {history.find(r => r.id === selectedRfqId)?.ref_no || pendingApprovals.find(r => r.id === selectedRfqId)?.ref_no}

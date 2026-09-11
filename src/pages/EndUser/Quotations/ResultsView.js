@@ -89,6 +89,13 @@ export default function ResultsView({ rfqId }) {
 
     const [resultsMeta, setResultsMeta] = useState({});
 
+    const isWindowClosed = Boolean(
+        rfq && (
+            ['COMPLETED', 'CANCELLED', 'REJECTED'].includes(rfq.status) ||
+            (rfq.window_end && new Date() > new Date(rfq.window_end))
+        )
+    );
+
     const fetchResults = async () => {
         if (!rfqId) return null;
         try {
@@ -451,10 +458,12 @@ export default function ResultsView({ rfqId }) {
                                                 <td colSpan="5" className="py-8 text-center text-gray-400 italic">
                                                     {result.approval_status === 'DECLINED'
                                                         ? 'Participation declined by bank approver.'
-                                                        : result.approval_status === 'EXPIRED'
+                                                        : (result.approval_status === 'EXPIRED' || (isWindowClosed && result.approval_status === 'PENDING'))
                                                         ? 'Excluded: Bank approval window expired without response.'
                                                         : result.approval_status === 'PENDING'
                                                         ? 'Awaiting internal bank approver authorization before quoting.'
+                                                        : isWindowClosed
+                                                        ? 'Window closed without receiving any offers.'
                                                         : 'No offers submitted yet.'}
                                                 </td>
                                             </tr>
@@ -504,6 +513,8 @@ export default function ResultsView({ rfqId }) {
                                                     </span>
                                                 )}
                                             </p>
+                                        ) : isWindowClosed ? (
+                                            <p className="text-xs text-slate-400 font-medium">Window closed &bull; No quote submitted</p>
                                         ) : (
                                             <p className="text-xs text-amber-500 font-medium">No quote submitted</p>
                                         )}
@@ -597,8 +608,14 @@ export default function ResultsView({ rfqId }) {
                                             Approval Expired
                                         </span>
                                     ) : result.approval_status === 'PENDING' ? (
-                                        <span className="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg inline-block">
-                                            Pending Bank Approval
+                                        <span className={`text-xs font-bold px-3 py-1.5 rounded-lg inline-block ${
+                                            isWindowClosed ? 'text-gray-500 bg-gray-100 border border-gray-200' : 'text-amber-600 bg-amber-50 border border-amber-200'
+                                        }`}>
+                                            {isWindowClosed ? 'Approval Expired' : 'Pending Bank Approval'}
+                                        </span>
+                                    ) : isWindowClosed ? (
+                                        <span className="text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg inline-block">
+                                            No Offer Received
                                         </span>
                                     ) : (
                                         <span className="text-sm font-bold text-gray-400">Awaiting Submission</span>
