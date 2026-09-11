@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Printer, Shield, X, Award } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Printer, Shield, X, Award, RefreshCw } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
+import ReTenderModal from '../../../components/Modals/ReTenderModal';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const formatDate = (d) => {
@@ -89,6 +90,7 @@ export default function ResultsView({ rfqId }) {
 
     const [resultsMeta, setResultsMeta] = useState({});
     const [showAuditPack, setShowAuditPack] = useState(false);
+    const [showReTenderModal, setShowReTenderModal] = useState(false);
 
     const isWindowClosed = Boolean(
         rfq && (
@@ -219,7 +221,16 @@ export default function ResultsView({ rfqId }) {
                     </h3>
                     {rfq && <p className="text-sm font-mono font-bold text-gray-600">{rfq.ref_no}</p>}
                 </div>
-                <div className="flex items-center gap-4 mt-2 sm:mt-0">
+                <div className="flex items-center gap-3 mt-2 sm:mt-0 flex-wrap">
+                    {isWindowClosed && (
+                        <button
+                            onClick={() => setShowReTenderModal(true)}
+                            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 cursor-pointer"
+                            title="Clone deal parameters with a fresh bidding window"
+                        >
+                            <RefreshCw size={13} /> ⚡ 1-Click Re-Tender
+                        </button>
+                    )}
                     {(rfq?.status === 'COMPLETED' || rfq?.status === 'EVALUATING') && !resultsMeta.isInconclusive && (
                         <button
                             onClick={handleSendResults}
@@ -235,19 +246,27 @@ export default function ResultsView({ rfqId }) {
             </div>
 
             {resultsMeta.isInconclusive && (
-                <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-4">
-                    <AlertCircle className="text-amber-600 shrink-0 mt-0.5" size={24} />
-                    <div>
-                        <h4 className="font-bold text-sm uppercase tracking-wide">Quotation Closed Without Winner</h4>
-                        <p className="text-xs mt-1 leading-relaxed text-amber-800">{resultsMeta.inconclusiveReason}</p>
-                        {resultsMeta.bestIndicativeRate !== null && resultsMeta.bestExecutionRate !== null && (
-                            <div className="flex items-center gap-6 mt-3 pt-3 border-t border-amber-200/60 text-xs font-mono">
-                                <div><span className="font-sans text-[10px] uppercase font-bold text-amber-600 block">Indicative Benchmark</span>{resultsMeta.bestIndicativeRate.toFixed(4)}</div>
-                                <div><span className="font-sans text-[10px] uppercase font-bold text-amber-600 block">Best Execution Quote</span>{resultsMeta.bestExecutionRate.toFixed(4)}</div>
-                                <div><span className="font-sans text-[10px] uppercase font-bold text-amber-600 block">Deviation</span>{resultsMeta.deviationPercent ? `${resultsMeta.deviationPercent.toFixed(2)}%` : 'N/A'}</div>
-                            </div>
-                        )}
+                <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div className="flex items-start gap-4">
+                        <AlertCircle className="text-amber-600 shrink-0 mt-0.5" size={24} />
+                        <div>
+                            <h4 className="font-bold text-sm uppercase tracking-wide">Quotation Closed Without Winner</h4>
+                            <p className="text-xs mt-1 leading-relaxed text-amber-800">{resultsMeta.inconclusiveReason}</p>
+                            {resultsMeta.bestIndicativeRate !== null && resultsMeta.bestExecutionRate !== null && (
+                                <div className="flex items-center gap-6 mt-3 pt-3 border-t border-amber-200/60 text-xs font-mono">
+                                    <div><span className="font-sans text-[10px] uppercase font-bold text-amber-600 block">Indicative Benchmark</span>{resultsMeta.bestIndicativeRate.toFixed(4)}</div>
+                                    <div><span className="font-sans text-[10px] uppercase font-bold text-amber-600 block">Best Execution Quote</span>{resultsMeta.bestExecutionRate.toFixed(4)}</div>
+                                    <div><span className="font-sans text-[10px] uppercase font-bold text-amber-600 block">Deviation</span>{resultsMeta.deviationPercent ? `${resultsMeta.deviationPercent.toFixed(2)}%` : 'N/A'}</div>
+                                </div>
+                            )}
+                        </div>
                     </div>
+                    <button
+                        onClick={() => setShowReTenderModal(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 shrink-0 cursor-pointer"
+                    >
+                        <RefreshCw size={14} /> ⚡ 1-Click Re-Tender
+                    </button>
                 </div>
             )}
 
@@ -898,6 +917,17 @@ export default function ResultsView({ rfqId }) {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* 1-Click Re-Tender Modal */}
+            {showReTenderModal && rfq && (
+                <ReTenderModal
+                    rfq={rfq}
+                    onClose={() => setShowReTenderModal(false)}
+                    onSuccess={() => {
+                        fetchResults();
+                    }}
+                />
             )}
         </div>
     );

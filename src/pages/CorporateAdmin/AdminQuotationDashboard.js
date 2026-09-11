@@ -2,9 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import apiClient from '../../services/apiClient';
 import ResultsView from '../EndUser/Quotations/ResultsView';
+import AdminRevisionModal from '../../components/Modals/AdminRevisionModal';
+import ReTenderModal from '../../components/Modals/ReTenderModal';
 import {
     Bell, Check, X, BarChart3, Landmark, History, ChevronRight, Clock,
-    Search, Filter, AlertCircle, TrendingUp, ArrowUpRight, ArrowDownRight, FileText, Download
+    Search, Filter, AlertCircle, TrendingUp, ArrowUpRight, ArrowDownRight, FileText, Download,
+    Undo2, RefreshCw, Sparkles
 } from 'lucide-react';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -83,6 +86,8 @@ export default function AdminQuotationDashboard() {
     const [pendingApprovals, setPendingApprovals] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedRfqId, setSelectedRfqId] = useState(null);
+    const [revisionModalRfq, setRevisionModalRfq] = useState(null);
+    const [reTenderModalRfq, setReTenderModalRfq] = useState(null);
 
     // Filters
     const [statusFilter, setStatusFilter] = useState('ALL');
@@ -148,7 +153,7 @@ export default function AdminQuotationDashboard() {
 
     // Compute summary stats
     const totalRfqs = history.length;
-    const activeRfqs = history.filter(r => r.status === 'PENDING' || r.status === 'PENDING_APPROVAL').length;
+    const activeRfqs = history.filter(r => r.status === 'PENDING' || r.status === 'PENDING_APPROVAL' || r.status === 'NEEDS_REVISION').length;
     const completedRfqs = history.filter(r => r.status === 'COMPLETED' || r.status === 'EVALUATING').length;
     const rejectedRfqs = history.filter(r => r.status === 'REJECTED').length;
 
@@ -165,6 +170,7 @@ export default function AdminQuotationDashboard() {
     const getStatusStyle = (status) => {
         switch (status) {
             case 'PENDING_APPROVAL': return 'bg-orange-100 text-orange-700';
+            case 'NEEDS_REVISION': return 'bg-amber-100 text-amber-900 border border-amber-300';
             case 'PENDING': return 'bg-amber-100 text-amber-700';
             case 'REJECTED': return 'bg-red-100 text-red-700';
             case 'COMPLETED':
@@ -177,6 +183,7 @@ export default function AdminQuotationDashboard() {
     const getStatusLabel = (status) => {
         switch (status) {
             case 'PENDING_APPROVAL': return 'Needs Approval';
+            case 'NEEDS_REVISION': return 'Needs Revision';
             case 'PENDING': return 'Live';
             case 'EVALUATING': return 'Evaluating';
             case 'COMPLETED': return 'Completed';
@@ -280,24 +287,31 @@ export default function AdminQuotationDashboard() {
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex gap-3 shrink-0">
+                                <div className="flex flex-wrap gap-2.5 shrink-0">
                                     <button
                                         onClick={() => setSelectedRfqId(rfq.id)}
-                                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 font-semibold transition-all text-sm"
+                                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 font-semibold transition-all text-xs"
                                     >
-                                        <ChevronRight size={16} /> Review
+                                        <ChevronRight size={15} /> Review
+                                    </button>
+                                    <button
+                                        onClick={() => setRevisionModalRfq(rfq)}
+                                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold transition-all text-xs border border-amber-200"
+                                        title="Send back to creator with revision comments"
+                                    >
+                                        <Undo2 size={15} /> Return for Revision
                                     </button>
                                     <button
                                         onClick={() => handleReject(rfq.id)}
-                                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-50 text-gray-600 hover:bg-red-50 hover:text-red-600 font-bold transition-all text-sm"
+                                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-50 text-gray-600 hover:bg-red-50 hover:text-red-600 font-bold transition-all text-xs"
                                     >
-                                        <X size={16} /> Reject
+                                        <X size={15} /> Reject
                                     </button>
                                     <button
                                         onClick={() => handleApprove(rfq.id)}
-                                        className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-black text-white hover:bg-gray-800 font-bold shadow-lg shadow-gray-200 transition-all text-sm"
+                                        className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-black text-white hover:bg-gray-800 font-bold shadow-lg shadow-gray-200 transition-all text-xs"
                                     >
-                                        <Check size={16} /> Approve
+                                        <Check size={15} /> Approve
                                     </button>
                                 </div>
                             </div>
@@ -396,6 +410,7 @@ export default function AdminQuotationDashboard() {
                         >
                             <option value="ALL">All Statuses</option>
                             <option value="PENDING_APPROVAL">Needs Approval</option>
+                            <option value="NEEDS_REVISION">Needs Revision</option>
                             <option value="PENDING">Live</option>
                             <option value="COMPLETED">Completed</option>
                             <option value="EVALUATING">Evaluating</option>
@@ -426,7 +441,7 @@ export default function AdminQuotationDashboard() {
                                     <th className="px-4 sm:px-6 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">Details</th>
                                     <th className="px-4 sm:px-6 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">Amount</th>
                                     <th className="px-4 sm:px-6 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">Status</th>
-                                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase text-right">View</th>
+                                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
@@ -436,7 +451,14 @@ export default function AdminQuotationDashboard() {
                                         className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
                                         onClick={() => setSelectedRfqId(rfq.id)}
                                     >
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4 font-mono text-xs sm:text-sm font-bold truncate max-w-[120px]">{rfq.ref_no}</td>
+                                        <td className="px-4 sm:px-6 py-3 sm:py-4">
+                                            <div className="font-mono text-xs sm:text-sm font-bold text-gray-900">{rfq.ref_no}</div>
+                                            {rfq.parent_rfq_ref && (
+                                                <div className="text-[10px] text-indigo-600 font-mono flex items-center gap-1 mt-0.5" title={`Re-tendered from ${rfq.parent_rfq_ref}`}>
+                                                    <RefreshCw size={10} /> ↳ from {rfq.parent_rfq_ref}
+                                                </div>
+                                            )}
+                                        </td>
                                         <td className="px-4 sm:px-6 py-3 sm:py-4">
                                             <span className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider whitespace-nowrap ${rfq.type === 'TBILL' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
                                                 {rfq.type === 'TBILL' ? 'T-Bill' : 'FX Spot'}
@@ -447,7 +469,12 @@ export default function AdminQuotationDashboard() {
                                         </td>
                                         <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs text-gray-500 whitespace-nowrap">{formatDate(rfq.created_at)}</td>
                                         <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold whitespace-nowrap">
-                                            {rfq.type === 'TBILL' ? rfq.direction : `${rfq.buy_currency}/${rfq.sell_currency}`}
+                                            <div>{rfq.type === 'TBILL' ? rfq.direction : `${rfq.buy_currency}/${rfq.sell_currency}`}</div>
+                                            {rfq.winner_bank_name && (
+                                                <div className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 mt-0.5">
+                                                    🏆 {rfq.winner_bank_name} {rfq.winner_rate ? `@ ${rfq.winner_rate}` : ''}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm whitespace-nowrap">
                                             {rfq.type === 'TBILL'
@@ -460,12 +487,22 @@ export default function AdminQuotationDashboard() {
                                             </span>
                                         </td>
                                         <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setSelectedRfqId(rfq.id); }}
-                                                className="p-1.5 sm:p-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-colors inline-flex"
-                                            >
-                                                <ChevronRight size={18} />
-                                            </button>
+                                            <div className="flex items-center justify-end gap-1">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setReTenderModalRfq(rfq); }}
+                                                    className="p-1.5 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800 rounded-lg transition-colors inline-flex"
+                                                    title="Re-Tender with New Window"
+                                                >
+                                                    <RefreshCw size={15} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setSelectedRfqId(rfq.id); }}
+                                                    className="p-1.5 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-colors inline-flex"
+                                                    title="View Details"
+                                                >
+                                                    <ChevronRight size={17} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -504,6 +541,24 @@ export default function AdminQuotationDashboard() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Admin Return for Revision Modal */}
+            {revisionModalRfq && (
+                <AdminRevisionModal
+                    rfq={revisionModalRfq}
+                    onClose={() => setRevisionModalRfq(null)}
+                    onSuccess={fetchData}
+                />
+            )}
+
+            {/* 1-Click Re-Tender Modal */}
+            {reTenderModalRfq && (
+                <ReTenderModal
+                    rfq={reTenderModalRfq}
+                    onClose={() => setReTenderModalRfq(null)}
+                    onSuccess={fetchData}
+                />
             )}
         </div>
     );
