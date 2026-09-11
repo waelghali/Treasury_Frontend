@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2 } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -15,6 +15,69 @@ const formatDate = (d) => {
     } catch {
         return d;
     }
+};
+
+const renderApprovalBadge = (result) => {
+    if (!result || !result.approval_status) return null;
+
+    const status = (result.approval_status || '').toUpperCase();
+    if (status === 'PENDING') {
+        return (
+            <span 
+                className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full uppercase tracking-wider"
+                title="Awaiting internal bank approver authorization before quoting"
+            >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                Pending Bank Approval
+            </span>
+        );
+    }
+    if (status === 'APPROVED') {
+        const approvedDetail = [
+            result.approved_by_email ? `Approved by: ${result.approved_by_email}` : null,
+            result.approved_at ? `At: ${new Date(result.approved_at).toLocaleString()}` : null,
+            result.approval_notes ? `Notes: ${result.approval_notes}` : null
+        ].filter(Boolean).join('\n');
+
+        return (
+            <span 
+                className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider cursor-help"
+                title={approvedDetail || 'Bank approver authorized participation'}
+            >
+                <CheckCircle2 size={11} className="text-emerald-600" />
+                Bank Approved
+            </span>
+        );
+    }
+    if (status === 'DECLINED') {
+        const declinedDetail = [
+            result.approved_by_email ? `Declined by: ${result.approved_by_email}` : null,
+            result.approved_at ? `At: ${new Date(result.approved_at).toLocaleString()}` : null,
+            result.approval_notes ? `Reason: ${result.approval_notes}` : null
+        ].filter(Boolean).join('\n');
+
+        return (
+            <span 
+                className="inline-flex items-center gap-1 text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full uppercase tracking-wider cursor-help"
+                title={declinedDetail || 'Bank approver declined participation'}
+            >
+                <AlertCircle size={11} className="text-rose-600" />
+                Bank Declined
+            </span>
+        );
+    }
+    if (status === 'EXPIRED') {
+        return (
+            <span 
+                className="inline-flex items-center gap-1 text-[10px] font-bold bg-gray-100 text-gray-600 border border-gray-300 px-2 py-0.5 rounded-full uppercase tracking-wider cursor-help"
+                title="Quotation window closed without approver response. Excluded from quoting."
+            >
+                <Clock size={11} className="text-gray-500" />
+                Excluded — No Response
+            </span>
+        );
+    }
+    return null;
 };
 
 export default function ResultsView({ rfqId }) {
@@ -303,6 +366,7 @@ export default function ResultsView({ rfqId }) {
                                                     {result.quotation_base}
                                                 </span>
                                             )}
+                                            {renderApprovalBadge(result)}
                                             {result.is_document_visible === false && (
                                                 <span className="text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded uppercase">Doc Hidden</span>
                                             )}
@@ -345,6 +409,13 @@ export default function ResultsView({ rfqId }) {
                                 </div>
                             </div>
 
+                            {result.approval_status === 'DECLINED' && result.approval_notes && (
+                                <div className="mb-4 text-xs bg-rose-50 border border-rose-200 rounded-xl px-3.5 py-2 text-rose-800 flex items-start gap-2">
+                                    <AlertCircle size={14} className="text-rose-500 shrink-0 mt-0.5" />
+                                    <span className="leading-snug"><strong className="text-rose-900 font-semibold">Approver Decline Reason:</strong> {result.approval_notes}</span>
+                                </div>
+                            )}
+
                             {result.notes && (
                                 <div className="mb-4 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-700 flex items-start gap-2">
                                     <MessageSquare size={14} className="text-blue-500 shrink-0 mt-0.5" />
@@ -365,7 +436,7 @@ export default function ResultsView({ rfqId }) {
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
                                         {result.offers?.map((offer, i) => (
-                                            <tr key={i} className="group hover:bg-gray-50/50">
+                                             <tr key={i} className="group hover:bg-gray-50/50">
                                                 <td className="py-3 font-medium">{formatDate(offer.settlement_date)}</td>
                                                 <td className="py-3 font-medium">{formatDate(offer.maturity_date)}</td>
                                                 <td className="py-3 font-mono font-bold text-emerald-600">{offer.discount_rate.toFixed(4)}%</td>
@@ -377,7 +448,15 @@ export default function ResultsView({ rfqId }) {
                                         ))}
                                         {(!result.offers || result.offers.length === 0) && (
                                             <tr>
-                                                <td colSpan="5" className="py-8 text-center text-gray-400 italic">No offers submitted yet.</td>
+                                                <td colSpan="5" className="py-8 text-center text-gray-400 italic">
+                                                    {result.approval_status === 'DECLINED'
+                                                        ? 'Participation declined by bank approver.'
+                                                        : result.approval_status === 'EXPIRED'
+                                                        ? 'Excluded: Bank approval window expired without response.'
+                                                        : result.approval_status === 'PENDING'
+                                                        ? 'Awaiting internal bank approver authorization before quoting.'
+                                                        : 'No offers submitted yet.'}
+                                                </td>
                                             </tr>
                                         )}
                                     </tbody>
@@ -400,7 +479,7 @@ export default function ResultsView({ rfqId }) {
                                     {index === 0 && result.price ? <Trophy size={20} /> : <Landmark size={20} />}
                                 </div>
                                 <div>
-                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                         <h4 className="font-bold text-lg">{result.bank_name}</h4>
                                         {resultsMeta.winnerBankId && result.bank_id === resultsMeta.winnerBankId && (
                                             <span className="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded uppercase tracking-wider">Winner</span>
@@ -410,6 +489,7 @@ export default function ResultsView({ rfqId }) {
                                                 {result.quotation_base}
                                             </span>
                                         )}
+                                        {renderApprovalBadge(result)}
                                         {result.is_document_visible === false && (
                                             <span className="text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded uppercase">Doc Hidden</span>
                                         )}
@@ -450,6 +530,12 @@ export default function ResultsView({ rfqId }) {
                                             </button>
                                         )}
                                     </div>
+                                    {result.approval_status === 'DECLINED' && result.approval_notes && (
+                                        <div className="mt-2 text-xs bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5 text-rose-800 flex items-start gap-2 max-w-lg">
+                                            <AlertCircle size={13} className="text-rose-500 shrink-0 mt-0.5" />
+                                            <span className="leading-snug"><strong className="text-rose-900 font-semibold">Approver Decline Reason:</strong> {result.approval_notes}</span>
+                                        </div>
+                                    )}
                                     {result.notes && (
                                         <div className="mt-2 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 flex items-start gap-2 max-w-lg">
                                             <MessageSquare size={13} className="text-blue-500 shrink-0 mt-0.5" />
@@ -502,7 +588,21 @@ export default function ResultsView({ rfqId }) {
                                 </div>
                             ) : (
                                 <div className="text-right w-full md:w-auto">
-                                    <span className="text-sm font-bold text-gray-400">Awaiting Submission</span>
+                                    {result.approval_status === 'DECLINED' ? (
+                                        <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg inline-block">
+                                            Declined by Bank
+                                        </span>
+                                    ) : result.approval_status === 'EXPIRED' ? (
+                                        <span className="text-xs font-bold text-gray-500 bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg inline-block">
+                                            Approval Expired
+                                        </span>
+                                    ) : result.approval_status === 'PENDING' ? (
+                                        <span className="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg inline-block">
+                                            Pending Bank Approval
+                                        </span>
+                                    ) : (
+                                        <span className="text-sm font-bold text-gray-400">Awaiting Submission</span>
+                                    )}
                                 </div>
                             )}
                         </div>

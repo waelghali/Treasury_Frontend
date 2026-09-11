@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { 
     Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, 
-    ShieldCheck, Lock, Mail, KeyRound, UserCheck, Eye, History, ArrowLeft, RefreshCw, MessageSquare, Shield
+    Mail, KeyRound, UserCheck, Eye, History, RefreshCw, MessageSquare, Shield
 } from 'lucide-react';
 import './quotation-animations.css';
 
@@ -64,6 +64,11 @@ export default function QuotationBankOfferPage() {
     const [isRequestingOtp, setIsRequestingOtp] = useState(false);
     const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
     const [otpError, setOtpError] = useState('');
+
+    // Approver Action State
+    const [approvalNotes, setApprovalNotes] = useState('');
+    const [isActioningApproval, setIsActioningApproval] = useState(false);
+    const [approvalSuccessMsg, setApprovalSuccessMsg] = useState(null);
 
     const storageKey = `quotation_auth_${token}`;
 
@@ -302,6 +307,32 @@ export default function QuotationBankOfferPage() {
         setOtpSent(false);
         setOtpCode('');
         setInputEmail('');
+        setApprovalSuccessMsg(null);
+    };
+
+    // 8b. Approver Decision Handler
+    const handleApproverDecision = async (action) => {
+        if (!authSession || authSession.role !== 'APPROVER') return;
+        const confirmText = action === 'APPROVE'
+            ? 'Are you sure you want to APPROVE bank participation? This will notify your desk dealers to begin quoting.'
+            : 'Are you sure you want to DECLINE participation for this quotation?';
+        if (!window.confirm(confirmText)) return;
+
+        setIsActioningApproval(true);
+        try {
+            await axios.post(`${API_BASE_URL}/api/v1/public-quotation/${token}/approve`, {
+                action,
+                session_token: authSession.session_token,
+                notes: approvalNotes.trim() || undefined
+            });
+            setApprovalSuccessMsg(action === 'APPROVE' ? 'Bank participation approved! Execution dealers have been notified.' : 'Participation declined.');
+            await fetchRfq();
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.detail || 'Failed to record approval decision.');
+        } finally {
+            setIsActioningApproval(false);
+        }
     };
 
     // 9. Submit Offer
@@ -312,8 +343,8 @@ export default function QuotationBankOfferPage() {
             alert('Please authenticate first.');
             return;
         }
-        if (authSession.role === 'VIEW_ONLY') {
-            alert('You have View-Only observer permissions. Quotes can only be submitted by authorized Execution dealers.');
+        if (authSession.role === 'VIEW_ONLY' || authSession.role === 'APPROVER') {
+            alert('Quotes can only be submitted by authorized Execution dealers.');
             return;
         }
 
@@ -384,7 +415,8 @@ export default function QuotationBankOfferPage() {
 
     if (!rfq) return <div className="p-8 text-center text-gray-500 animate-pulse mt-20">Loading Secure Quotation Link...</div>;
 
-    const isViewOnly = authSession?.role === 'VIEW_ONLY';
+    const isApprover = authSession?.role === 'APPROVER';
+    const isViewOnly = authSession?.role === 'VIEW_ONLY' || (isApprover && rfq?.approval_status === 'APPROVED');
 
     return (
         <div className="relative min-h-screen bg-slate-100/60">
@@ -550,8 +582,14 @@ export default function QuotationBankOfferPage() {
                 {authSession && (
                     <div className="mb-4 p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
                         <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-xl ${authSession.role === 'EXECUTION' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-                                {authSession.role === 'EXECUTION' ? <UserCheck size={18} /> : <Eye size={18} />}
+                            <div className={`p-2 rounded-xl ${
+                                authSession.role === 'EXECUTION' 
+                                    ? 'bg-emerald-50 text-emerald-600' 
+                                    : authSession.role === 'APPROVER'
+                                    ? 'bg-amber-50 text-amber-600'
+                                    : 'bg-blue-50 text-blue-600'
+                            }`}>
+                                {authSession.role === 'EXECUTION' ? <UserCheck size={18} /> : authSession.role === 'APPROVER' ? <Shield size={18} /> : <Eye size={18} />}
                             </div>
                             <div>
                                 <div className="flex items-center gap-2">
@@ -559,14 +597,24 @@ export default function QuotationBankOfferPage() {
                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide border ${
                                         authSession.role === 'EXECUTION' 
                                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                            : authSession.role === 'APPROVER'
+                                            ? 'bg-amber-50 text-amber-700 border-amber-200'
                                             : 'bg-blue-50 text-blue-700 border-blue-200'
                                     }`}>
-                                        {authSession.role === 'EXECUTION' ? '⚡ AUTHORIZED EXECUTION DEALER' : '👁️ VIEW-ONLY OBSERVER'}
+                                        {authSession.role === 'EXECUTION' 
+                                            ? '⚡ AUTHORIZED EXECUTION DEALER' 
+                                            : authSession.role === 'APPROVER'
+                                            ? '🛡️ AUTHORIZED BANK APPROVER'
+                                            : '👁️ VIEW-ONLY OBSERVER'}
                                     </span>
                                 </div>
                                 <p className="text-[11px] text-gray-400">
                                     {authSession.role === 'EXECUTION' 
                                         ? 'Your quote submissions are binding and logged with your verified identity.' 
+                                        : authSession.role === 'APPROVER'
+                                        ? (rfq.approval_status === 'APPROVED' 
+                                            ? 'Bank participation approved. You are viewing live standings in Approver Viewer Mode.' 
+                                            : 'Action Required: Review deal specifications and authorize bank participation.')
                                         : 'You are viewing this RFQ in read-only mode.'}
                                 </p>
                             </div>
@@ -759,190 +807,340 @@ export default function QuotationBankOfferPage() {
 
                             {/* COLUMN 2: Right Side Bidding & Execution Console */}
                             <div className="flex flex-col gap-4">
-                                {/* Success Status Notification Card when Quote is Active */}
-                                {submitted && !isViewOnly && (
-                                    <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-2xl p-3 text-center flex flex-col items-center justify-center animate-fade-in shadow-xs">
-                                        <div className="w-7 h-7 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mb-1">
-                                            <CheckCircle2 size={16} className="text-emerald-600" />
+                                {approvalSuccessMsg && (
+                                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs rounded-2xl p-3.5 flex items-center justify-between animate-fade-in shadow-xs">
+                                        <div className="flex items-center gap-2">
+                                            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                                            <span>{approvalSuccessMsg}</span>
                                         </div>
-                                        <h3 className="text-sm font-bold text-emerald-950">Quote Recorded Successfully</h3>
-                                        <p className="text-xs text-emerald-800 mt-0.5">
-                                            {rfq.type === 'TBILL' ? 'Your T-Bill quote lines are actively registered with the client.' : 'Your spot price is actively registered with the client.'}
-                                        </p>
+                                        <button onClick={() => setApprovalSuccessMsg(null)} className="text-emerald-700 hover:text-emerald-900 text-xs font-bold px-2 py-0.5 cursor-pointer">×</button>
                                     </div>
                                 )}
-                                {/* Main Bidding Console Card */}
-                                <section
-                                    className={`p-5 sm:p-6 rounded-3xl shadow-xs border transition-all flex-1 flex flex-col ${
-                                        isViewOnly
-                                            ? 'bg-slate-50 border-slate-200 opacity-80'
-                                            : timeLeft.status === 'OPEN' 
-                                                ? 'bg-white border-2 border-slate-950 shadow-md' 
-                                                : 'bg-white border-slate-200'
-                                    }`}
-                                >
-                                    {/* Bidding Header */}
-                                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
-                                        <div>
-                                            <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                                                <TrendingUp size={14} className="text-emerald-600" /> {rfq.type === 'TBILL' ? 'T-Bill Quotation Lines' : 'Your Price Quote'}
-                                            </h3>
-                                            <p className="text-[11px] text-gray-500 mt-0.5">
-                                                {timeLeft.status === 'OPEN' ? 'Enter your binding rate for this quotation request.' : 'Quotation window is currently closed.'}
-                                            </p>
-                                        </div>
-                                        
-                                        {submitted ? (
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                                <CheckCircle2 size={14} className="text-emerald-600" /> Active Quote
-                                            </span>
-                                        ) : isViewOnly ? (
-                                            <span className="px-3 py-1 bg-blue-100 text-blue-800 text-[10px] font-bold rounded-full border border-blue-200">
-                                                👁️ View-Only Observer
-                                            </span>
-                                        ) : null}
-                                    </div>
 
-                                    {isViewOnly ? (
-                                        <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200 text-blue-900 text-xs leading-relaxed mb-4">
-                                            <strong>View-Only Notice:</strong> Your registered account has observer permissions. You can inspect trade parameters and history, but only dealers tagged for <strong>Execution</strong> can enter binding quotes.
+                                {rfq.approval_status === 'DECLINED' ? (
+                                    <section className="bg-red-50/80 border border-red-200 rounded-3xl p-6 sm:p-8 text-center flex-1 flex flex-col items-center justify-center animate-fade-in shadow-xs">
+                                        <div className="w-12 h-12 bg-red-100 text-red-700 rounded-2xl flex items-center justify-center mb-3">
+                                            <AlertCircle size={24} className="text-red-600" />
                                         </div>
+                                        <h3 className="text-base font-bold text-red-950">Bank Participation Declined</h3>
+                                        <p className="text-xs text-red-800 mt-1 max-w-sm leading-relaxed">
+                                            Your bank's authorized approver ({rfq.approved_by_email || 'Approver'}) declined participation in this quotation{rfq.approval_notes ? `: "${rfq.approval_notes}"` : '.'}
+                                        </p>
+                                        <p className="text-[11px] text-red-600/80 mt-2 font-medium">No quotes can be submitted for this request.</p>
+                                    </section>
+                                ) : rfq.approval_status === 'EXPIRED' ? (
+                                    <section className="bg-slate-100 border border-slate-300 rounded-3xl p-6 sm:p-8 text-center flex-1 flex flex-col items-center justify-center animate-fade-in shadow-xs">
+                                        <div className="w-12 h-12 bg-slate-200 text-slate-600 rounded-2xl flex items-center justify-center mb-3">
+                                            <Clock size={24} className="text-slate-500" />
+                                        </div>
+                                        <h3 className="text-base font-bold text-slate-800">Quotation Excluded — Late Response</h3>
+                                        <p className="text-xs text-slate-600 mt-1 max-w-sm leading-relaxed">
+                                            The quotation window closed before bank participation was authorized by your Approver. As per platform policy, late responses result in exclusion from this quotation.
+                                        </p>
+                                    </section>
+                                ) : rfq.approval_status === 'PENDING' ? (
+                                    isApprover ? (
+                                        <section className="bg-white p-6 sm:p-7 rounded-3xl shadow-md border-2 border-amber-500/60 flex-1 flex flex-col justify-between animate-fade-in">
+                                            <div>
+                                                <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                                                    <div>
+                                                        <h3 className="text-xs font-bold uppercase tracking-widest text-amber-700 flex items-center gap-2">
+                                                            <Shield size={16} className="text-amber-600" /> Bank Participation Authorization
+                                                        </h3>
+                                                        <p className="text-[11px] text-gray-500 mt-0.5">
+                                                            Authorized approver review for {rfq.bank_name}
+                                                        </p>
+                                                    </div>
+                                                    <span className="px-3 py-1 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full border border-amber-200 animate-pulse">
+                                                        ACTION REQUIRED
+                                                    </span>
+                                                </div>
+
+                                                <div className="space-y-4 text-xs text-gray-600 leading-relaxed">
+                                                    <p>
+                                                        As an authorized Approver for <strong>{rfq.bank_name}</strong>, your authorization is required before execution dealers on your desk can submit binding quotes for this <strong>{rfq.quotation_base || 'Execution'}</strong> request from <strong>{rfq.customer_name}</strong>.
+                                                    </p>
+
+                                                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs">
+                                                        <div className="font-bold text-gray-900 mb-1">Deal Summary:</div>
+                                                        <ul className="space-y-1 text-slate-600 font-medium">
+                                                            <li>&bull; Reference: <span className="font-mono font-bold text-gray-900">{rfq.ref_no}</span></li>
+                                                            <li>&bull; Product: <span className="font-bold text-gray-900">{rfq.type}</span></li>
+                                                            {rfq.type === 'TBILL' ? (
+                                                                <>
+                                                                    <li>&bull; Min Ticket: <span className="font-bold text-gray-900">{new Intl.NumberFormat().format(rfq.min_ticket_amount || 0)}</span></li>
+                                                                    <li>&bull; Settlement: <span className="font-bold text-gray-900">{formatDate(rfq.settlement_date_start)}</span></li>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <li>&bull; Pair: <span className="font-bold text-gray-900">{rfq.buy_currency}/{rfq.sell_currency}</span></li>
+                                                                    <li>&bull; Amount: <span className="font-bold text-gray-900">{new Intl.NumberFormat().format(rfq.amount || 0)} {rfq.buy_currency}</span></li>
+                                                                    <li>&bull; Value Date: <span className="font-bold text-gray-900">{formatDate(rfq.value_date)}</span></li>
+                                                                </>
+                                                            )}
+                                                        </ul>
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1.5 flex items-center gap-1.5">
+                                                            <MessageSquare size={13} className="text-slate-400" />
+                                                            Approval / Decline Notes (Optional)
+                                                        </label>
+                                                        <textarea
+                                                            rows={3}
+                                                            placeholder="Add any internal remarks, instructions, or ticket limits for your trading desk..."
+                                                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-gray-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 resize-none font-sans"
+                                                            value={approvalNotes}
+                                                            onChange={(e) => setApprovalNotes(e.target.value)}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
+                                                <button
+                                                    type="button"
+                                                    disabled={isActioningApproval || timeLeft.status === 'CLOSED'}
+                                                    onClick={() => handleApproverDecision('DECLINE')}
+                                                    className="flex-1 py-3 px-4 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                                >
+                                                    🛑 Decline Participation
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={isActioningApproval || timeLeft.status === 'CLOSED'}
+                                                    onClick={() => handleApproverDecision('APPROVE')}
+                                                    className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                                >
+                                                    <CheckCircle2 size={15} /> Approve & Notify Dealers
+                                                </button>
+                                            </div>
+                                        </section>
                                     ) : (
-                                        <form id="quote-form" onSubmit={handleSubmit} className="space-y-4">
-                                            {rfq.type === 'TBILL' ? (
-                                                <div className="space-y-3.5">
-                                                    {tbillLines.map((line, index) => (
-                                                        <div key={index} className="p-3.5 sm:p-4 bg-slate-50 rounded-2xl border border-slate-200 relative group">
-                                                            {tbillLines.length > 1 && timeLeft.status === 'OPEN' && (
+                                        <section className="bg-amber-50/70 border border-amber-200/80 rounded-3xl p-6 sm:p-8 text-center flex-1 flex flex-col items-center justify-center animate-fade-in shadow-xs">
+                                            <div className="w-12 h-12 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mb-3">
+                                                <Clock size={24} className="animate-spin-slow text-amber-600" />
+                                            </div>
+                                            <h3 className="text-base font-bold text-amber-950">Awaiting Bank Approval</h3>
+                                            <p className="text-xs text-amber-800 mt-1 max-w-sm leading-relaxed">
+                                                This quotation is currently awaiting authorization from your bank's designated Approver. You will receive an email notification as soon as participation is authorized.
+                                            </p>
+                                        </section>
+                                    )
+                                ) : (
+                                    <>
+                                        {/* Success Status Notification Card when Quote is Active */}
+                                        {submitted && !isViewOnly && (
+                                            <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-2xl p-3 text-center flex flex-col items-center justify-center animate-fade-in shadow-xs">
+                                                <div className="w-7 h-7 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mb-1">
+                                                    <CheckCircle2 size={16} className="text-emerald-600" />
+                                                </div>
+                                                <h3 className="text-sm font-bold text-emerald-950">Quote Recorded Successfully</h3>
+                                                <p className="text-xs text-emerald-800 mt-0.5">
+                                                    {rfq.type === 'TBILL' ? 'Your T-Bill quote lines are actively registered with the client.' : 'Your spot price is actively registered with the client.'}
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {isApprover && rfq.approval_status === 'APPROVED' && (
+                                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-xs text-emerald-900 flex items-center gap-2">
+                                                <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                                                <span>
+                                                    <strong>Participation Approved:</strong> You authorized this RFQ on {formatDate(rfq.approved_at)}. You are observing desk activity in Approver Viewer Mode.
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Main Bidding Console Card */}
+                                        <section
+                                            className={`p-5 sm:p-6 rounded-3xl shadow-xs border transition-all flex-1 flex flex-col ${
+                                                isViewOnly
+                                                    ? 'bg-slate-50 border-slate-200 opacity-80'
+                                                    : timeLeft.status === 'OPEN' 
+                                                        ? 'bg-white border-2 border-slate-950 shadow-md' 
+                                                        : 'bg-white border-slate-200'
+                                            }`}
+                                        >
+                                            {/* Bidding Header */}
+                                            <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                                                <div>
+                                                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                                                        <TrendingUp size={14} className="text-emerald-600" /> {rfq.type === 'TBILL' ? 'T-Bill Quotation Lines' : 'Your Price Quote'}
+                                                    </h3>
+                                                    <p className="text-[11px] text-gray-500 mt-0.5">
+                                                        {timeLeft.status === 'OPEN' ? 'Enter your binding rate for this quotation request.' : 'Quotation window is currently closed.'}
+                                                    </p>
+                                                </div>
+                                                
+                                                {submitted ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                        <CheckCircle2 size={14} className="text-emerald-600" /> Active Quote
+                                                    </span>
+                                                ) : isApprover ? (
+                                                    <span className="px-3 py-1 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full border border-amber-200">
+                                                        🛡️ Approver Viewer Mode
+                                                    </span>
+                                                ) : isViewOnly ? (
+                                                    <span className="px-3 py-1 bg-blue-100 text-blue-800 text-[10px] font-bold rounded-full border border-blue-200">
+                                                        👁️ View-Only Observer
+                                                    </span>
+                                                ) : null}
+                                            </div>
+
+                                            {isViewOnly ? (
+                                                <div className={`p-4 rounded-2xl text-xs leading-relaxed mb-4 border ${
+                                                    isApprover ? 'bg-amber-50/60 border-amber-200 text-amber-900' : 'bg-blue-50/60 border-blue-200 text-blue-900'
+                                                }`}>
+                                                    <strong>{isApprover ? 'Approver Viewer Notice:' : 'View-Only Notice:'}</strong>{' '}
+                                                    {isApprover
+                                                        ? 'You have approved bank participation. As an Approver, you can monitor the live RFQ and submissions entered by your execution traders.'
+                                                        : 'Your registered account has observer permissions. You can inspect trade parameters and history, but only dealers tagged for Execution can enter binding quotes.'}
+                                                </div>
+                                            ) : (
+                                                <form id="quote-form" onSubmit={handleSubmit} className="space-y-4">
+                                                    {rfq.type === 'TBILL' ? (
+                                                        <div className="space-y-3.5">
+                                                            {tbillLines.map((line, index) => (
+                                                                <div key={index} className="p-3.5 sm:p-4 bg-slate-50 rounded-2xl border border-slate-200 relative group">
+                                                                    {tbillLines.length > 1 && timeLeft.status === 'OPEN' && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => removeTbillLine(index)}
+                                                                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-sm cursor-pointer"
+                                                                        >
+                                                                            ×
+                                                                        </button>
+                                                                    )}
+                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                        <div>
+                                                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Settlement Date</label>
+                                                                            <input
+                                                                                type="date"
+                                                                                required
+                                                                                disabled={timeLeft.status !== 'OPEN'}
+                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black"
+                                                                                value={line.settlementDate}
+                                                                                onChange={e => updateTbillLine(index, 'settlementDate', e.target.value)}
+                                                                            />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Maturity Date</label>
+                                                                            <input
+                                                                                type="date"
+                                                                                required
+                                                                                disabled={timeLeft.status !== 'OPEN'}
+                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black"
+                                                                                value={line.maturityDate}
+                                                                                onChange={e => updateTbillLine(index, 'maturityDate', e.target.value)}
+                                                                            />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Discount Rate (%)</label>
+                                                                            <input
+                                                                                type="number"
+                                                                                step="0.0001"
+                                                                                required
+                                                                                disabled={timeLeft.status !== 'OPEN'}
+                                                                                onWheel={(e) => e.currentTarget.blur()}
+                                                                                placeholder="e.g. 18.50"
+                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-black"
+                                                                                value={line.discountRate}
+                                                                                onChange={e => updateTbillLine(index, 'discountRate', e.target.value)}
+                                                                            />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Max Amount</label>
+                                                                            <input
+                                                                                type="number"
+                                                                                required
+                                                                                disabled={timeLeft.status !== 'OPEN'}
+                                                                                onWheel={(e) => e.currentTarget.blur()}
+                                                                                placeholder="e.g. 10000000"
+                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black"
+                                                                                value={line.maxAmount}
+                                                                                onChange={e => updateTbillLine(index, 'maxAmount', e.target.value)}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                    {line.discountRate && line.maxAmount && (
+                                                                        <div className="mt-2 text-right">
+                                                                            <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 font-bold">
+                                                                                Rate: {line.discountRate}% &bull; Cap: {new Intl.NumberFormat().format(line.maxAmount)}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+
+                                                            {timeLeft.status === 'OPEN' && (
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => removeTbillLine(index)}
-                                                                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-sm cursor-pointer"
+                                                                    onClick={addTbillLine}
+                                                                    className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 px-3.5 py-2 rounded-xl transition-all cursor-pointer"
                                                                 >
-                                                                    ×
+                                                                    + Add Line Item
                                                                 </button>
                                                             )}
-                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                                <div>
-                                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Settlement Date</label>
-                                                                    <input
-                                                                        type="date"
-                                                                        required
-                                                                        disabled={timeLeft.status !== 'OPEN'}
-                                                                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black"
-                                                                        value={line.settlementDate}
-                                                                        onChange={e => updateTbillLine(index, 'settlementDate', e.target.value)}
-                                                                    />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Maturity Date</label>
-                                                                    <input
-                                                                        type="date"
-                                                                        required
-                                                                        disabled={timeLeft.status !== 'OPEN'}
-                                                                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black"
-                                                                        value={line.maturityDate}
-                                                                        onChange={e => updateTbillLine(index, 'maturityDate', e.target.value)}
-                                                                    />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Discount Rate (%)</label>
-                                                                    <input
-                                                                        type="number"
-                                                                        step="0.0001"
-                                                                        required
-                                                                        disabled={timeLeft.status !== 'OPEN'}
-                                                                        onWheel={(e) => e.currentTarget.blur()}
-                                                                        placeholder="e.g. 18.50"
-                                                                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-black"
-                                                                        value={line.discountRate}
-                                                                        onChange={e => updateTbillLine(index, 'discountRate', e.target.value)}
-                                                                    />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Max Amount</label>
-                                                                    <input
-                                                                        type="number"
-                                                                        required
-                                                                        disabled={timeLeft.status !== 'OPEN'}
-                                                                        onWheel={(e) => e.currentTarget.blur()}
-                                                                        placeholder="0.00"
-                                                                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-black"
-                                                                        value={line.maxAmount}
-                                                                        onChange={e => updateTbillLine(index, 'maxAmount', e.target.value)}
-                                                                    />
+                                                        </div>
+                                                    ) : (
+                                                        <div>
+                                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2">
+                                                                Spot Rate Quote ({rfq.sell_currency} per 1 {rfq.buy_currency})
+                                                            </label>
+                                                            <div className="relative">
+                                                                <input
+                                                                    type="number"
+                                                                    step="0.0001"
+                                                                    required
+                                                                    disabled={timeLeft.status !== 'OPEN' || isSubmitting}
+                                                                    onWheel={(e) => e.currentTarget.blur()}
+                                                                    placeholder="Enter spot rate (e.g. 48.6500)"
+                                                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-2xl font-bold focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none"
+                                                                    value={price}
+                                                                    onChange={e => setPrice(e.target.value)}
+                                                                />
+                                                                <div className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">
+                                                                    {rfq.sell_currency}
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    ))}
-
-                                                    {timeLeft.status === 'OPEN' && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={addTbillLine}
-                                                            className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 px-3.5 py-2 rounded-xl transition-all cursor-pointer"
-                                                        >
-                                                            + Add Line Item
-                                                        </button>
                                                     )}
-                                                </div>
-                                            ) : (
-                                                <div>
-                                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">
-                                                        Spot Exchange Rate
-                                                    </label>
-                                                    <div className="relative">
-                                                        <input
-                                                            type="number"
-                                                            step="0.00001"
-                                                            required
+
+                                                    {/* Trader Comments / Notes */}
+                                                    <div>
+                                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1.5">
+                                                            <MessageSquare size={13} className="text-gray-400" />
+                                                            Trader Comments / Execution Notes (Optional)
+                                                        </label>
+                                                        <textarea
+                                                            rows={2}
                                                             disabled={timeLeft.status !== 'OPEN' || isSubmitting}
-                                                            onWheel={(e) => e.currentTarget.blur()}
-                                                            placeholder="Enter spot rate (e.g. 48.6500)"
-                                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-2xl font-bold focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none"
-                                                            value={price}
-                                                            onChange={e => setPrice(e.target.value)}
+                                                            placeholder="Add any settlement notes, execution remarks, or comments for the treasury desk..."
+                                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-gray-800 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none resize-none"
+                                                            value={traderNotes}
+                                                            onChange={(e) => setTraderNotes(e.target.value)}
                                                         />
-                                                        <div className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">
-                                                            {rfq.sell_currency}
+                                                    </div>
+
+                                                    {/* Form Submit Action directly below */}
+                                                    <div className="pt-1">
+                                                        <button
+                                                            type="submit"
+                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || !authSession || (rfq.type === 'TBILL' ? tbillLines.some(l => !l.discountRate || !l.maxAmount) : !price)}
+                                                            className="w-full py-3.5 bg-slate-950 text-white rounded-2xl font-bold text-base hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all shadow-md cursor-pointer"
+                                                        >
+                                                            {isSubmitting ? 'Submitting Quote...' : timeLeft.status === 'PRE' ? 'Waiting for Window to Open' : timeLeft.status === 'CLOSED' ? 'Window Closed' : (submitted ? 'Update Quote' : 'Submit Binding Quote')}
+                                                        </button>
+                                                        <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400 mt-2">
+                                                            <Shield size={12} className="text-emerald-600" />
+                                                            <span>Institutional End-to-End Encryption & Audit Logging Active</span>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                </form>
                                             )}
-
-                                            {/* Trader Comments / Notes */}
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1.5">
-                                                    <MessageSquare size={13} className="text-gray-400" />
-                                                    Trader Comments / Execution Notes (Optional)
-                                                </label>
-                                                <textarea
-                                                    rows={2}
-                                                    disabled={timeLeft.status !== 'OPEN' || isSubmitting}
-                                                    placeholder="Add any settlement notes, execution remarks, or comments for the treasury desk..."
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-gray-800 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none resize-none"
-                                                    value={traderNotes}
-                                                    onChange={(e) => setTraderNotes(e.target.value)}
-                                                />
-                                            </div>
-
-                                            {/* Form Submit Action directly below */}
-                                            <div className="pt-1">
-                                                <button
-                                                    type="submit"
-                                                    disabled={timeLeft.status !== 'OPEN' || isSubmitting || !authSession || (rfq.type === 'TBILL' ? tbillLines.some(l => !l.discountRate || !l.maxAmount) : !price)}
-                                                    className="w-full py-3.5 bg-slate-950 text-white rounded-2xl font-bold text-base hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all shadow-md cursor-pointer"
-                                                >
-                                                    {isSubmitting ? 'Submitting Quote...' : timeLeft.status === 'PRE' ? 'Waiting for Window to Open' : timeLeft.status === 'CLOSED' ? 'Window Closed' : (submitted ? 'Update Quote' : 'Submit Binding Quote')}
-                                                </button>
-                                                <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400 mt-2">
-                                                    <Shield size={12} className="text-emerald-600" />
-                                                    <span>Institutional End-to-End Encryption & Audit Logging Active</span>
-                                                </div>
-                                            </div>
-                                        </form>
-                                    )}
-                                </section>
+                                        </section>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </>

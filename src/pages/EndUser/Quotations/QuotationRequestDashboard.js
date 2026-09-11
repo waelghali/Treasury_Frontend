@@ -82,6 +82,7 @@ export default function QuotationRequestDashboard() {
                     id: bank.bank_id, 
                     name: bank.bank?.name || `Bank ${bank.bank_id}`, 
                     emails: bank.emails, 
+                    contacts: bank.contacts || [],
                     costMin: fetchedCosts.costMin, 
                     costPercent: fetchedCosts.costPercent, 
                     costMax: fetchedCosts.costMax, 
@@ -119,6 +120,20 @@ export default function QuotationRequestDashboard() {
     const uniqueBases = Array.from(new Set(selectedBanks.map(b => b.quotationBase || formData.quotationBase)));
     const hasMixedBases = selectedBanks.length > 1 && uniqueBases.length > 1;
 
+    // Detect if any selected Execution bank has an internal Approver layer
+    const selectedBanksWithApprovers = selectedBanks.filter(sb => {
+        const isExecution = (sb.quotationBase || formData.quotationBase) === 'Execution';
+        if (!isExecution) return false;
+        const fullBank = banks.find(b => b.bank_id === sb.id);
+        const contacts = fullBank?.contacts || sb.contacts || [];
+        return contacts.some(c => c.role === 'APPROVER');
+    });
+
+    const windowStartMs = formData.windowStart ? new Date(formData.windowStart).getTime() : null;
+    const nowMs = Date.now();
+    const diffMinsToStart = windowStartMs !== null ? Math.round((windowStartMs - nowMs) / 60000) : null;
+    const isApproverWindowTight = selectedBanksWithApprovers.length > 0 && diffMinsToStart !== null && diffMinsToStart < 30;
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -132,6 +147,18 @@ export default function QuotationRequestDashboard() {
 
         const windowStart = new Date(formData.windowStart);
         const windowEnd = new Date(windowStart.getTime() + parseInt(formData.windowDuration) * 1000);
+
+        // Approver Timing Notice Check: If window starts in less than 30 mins and approver layer is present
+        if (isApproverWindowTight) {
+            const bankNames = selectedBanksWithApprovers.map(b => b.name).join(', ');
+            const leadTimeText = diffMinsToStart <= 0 ? 'immediately' : `in ${diffMinsToStart} minutes`;
+            if (!window.confirm(
+                `Notice: ${bankNames} require internal Bank Approver sign-off before quoting, but this quotation starts ${leadTimeText}.\n\nApprovers may not have sufficient lead time to authorize participation. Do you want to proceed anyway?`
+            )) {
+                setIsSubmitting(false);
+                return;
+            }
+        }
 
         // Time Safety Check: If closing_time is less than 30 mins from now
         const now = new Date();
@@ -580,6 +607,19 @@ export default function QuotationRequestDashboard() {
                                     </select>
                                 </div>
                             </div>
+                            {isApproverWindowTight && (
+                                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+                                    <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <strong className="block font-bold text-amber-950 text-[11px] uppercase tracking-wide">
+                                            Tight Approver Authorization Window
+                                        </strong>
+                                        <p className="mt-0.5 text-amber-800 leading-relaxed text-[11px]">
+                                            {selectedBanksWithApprovers.map(b => b.name).join(', ')} {selectedBanksWithApprovers.length === 1 ? 'has' : 'have'} an internal Bank Approver layer configured. Since the quotation starts in {diffMinsToStart <= 0 ? 'less than a minute' : `${diffMinsToStart} minutes`}, bank approvers may have limited time to review parameters and authorize participation before bidding opens.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </section>
 
@@ -673,7 +713,14 @@ export default function QuotationRequestDashboard() {
                                                     <Landmark size={17} />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <h4 className="font-semibold text-xs sm:text-base text-gray-900 truncate leading-tight">{bank.bank?.name || `Bank ${bank.bank_id}`}</h4>
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <h4 className="font-semibold text-xs sm:text-base text-gray-900 truncate leading-tight">{bank.bank?.name || `Bank ${bank.bank_id}`}</h4>
+                                                        {bank.contacts?.some(c => c.role === 'APPROVER') && (
+                                                            <span className="text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Counterparty has internal bank approver contact configured">
+                                                                Approver Layer
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-[10px] sm:text-xs text-gray-400 truncate mt-0.5">{bank.emails}</p>
                                                 </div>
                                             </div>

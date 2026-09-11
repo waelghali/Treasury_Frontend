@@ -22,6 +22,7 @@ export default function QuotationBanksModal({ onClose }) {
         name: '',
         role: 'EXECUTION'
     });
+    const [roleNotice, setRoleNotice] = useState(null);
 
     useEffect(() => {
         fetchBanks();
@@ -49,20 +50,45 @@ export default function QuotationBanksModal({ onClose }) {
     };
 
     const handleAddContactToForm = () => {
-        if (!newContact.email.trim()) {
+        const email = newContact.email.trim();
+        if (!email) {
             alert('Please enter a valid contact email address.');
             return;
         }
-        // Check for duplicates in form
-        if (formData.contacts.some(c => c.email.trim().toLowerCase() === newContact.email.trim().toLowerCase())) {
-            alert('This email is already added to the contact list.');
-            return;
+
+        const existingIdx = formData.contacts.findIndex(
+            c => c.email.trim().toLowerCase() === email.toLowerCase()
+        );
+
+        if (existingIdx >= 0) {
+            const existing = formData.contacts[existingIdx];
+            // Conflict check between APPROVER and EXECUTION
+            if (existing.role === 'EXECUTION' && newContact.role === 'APPROVER') {
+                setRoleNotice(`Contact ${email} is already an Execution dealer. Dealers provide embedded approval by submitting a quote directly. APPROVER role was not added.`);
+                return;
+            } else if (existing.role === 'APPROVER' && newContact.role === 'EXECUTION') {
+                // Auto-convert APPROVER to EXECUTION and notify
+                setFormData({
+                    ...formData,
+                    contacts: formData.contacts.map((c, idx) =>
+                        idx === existingIdx ? { ...c, role: 'EXECUTION', name: newContact.name || c.name } : c
+                    )
+                });
+                setNewContact({ email: '', name: '', role: 'EXECUTION' });
+                setRoleNotice(`Contact ${email} was previously an Approver. Converted to Execution dealer (provides embedded approval). APPROVER role was replaced.`);
+                return;
+            } else {
+                alert(`This contact (${email}) is already added with role: ${existing.role}`);
+                return;
+            }
         }
+
         setFormData({
             ...formData,
-            contacts: [...formData.contacts, { ...newContact, email: newContact.email.trim() }]
+            contacts: [...formData.contacts, { ...newContact, email }]
         });
         setNewContact({ email: '', name: '', role: 'EXECUTION' });
+        setRoleNotice(null);
     };
 
     const handleRemoveContactFromForm = (indexToRemove) => {
@@ -70,22 +96,29 @@ export default function QuotationBanksModal({ onClose }) {
             ...formData,
             contacts: formData.contacts.filter((_, idx) => idx !== indexToRemove)
         });
+        setRoleNotice(null);
     };
 
     const handleToggleContactRole = (index) => {
+        setRoleNotice(null);
         setFormData({
             ...formData,
             contacts: formData.contacts.map((c, idx) => {
                 if (idx !== index) return c;
+                let nextRole = 'EXECUTION';
+                if (c.role === 'EXECUTION') nextRole = 'VIEW_ONLY';
+                else if (c.role === 'VIEW_ONLY') nextRole = 'APPROVER';
+                else if (c.role === 'APPROVER') nextRole = 'EXECUTION';
                 return {
                     ...c,
-                    role: c.role === 'EXECUTION' ? 'VIEW_ONLY' : 'EXECUTION'
+                    role: nextRole
                 };
             })
         });
     };
 
     const handleStartEdit = (bank) => {
+        setRoleNotice(null);
         let parsedContacts = bank.contacts || [];
         if (!parsedContacts.length && bank.emails) {
             parsedContacts = bank.emails.split(',').map(e => ({
@@ -108,7 +141,21 @@ export default function QuotationBanksModal({ onClose }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const validContacts = formData.contacts.filter(c => c.email && c.email.trim());
+        // Sanitize: ensure no dual APPROVER + EXECUTION for same email
+        const contactMap = new Map();
+        for (const c of formData.contacts) {
+            if (!c.email || !c.email.trim()) continue;
+            const norm = c.email.trim().toLowerCase();
+            if (!contactMap.has(norm)) {
+                contactMap.set(norm, { ...c, email: c.email.trim() });
+            } else {
+                const existing = contactMap.get(norm);
+                if (existing.role === 'APPROVER' && c.role === 'EXECUTION') {
+                    contactMap.set(norm, { ...c, email: c.email.trim() });
+                }
+            }
+        }
+        const validContacts = Array.from(contactMap.values());
         if (validContacts.length === 0) {
             alert('Please add at least one contact email address.');
             return;
@@ -122,6 +169,7 @@ export default function QuotationBanksModal({ onClose }) {
             });
             setIsAdding(false);
             setEditingBankId(null);
+            setRoleNotice(null);
             setFormData({
                 bank_id: '',
                 trade_type: 'BOTH',
@@ -172,7 +220,7 @@ export default function QuotationBanksModal({ onClose }) {
                             <Building className="w-5 h-5 text-blue-400" />
                             Quotation Banks & Counterparty Roster
                         </h2>
-                        <p className="text-slate-400 text-xs mt-1">Configure external bank counterparties, desk contacts, and role permissions (⚡ Execution vs 👁️ View-Only).</p>
+                        <p className="text-slate-400 text-xs mt-1">Configure external bank counterparties, desk contacts, and role permissions (⚡ Execution vs 👁️ View-Only vs 🛡️ Approver).</p>
                     </div>
                     <button onClick={onClose} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors">
                         <X className="h-5 w-5" />
@@ -190,6 +238,7 @@ export default function QuotationBanksModal({ onClose }) {
                             <button
                                 onClick={() => {
                                     setEditingBankId(null);
+                                    setRoleNotice(null);
                                     setFormData({
                                         bank_id: '',
                                         trade_type: 'BOTH',
@@ -212,7 +261,7 @@ export default function QuotationBanksModal({ onClose }) {
                                     <Shield className="w-4 h-4 text-blue-600" />
                                     {editingBankId ? 'Edit Bank Counterparty & Contacts' : 'Configure New Bank Counterparty'}
                                 </h2>
-                                <button onClick={() => { setIsAdding(false); setEditingBankId(null); }} className="text-gray-400 hover:text-gray-600 p-1">
+                                <button onClick={() => { setIsAdding(false); setEditingBankId(null); setRoleNotice(null); }} className="text-gray-400 hover:text-gray-600 p-1">
                                     <X size={18} />
                                 </button>
                             </div>
@@ -256,7 +305,7 @@ export default function QuotationBanksModal({ onClose }) {
                                                 <Mail className="w-3.5 h-3.5 text-blue-600" />
                                                 Desk Contacts & Roles
                                             </label>
-                                            <p className="text-[11px] text-gray-500 mt-0.5">Define who can execute binding quotes vs who has view-only observer rights.</p>
+                                            <p className="text-[11px] text-gray-500 mt-0.5">Define who can execute quotes (⚡), observe (👁️), or approve bank participation (🛡️).</p>
                                         </div>
                                     </div>
 
@@ -288,6 +337,7 @@ export default function QuotationBanksModal({ onClose }) {
                                             >
                                                 <option value="EXECUTION">⚡ Execution</option>
                                                 <option value="VIEW_ONLY">👁️ View Only</option>
+                                                <option value="APPROVER">🛡️ Approver</option>
                                             </select>
                                         </div>
                                         <div className="md:col-span-2 flex items-center justify-end">
@@ -301,13 +351,30 @@ export default function QuotationBanksModal({ onClose }) {
                                         </div>
                                     </div>
 
+                                    {/* Role Notice Banner */}
+                                    {roleNotice && (
+                                        <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2 animate-fade-in">
+                                            <Shield className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                            <div className="flex-1">{roleNotice}</div>
+                                            <button type="button" onClick={() => setRoleNotice(null)} className="text-amber-500 hover:text-amber-700 p-0.5">
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    )}
+
                                     {/* Configured Contacts List */}
                                     <div className="space-y-2">
                                         {formData.contacts.map((c, idx) => (
                                             <div key={idx} className="flex items-center justify-between bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 shadow-xs">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`p-1.5 rounded-lg ${c.role === 'EXECUTION' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'}`}>
-                                                        {c.role === 'EXECUTION' ? <UserCheck size={16} /> : <Eye size={16} />}
+                                                    <div className={`p-1.5 rounded-lg ${
+                                                        c.role === 'EXECUTION'
+                                                            ? 'bg-emerald-50 text-emerald-600'
+                                                            : c.role === 'APPROVER'
+                                                            ? 'bg-amber-50 text-amber-600'
+                                                            : 'bg-slate-100 text-slate-600'
+                                                    }`}>
+                                                        {c.role === 'EXECUTION' ? <UserCheck size={16} /> : c.role === 'APPROVER' ? <Shield size={16} /> : <Eye size={16} />}
                                                     </div>
                                                     <div>
                                                         <div className="flex items-center gap-2">
@@ -324,11 +391,13 @@ export default function QuotationBanksModal({ onClose }) {
                                                         className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide transition-all border ${
                                                             c.role === 'EXECUTION'
                                                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                                                : c.role === 'APPROVER'
+                                                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                                                                 : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
                                                         }`}
-                                                        title="Click to toggle between Execution and View-Only"
+                                                        title="Click to cycle role: Execution → View-Only → Approver"
                                                     >
-                                                        {c.role === 'EXECUTION' ? '⚡ EXECUTION DEALER' : '👁️ VIEW ONLY'}
+                                                        {c.role === 'EXECUTION' ? '⚡ EXECUTION DEALER' : c.role === 'APPROVER' ? '🛡️ APPROVER' : '👁️ VIEW ONLY'}
                                                     </button>
                                                     <button
                                                         type="button"
@@ -388,6 +457,7 @@ export default function QuotationBanksModal({ onClose }) {
 
                                             const execCount = contactsList.filter(c => c.role === 'EXECUTION').length;
                                             const viewCount = contactsList.filter(c => c.role === 'VIEW_ONLY').length;
+                                            const approverCount = contactsList.filter(c => c.role === 'APPROVER').length;
 
                                             return (
                                                 <tr key={bank.id} className="hover:bg-slate-50/70 transition-colors">
@@ -408,11 +478,15 @@ export default function QuotationBanksModal({ onClose }) {
                                                                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-medium border ${
                                                                         c.role === 'EXECUTION'
                                                                             ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                                                            : c.role === 'APPROVER'
+                                                                            ? 'bg-amber-50 text-amber-800 border-amber-200'
                                                                             : 'bg-slate-100 text-slate-700 border-slate-200'
                                                                     }`}
                                                                 >
                                                                     {c.role === 'EXECUTION' ? (
                                                                         <span className="text-[10px] font-sans font-bold bg-emerald-200 text-emerald-900 px-1 rounded">EXEC</span>
+                                                                    ) : c.role === 'APPROVER' ? (
+                                                                        <span className="text-[10px] font-sans font-bold bg-amber-200 text-amber-900 px-1 rounded">APPROVER</span>
                                                                     ) : (
                                                                         <span className="text-[10px] font-sans font-bold bg-slate-200 text-slate-800 px-1 rounded">VIEW</span>
                                                                     )}
@@ -422,7 +496,7 @@ export default function QuotationBanksModal({ onClose }) {
                                                             ))}
                                                         </div>
                                                         <div className="text-[11px] text-slate-400 mt-1 font-medium">
-                                                            {execCount} Execution &bull; {viewCount} View-Only
+                                                            {execCount} Execution &bull; {viewCount} View-Only{approverCount > 0 ? ` \u2022 ${approverCount} Approver` : ''}
                                                         </div>
                                                     </td>
                                                     <td className="py-4 px-4 text-right">
