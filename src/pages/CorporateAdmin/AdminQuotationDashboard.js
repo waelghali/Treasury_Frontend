@@ -4,6 +4,7 @@ import apiClient from '../../services/apiClient';
 import ResultsView from '../EndUser/Quotations/ResultsView';
 import AdminRevisionModal from '../../components/Modals/AdminRevisionModal';
 import ReTenderModal from '../../components/Modals/ReTenderModal';
+import MarketSpreadTicker from '../../components/Quotations/MarketSpreadTicker';
 import {
     Bell, Check, X, BarChart3, Landmark, History, ChevronRight, Clock,
     Search, Filter, AlertCircle, TrendingUp, ArrowUpRight, ArrowDownRight, FileText, Download,
@@ -217,6 +218,9 @@ export default function AdminQuotationDashboard() {
                     <Download size={14} /> Export Report (CSV)
                 </button>
             </header>
+
+            {/* Zero-Knowledge Collaborative Market Intelligence */}
+            <MarketSpreadTicker currencyPair="USD/EGP" tradeType="FX_SPOT" />
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

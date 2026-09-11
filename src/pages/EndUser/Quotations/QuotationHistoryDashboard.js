@@ -3,6 +3,7 @@ import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
 import ResubmitRevisionModal from '../../../components/Modals/ResubmitRevisionModal';
+import MarketSpreadTicker from '../../../components/Quotations/MarketSpreadTicker';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'react-toastify';
 import {
@@ -214,6 +215,9 @@ export default function QuotationHistoryDashboard() {
                     </button>
                 </div>
             </header>
+
+            {/* Zero-Knowledge Collaborative Market Intelligence */}
+            <MarketSpreadTicker currencyPair="USD/EGP" tradeType="FX_SPOT" />
 
             {/* NEEDS_REVISION Attention Banner */}
             {needsRevisionRfqs.length > 0 && (

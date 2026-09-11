@@ -28,7 +28,8 @@ import {
   Sparkles,
   Layers,
   FileCheck,
-  Gift
+  Gift,
+  Activity
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 
@@ -166,6 +167,17 @@ function SidebarLayout({ onLogout, headerTitle }) {
           <span className="flex items-center gap-2.5">
             <Gift className="w-4 h-4 text-emerald-400" />
             Partner Campaigns & Cashback
+          </span>
+        </Link>
+
+        <Link
+          to="/system-owner/quotations-telemetry"
+          onClick={() => setMobileMenuOpen(false)}
+          className={navItemClass(isLinkActive('/system-owner/quotations-telemetry'))}
+        >
+          <span className="flex items-center gap-2.5">
+            <Activity className="w-4 h-4 text-cyan-400" />
+            Quotation Telemetry & SLAs
           </span>
         </Link>
       </div>
