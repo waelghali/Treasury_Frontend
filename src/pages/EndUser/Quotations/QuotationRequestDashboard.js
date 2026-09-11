@@ -748,8 +748,8 @@ export default function QuotationRequestDashboard() {
                             </div>
                         )}
 
-                        {/* Mind-Reader Smart Recommendation Banner */}
-                        {recommendations.length > 0 && (
+                        {/* Mind-Reader Smart Recommendation Banner (Appears only when user hasn't selected counterparties yet) */}
+                        {recommendations.length > 0 && selectedBanks.length === 0 && (
                             <div className="mb-5 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-indigo-50/90 to-sky-50/90 border border-blue-200/90 flex flex-wrap items-center justify-between gap-3 shadow-xs animate-fade-in">
                                 <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
