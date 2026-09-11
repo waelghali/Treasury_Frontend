@@ -206,6 +206,12 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                 price_cash_margin_pct: f.price_cash_margin_pct,
                 estimated_commission_cost: f.estimated_commission_cost,
                 required_cash_margin_amount: f.required_cash_margin_amount,
+                // Phase 3: Pipeline Advisor fields
+                pipeline_in_flight_amount: f.pipeline_in_flight_amount,
+                pipeline_in_flight_count: f.pipeline_in_flight_count,
+                real_net_headroom: f.real_net_headroom,
+                post_issuance_headroom: f.post_issuance_headroom,
+                headroom_status: f.headroom_status,
             }));
             setFacilities(mapped);
         } catch (err) {
@@ -1563,6 +1569,59 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                     {docAnalysis.summary && (
                                         <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg">{docAnalysis.summary}</p>
                                     )}
+
+                                    {/* Phase 3: AI Contract Clause & Expiry Harvester */}
+                                    {docAnalysis.clause_harvest && docAnalysis.clause_harvest.clause_citation && (
+                                        <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50 to-blue-50 border border-blue-200 shadow-xs space-y-2.5">
+                                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-base">✨</span>
+                                                    <h4 className="text-xs font-black uppercase tracking-wider text-blue-900">
+                                                        {docAnalysis.clause_harvest.clause_title || 'AI Harvested Contract Expiry Clause'}
+                                                    </h4>
+                                                </div>
+                                                {docAnalysis.clause_harvest.recommended_expiry_date && (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-mono text-xs font-bold text-blue-800 bg-blue-100/90 px-2.5 py-1 rounded-lg border border-blue-200">
+                                                            Proposed Expiry: {docAnalysis.clause_harvest.recommended_expiry_date}
+                                                        </span>
+                                                        {fullRequest?.requested_expiry_date !== docAnalysis.clause_harvest.recommended_expiry_date && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await apiRequest(`/issuance/requests/${request.id}`, 'PUT', {
+                                                                            requested_expiry_date: docAnalysis.clause_harvest.recommended_expiry_date
+                                                                        });
+                                                                        setFullRequest(prev => ({
+                                                                            ...prev,
+                                                                            requested_expiry_date: docAnalysis.clause_harvest.recommended_expiry_date
+                                                                        }));
+                                                                        toast.success(`Expiry date updated to ${docAnalysis.clause_harvest.recommended_expiry_date}`);
+                                                                    } catch (err) {
+                                                                        toast.error(err?.message || 'Failed to update expiry date');
+                                                                    }
+                                                                }}
+                                                                className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition-colors shadow-xs"
+                                                                title="Update request expiry date to match harvested contract clause"
+                                                            >
+                                                                Apply Date
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="text-xs text-blue-950 bg-white/90 p-3 rounded-xl border border-blue-100 font-serif italic leading-relaxed">
+                                                "{docAnalysis.clause_harvest.clause_citation}"
+                                            </div>
+                                            {docAnalysis.clause_harvest.calculation_basis && (
+                                                <p className="text-[11px] text-blue-700">
+                                                    <strong>Calculation Basis:</strong> {docAnalysis.clause_harvest.calculation_basis}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+
                                     <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50">
                                         <span className="text-sm font-bold text-slate-600">
                                             {docAnalysis.mismatches === 0

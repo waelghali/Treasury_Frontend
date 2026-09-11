@@ -606,6 +606,37 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                                         Available: {f.currency} {f.availableFormatted}
                                                     </span>
                                                 </div>
+
+                                                {/* Phase 3: Facility Limit "What-If" Pipeline Advisor */}
+                                                {f.pipeline_in_flight_count > 0 && (
+                                                    <div className={`mt-2 pt-2 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] rounded-lg px-2.5 py-1.5 ${
+                                                        f.headroom_status === 'OVERCOMMIT_WARNING'
+                                                            ? 'bg-rose-50 text-rose-800 border border-rose-200'
+                                                            : f.headroom_status === 'TIGHT'
+                                                            ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                                            : 'bg-blue-50/80 text-blue-900 border border-blue-100'
+                                                    }`}>
+                                                        <div className="flex items-center gap-1.5 font-medium">
+                                                            <span className="text-xs">⚡</span>
+                                                            <span>
+                                                                <strong>Pipeline Advisor:</strong> {f.pipeline_in_flight_count} pending request{f.pipeline_in_flight_count !== 1 ? 's' : ''} in flight ({f.currency} {Number(f.pipeline_in_flight_amount || 0).toLocaleString()})
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 self-end sm:self-center font-mono">
+                                                            <span>Net Headroom: <strong>{f.currency} {Number(f.real_net_headroom !== undefined ? f.real_net_headroom : (f.available_limit || 0)).toLocaleString()}</strong></span>
+                                                            {f.headroom_status === 'OVERCOMMIT_WARNING' ? (
+                                                                <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white font-sans text-[10px] font-bold uppercase">
+                                                                    Overcommit Risk
+                                                                </span>
+                                                            ) : (
+                                                                <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-sans text-[10px] font-bold uppercase">
+                                                                    Safe
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 {promo && (
                                                     <div className="mt-2.5 pt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs text-emerald-800">
                                                         <span className="font-medium flex items-center gap-1">

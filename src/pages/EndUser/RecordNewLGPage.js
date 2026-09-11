@@ -324,6 +324,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  const [extractedClauseCitation, setExtractedClauseCitation] = useState(null);
   const [accordionsOpen, setAccordionsOpen] = useState({
     mainLGData: true,
     bankData: false,
@@ -611,6 +612,9 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
       data.append('file', fileToProcess);
 
       const extractedData = await apiRequest('/end-user/lg-records/scan-file/', 'POST', data, 'multipart/form-data');
+      if (extractedData?.clause_citation || extractedData?.clause_harvest?.clause_citation) {
+        setExtractedClauseCitation(extractedData.clause_citation || extractedData.clause_harvest?.clause_citation);
+      }
       setFormData(prev => {
         let otherConditionsString = '';
         if (Array.isArray(extractedData.other_conditions)) {
@@ -1173,6 +1177,15 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                 <div className="mb-2">
                   <label htmlFor="expiry_date" className={labelClassNames}>Expiry Date {requiredSpan}</label>
                   <input type="date" name="expiry_date" id="expiry_date" value={formData.expiry_date} min={formatDateForInput(moment())} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
+                  {extractedClauseCitation && (
+                    <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-blue-700 bg-blue-50/80 p-2 rounded-lg border border-blue-200">
+                      <Sparkles size={13} className="shrink-0 mt-0.5 text-blue-600" />
+                      <div>
+                        <span className="font-semibold text-blue-900">Harvested from Contract Clause:</span>
+                        <p className="italic text-slate-700 font-serif mt-0.5">"{extractedClauseCitation}"</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center mb-2">
