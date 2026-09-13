@@ -26,6 +26,7 @@ import SystemHolidaysManagementPage from 'pages/SystemOwner/GlobalConfigurations
 import SystemNotificationList from 'pages/SystemOwner/SystemNotifications/SystemNotificationList';
 import SystemNotificationForm from 'pages/SystemOwner/SystemNotifications/SystemNotificationForm';
 import QuotationTelemetryDashboard from 'pages/SystemOwner/QuotationTelemetryDashboard';
+import QuotationLiveRankingManagement from 'pages/SystemOwner/QuotationLiveRankingManagement';
 
 // NEW: Import LG Category management components from the Corporate Admin folder
 import LGCategoryList from 'pages/CorporateAdmin/LGCategoryList';
@@ -102,6 +103,9 @@ function SystemOwnerRoutes({ onLogout }) {
 
       {/* Quotation Macro Telemetry & Bank SLA League */}
       <Route path="quotations-telemetry" element={<QuotationTelemetryDashboard onLogout={onLogout} />} />
+
+      {/* Quotation Bank Live Ranking Configuration Matrix */}
+      <Route path="live-ranking" element={<QuotationLiveRankingManagement onLogout={onLogout} />} />
 
       {/* Reports (Updated for System Owner) */}
       <Route path="reports" element={<ReportsPage reports={systemOwnerReports} />}>

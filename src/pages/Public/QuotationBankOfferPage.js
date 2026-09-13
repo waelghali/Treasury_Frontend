@@ -3,7 +3,8 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { 
     Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, 
-    Mail, KeyRound, UserCheck, Eye, History, RefreshCw, MessageSquare, Shield
+    Mail, KeyRound, UserCheck, Eye, History, RefreshCw, MessageSquare, Shield,
+    Trophy, BarChart2
 } from 'lucide-react';
 import './quotation-animations.css';
 
@@ -51,6 +52,9 @@ export default function QuotationBankOfferPage() {
     const [resultStatus, setResultStatus] = useState(null);
     const [timeOffset, setTimeOffset] = useState(0);
 
+    // Live Ranking State
+    const [liveRank, setLiveRank] = useState(null);
+
     // Attention cues for window opening and title
     const prevStatusRef = useRef(null);
     const [showWindowOpenedAlert, setShowWindowOpenedAlert] = useState(false);
@@ -90,6 +94,14 @@ export default function QuotationBankOfferPage() {
             const localTime = Date.now();
             setTimeOffset(serverTime - localTime);
             setRfq(data);
+            if (data.is_live_ranking_enabled) {
+                setLiveRank({
+                    is_enabled: true,
+                    rank: data.live_rank,
+                    total_quotes: data.total_quotes,
+                    is_leading: data.live_rank === 1
+                });
+            }
         } catch (err) {
             setError(err.response?.data?.detail || err.message || 'Failed to load RFQ');
         }
@@ -179,6 +191,30 @@ export default function QuotationBankOfferPage() {
             if (interval) clearInterval(interval);
         };
     }, [timeLeft.status, resultStatus, checkResult]);
+
+    // 4b. Live Ranking Polling (Every 4s while window open)
+    useEffect(() => {
+        if (!rfq?.is_live_ranking_enabled || timeLeft.status !== 'OPEN') return;
+
+        const pollRank = async () => {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/api/v1/public-quotation/${token}/live-rank`);
+                if (res.data && res.data.is_live_ranking_enabled) {
+                    setLiveRank({
+                        is_enabled: true,
+                        rank: res.data.rank,
+                        total_quotes: res.data.total_quotes,
+                        is_leading: res.data.is_leading
+                    });
+                }
+            } catch (err) {
+                // Background polling errors are ignored
+            }
+        };
+
+        const interval = setInterval(pollRank, 4000);
+        return () => clearInterval(interval);
+    }, [rfq?.is_live_ranking_enabled, timeLeft.status, token]);
 
     // 5. Live Countdown Timer with Dynamic Browser Titles & Urgency Tracking
     useEffect(() => {
@@ -405,9 +441,18 @@ export default function QuotationBankOfferPage() {
                     email: authSession.email
                 };
 
-            await axios.post(`${API_BASE_URL}${endpoint}`, body);
+            const res = await axios.post(`${API_BASE_URL}${endpoint}`, body);
             setSubmitted(true);
             setFatFingerModal(null);
+            if (res.data?.live_rank) {
+                setLiveRank({
+                    is_enabled: true,
+                    rank: res.data.live_rank.rank,
+                    total_quotes: res.data.live_rank.total_quotes,
+                    is_leading: res.data.live_rank.is_leading
+                });
+            }
+            await fetchRfq();
         } catch (err) {
             console.error(err);
             alert(err.response?.data?.detail || "Submission failed. Please try again.");
@@ -1163,6 +1208,72 @@ export default function QuotationBankOfferPage() {
                                                     )
                                                 ) : null}
                                             </div>
+
+                                            {/* Live Ranking HUD Widget */}
+                                            {rfq?.is_live_ranking_enabled && (
+                                                <div 
+                                                    className="mb-4 overflow-hidden rounded-2xl border transition-all duration-300 shadow-xs"
+                                                    style={{
+                                                        background: liveRank?.rank === 1
+                                                            ? 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)'
+                                                            : liveRank?.rank
+                                                                ? 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)'
+                                                                : 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)',
+                                                        borderColor: liveRank?.rank === 1
+                                                            ? '#6EE7B7'
+                                                            : liveRank?.rank
+                                                                ? '#93C5FD'
+                                                                : '#E2E8F0'
+                                                    }}
+                                                >
+                                                    <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-base shadow-xs ${
+                                                                liveRank?.rank === 1
+                                                                    ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                                                                    : liveRank?.rank
+                                                                        ? 'bg-blue-600 text-white shadow-blue-500/20'
+                                                                        : 'bg-slate-200 text-slate-600'
+                                                            }`}>
+                                                                {liveRank?.rank ? `#${liveRank.rank}` : <BarChart2 size={18} />}
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                                                                        Live Market Ranking
+                                                                    </span>
+                                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-white/90 border border-slate-200 text-slate-700">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping mr-1" />
+                                                                        Real-Time
+                                                                    </span>
+                                                                </div>
+                                                                <div className="text-xs sm:text-sm font-bold text-slate-900 mt-0.5">
+                                                                    {liveRank?.rank === 1 ? (
+                                                                        <span className="text-emerald-800 flex items-center gap-1">
+                                                                            🏆 Leading Quote — Best in Market!
+                                                                        </span>
+                                                                    ) : liveRank?.rank ? (
+                                                                        <span className="text-blue-900">
+                                                                            Your Rank: #{liveRank.rank} of {liveRank.total_quotes || 1} submitted
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-slate-600">
+                                                                            Submit your quote to view competitive rank
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {liveRank?.rank && liveRank.rank > 1 && timeLeft.status === 'OPEN' && (
+                                                            <div className="hidden sm:flex flex-col items-end">
+                                                                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100 border border-amber-300 px-2.5 py-1 rounded-full animate-pulse">
+                                                                    Improve Quote to Lead
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             {isViewOnly ? (
                                                 <div className={`p-4 rounded-2xl text-xs leading-relaxed mb-4 border ${

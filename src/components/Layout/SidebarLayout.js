@@ -180,6 +180,17 @@ function SidebarLayout({ onLogout, headerTitle }) {
             Quotation Telemetry & SLAs
           </span>
         </Link>
+
+        <Link
+          to="/system-owner/live-ranking"
+          onClick={() => setMobileMenuOpen(false)}
+          className={navItemClass(isLinkActive('/system-owner/live-ranking'))}
+        >
+          <span className="flex items-center gap-2.5">
+            <BarChart className="w-4 h-4 text-amber-400" />
+            Live Ranking Matrix
+          </span>
+        </Link>
       </div>
 
       {/* SECTION 3: SYSTEM CONFIG & ENGINES */}
