@@ -11,10 +11,6 @@ function ViewerLayout({ onLogout, activeMenuItem, customerName, headerTitle, sys
 
   return (
     <div className="relative flex h-screen bg-[#f8fafc] overflow-hidden" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-      {/* BACKGROUND BLOBS */}
-      <div className="fixed top-[-10%] right-[-5%] w-[500px] h-[500px] bg-blue-500 rounded-full blur-[140px] opacity-20 animate-pulse pointer-events-none"></div>
-      <div className="fixed bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-blue-700 rounded-full blur-[140px] opacity-20 animate-pulse pointer-events-none" style={{ animationDelay: '3s' }}></div>
-
       {/* SIDEBAR — Dark Navy */}
       <aside
         className={`${isCollapsed ? 'w-20' : 'w-72'

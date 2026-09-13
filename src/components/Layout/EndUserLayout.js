@@ -403,12 +403,6 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
 
   return (
     <div className="relative flex flex-col md:flex-row h-screen bg-[#f8fafc] overflow-hidden" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-      {/* BACKGROUND BLOBS */}
-      <div className="fixed top-[-10%] right-[-5%] w-[500px] h-[500px] bg-blue-500 rounded-full blur-[140px] opacity-20 animate-pulse pointer-events-none"></div>
-      <div className="fixed bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-blue-700 rounded-full blur-[140px] opacity-20 animate-pulse pointer-events-none" style={{ animationDelay: '3s' }}></div>
-      <div className="hidden lg:block fixed top-1/4 left-10 w-32 h-32 bg-gradient-to-tr from-blue-400 to-blue-600 rounded-full opacity-10 animate-float pointer-events-none"></div>
-      <div className="hidden lg:block fixed bottom-1/3 right-12 w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full opacity-10 animate-float-delayed pointer-events-none"></div>
-
       {/* MOBILE TOPBAR (Visible only on screens < md) */}
       <header className="md:hidden flex items-center justify-between px-4 py-3 bg-[#1e2a4a] text-white border-b border-white/10 relative z-20 flex-shrink-0 shadow-md">
         <div className="flex items-center space-x-3">
