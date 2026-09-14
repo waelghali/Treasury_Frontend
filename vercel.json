@@ -1,12 +1,8 @@
 {
   "env": {
-    "REACT_APP_API_URL": "$REACT_APP_API_URL"
+    "REACT_APP_API_BASE_URL": "/api/v1"
   },
   "rewrites": [
-    {
-      "source": "/api",
-      "destination": "https://treasury-backend-tvh7.onrender.com/api"
-    },
     {
       "source": "/api/:path*",
       "destination": "https://treasury-backend-tvh7.onrender.com/api/:path*"
