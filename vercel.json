@@ -4,6 +4,10 @@
   },
   "rewrites": [
     {
+      "source": "/api",
+      "destination": "https://treasury-backend-tvh7.onrender.com/api"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://treasury-backend-tvh7.onrender.com/api/:path*"
     }
