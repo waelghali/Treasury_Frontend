@@ -19,6 +19,7 @@ import RenewalPage from './pages/RenewalPage';
 import AuthWrapper from './components/AuthWrapper';
 import ProtectedLayout from './components/ProtectedLayout';
 import LegalArtifactModal from './components/LegalArtifactModal';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import SystemOwnerRoutes from './routes/SystemOwnerRoutes.js';
 import CorporateAdminRoutes from './routes/CorporateAdminRoutes.js';
@@ -296,11 +297,13 @@ function App() {
     <HelmetProvider>
     <BrowserRouter>
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-100 antialiased transition-colors duration-200">
-        <AppContent
-          showSessionModal={showSessionModal}
-          onShowSessionWarning={() => setShowSessionModal(true)}
-          onHideSessionModal={() => setShowSessionModal(false)}
-        />
+        <ErrorBoundary>
+          <AppContent
+            showSessionModal={showSessionModal}
+            onShowSessionWarning={() => setShowSessionModal(true)}
+            onHideSessionModal={() => setShowSessionModal(false)}
+          />
+        </ErrorBoundary>
 
         {showSessionModal && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
