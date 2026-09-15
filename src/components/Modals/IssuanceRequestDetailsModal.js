@@ -123,9 +123,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
 
     const handleDownloadDoc = async (docId, fileName) => {
         try {
-            const API_URL = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
-                ? `${window.location.origin}/api/v1`
-                : (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1');
+            const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
             const authToken = localStorage.getItem('jwt_token');
             const resp = await fetch(`${API_URL}/issuance/requests/${request.id}/documents/${docId}/download`, {
                 headers: { 'Authorization': `Bearer ${authToken}` }

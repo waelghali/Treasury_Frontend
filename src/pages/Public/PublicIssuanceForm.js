@@ -678,9 +678,7 @@ export default function IssuanceRequestForm() {
             try {
                 const fd = new FormData();
                 fd.append('file', pf.file);
-                const API_URL = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
-                    ? `${window.location.origin}/api/v1`
-                    : (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1');
+                const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
                 let res;
                 if (usePublicApi) {
                     const safeToken = encodeURIComponent(token);
@@ -770,9 +768,7 @@ export default function IssuanceRequestForm() {
                             try {
                                 const fd = new FormData();
                                 fd.append('file', contractFileObj);
-                                const API_URL = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
-                                    ? `${window.location.origin}/api/v1`
-                                    : (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1');
+                                const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
                                 const resp = await fetch(`${API_URL}/public-issuance/requests/${draftId}/analyze-document?token=${safeToken}&doc_type=CONTRACT`, {
                                     method: 'POST', body: fd
                                 });
@@ -829,9 +825,7 @@ export default function IssuanceRequestForm() {
                         try {
                             const fd = new FormData();
                             fd.append('file', contractFileObj);
-                            const API_URL = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
-                                ? `${window.location.origin}/api/v1`
-                                : (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1');
+                            const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
                             const resp = await fetch(`${API_URL}/public-issuance/requests/${created.id}/analyze-document?token=${safeToken}&doc_type=CONTRACT`, {
                                 method: 'POST', body: fd
                             });

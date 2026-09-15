@@ -1,9 +1,7 @@
 // src/services/apiService.js
 import apiClient from './apiClient';
 import { v4 as uuidv4 } from 'uuid';
-export const API_BASE_URL = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
-  ? `${window.location.origin}/api/v1`
-  : (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1');
+export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 /**
  * Auth Token Management
