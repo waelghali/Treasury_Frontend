@@ -379,18 +379,18 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   const filteredAndSortedRecords = useMemo(() => {
     if (!lgRecords || lgRecords.length === 0) return [];
 
-    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+    const trimmedSearchTerm = searchTerm.trim().toLowerCase();
 
     const filteredRecords = lgRecords.filter(record => {
-        const matchesSearchTerm = (
-          record.lg_number.toLowerCase().includes(lowerCaseSearchTerm) ||
-          (record.issuer_name || '').toLowerCase().includes(lowerCaseSearchTerm) || 
-          (record.beneficiary_corporate?.entity_name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
-          (record.issuing_bank?.name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
-          (record.foreign_bank_name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
-          (record.lg_category?.name || '').toLowerCase().includes(lowerCaseSearchTerm) ||
-          formatAmount(record.lg_amount, record.lg_currency?.iso_code).toLowerCase().includes(lowerCaseSearchTerm) ||
-          formatDate(record.expiry_date).toLowerCase().includes(lowerCaseSearchTerm)
+        const matchesSearchTerm = !trimmedSearchTerm || (
+          (record.lg_number || '').toLowerCase().includes(trimmedSearchTerm) ||
+          (record.issuer_name || '').toLowerCase().includes(trimmedSearchTerm) || 
+          (record.beneficiary_corporate?.entity_name || '').toLowerCase().includes(trimmedSearchTerm) ||
+          (record.issuing_bank?.name || '').toLowerCase().includes(trimmedSearchTerm) ||
+          (record.foreign_bank_name || '').toLowerCase().includes(trimmedSearchTerm) ||
+          (record.lg_category?.name || '').toLowerCase().includes(trimmedSearchTerm) ||
+          formatAmount(record.lg_amount, record.lg_currency?.iso_code).toLowerCase().includes(trimmedSearchTerm) ||
+          formatDate(record.expiry_date).toLowerCase().includes(trimmedSearchTerm)
         );
 
         const matchesStatus = selectedStatuses.length === 0 ||
