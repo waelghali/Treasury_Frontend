@@ -9,12 +9,14 @@ import {
 import './quotation-animations.css';
 
 const getApiBaseUrl = () => {
+    // In browser (production/staging), always use same-origin proxy (window.location.origin).
+    // This routes via Vercel's /api rewrite, completely hiding onrender.com from bank networks and eliminating CORS/firewall blocks.
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        return window.location.origin;
+    }
     let url = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_URL;
     if (url) {
         return url.replace(/\/api\/v1\/?$/, '');
-    }
-    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        return window.location.origin;
     }
     return 'http://localhost:8000';
 };
