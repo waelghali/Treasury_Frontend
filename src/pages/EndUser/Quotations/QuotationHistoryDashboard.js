@@ -10,7 +10,7 @@ import {
     Check, X, Bell, Download, BarChart3, Landmark, History, ChevronRight,
     RefreshCw, AlertCircle, Radio, Clock, Undo2, ArrowUpRight, CheckCircle2, Trophy
 } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const formatDate = (d) => {
@@ -38,6 +38,7 @@ export default function QuotationHistoryDashboard() {
     const [reTenderModalRfq, setReTenderModalRfq] = useState(null);
     const [resubmitModalRfq, setResubmitModalRfq] = useState(null);
     const location = useLocation();
+    const navigate = useNavigate();
 
     const fetchData = async () => {
         try {
@@ -486,17 +487,23 @@ export default function QuotationHistoryDashboard() {
                                             <div className="flex items-center justify-end gap-1.5">
                                                 {rfq.status === 'NEEDS_REVISION' && (
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); setResubmitModalRfq(rfq); }}
-                                                        className="px-2.5 py-1 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg transition-colors flex items-center gap-1"
-                                                        title="Revise & Resubmit"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            navigate(`/end-user/quotations/active?revision_rfq_id=${rfq.id}`);
+                                                        }}
+                                                        className="px-2.5 py-1 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                                        title="Revise Quotation in Builder"
                                                     >
                                                         <Undo2 size={13} /> Revise
                                                     </button>
                                                 )}
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); setReTenderModalRfq(rfq); }}
-                                                    className="p-1.5 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800 rounded-lg transition-colors inline-flex"
-                                                    title="Re-Tender with New Window"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`);
+                                                    }}
+                                                    className="p-1.5 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800 rounded-lg transition-colors inline-flex cursor-pointer"
+                                                    title="Re-Trade in Builder"
                                                 >
                                                     <RefreshCw size={15} />
                                                 </button>

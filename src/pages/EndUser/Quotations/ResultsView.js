@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Printer, Shield, X, Award, RefreshCw } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
@@ -82,11 +83,14 @@ const renderApprovalBadge = (result) => {
 };
 
 export default function ResultsView({ rfqId }) {
+    const navigate = useNavigate();
+    const location = useLocation();
     const [results, setResults] = useState([]);
     const [rfq, setRfq] = useState(null);
     const [loading, setLoading] = useState(true);
     const [sendingResults, setSendingResults] = useState(false);
     const userRole = localStorage.getItem('user_role'); // Check role
+    const isCorporateAdmin = location.pathname.startsWith('/corporate-admin') || (userRole || '').toLowerCase().includes('corporate_admin');
 
     const [resultsMeta, setResultsMeta] = useState({});
     const [showAuditPack, setShowAuditPack] = useState(false);
@@ -222,11 +226,11 @@ export default function ResultsView({ rfqId }) {
                     {rfq && <p className="text-sm font-mono font-bold text-gray-600">{rfq.ref_no}</p>}
                 </div>
                 <div className="flex items-center gap-3 mt-2 sm:mt-0 flex-wrap">
-                    {isWindowClosed && (
+                    {isWindowClosed && !isCorporateAdmin && (
                         <button
-                            onClick={() => setShowReTenderModal(true)}
+                            onClick={() => navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`)}
                             className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 cursor-pointer"
-                            title="Clone deal parameters with a fresh bidding window"
+                            title="Clone deal parameters into quotation builder with a fresh bidding window"
                         >
                             <RefreshCw size={13} /> ⚡ 1-Click Re-Tender
                         </button>
@@ -261,12 +265,14 @@ export default function ResultsView({ rfqId }) {
                             )}
                         </div>
                     </div>
-                    <button
-                        onClick={() => setShowReTenderModal(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 shrink-0 cursor-pointer"
-                    >
-                        <RefreshCw size={14} /> ⚡ 1-Click Re-Tender
-                    </button>
+                    {!isCorporateAdmin && (
+                        <button
+                            onClick={() => navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 shrink-0 cursor-pointer"
+                        >
+                            <RefreshCw size={14} /> ⚡ 1-Click Re-Tender
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -401,6 +407,70 @@ export default function ResultsView({ rfqId }) {
                         <div>
                             <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Creator</span>
                             <span className="font-bold text-gray-800">{rfq.creator_name || 'End User'}</span>
+                        </div>
+                    </div>
+
+                    {/* Quotation Window Details */}
+                    <div className="pt-3 border-t border-gray-100">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Clock size={14} className="text-blue-500" />
+                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase tracking-wider">Quotation Window</span>
+                            {(() => {
+                                const now = new Date();
+                                const start = rfq.window_start ? new Date(rfq.window_start) : null;
+                                const end = rfq.window_end ? new Date(rfq.window_end) : null;
+                                if (!start || !end) return null;
+                                if (now < start) {
+                                    return <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-full uppercase tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Scheduled</span>;
+                                }
+                                if (now >= start && now <= end) {
+                                    return <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Window Open</span>;
+                                }
+                                const validityHrs = rfq.token_validity_hours || 24;
+                                const linkExpiry = new Date(end.getTime() + validityHrs * 60 * 60 * 1000);
+                                if (now > end && now <= linkExpiry) {
+                                    return <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full uppercase tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Window Closed — Link Active</span>;
+                                }
+                                return <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-full uppercase tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>Expired</span>;
+                            })()}
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs font-mono">
+                            <div>
+                                <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Sent to Banks</span>
+                                <span className="font-bold text-gray-800">{rfq.admin_reviewed_at ? formatDate(rfq.admin_reviewed_at) : formatDate(rfq.created_at)}</span>
+                                <span className="font-sans text-[10px] text-gray-400 block">{new Date(rfq.admin_reviewed_at || rfq.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                            <div>
+                                <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Window Opens</span>
+                                <span className="font-bold text-gray-800">{rfq.window_start ? formatDate(rfq.window_start) : '—'}</span>
+                                {rfq.window_start && <span className="font-sans text-[10px] text-gray-400 block">{new Date(rfq.window_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                            </div>
+                            <div>
+                                <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Window Closes</span>
+                                <span className="font-bold text-gray-800">{rfq.window_end ? formatDate(rfq.window_end) : '—'}</span>
+                                {rfq.window_end && <span className="font-sans text-[10px] text-gray-400 block">{new Date(rfq.window_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                            </div>
+                            <div>
+                                <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Window Duration</span>
+                                <span className="font-bold text-gray-800">{(() => {
+                                    if (!rfq.window_start || !rfq.window_end) return '—';
+                                    const diffMs = new Date(rfq.window_end) - new Date(rfq.window_start);
+                                    const totalMins = Math.round(diffMs / 60000);
+                                    if (totalMins < 60) return `${totalMins} min`;
+                                    const hrs = Math.floor(totalMins / 60);
+                                    const mins = totalMins % 60;
+                                    return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+                                })()}</span>
+                            </div>
+                            <div>
+                                <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Link Expires</span>
+                                {rfq.window_end ? (
+                                    <>
+                                        <span className="font-bold text-gray-800">{formatDate(new Date(new Date(rfq.window_end).getTime() + (rfq.token_validity_hours || 24) * 3600000))}</span>
+                                        <span className="font-sans text-[10px] text-gray-400 block">{new Date(new Date(rfq.window_end).getTime() + (rfq.token_validity_hours || 24) * 3600000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                    </>
+                                ) : <span className="font-bold text-gray-800">—</span>}
+                            </div>
                         </div>
                     </div>
 

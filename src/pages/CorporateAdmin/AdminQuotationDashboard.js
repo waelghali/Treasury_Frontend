@@ -3,7 +3,6 @@ import { toast } from 'react-toastify';
 import apiClient from '../../services/apiClient';
 import ResultsView from '../EndUser/Quotations/ResultsView';
 import AdminRevisionModal from '../../components/Modals/AdminRevisionModal';
-import ReTenderModal from '../../components/Modals/ReTenderModal';
 import MarketSpreadTicker from '../../components/Quotations/MarketSpreadTicker';
 import {
     Bell, Check, X, BarChart3, Landmark, History, ChevronRight, Clock,
@@ -88,7 +87,6 @@ export default function AdminQuotationDashboard() {
     const [loading, setLoading] = useState(true);
     const [selectedRfqId, setSelectedRfqId] = useState(null);
     const [revisionModalRfq, setRevisionModalRfq] = useState(null);
-    const [reTenderModalRfq, setReTenderModalRfq] = useState(null);
 
     // Filters
     const [statusFilter, setStatusFilter] = useState('ALL');
@@ -524,13 +522,6 @@ export default function AdminQuotationDashboard() {
                                         <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
                                             <div className="flex items-center justify-end gap-1">
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); setReTenderModalRfq(rfq); }}
-                                                    className="p-1.5 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800 rounded-lg transition-colors inline-flex"
-                                                    title="Re-Tender with New Window"
-                                                >
-                                                    <RefreshCw size={15} />
-                                                </button>
-                                                <button
                                                     onClick={(e) => { e.stopPropagation(); setSelectedRfqId(rfq.id); }}
                                                     className="p-1.5 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-colors inline-flex"
                                                     title="View Details"
@@ -583,15 +574,6 @@ export default function AdminQuotationDashboard() {
                 <AdminRevisionModal
                     rfq={revisionModalRfq}
                     onClose={() => setRevisionModalRfq(null)}
-                    onSuccess={fetchData}
-                />
-            )}
-
-            {/* 1-Click Re-Tender Modal */}
-            {reTenderModalRfq && (
-                <ReTenderModal
-                    rfq={reTenderModalRfq}
-                    onClose={() => setReTenderModalRfq(null)}
                     onSuccess={fetchData}
                 />
             )}

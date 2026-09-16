@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, DollarSign, Copy, ExternalLink, Mail, AlertCircle, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, DollarSign, Copy, ExternalLink, Mail, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 
@@ -18,7 +20,27 @@ const formatDate = (d) => {
     }
 };
 
+const toLocalISOString = (d) => {
+    if (!d) return '';
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
 export default function QuotationRequestDashboard() {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const queryParams = new URLSearchParams(location.search);
+    const revisionRfqId = queryParams.get('revision_rfq_id') || queryParams.get('edit_rfq_id');
+    const retradeRfqId = queryParams.get('retrade_rfq_id') || queryParams.get('clone_rfq_id');
+
+    const [sourceRfq, setSourceRfq] = useState(null);
+    const [loadingSource, setLoadingSource] = useState(false);
+    const [userNotes, setUserNotes] = useState('');
+    const prevTypeRef = useRef('FX_SPOT');
+    const isPrefillingRef = useRef(false);
+
     const [banks, setBanks] = useState([]);
     const [selectedBanks, setSelectedBanks] = useState([]);
     const [recommendations, setRecommendations] = useState([]);
@@ -45,14 +67,87 @@ export default function QuotationRequestDashboard() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [createdRfq, setCreatedRfq] = useState(null);
 
+    // Pre-fill state when opening in Revision Mode or Re-Trade Mode
+    useEffect(() => {
+        const targetRfqId = revisionRfqId || retradeRfqId;
+        if (!targetRfqId) return;
+
+        setLoadingSource(true);
+        isPrefillingRef.current = true;
+        apiClient.get(`/end-user/quotations/${targetRfqId}/results`)
+            .then(res => {
+                const rfq = res.data?.rfq;
+                const results = res.data?.results || [];
+                if (!rfq) return;
+
+                setSourceRfq(rfq);
+
+                const now = new Date();
+                const freshStart = toLocalISOString(new Date(now.getTime() + 60000));
+
+                let durationSecs = '60';
+                if (rfq.window_start && rfq.window_end) {
+                    const diff = Math.round((new Date(rfq.window_end) - new Date(rfq.window_start)) / 1000);
+                    if (diff > 0) durationSecs = String(diff);
+                }
+
+                prevTypeRef.current = rfq.type || 'FX_SPOT';
+
+                setFormData({
+                    type: rfq.type || 'FX_SPOT',
+                    direction: rfq.direction || 'Buy',
+                    valueDate: rfq.value_date || '',
+                    amount: rfq.amount ? String(rfq.amount) : '',
+                    minTicketAmount: rfq.min_ticket_amount ? String(rfq.min_ticket_amount) : '',
+                    buyCurrency: rfq.buy_currency || 'USD',
+                    sellCurrency: rfq.sell_currency || 'EGP',
+                    settlementDateStart: rfq.settlement_date_start || '',
+                    settlementDateEnd: rfq.settlement_date_end || '',
+                    maturityDateStart: rfq.maturity_date_start || '',
+                    maturityDateEnd: rfq.maturity_date_end || '',
+                    evalRate: rfq.eval_rate !== null && rfq.eval_rate !== undefined ? String(rfq.eval_rate) : '',
+                    windowStart: freshStart,
+                    windowDuration: durationSecs,
+                    quotationBase: rfq.quotation_base || 'Execution',
+                    maxTolerancePercent: rfq.max_tolerance_percent !== null && rfq.max_tolerance_percent !== undefined ? String(rfq.max_tolerance_percent) : '0.5',
+                    tokenValidityHours: rfq.token_validity_hours ? String(rfq.token_validity_hours) : '24',
+                });
+
+                if (results && results.length > 0) {
+                    const prefilledBanks = results.map(r => ({
+                        id: r.bank_id,
+                        name: r.bank_name || `Bank ${r.bank_id}`,
+                        costMin: r.cost_min ?? 0,
+                        costPercent: r.cost_percent ?? 0,
+                        costMax: r.cost_max ?? 0,
+                        costFlat: r.cost_flat ?? 0,
+                        quotationBase: r.quotation_base || rfq.quotation_base || 'Execution',
+                        isDocumentVisible: r.is_document_visible !== false
+                    }));
+                    setSelectedBanks(prefilledBanks);
+                }
+            })
+            .catch(err => {
+                console.error("Failed to load source quotation:", err);
+                toast.error("Could not load quotation details.");
+            })
+            .finally(() => {
+                setLoadingSource(false);
+                setTimeout(() => { isPrefillingRef.current = false; }, 300);
+            });
+    }, [revisionRfqId, retradeRfqId]);
+
     useEffect(() => {
         // Fetch banks configured for this customer, dynamically filtering by the currently selected trade type (FX_SPOT or TBILL)
         apiClient.get(`/end-user/quotations/banks?trade_type=${formData.type}`)
             .then(res => setBanks(res.data))
             .catch(err => console.error("Error fetching banks", err));
 
-        // Clear previously selected banks when the trade type changes so we don't accidentally send TBILL banks to an FX RFQ
-        setSelectedBanks([]);
+        // Clear previously selected banks only when trade type changes manually, not during prefilling
+        if (!isPrefillingRef.current && prevTypeRef.current !== formData.type) {
+            setSelectedBanks([]);
+            prevTypeRef.current = formData.type;
+        }
     }, [formData.type]);
 
     // Mind-Reader: Fetch counterparty recommendations based on asset type & currency pair
@@ -240,7 +335,46 @@ export default function QuotationRequestDashboard() {
             }
         }
 
-        // Prepare JSON payload according to backend schema
+        // If in Revision Mode, call resubmit endpoint to update existing RFQ and return to PENDING_APPROVAL
+        if (revisionRfqId) {
+            const revisionPayload = {
+                type: formData.type,
+                direction: formData.direction || null,
+                value_date: formData.valueDate || null,
+                amount: formData.amount ? parseFloat(formData.amount) : null,
+                min_ticket_amount: formData.minTicketAmount ? parseFloat(formData.minTicketAmount) : null,
+                buy_currency: formData.buyCurrency || null,
+                sell_currency: formData.sellCurrency || null,
+                settlement_date_start: formData.settlementDateStart || null,
+                settlement_date_end: formData.settlementDateEnd || null,
+                maturity_date_start: formData.maturityDateStart || null,
+                maturity_date_end: formData.maturityDateEnd || null,
+                eval_rate: formData.evalRate ? parseFloat(formData.evalRate) : null,
+                window_start: windowStart.toISOString(),
+                window_end: windowEnd.toISOString(),
+                quotation_base: formData.quotationBase || null,
+                max_tolerance_percent: formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null,
+                document_path: uploadedDocs.length > 0 ? JSON.stringify(uploadedDocs) : (sourceRfq?.document_path || null),
+                selected_banks: JSON.stringify(selectedBanks),
+                token_validity_hours: parseInt(formData.tokenValidityHours, 10),
+                user_notes: userNotes.trim() || undefined
+            };
+
+            try {
+                await apiClient.post(`/end-user/quotations/${revisionRfqId}/resubmit`, revisionPayload);
+                toast.success(`RFQ ${sourceRfq?.ref_no || ''} revised and resubmitted for Corporate Admin approval!`);
+                navigate('/end-user/quotations/history');
+                return;
+            } catch (err) {
+                console.error('Revision resubmission error:', err);
+                toast.error(err.response?.data?.detail || err.message || 'Resubmission failed');
+            } finally {
+                setIsSubmitting(false);
+            }
+            return;
+        }
+
+        // Prepare JSON payload according to backend schema (Standard or Re-Trade)
         const payload = {
             type: formData.type,
             direction: formData.direction || null,
@@ -258,18 +392,24 @@ export default function QuotationRequestDashboard() {
             windowEnd: windowEnd.toISOString(),
             quotationBase: formData.quotationBase || null,
             maxTolerancePercent: formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null,
-            documentPath: uploadedDocs.length > 0 ? JSON.stringify(uploadedDocs) : null,
+            documentPath: uploadedDocs.length > 0 ? JSON.stringify(uploadedDocs) : (sourceRfq?.document_path || null),
             selectedBanks: JSON.stringify(selectedBanks),
-            token_validity_hours: parseInt(formData.tokenValidityHours)
+            token_validity_hours: parseInt(formData.tokenValidityHours, 10),
+            parent_rfq_id: retradeRfqId || undefined
         };
 
         try {
             const res = await apiClient.post('/end-user/quotations/', payload);
             console.log('RFQ Created:', res.data);
+            if (retradeRfqId) {
+                toast.success(`Re-trade RFQ ${res.data.ref_no} launched successfully!`);
+            } else {
+                toast.success(`RFQ ${res.data.ref_no} created successfully!`);
+            }
             setCreatedRfq(res.data);
         } catch (err) {
             console.error('RFQ Submission Error:', err);
-            window.alert(`Error: ${err.message || 'Submission failed'}`);
+            toast.error(err.response?.data?.detail || err.message || 'Submission failed');
         } finally {
             setIsSubmitting(false);
         }
@@ -375,8 +515,93 @@ export default function QuotationRequestDashboard() {
 
     return (
         <div className="w-full max-w-[1400px] mx-auto p-4 sm:p-8">
+            {revisionRfqId && (
+                <div className="mb-6 p-5 sm:p-6 rounded-3xl bg-amber-50/90 border border-amber-200 text-amber-950 shadow-sm animate-fade-in space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-amber-200 text-amber-900 flex items-center justify-center shrink-0">
+                                <Undo2 size={20} />
+                            </div>
+                            <div>
+                                <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Quotation Returned for Revision</span>
+                                <h3 className="text-base font-bold text-amber-950 font-mono">
+                                    Ref: {sourceRfq?.ref_no || revisionRfqId}
+                                </h3>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => navigate('/end-user/quotations/history')}
+                            className="text-xs font-semibold text-amber-800 hover:text-amber-950 bg-amber-100 hover:bg-amber-200/80 px-3.5 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                        >
+                            <ArrowLeft size={13} /> Back to History
+                        </button>
+                    </div>
+
+                    {sourceRfq?.admin_revision_notes && (
+                        <div className="p-4 bg-white/90 rounded-2xl border border-amber-200 text-xs text-amber-900 shadow-xs">
+                            <span className="font-bold text-amber-800 uppercase text-[10px] tracking-wide block mb-1 flex items-center gap-1.5">
+                                <AlertCircle size={13} className="text-amber-600" />
+                                Corporate Admin Revision Notes:
+                            </span>
+                            <p className="italic text-slate-800 font-medium pl-4 leading-relaxed">
+                                "{sourceRfq.admin_revision_notes}"
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="pt-1">
+                        <label className="block text-[11px] font-bold text-amber-900 uppercase tracking-wider mb-1.5">
+                            Your Revision Response / Remarks for Corporate Admin (Optional)
+                        </label>
+                        <input
+                            type="text"
+                            value={userNotes}
+                            onChange={(e) => setUserNotes(e.target.value)}
+                            placeholder="e.g. Adjusted trade amount to 500,000 USD and added CIB to counterparties as requested."
+                            className="w-full px-4 py-2.5 text-xs bg-white border border-amber-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-slate-800 font-medium placeholder:text-slate-400"
+                        />
+                    </div>
+                </div>
+            )}
+
+            {retradeRfqId && (
+                <div className="mb-6 p-5 sm:p-6 rounded-3xl bg-indigo-50/90 border border-indigo-200 text-indigo-950 shadow-sm animate-fade-in flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-indigo-200 text-indigo-900 flex items-center justify-center shrink-0">
+                            <RefreshCw size={20} />
+                        </div>
+                        <div>
+                            <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider">Re-Trade / Re-Tender Order</span>
+                            <h3 className="text-base font-bold text-indigo-950">
+                                Pre-filled from <span className="font-mono">{sourceRfq?.ref_no || retradeRfqId}</span>
+                            </h3>
+                            <p className="text-xs text-indigo-800 mt-0.5">
+                                Original parameters and counterparties have been cloned. Tweak any values below and launch your new quotation.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            navigate('/end-user/quotations/active');
+                            window.location.reload();
+                        }}
+                        className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 bg-white border border-indigo-200 hover:bg-indigo-50 px-3.5 py-2 rounded-xl transition-colors shrink-0 cursor-pointer"
+                    >
+                        Clear & Start Blank
+                    </button>
+                </div>
+            )}
+
             <header className="mb-8 sm:mb-12">
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900">New Quotation Request</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+                    {revisionRfqId
+                        ? `Revise Quotation Request`
+                        : retradeRfqId
+                        ? `Re-Trade Quotation Request`
+                        : `New Quotation Request`}
+                </h1>
                 <div className="flex flex-wrap gap-2 sm:gap-4 mt-6">
                     {['FX_SPOT', 'TBILL'].map(type => (
                         <button
@@ -641,6 +866,10 @@ export default function QuotationRequestDashboard() {
                                         <option value="60">1m</option>
                                         <option value="120">2m</option>
                                         <option value="300">5m</option>
+                                        <option value="600">10m</option>
+                                        <option value="900">15m</option>
+                                        <option value="1800">30m</option>
+                                        <option value="3600">60m</option>
                                     </select>
                                 </div>
                                 <div>
@@ -906,10 +1135,18 @@ export default function QuotationRequestDashboard() {
                         <button
                             type="submit"
                             disabled={isSubmitting || selectedBanks.length === 0}
-                            className="mt-6 sm:mt-8 w-full py-3.5 sm:py-5 bg-black text-white rounded-2xl sm:rounded-3xl font-semibold text-sm sm:text-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xl shadow-black/10 shrink-0"
+                            className={`mt-6 sm:mt-8 w-full py-3.5 sm:py-5 rounded-2xl sm:rounded-3xl font-semibold text-sm sm:text-lg flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-xl disabled:opacity-30 disabled:cursor-not-allowed shrink-0 cursor-pointer ${
+                                revisionRfqId
+                                    ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20'
+                                    : retradeRfqId
+                                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20'
+                                    : 'bg-black hover:bg-gray-800 text-white shadow-black/10'
+                            }`}
                         >
-                            <Send size={18} />
-                            {isSubmitting ? 'Processing...' : 'Submit Request for Quotation'}
+                            {revisionRfqId ? <Undo2 size={18} /> : retradeRfqId ? <RefreshCw size={18} /> : <Send size={18} />}
+                            {isSubmitting
+                                ? (revisionRfqId ? 'Resubmitting for Approval...' : retradeRfqId ? 'Launching Re-Trade...' : 'Processing...')
+                                : (revisionRfqId ? 'Resubmit Quotation for Approval' : retradeRfqId ? 'Launch Re-Trade Quotation' : 'Submit Request for Quotation')}
                         </button>
                     </section>
                 </div>
