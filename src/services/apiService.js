@@ -50,7 +50,7 @@ export const logoutUser = () => {
   // Only redirect to login if the user is on an authenticated (protected) route.
   // Public pages like /, /know-more, /free-trial-register, /login, /portal/*
   // should not be disrupted by a session timeout from a stale token.
-  const publicPaths = ['/', '/know-more', '/free-trial-register', '/login', '/forgot-password', '/reset-password', '/portal', '/public-issuance', '/public-quotation'];
+  const publicPaths = ['/', '/know-more', '/free-trial-register', '/login', '/forgot-password', '/reset-password', '/portal', '/public-issuance', '/public-quotation', '/public/quotation'];
   const currentPath = window.location.pathname;
   const isPublicPage = publicPaths.some(p => currentPath === p || currentPath.startsWith(p + '/'));
   if (!isPublicPage) {

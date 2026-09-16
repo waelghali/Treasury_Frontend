@@ -4,22 +4,57 @@ import axios from 'axios';
 import { 
     Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, 
     Mail, KeyRound, UserCheck, Eye, History, RefreshCw, MessageSquare, Shield,
-    Trophy, BarChart2
+    Trophy, BarChart2, Hourglass, ShieldAlert, AlertTriangle, WifiOff, FileQuestion
 } from 'lucide-react';
 import './quotation-animations.css';
 
+const DIRECT_BACKEND_URL = 'https://api.growbusinessdevelopment.com';
+
 const getApiBaseUrl = () => {
+    // 1. Local development environment
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        let localEnv = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_URL;
+        return localEnv ? localEnv.replace(/\/api\/v1\/?$/, '') : 'http://localhost:8000';
+    }
+
+    // 2. Production Vercel domain: use same-origin relative proxy path to eliminate bank firewall CORS/cross-domain blocking
+    if (typeof window !== 'undefined' && (window.location.hostname === 'www.growbusinessdevelopment.com' || window.location.hostname === 'growbusinessdevelopment.com')) {
+        return '';
+    }
+
+    // 3. Staging and any other hosted domains
     let url = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_URL;
     if (url) {
         return url.replace(/\/api\/v1\/?$/, '');
     }
-    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        return 'https://api.growbusinessdevelopment.com';
-    }
-    return 'http://localhost:8000';
+    return DIRECT_BACKEND_URL;
 };
 
 const API_BASE_URL = getApiBaseUrl();
+
+// Resilient API requester with automated fallback for production
+const quotationApi = {
+    get: async (path, config = {}) => {
+        try {
+            return await axios.get(`${API_BASE_URL}${path}`, config);
+        } catch (err) {
+            if (API_BASE_URL === '' && (!err.response || err.response.status >= 500)) {
+                return await axios.get(`${DIRECT_BACKEND_URL}${path}`, config);
+            }
+            throw err;
+        }
+    },
+    post: async (path, data, config = {}) => {
+        try {
+            return await axios.post(`${API_BASE_URL}${path}`, data, config);
+        } catch (err) {
+            if (API_BASE_URL === '' && (!err.response || err.response.status >= 500)) {
+                return await axios.post(`${DIRECT_BACKEND_URL}${path}`, data, config);
+            }
+            throw err;
+        }
+    }
+};
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const formatDate = (d) => {
@@ -87,13 +122,14 @@ export default function QuotationBankOfferPage() {
     // 1. Fetch RFQ
     const fetchRfq = useCallback(async () => {
         try {
-            const res = await axios.get(`${API_BASE_URL}/api/v1/public-quotation/${token}`);
+            const res = await quotationApi.get(`/api/v1/public-quotation/${token}`);
             const data = res.data;
 
             const serverTime = new Date(data.serverTime).getTime();
             const localTime = Date.now();
             setTimeOffset(serverTime - localTime);
             setRfq(data);
+            setError(null);
             if (data.is_live_ranking_enabled) {
                 setLiveRank({
                     is_enabled: true,
@@ -103,7 +139,31 @@ export default function QuotationBankOfferPage() {
                 });
             }
         } catch (err) {
-            setError(err.response?.data?.detail || err.message || 'Failed to load RFQ');
+            const status = err.response?.status;
+            const detail = err.response?.data?.detail;
+            const detailStr = typeof detail === 'string' ? detail : (detail ? JSON.stringify(detail) : '');
+            const rawMessage = detailStr || err.message || 'Failed to load quotation details';
+
+            const isExpired = status === 410 || 
+                              detailStr.toLowerCase().includes('expired') || 
+                              detailStr.toLowerCase().includes('validity of this link');
+            
+            const isPendingApproval = status === 403 && 
+                                      detailStr.toLowerCase().includes('awaiting internal corporate approval');
+
+            const isInvalidToken = status === 404 || 
+                                   detailStr.toLowerCase().includes('invalid token');
+
+            const isNetworkError = !err.response || err.message === 'Network Error' || err.code === 'ERR_NETWORK';
+
+            setError({
+                status,
+                message: rawMessage,
+                isExpired,
+                isPendingApproval,
+                isInvalidToken,
+                isNetworkError
+            });
         }
     }, [token]);
 
@@ -111,7 +171,7 @@ export default function QuotationBankOfferPage() {
     const checkResult = useCallback(async () => {
         if (!rfq) return null;
         try {
-            const res = await axios.get(`${API_BASE_URL}/api/v1/public-quotation/${token}/result`);
+            const res = await quotationApi.get(`/api/v1/public-quotation/${token}/result`);
             const status = res.data.status;
 
             if (status === 'WINNER') {
@@ -147,7 +207,7 @@ export default function QuotationBankOfferPage() {
             const verifyMagic = async () => {
                 setIsVerifyingOtp(true);
                 try {
-                    const res = await axios.post(`${API_BASE_URL}/api/v1/public-quotation/verify-otp`, {
+                    const res = await quotationApi.post('/api/v1/public-quotation/verify-otp', {
                         token,
                         magic_token: magicTokenParam
                     });
@@ -198,7 +258,7 @@ export default function QuotationBankOfferPage() {
 
         const pollRank = async () => {
             try {
-                const res = await axios.get(`${API_BASE_URL}/api/v1/public-quotation/${token}/live-rank`);
+                const res = await quotationApi.get(`/api/v1/public-quotation/${token}/live-rank`);
                 if (res.data && res.data.is_live_ranking_enabled) {
                     setLiveRank({
                         is_enabled: true,
@@ -318,7 +378,7 @@ export default function QuotationBankOfferPage() {
     const fetchHistory = async () => {
         setIsLoadingHistory(true);
         try {
-            const res = await axios.get(`${API_BASE_URL}/api/v1/public-quotation/${token}/history`);
+            const res = await quotationApi.get(`/api/v1/public-quotation/${token}/history`);
             setHistoryData(res.data.history || []);
         } catch (err) {
             console.error('Failed to fetch quotation history:', err);
@@ -346,7 +406,7 @@ export default function QuotationBankOfferPage() {
         setIsRequestingOtp(true);
         setOtpError('');
         try {
-            await axios.post(`${API_BASE_URL}/api/v1/public-quotation/request-otp`, {
+            await quotationApi.post('/api/v1/public-quotation/request-otp', {
                 token,
                 email: targetEmail
             });
@@ -369,7 +429,7 @@ export default function QuotationBankOfferPage() {
         setIsVerifyingOtp(true);
         setOtpError('');
         try {
-            const res = await axios.post(`${API_BASE_URL}/api/v1/public-quotation/verify-otp`, {
+            const res = await quotationApi.post('/api/v1/public-quotation/verify-otp', {
                 token,
                 email: targetEmail,
                 otp_code: otpCode.trim()
@@ -403,7 +463,7 @@ export default function QuotationBankOfferPage() {
 
         setIsActioningApproval(true);
         try {
-            await axios.post(`${API_BASE_URL}/api/v1/public-quotation/${token}/approve`, {
+            await quotationApi.post(`/api/v1/public-quotation/${token}/approve`, {
                 action,
                 session_token: authSession.session_token,
                 notes: approvalNotes.trim() || undefined
@@ -441,7 +501,7 @@ export default function QuotationBankOfferPage() {
                     email: authSession.email
                 };
 
-            const res = await axios.post(`${API_BASE_URL}${endpoint}`, body);
+            const res = await quotationApi.post(endpoint, body);
             setSubmitted(true);
             setFatFingerModal(null);
             if (res.data?.live_rank) {
@@ -564,12 +624,108 @@ export default function QuotationBankOfferPage() {
     };
 
     if (error) {
+        const isExpired = typeof error === 'object' && error?.isExpired;
+        const isPendingApproval = typeof error === 'object' && error?.isPendingApproval;
+        const isInvalid = typeof error === 'object' && error?.isInvalidToken;
+        const isNetwork = typeof error === 'object' && error?.isNetworkError;
+        const rawMessage = typeof error === 'object' ? error?.message : error;
+
+        let icon;
+        let title = "Access Denied";
+        let badge = { text: "Access Restricted", bg: "bg-rose-50 text-rose-700 border-rose-200" };
+        let description = rawMessage || "This quotation link is not accessible.";
+        let showRetry = false;
+
+        if (isExpired) {
+            icon = (
+                <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto mb-4 text-amber-600 shadow-sm">
+                    <Clock size={36} />
+                </div>
+            );
+            badge = { text: "Link Expired", bg: "bg-amber-50 text-amber-800 border-amber-300" };
+            title = "Quotation Link Expired";
+            description = "The participation window and secure token validity for this request for quotation have expired. In accordance with treasury governance and market integrity rules, pricing can no longer be viewed or submitted via this link.";
+            showRetry = false;
+        } else if (isPendingApproval) {
+            icon = (
+                <div className="w-16 h-16 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center mx-auto mb-4 text-blue-600 shadow-sm">
+                    <ShieldAlert size={36} />
+                </div>
+            );
+            badge = { text: "Pending Approval", bg: "bg-blue-50 text-blue-800 border-blue-300" };
+            title = "Awaiting Corporate Approval";
+            description = "This quotation has been drafted but is currently awaiting internal approval by corporate treasury. The quotation link will activate automatically once approved.";
+            showRetry = true;
+        } else if (isInvalid) {
+            icon = (
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto mb-4 text-slate-600 shadow-sm">
+                    <FileQuestion size={36} />
+                </div>
+            );
+            badge = { text: "Invalid Link", bg: "bg-slate-100 text-slate-700 border-slate-300" };
+            title = "Quotation Link Not Found";
+            description = "This quotation link is invalid or has been decommissioned. Please ensure you clicked the full URL provided in your invitation email.";
+            showRetry = false;
+        } else if (isNetwork) {
+            icon = (
+                <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto mb-4 text-amber-600 shadow-sm">
+                    <WifiOff size={36} />
+                </div>
+            );
+            badge = { text: "Connection Error", bg: "bg-amber-50 text-amber-800 border-amber-300" };
+            title = "Connection Failed";
+            description = "Unable to connect to the treasury portal. This may be due to a firewall, proxy filter, or network interruption.";
+            showRetry = true;
+        } else {
+            icon = (
+                <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center mx-auto mb-4 text-rose-600 shadow-sm">
+                    <AlertCircle size={36} />
+                </div>
+            );
+        }
+
         return (
             <div className="min-h-screen flex items-center justify-center p-4 sm:p-8 bg-slate-50">
-                <div className="bg-white p-8 sm:p-12 rounded-3xl shadow-xl border border-red-100 text-center max-w-md w-full animate-fade-in-up">
-                    <AlertCircle className="mx-auto text-red-500 mb-6" size={48} />
-                    <h2 className="text-xl sm:text-2xl font-bold mb-2 text-gray-900">Access Denied</h2>
-                    <p className="text-gray-500 text-sm sm:text-base break-words leading-relaxed">{error}</p>
+                <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-xl border border-slate-200/80 text-center max-w-lg w-full animate-fade-in-up">
+                    {icon}
+                    <div className="mb-3">
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider border shadow-xs ${badge.bg}`}>
+                            {badge.text}
+                        </span>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-bold mb-3 text-slate-900">{title}</h2>
+                    <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-6">{description}</p>
+                    
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-500 text-left mb-6 space-y-1">
+                        <div className="font-semibold text-slate-700 flex items-center gap-1.5">
+                            <Landmark size={14} className="text-slate-500" />
+                            <span>Grow Treasury Portal</span>
+                        </div>
+                        <p>
+                            {isExpired 
+                                ? "If you are an authorized bank partner and require an extended or refreshed quotation window, please contact the issuing corporate treasury officer directly."
+                                : "For questions regarding this quotation, please contact the issuing corporate treasury desk."}
+                        </p>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                        {showRetry && (
+                            <button
+                                onClick={() => fetchRfq()}
+                                className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition shadow flex items-center justify-center gap-2"
+                            >
+                                <RefreshCw size={15} />
+                                <span>Check Status Again</span>
+                            </button>
+                        )}
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="w-full sm:w-auto px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition border border-slate-200 flex items-center justify-center gap-2"
+                        >
+                            <RefreshCw size={15} />
+                            <span>Refresh Page</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         );
