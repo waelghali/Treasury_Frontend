@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, DollarSign, Copy, ExternalLink, Mail, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, DollarSign, Copy, ExternalLink, Mail, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 
@@ -48,6 +48,7 @@ export default function QuotationRequestDashboard() {
         type: 'FX_SPOT',
         direction: 'Buy',
         valueDate: '',
+        allowAlternativeValueDate: false,
         amount: '',
         minTicketAmount: '',
         buyCurrency: 'USD',
@@ -97,6 +98,7 @@ export default function QuotationRequestDashboard() {
                     type: rfq.type || 'FX_SPOT',
                     direction: rfq.direction || 'Buy',
                     valueDate: rfq.value_date || '',
+                    allowAlternativeValueDate: rfq.allow_alternative_value_date || false,
                     amount: rfq.amount ? String(rfq.amount) : '',
                     minTicketAmount: rfq.min_ticket_amount ? String(rfq.min_ticket_amount) : '',
                     buyCurrency: rfq.buy_currency || 'USD',
@@ -122,7 +124,9 @@ export default function QuotationRequestDashboard() {
                         costMax: r.cost_max ?? 0,
                         costFlat: r.cost_flat ?? 0,
                         quotationBase: r.quotation_base || rfq.quotation_base || 'Execution',
-                        isDocumentVisible: r.is_document_visible !== false
+                        isDocumentVisible: r.is_document_visible !== false,
+                        valueDate: r.assigned_value_date || rfq.value_date || '',
+                        allowAlternativeValueDate: r.allow_alternative_value_date ?? rfq.allow_alternative_value_date ?? false
                     }));
                     setSelectedBanks(prefilledBanks);
                 }
@@ -175,7 +179,8 @@ export default function QuotationRequestDashboard() {
         for (const rec of recommendations) {
             const matchedBank = banks.find(b => b.bank_id === rec.bank_id);
             if (matchedBank && !banksToSelect.find(b => b.id === matchedBank.bank_id)) {
-                let costData = { cost_min: 0, cost_percent: 0, cost_max: 0, cost_flat: 0, quotation_base: formData.quotationBase };
+                const base = formData.quotationBase || 'Execution';
+                let costData = { cost_min: 0, cost_percent: 0, cost_max: 0, cost_flat: 0 };
                 try {
                     const costRes = await apiClient.get(`/end-user/quotations/banks/latest-costs?bank_id=${matchedBank.bank_id}`);
                     if (costRes.data) {
@@ -190,7 +195,10 @@ export default function QuotationRequestDashboard() {
                     costPercent: costData.cost_percent || 0,
                     costMax: costData.cost_max || 0,
                     costFlat: costData.cost_flat || 0,
-                    quotationBase: costData.quotation_base || formData.quotationBase
+                    quotationBase: base,
+                    isDocumentVisible: base === 'Execution',
+                    valueDate: formData.valueDate || '',
+                    allowAlternativeValueDate: formData.allowAlternativeValueDate || false
                 });
             }
         }
@@ -204,7 +212,7 @@ export default function QuotationRequestDashboard() {
             setSelectedBanks(selectedBanks.filter(b => b.id !== bank.bank_id));
         } else {
             const base = formData.quotationBase || 'Execution';
-            let fetchedCosts = { costMin: 0, costPercent: 0, costMax: 0, costFlat: 0, quotationBase: base };
+            let fetchedCosts = { costMin: 0, costPercent: 0, costMax: 0, costFlat: 0 };
             try {
                 const res = await apiClient.get(`/end-user/quotations/banks/latest-costs?bank_id=${bank.bank_id}`);
                 if (res.data) {
@@ -212,15 +220,13 @@ export default function QuotationRequestDashboard() {
                         costMin: res.data.cost_min ?? 0,
                         costPercent: res.data.cost_percent ?? 0,
                         costMax: res.data.cost_max ?? 0,
-                        costFlat: res.data.cost_flat ?? 0,
-                        quotationBase: res.data.quotation_base || base
+                        costFlat: res.data.cost_flat ?? 0
                     };
                 }
             } catch (err) {
                 console.warn('Could not fetch latest bank costs:', err);
             }
 
-            const activeBase = fetchedCosts.quotationBase || base;
             setSelectedBanks([
                 ...selectedBanks, 
                 { 
@@ -232,11 +238,33 @@ export default function QuotationRequestDashboard() {
                     costPercent: fetchedCosts.costPercent, 
                     costMax: fetchedCosts.costMax, 
                     costFlat: fetchedCosts.costFlat,
-                    quotationBase: activeBase,
-                    isDocumentVisible: activeBase === 'Execution'
+                    quotationBase: base,
+                    isDocumentVisible: base === 'Execution',
+                    valueDate: formData.valueDate || '',
+                    allowAlternativeValueDate: formData.allowAlternativeValueDate || false
                 }
             ]);
         }
+    };
+
+    const applyValueDateToAllBanks = () => {
+        if (!formData.valueDate) {
+            toast.info("Please set a master value date first.");
+            return;
+        }
+        setSelectedBanks(prev => prev.map(b => ({ ...b, valueDate: formData.valueDate })));
+        toast.success(`Value Date (${formatDate(formData.valueDate)}) synced to all ${selectedBanks.length} selected banks.`);
+    };
+
+    const toggleMasterAlternativeValueDate = (enabled) => {
+        setFormData(prev => ({ ...prev, allowAlternativeValueDate: enabled }));
+        setSelectedBanks(prev => prev.map(b => ({ ...b, allowAlternativeValueDate: enabled })));
+    };
+
+    const toggleAllAlternativeValueDate = (enabled) => {
+        setFormData(prev => ({ ...prev, allowAlternativeValueDate: enabled }));
+        setSelectedBanks(prev => prev.map(b => ({ ...b, allowAlternativeValueDate: enabled })));
+        toast.info(`${enabled ? 'Enabled' : 'Disabled'} alternative value date proposals for all selected banks.`);
     };
 
     const updateBankCost = (bankId, field, value) => {
@@ -335,12 +363,25 @@ export default function QuotationRequestDashboard() {
             }
         }
 
+        const formattedBanks = selectedBanks.map(b => ({
+            id: b.id,
+            costMin: b.costMin ?? 0,
+            costPercent: b.costPercent ?? 0,
+            costMax: b.costMax ?? 0,
+            costFlat: b.costFlat ?? 0,
+            quotationBase: b.quotationBase || formData.quotationBase || 'Execution',
+            isDocumentVisible: b.isDocumentVisible !== false,
+            valueDate: b.valueDate || formData.valueDate || null,
+            allowAlternativeValueDate: b.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false
+        }));
+
         // If in Revision Mode, call resubmit endpoint to update existing RFQ and return to PENDING_APPROVAL
         if (revisionRfqId) {
             const revisionPayload = {
                 type: formData.type,
                 direction: formData.direction || null,
                 value_date: formData.valueDate || null,
+                allow_alternative_value_date: formData.allowAlternativeValueDate || false,
                 amount: formData.amount ? parseFloat(formData.amount) : null,
                 min_ticket_amount: formData.minTicketAmount ? parseFloat(formData.minTicketAmount) : null,
                 buy_currency: formData.buyCurrency || null,
@@ -355,7 +396,7 @@ export default function QuotationRequestDashboard() {
                 quotation_base: formData.quotationBase || null,
                 max_tolerance_percent: formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null,
                 document_path: uploadedDocs.length > 0 ? JSON.stringify(uploadedDocs) : (sourceRfq?.document_path || null),
-                selected_banks: JSON.stringify(selectedBanks),
+                selected_banks: JSON.stringify(formattedBanks),
                 token_validity_hours: parseInt(formData.tokenValidityHours, 10),
                 user_notes: userNotes.trim() || undefined
             };
@@ -379,6 +420,7 @@ export default function QuotationRequestDashboard() {
             type: formData.type,
             direction: formData.direction || null,
             valueDate: formData.valueDate || null,
+            allowAlternativeValueDate: formData.allowAlternativeValueDate || false,
             amount: formData.amount ? parseFloat(formData.amount) : null,
             minTicketAmount: formData.minTicketAmount ? parseFloat(formData.minTicketAmount) : null,
             buyCurrency: formData.buyCurrency || null,
@@ -393,7 +435,7 @@ export default function QuotationRequestDashboard() {
             quotationBase: formData.quotationBase || null,
             maxTolerancePercent: formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null,
             documentPath: uploadedDocs.length > 0 ? JSON.stringify(uploadedDocs) : (sourceRfq?.document_path || null),
-            selectedBanks: JSON.stringify(selectedBanks),
+            selectedBanks: JSON.stringify(formattedBanks),
             token_validity_hours: parseInt(formData.tokenValidityHours, 10),
             parent_rfq_id: retradeRfqId || undefined
         };
@@ -607,11 +649,13 @@ export default function QuotationRequestDashboard() {
                         <button
                             key={type}
                             type="button"
+                            disabled={Boolean(retradeRfqId || revisionRfqId)}
                             onClick={() => setFormData({ ...formData, type: type })}
-                            className={`px-4 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all border-2 flex-grow sm:flex-grow-0 ${formData.type === type
-                                ? 'bg-black border-black text-white'
-                                : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
-                                }`}
+                            className={`px-4 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all border-2 flex-grow sm:flex-grow-0 ${
+                                formData.type === type
+                                    ? 'bg-black border-black text-white'
+                                    : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
+                            } ${(retradeRfqId || revisionRfqId) ? 'cursor-not-allowed opacity-80' : ''}`}
                         >
                             {type === 'FX_SPOT' ? 'FX Spot' : 'Treasury Bills (T-Bills)'}
                         </button>
@@ -637,11 +681,12 @@ export default function QuotationRequestDashboard() {
                                                 <button
                                                     key={dir}
                                                     type="button"
+                                                    disabled={Boolean(retradeRfqId)}
                                                     onClick={() => setFormData({ ...formData, direction: dir })}
                                                     className={`flex-1 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${formData.direction === dir
                                                         ? 'bg-black text-white'
                                                         : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                                        }`}
+                                                        } ${retradeRfqId ? 'cursor-not-allowed opacity-80' : ''}`}
                                                 >
                                                     {dir}
                                                 </button>
@@ -651,31 +696,47 @@ export default function QuotationRequestDashboard() {
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Total Amount</label>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase">Total Amount</label>
+                                                {retradeRfqId && (
+                                                    <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                                                        🔒 Locked
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="relative">
-                                                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                                                 <input
                                                     type="number"
                                                     required
+                                                    disabled={Boolean(retradeRfqId)}
                                                     placeholder="0.00"
-                                                    className="w-full bg-gray-50 border-none rounded-xl pl-10 pr-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 transition-all outline-none"
+                                                    style={{ paddingLeft: '1rem', paddingRight: '3.75rem' }}
+                                                    className={`w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 sm:py-3 text-base font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none ${
+                                                        retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
+                                                    }`}
                                                     value={formData.amount}
                                                     onChange={e => setFormData({ ...formData, amount: e.target.value })}
                                                 />
+                                                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase tracking-wider pointer-events-none select-none">
+                                                    EGP
+                                                </div>
                                             </div>
                                         </div>
                                         <div>
                                             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Min Ticket Amount</label>
                                             <div className="relative">
-                                                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                                                 <input
                                                     type="number"
                                                     required
                                                     placeholder="0.00"
-                                                    className="w-full bg-gray-50 border-none rounded-xl pl-10 pr-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 transition-all outline-none"
+                                                    style={{ paddingLeft: '1rem', paddingRight: '3.75rem' }}
+                                                    className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 sm:py-3 text-base font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none"
                                                     value={formData.minTicketAmount}
                                                     onChange={e => setFormData({ ...formData, minTicketAmount: e.target.value })}
                                                 />
+                                                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase tracking-wider pointer-events-none select-none">
+                                                    EGP
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -751,8 +812,20 @@ export default function QuotationRequestDashboard() {
                                 </>
                             ) : (
                                 <>
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Value Date</label>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase">Value Date</label>
+                                            {selectedBanks.length > 0 && formData.valueDate && (
+                                                <button
+                                                    type="button"
+                                                    onClick={applyValueDateToAllBanks}
+                                                    className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors cursor-pointer"
+                                                    title="Copy master value date to all selected banks"
+                                                >
+                                                    <Copy size={11} /> Sync Date to All Banks
+                                                </button>
+                                            )}
+                                        </div>
                                         <input
                                             type="date"
                                             required
@@ -760,20 +833,55 @@ export default function QuotationRequestDashboard() {
                                             value={formData.valueDate}
                                             onChange={e => setFormData({ ...formData, valueDate: e.target.value })}
                                         />
+
+                                        {/* Master Alternative Value Date Toggle */}
+                                        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50/70 to-indigo-50/70 border border-blue-100 rounded-xl">
+                                            <div className="flex items-center gap-2.5 pr-2">
+                                                <div className="w-7 h-7 rounded-lg bg-blue-600/10 text-blue-600 flex items-center justify-center shrink-0">
+                                                    <Calendar size={14} />
+                                                </div>
+                                                <div>
+                                                    <span className="text-xs font-semibold text-gray-900 block">Allow Alternative Value Date</span>
+                                                    <p className="text-[10px] text-gray-500 leading-tight mt-0.5">Permit counterparties to propose a different settlement date</p>
+                                                </div>
+                                            </div>
+                                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only peer"
+                                                    checked={formData.allowAlternativeValueDate}
+                                                    onChange={e => toggleMasterAlternativeValueDate(e.target.checked)}
+                                                />
+                                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                            </label>
+                                        </div>
                                     </div>
 
                                     <div>
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Amount to Buy</label>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase">Amount to Buy</label>
+                                            {retradeRfqId && (
+                                                <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                                                    🔒 Locked for Re-Tender
+                                                </span>
+                                            )}
+                                        </div>
                                         <div className="relative">
-                                            <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                                             <input
                                                 type="number"
                                                 required
+                                                disabled={Boolean(retradeRfqId)}
                                                 placeholder="0.00"
-                                                className="w-full bg-gray-50 border-none rounded-xl pl-10 pr-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
+                                                style={{ paddingLeft: '1rem', paddingRight: '3.75rem' }}
+                                                className={`w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 sm:py-3 text-base font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-black/5 outline-none transition-all ${
+                                                    retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
+                                                }`}
                                                 value={formData.amount}
                                                 onChange={e => setFormData({ ...formData, amount: e.target.value })}
                                             />
+                                            <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase tracking-wider pointer-events-none select-none">
+                                                {formData.buyCurrency}
+                                            </div>
                                         </div>
                                     </div>
 
@@ -781,7 +889,10 @@ export default function QuotationRequestDashboard() {
                                         <div>
                                             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Buy Pair</label>
                                             <select
-                                                className="w-full bg-gray-50 border-none rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
+                                                disabled={Boolean(retradeRfqId)}
+                                                className={`w-full bg-gray-50 border-none rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all ${
+                                                    retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
+                                                }`}
                                                 value={formData.buyCurrency}
                                                 onChange={e => setFormData({ ...formData, buyCurrency: e.target.value })}
                                             >
@@ -791,7 +902,10 @@ export default function QuotationRequestDashboard() {
                                         <div>
                                             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Sell Pair</label>
                                             <select
-                                                className="w-full bg-gray-50 border-none rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
+                                                disabled={Boolean(retradeRfqId)}
+                                                className={`w-full bg-gray-50 border-none rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all ${
+                                                    retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
+                                                }`}
                                                 value={formData.sellCurrency}
                                                 onChange={e => setFormData({ ...formData, sellCurrency: e.target.value })}
                                             >
@@ -979,6 +1093,54 @@ export default function QuotationRequestDashboard() {
                             </div>
                         )}
 
+                        {/* 1-Click Alternative Value Date Toolbar for selected banks */}
+                        {formData.type === 'FX_SPOT' && selectedBanks.length > 0 && (
+                            <div className="mb-5 p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-blue-50/70 via-slate-50 to-indigo-50/60 border border-blue-100 flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs animate-fade-in-up">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-2xs shrink-0">
+                                        <Calendar size={15} />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-extrabold text-blue-950 text-xs uppercase tracking-wide">Alternative Value Date Sync</span>
+                                            <span className="text-[10px] font-bold bg-blue-100/90 text-blue-800 px-2 py-0.5 rounded-full">
+                                                {selectedBanks.filter(b => b.allowAlternativeValueDate).length} of {selectedBanks.length} Allowed
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-500 mt-0.5">
+                                            Master settlement date: <strong className="text-gray-800">{formData.valueDate ? formatDate(formData.valueDate) : 'Not specified'}</strong>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleAllAlternativeValueDate(true)}
+                                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-[11px] transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                                        title="Allow all selected banks to propose alternative value dates"
+                                    >
+                                        <CheckCircle2 size={13} /> Allow for All Banks
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleAllAlternativeValueDate(false)}
+                                        className="px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 font-semibold border border-gray-200 rounded-xl text-[11px] transition-colors shadow-2xs cursor-pointer"
+                                        title="Lock all selected banks to fixed value date"
+                                    >
+                                        Disallow for All
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={applyValueDateToAllBanks}
+                                        className="px-3 py-1.5 bg-white hover:bg-gray-100 text-blue-700 font-semibold border border-blue-200 rounded-xl text-[11px] transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                                        title="Apply master value date to all selected banks"
+                                    >
+                                        <Copy size={12} /> Sync Master Date
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Mind-Reader Smart Recommendation Banner (Appears only when user hasn't selected counterparties yet) */}
                         {recommendations.length > 0 && selectedBanks.length === 0 && (
                             <div className="mb-5 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-indigo-50/90 to-sky-50/90 border border-blue-200/90 flex flex-wrap items-center justify-between gap-3 shadow-xs animate-fade-in">
@@ -1120,6 +1282,31 @@ export default function QuotationRequestDashboard() {
                                                         Document Visible
                                                     </label>
                                                 </div>
+
+                                                {formData.type === 'FX_SPOT' && (
+                                                    <div className="pt-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <label className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Value Date:</label>
+                                                            <input
+                                                                type="date"
+                                                                className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black"
+                                                                value={isSelected.valueDate || ''}
+                                                                onChange={e => updateBankCost(bank.bank_id, 'valueDate', e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-gray-700 font-medium select-none bg-white border border-gray-200 hover:border-blue-300 px-2 py-1 rounded-lg transition-colors">
+                                                            <input
+                                                                type="checkbox"
+                                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                                                                checked={isSelected.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false}
+                                                                onChange={e => updateBankCost(bank.bank_id, 'allowAlternativeValueDate', e.target.checked)}
+                                                            />
+                                                            <span className={isSelected.allowAlternativeValueDate ? 'text-blue-700 font-semibold' : 'text-gray-600'}>
+                                                                Allow Alt Date
+                                                            </span>
+                                                        </label>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>

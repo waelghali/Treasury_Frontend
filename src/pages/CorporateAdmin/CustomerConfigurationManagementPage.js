@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, X, Shield, Layers, Cpu, HardDrive, Settings, Clock, Server, Lock, MessageSquare, FileCheck, Building, LayoutTemplate, Sparkles, Sliders, KeyRound, Check } from 'lucide-react';
+import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, X, Shield, Layers, Cpu, HardDrive, Settings, Clock, Server, Lock, MessageSquare, FileCheck, Building, LayoutTemplate, Sparkles, Sliders, KeyRound, Check, History, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import QuotationBanksModal from '../../components/Modals/QuotationBanksModal';
 import RangeBarController from '../../components/RangeBarController';
@@ -255,7 +255,11 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
-
+  // --- CBE Rate History Modal State ---
+  const [showCbeHistoryModal, setShowCbeHistoryModal] = useState(false);
+  const [cbeHistoryData, setCbeHistoryData] = useState([]);
+  const [isCbeHistoryLoading, setIsCbeHistoryLoading] = useState(false);
+  const [isCbeSyncing, setIsCbeSyncing] = useState(false);
 
   // --- Email Settings State ---
   const [showEmailSettingsModal, setShowEmailSettingsModal] = useState(false);
@@ -322,6 +326,37 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     } finally {
       if (!isBackground) setIsLoading(false);
     }
+  };
+
+  const fetchCbeHistory = async () => {
+    setIsCbeHistoryLoading(true);
+    try {
+      const data = await apiRequest('/corporate-admin/cbe-rates-history', 'GET');
+      setCbeHistoryData(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error('Failed to load CBE rate history: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsCbeHistoryLoading(false);
+    }
+  };
+
+  const handleManualCbeSync = async () => {
+    setIsCbeSyncing(true);
+    try {
+      await apiRequest('/corporate-admin/cbe-rates-sync', 'POST');
+      toast.success('CBE Policy Benchmark Rates successfully synchronized from official sources!');
+      await fetchCbeHistory();
+      fetchConfigurations(true);
+    } catch (err) {
+      toast.error('Failed to sync CBE rates: ' + (err.message || 'Network error'));
+    } finally {
+      setIsCbeSyncing(false);
+    }
+  };
+
+  const handleOpenCbeHistory = () => {
+    setShowCbeHistoryModal(true);
+    fetchCbeHistory();
   };
 
   const fetchEmailSettings = async () => {
@@ -419,6 +454,10 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
   const handleEditClick = (config) => {
     if (isGracePeriod) {
       toast.warn("This action is disabled during your subscription's grace period.");
+      return;
+    }
+    if (config.global_config_key && config.global_config_key.startsWith('CBE_')) {
+      toast.info("CBE benchmark policy rates are automatically synchronized from official sources and cannot be manually edited.");
       return;
     }
     if (config.global_config_key === 'COMMON_COMMUNICATION_LIST') {
@@ -1249,236 +1288,237 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                       </GracePeriodTooltip>
                     )}
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
-                      <colgroup>
-                        <col style={{ width: '21%' }} /> {/* Setting (3 units) */}
-                        <col style={{ width: '28%' }} /> {/* Description (4 units) */}
-                        <col style={{ width: '7%' }} />  {/* Min Value (1 unit) */}
-                        <col style={{ width: '7%' }} />  {/* Max Value (1 unit) */}
-                        <col style={{ width: '7%' }} />  {/* Default Value (1 unit) */}
-                        <col style={{ width: '14%' }} /> {/* Current Value (2 units) */}
-                        <col style={{ width: '7%' }} />  {/* Unit (1 unit) */}
-                        <col style={{ width: '9%' }} />  {/* Actions (1 unit) */}
-                      </colgroup>
-                      <thead className="bg-white">
-                        <tr>
-                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_config_key')}>
-                            <div className="flex items-center">
-                              Setting
-                              {getSortIcon('global_config_key')}
-                            </div>
-                          </th>
-                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_description')}>
-                            <div className="flex items-center">
-                              Description
-                              {getSortIcon('global_description')}
-                            </div>
-                          </th>
-                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_min')}>
-                            <div className="flex items-center">
-                              Min Value
-                              {getSortIcon('global_value_min')}
-                            </div>
-                          </th>
-                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_max')}>
-                            <div className="flex items-center">
-                              Max Value
-                              {getSortIcon('global_value_max')}
-                            </div>
-                          </th>
-                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_default')}>
-                            <div className="flex items-center">
-                              Default Value
-                              {getSortIcon('global_value_default')}
-                            </div>
-                          </th>
-                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('effective_value')}>
-                            <div className="flex items-center">
-                              Current Value
-                              {getSortIcon('effective_value')}
-                            </div>
-                          </th>
-                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_unit')}>
-                            <div className="flex items-center">
-                              Unit
-                              {getSortIcon('global_unit')}
-                            </div>
-                          </th>
-                          {/* CHANGED: 'text-left' to 'text-center' for Actions header */}
-                          <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {configs.filter(c =>
-                          // Hide weight configs and verification policy from table — they're managed by dedicated visual panels below
-                          !c.global_config_key.startsWith('FACILITY_SCORE_WEIGHT_') &&
-                          c.global_config_key !== 'ISSUED_LG_VERIFICATION_POLICY'
-                        ).map((config) => {
-                          // Determine if this config is a boolean and check its state
-                          const isBoolean = config.global_unit === 'boolean';
-                          const isChecked = String(config.effective_value).toLowerCase() === 'true';
+                                    {(() => {
+                    const tableConfigs = configs.filter(c =>
+                      // Hide weight configs, verification policy, and CBE corridor rates from table — they're managed by dedicated visual panels below
+                      !c.global_config_key.startsWith('FACILITY_SCORE_WEIGHT_') &&
+                      c.global_config_key !== 'ISSUED_LG_VERIFICATION_POLICY' &&
+                      !c.global_config_key.startsWith('CBE_')
+                    );
 
-                          return (
-                            <tr key={config.global_config_id} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 text-sm font-medium text-gray-900">
-                                {config.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-500 max-w-xs" title={config.global_description}>
-                                {config.global_description || 'N/A'}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                                {config.global_unit === 'json' ? '-' : (config.global_value_min !== null ? config.global_value_min : '-')}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                                {config.global_unit === 'json' ? '-' : (config.global_value_max !== null ? config.global_value_max : '-')}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                                {config.global_unit === 'json' || (typeof config.global_value_default === 'string' && config.global_value_default.startsWith('{')) ? (
-                                  <span 
-                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200 cursor-help"
-                                    title={typeof config.global_value_default === 'string' ? config.global_value_default : JSON.stringify(config.global_value_default, null, 2)}
-                                  >
-                                    {formatPolicySummary(config.global_value_default)}
-                                  </span>
-                                ) : (
-                                  config.global_value_default !== null ? config.global_value_default : 'N/A'
-                                )}
-                              </td>
+                    if (tableConfigs.length === 0) return null;
 
-                              {/* --- Current Value Column (Always Text) --- */}
-                              <td className="px-3 py-2 text-sm text-gray-900 text-center">
-                                {config.global_unit === 'json' || (typeof config.effective_value === 'string' && config.effective_value.startsWith('{')) ? (
-                                  <span 
-                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200 cursor-help"
-                                    title={typeof config.effective_value === 'string' ? config.effective_value : JSON.stringify(config.effective_value, null, 2)}
-                                  >
-                                    {formatPolicySummary(config.effective_value)}
-                                  </span>
-                                ) : editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' && !isBoolean ? (
-                                  /* EDIT MODE (TEXT INPUT) - Only for non-boolean */
-                                  <div className="flex flex-col items-center gap-1.5">
-                                    <input
-                                      type="text"
-                                      value={editValue}
-                                      onChange={(e) => setEditValue(e.target.value)}
-                                      className={`${inputClassNames} w-24 text-center`}
-                                      placeholder={getPlaceholderText(config)}
-                                      autoFocus
-                                      disabled={isGracePeriod}
-                                    />
-                                    {config.global_value_min !== null && config.global_value_max !== null && !isNaN(parseFloat(config.global_value_min)) && !isNaN(parseFloat(config.global_value_max)) && (
-                                      <RangeBarController
-                                        min={config.global_value_min}
-                                        max={config.global_value_max}
-                                        defaultVal={config.global_value_default}
-                                        value={editValue}
-                                        onChange={(v) => setEditValue(String(v))}
-                                        unit={config.global_unit || ''}
-                                        compact={true}
-                                        disabled={isGracePeriod}
-                                      />
-                                    )}
-                                  </div>
-                                ) : (
-                                  /* VIEW MODE (TEXT) - For ALL types, including boolean */
-                                  <div className="flex flex-col items-center gap-1">
-                                    <span className={`font-semibold ${isBoolean ? (isChecked ? 'text-green-600' : 'text-red-600') : ''}`}>
-                                      {getEffectiveValue(config)}
-                                    </span>
-                                    {config.global_value_min !== null && config.global_value_max !== null && !isNaN(parseFloat(config.global_value_min)) && !isNaN(parseFloat(config.global_value_max)) && (
-                                      <RangeBarController
-                                        min={config.global_value_min}
-                                        max={config.global_value_max}
-                                        defaultVal={config.global_value_default}
-                                        value={config.effective_value}
-                                        unit={config.global_unit || ''}
-                                        compact={true}
-                                        disabled={true}
-                                      />
-                                    )}
-                                  </div>
-                                )}
-                              </td>
-
-                              <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                                {config.global_unit || 'N/A'}
-                              </td>
-
-                              {/* --- Actions Column (Edit Btn OR Toggle) --- */}
-                              {/* CHANGED: 'text-right' to 'text-center' to center content in cell */}
-                              <td className="px-3 py-2 text-center text-sm font-medium">
-                                {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' ? (
-                                  /* SAVE/CANCEL Buttons (Only for non-booleans in edit mode) */
-                                  /* CHANGED: 'justify-end' to 'justify-center' */
-                                  <div className="flex items-center justify-center space-x-1">
-                                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSave(config)}
-                                        className={`${buttonBaseClassNames} bg-green-600 text-white hover:bg-green-700 ${isSaving || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        disabled={isSaving || isGracePeriod}
-                                      >
-                                        {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
-                                      </button>
-                                    </GracePeriodTooltip>
-                                    <button
-                                      type="button"
-                                      onClick={handleCancelEdit}
-                                      className={`${buttonBaseClassNames} bg-gray-200 text-gray-700 hover:bg-gray-300 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                      disabled={isSaving}
-                                    >
-                                      <XCircle className="h-4 w-4" />
-                                    </button>
-                                  </div>
-                                ) : isBoolean ? (
-                                  /* TOGGLE SWITCH - For Boolean types (Replaces Edit Button) */
-                                  /* CHANGED: 'justify-end' to 'justify-center' */
-                                  <div className="flex justify-center">
-                                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                      <ToggleSwitch
-                                        checked={isChecked}
-                                        onChange={() => handleSave(config, !isChecked)}
-                                        disabled={isGracePeriod || isSaving}
-                                      />
-                                    </GracePeriodTooltip>
-                                  </div>
-                                ) : config.global_unit === 'json' || config.global_config_key === 'ISSUED_LG_VERIFICATION_POLICY' ? (
-                                  /* DEDICATED CONFIGURE BUTTON - Navigates to friendly Form Settings page */
-                                  <button
-                                    type="button"
-                                    onClick={() => navigate('/corporate-admin/issuance-form-config')}
-                                    className="inline-flex items-center px-2.5 py-1 border border-blue-200 text-xs font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
-                                    title="Manage verification rules in Issuance Form Settings"
-                                  >
-                                    Configure
-                                  </button>
-                                ) : (
-                                  /* EDIT BUTTON - For Non-Boolean types */
-                                  /* CONDITION UPDATED: && config.global_unit - if unit is null/missing, button is hidden */
-                                  config.global_unit && (
-                                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleEditClick(config)}
-                                        /* UPDATED: px-4 for wider button */
-                                        className="inline-flex items-center justify-center px-4 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        disabled={isGracePeriod}
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </button>
-                                    </GracePeriodTooltip>
-                                  )
-                                )}
-                              </td>
+                    return (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
+                          <colgroup>
+                            <col style={{ width: '23%' }} /> {/* Setting */}
+                            <col style={{ width: '29%' }} /> {/* Description */}
+                            <col style={{ width: '6%' }} />  {/* Min Value */}
+                            <col style={{ width: '6%' }} />  {/* Max Value */}
+                            <col style={{ width: '6%' }} />  {/* Default Value */}
+                            <col style={{ width: '16%' }} /> {/* Current Value */}
+                            <col style={{ width: '6%' }} />  {/* Unit */}
+                            <col style={{ width: '8%' }} />  {/* Actions */}
+                          </colgroup>
+                          <thead className="bg-white">
+                            <tr>
+                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_config_key')}>
+                                <div className="flex items-center">
+                                  Setting
+                                  {getSortIcon('global_config_key')}
+                                </div>
+                              </th>
+                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_description')}>
+                                <div className="flex items-center">
+                                  Description
+                                  {getSortIcon('global_description')}
+                                </div>
+                              </th>
+                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_min')}>
+                                <div className="flex items-center">
+                                  Min Value
+                                  {getSortIcon('global_value_min')}
+                                </div>
+                              </th>
+                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_max')}>
+                                <div className="flex items-center">
+                                  Max Value
+                                  {getSortIcon('global_value_max')}
+                                </div>
+                              </th>
+                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_default')}>
+                                <div className="flex items-center">
+                                  Default Value
+                                  {getSortIcon('global_value_default')}
+                                </div>
+                              </th>
+                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('effective_value')}>
+                                <div className="flex items-center">
+                                  Current Value
+                                  {getSortIcon('effective_value')}
+                                </div>
+                              </th>
+                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_unit')}>
+                                <div className="flex items-center">
+                                  Unit
+                                  {getSortIcon('global_unit')}
+                                </div>
+                              </th>
+                              {/* CHANGED: 'text-left' to 'text-center' for Actions header */}
+                              <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                              </th>
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {tableConfigs.map((config) => {
+                              // Determine if this config is a boolean and check its state
+                              const isBoolean = config.global_unit === 'boolean';
+                              const isChecked = String(config.effective_value).toLowerCase() === 'true';
+
+                              return (
+                                <tr key={config.global_config_id} className="hover:bg-gray-50">
+                                  <td className="px-3 py-2 text-sm font-medium text-gray-900 break-words">
+                                    {config.global_config_key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                                  </td>
+                                  <td className="px-3 py-2 text-sm text-gray-500 break-words" title={config.global_description}>
+                                    {config.global_description || 'N/A'}
+                                  </td>
+                                  <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                                    {config.global_unit === 'json' ? '-' : (config.global_value_min !== null ? config.global_value_min : '-')}
+                                  </td>
+                                  <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                                    {config.global_unit === 'json' ? '-' : (config.global_value_max !== null ? config.global_value_max : '-')}
+                                  </td>
+                                  <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                                    {config.global_unit === 'json' || (typeof config.global_value_default === 'string' && config.global_value_default.startsWith('{')) ? (
+                                      <span 
+                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200 cursor-help"
+                                        title={config.global_value_default}
+                                      >
+                                        JSON Policy
+                                      </span>
+                                    ) : (config.global_value_default !== null ? config.global_value_default : '-')}
+                                  </td>
+
+                                  {/* --- Current Value Column (Always Text / Input) --- */}
+                                  <td className="px-3 py-2 text-sm text-gray-900 text-center">
+                                    {config.global_unit === 'json' || (typeof config.effective_value === 'string' && config.effective_value.startsWith('{')) ? (
+                                      <span 
+                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200 cursor-help"
+                                        title={typeof config.effective_value === 'string' ? config.effective_value : JSON.stringify(config.effective_value, null, 2)}
+                                      >
+                                        {formatPolicySummary(config.effective_value)}
+                                      </span>
+                                    ) : editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' && !isBoolean ? (
+                                      /* EDIT MODE (TEXT INPUT / SLIDER) - Only for non-boolean */
+                                      <div className="flex flex-col items-center gap-1.5">
+                                        <input
+                                          type="text"
+                                          value={editValue}
+                                          onChange={(e) => setEditValue(e.target.value)}
+                                          className={`${inputClassNames} w-24 text-center`}
+                                          placeholder={getPlaceholderText(config)}
+                                          autoFocus
+                                          disabled={isGracePeriod}
+                                        />
+                                        {config.global_value_min !== null && config.global_value_max !== null && !isNaN(parseFloat(config.global_value_min)) && !isNaN(parseFloat(config.global_value_max)) && (
+                                          <RangeBarController
+                                            min={config.global_value_min}
+                                            max={config.global_value_max}
+                                            defaultVal={config.global_value_default}
+                                            value={editValue}
+                                            onChange={(v) => setEditValue(String(v))}
+                                            unit={config.global_unit || ''}
+                                            compact={true}
+                                            disabled={isGracePeriod}
+                                          />
+                                        )}
+                                      </div>
+                                    ) : (
+                                      /* VIEW MODE (TEXT) - For ALL types, including boolean */
+                                      <div className="flex flex-col items-center gap-1">
+                                        <span className={`font-semibold ${isBoolean ? (isChecked ? 'text-green-600' : 'text-red-600') : ''}`}>
+                                          {getEffectiveValue(config)}
+                                        </span>
+                                        {config.global_value_min !== null && config.global_value_max !== null && !isNaN(parseFloat(config.global_value_min)) && !isNaN(parseFloat(config.global_value_max)) && (
+                                          <RangeBarController
+                                            min={config.global_value_min}
+                                            max={config.global_value_max}
+                                            defaultVal={config.global_value_default}
+                                            value={config.effective_value}
+                                            unit={config.global_unit || ''}
+                                            compact={true}
+                                            disabled={true}
+                                          />
+                                        )}
+                                      </div>
+                                    )}
+                                  </td>
+
+                                  <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                                    {config.global_unit || 'N/A'}
+                                  </td>
+
+                                  {/* --- Actions Column (Edit Btn OR Toggle) --- */}
+                                  <td className="px-3 py-2 text-center text-sm font-medium">
+                                    {editingConfigId === config.global_config_id && config.global_config_key !== 'COMMON_COMMUNICATION_LIST' ? (
+                                      /* SAVE/CANCEL Buttons (Only for non-booleans in edit mode) */
+                                      <div className="flex items-center justify-center space-x-1">
+                                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSave(config)}
+                                            className={`${buttonBaseClassNames} bg-green-600 text-white hover:bg-green-700 ${isSaving || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            disabled={isSaving || isGracePeriod}
+                                          >
+                                            {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
+                                          </button>
+                                        </GracePeriodTooltip>
+                                        <button
+                                          type="button"
+                                          onClick={handleCancelEdit}
+                                          className={`${buttonBaseClassNames} bg-gray-200 text-gray-700 hover:bg-gray-300 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                          disabled={isSaving}
+                                        >
+                                          <XCircle className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    ) : isBoolean ? (
+                                      /* TOGGLE SWITCH - For Boolean types (Replaces Edit Button) */
+                                      <div className="flex justify-center">
+                                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                          <ToggleSwitch
+                                            checked={isChecked}
+                                            onChange={() => handleSave(config, !isChecked)}
+                                            disabled={isGracePeriod || isSaving}
+                                          />
+                                        </GracePeriodTooltip>
+                                      </div>
+                                    ) : config.global_unit === 'json' || config.global_config_key === 'ISSUED_LG_VERIFICATION_POLICY' ? (
+                                      /* DEDICATED CONFIGURE BUTTON - Navigates to friendly Form Settings page */
+                                      <button
+                                        type="button"
+                                        onClick={() => navigate('/corporate-admin/issuance-form-config')}
+                                        className="inline-flex items-center px-2.5 py-1 border border-blue-200 text-xs font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                                        title="Manage verification rules in Issuance Form Settings"
+                                      >
+                                        Configure
+                                      </button>
+                                    ) : (
+                                      /* EDIT BUTTON - For Non-Boolean types */
+                                      <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleEditClick(config)}
+                                          className="inline-flex items-center justify-center p-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                          disabled={isGracePeriod}
+                                          title="Edit configuration value"
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                        </button>
+                                      </GracePeriodTooltip>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
 
                   {/* Linked Weight Editor — for Smart Bank Facility Scoring & Recommendation group */}
                   {(groupName === 'Smart Bank Facility Scoring & Recommendation' || groupName === 'Issuance & Facilities') && (() => {
@@ -2117,6 +2157,198 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
 
                     return <PolicyPanel />;
                   })()}
+
+                  {/* Central Bank of Egypt (CBE) Sovereign Policy Corridor — Dedicated Unified Benchmark Panel */}
+                  {(configs.some(c => c.global_config_key && c.global_config_key.startsWith('CBE_')) || (groupName === 'RFQ Quotations Module' && selectedGroup === 'RFQ Quotations Module')) && (() => {
+                    const lendingCfg = configurations.find(c => c.global_config_key === 'CBE_OVERNIGHT_LENDING_RATE') || configs.find(c => c.global_config_key === 'CBE_OVERNIGHT_LENDING_RATE');
+                    const depositCfg = configurations.find(c => c.global_config_key === 'CBE_OVERNIGHT_DEPOSIT_RATE') || configs.find(c => c.global_config_key === 'CBE_OVERNIGHT_DEPOSIT_RATE');
+                    const midCfg = configurations.find(c => c.global_config_key === 'CBE_MID_CORRIDOR_RATE') || configs.find(c => c.global_config_key === 'CBE_MID_CORRIDOR_RATE');
+
+                    const lendingNum = parseFloat(lendingCfg?.effective_value || lendingCfg?.global_value_default || 20.0);
+                    const depositNum = parseFloat(depositCfg?.effective_value || depositCfg?.global_value_default || 19.0);
+                    const midNum = parseFloat(midCfg?.effective_value || midCfg?.global_value_default || 19.5);
+                    const spreadBps = Math.round((lendingNum - depositNum) * 100);
+
+                    return (
+                      <div className="px-5 py-5 bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-100/60 border-t border-slate-200 rounded-b-lg space-y-4">
+                        {/* Header */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200/80 gap-3">
+                          <div className="flex items-start sm:items-center gap-3">
+                            <div className="p-2.5 bg-blue-100/80 text-blue-700 rounded-xl shadow-xs border border-blue-200/60 shrink-0">
+                              <Building className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="text-sm font-bold text-slate-800 tracking-tight">
+                                  Central Bank of Egypt (CBE) Policy Corridor
+                                </h4>
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  Auto-Synced Weekly
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                  <Clock className="h-3 w-3 text-slate-400" />
+                                  Thu 9:00 PM
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                Official sovereign benchmark interest rates automatically synchronized from CBE monetary policy announcements.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Unified Header Buttons */}
+                          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                            <button
+                              type="button"
+                              onClick={handleOpenCbeHistory}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors shadow-2xs cursor-pointer"
+                              title="View complete historical timeseries of CBE rate adjustments"
+                            >
+                              <History className="h-3.5 w-3.5 text-blue-600" />
+                              <span>Rate History</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleManualCbeSync}
+                              disabled={isCbeSyncing}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg shadow-xs text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer disabled:opacity-50"
+                              title="Perform an immediate live fetch from the CBE official portal"
+                            >
+                              {isCbeSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                              <span>{isCbeSyncing ? 'Syncing...' : 'Sync Rates Now'}</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* 3 Related Rates Displayed Together Side-by-Side */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                          {/* Floor: Overnight Deposit Rate */}
+                          <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-xs hover:border-emerald-300 transition-all flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                  Overnight Deposit
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  Floor
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 leading-tight">
+                                Standing deposit facility rate (corridor lower boundary)
+                              </p>
+                            </div>
+                            <div className="mt-3 flex items-baseline justify-between border-t border-slate-100 pt-2.5">
+                              <span className="text-2xl font-black text-emerald-700 tracking-tight font-mono">
+                                {depositNum.toFixed(2)}%
+                              </span>
+                              <span className="text-[11px] font-mono text-slate-400">
+                                Min Return
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Main Anchor: Mid-Corridor Rate */}
+                          <div className="bg-gradient-to-b from-blue-50/70 to-white p-4 rounded-xl border-2 border-blue-500 shadow-sm relative flex flex-col justify-between">
+                            <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-blue-600 text-white shadow-xs">
+                                Evaluation Benchmark
+                              </span>
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-1 pt-0.5">
+                                <span className="text-xs font-bold text-blue-950 uppercase tracking-wider">
+                                  Mid-Corridor Rate
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200">
+                                  (L + D) / 2
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-blue-900/70 leading-tight">
+                                Central benchmark anchor for RFQ Quotations alternative value date evaluation
+                              </p>
+                            </div>
+                            <div className="mt-3 flex items-baseline justify-between border-t border-blue-100 pt-2.5">
+                              <span className="text-2xl font-black text-blue-700 tracking-tight font-mono">
+                                {midNum.toFixed(2)}%
+                              </span>
+                              <span className="text-[11px] font-semibold text-blue-600">
+                                Policy Anchor
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Ceiling: Overnight Lending Rate */}
+                          <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-xs hover:border-rose-300 transition-all flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                  Overnight Lending
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
+                                  Ceiling
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 leading-tight">
+                                Standing lending facility rate (corridor upper boundary)
+                              </p>
+                            </div>
+                            <div className="mt-3 flex items-baseline justify-between border-t border-slate-100 pt-2.5">
+                              <span className="text-2xl font-black text-rose-700 tracking-tight font-mono">
+                                {lendingNum.toFixed(2)}%
+                              </span>
+                              <span className="text-[11px] font-mono text-slate-400">
+                                Max Cap
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Visual Corridor Bar showing mathematical connection */}
+                        <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs space-y-2">
+                          <div className="flex items-center justify-between text-xs font-medium text-slate-600">
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                              <strong>Deposit Floor:</strong> {depositNum.toFixed(2)}%
+                            </span>
+                            <span className="text-[11px] font-bold text-slate-600 px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200">
+                              Corridor Width: {spreadBps} bps ({(lendingNum - depositNum).toFixed(2)}%)
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <strong>Lending Ceiling:</strong> {lendingNum.toFixed(2)}%
+                              <span className="w-2 h-2 rounded-full bg-rose-500" />
+                            </span>
+                          </div>
+
+                          <div className="relative w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                            <div className="absolute inset-y-0 left-0 right-0 bg-gradient-to-r from-emerald-400 via-blue-500 to-rose-400 opacity-80" />
+                            <div 
+                              className="absolute top-0 bottom-0 w-1.5 bg-white shadow-md -translate-x-1/2 border border-slate-500"
+                              style={{ left: '50%' }}
+                              title={`Mid-Corridor Policy Benchmark: ${midNum.toFixed(2)}%`}
+                            />
+                          </div>
+                          <div className="flex justify-between items-center text-[10px] text-slate-400 px-0.5">
+                            <span>Corridor Floor: {depositNum.toFixed(2)}%</span>
+                            <span className="font-bold text-blue-600 font-mono">Mid Benchmark: {midNum.toFixed(2)}%</span>
+                            <span>Corridor Ceiling: {lendingNum.toFixed(2)}%</span>
+                          </div>
+                        </div>
+
+                        {/* Footer Info Notice */}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] text-slate-500 pt-1 px-1 gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <Shield className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <span>Rates are official Central Bank of Egypt benchmarks. Read-only and maintained by scheduled sync.</span>
+                          </div>
+                          <div>
+                            Quotation discount formula: <code className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono font-semibold">R_eval = CBE_MID + Margin</code>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -2664,6 +2896,120 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
           </div>
         )
       }
+
+      {/* CBE Rate History Modal */}
+      {showCbeHistoryModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-scale-up">
+            {/* Modal Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center shadow-xs">
+                  <Building size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    Central Bank of Egypt (CBE) Rate History
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Official benchmark policy rates logged for quotation alternative value date evaluation.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCbeHistoryModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              {/* Schedule Info Banner & Manual Sync Trigger */}
+              <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <Clock size={16} className="text-blue-600 shrink-0 mt-0.5" />
+                  <div className="text-xs text-blue-900 leading-relaxed">
+                    <strong>Automated Schedule:</strong> Synchronized weekly on <strong>Thursdays at 9:00 PM (Cairo Time)</strong> following Monetary Policy Committee meetings.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleManualCbeSync}
+                  disabled={isCbeSyncing}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+                  title="Run an immediate live sync from CBE official website"
+                >
+                  {isCbeSyncing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                  {isCbeSyncing ? 'Syncing...' : 'Sync Rates Now'}
+                </button>
+              </div>
+
+              {/* Rate History Table */}
+              {isCbeHistoryLoading ? (
+                <div className="p-8 text-center text-xs text-slate-500 flex flex-col items-center gap-2">
+                  <Loader2 size={24} className="animate-spin text-blue-600" />
+                  <span>Loading CBE rate audit timeseries...</span>
+                </div>
+              ) : cbeHistoryData.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-100">
+                  No historical rate entries logged yet. Click "Sync Rates Now" to record the current corridor.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-2xs">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                      <tr>
+                        <th className="px-4 py-2.5">Effective Date</th>
+                        <th className="px-4 py-2.5 text-right">Lending Rate</th>
+                        <th className="px-4 py-2.5 text-right">Deposit Rate</th>
+                        <th className="px-4 py-2.5 text-right">Mid-Corridor</th>
+                        <th className="px-4 py-2.5 text-center">Source</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-mono">
+                      {cbeHistoryData.map((item) => (
+                        <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-4 py-2.5 font-bold text-slate-900 font-sans">
+                            {item.rate_date || '—'}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-rose-700 font-bold">
+                            {item.lending_rate ? `${item.lending_rate.toFixed(2)}%` : '—'}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-emerald-700 font-bold">
+                            {item.deposit_rate ? `${item.deposit_rate.toFixed(2)}%` : '—'}
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-black text-blue-900 bg-blue-50/40">
+                            {item.mid_corridor_rate ? `${item.mid_corridor_rate.toFixed(2)}%` : '—'}
+                          </td>
+                          <td className="px-4 py-2.5 text-center font-sans">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                              {item.source || 'CBE_PORTAL_SYNC'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50/70 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowCbeHistoryModal(false)}
+                className="px-4 py-2 text-xs font-bold rounded-xl text-slate-700 bg-slate-200 hover:bg-slate-300 transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div >
   );
 }

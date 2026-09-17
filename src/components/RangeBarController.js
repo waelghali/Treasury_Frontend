@@ -41,6 +41,10 @@ const RangeBarController = ({
     );
   }
 
+  // Auto-detect fractional precision when default or bounds contain decimals or span is narrow
+  const hasDecimals = !Number.isInteger(minNum) || !Number.isInteger(maxNum) || !Number.isInteger(defaultNum) || !Number.isInteger(currentNum);
+  const effectiveStep = step !== 1 ? step : (hasDecimals || span <= 5 ? (span <= 2 ? 0.01 : 0.05) : 1);
+
   // Defensively clamp default and current values so they never render outside the track
   const clampedDefault = Math.max(minNum, Math.min(maxNum, defaultNum));
   const clampedCurrent = Math.max(minNum, Math.min(maxNum, currentNum));
@@ -92,7 +96,7 @@ const RangeBarController = ({
               type="range"
               min={minNum}
               max={maxNum}
-              step={step}
+              step={effectiveStep}
               value={currentNum}
               onChange={handleSliderChange}
               className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30"
@@ -174,7 +178,7 @@ const RangeBarController = ({
             type="range"
             min={minNum}
             max={maxNum}
-            step={step}
+            step={effectiveStep}
             value={currentNum}
             onChange={handleSliderChange}
             disabled={disabled}

@@ -4,7 +4,8 @@ import axios from 'axios';
 import { 
     Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, 
     Mail, KeyRound, UserCheck, Eye, History, RefreshCw, MessageSquare, Shield,
-    Trophy, BarChart2, Hourglass, ShieldAlert, AlertTriangle, WifiOff, FileQuestion
+    Trophy, BarChart2, Hourglass, ShieldAlert, AlertTriangle, WifiOff, FileQuestion, Calendar,
+    Users, Lock, Zap, Info
 } from 'lucide-react';
 import './quotation-animations.css';
 
@@ -79,6 +80,7 @@ export default function QuotationBankOfferPage() {
     const [rfq, setRfq] = useState(null);
     const [error, setError] = useState(null);
     const [price, setPrice] = useState('');
+    const [offeredValueDate, setOfferedValueDate] = useState('');
     const [traderNotes, setTraderNotes] = useState('');
     const [tbillLines, setTbillLines] = useState([{ settlementDate: '', maturityDate: '', discountRate: '', maxAmount: '' }]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -116,6 +118,11 @@ export default function QuotationBankOfferPage() {
 
     // Fat-Finger Confirmation Modal (Triggers ONLY upon submit for genuine anomalies)
     const [fatFingerModal, setFatFingerModal] = useState(null);
+
+    // Multi-Dealer Desk Concurrency State
+    const [deskState, setDeskState] = useState(null);
+    const [isTakingOver, setIsTakingOver] = useState(false);
+    const [deskNotice, setDeskNotice] = useState(null);
 
     const storageKey = `quotation_auth_${token}`;
 
@@ -252,9 +259,9 @@ export default function QuotationBankOfferPage() {
         };
     }, [timeLeft.status, resultStatus, checkResult]);
 
-    // 4b. Live Ranking Polling (Every 4s while window open)
+    // 4b. Live Ranking Polling (Every 1.5s while window open)
     useEffect(() => {
-        if (!rfq?.is_live_ranking_enabled || timeLeft.status !== 'OPEN') return;
+        if (!rfq?.is_live_ranking_enabled || timeLeft.status !== 'OPEN' || !token) return;
 
         const pollRank = async () => {
             try {
@@ -272,9 +279,51 @@ export default function QuotationBankOfferPage() {
             }
         };
 
-        const interval = setInterval(pollRank, 4000);
+        pollRank(); // Immediate fetch upon entering active window
+        const interval = setInterval(pollRank, 1500); // 1.5s turbo refresh matching corporate/end-user dashboards
         return () => clearInterval(interval);
     }, [rfq?.is_live_ranking_enabled, timeLeft.status, token]);
+
+    // 4c. Desk Session & Multi-Dealer Concurrency Polling (Every 2s while authenticated)
+    useEffect(() => {
+        if (!authSession?.email || !token) return;
+
+        const syncDeskSession = async () => {
+            try {
+                const res = await quotationApi.post(`/api/v1/public-quotation/${token}/desk-heartbeat`, {
+                    session_token: authSession.session_token,
+                    email: authSession.email,
+                    name: authSession.name || authSession.email.split('@')[0],
+                    role: authSession.role || 'EXECUTION'
+                });
+                const data = res.data;
+                setDeskState(data);
+
+                // If colleague submitted quote or price was mirrored, update live if we are spectator
+                if (!data.is_active_trader && data.mirrored_quote) {
+                    if (data.mirrored_quote.price !== undefined && data.mirrored_quote.price !== null) {
+                        setPrice(prev => {
+                            const newP = String(data.mirrored_quote.price);
+                            if (prev !== newP) {
+                                setDeskNotice(`Quote updated by ${data.active_trader_name || data.active_trader_email}: ${newP}`);
+                                setTimeout(() => setDeskNotice(null), 5000);
+                            }
+                            return newP;
+                        });
+                    }
+                    if (data.mirrored_quote.notes !== undefined) {
+                        setTraderNotes(data.mirrored_quote.notes || '');
+                    }
+                }
+            } catch (err) {
+                // Background heartbeat polling error ignored
+            }
+        };
+
+        syncDeskSession();
+        const interval = setInterval(syncDeskSession, 2000); // 2.0s cadence
+        return () => clearInterval(interval);
+    }, [authSession, token]);
 
     // 5. Live Countdown Timer with Dynamic Browser Titles & Urgency Tracking
     useEffect(() => {
@@ -365,12 +414,21 @@ export default function QuotationBankOfferPage() {
                     maxAmount: ''
                 }]);
             }
-        } else if (rfq.type === 'FX_SPOT' && rfq.offers && rfq.offers.length > 0) {
-            setPrice(rfq.offers[0].price.toString());
-            if (rfq.offers[0].notes) {
-                setTraderNotes(rfq.offers[0].notes);
+        } else if (rfq.type === 'FX_SPOT') {
+            if (rfq.offers && rfq.offers.length > 0) {
+                setPrice(rfq.offers[0].price.toString());
+                if (rfq.offers[0].offered_value_date) {
+                    setOfferedValueDate(rfq.offers[0].offered_value_date);
+                } else if (rfq.value_date) {
+                    setOfferedValueDate(rfq.value_date);
+                }
+                if (rfq.offers[0].notes) {
+                    setTraderNotes(rfq.offers[0].notes);
+                }
+                setSubmitted(true);
+            } else if (rfq.value_date) {
+                setOfferedValueDate(rfq.value_date);
             }
-            setSubmitted(true);
         }
     }, [rfq]);
 
@@ -478,6 +536,27 @@ export default function QuotationBankOfferPage() {
         }
     };
 
+    // 8c. Desk Takeover Handler
+    const handleTakeoverDesk = async () => {
+        if (!authSession) return;
+        setIsTakingOver(true);
+        try {
+            const res = await quotationApi.post(`/api/v1/public-quotation/${token}/desk-takeover`, {
+                session_token: authSession.session_token,
+                email: authSession.email,
+                name: authSession.name || authSession.email.split('@')[0],
+                role: authSession.role || 'EXECUTION'
+            });
+            setDeskState(res.data);
+            setDeskNotice("⚡ You have taken over desk control. You can now submit binding quotes.");
+            setTimeout(() => setDeskNotice(null), 5000);
+        } catch (err) {
+            alert(err.response?.data?.detail || "Failed to take over desk control.");
+        } finally {
+            setIsTakingOver(false);
+        }
+    };
+
     // 9. Submit Offer
     const executeSubmit = async (priceToSubmit) => {
         setIsSubmitting(true);
@@ -496,6 +575,7 @@ export default function QuotationBankOfferPage() {
                 : { 
                     token, 
                     price: priceToSubmit !== undefined && priceToSubmit !== null ? priceToSubmit : parseFloat(price),
+                    offered_value_date: rfq.allow_alternative_value_date ? (offeredValueDate || rfq.value_date || undefined) : undefined,
                     notes: traderNotes.trim() || undefined,
                     session_token: authSession.session_token,
                     email: authSession.email
@@ -735,6 +815,7 @@ export default function QuotationBankOfferPage() {
 
     const isApprover = authSession?.role === 'APPROVER';
     const isViewOnly = authSession?.role === 'VIEW_ONLY' || (isApprover && rfq?.approval_status === 'APPROVED');
+    const isSpectator = !!(deskState && !deskState.is_active_trader && !isViewOnly && authSession?.role === 'EXECUTION' && deskState.active_trader_email);
 
     return (
         <div className="relative min-h-screen bg-slate-100/60">
@@ -1104,8 +1185,19 @@ export default function QuotationBankOfferPage() {
                                                     <p className="text-xl sm:text-2xl font-bold text-gray-900">{new Intl.NumberFormat().format(rfq.amount)} <span className="text-xs font-normal text-gray-500">{rfq.buy_currency}</span></p>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Value Date</label>
-                                                    <p className="text-base sm:text-lg font-semibold text-gray-900">{formatDate(rfq.value_date)}</p>
+                                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Target Value Date</label>
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <p className="text-base sm:text-lg font-semibold text-gray-900">{formatDate(rfq.value_date)}</p>
+                                                        {rfq.allow_alternative_value_date ? (
+                                                            <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
+                                                                Alternative Date Allowed
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
+                                                                Fixed Date
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div>
                                                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Quotation Base</label>
@@ -1428,6 +1520,10 @@ export default function QuotationBankOfferPage() {
                                                             </div>
                                                         )}
                                                     </div>
+                                                    <div className="px-3.5 py-2 bg-black/[0.02] border-t border-black/[0.04] flex items-center justify-between text-[10px] text-slate-500">
+                                                        <span>Indicative real-time telemetry feed</span>
+                                                        <span className="italic text-slate-400">Subject to counterparty network transmission variance</span>
+                                                    </div>
                                                 </div>
                                             )}
 
@@ -1442,11 +1538,66 @@ export default function QuotationBankOfferPage() {
                                                 </div>
                                             ) : (
                                                 <form id="quote-form" onSubmit={handleSubmit} className="space-y-4">
+                                                    {/* Multi-Dealer Desk Concurrency Banner */}
+                                                    {isSpectator && (
+                                                        <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl shadow-xs text-xs animate-fade-in-up">
+                                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                                <div className="flex items-start gap-3">
+                                                                    <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 shrink-0 mt-0.5">
+                                                                        <Lock size={18} />
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="font-bold text-amber-950 text-sm flex items-center gap-1.5">
+                                                                            <span>Desk Actively Controlled by Colleague</span>
+                                                                        </div>
+                                                                        <p className="text-amber-800 text-xs mt-0.5">
+                                                                            <strong>{deskState?.active_trader_name || deskState?.active_trader_email}</strong> ({deskState?.active_trader_email}) is currently the designated active dealer. Your desk inputs are locked in spectator mode to prevent pricing collisions.
+                                                                        </p>
+                                                                        {deskNotice && (
+                                                                            <p className="text-blue-700 font-semibold mt-1 bg-blue-50/80 px-2 py-0.5 rounded border border-blue-200">
+                                                                                ℹ️ {deskNotice}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                {timeLeft.status === 'OPEN' && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={handleTakeoverDesk}
+                                                                        disabled={isTakingOver}
+                                                                        className="shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-xl shadow-xs transition-all cursor-pointer text-xs"
+                                                                    >
+                                                                        <Zap size={14} className={isTakingOver ? "animate-spin" : ""} />
+                                                                        {isTakingOver ? "Taking Over..." : "⚡ Take Over Desk"}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {deskState?.is_active_trader && authSession?.role === 'EXECUTION' && (
+                                                        <div className="p-2.5 px-3.5 bg-emerald-50/90 border border-emerald-200 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                <span className="font-bold text-emerald-900">Active Quoting Desk:</span>
+                                                                <span className="text-emerald-800 font-semibold">You ({authSession?.email})</span>
+                                                            </div>
+                                                            {deskState.execution_colleagues_count > 0 ? (
+                                                                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-100/60 px-2.5 py-0.5 rounded-lg">
+                                                                    <Users size={12} />
+                                                                    <span>{deskState.execution_colleagues_count} Colleague Dealer{deskState.execution_colleagues_count > 1 ? 's' : ''} Online</span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-[11px] text-emerald-600 font-medium">Solo Execution Desk</span>
+                                                            )}
+                                                        </div>
+                                                    )}
+
                                                     {rfq.type === 'TBILL' ? (
                                                         <div className="space-y-3.5">
                                                             {tbillLines.map((line, index) => (
                                                                 <div key={index} className="p-3.5 sm:p-4 bg-slate-50 rounded-2xl border border-slate-200 relative group">
-                                                                    {tbillLines.length > 1 && timeLeft.status === 'OPEN' && (
+                                                                    {tbillLines.length > 1 && timeLeft.status === 'OPEN' && !isSpectator && (
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => removeTbillLine(index)}
@@ -1461,8 +1612,8 @@ export default function QuotationBankOfferPage() {
                                                                             <input
                                                                                 type="date"
                                                                                 required
-                                                                                disabled={timeLeft.status !== 'OPEN'}
-                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black"
+                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator}
+                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
                                                                                 value={line.settlementDate}
                                                                                 onChange={e => updateTbillLine(index, 'settlementDate', e.target.value)}
                                                                             />
@@ -1472,8 +1623,8 @@ export default function QuotationBankOfferPage() {
                                                                             <input
                                                                                 type="date"
                                                                                 required
-                                                                                disabled={timeLeft.status !== 'OPEN'}
-                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black"
+                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator}
+                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
                                                                                 value={line.maturityDate}
                                                                                 onChange={e => updateTbillLine(index, 'maturityDate', e.target.value)}
                                                                             />
@@ -1484,10 +1635,10 @@ export default function QuotationBankOfferPage() {
                                                                                 type="number"
                                                                                 step="0.0001"
                                                                                 required
-                                                                                disabled={timeLeft.status !== 'OPEN'}
+                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator}
                                                                                 onWheel={(e) => e.currentTarget.blur()}
                                                                                 placeholder="e.g. 18.50"
-                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-black"
+                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
                                                                                 value={line.discountRate}
                                                                                 onChange={e => updateTbillLine(index, 'discountRate', e.target.value)}
                                                                             />
@@ -1497,10 +1648,10 @@ export default function QuotationBankOfferPage() {
                                                                             <input
                                                                                 type="number"
                                                                                 required
-                                                                                disabled={timeLeft.status !== 'OPEN'}
+                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator}
                                                                                 onWheel={(e) => e.currentTarget.blur()}
                                                                                 placeholder="e.g. 10000000"
-                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black"
+                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
                                                                                 value={line.maxAmount}
                                                                                 onChange={e => updateTbillLine(index, 'maxAmount', e.target.value)}
                                                                             />
@@ -1516,7 +1667,7 @@ export default function QuotationBankOfferPage() {
                                                                 </div>
                                                             ))}
 
-                                                            {timeLeft.status === 'OPEN' && (
+                                                            {timeLeft.status === 'OPEN' && !isSpectator && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={addTbillLine}
@@ -1527,33 +1678,72 @@ export default function QuotationBankOfferPage() {
                                                             )}
                                                         </div>
                                                     ) : (
-                                                        <div>
-                                                            <div className="flex items-center justify-between mb-2">
-                                                                <label className="block text-[10px] font-bold text-gray-500 uppercase">
-                                                                    Spot Rate Quote ({rfq.sell_currency} per 1 {rfq.buy_currency})
-                                                                </label>
-                                                                {rfq.cbe_benchmark_rate && (
-                                                                    <span className="text-[10px] font-mono text-gray-400 font-semibold" title="Central Bank of Egypt benchmark reference">
-                                                                        CBE Ref: ~{parseFloat(rfq.cbe_benchmark_rate).toFixed(4)}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <div className="relative">
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.0001"
-                                                                    required
-                                                                    disabled={timeLeft.status !== 'OPEN' || isSubmitting}
-                                                                    onWheel={(e) => e.currentTarget.blur()}
-                                                                    placeholder="Enter spot rate (e.g. 48.6500)"
-                                                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-2xl font-bold focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none"
-                                                                    value={price}
-                                                                    onChange={e => setPrice(e.target.value)}
-                                                                />
-                                                                <div className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">
-                                                                    {rfq.sell_currency}
+                                                        <div className="space-y-4">
+                                                            <div>
+                                                                <div className="flex items-center justify-between mb-2">
+                                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase">
+                                                                        Spot Rate Quote ({rfq.sell_currency} per 1 {rfq.buy_currency})
+                                                                    </label>
+                                                                    {rfq.cbe_benchmark_rate && (
+                                                                        <span className="text-[10px] font-mono text-gray-400 font-semibold" title="Central Bank of Egypt benchmark reference">
+                                                                            CBE Ref: ~{parseFloat(rfq.cbe_benchmark_rate).toFixed(4)}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="relative">
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.0001"
+                                                                        required
+                                                                        disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator}
+                                                                        onWheel={(e) => e.currentTarget.blur()}
+                                                                        placeholder="Enter spot rate (e.g. 48.6500)"
+                                                                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-2xl font-bold focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                                                                        value={price}
+                                                                        onChange={e => setPrice(e.target.value)}
+                                                                    />
+                                                                    <div className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">
+                                                                        {rfq.sell_currency}
+                                                                    </div>
                                                                 </div>
                                                             </div>
+
+                                                            {/* Proposed Settlement / Value Date */}
+                                                            {rfq.allow_alternative_value_date ? (
+                                                                <div>
+                                                                    <div className="flex items-center justify-between mb-1.5">
+                                                                        <label className="block text-[10px] font-bold text-gray-500 uppercase flex items-center gap-1.5">
+                                                                            <Calendar size={13} className="text-blue-600" />
+                                                                            Proposed Value Date
+                                                                        </label>
+                                                                        <span className="text-[10px] text-blue-700 font-semibold bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                                                                            Alternative Date Permitted
+                                                                        </span>
+                                                                    </div>
+                                                                    <input
+                                                                        type="date"
+                                                                        min={new Date().toISOString().split('T')[0]}
+                                                                        disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator}
+                                                                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                                                                        value={offeredValueDate || rfq.value_date || ''}
+                                                                        onChange={e => setOfferedValueDate(e.target.value)}
+                                                                    />
+                                                                    <p className="text-[10px] text-gray-400 mt-1">
+                                                                        Client target: <strong className="text-gray-600">{formatDate(rfq.value_date)}</strong>. Cannot be earlier than today.
+                                                                    </p>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between text-xs">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Calendar size={14} className="text-gray-400" />
+                                                                        <span className="text-gray-500 text-[11px]">Value Date:</span>
+                                                                        <span className="font-semibold text-gray-800">{formatDate(rfq.value_date)}</span>
+                                                                    </div>
+                                                                    <span className="text-[10px] font-medium text-gray-400 bg-gray-200/60 px-2 py-0.5 rounded">
+                                                                        Fixed Date
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
 
@@ -1565,9 +1755,9 @@ export default function QuotationBankOfferPage() {
                                                         </label>
                                                         <textarea
                                                             rows={2}
-                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting}
+                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator}
                                                             placeholder="Add any settlement notes, execution remarks, or comments for the treasury desk..."
-                                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-gray-800 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none resize-none"
+                                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-gray-800 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none resize-none disabled:bg-slate-100 disabled:text-slate-400"
                                                             value={traderNotes}
                                                             onChange={(e) => setTraderNotes(e.target.value)}
                                                         />
@@ -1575,16 +1765,39 @@ export default function QuotationBankOfferPage() {
 
                                                     {/* Form Submit Action directly below */}
                                                     <div className="pt-1">
-                                                        <button
-                                                            type="submit"
-                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || !authSession || (rfq.type === 'TBILL' ? tbillLines.some(l => !l.discountRate || !l.maxAmount) : !price)}
-                                                            className="w-full py-3.5 bg-slate-950 text-white rounded-2xl font-bold text-base hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all shadow-md cursor-pointer"
-                                                        >
-                                                            {isSubmitting ? 'Submitting Quote...' : timeLeft.status === 'PRE' ? 'Waiting for Window to Open' : timeLeft.status === 'CLOSED' ? 'Window Closed' : (submitted ? 'Update Quote' : 'Submit Binding Quote')}
-                                                        </button>
+                                                        {isSpectator ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleTakeoverDesk}
+                                                                disabled={timeLeft.status !== 'OPEN' || isTakingOver}
+                                                                className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-2xl font-bold text-base transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                                            >
+                                                                <Zap size={16} className={isTakingOver ? "animate-spin" : ""} />
+                                                                {isTakingOver ? 'Transferring Desk Control...' : '⚡ Take Over Desk to Submit Quote'}
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                type="submit"
+                                                                disabled={timeLeft.status !== 'OPEN' || isSubmitting || !authSession || (rfq.type === 'TBILL' ? tbillLines.some(l => !l.discountRate || !l.maxAmount) : !price)}
+                                                                className="w-full py-3.5 bg-slate-950 text-white rounded-2xl font-bold text-base hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all shadow-md cursor-pointer"
+                                                            >
+                                                                {isSubmitting ? 'Submitting Quote...' : timeLeft.status === 'PRE' ? 'Waiting for Window to Open' : timeLeft.status === 'CLOSED' ? 'Window Closed' : (submitted ? 'Update Quote' : 'Submit Binding Quote')}
+                                                            </button>
+                                                        )}
                                                         <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400 mt-2">
                                                             <Shield size={12} className="text-emerald-600" />
                                                             <span>Institutional End-to-End Encryption & Audit Logging Active</span>
+                                                        </div>
+
+                                                        {/* Transmission Latency & Liability Limitation Advisory */}
+                                                        <div className="mt-3.5 p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-[10.5px] leading-relaxed text-slate-500">
+                                                            <div className="flex items-start gap-2">
+                                                                <Info size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                                                                <div>
+                                                                    <strong className="text-slate-700 font-semibold">Transmission & Telemetry Advisory:</strong>{' '}
+                                                                    Quotations, desk concurrency, and live rankings are synchronized via high-frequency telemetry. Delivery timing is subject to local internet connectivity, ISP routing, and public internet conditions. The platform and client organization assume no liability for transmission latency, clock discrepancies, or submissions received after window expiry. Dealers are advised to transmit firm quotes well in advance of the cutoff time.
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </form>

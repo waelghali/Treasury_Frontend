@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Printer, Shield, X, Award, RefreshCw } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Printer, Shield, X, Award, RefreshCw, Calendar, Info } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
 
@@ -132,22 +132,30 @@ export default function ResultsView({ rfqId }) {
 
     useEffect(() => {
         let interval = null;
+        let isMounted = true;
+
         const initFetch = async () => {
             const currentStatus = await fetchResults();
+            if (!isMounted) return;
+
             if (currentStatus && ['COMPLETED', 'CANCELLED', 'REJECTED'].includes(currentStatus)) {
                 return; // Terminal state reached, do not poll
             }
+
+            // High-efficiency 1.5s live polling during active bidding window
             interval = setInterval(async () => {
+                if (typeof document !== 'undefined' && document.hidden) return; // Conserve resources when tab is unfocused
                 const updatedStatus = await fetchResults();
                 if (updatedStatus && ['COMPLETED', 'CANCELLED', 'REJECTED'].includes(updatedStatus)) {
                     if (interval) clearInterval(interval);
                 }
-            }, 5000);
+            }, 1500);
         };
 
         initFetch();
 
         return () => {
+            isMounted = false;
             if (interval) clearInterval(interval);
         };
     }, [rfqId]);
@@ -245,7 +253,26 @@ export default function ResultsView({ rfqId }) {
                             <Mail size={14} /> {sendingResults ? 'Sending...' : 'Send Result Emails (Direct)'}
                         </button>
                     )}
-                    <span className="text-xs font-medium text-gray-400 italic">Auto-refreshing every 5s</span>
+                    {isWindowClosed ? (
+                        <span className="text-xs font-medium text-gray-400 italic">Quotation concluded</span>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold shadow-xs">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                <span>Live Sync (1.5s)</span>
+                            </span>
+                            <button
+                                onClick={() => fetchResults()}
+                                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                                title="Force refresh live standings"
+                            >
+                                <RefreshCw size={13} />
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -305,6 +332,15 @@ export default function ResultsView({ rfqId }) {
                         <Shield size={13} className="text-emerald-400" />
                         <span>Blind Bidding Protected</span>
                     </div>
+                </div>
+            )}
+
+            {!isWindowClosed && (
+                <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-[11px] text-slate-500">
+                    <Info size={13} className="text-slate-400 shrink-0" />
+                    <span>
+                        <strong className="text-slate-700 font-semibold">Transmission & Telemetry Notice:</strong> Standings and trading floor signals update via continuous high-speed synchronization. Local connectivity or ISP latency across counterparties may introduce minor variance. The system accepts no liability for third-party transmission delays.
+                    </span>
                 </div>
             )}
 
@@ -387,7 +423,16 @@ export default function ResultsView({ rfqId }) {
                         </div>
                         <div className="text-right text-xs">
                             <span className="font-bold text-gray-400 block uppercase text-[10px]">Value Date</span>
-                            <span className="font-mono font-semibold text-gray-700">{rfq.value_date || 'N/A'}</span>
+                            <span className="font-mono font-semibold text-gray-700">{formatDate(rfq.value_date)}</span>
+                            {rfq.type === 'FX_SPOT' && (
+                                <span className={`inline-block text-[10px] font-semibold mt-0.5 px-2 py-0.5 rounded border ${
+                                    rfq.allow_alternative_value_date 
+                                        ? 'text-blue-700 bg-blue-50 border-blue-200' 
+                                        : 'text-gray-600 bg-gray-100 border-gray-200'
+                                }`}>
+                                    {rfq.allow_alternative_value_date ? 'Alternative Date Permitted' : 'Fixed Date Only'}
+                                </span>
+                            )}
                         </div>
                     </div>
 
@@ -401,8 +446,14 @@ export default function ResultsView({ rfqId }) {
                             <span className="font-bold text-gray-800">{rfq.max_tolerance_percent ? `${rfq.max_tolerance_percent}%` : 'None'}</span>
                         </div>
                         <div>
-                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Min Ticket Amount</span>
-                            <span className="font-bold text-gray-800">{rfq.min_ticket_amount ? rfq.min_ticket_amount.toLocaleString() : 'N/A'}</span>
+                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">
+                                {rfq.type === 'FX_SPOT' && rfq.allow_alternative_value_date ? 'Valuation Eval Rate' : 'Min Ticket Amount'}
+                            </span>
+                            <span className="font-bold text-gray-800">
+                                {rfq.type === 'FX_SPOT' && rfq.allow_alternative_value_date 
+                                    ? `${rfq.eval_rate ?? 19.75}% (CBE Mid + Margin)`
+                                    : (rfq.min_ticket_amount ? rfq.min_ticket_amount.toLocaleString() : 'N/A')}
+                            </span>
                         </div>
                         <div>
                             <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Creator</span>
@@ -745,34 +796,92 @@ export default function ResultsView({ rfqId }) {
                                             <span className="leading-snug"><strong className="text-slate-900 font-semibold">Trader Notes:</strong> {result.notes}</span>
                                         </div>
                                     )}
+                                    {/* Value Date & Settlement Policy Badge (visible during approval and execution) */}
+                                    {rfq?.type === 'FX_SPOT' && (
+                                        <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
+                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-semibold ${
+                                                result.is_alternative_value_date 
+                                                    ? 'bg-blue-50 text-blue-800 border-blue-200' 
+                                                    : 'bg-slate-50 text-slate-700 border-slate-200'
+                                            }`}>
+                                                <Calendar size={12} className={result.is_alternative_value_date ? 'text-blue-600' : 'text-slate-400'} />
+                                                <span>
+                                                    Value Date: <strong>{formatDate(result.offered_value_date || result.assigned_value_date || rfq?.value_date)}</strong>
+                                                </span>
+                                                {result.is_alternative_value_date && (
+                                                    <span className="text-[10px] font-normal text-blue-600 ml-1">
+                                                        (Target: {formatDate(rfq?.value_date)})
+                                                    </span>
+                                                )}
+                                            </span>
+                                            {result.allow_alternative_value_date ? (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                                                    Alternative Date Permitted
+                                                </span>
+                                            ) : result.is_alternative_value_date ? (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                                                    Custom Settlement Date
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 bg-gray-100 border border-gray-200/60 px-2 py-0.5 rounded">
+                                                    Fixed Settlement Date
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
                             {result.price && result.finalPrice ? (
-                                <div className="text-right flex flex-wrap items-center gap-4 sm:gap-8 w-full md:w-auto">
+                                <div className="text-right flex flex-wrap items-center gap-4 sm:gap-6 w-full md:w-auto">
                                     <div>
                                         <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bank Quote</label>
                                         <p className="text-sm font-mono text-gray-500">{result.price.toFixed(5)}</p>
                                     </div>
                                     <ArrowRight className="text-gray-300 hidden sm:block" size={16} />
                                     <div>
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Adjusted Price</label>
-                                        <p className={`text-2xl font-bold font-mono ${index === 0 ? 'text-emerald-600' : 'text-gray-900'}`}>
-                                            {result.finalPrice.toFixed(5)}
-                                        </p>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">All-In Price</label>
+                                        <p className="text-sm font-mono font-semibold text-gray-700">{result.finalPrice.toFixed(5)}</p>
                                     </div>
+                                    {result.is_alternative_value_date && result.normalized_price ? (
+                                        <>
+                                            <ArrowRight className="text-gray-300 hidden sm:block" size={16} />
+                                            <div>
+                                                <div className="flex items-center justify-end gap-1 mb-1">
+                                                    <label className="block text-[10px] font-bold text-blue-600 uppercase">TVM Eval Price</label>
+                                                    <span className="text-[9px] font-mono font-bold bg-blue-100 text-blue-800 px-1 rounded">
+                                                        {result.time_value_adjustment >= 0 ? '+' : ''}{result.time_value_adjustment.toFixed(4)}
+                                                    </span>
+                                                </div>
+                                                <p className={`text-2xl font-bold font-mono ${index === 0 ? 'text-emerald-600' : 'text-blue-950'}`}>
+                                                    {result.normalized_price.toFixed(5)}
+                                                </p>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ArrowRight className="text-gray-300 hidden sm:block" size={16} />
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Adjusted Price</label>
+                                                <p className={`text-2xl font-bold font-mono ${index === 0 ? 'text-emerald-600' : 'text-gray-900'}`}>
+                                                    {result.finalPrice.toFixed(5)}
+                                                </p>
+                                            </div>
+                                        </>
+                                    )}
                                     <div className="pl-4 border-l border-gray-100">
                                         <button
                                             onClick={() => {
                                                 const isWinner = index === 0;
                                                 const refNo = rfq?.ref_no || '';
+                                                const executedValueDate = result.offered_value_date || rfq?.value_date;
                                                 const subject = encodeURIComponent(isWinner
                                                     ? `Deal Confirmation: RFQ ${refNo} - ${rfq.buy_currency}/${rfq.sell_currency}`
                                                     : `RFQ Result: RFQ ${refNo} - ${rfq.buy_currency}/${rfq.sell_currency}`
                                                 );
 
                                                 const body = encodeURIComponent(isWinner
-                                                    ? `Dear ${result.bank_name} FX Desk,\n\nWe are pleased to confirm the execution of the following trade based on your winning quote:\n\nREFERENCE: ${refNo}\n- Pair: ${rfq.buy_currency}/${rfq.sell_currency}\n- Amount: ${rfq.amount}\n- Executed Rate: ${result.price.toFixed(5)}\n- Value Date: ${formatDate(rfq.value_date)}\n\nPlease proceed with the standard settlement instructions.\n\nBest regards,\nTreasury Team`
+                                                    ? `Dear ${result.bank_name} FX Desk,\n\nWe are pleased to confirm the execution of the following trade based on your winning quote:\n\nREFERENCE: ${refNo}\n- Pair: ${rfq.buy_currency}/${rfq.sell_currency}\n- Amount: ${rfq.amount}\n- Executed Rate: ${result.price.toFixed(5)}\n- Value Date: ${formatDate(executedValueDate)}\n\nPlease proceed with the standard settlement instructions.\n\nBest regards,\nTreasury Team`
                                                     : `Dear ${result.bank_name} FX Desk,\n\nThank you for participating in our Request for Quotation (RFQ) for ${rfq.buy_currency}/${rfq.sell_currency}.\n\nREFERENCE: ${refNo}\n\nWe are writing to inform you that your quote was not selected for this specific transaction as we have executed with another counterparty at a more competitive all-in rate.\n\nWe appreciate your participation and look forward to your quotes on future requests.\n\nBest regards,\nTreasury Team`
                                                 );
 
