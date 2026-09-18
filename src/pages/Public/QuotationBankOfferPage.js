@@ -601,6 +601,16 @@ export default function QuotationBankOfferPage() {
             const isTBill = rfq.type === 'TBILL';
             const endpoint = isTBill ? '/api/v1/public-quotation/tbill-offer' : '/api/v1/public-quotation/offer';
 
+            // Value Date cannot precede the quotation window trade date
+            if (!isTBill && rfq.allow_alternative_value_date && offeredValueDate) {
+                const tradeDateLimit = rfq?.window_start ? rfq.window_start.split('T')[0] : '';
+                if (tradeDateLimit && offeredValueDate < tradeDateLimit) {
+                    alert(`Proposed Value Date (${formatDate(offeredValueDate)}) cannot be earlier than quotation trade date (${formatDate(tradeDateLimit)}).`);
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
             const linesToUse = customTbillLines || tbillLines;
 
             const body = isTBill
@@ -1860,14 +1870,14 @@ export default function QuotationBankOfferPage() {
                                                                     </div>
                                                                     <input
                                                                         type="date"
-                                                                        min={new Date().toISOString().split('T')[0]}
+                                                                        min={rfq?.window_start ? rfq.window_start.split('T')[0] : new Date().toISOString().split('T')[0]}
                                                                         disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator}
                                                                         className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none disabled:bg-slate-100 disabled:text-slate-400"
                                                                         value={offeredValueDate || rfq.value_date || ''}
                                                                         onChange={e => setOfferedValueDate(e.target.value)}
                                                                     />
                                                                     <p className="text-[10px] text-gray-400 mt-1">
-                                                                        Client target: <strong className="text-gray-600">{formatDate(rfq.value_date)}</strong>. Cannot be earlier than today.
+                                                                        Client target: <strong className="text-gray-600">{formatDate(rfq.value_date)}</strong>. Cannot be earlier than quotation trade date ({formatDate(rfq.window_start)}).
                                                                     </p>
                                                                 </div>
                                                             ) : (
