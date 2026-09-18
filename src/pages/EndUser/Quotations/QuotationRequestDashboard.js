@@ -462,7 +462,7 @@ export default function QuotationRequestDashboard() {
             <div className="w-full max-w-[1400px] mx-auto p-4 sm:p-8">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div
-                        className="lg:col-span-1 bg-white p-6 sm:p-8 rounded-xl border border-gray-100 h-fit transition-all duration-500 ease-out transform translate-y-0 opacity-100"
+                        className="lg:col-span-1 bg-white p-6 sm:p-8 rounded-xl border border-gray-100 h-fit lg:sticky lg:top-6 transition-all duration-500 ease-out transform translate-y-0 opacity-100"
                     >
                         <div className="flex items-center gap-4 mb-6">
                             <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0">
@@ -474,10 +474,10 @@ export default function QuotationRequestDashboard() {
                             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Reference Number</label>
                             <p className="text-base sm:text-lg font-mono font-bold text-black break-all">{createdRfq.ref_no || 'Generating...'}</p>
                         </div>
-                        <p className="text-gray-600 mb-8 text-sm">
+                        <p className="text-gray-600 mb-5 text-sm">
                             Secure tokens generated for {selectedBanks.length} banks. Monitoring submissions in real-time.
                         </p>
-                        <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
+                        <div className="space-y-3.5 max-h-none lg:max-h-[82vh] overflow-y-auto pr-1">
                             {createdRfq.assignments?.map((a) => {
                                 const bank = selectedBanks.find(b => b.id === a.bankId);
                                 // Adjusting link to point to the public portal segment
@@ -541,7 +541,7 @@ export default function QuotationRequestDashboard() {
                         </div>
                         <button
                             onClick={() => setCreatedRfq(null)}
-                            className="mt-8 w-full py-3 sm:py-4 border-2 border-black rounded-2xl font-medium hover:bg-black hover:text-white transition-all text-sm"
+                            className="mt-6 w-full py-3 sm:py-4 border-2 border-black rounded-2xl font-medium hover:bg-black hover:text-white transition-all text-sm"
                         >
                             Create New RFQ
                         </button>
