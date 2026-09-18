@@ -198,6 +198,10 @@ export default function QuotationRequestDashboard() {
         targetValueDate && windowStartDate && windowStartDate > targetValueDate
     );
     const hasDateDiscrepancy = hasInvalidBankValueDate || hasInvalidWindowDate;
+    const hasUnsyncedBankDates = formData.type === 'FX_SPOT' && 
+        selectedBanks.length > 0 && 
+        Boolean(formData.valueDate) && 
+        selectedBanks.some(b => b.valueDate && b.valueDate !== formData.valueDate);
 
     const handleApplySmartSelection = async () => {
         if (!recommendations || recommendations.length === 0 || !banks || banks.length === 0) return;
@@ -957,7 +961,7 @@ export default function QuotationRequestDashboard() {
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between">
                                             <label className="block text-[10px] font-bold text-gray-400 uppercase">Value Date (Settlement Date)</label>
-                                            {selectedBanks.length > 0 && formData.valueDate && (
+                                            {selectedBanks.length > 0 && formData.valueDate && hasUnsyncedBankDates && (
                                                 <button
                                                     type="button"
                                                     onClick={applyValueDateToAllBanks}
@@ -1256,8 +1260,8 @@ export default function QuotationRequestDashboard() {
                             </div>
                         )}
 
-                        {/* 1-Click Alternative Value Date Toolbar for selected banks */}
-                        {formData.type === 'FX_SPOT' && selectedBanks.length > 0 && (
+                        {/* 1-Click Alternative Value Date Toolbar for selected banks - appears only if dates are not synced */}
+                        {formData.type === 'FX_SPOT' && selectedBanks.length > 0 && hasUnsyncedBankDates && (
                             <div className="mb-5 p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-blue-50/70 via-slate-50 to-indigo-50/60 border border-blue-100 flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs animate-fade-in-up">
                                 <div className="flex items-center gap-2.5">
                                     <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-2xs shrink-0">
