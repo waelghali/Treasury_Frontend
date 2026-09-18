@@ -1168,6 +1168,7 @@ export default function QuotationRequestDashboard() {
                                         <option value="30">30s</option>
                                         <option value="60">1m</option>
                                         <option value="120">2m</option>
+                                        <option value="180">3m</option>
                                         <option value="300">5m</option>
                                         <option value="600">10m</option>
                                         <option value="900">15m</option>
