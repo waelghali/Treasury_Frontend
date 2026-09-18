@@ -75,7 +75,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
       else if (currentPath.startsWith('/end-user/lg-records')) { activeItem = 'end-user-manage-lg-records'; title = 'Manage LG Records'; }
       else if (currentPath.startsWith('/end-user/pending-approvals')) { activeItem = 'end-user-pending-approvals'; title = 'Withdraw Request'; }
       else if (currentPath.startsWith('/end-user/internal-owners')) { activeItem = 'end-user-internal-owners'; title = 'Manage Internal Owners'; }
-      else if (currentPath.startsWith('/end-user/quotations/active') || currentPath.startsWith('/end-user/quotations/new')) { activeItem = 'end-user-quotations-active'; title = 'Active Quotations'; }
+      else if (currentPath.startsWith('/end-user/quotations/active') || currentPath.startsWith('/end-user/quotations/new')) { activeItem = 'end-user-quotations-active'; title = 'New & Active Quotations'; }
       else if (currentPath.startsWith('/end-user/quotations/history') || currentPath.startsWith('/end-user/quotations/dashboard') || currentPath.startsWith('/end-user/quotations')) { activeItem = 'end-user-quotations-history'; title = 'Quotation History'; }
       else if (currentPath.startsWith('/end-user/issuance/requests')) { activeItem = 'issuance-requests'; title = 'Issuance Requests'; }
       else if (currentPath.startsWith('/end-user/issuance/issued-lgs')) { activeItem = 'issuance-issued-lgs'; title = 'Issued LGs'; }
@@ -97,6 +97,9 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
     const { activeItem, title } = getActiveState(location.pathname, userRole);
     setActiveMenuItem(activeItem);
     setHeaderTitle(title);
+    if (typeof document !== 'undefined' && title) {
+      document.title = `${title} — Grow Treasury`;
+    }
   }, [location.pathname, userRole]);
 
   // --- 2. NOTIFICATIONS LOGIC ---

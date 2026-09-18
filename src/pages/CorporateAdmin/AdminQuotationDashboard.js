@@ -4,10 +4,11 @@ import apiClient from '../../services/apiClient';
 import ResultsView from '../EndUser/Quotations/ResultsView';
 import AdminRevisionModal from '../../components/Modals/AdminRevisionModal';
 import MarketSpreadTicker from '../../components/Quotations/MarketSpreadTicker';
+import { getRfqTimingState } from '../../utils/quotationTiming';
 import {
     Bell, Check, X, BarChart3, Landmark, History, ChevronRight, Clock,
     Search, Filter, AlertCircle, TrendingUp, ArrowUpRight, ArrowDownRight, FileText, Download,
-    Undo2, RefreshCw, Sparkles, Trophy
+    Undo2, RefreshCw, Sparkles, Trophy, AlertTriangle
 } from 'lucide-react';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -84,6 +85,7 @@ export default function AdminQuotationDashboard() {
     const [history, setHistory] = useState([]);
     const [stats, setStats] = useState([]);
     const [pendingApprovals, setPendingApprovals] = useState([]);
+    const [cancellationRequests, setCancellationRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedRfqId, setSelectedRfqId] = useState(null);
     const [revisionModalRfq, setRevisionModalRfq] = useState(null);
@@ -95,12 +97,14 @@ export default function AdminQuotationDashboard() {
 
     const fetchData = useCallback(async () => {
         try {
-            const [pendingRes, historyRes, statsRes] = await Promise.all([
+            const [pendingRes, cancelRes, historyRes, statsRes] = await Promise.all([
                 apiClient.get('/corporate-admin/quotations/pending-approvals').catch(() => ({ data: [] })),
+                apiClient.get('/corporate-admin/quotations/cancellation-requests').catch(() => ({ data: [] })),
                 apiClient.get('/end-user/quotations/').catch(() => ({ data: [] })),
                 apiClient.get('/end-user/quotations/stats?trade_type=FX_SPOT').catch(() => ({ data: [] })),
             ]);
             setPendingApprovals(pendingRes.data);
+            setCancellationRequests(cancelRes.data);
             setHistory(historyRes.data);
             setStats(statsRes.data);
         } catch (err) {
@@ -150,6 +154,30 @@ export default function AdminQuotationDashboard() {
         }
     };
 
+    const handleApproveCancellation = async (rfqId) => {
+        const rfq = cancellationRequests.find(r => r.id === rfqId);
+        if (!window.confirm(`Approve cancellation of RFQ ${rfq?.ref_no || rfqId}? This will officially withdraw the tender and notify all counterparties.`)) return;
+        try {
+            await apiClient.post(`/corporate-admin/quotations/${rfqId}/approve-cancellation`);
+            toast.success("Cancellation approved. Counterparties notified of withdrawal.");
+            fetchData();
+        } catch (err) {
+            toast.error("Failed to approve cancellation: " + (err.response?.data?.detail || err.message));
+        }
+    };
+
+    const handleRejectCancellation = async (rfqId) => {
+        const reason = window.prompt("Enter optional feedback for maker:");
+        if (reason === null) return;
+        try {
+            await apiClient.post(`/corporate-admin/quotations/${rfqId}/reject-cancellation`, { rejection_notes: reason || undefined });
+            toast.info("Cancellation request rejected. RFQ restored to active schedule.");
+            fetchData();
+        } catch (err) {
+            toast.error("Failed to reject cancellation: " + (err.response?.data?.detail || err.message));
+        }
+    };
+
     // Compute summary stats
     const totalRfqs = history.length;
     const activeRfqs = history.filter(r => r.status === 'PENDING' || r.status === 'PENDING_APPROVAL' || r.status === 'NEEDS_REVISION').length;
@@ -166,31 +194,6 @@ export default function AdminQuotationDashboard() {
         return matchesStatus && matchesType && matchesSearch;
     });
 
-    const getStatusStyle = (status) => {
-        switch (status) {
-            case 'PENDING_APPROVAL': return 'bg-orange-100 text-orange-700';
-            case 'NEEDS_REVISION': return 'bg-amber-100 text-amber-900 border border-amber-300';
-            case 'PENDING': return 'bg-amber-100 text-amber-700';
-            case 'REJECTED': return 'bg-red-100 text-red-700';
-            case 'COMPLETED':
-            case 'EVALUATING': return 'bg-emerald-100 text-emerald-700';
-            case 'EXPIRED': return 'bg-gray-100 text-gray-500';
-            default: return 'bg-gray-100 text-gray-600';
-        }
-    };
-
-    const getStatusLabel = (status) => {
-        switch (status) {
-            case 'PENDING_APPROVAL': return 'Needs Approval';
-            case 'NEEDS_REVISION': return 'Needs Revision';
-            case 'PENDING': return 'Live';
-            case 'EVALUATING': return 'Evaluating';
-            case 'COMPLETED': return 'Completed';
-            case 'REJECTED': return 'Rejected';
-            case 'EXPIRED': return 'Expired';
-            default: return status;
-        }
-    };
 
     if (loading) return (
         <div className="flex items-center justify-center min-h-[50vh]">
@@ -259,6 +262,62 @@ export default function AdminQuotationDashboard() {
                     <p className="text-2xl sm:text-3xl font-bold text-red-500">{rejectedRfqs}</p>
                 </div>
             </div>
+
+            {/* Cancellation Requests */}
+            {cancellationRequests.length > 0 && (
+                <section className="animate-in fade-in slide-in-from-top-4 duration-500">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-rose-600 mb-4 flex items-center gap-2">
+                        <AlertTriangle size={14} className="animate-bounce" /> Action Required: {cancellationRequests.length} Cancellation Request{cancellationRequests.length > 1 ? 's' : ''}
+                    </h3>
+                    <div className="space-y-4">
+                        {cancellationRequests.map((rfq) => (
+                            <div key={rfq.id} className="bg-white p-5 sm:p-6 rounded-2xl shadow-md border border-rose-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sm:gap-6">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                        <span className="font-mono text-sm font-bold bg-rose-50 text-rose-700 px-2 py-0.5 rounded border border-rose-200">{rfq.ref_no}</span>
+                                        <span className="text-xs font-bold text-gray-400 uppercase">{rfq.type === 'TBILL' ? 'T-Bill' : 'FX Spot'}</span>
+                                        <span className="text-xs font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full">Cancellation Pending</span>
+                                    </div>
+                                    <div className="text-base sm:text-lg font-bold text-gray-900">
+                                        {rfq.type === 'TBILL' ? `${rfq.direction} Quotation` : `${rfq.direction} ${rfq.amount?.toLocaleString()} ${rfq.buy_currency}`}
+                                    </div>
+                                    <div className="text-xs text-rose-900 mt-2 p-3 bg-rose-50/70 rounded-xl border border-rose-100 space-y-1">
+                                        <div><span className="font-bold">Stated Reason:</span> {rfq.cancellation_reason || 'Administrative Rescheduling'}</div>
+                                        {rfq.cancellation_notes && (
+                                            <div className="italic text-rose-800"><span className="font-semibold not-italic">Notes:</span> "{rfq.cancellation_notes}"</div>
+                                        )}
+                                        <div className="text-[11px] text-gray-500 pt-1">
+                                            Requested by {rfq.creator_name || 'End User'} &bull; {formatDateTime(rfq.cancellation_requested_at || rfq.created_at)}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-2.5 shrink-0">
+                                    <button
+                                        onClick={() => setSelectedRfqId(rfq.id)}
+                                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 font-semibold transition-all text-xs cursor-pointer"
+                                    >
+                                        <ChevronRight size={15} /> Review Deal
+                                    </button>
+                                    <button
+                                        onClick={() => handleRejectCancellation(rfq.id)}
+                                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold transition-all text-xs cursor-pointer"
+                                        title="Reject cancellation and keep the quotation scheduled"
+                                    >
+                                        <X size={15} /> Decline Cancellation
+                                    </button>
+                                    <button
+                                        onClick={() => handleApproveCancellation(rfq.id)}
+                                        className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 font-bold shadow-md shadow-rose-200 transition-all text-xs cursor-pointer"
+                                        title="Withdraw quotation and deactivate counterparty links"
+                                    >
+                                        <Check size={15} /> Approve Cancellation
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            )}
 
             {/* Pending Approvals */}
             {pendingApprovals.length > 0 && (
@@ -480,44 +539,78 @@ export default function AdminQuotationDashboard() {
                                                 : new Intl.NumberFormat().format(rfq.amount || 0)}
                                         </td>
                                         <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                                            {rfq.winner_bank_name ? (
-                                                <div className="flex flex-col">
-                                                    <span className="inline-flex items-center gap-1.5 font-bold text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl w-fit shadow-xs">
-                                                        <Trophy size={13} className="text-amber-500 shrink-0" />
-                                                        <span className="truncate max-w-[140px] sm:max-w-[170px]">{rfq.winner_bank_name}</span>
-                                                    </span>
-                                                    <div className="text-[11px] font-mono font-bold text-slate-800 mt-1 pl-1 flex items-center gap-1.5">
-                                                        <span>@ {typeof rfq.winner_rate === 'number' ? rfq.winner_rate.toFixed(4) : rfq.winner_rate}</span>
-                                                        {rfq.saved_vs_avg ? (
-                                                            <span className="text-[10px] text-emerald-600 font-sans font-semibold bg-emerald-50 px-1 py-0.2 rounded" title="Savings vs average market quote">
-                                                                +{parseFloat(rfq.saved_vs_avg).toFixed(4)}
+                                            {(() => {
+                                                const timing = getRfqTimingState(rfq);
+                                                if (rfq.winner_bank_name) {
+                                                    return (
+                                                        <div className="flex flex-col">
+                                                            <span className="inline-flex items-center gap-1.5 font-bold text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl w-fit shadow-xs">
+                                                                <Trophy size={13} className="text-amber-500 shrink-0" />
+                                                                <span className="truncate max-w-[140px] sm:max-w-[170px]">{rfq.winner_bank_name}</span>
                                                             </span>
-                                                        ) : null}
-                                                    </div>
-                                                </div>
-                                            ) : rfq.status === 'COMPLETED' ? (
-                                                <span className="text-xs text-gray-400 italic">No quotes (Inconclusive)</span>
-                                            ) : rfq.status === 'PENDING' || rfq.status === 'OPEN' ? (
-                                                <span className="inline-flex items-center gap-1.5 text-xs text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded-lg">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                                                    Live Bidding
-                                                </span>
-                                            ) : rfq.status === 'EVALUATING' ? (
-                                                <span className="text-xs text-purple-600 font-semibold bg-purple-50 px-2 py-0.5 rounded-lg">
-                                                    Evaluating quotes...
-                                                </span>
-                                            ) : rfq.status === 'PENDING_APPROVAL' ? (
-                                                <span className="text-xs text-orange-600 font-medium">Pending Approval</span>
-                                            ) : rfq.status === 'NEEDS_REVISION' ? (
-                                                <span className="text-xs text-amber-700 font-medium">Needs Revision</span>
-                                            ) : (
-                                                <span className="text-xs text-gray-400">—</span>
-                                            )}
+                                                            <div className="text-[11px] font-mono font-bold text-slate-800 mt-1 pl-1 flex items-center gap-1.5">
+                                                                <span>@ {typeof rfq.winner_rate === 'number' ? rfq.winner_rate.toFixed(4) : rfq.winner_rate}</span>
+                                                                {rfq.saved_vs_avg ? (
+                                                                    <span className="text-[10px] text-emerald-600 font-sans font-semibold bg-emerald-50 px-1 py-0.2 rounded" title="Savings vs average market quote">
+                                                                        +{parseFloat(rfq.saved_vs_avg).toFixed(4)}
+                                                                    </span>
+                                                                ) : null}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                if (rfq.status === 'COMPLETED') {
+                                                    return <span className="text-xs text-gray-400 italic">No quotes (Inconclusive)</span>;
+                                                }
+                                                if (rfq.status === 'PENDING_APPROVAL') {
+                                                    return <span className="text-xs text-orange-600 font-medium">Pending Approval</span>;
+                                                }
+                                                if (rfq.status === 'NEEDS_REVISION') {
+                                                    return <span className="text-xs text-amber-700 font-medium">Needs Revision</span>;
+                                                }
+                                                if (rfq.status === 'CANCEL_REQUESTED') {
+                                                    return (
+                                                        <span className="inline-flex items-center gap-1.5 text-xs text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-lg">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                                            Cancel Requested
+                                                        </span>
+                                                    );
+                                                }
+                                                if (rfq.status === 'CANCELLED') {
+                                                    return <span className="text-xs text-gray-400 italic">Withdrawn / Cancelled</span>;
+                                                }
+                                                if (timing.isLive) {
+                                                    return (
+                                                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg shadow-2xs">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                            Live Bidding
+                                                        </span>
+                                                    );
+                                                }
+                                                if (timing.isScheduled) {
+                                                    return (
+                                                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 font-medium bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-lg">
+                                                            <Clock size={12} className="text-slate-400 shrink-0" />
+                                                            {timing.counterpartyLabel}
+                                                        </span>
+                                                    );
+                                                }
+                                                return (
+                                                    <span className="text-xs text-purple-600 font-semibold bg-purple-50 px-2 py-0.5 rounded-lg">
+                                                        {timing.counterpartyLabel || 'Evaluating quotes...'}
+                                                    </span>
+                                                );
+                                            })()}
                                         </td>
                                         <td className="px-4 sm:px-6 py-3 sm:py-4">
-                                            <span className={`text-[10px] sm:text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wide whitespace-nowrap ${getStatusStyle(rfq.status)}`}>
-                                                {getStatusLabel(rfq.status)}
-                                            </span>
+                                            {(() => {
+                                                const timing = getRfqTimingState(rfq);
+                                                return (
+                                                    <span className={`text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wide whitespace-nowrap ${timing.style}`}>
+                                                        {timing.label}
+                                                    </span>
+                                                );
+                                            })()}
                                         </td>
                                         <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
                                             <div className="flex items-center justify-end gap-1">
@@ -553,7 +646,7 @@ export default function AdminQuotationDashboard() {
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl xl:max-w-6xl max-h-[85vh] sm:max-h-[82vh] overflow-hidden flex flex-col animate-fade-in-up">
                         <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-white z-10">
                             <h3 className="font-bold text-sm sm:text-base text-gray-900 truncate pr-4">
-                                RFQ Details: {history.find(r => r.id === selectedRfqId)?.ref_no || pendingApprovals.find(r => r.id === selectedRfqId)?.ref_no}
+                                RFQ Details: {history.find(r => r.id === selectedRfqId)?.ref_no || pendingApprovals.find(r => r.id === selectedRfqId)?.ref_no || cancellationRequests.find(r => r.id === selectedRfqId)?.ref_no}
                             </h3>
                             <button
                                 onClick={() => setSelectedRfqId(null)}

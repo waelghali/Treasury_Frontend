@@ -724,6 +724,7 @@ export default function QuotationRequestDashboard() {
                                                     }`}
                                                     value={formData.amount}
                                                     onChange={e => setFormData({ ...formData, amount: e.target.value })}
+                                                    onWheel={(e) => e.target.blur()}
                                                 />
                                                 <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase tracking-wider pointer-events-none select-none">
                                                     EGP
@@ -741,6 +742,7 @@ export default function QuotationRequestDashboard() {
                                                     className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 sm:py-3 text-base font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none"
                                                     value={formData.minTicketAmount}
                                                     onChange={e => setFormData({ ...formData, minTicketAmount: e.target.value })}
+                                                    onWheel={(e) => e.target.blur()}
                                                 />
                                                 <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase tracking-wider pointer-events-none select-none">
                                                     EGP
@@ -814,6 +816,7 @@ export default function QuotationRequestDashboard() {
                                                 className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
                                                 value={formData.evalRate}
                                                 onChange={e => setFormData({ ...formData, evalRate: e.target.value })}
+                                                onWheel={(e) => e.target.blur()}
                                             />
                                         </div>
                                     )}
@@ -886,6 +889,7 @@ export default function QuotationRequestDashboard() {
                                                 }`}
                                                 value={formData.amount}
                                                 onChange={e => setFormData({ ...formData, amount: e.target.value })}
+                                                onWheel={(e) => e.target.blur()}
                                             />
                                             <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase tracking-wider pointer-events-none select-none">
                                                 {formData.buyCurrency}
@@ -951,6 +955,7 @@ export default function QuotationRequestDashboard() {
                                                 className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
                                                 value={formData.maxTolerancePercent}
                                                 onChange={e => setFormData({ ...formData, maxTolerancePercent: e.target.value })}
+                                                onWheel={(e) => e.target.blur()}
                                             />
                                         </div>
                                         <p className="text-[10px] text-gray-400 mt-1">If Execution rate exceeds Indicative rate by more than this %, RFQ will close without a winner.</p>

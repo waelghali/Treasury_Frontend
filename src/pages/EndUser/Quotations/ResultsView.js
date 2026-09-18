@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
+import QuotationCancellationModal from '../../../components/Modals/QuotationCancellationModal';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const formatDate = (d) => {
@@ -96,6 +97,7 @@ export default function ResultsView({ rfqId }) {
     const [resultsMeta, setResultsMeta] = useState({});
     const [showAuditPack, setShowAuditPack] = useState(false);
     const [showReTenderModal, setShowReTenderModal] = useState(false);
+    const [showCancellationModal, setShowCancellationModal] = useState(false);
     const [copiedToken, setCopiedToken] = useState(null);
 
     const handleCopyBiddingLink = (token) => {
@@ -263,6 +265,15 @@ export default function ResultsView({ rfqId }) {
                             <Mail size={14} /> {sendingResults ? 'Sending...' : 'Send Result Emails (Direct)'}
                         </button>
                     )}
+                    {!isCorporateAdmin && ['PENDING', 'PENDING_APPROVAL'].includes(rfq?.status) && !isWindowClosed && (
+                        <button
+                            onClick={() => setShowCancellationModal(true)}
+                            className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+                            title="Withdraw or request cancellation of this quotation"
+                        >
+                            <XCircle size={13} /> {rfq?.status === 'PENDING_APPROVAL' ? 'Cancel Draft' : 'Request Cancellation'}
+                        </button>
+                    )}
                     {isWindowClosed ? (
                         <span className="text-xs font-medium text-gray-400 italic">Quotation concluded</span>
                     ) : (
@@ -285,6 +296,47 @@ export default function ResultsView({ rfqId }) {
                     )}
                 </div>
             </div>
+
+            {/* Cancellation Status Banners */}
+            {rfq?.status === 'CANCEL_REQUESTED' && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in shadow-xs">
+                    <div className="flex items-start sm:items-center gap-3">
+                        <AlertTriangle className="text-rose-600 shrink-0 mt-0.5 sm:mt-0" size={22} />
+                        <div>
+                            <h4 className="font-bold text-xs uppercase tracking-wide text-rose-800">Cancellation Request Pending Corporate Admin Review</h4>
+                            <p className="text-xs text-rose-700 mt-0.5">
+                                Reason: <span className="font-semibold">{rfq.cancellation_reason || 'Administrative Rescheduling'}</span>
+                                {rfq.cancellation_notes ? ` — "${rfq.cancellation_notes}"` : ''}
+                            </p>
+                        </div>
+                    </div>
+                    <span className="text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200 px-3 py-1 rounded-xl shrink-0">
+                        Under Admin Review
+                    </span>
+                </div>
+            )}
+
+            {rfq?.status === 'CANCELLED' && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-slate-100 border border-slate-300 text-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in">
+                    <div className="flex items-start sm:items-center gap-3">
+                        <XCircle className="text-slate-500 shrink-0 mt-0.5 sm:mt-0" size={22} />
+                        <div>
+                            <h4 className="font-bold text-xs uppercase tracking-wide text-slate-700">Quotation Withdrawn &amp; Cancelled</h4>
+                            <p className="text-xs text-slate-600 mt-0.5">
+                                This quotation request was officially withdrawn. Counterparty submission links have been deactivated.
+                            </p>
+                        </div>
+                    </div>
+                    {!isCorporateAdmin && (
+                        <button
+                            onClick={() => navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 shrink-0 cursor-pointer"
+                        >
+                            <RefreshCw size={14} /> ⚡ Clone as New Quotation (Re-Trade)
+                        </button>
+                    )}
+                </div>
+            )}
 
             {resultsMeta.isInconclusive && (
                 <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1115,6 +1167,18 @@ export default function ResultsView({ rfqId }) {
                 <ReTenderModal
                     rfq={rfq}
                     onClose={() => setShowReTenderModal(false)}
+                    onSuccess={() => {
+                        fetchResults();
+                    }}
+                />
+            )}
+
+            {/* Quotation Cancellation Request Modal */}
+            {showCancellationModal && rfq && (
+                <QuotationCancellationModal
+                    rfq={rfq}
+                    isOpen={showCancellationModal}
+                    onClose={() => setShowCancellationModal(false)}
                     onSuccess={() => {
                         fetchResults();
                     }}

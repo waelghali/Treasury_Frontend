@@ -293,7 +293,7 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
               : { color: '#cbd5e1' }}
           >
             <TrendingUp className="h-5 w-5 flex-shrink-0" />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Active Quotations</span>}
+            {(!isCollapsed || isDrawer) && <span className="ml-3">New & Active Quotations</span>}
           </Link>
           <Link
             to="/end-user/quotations/history"
