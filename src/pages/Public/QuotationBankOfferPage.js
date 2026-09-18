@@ -4,8 +4,8 @@ import axios from 'axios';
 import { 
     Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, 
     Mail, KeyRound, UserCheck, Eye, History, RefreshCw, MessageSquare, Shield,
-    Trophy, BarChart2, Hourglass, ShieldAlert, AlertTriangle, WifiOff, FileQuestion, Calendar,
-    Users, Lock, Zap, Info
+    BarChart2, ShieldAlert, WifiOff, FileQuestion, Calendar,
+    Users, Lock, Zap, Info, Loader2
 } from 'lucide-react';
 import './quotation-animations.css';
 
@@ -123,6 +123,7 @@ export default function QuotationBankOfferPage() {
     const [deskState, setDeskState] = useState(null);
     const [isTakingOver, setIsTakingOver] = useState(false);
     const [deskNotice, setDeskNotice] = useState(null);
+    const [draftRestored, setDraftRestored] = useState(false);
 
     const storageKey = `quotation_auth_${token}`;
 
@@ -407,12 +408,30 @@ export default function QuotationBankOfferPage() {
                 }
                 setSubmitted(true);
             } else {
-                setTbillLines([{
-                    settlementDate: isSettlementFixed ? rfq.settlement_date_start : '',
-                    maturityDate: isMaturityFixed ? rfq.maturity_date_start : '',
-                    discountRate: '',
-                    maxAmount: ''
-                }]);
+                let restored = false;
+                try {
+                    const saved = sessionStorage.getItem(`tbill_draft_${token}`);
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (Array.isArray(parsed.lines) && parsed.lines.length > 0) {
+                            setTbillLines(parsed.lines);
+                            if (parsed.notes) setTraderNotes(parsed.notes);
+                            setDraftRestored(true);
+                            restored = true;
+                        }
+                    }
+                } catch (e) {
+                    // Ignore sessionStorage parsing or access failure
+                }
+
+                if (!restored) {
+                    setTbillLines([{
+                        settlementDate: isSettlementFixed ? rfq.settlement_date_start : '',
+                        maturityDate: isMaturityFixed ? rfq.maturity_date_start : '',
+                        discountRate: '',
+                        maxAmount: ''
+                    }]);
+                }
             }
         } else if (rfq.type === 'FX_SPOT') {
             if (rfq.offers && rfq.offers.length > 0) {
@@ -430,7 +449,24 @@ export default function QuotationBankOfferPage() {
                 setOfferedValueDate(rfq.value_date);
             }
         }
-    }, [rfq]);
+    }, [rfq, token]);
+
+    // 6b. Persist uncommitted T-Bill draft to sessionStorage
+    useEffect(() => {
+        if (!rfq || rfq.type !== 'TBILL' || submitted || !token) return;
+        const hasContent = tbillLines.some(l => l.discountRate || l.maxAmount || l.settlementDate || l.maturityDate) || Boolean(traderNotes);
+        if (!hasContent) return;
+
+        try {
+            sessionStorage.setItem(`tbill_draft_${token}`, JSON.stringify({
+                lines: tbillLines,
+                notes: traderNotes,
+                updatedAt: Date.now()
+            }));
+        } catch (e) {
+            // Storage quota or strict browser restrictions ignored
+        }
+    }, [rfq, tbillLines, traderNotes, submitted, token]);
 
     // 7. Fetch Quotation History
     const fetchHistory = async () => {
@@ -558,16 +594,19 @@ export default function QuotationBankOfferPage() {
     };
 
     // 9. Submit Offer
-    const executeSubmit = async (priceToSubmit) => {
+    const executeSubmit = async (priceToSubmit, customTbillLines) => {
+        if (isSubmitting) return;
         setIsSubmitting(true);
         try {
             const isTBill = rfq.type === 'TBILL';
             const endpoint = isTBill ? '/api/v1/public-quotation/tbill-offer' : '/api/v1/public-quotation/offer';
 
+            const linesToUse = customTbillLines || tbillLines;
+
             const body = isTBill
                 ? { 
                     token, 
-                    lines: tbillLines.map(l => ({ ...l, discountRate: parseFloat(l.discountRate), maxAmount: parseFloat(l.maxAmount) })),
+                    lines: linesToUse.map(l => ({ ...l, discountRate: parseFloat(l.discountRate), maxAmount: parseFloat(l.maxAmount) })),
                     notes: traderNotes.trim() || undefined,
                     session_token: authSession.session_token,
                     email: authSession.email
@@ -584,6 +623,11 @@ export default function QuotationBankOfferPage() {
             const res = await quotationApi.post(endpoint, body);
             setSubmitted(true);
             setFatFingerModal(null);
+            try {
+                sessionStorage.removeItem(`tbill_draft_${token}`);
+            } catch (e) {}
+            setDraftRestored(false);
+
             if (res.data?.live_rank) {
                 setLiveRank({
                     is_enabled: true,
@@ -603,6 +647,7 @@ export default function QuotationBankOfferPage() {
 
     const handleSubmit = async (e) => {
         e?.preventDefault();
+        if (isSubmitting) return;
         if (timeLeft.status !== 'OPEN') return;
         if (!authSession) {
             alert('Please authenticate first.');
@@ -676,6 +721,70 @@ export default function QuotationBankOfferPage() {
             }
 
             await executeSubmit(val);
+        } else if (rfq.type === 'TBILL') {
+            for (let i = 0; i < tbillLines.length; i++) {
+                const line = tbillLines[i];
+                const rate = parseFloat(line.discountRate);
+                const amt = parseFloat(line.maxAmount);
+
+                if (!isNaN(rate)) {
+                    // Check 1: 10x high misplaced decimal (e.g., 270% instead of 27%)
+                    if (rate >= 45) {
+                        const suggested = (rate / 10).toString();
+                        const suggestedLines = tbillLines.map((l, idx) => idx === i ? { ...l, discountRate: suggested } : { ...l });
+                        setFatFingerModal({
+                            isTBill: true,
+                            lineIndex: i,
+                            enteredPrice: `${rate}%`,
+                            suggestedRate: `${suggested}%`,
+                            suggestedLines,
+                            type: 'TBILL_RATE_10X_HIGH',
+                            title: `⚠️ Tranche ${i + 1}: High Displaced Decimal Rate (${rate}%)`,
+                            message: `In Tranche ${i + 1}, you entered a discount rate of ${rate}%, which is unusually high for Treasury Bills (typically ~20% - 32%). Did you mean ${suggested}%?`
+                        });
+                        return;
+                    }
+
+                    // Check 2: 10x low misplaced decimal (e.g., 2.7% instead of 27%)
+                    if (rate > 0 && rate <= 4) {
+                        const suggested = (rate * 10).toString();
+                        const suggestedLines = tbillLines.map((l, idx) => idx === i ? { ...l, discountRate: suggested } : { ...l });
+                        setFatFingerModal({
+                            isTBill: true,
+                            lineIndex: i,
+                            enteredPrice: `${rate}%`,
+                            suggestedRate: `${suggested}%`,
+                            suggestedLines,
+                            type: 'TBILL_RATE_10X_LOW',
+                            title: `⚠️ Tranche ${i + 1}: Low Displaced Decimal Rate (${rate}%)`,
+                            message: `In Tranche ${i + 1}, you entered a discount rate of ${rate}%, which appears to be missing a digit or decimal shifted (typically ~20% - 32%). Did you mean ${suggested}%?`
+                        });
+                        return;
+                    }
+                }
+
+                // Check 3: Extreme Volume Allocation (> 10x total RFQ amount)
+                if (!isNaN(amt) && rfq.amount && !isNaN(parseFloat(rfq.amount))) {
+                    const requestedAmt = parseFloat(rfq.amount);
+                    if (amt > requestedAmt * 10) {
+                        const suggestedAmt = (amt / 10).toString();
+                        const suggestedLines = tbillLines.map((l, idx) => idx === i ? { ...l, maxAmount: suggestedAmt } : { ...l });
+                        setFatFingerModal({
+                            isTBill: true,
+                            lineIndex: i,
+                            enteredPrice: amt.toLocaleString(),
+                            suggestedRate: (amt / 10).toLocaleString(),
+                            suggestedLines,
+                            type: 'TBILL_AMOUNT_10X_HIGH',
+                            title: `⚠️ Tranche ${i + 1}: Unusually Large Allocation`,
+                            message: `In Tranche ${i + 1}, you entered an allocation of ${amt.toLocaleString()} ${rfq.currency || 'EGP'}, which is over 10x the requested auction size of ${requestedAmt.toLocaleString()} ${rfq.currency || 'EGP'}. Did you mean ${(amt / 10).toLocaleString()}?`
+                        });
+                        return;
+                    }
+                }
+            }
+
+            await executeSubmit(null);
         } else {
             await executeSubmit(null);
         }
@@ -1595,6 +1704,35 @@ export default function QuotationBankOfferPage() {
 
                                                     {rfq.type === 'TBILL' ? (
                                                         <div className="space-y-3.5">
+                                                            {draftRestored && !submitted && (
+                                                                <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-2xl flex items-center justify-between text-xs text-amber-900 animate-fadeIn">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <RefreshCw size={14} className="text-amber-600 shrink-0" />
+                                                                        <span><strong>Draft Restored:</strong> Your previously uncommitted tranche inputs were recovered from this browser session.</span>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            try {
+                                                                                sessionStorage.removeItem(`tbill_draft_${token}`);
+                                                                            } catch (e) {}
+                                                                            setDraftRestored(false);
+                                                                            const isSettlementFixed = rfq.settlement_date_start && (!rfq.settlement_date_end || rfq.settlement_date_start === rfq.settlement_date_end);
+                                                                            const isMaturityFixed = rfq.maturity_date_start && (!rfq.maturity_date_end || rfq.maturity_date_start === rfq.maturity_date_end);
+                                                                            setTbillLines([{
+                                                                                settlementDate: isSettlementFixed ? rfq.settlement_date_start : '',
+                                                                                maturityDate: isMaturityFixed ? rfq.maturity_date_start : '',
+                                                                                discountRate: '',
+                                                                                maxAmount: ''
+                                                                            }]);
+                                                                            setTraderNotes('');
+                                                                        }}
+                                                                        className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 underline ml-3 shrink-0 cursor-pointer"
+                                                                    >
+                                                                        Discard Draft
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                             {tbillLines.map((line, index) => (
                                                                 <div key={index} className="p-3.5 sm:p-4 bg-slate-50 rounded-2xl border border-slate-200 relative group">
                                                                     {tbillLines.length > 1 && timeLeft.status === 'OPEN' && !isSpectator && (
@@ -1779,9 +1917,29 @@ export default function QuotationBankOfferPage() {
                                                             <button
                                                                 type="submit"
                                                                 disabled={timeLeft.status !== 'OPEN' || isSubmitting || !authSession || (rfq.type === 'TBILL' ? tbillLines.some(l => !l.discountRate || !l.maxAmount) : !price)}
-                                                                className="w-full py-3.5 bg-slate-950 text-white rounded-2xl font-bold text-base hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all shadow-md cursor-pointer"
+                                                                className={`w-full py-3.5 rounded-2xl font-bold text-base transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
+                                                                    timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10
+                                                                        ? 'bg-gradient-to-r from-amber-600 via-rose-600 to-red-600 hover:from-amber-700 hover:to-red-700 text-white animate-pulse shadow-red-500/25 ring-2 ring-red-400/50'
+                                                                        : 'bg-slate-950 text-white hover:bg-slate-800'
+                                                                }`}
                                                             >
-                                                                {isSubmitting ? 'Submitting Quote...' : timeLeft.status === 'PRE' ? 'Waiting for Window to Open' : timeLeft.status === 'CLOSED' ? 'Window Closed' : (submitted ? 'Update Quote' : 'Submit Binding Quote')}
+                                                                {isSubmitting ? (
+                                                                    <>
+                                                                        <Loader2 size={18} className="animate-spin text-white" />
+                                                                        <span>Transmitting In-Flight Quote...</span>
+                                                                    </>
+                                                                ) : timeLeft.status === 'PRE' ? (
+                                                                    'Waiting for Window to Open'
+                                                                ) : timeLeft.status === 'CLOSED' ? (
+                                                                    'Window Closed'
+                                                                ) : timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10 ? (
+                                                                    <>
+                                                                        <Zap size={18} className="animate-bounce text-amber-200" />
+                                                                        <span>⚡ {submitted ? 'Update Quote' : 'Submit Binding Quote'} • {String(timeLeft.secondsRemaining).padStart(2, '0')}s Left!</span>
+                                                                    </>
+                                                                ) : (
+                                                                    submitted ? 'Update Quote' : 'Submit Binding Quote'
+                                                                )}
                                                             </button>
                                                         )}
                                                         <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400 mt-2">
@@ -1899,9 +2057,11 @@ export default function QuotationBankOfferPage() {
                                 </div>
                                 <div>
                                     <h3 className="text-base font-bold text-slate-900">{fatFingerModal.title}</h3>
-                                    <p className="text-xs text-slate-500 mt-0.5">
-                                        CBE Market Benchmark: <span className="font-mono font-bold text-slate-800">~{fatFingerModal.benchmark.toFixed(4)}</span>
-                                    </p>
+                                    {fatFingerModal.benchmark !== null && fatFingerModal.benchmark !== undefined && (
+                                        <p className="text-xs text-slate-500 mt-0.5">
+                                            CBE Market Benchmark: <span className="font-mono font-bold text-slate-800">~{Number(fatFingerModal.benchmark).toFixed(4)}</span>
+                                        </p>
+                                    )}
                                 </div>
                             </div>
 
@@ -1914,18 +2074,29 @@ export default function QuotationBankOfferPage() {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            const corrected = parseFloat(fatFingerModal.suggestedRate);
-                                            setPrice(fatFingerModal.suggestedRate);
-                                            executeSubmit(corrected);
+                                            if (fatFingerModal.isTBill && fatFingerModal.suggestedLines) {
+                                                setTbillLines(fatFingerModal.suggestedLines);
+                                                executeSubmit(null, fatFingerModal.suggestedLines);
+                                            } else {
+                                                const corrected = parseFloat(fatFingerModal.suggestedRate);
+                                                setPrice(fatFingerModal.suggestedRate);
+                                                executeSubmit(corrected);
+                                            }
                                         }}
                                         className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
                                     >
-                                        <CheckCircle2 size={15} /> Apply Corrected Rate ({fatFingerModal.suggestedRate}) & Submit
+                                        <CheckCircle2 size={15} /> Apply Suggested Value ({fatFingerModal.suggestedRate}) & Submit
                                     </button>
                                 )}
                                 <button
                                     type="button"
-                                    onClick={() => executeSubmit(fatFingerModal.enteredPrice)}
+                                    onClick={() => {
+                                        if (fatFingerModal.isTBill) {
+                                            executeSubmit(null, tbillLines);
+                                        } else {
+                                            executeSubmit(fatFingerModal.enteredPrice);
+                                        }
+                                    }}
                                     className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-all cursor-pointer"
                                 >
                                     Confirm & Submit {fatFingerModal.enteredPrice} Anyway
