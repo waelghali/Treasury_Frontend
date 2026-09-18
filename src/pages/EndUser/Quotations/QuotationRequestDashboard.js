@@ -178,6 +178,27 @@ export default function QuotationRequestDashboard() {
         });
     }, [formData.type, formData.buyCurrency, formData.sellCurrency]);
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    const nowLocalIso = toLocalISOString(new Date());
+
+    // Value Date (Settlement Date) is the primary anchor set by Treasury.
+    // The Quotation Window (bidding window) must occur on or before the Value Date (window <= valueDate).
+    const targetValueDate = formData.type === 'TBILL' 
+        ? formData.settlementDateStart 
+        : formData.valueDate;
+
+    const maxWindowDateTime = targetValueDate ? `${targetValueDate}T23:59` : undefined;
+    const windowStartDate = formData.windowStart ? formData.windowStart.split('T')[0] : '';
+
+    const hasInvalidBankValueDate = formData.type === 'FX_SPOT' && selectedBanks.some(b => {
+        const bDate = b.valueDate || formData.valueDate;
+        return bDate && windowStartDate && bDate < windowStartDate;
+    });
+    const hasInvalidWindowDate = Boolean(
+        targetValueDate && windowStartDate && windowStartDate > targetValueDate
+    );
+    const hasDateDiscrepancy = hasInvalidBankValueDate || hasInvalidWindowDate;
+
     const handleApplySmartSelection = async () => {
         if (!recommendations || recommendations.length === 0 || !banks || banks.length === 0) return;
         
@@ -194,7 +215,7 @@ export default function QuotationRequestDashboard() {
                     }
                 } catch (e) {}
 
-                const effectiveInitialDate = (formData.valueDate && formData.valueDate >= minDateLimit) ? formData.valueDate : minDateLimit;
+                const effectiveInitialDate = formData.valueDate || todayStr;
                 banksToSelect.push({
                     id: matchedBank.bank_id,
                     name: matchedBank.bank?.name || `Bank ${matchedBank.bank_id}`,
@@ -234,7 +255,7 @@ export default function QuotationRequestDashboard() {
                 console.warn('Could not fetch latest bank costs:', err);
             }
 
-            const effectiveInitialDate = (formData.valueDate && formData.valueDate >= minDateLimit) ? formData.valueDate : minDateLimit;
+            const effectiveInitialDate = formData.valueDate || todayStr;
             setSelectedBanks([
                 ...selectedBanks, 
                 { 
@@ -255,41 +276,59 @@ export default function QuotationRequestDashboard() {
         }
     };
 
-    const minDateLimit = formData.windowStart ? formData.windowStart.split('T')[0] : new Date().toISOString().split('T')[0];
-
-    const addDays = (dateStr, days) => {
-        if (!dateStr) return '';
-        try {
-            const d = new Date(dateStr + 'T00:00:00');
-            d.setDate(d.getDate() + days);
-            const pad = (n) => String(n).padStart(2, '0');
-            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        } catch {
-            return '';
-        }
-    };
-
-    const hasInvalidBankValueDate = formData.type === 'FX_SPOT' && selectedBanks.some(b => {
-        const bDate = b.valueDate || formData.valueDate;
-        return bDate && minDateLimit && bDate < minDateLimit;
-    });
-    const hasInvalidMasterValueDate = formData.type === 'FX_SPOT' && formData.valueDate && minDateLimit && formData.valueDate < minDateLimit;
-    const hasDateDiscrepancy = hasInvalidBankValueDate || hasInvalidMasterValueDate;
-
-    const handleWindowStartChange = (newStart) => {
-        const newStartDate = newStart ? newStart.split('T')[0] : '';
+    const handleMasterValueDateChange = (newVal) => {
         setFormData(prev => {
-            const next = { ...prev, windowStart: newStart };
-            if (newStartDate) {
-                if (next.valueDate && next.valueDate < newStartDate) {
-                    next.valueDate = newStartDate;
-                }
-                if (next.settlementDateStart && next.settlementDateStart < newStartDate) {
-                    next.settlementDateStart = newStartDate;
+            const next = { ...prev, valueDate: newVal };
+            // If quotation window is currently scheduled after this value date, clamp it to this value date
+            if (newVal && prev.windowStart) {
+                const currentWinDate = prev.windowStart.split('T')[0];
+                if (currentWinDate > newVal) {
+                    const timePart = prev.windowStart.split('T')[1] || '10:00';
+                    next.windowStart = `${newVal}T${timePart}`;
+                    toast.info(`Quotation window adjusted to ${formatDate(newVal)}: bidding must take place on or before Value Date.`);
                 }
             }
             return next;
         });
+
+        if (newVal) {
+            setSelectedBanks(prev => prev.map(b => {
+                if (!b.valueDate || b.valueDate === formData.valueDate || (windowStartDate && b.valueDate < windowStartDate)) {
+                    return { ...b, valueDate: newVal };
+                }
+                return b;
+            }));
+        }
+    };
+
+    const handleTbillSettlementChange = (newSettlement) => {
+        setFormData(prev => {
+            const next = { ...prev, settlementDateStart: newSettlement };
+            if (newSettlement && prev.windowStart) {
+                const currentWinDate = prev.windowStart.split('T')[0];
+                if (currentWinDate > newSettlement) {
+                    const timePart = prev.windowStart.split('T')[1] || '10:00';
+                    next.windowStart = `${newSettlement}T${timePart}`;
+                    toast.info(`Quotation window adjusted to ${formatDate(newSettlement)}: bidding must take place on or before Settlement Date.`);
+                }
+            }
+            return next;
+        });
+    };
+
+    const handleWindowStartChange = (newStart) => {
+        const newStartDate = newStart ? newStart.split('T')[0] : '';
+        const limitDate = formData.type === 'TBILL' ? formData.settlementDateStart : formData.valueDate;
+
+        if (limitDate && newStartDate && newStartDate > limitDate) {
+            toast.error(`Quotation window cannot be scheduled after Value Date (${formatDate(limitDate)}). Bidding must occur on or before settlement.`);
+            const timePart = newStart.split('T')[1] || '10:00';
+            setFormData(prev => ({ ...prev, windowStart: `${limitDate}T${timePart}` }));
+            return;
+        }
+
+        setFormData(prev => ({ ...prev, windowStart: newStart }));
+
         if (newStartDate) {
             setSelectedBanks(prev => prev.map(b => {
                 if (b.valueDate && b.valueDate < newStartDate) {
@@ -300,22 +339,9 @@ export default function QuotationRequestDashboard() {
         }
     };
 
-    const handleMasterValueDateChange = (val) => {
-        if (val && val < minDateLimit) {
-            toast.warn(`Value Date cannot be earlier than quotation window date (${formatDate(minDateLimit)}). Setting to ${formatDate(minDateLimit)}.`);
-            setFormData(prev => ({ ...prev, valueDate: minDateLimit }));
-        } else {
-            setFormData(prev => ({ ...prev, valueDate: val }));
-        }
-    };
-
     const applyValueDateToAllBanks = () => {
         if (!formData.valueDate) {
             toast.info("Please set a master value date first.");
-            return;
-        }
-        if (formData.valueDate < minDateLimit) {
-            toast.error(`Value Date (${formatDate(formData.valueDate)}) cannot be earlier than quotation window date (${formatDate(minDateLimit)}).`);
             return;
         }
         setSelectedBanks(prev => prev.map(b => ({ ...b, valueDate: formData.valueDate })));
@@ -860,10 +886,10 @@ export default function QuotationRequestDashboard() {
                                             <input
                                                 type="date"
                                                 required
-                                                min={minDateLimit}
+                                                min={todayStr}
                                                 className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
                                                 value={formData.settlementDateStart}
-                                                onChange={e => setFormData({ ...formData, settlementDateStart: e.target.value })}
+                                                onChange={e => handleTbillSettlementChange(e.target.value)}
                                             />
                                         </div>
                                         <div>
@@ -873,7 +899,7 @@ export default function QuotationRequestDashboard() {
                                             <input
                                                 type="date"
                                                 disabled={formData.direction === 'Sell'}
-                                                min={formData.settlementDateStart || minDateLimit}
+                                                min={formData.settlementDateStart || todayStr}
                                                 className={`w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all ${formData.direction === 'Sell' ? 'opacity-30 cursor-not-allowed' : ''}`}
                                                 value={formData.direction === 'Sell' ? '' : formData.settlementDateEnd}
                                                 onChange={e => setFormData({ ...formData, settlementDateEnd: e.target.value })}
@@ -889,7 +915,7 @@ export default function QuotationRequestDashboard() {
                                             <input
                                                 type="date"
                                                 required
-                                                min={formData.settlementDateStart || minDateLimit}
+                                                min={formData.settlementDateStart || todayStr}
                                                 className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
                                                 value={formData.maturityDateStart}
                                                 onChange={e => setFormData({ ...formData, maturityDateStart: e.target.value })}
@@ -902,7 +928,7 @@ export default function QuotationRequestDashboard() {
                                             <input
                                                 type="date"
                                                 disabled={formData.direction === 'Sell'}
-                                                min={formData.maturityDateStart || formData.settlementDateStart || minDateLimit}
+                                                min={formData.maturityDateStart || formData.settlementDateStart || todayStr}
                                                 className={`w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all ${formData.direction === 'Sell' ? 'opacity-30 cursor-not-allowed' : ''}`}
                                                 value={formData.direction === 'Sell' ? '' : formData.maturityDateEnd}
                                                 onChange={e => setFormData({ ...formData, maturityDateEnd: e.target.value })}
@@ -930,7 +956,7 @@ export default function QuotationRequestDashboard() {
                                 <>
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between">
-                                            <label className="block text-[10px] font-bold text-gray-400 uppercase">Value Date</label>
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase">Value Date (Settlement Date)</label>
                                             {selectedBanks.length > 0 && formData.valueDate && (
                                                 <button
                                                     type="button"
@@ -945,39 +971,15 @@ export default function QuotationRequestDashboard() {
                                         <input
                                             type="date"
                                             required
-                                            min={minDateLimit}
+                                            min={todayStr}
                                             className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
                                             value={formData.valueDate}
                                             onChange={e => handleMasterValueDateChange(e.target.value)}
                                         />
 
-                                        {/* Quick Settlement Presets & Market Rule Helper */}
-                                        <div className="pt-0.5 space-y-1.5">
-                                            <div className="flex flex-wrap items-center gap-1.5">
-                                                {[
-                                                    { label: 'Spot (T+0)', date: minDateLimit, desc: 'Same Day' },
-                                                    { label: 'Spot (T+1)', date: addDays(minDateLimit, 1), desc: 'Next Day' },
-                                                    { label: 'Spot (T+2)', date: addDays(minDateLimit, 2), desc: 'Standard Spot' },
-                                                ].map(p => (
-                                                    <button
-                                                        key={p.label}
-                                                        type="button"
-                                                        onClick={() => handleMasterValueDateChange(p.date)}
-                                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-all cursor-pointer ${
-                                                            formData.valueDate === p.date
-                                                                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                                                                : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
-                                                        }`}
-                                                        title={`${p.desc} (${formatDate(p.date)})`}
-                                                    >
-                                                        {p.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            <p className="text-[10px] text-gray-500">
-                                                Offer window starts on <strong className="text-gray-700">{formatDate(minDateLimit)}</strong>. Settlement (Value Date) can be same day or later, but never earlier.
-                                            </p>
-                                        </div>
+                                        <p className="text-[10px] text-gray-500 mt-1">
+                                            Value Date cannot be earlier than today ({formatDate(todayStr)}). The quotation offer window will be scheduled on or before this date.
+                                        </p>
 
                                         {/* Master Alternative Value Date Toggle */}
                                         <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50/70 to-indigo-50/70 border border-blue-100 rounded-xl">
@@ -1106,14 +1108,28 @@ export default function QuotationRequestDashboard() {
                         </h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Start Time</label>
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase">Offer Window Start Time</label>
+                                    {targetValueDate && (
+                                        <span className="text-[10px] font-medium text-gray-500">
+                                            Allowed: Today → {formatDate(targetValueDate)}
+                                        </span>
+                                    )}
+                                </div>
                                 <input
                                     type="datetime-local"
                                     required
+                                    min={nowLocalIso}
+                                    max={maxWindowDateTime}
                                     className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
                                     value={formData.windowStart}
                                     onChange={e => handleWindowStartChange(e.target.value)}
                                 />
+                                {targetValueDate && (
+                                    <p className="text-[10px] text-gray-500 mt-1">
+                                        Quotation window can be scheduled any day from today until Value Date ({formatDate(targetValueDate)}).
+                                    </p>
+                                )}
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -1436,14 +1452,14 @@ export default function QuotationRequestDashboard() {
                                                             <label className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Value Date:</label>
                                                             <input
                                                                 type="date"
-                                                                min={minDateLimit}
+                                                                min={windowStartDate || todayStr}
                                                                 className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black"
                                                                 value={isSelected.valueDate || ''}
                                                                 onChange={e => {
                                                                     const val = e.target.value;
-                                                                    if (val && val < minDateLimit) {
-                                                                        toast.warn(`Value Date for ${bank.bank?.name || 'bank'} cannot be earlier than quotation window date (${formatDate(minDateLimit)}). Setting to ${formatDate(minDateLimit)}.`);
-                                                                        updateBankCost(bank.bank_id, 'valueDate', minDateLimit);
+                                                                    if (val && windowStartDate && val < windowStartDate) {
+                                                                        toast.warn(`Value Date for ${bank.bank?.name || 'bank'} cannot be earlier than quotation window date (${formatDate(windowStartDate)}). Setting to ${formatDate(windowStartDate)}.`);
+                                                                        updateBankCost(bank.bank_id, 'valueDate', windowStartDate);
                                                                     } else {
                                                                         updateBankCost(bank.bank_id, 'valueDate', val);
                                                                     }
@@ -1462,9 +1478,9 @@ export default function QuotationRequestDashboard() {
                                                             </span>
                                                         </label>
 
-                                                        {isSelected.valueDate && minDateLimit && isSelected.valueDate < minDateLimit && (
+                                                        {isSelected.valueDate && windowStartDate && isSelected.valueDate < windowStartDate && (
                                                             <div className="w-full text-[10px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
-                                                                <AlertCircle size={11} /> Value Date ({formatDate(isSelected.valueDate)}) cannot precede Offer Window ({formatDate(minDateLimit)})
+                                                                <AlertCircle size={11} /> Value Date ({formatDate(isSelected.valueDate)}) cannot precede Offer Window ({formatDate(windowStartDate)})
                                                             </div>
                                                         )}
                                                     </div>
@@ -1485,8 +1501,12 @@ export default function QuotationRequestDashboard() {
                             <div className="mt-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-3">
                                 <AlertCircle size={18} className="text-rose-600 shrink-0" />
                                 <div>
-                                    <strong className="block font-bold">Settlement Date Conflict</strong>
-                                    <span>One or more counterparties has a Value Date earlier than the quotation Offer Window ({formatDate(minDateLimit)}). A transaction cannot settle before the quotation bidding window occurs.</span>
+                                    <strong className="block font-bold">Timing / Settlement Conflict</strong>
+                                    <span>
+                                        {hasInvalidWindowDate
+                                            ? `Quotation window (${formatDate(windowStartDate)}) cannot be scheduled after Value Date (${formatDate(targetValueDate)}). Quotations must take place on or before settlement.`
+                                            : `One or more counterparties has a Value Date earlier than the quotation Offer Window (${formatDate(windowStartDate)}). A transaction cannot settle before the quotation bidding window occurs.`}
+                                    </span>
                                 </div>
                             </div>
                         )}
