@@ -401,6 +401,12 @@ export default function QuotationHistoryDashboard() {
                                                     <RefreshCw size={10} /> ↳ from {rfq.parent_rfq_ref}
                                                 </div>
                                             )}
+                                            {rfq.internal_notes && (
+                                                <div className="text-[10px] text-gray-500 truncate max-w-[170px] flex items-center gap-1 mt-0.5" title={`Internal Note: ${rfq.internal_notes}`}>
+                                                    <FileText size={10} className="text-gray-400 shrink-0" />
+                                                    <span className="truncate">{rfq.internal_notes}</span>
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-4 sm:px-6 py-3 sm:py-4">
                                             <span className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider whitespace-nowrap ${rfq.type === 'TBILL' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>

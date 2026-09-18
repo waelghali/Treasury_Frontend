@@ -614,6 +614,17 @@ export default function ResultsView({ rfqId }) {
                             </div>
                         </div>
                     )}
+
+                    {rfq.internal_notes && (
+                        <div className="pt-3 border-t border-gray-100">
+                            <span className="font-sans text-[10px] font-bold text-blue-600 uppercase block mb-1.5 flex items-center gap-1.5">
+                                <FileText size={12} className="text-blue-500" /> Internal Notes / Related Invoices & Payments
+                            </span>
+                            <div className="p-3 bg-gray-50 border border-gray-200/80 rounded-xl text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+                                {rfq.internal_notes}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

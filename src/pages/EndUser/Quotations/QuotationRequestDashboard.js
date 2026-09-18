@@ -67,6 +67,7 @@ export default function QuotationRequestDashboard() {
             quotationBase: 'Execution',
             maxTolerancePercent: '0.5',
             tokenValidityHours: '24',
+            internalNotes: '',
         };
     });
     const [files, setFiles] = useState([]);
@@ -119,6 +120,7 @@ export default function QuotationRequestDashboard() {
                     quotationBase: rfq.quotation_base || 'Execution',
                     maxTolerancePercent: rfq.max_tolerance_percent !== null && rfq.max_tolerance_percent !== undefined ? String(rfq.max_tolerance_percent) : '0.5',
                     tokenValidityHours: rfq.token_validity_hours ? String(rfq.token_validity_hours) : '24',
+                    internalNotes: rfq.internal_notes || '',
                 });
 
                 if (results && results.length > 0) {
@@ -530,7 +532,8 @@ export default function QuotationRequestDashboard() {
                 document_path: uploadedDocs.length > 0 ? JSON.stringify(uploadedDocs) : (sourceRfq?.document_path || null),
                 selected_banks: JSON.stringify(formattedBanks),
                 token_validity_hours: parseInt(formData.tokenValidityHours, 10),
-                user_notes: userNotes.trim() || undefined
+                user_notes: (formData.internalNotes || '').trim() || undefined,
+                internal_notes: (formData.internalNotes || '').trim() || undefined,
             };
 
             try {
@@ -569,7 +572,9 @@ export default function QuotationRequestDashboard() {
             documentPath: uploadedDocs.length > 0 ? JSON.stringify(uploadedDocs) : (sourceRfq?.document_path || null),
             selectedBanks: JSON.stringify(formattedBanks),
             token_validity_hours: parseInt(formData.tokenValidityHours, 10),
-            parent_rfq_id: retradeRfqId || undefined
+            parent_rfq_id: retradeRfqId || undefined,
+            internal_notes: (formData.internalNotes || '').trim() || undefined,
+            internalNotes: (formData.internalNotes || '').trim() || undefined,
         };
 
         try {
@@ -1102,6 +1107,23 @@ export default function QuotationRequestDashboard() {
                                     </div>
                                 </>
                             )}
+
+                            {/* Internal Notes / Remarks */}
+                            <div className="pt-2 border-t border-gray-100">
+                                <label className="block text-[10px] font-bold text-blue-600 uppercase mb-1">
+                                    Internal Notes / References (Optional)
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    placeholder="Add internal notes, list related payments, invoices, or business context..."
+                                    className="w-full bg-gray-50 border border-gray-200/60 rounded-xl px-3.5 py-2.5 text-xs focus:bg-white focus:ring-2 focus:ring-black/5 outline-none transition-all resize-none"
+                                    value={formData.internalNotes || ''}
+                                    onChange={e => setFormData({ ...formData, internalNotes: e.target.value })}
+                                />
+                                <p className="text-[10px] text-gray-400 mt-1">
+                                    Visible to Corporate Admin and stored in Quotation History. Counterparties cannot see this.
+                                </p>
+                            </div>
                         </div>
                     </section>
 
