@@ -194,6 +194,7 @@ export default function QuotationRequestDashboard() {
                     }
                 } catch (e) {}
 
+                const effectiveInitialDate = (formData.valueDate && formData.valueDate >= minDateLimit) ? formData.valueDate : minDateLimit;
                 banksToSelect.push({
                     id: matchedBank.bank_id,
                     name: matchedBank.bank?.name || `Bank ${matchedBank.bank_id}`,
@@ -203,7 +204,7 @@ export default function QuotationRequestDashboard() {
                     costFlat: costData.cost_flat || 0,
                     quotationBase: base,
                     isDocumentVisible: base === 'Execution',
-                    valueDate: formData.valueDate || '',
+                    valueDate: effectiveInitialDate,
                     allowAlternativeValueDate: formData.allowAlternativeValueDate || false
                 });
             }
@@ -233,6 +234,7 @@ export default function QuotationRequestDashboard() {
                 console.warn('Could not fetch latest bank costs:', err);
             }
 
+            const effectiveInitialDate = (formData.valueDate && formData.valueDate >= minDateLimit) ? formData.valueDate : minDateLimit;
             setSelectedBanks([
                 ...selectedBanks, 
                 { 
@@ -246,7 +248,7 @@ export default function QuotationRequestDashboard() {
                     costFlat: fetchedCosts.costFlat,
                     quotationBase: base,
                     isDocumentVisible: base === 'Execution',
-                    valueDate: formData.valueDate || '',
+                    valueDate: effectiveInitialDate,
                     allowAlternativeValueDate: formData.allowAlternativeValueDate || false
                 }
             ]);
@@ -254,6 +256,25 @@ export default function QuotationRequestDashboard() {
     };
 
     const minDateLimit = formData.windowStart ? formData.windowStart.split('T')[0] : new Date().toISOString().split('T')[0];
+
+    const addDays = (dateStr, days) => {
+        if (!dateStr) return '';
+        try {
+            const d = new Date(dateStr + 'T00:00:00');
+            d.setDate(d.getDate() + days);
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        } catch {
+            return '';
+        }
+    };
+
+    const hasInvalidBankValueDate = formData.type === 'FX_SPOT' && selectedBanks.some(b => {
+        const bDate = b.valueDate || formData.valueDate;
+        return bDate && minDateLimit && bDate < minDateLimit;
+    });
+    const hasInvalidMasterValueDate = formData.type === 'FX_SPOT' && formData.valueDate && minDateLimit && formData.valueDate < minDateLimit;
+    const hasDateDiscrepancy = hasInvalidBankValueDate || hasInvalidMasterValueDate;
 
     const handleWindowStartChange = (newStart) => {
         const newStartDate = newStart ? newStart.split('T')[0] : '';
@@ -930,6 +951,34 @@ export default function QuotationRequestDashboard() {
                                             onChange={e => handleMasterValueDateChange(e.target.value)}
                                         />
 
+                                        {/* Quick Settlement Presets & Market Rule Helper */}
+                                        <div className="pt-0.5 space-y-1.5">
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                {[
+                                                    { label: 'Spot (T+0)', date: minDateLimit, desc: 'Same Day' },
+                                                    { label: 'Spot (T+1)', date: addDays(minDateLimit, 1), desc: 'Next Day' },
+                                                    { label: 'Spot (T+2)', date: addDays(minDateLimit, 2), desc: 'Standard Spot' },
+                                                ].map(p => (
+                                                    <button
+                                                        key={p.label}
+                                                        type="button"
+                                                        onClick={() => handleMasterValueDateChange(p.date)}
+                                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-all cursor-pointer ${
+                                                            formData.valueDate === p.date
+                                                                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                                                : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                                                        }`}
+                                                        title={`${p.desc} (${formatDate(p.date)})`}
+                                                    >
+                                                        {p.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <p className="text-[10px] text-gray-500">
+                                                Offer window starts on <strong className="text-gray-700">{formatDate(minDateLimit)}</strong>. Settlement (Value Date) can be same day or later, but never earlier.
+                                            </p>
+                                        </div>
+
                                         {/* Master Alternative Value Date Toggle */}
                                         <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50/70 to-indigo-50/70 border border-blue-100 rounded-xl">
                                             <div className="flex items-center gap-2.5 pr-2">
@@ -1412,6 +1461,12 @@ export default function QuotationRequestDashboard() {
                                                                 Allow Alt Date
                                                             </span>
                                                         </label>
+
+                                                        {isSelected.valueDate && minDateLimit && isSelected.valueDate < minDateLimit && (
+                                                            <div className="w-full text-[10px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
+                                                                <AlertCircle size={11} /> Value Date ({formatDate(isSelected.valueDate)}) cannot precede Offer Window ({formatDate(minDateLimit)})
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -1426,9 +1481,19 @@ export default function QuotationRequestDashboard() {
                             )}
                         </div>
 
+                        {hasDateDiscrepancy && (
+                            <div className="mt-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-3">
+                                <AlertCircle size={18} className="text-rose-600 shrink-0" />
+                                <div>
+                                    <strong className="block font-bold">Settlement Date Conflict</strong>
+                                    <span>One or more counterparties has a Value Date earlier than the quotation Offer Window ({formatDate(minDateLimit)}). A transaction cannot settle before the quotation bidding window occurs.</span>
+                                </div>
+                            </div>
+                        )}
+
                         <button
                             type="submit"
-                            disabled={isSubmitting || selectedBanks.length === 0}
+                            disabled={isSubmitting || selectedBanks.length === 0 || hasDateDiscrepancy}
                             className={`mt-6 sm:mt-8 w-full py-3.5 sm:py-5 rounded-2xl sm:rounded-3xl font-semibold text-sm sm:text-lg flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-xl disabled:opacity-30 disabled:cursor-not-allowed shrink-0 cursor-pointer ${
                                 revisionRfqId
                                     ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20'
