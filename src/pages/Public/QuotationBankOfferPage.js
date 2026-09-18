@@ -5,7 +5,7 @@ import {
     Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, 
     Mail, KeyRound, UserCheck, Eye, History, RefreshCw, MessageSquare, Shield,
     BarChart2, ShieldAlert, WifiOff, FileQuestion, Calendar,
-    Users, Lock, Zap, Info, Loader2
+    Users, Lock, Zap, Info, Loader2, Ban
 } from 'lucide-react';
 import './quotation-animations.css';
 
@@ -85,7 +85,7 @@ export default function QuotationBankOfferPage() {
     const [tbillLines, setTbillLines] = useState([{ settlementDate: '', maturityDate: '', discountRate: '', maxAmount: '' }]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
-    const [timeLeft, setTimeLeft] = useState({ label: '', status: 'PRE', secondsRemaining: null });
+    const [timeLeft, setTimeLeft] = useState({ label: '', status: 'PRE', secondsRemaining: null, days: 0, hours: 0, mins: 0, secs: 0 });
     const [resultStatus, setResultStatus] = useState(null);
     const [timeOffset, setTimeOffset] = useState(0);
 
@@ -152,9 +152,15 @@ export default function QuotationBankOfferPage() {
             const detailStr = typeof detail === 'string' ? detail : (detail ? JSON.stringify(detail) : '');
             const rawMessage = detailStr || err.message || 'Failed to load quotation details';
 
-            const isExpired = status === 410 || 
-                              detailStr.toLowerCase().includes('expired') || 
-                              detailStr.toLowerCase().includes('validity of this link');
+            const isCancelled = detailStr.toLowerCase().includes('withdrawn') || 
+                                detailStr.toLowerCase().includes('cancelled') || 
+                                detailStr.toLowerCase().includes('canceled');
+
+            const isExpired = !isCancelled && (
+                status === 410 || 
+                detailStr.toLowerCase().includes('expired') || 
+                detailStr.toLowerCase().includes('validity of this link')
+            );
             
             const isPendingApproval = status === 403 && 
                                       detailStr.toLowerCase().includes('awaiting internal corporate approval');
@@ -167,6 +173,7 @@ export default function QuotationBankOfferPage() {
             setError({
                 status,
                 message: rawMessage,
+                isCancelled,
                 isExpired,
                 isPendingApproval,
                 isInvalidToken,
@@ -298,6 +305,18 @@ export default function QuotationBankOfferPage() {
                     role: authSession.role || 'EXECUTION'
                 });
                 const data = res.data;
+                if (data.rfq_status === 'CANCELLED') {
+                    setError({
+                        status: 410,
+                        message: 'This quotation request was officially withdrawn by the corporate treasury desk. No quotation is required.',
+                        isCancelled: true,
+                        isExpired: false,
+                        isPendingApproval: false,
+                        isInvalidToken: false,
+                        isNetworkError: false
+                    });
+                    return;
+                }
                 setDeskState(data);
 
                 // If colleague submitted quote or price was mirrored, update live if we are spectator
@@ -317,7 +336,20 @@ export default function QuotationBankOfferPage() {
                     }
                 }
             } catch (err) {
-                // Background heartbeat polling error ignored
+                const status = err.response?.status;
+                const detail = err.response?.data?.detail;
+                const detailStr = typeof detail === 'string' ? detail : (detail ? JSON.stringify(detail) : '');
+                if (status === 410 || detailStr.toLowerCase().includes('withdrawn') || detailStr.toLowerCase().includes('cancelled') || detailStr.toLowerCase().includes('canceled')) {
+                    setError({
+                        status: 410,
+                        message: detailStr || 'This quotation request was officially withdrawn by the corporate treasury desk. No quotation is required.',
+                        isCancelled: true,
+                        isExpired: false,
+                        isPendingApproval: false,
+                        isInvalidToken: false,
+                        isNetworkError: false
+                    });
+                }
             }
         };
 
@@ -325,6 +357,15 @@ export default function QuotationBankOfferPage() {
         const interval = setInterval(syncDeskSession, 2000); // 2.0s cadence
         return () => clearInterval(interval);
     }, [authSession, token]);
+
+    // 4d. Real-Time Cancellation & Status Polling for Unauthenticated View
+    useEffect(() => {
+        if (authSession || error?.isCancelled) return;
+        const statusPoll = setInterval(() => {
+            fetchRfq();
+        }, 4000);
+        return () => clearInterval(statusPoll);
+    }, [authSession, error?.isCancelled, fetchRfq]);
 
     // 5. Live Countdown Timer with Dynamic Browser Titles & Urgency Tracking
     useEffect(() => {
@@ -337,31 +378,75 @@ export default function QuotationBankOfferPage() {
 
             if (now < start) {
                 const diff = Math.max(0, Math.floor((start.getTime() - now.getTime()) / 1000));
-                const mins = Math.floor(diff / 60);
+                const days = Math.floor(diff / 86400);
+                const hours = Math.floor((diff % 86400) / 3600);
+                const mins = Math.floor((diff % 3600) / 60);
                 const secs = diff % 60;
-                setTimeLeft({ label: `Starts in ${mins}:${secs.toString().padStart(2, '0')}`, status: 'PRE', secondsRemaining: diff });
+
+                let labelText = '';
+                if (days > 0) {
+                    labelText = `Starts in ${days}d ${hours}h ${mins}m ${secs}s`;
+                } else if (hours > 0) {
+                    labelText = `Starts in ${hours}h ${mins}m ${secs}s`;
+                } else {
+                    labelText = `Starts in ${mins}:${secs.toString().padStart(2, '0')}`;
+                }
+
+                setTimeLeft({ 
+                    label: labelText, 
+                    status: 'PRE', 
+                    secondsRemaining: diff,
+                    days,
+                    hours,
+                    mins,
+                    secs 
+                });
+
                 if (typeof document !== 'undefined') {
-                    document.title = `Starts in ${mins}:${secs.toString().padStart(2, '0')} - Grow Treasury`;
+                    if (days > 0) {
+                        document.title = `Starts in ${days}d ${hours}h | Grow Treasury`;
+                    } else if (hours > 0) {
+                        document.title = `Starts in ${hours}h ${mins}m | Grow Treasury`;
+                    } else {
+                        document.title = `Starts in ${mins}:${secs.toString().padStart(2, '0')} | Grow Treasury`;
+                    }
                 }
             } else if (now >= start && now <= end) {
                 const diff = Math.max(0, Math.floor((end.getTime() - now.getTime()) / 1000));
-                const mins = Math.floor(diff / 60);
+                const hours = Math.floor(diff / 3600);
+                const mins = Math.floor((diff % 3600) / 60);
                 const secs = diff % 60;
-                setTimeLeft({ label: `Window Closes in ${mins}:${secs.toString().padStart(2, '0')}`, status: 'OPEN', secondsRemaining: diff });
+
+                let labelText = '';
+                if (hours > 0) {
+                    labelText = `Window Closes in ${hours}h ${mins}m ${secs}s`;
+                } else {
+                    labelText = `Window Closes in ${mins}:${secs.toString().padStart(2, '0')}`;
+                }
+
+                setTimeLeft({ 
+                    label: labelText, 
+                    status: 'OPEN', 
+                    secondsRemaining: diff,
+                    days: 0,
+                    hours,
+                    mins,
+                    secs 
+                });
                 
                 if (typeof document !== 'undefined') {
                     if (diff <= 5) {
-                        document.title = `⚠️ [${diff}s] CLOSING SOON - Grow Treasury`;
+                        document.title = `⚠️ [${diff}s] CLOSING SOON | Grow Treasury`;
                     } else if (diff <= 30) {
-                        document.title = `⏱️ [${diff}s] Quote Now - Grow Treasury`;
+                        document.title = `⏱️ [${diff}s] Quote Now | Grow Treasury`;
                     } else {
-                        document.title = `🟢 [OPEN] Quote Now - Grow Treasury`;
+                        document.title = `🟢 [OPEN] Quote Now | Grow Treasury`;
                     }
                 }
             } else {
-                setTimeLeft({ label: 'Window Closed', status: 'CLOSED', secondsRemaining: 0 });
+                setTimeLeft({ label: 'Window Closed', status: 'CLOSED', secondsRemaining: 0, days: 0, hours: 0, mins: 0, secs: 0 });
                 if (typeof document !== 'undefined') {
-                    document.title = 'Window Closed - Grow Treasury';
+                    document.title = 'Window Closed | Grow Treasury';
                 }
                 clearInterval(timer);
                 checkResult();
@@ -376,7 +461,14 @@ export default function QuotationBankOfferPage() {
         };
     }, [rfq, timeOffset, checkResult]);
 
-    // 5b. Window Just Opened Transition Alert
+    // 5b. Cancellation Document Title
+    useEffect(() => {
+        if (error?.isCancelled && typeof document !== 'undefined') {
+            document.title = 'Quotation Cancelled | Grow Treasury';
+        }
+    }, [error?.isCancelled]);
+
+    // 5c. Window Just Opened Transition Alert
     useEffect(() => {
         if (prevStatusRef.current === 'PRE' && timeLeft.status === 'OPEN') {
             setShowWindowOpenedAlert(true);
@@ -823,6 +915,7 @@ export default function QuotationBankOfferPage() {
     };
 
     if (error) {
+        const isCancelled = typeof error === 'object' && error?.isCancelled;
         const isExpired = typeof error === 'object' && error?.isExpired;
         const isPendingApproval = typeof error === 'object' && error?.isPendingApproval;
         const isInvalid = typeof error === 'object' && error?.isInvalidToken;
@@ -835,7 +928,17 @@ export default function QuotationBankOfferPage() {
         let description = rawMessage || "This quotation link is not accessible.";
         let showRetry = false;
 
-        if (isExpired) {
+        if (isCancelled) {
+            icon = (
+                <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center mx-auto mb-4 text-rose-600 shadow-sm">
+                    <Ban size={36} />
+                </div>
+            );
+            badge = { text: "Quotation Cancelled", bg: "bg-rose-50 text-rose-800 border-rose-300" };
+            title = "Quotation Request Cancelled";
+            description = "This Request for Quotation (RFQ) was officially cancelled and withdrawn by corporate treasury. No pricing or participation is required for this request.";
+            showRetry = false;
+        } else if (isExpired) {
             icon = (
                 <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto mb-4 text-amber-600 shadow-sm">
                     <Clock size={36} />
@@ -901,7 +1004,9 @@ export default function QuotationBankOfferPage() {
                             <span>Grow Treasury Portal</span>
                         </div>
                         <p>
-                            {isExpired 
+                            {isCancelled
+                                ? "This RFQ was officially withdrawn and cancelled by the corporate client. No further quotation submissions or actions are required."
+                                : isExpired 
                                 ? "If you are an authorized bank partner and require an extended or refreshed quotation window, please contact the issuing corporate treasury officer directly."
                                 : "For questions regarding this quotation, please contact the issuing corporate treasury desk."}
                         </p>
@@ -1086,29 +1191,92 @@ export default function QuotationBankOfferPage() {
                             </button>
                         </div>
 
-                        <div className={`px-4 py-2 rounded-xl font-mono text-xs sm:text-sm font-bold shadow-xs border shrink-0 transition-all ${
-                            timeLeft.status === 'OPEN'
-                                ? timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 5
-                                    ? 'bg-rose-50 text-rose-700 border-rose-300 ring-2 ring-rose-400/50 animate-pulse font-extrabold flex items-center gap-1.5'
-                                    : timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 30
-                                    ? 'bg-amber-50 text-amber-800 border-amber-300 ring-2 ring-amber-400/40 animate-pulse flex items-center gap-1.5'
-                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200 animate-pulse'
-                                : timeLeft.status === 'PRE'
-                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                : 'bg-slate-100 text-slate-500 border-slate-200'
-                        }`}>
-                            {timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 5 ? (
-                                <>
-                                    <span className="inline-block w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-                                    <span>⚠️ Closing in {timeLeft.secondsRemaining}s!</span>
-                                </>
-                            ) : timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 30 ? (
-                                <>
-                                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
-                                    <span>⏱️ {timeLeft.secondsRemaining}s remaining</span>
-                                </>
+                        {/* Executive Countdown Timer Badge */}
+                        <div className="shrink-0">
+                            {timeLeft.status === 'PRE' ? (
+                                <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-amber-300/80 bg-gradient-to-r from-amber-50 via-white to-amber-50/70 shadow-xs">
+                                    <div className="flex items-center gap-1.5 text-amber-700">
+                                        <Clock size={14} className="text-amber-600 shrink-0" />
+                                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 whitespace-nowrap">
+                                            Starts in
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-1 font-mono text-xs sm:text-sm font-bold text-gray-900">
+                                        {timeLeft.days > 0 && (
+                                            <span className="flex items-baseline bg-white px-1.5 py-0.5 rounded border border-amber-200/80 shadow-2xs">
+                                                <span>{timeLeft.days}</span>
+                                                <span className="text-[9px] font-semibold text-gray-500 ml-0.5">d</span>
+                                            </span>
+                                        )}
+                                        {(timeLeft.days > 0 || timeLeft.hours > 0) && (
+                                            <span className="flex items-baseline bg-white px-1.5 py-0.5 rounded border border-amber-200/80 shadow-2xs">
+                                                <span>{String(timeLeft.hours ?? 0).padStart(2, '0')}</span>
+                                                <span className="text-[9px] font-semibold text-gray-500 ml-0.5">h</span>
+                                            </span>
+                                        )}
+                                        <span className="flex items-baseline bg-white px-1.5 py-0.5 rounded border border-amber-200/80 shadow-2xs">
+                                            <span>{String(timeLeft.mins ?? 0).padStart(2, '0')}</span>
+                                            <span className="text-[9px] font-semibold text-gray-500 ml-0.5">m</span>
+                                        </span>
+                                        <span className="flex items-baseline bg-white px-1.5 py-0.5 rounded border border-amber-200/80 shadow-2xs text-amber-800">
+                                            <span>{String(timeLeft.secs ?? 0).padStart(2, '0')}</span>
+                                            <span className="text-[9px] font-semibold text-amber-600 ml-0.5">s</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : timeLeft.status === 'OPEN' ? (
+                                timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 5 ? (
+                                    <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-rose-400 bg-rose-50 text-rose-800 shadow-xs ring-2 ring-rose-400/50 animate-pulse">
+                                        <span className="relative flex h-2 w-2">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
+                                        </span>
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-rose-800 whitespace-nowrap">Closing Now</span>
+                                        <span className="font-mono text-xs sm:text-sm font-black text-rose-950 bg-white px-1.5 py-0.5 rounded border border-rose-200">
+                                            {timeLeft.secondsRemaining}s!
+                                        </span>
+                                    </div>
+                                ) : timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 30 ? (
+                                    <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-amber-400 bg-amber-50 text-amber-800 shadow-xs ring-2 ring-amber-400/40 animate-pulse">
+                                        <span className="relative flex h-2 w-2">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600"></span>
+                                        </span>
+                                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 whitespace-nowrap">Closing in</span>
+                                        <span className="font-mono text-xs sm:text-sm font-black text-amber-950 bg-white px-1.5 py-0.5 rounded border border-amber-200">
+                                            {timeLeft.secondsRemaining}s
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-emerald-300 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 text-emerald-800 shadow-xs animate-pulse">
+                                        <span className="relative flex h-2 w-2">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                                        </span>
+                                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 whitespace-nowrap">Live • Closes in</span>
+                                        <div className="flex items-center gap-1 font-mono text-xs sm:text-sm font-bold text-emerald-950">
+                                            {timeLeft.hours > 0 && (
+                                                <span className="flex items-baseline bg-white px-1.5 py-0.5 rounded border border-emerald-200 shadow-2xs">
+                                                    <span>{String(timeLeft.hours).padStart(2, '0')}</span>
+                                                    <span className="text-[9px] font-semibold text-emerald-600 ml-0.5">h</span>
+                                                </span>
+                                            )}
+                                            <span className="flex items-baseline bg-white px-1.5 py-0.5 rounded border border-emerald-200 shadow-2xs">
+                                                <span>{String(timeLeft.mins ?? 0).padStart(2, '0')}</span>
+                                                <span className="text-[9px] font-semibold text-emerald-600 ml-0.5">m</span>
+                                            </span>
+                                            <span className="flex items-baseline bg-white px-1.5 py-0.5 rounded border border-emerald-200 shadow-2xs text-emerald-700">
+                                                <span>{String(timeLeft.secs ?? 0).padStart(2, '0')}</span>
+                                                <span className="text-[9px] font-semibold text-emerald-600 ml-0.5">s</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                )
                             ) : (
-                                timeLeft.label
+                                <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 text-xs font-semibold">
+                                    <Lock size={13} className="text-slate-400" />
+                                    <span>Window Closed</span>
+                                </div>
                             )}
                         </div>
                     </div>

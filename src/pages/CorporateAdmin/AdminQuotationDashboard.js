@@ -205,7 +205,7 @@ export default function AdminQuotationDashboard() {
     );
 
     return (
-        <div className="w-full max-w-[1400px] mx-auto p-4 sm:p-8 space-y-8 sm:space-y-10">
+        <div className="w-full space-y-6 sm:space-y-8">
             {/* Header */}
             <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
@@ -492,18 +492,17 @@ export default function AdminQuotationDashboard() {
 
                 <div className="bg-white rounded-2xl shadow-sm border border-black/5 overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse min-w-[800px]">
+                        <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
-                                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Ref No</th>
-                                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">Type</th>
-                                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">Created By</th>
-                                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">Date</th>
-                                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">Details</th>
-                                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">Amount</th>
-                                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Winning Counterparty & Rate</th>
-                                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">Status</th>
-                                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase text-right">Actions</th>
+                                    <th className="px-3.5 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Ref No</th>
+                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Type</th>
+                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Maker / Date</th>
+                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Details</th>
+                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Amount</th>
+                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Winning Counterparty & Rate</th>
+                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Status</th>
+                                    <th className="px-2.5 py-3 text-[10px] font-bold text-gray-400 uppercase text-right whitespace-nowrap w-8"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
@@ -513,40 +512,46 @@ export default function AdminQuotationDashboard() {
                                         className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
                                         onClick={() => setSelectedRfqId(rfq.id)}
                                     >
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4">
-                                            <div className="font-mono text-xs sm:text-sm font-bold text-gray-900">{rfq.ref_no}</div>
+                                        <td className="px-3.5 py-3 whitespace-nowrap">
+                                            <div className="font-mono text-xs sm:text-sm font-bold text-gray-900 whitespace-nowrap">{rfq.ref_no}</div>
                                             {rfq.parent_rfq_ref && (
-                                                <div className="text-[10px] text-indigo-600 font-mono flex items-center gap-1 mt-0.5" title={`Re-tendered from ${rfq.parent_rfq_ref}`}>
+                                                <div className="text-[10px] text-indigo-600 font-mono flex items-center gap-1 mt-0.5 whitespace-nowrap" title={`Re-tendered from ${rfq.parent_rfq_ref}`}>
                                                     <RefreshCw size={10} /> ↳ from {rfq.parent_rfq_ref}
                                                 </div>
                                             )}
+                                            {rfq.internal_notes && (
+                                                <div className="text-[10px] text-blue-600 truncate max-w-[130px] flex items-center gap-1 mt-0.5" title={`Internal Note: ${rfq.internal_notes}`}>
+                                                    <FileText size={10} className="text-blue-500 shrink-0" />
+                                                    <span className="truncate">{rfq.internal_notes}</span>
+                                                </div>
+                                            )}
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4">
+                                        <td className="px-3 py-3 whitespace-nowrap">
                                             <span className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider whitespace-nowrap ${rfq.type === 'TBILL' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
                                                 {rfq.type === 'TBILL' ? 'T-Bill' : 'FX Spot'}
                                             </span>
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs text-gray-600 whitespace-nowrap">
-                                            {rfq.creator_name || 'End User'}
+                                        <td className="px-3 py-3 whitespace-nowrap">
+                                            <div className="text-xs font-semibold text-gray-800 truncate max-w-[120px]">{rfq.creator_name || 'corp.admin'}</div>
+                                            <div className="text-[10px] text-gray-400">{formatDate(rfq.created_at)}</div>
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs text-gray-500 whitespace-nowrap">{formatDate(rfq.created_at)}</td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold whitespace-nowrap">
+                                        <td className="px-3 py-3 text-xs font-semibold text-gray-800 whitespace-nowrap">
                                             {rfq.type === 'TBILL' ? rfq.direction : `${rfq.buy_currency}/${rfq.sell_currency}`}
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm whitespace-nowrap">
+                                        <td className="px-3 py-3 text-xs font-mono font-medium text-gray-900 whitespace-nowrap">
                                             {rfq.type === 'TBILL'
                                                 ? `Min: ${new Intl.NumberFormat().format(rfq.min_ticket_amount || 0)}`
                                                 : new Intl.NumberFormat().format(rfq.amount || 0)}
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                                        <td className="px-3 py-3 whitespace-nowrap">
                                             {(() => {
                                                 const timing = getRfqTimingState(rfq);
                                                 if (rfq.winner_bank_name) {
                                                     return (
                                                         <div className="flex flex-col">
-                                                            <span className="inline-flex items-center gap-1.5 font-bold text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl w-fit shadow-xs">
-                                                                <Trophy size={13} className="text-amber-500 shrink-0" />
-                                                                <span className="truncate max-w-[140px] sm:max-w-[170px]">{rfq.winner_bank_name}</span>
+                                                            <span className="inline-flex items-center gap-1.5 font-bold text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-xl w-fit shadow-xs">
+                                                                <Trophy size={12} className="text-amber-500 shrink-0" />
+                                                                <span className="truncate max-w-[130px] lg:max-w-[160px]">{rfq.winner_bank_name}</span>
                                                             </span>
                                                             <div className="text-[11px] font-mono font-bold text-slate-800 mt-1 pl-1 flex items-center gap-1.5">
                                                                 <span>@ {typeof rfq.winner_rate === 'number' ? rfq.winner_rate.toFixed(4) : rfq.winner_rate}</span>
@@ -602,7 +607,7 @@ export default function AdminQuotationDashboard() {
                                                 );
                                             })()}
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4">
+                                        <td className="px-3 py-3 whitespace-nowrap">
                                             {(() => {
                                                 const timing = getRfqTimingState(rfq);
                                                 return (
@@ -612,8 +617,8 @@ export default function AdminQuotationDashboard() {
                                                 );
                                             })()}
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
-                                            <div className="flex items-center justify-end gap-1">
+                                        <td className="px-2.5 py-3 text-right whitespace-nowrap w-8">
+                                            <div className="flex items-center justify-end">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setSelectedRfqId(rfq.id); }}
                                                     className="p-1.5 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-colors inline-flex"
@@ -627,7 +632,7 @@ export default function AdminQuotationDashboard() {
                                 ))}
                                 {filteredHistory.length === 0 && (
                                     <tr>
-                                        <td colSpan="9" className="py-12 text-center text-gray-400 italic">
+                                        <td colSpan="8" className="py-12 text-center text-gray-400 italic">
                                             {searchTerm || statusFilter !== 'ALL' || typeFilter !== 'ALL'
                                                 ? 'No quotations match your filters.'
                                                 : 'No quotation data available yet. End users can create quotation requests from their dashboard.'}

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
-import ResubmitRevisionModal from '../../../components/Modals/ResubmitRevisionModal';
 import MarketSpreadTicker from '../../../components/Quotations/MarketSpreadTicker';
 import { getRfqTimingState } from '../../../utils/quotationTiming';
 import { jwtDecode } from 'jwt-decode';
@@ -38,7 +37,6 @@ export default function QuotationHistoryDashboard() {
     const [userRole, setUserRole] = useState(null);
     const [activeTab, setActiveTab] = useState('ALL'); // 'ALL' | 'LIVE' | 'ARCHIVE'
     const [reTenderModalRfq, setReTenderModalRfq] = useState(null);
-    const [resubmitModalRfq, setResubmitModalRfq] = useState(null);
     const [cancelModalRfq, setCancelModalRfq] = useState(null);
     const location = useLocation();
     const navigate = useNavigate();
@@ -175,7 +173,7 @@ export default function QuotationHistoryDashboard() {
     if (loading) return <div className="p-12 text-center text-gray-500">Loading quotation history...</div>;
 
     return (
-        <div className="w-full max-w-[1400px] mx-auto p-4 sm:p-8 space-y-8 sm:space-y-10">
+        <div className="w-full space-y-6 sm:space-y-8">
             {/* Header */}
             <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
@@ -217,7 +215,7 @@ export default function QuotationHistoryDashboard() {
                                     )}
                                 </div>
                                 <button
-                                    onClick={() => setResubmitModalRfq(rfq)}
+                                    onClick={() => navigate(`/end-user/quotations/active?revision_rfq_id=${rfq.id}`)}
                                     className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all shrink-0 cursor-pointer"
                                 >
                                     <Undo2 size={14} /> Revise & Resubmit
@@ -374,17 +372,17 @@ export default function QuotationHistoryDashboard() {
 
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse min-w-[800px]">
+                        <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
-                                    <th className="px-4 sm:px-6 py-3.5 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Ref No</th>
-                                    <th className="px-4 sm:px-6 py-3.5 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">Type</th>
-                                    <th className="px-4 sm:px-6 py-3.5 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">Date</th>
-                                    <th className="px-4 sm:px-6 py-3.5 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">Details</th>
-                                    <th className="px-4 sm:px-6 py-3.5 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">Amount</th>
-                                    <th className="px-4 sm:px-6 py-3.5 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Winning Counterparty & Rate</th>
-                                    <th className="px-4 sm:px-6 py-3.5 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">Status</th>
-                                    <th className="px-4 sm:px-6 py-3.5 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase text-right">Actions</th>
+                                    <th className="px-3.5 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Ref No</th>
+                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Type</th>
+                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Date</th>
+                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Details</th>
+                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Amount</th>
+                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Winning Counterparty & Rate</th>
+                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Status</th>
+                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase text-right whitespace-nowrap">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
@@ -394,45 +392,45 @@ export default function QuotationHistoryDashboard() {
                                         className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
                                         onClick={() => setSelectedRfqId(rfq.id)}
                                     >
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4">
-                                            <div className="font-mono text-xs sm:text-sm font-bold text-gray-900">{rfq.ref_no}</div>
+                                        <td className="px-3.5 py-3 whitespace-nowrap">
+                                            <div className="font-mono text-xs sm:text-sm font-bold text-gray-900 whitespace-nowrap">{rfq.ref_no}</div>
                                             {rfq.parent_rfq_ref && (
-                                                <div className="text-[10px] text-indigo-600 font-mono flex items-center gap-1 mt-0.5" title={`Re-tendered from ${rfq.parent_rfq_ref}`}>
+                                                <div className="text-[10px] text-indigo-600 font-mono flex items-center gap-1 mt-0.5 whitespace-nowrap" title={`Re-tendered from ${rfq.parent_rfq_ref}`}>
                                                     <RefreshCw size={10} /> ↳ from {rfq.parent_rfq_ref}
                                                 </div>
                                             )}
                                             {rfq.internal_notes && (
-                                                <div className="text-[10px] text-gray-500 truncate max-w-[170px] flex items-center gap-1 mt-0.5" title={`Internal Note: ${rfq.internal_notes}`}>
+                                                <div className="text-[10px] text-gray-500 truncate max-w-[150px] flex items-center gap-1 mt-0.5" title={`Internal Note: ${rfq.internal_notes}`}>
                                                     <FileText size={10} className="text-gray-400 shrink-0" />
                                                     <span className="truncate">{rfq.internal_notes}</span>
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4">
+                                        <td className="px-3 py-3 whitespace-nowrap">
                                             <span className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider whitespace-nowrap ${rfq.type === 'TBILL' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
                                                 {rfq.type === 'TBILL' ? 'T-Bill' : 'FX Spot'}
                                             </span>
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs text-gray-500 whitespace-nowrap">
+                                        <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
                                             {formatDate(rfq.created_at)}
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold whitespace-nowrap">
+                                        <td className="px-3 py-3 text-xs sm:text-sm font-semibold whitespace-nowrap">
                                             {rfq.type === 'TBILL' ? rfq.direction : `${rfq.buy_currency}/${rfq.sell_currency}`}
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm whitespace-nowrap">
+                                        <td className="px-3 py-3 text-xs sm:text-sm whitespace-nowrap font-mono">
                                             {rfq.type === 'TBILL'
                                                 ? `Min: ${new Intl.NumberFormat().format(rfq.min_ticket_amount || 0)}`
                                                 : new Intl.NumberFormat().format(rfq.amount || 0)}
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                                        <td className="px-3 py-3 whitespace-nowrap">
                                             {(() => {
                                                 const timing = getRfqTimingState(rfq);
                                                 if (rfq.winner_bank_name) {
                                                     return (
                                                         <div className="flex flex-col">
-                                                            <span className="inline-flex items-center gap-1.5 font-bold text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl w-fit shadow-xs">
-                                                                <Trophy size={13} className="text-amber-500 shrink-0" />
-                                                                <span className="truncate max-w-[140px] sm:max-w-[170px]">{rfq.winner_bank_name}</span>
+                                                            <span className="inline-flex items-center gap-1.5 font-bold text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-xl w-fit shadow-xs">
+                                                                <Trophy size={12} className="text-amber-500 shrink-0" />
+                                                                <span className="truncate max-w-[130px] lg:max-w-[160px]">{rfq.winner_bank_name}</span>
                                                             </span>
                                                             <div className="text-[11px] font-mono font-bold text-slate-800 mt-1 pl-1 flex items-center gap-1.5">
                                                                 <span>@ {typeof rfq.winner_rate === 'number' ? rfq.winner_rate.toFixed(4) : rfq.winner_rate}</span>
@@ -488,7 +486,7 @@ export default function QuotationHistoryDashboard() {
                                                 );
                                             })()}
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4">
+                                        <td className="px-3 py-3 whitespace-nowrap">
                                             {(() => {
                                                 const timing = getRfqTimingState(rfq);
                                                 return (
@@ -498,7 +496,7 @@ export default function QuotationHistoryDashboard() {
                                                 );
                                             })()}
                                         </td>
-                                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
+                                        <td className="px-3 py-3 text-right whitespace-nowrap">
                                             <div className="flex items-center justify-end gap-1.5">
                                                 {rfq.status === 'NEEDS_REVISION' && (
                                                     <button
@@ -585,15 +583,6 @@ export default function QuotationHistoryDashboard() {
                 <ReTenderModal
                     rfq={reTenderModalRfq}
                     onClose={() => setReTenderModalRfq(null)}
-                    onSuccess={fetchData}
-                />
-            )}
-
-            {/* Resubmit Revision Modal */}
-            {resubmitModalRfq && (
-                <ResubmitRevisionModal
-                    rfq={resubmitModalRfq}
-                    onClose={() => setResubmitModalRfq(null)}
                     onSuccess={fetchData}
                 />
             )}

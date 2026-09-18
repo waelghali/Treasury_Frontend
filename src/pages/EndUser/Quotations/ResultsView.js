@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2 } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
 import QuotationCancellationModal from '../../../components/Modals/QuotationCancellationModal';
@@ -246,6 +246,15 @@ export default function ResultsView({ rfqId }) {
                     {rfq && <p className="text-sm font-mono font-bold text-gray-600">{rfq.ref_no}</p>}
                 </div>
                 <div className="flex items-center gap-3 mt-2 sm:mt-0 flex-wrap">
+                    {!isCorporateAdmin && rfq?.status === 'NEEDS_REVISION' && (
+                        <button
+                            onClick={() => navigate(`/end-user/quotations/active?revision_rfq_id=${rfq.id}`)}
+                            className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-amber-200 cursor-pointer"
+                            title="Open quotation in builder to revise parameters and resubmit"
+                        >
+                            <Undo2 size={13} /> Revise & Resubmit
+                        </button>
+                    )}
                     {isWindowClosed && !isCorporateAdmin && (
                         <button
                             onClick={() => navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`)}
@@ -361,6 +370,32 @@ export default function ResultsView({ rfqId }) {
                         >
                             <RefreshCw size={14} /> ⚡ 1-Click Re-Tender
                         </button>
+                    )}
+                </div>
+            )}
+
+            {/* Needs Revision Attention Banner */}
+            {rfq?.status === 'NEEDS_REVISION' && (
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-3xl p-5 sm:p-6 shadow-sm space-y-3 animate-fade-in">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 text-amber-900 font-bold text-sm">
+                            <AlertCircle className="text-amber-600 shrink-0" size={18} />
+                            Action Required: This quotation request was returned for revision by Corporate Admin
+                        </div>
+                        {!isCorporateAdmin && (
+                            <button
+                                onClick={() => navigate(`/end-user/quotations/active?revision_rfq_id=${rfq.id}`)}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer shrink-0"
+                            >
+                                <Undo2 size={14} /> Open in Quotation Builder
+                            </button>
+                        )}
+                    </div>
+                    {rfq.admin_revision_notes && (
+                        <div className="bg-white/90 rounded-2xl p-4 border border-amber-200 text-xs text-amber-950 italic">
+                            <span className="font-bold text-amber-900 not-italic block mb-1 uppercase text-[10px]">Corporate Admin Feedback:</span>
+                            "{rfq.admin_revision_notes}"
+                        </div>
                     )}
                 </div>
             )}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, DollarSign, Copy, Check, ExternalLink, Mail, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, DollarSign, Copy, Check, ExternalLink, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 
@@ -65,12 +65,13 @@ export default function QuotationRequestDashboard() {
             windowStart: freshStart,
             windowDuration: '60',
             quotationBase: 'Execution',
-            maxTolerancePercent: '0.5',
+            maxTolerancePercent: '0.05',
             tokenValidityHours: '24',
             internalNotes: '',
         };
     });
     const [files, setFiles] = useState([]);
+    const [existingDocs, setExistingDocs] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [createdRfq, setCreatedRfq] = useState(null);
     const [copiedToken, setCopiedToken] = useState(null);
@@ -118,7 +119,7 @@ export default function QuotationRequestDashboard() {
                     windowStart: freshStart,
                     windowDuration: durationSecs,
                     quotationBase: rfq.quotation_base || 'Execution',
-                    maxTolerancePercent: rfq.max_tolerance_percent !== null && rfq.max_tolerance_percent !== undefined ? String(rfq.max_tolerance_percent) : '0.5',
+                    maxTolerancePercent: rfq.max_tolerance_percent !== null && rfq.max_tolerance_percent !== undefined ? String(rfq.max_tolerance_percent) : '0.05',
                     tokenValidityHours: rfq.token_validity_hours ? String(rfq.token_validity_hours) : '24',
                     internalNotes: rfq.internal_notes || '',
                 });
@@ -137,6 +138,19 @@ export default function QuotationRequestDashboard() {
                         allowAlternativeValueDate: r.allow_alternative_value_date ?? rfq.allow_alternative_value_date ?? false
                     }));
                     setSelectedBanks(prefilledBanks);
+                }
+
+                if (rfq.document_path) {
+                    try {
+                        const parsed = JSON.parse(rfq.document_path);
+                        const docsArr = Array.isArray(parsed) ? parsed : [{ name: 'Attached Document', path: rfq.document_path }];
+                        setExistingDocs(docsArr);
+                    } catch {
+                        const docsArr = rfq.document_path.split(',').map(p => ({ name: p.trim(), path: p.trim() }));
+                        setExistingDocs(docsArr);
+                    }
+                } else {
+                    setExistingDocs([]);
                 }
             })
             .catch(err => {
@@ -509,6 +523,9 @@ export default function QuotationRequestDashboard() {
             allowAlternativeValueDate: b.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false
         }));
 
+        const combinedDocs = [...existingDocs, ...uploadedDocs];
+        const finalDocPath = combinedDocs.length > 0 ? JSON.stringify(combinedDocs) : null;
+
         // If in Revision Mode, call resubmit endpoint to update existing RFQ and return to PENDING_APPROVAL
         if (revisionRfqId) {
             const revisionPayload = {
@@ -529,10 +546,10 @@ export default function QuotationRequestDashboard() {
                 window_end: windowEnd.toISOString(),
                 quotation_base: formData.quotationBase || null,
                 max_tolerance_percent: formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null,
-                document_path: uploadedDocs.length > 0 ? JSON.stringify(uploadedDocs) : (sourceRfq?.document_path || null),
+                document_path: finalDocPath,
                 selected_banks: JSON.stringify(formattedBanks),
                 token_validity_hours: parseInt(formData.tokenValidityHours, 10),
-                user_notes: (formData.internalNotes || '').trim() || undefined,
+                user_notes: (userNotes || '').trim() || undefined,
                 internal_notes: (formData.internalNotes || '').trim() || undefined,
             };
 
@@ -569,7 +586,7 @@ export default function QuotationRequestDashboard() {
             windowEnd: windowEnd.toISOString(),
             quotationBase: formData.quotationBase || null,
             maxTolerancePercent: formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null,
-            documentPath: uploadedDocs.length > 0 ? JSON.stringify(uploadedDocs) : (sourceRfq?.document_path || null),
+            documentPath: finalDocPath,
             selectedBanks: JSON.stringify(formattedBanks),
             token_validity_hours: parseInt(formData.tokenValidityHours, 10),
             parent_rfq_id: retradeRfqId || undefined,
@@ -655,29 +672,7 @@ export default function QuotationRequestDashboard() {
                                                 {copiedToken === a.token ? <Check size={16} /> : <Copy size={16} />}
                                                 {copiedToken === a.token && <span className="text-[10px] sm:text-xs font-semibold">Copied</span>}
                                             </button>
-                                            <button
-                                                onClick={() => {
-                                                    const startTime = new Date(formData.windowStart).toLocaleString();
-                                                    const duration = formData.windowDuration;
-                                                    const refNo = createdRfq.ref_no || '';
-                                                    const isTBill = formData.type === 'TBILL';
-                                                    const subject = encodeURIComponent(isTBill
-                                                        ? `T-Bill RFQ: ${refNo} - ${formData.direction} - Min Ticket: ${formData.minTicketAmount}`
-                                                        : `RFQ: ${refNo} - ${formData.buyCurrency}/${formData.sellCurrency} - ${formData.amount}`
-                                                    );
-                                                    const body = encodeURIComponent(isTBill
-                                                        ? `Dear FX/Treasury Desk,\n\nWe are requesting a T-Bill quote for the following:\n\nREFERENCE: ${refNo}\n- Direction: ${formData.direction}\n- Min Ticket Amount: ${formData.minTicketAmount}\n- Settlement: ${formatDate(formData.settlementDateStart)}${formData.settlementDateEnd ? ` to ${formatDate(formData.settlementDateEnd)}` : ''}\n- Maturity: ${formatDate(formData.maturityDateStart)}${formData.maturityDateEnd ? ` to ${formatDate(formData.maturityDateEnd)}` : ''}\n\nQUOTATION WINDOW:\n- Starts at: ${startTime}\n- Duration: ${duration} seconds\n\nPlease provide your quote via our secure portal:\n${link}\n\nBest regards,\nTreasury Team`
-                                                        : `Dear FX Desk,\n\nWe are requesting a price for the following transaction:\n\nREFERENCE: ${refNo}\n- Pair: ${formData.buyCurrency}/${formData.sellCurrency}\n- Amount to Buy: ${formData.amount}\n- Value Date: ${formatDate(formData.valueDate)}\n- Type: ${formData.quotationBase}\n\nQUOTATION WINDOW:\n- Starts at: ${startTime}\n- Duration: ${duration} seconds\n\nPlease provide your best quote via our secure portal:\n${link}\n\nBest regards,\nTreasury Team`
-                                                    );
-                                                    const mailtoUrl = `mailto:${bank?.emails}?subject=${subject}&body=${body}`;
 
-                                                    window.open(mailtoUrl, '_blank');
-                                                }}
-                                                title="Send Email"
-                                                className="p-2 sm:px-3 sm:py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shrink-0"
-                                            >
-                                                <Mail size={16} />
-                                            </button>
                                         </div>
                                     </div>
                                 );
@@ -1228,8 +1223,31 @@ export default function QuotationRequestDashboard() {
                             <p className="text-xs sm:text-sm text-gray-500">Click or drag to attach files (Multiple allowed)</p>
                         </div>
 
+                        {/* Existing Attachments from previous submission */}
+                        {existingDocs.length > 0 && (
+                            <div className="mt-4 space-y-2">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Attached Documents</span>
+                                {existingDocs.map((doc, idx) => (
+                                    <div key={`existing-${idx}`} className="flex items-center justify-between p-2.5 rounded-xl bg-blue-50/60 border border-blue-100 text-xs">
+                                        <span className="flex items-center gap-2 truncate text-blue-900 font-medium">
+                                            <FileText size={14} className="text-blue-500 shrink-0" />
+                                            <span className="truncate">{doc.name || doc.filename || 'Document'}</span>
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setExistingDocs(prev => prev.filter((_, i) => i !== idx))}
+                                            className="text-red-500 hover:text-red-700 p-1 rounded font-bold text-xs shrink-0 cursor-pointer"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
                         {files.length > 0 && (
                             <div className="mt-4 space-y-2">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">New Files</span>
                                 {files.map((f, idx) => (
                                     <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs">
                                         <span className="flex items-center gap-2 truncate text-gray-700 font-medium">
@@ -1239,7 +1257,7 @@ export default function QuotationRequestDashboard() {
                                         <button
                                             type="button"
                                             onClick={() => setFiles(files.filter((_, i) => i !== idx))}
-                                            className="text-red-500 hover:text-red-700 p-1 rounded font-bold text-xs shrink-0"
+                                            className="text-red-500 hover:text-red-700 p-1 rounded font-bold text-xs shrink-0 cursor-pointer"
                                         >
                                             Remove
                                         </button>
