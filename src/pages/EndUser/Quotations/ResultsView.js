@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Printer, Shield, X, Award, RefreshCw, Calendar, Info } from 'lucide-react';
+import { toast } from 'react-toastify';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
 
@@ -95,6 +96,15 @@ export default function ResultsView({ rfqId }) {
     const [resultsMeta, setResultsMeta] = useState({});
     const [showAuditPack, setShowAuditPack] = useState(false);
     const [showReTenderModal, setShowReTenderModal] = useState(false);
+    const [copiedToken, setCopiedToken] = useState(null);
+
+    const handleCopyBiddingLink = (token) => {
+        const link = `${window.location.origin}/public-quotation/${token}`;
+        navigator.clipboard.writeText(link);
+        setCopiedToken(token);
+        toast.success('Bidding link copied to clipboard!');
+        setTimeout(() => setCopiedToken(null), 2000);
+    };
 
     const isWindowClosed = Boolean(
         rfq && (
@@ -633,15 +643,16 @@ export default function ResultsView({ rfqId }) {
                                     )}
                                     {result.token && (
                                         <button
-                                            onClick={() => {
-                                                const link = `${window.location.origin}/public-quotation/${result.token}`;
-                                                navigator.clipboard.writeText(link);
-                                                alert('Bidding link copied to clipboard!');
-                                            }}
-                                            className="text-[10px] font-bold bg-blue-50 text-blue-600 px-3 py-1.5 rounded uppercase tracking-wider hover:bg-blue-100 transition-colors flex items-center gap-1"
-                                            title="Copy secure bidding link for this bank"
+                                            onClick={() => handleCopyBiddingLink(result.token)}
+                                            className={`text-[10px] font-bold px-3 py-1.5 rounded uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer ${
+                                                copiedToken === result.token 
+                                                    ? 'bg-emerald-600 text-white shadow-xs' 
+                                                    : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                            }`}
+                                            title={copiedToken === result.token ? "Copied!" : "Copy secure bidding link for this bank"}
                                         >
-                                            <ExternalLink size={12} /> Bidding Link
+                                            {copiedToken === result.token ? <Check size={12} /> : <ExternalLink size={12} />}
+                                            {copiedToken === result.token ? 'Copied' : 'Bidding Link'}
                                         </button>
                                     )}
                                     {result.quotation_bank_id && (
@@ -763,15 +774,16 @@ export default function ResultsView({ rfqId }) {
                                         )}
                                         {result.token && (
                                             <button
-                                                onClick={() => {
-                                                    const link = `${window.location.origin}/public-quotation/${result.token}`;
-                                                    navigator.clipboard.writeText(link);
-                                                    alert('Bidding link copied to clipboard!');
-                                                }}
-                                                className="text-[10px] text-blue-600 hover:underline flex items-center gap-1 font-medium"
-                                                title="Copy bidding link"
+                                                onClick={() => handleCopyBiddingLink(result.token)}
+                                                className={`text-[10px] flex items-center gap-1 font-medium transition-colors cursor-pointer ${
+                                                    copiedToken === result.token 
+                                                        ? 'text-emerald-700 font-bold' 
+                                                        : 'text-blue-600 hover:underline'
+                                                }`}
+                                                title={copiedToken === result.token ? "Copied!" : "Copy bidding link"}
                                             >
-                                                <ExternalLink size={10} /> Link
+                                                {copiedToken === result.token ? <Check size={10} className="text-emerald-700" /> : <ExternalLink size={10} />}
+                                                {copiedToken === result.token ? 'Copied!' : 'Link'}
                                             </button>
                                         )}
                                         {result.quotation_bank_id && (

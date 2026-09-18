@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, DollarSign, Copy, ExternalLink, Mail, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, DollarSign, Copy, Check, ExternalLink, Mail, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 
@@ -67,6 +67,7 @@ export default function QuotationRequestDashboard() {
     const [files, setFiles] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [createdRfq, setCreatedRfq] = useState(null);
+    const [copiedToken, setCopiedToken] = useState(null);
 
     // Pre-fill state when opening in Revision Mode or Re-Trade Mode
     useEffect(() => {
@@ -504,12 +505,19 @@ export default function QuotationRequestDashboard() {
                                             <button
                                                 onClick={() => {
                                                     navigator.clipboard.writeText(link);
-                                                    window.alert('Link copied to clipboard');
+                                                    setCopiedToken(a.token);
+                                                    toast.success('Link copied to clipboard!');
+                                                    setTimeout(() => setCopiedToken(null), 2000);
                                                 }}
-                                                title="Copy Link"
-                                                className="p-2 sm:px-3 sm:py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors shrink-0"
+                                                title={copiedToken === a.token ? "Copied!" : "Copy Link"}
+                                                className={`p-2 sm:px-3 sm:py-1.5 rounded-lg transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
+                                                    copiedToken === a.token 
+                                                        ? 'bg-emerald-600 text-white shadow-xs' 
+                                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                                }`}
                                             >
-                                                <Copy size={16} />
+                                                {copiedToken === a.token ? <Check size={16} /> : <Copy size={16} />}
+                                                {copiedToken === a.token && <span className="text-[10px] sm:text-xs font-semibold">Copied</span>}
                                             </button>
                                             <button
                                                 onClick={() => {
