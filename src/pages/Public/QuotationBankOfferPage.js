@@ -76,6 +76,7 @@ export default function QuotationBankOfferPage() {
     const { token } = useParams();
     const [searchParams] = useSearchParams();
     const magicTokenParam = searchParams.get('magic_token');
+    const emailParam = searchParams.get('email');
 
     const [rfq, setRfq] = useState(null);
     const [error, setError] = useState(null);
@@ -104,12 +105,19 @@ export default function QuotationBankOfferPage() {
 
     // Authentication / OTP State
     const [authSession, setAuthSession] = useState(null);
-    const [inputEmail, setInputEmail] = useState('');
+    const [inputEmail, setInputEmail] = useState(searchParams.get('email') || '');
     const [otpCode, setOtpCode] = useState('');
     const [otpSent, setOtpSent] = useState(false);
     const [isRequestingOtp, setIsRequestingOtp] = useState(false);
     const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
     const [otpError, setOtpError] = useState('');
+
+    useEffect(() => {
+        const ep = searchParams.get('email');
+        if (ep && !inputEmail) {
+            setInputEmail(ep);
+        }
+    }, [searchParams]);
 
     // Approver Action State
     const [approvalNotes, setApprovalNotes] = useState('');
@@ -125,7 +133,7 @@ export default function QuotationBankOfferPage() {
     const [deskNotice, setDeskNotice] = useState(null);
     const [draftRestored, setDraftRestored] = useState(false);
 
-    const storageKey = `quotation_auth_${token}`;
+    const storageKey = emailParam ? `quotation_auth_${token}_${emailParam.toLowerCase()}` : `quotation_auth_${token}`;
 
     // 1. Fetch RFQ
     const fetchRfq = useCallback(async () => {
@@ -184,10 +192,19 @@ export default function QuotationBankOfferPage() {
 
     // 2. Fetch Result
     const checkResult = useCallback(async () => {
-        if (!rfq) return null;
+        if (!rfq || timeLeft.status !== 'CLOSED' || rfq.approval_status === 'DECLINED') {
+            setResultStatus(null);
+            return null;
+        }
         try {
             const res = await quotationApi.get(`/api/v1/public-quotation/${token}/result`);
-            const status = res.data.status;
+            const status = res.data?.status;
+
+            // If window has not closed or bank declined participation, never evaluate or display selection/outcome banners
+            if (status === 'SCHEDULED' || status === 'OPEN' || status === 'PARTICIPATION_DECLINED' || status === 'DECLINED' || timeLeft.status !== 'CLOSED' || rfq.approval_status === 'DECLINED') {
+                setResultStatus(null);
+                return null;
+            }
 
             if (status === 'WINNER') {
                 setResultStatus('WINNER');
@@ -205,14 +222,19 @@ export default function QuotationBankOfferPage() {
             console.error(err);
             return null;
         }
-    }, [rfq, token]);
+    }, [rfq, token, timeLeft.status]);
 
     // 3. Auto-Auth via Magic Link or SessionStorage
     useEffect(() => {
         const stored = sessionStorage.getItem(storageKey);
         if (stored) {
             try {
-                setAuthSession(JSON.parse(stored));
+                const parsed = JSON.parse(stored);
+                if (emailParam && parsed?.email && parsed.email.toLowerCase() !== emailParam.toLowerCase()) {
+                    // Mismatched emailParam from URL, don't restore old session
+                } else {
+                    setAuthSession(parsed);
+                }
             } catch (e) {
                 sessionStorage.removeItem(storageKey);
             }
@@ -292,9 +314,30 @@ export default function QuotationBankOfferPage() {
         return () => clearInterval(interval);
     }, [rfq?.is_live_ranking_enabled, timeLeft.status, token]);
 
-    // 4c. Desk Session & Multi-Dealer Concurrency Polling (Every 2s while authenticated)
+    // 4c. Desk Session & Multi-Dealer Concurrency Polling
+    // Runs starting 10 minutes before window start and ends 1 minute after window close
     useEffect(() => {
-        if (!authSession?.email || !token) return;
+        if (!authSession?.email || !token || !rfq || rfq.status === 'CANCELLED' || error?.isCancelled) {
+            return;
+        }
+
+        const PRE_BUFFER_MS = 10 * 60 * 1000; // 10 minutes before start
+        const POST_BUFFER_MS = 1 * 60 * 1000;  // 1 minute after close
+
+        const startTime = rfq.window_start ? new Date(rfq.window_start).getTime() : NaN;
+        const endTime = rfq.window_end ? new Date(rfq.window_end).getTime() : NaN;
+
+        const checkEligibility = () => {
+            const now = Date.now() + timeOffset;
+            if (!isNaN(startTime) && !isNaN(endTime)) {
+                return now >= (startTime - PRE_BUFFER_MS) && now <= (endTime + POST_BUFFER_MS);
+            }
+            return timeLeft.status === 'OPEN';
+        };
+
+        if (!checkEligibility()) {
+            return;
+        }
 
         const syncDeskSession = async () => {
             try {
@@ -354,29 +397,41 @@ export default function QuotationBankOfferPage() {
         };
 
         syncDeskSession();
-        const interval = setInterval(syncDeskSession, 2000); // 2.0s cadence
+        const interval = setInterval(() => {
+            if (!checkEligibility()) {
+                clearInterval(interval);
+                return;
+            }
+            syncDeskSession();
+        }, 2000);
+
         return () => clearInterval(interval);
-    }, [authSession, token]);
+    }, [authSession, token, timeLeft.status, rfq?.window_start, rfq?.window_end, rfq?.status, error?.isCancelled, timeOffset]);
 
     // 4d. Real-Time Cancellation & Status Polling for Unauthenticated View
     useEffect(() => {
-        if (authSession || error?.isCancelled) return;
+        if (authSession || error?.isCancelled || timeLeft.status === 'CLOSED') return;
         const statusPoll = setInterval(() => {
             fetchRfq();
         }, 4000);
         return () => clearInterval(statusPoll);
-    }, [authSession, error?.isCancelled, fetchRfq]);
+    }, [authSession, error?.isCancelled, timeLeft.status, fetchRfq]);
 
     // 5. Live Countdown Timer with Dynamic Browser Titles & Urgency Tracking
     useEffect(() => {
-        if (!rfq) return;
+        if (!rfq || !rfq.window_start || !rfq.window_end) return;
 
-        const timer = setInterval(() => {
+        let timer = null;
+
+        const updateCountdown = () => {
             const now = new Date(Date.now() + timeOffset);
             const start = new Date(rfq.window_start);
             const end = new Date(rfq.window_end);
 
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+
             if (now < start) {
+                setResultStatus(null);
                 const diff = Math.max(0, Math.floor((start.getTime() - now.getTime()) / 1000));
                 const days = Math.floor(diff / 86400);
                 const hours = Math.floor((diff % 86400) / 3600);
@@ -412,6 +467,7 @@ export default function QuotationBankOfferPage() {
                     }
                 }
             } else if (now >= start && now <= end) {
+                setResultStatus(null);
                 const diff = Math.max(0, Math.floor((end.getTime() - now.getTime()) / 1000));
                 const hours = Math.floor(diff / 3600);
                 const mins = Math.floor((diff % 3600) / 60);
@@ -448,13 +504,16 @@ export default function QuotationBankOfferPage() {
                 if (typeof document !== 'undefined') {
                     document.title = 'Window Closed | Grow Treasury';
                 }
-                clearInterval(timer);
+                if (timer) clearInterval(timer);
                 checkResult();
             }
-        }, 1000);
+        };
+
+        updateCountdown();
+        timer = setInterval(updateCountdown, 1000);
 
         return () => {
-            clearInterval(timer);
+            if (timer) clearInterval(timer);
             if (typeof document !== 'undefined' && originalTitleRef.current) {
                 document.title = originalTitleRef.current;
             }
@@ -632,6 +691,10 @@ export default function QuotationBankOfferPage() {
 
     const handleLogout = () => {
         sessionStorage.removeItem(storageKey);
+        if (emailParam) {
+            sessionStorage.removeItem(`quotation_auth_${token}_${emailParam.toLowerCase()}`);
+        }
+        sessionStorage.removeItem(`quotation_auth_${token}`);
         setAuthSession(null);
         setOtpSent(false);
         setOtpCode('');
@@ -654,6 +717,9 @@ export default function QuotationBankOfferPage() {
                 session_token: authSession.session_token,
                 notes: approvalNotes.trim() || undefined
             });
+            if (action === 'DECLINE') {
+                setResultStatus(null);
+            }
             setApprovalSuccessMsg(action === 'APPROVE' ? 'Bank participation approved! Execution dealers have been notified.' : 'Participation declined.');
             await fetchRfq();
         } catch (err) {
@@ -755,7 +821,16 @@ export default function QuotationBankOfferPage() {
             alert('Please authenticate first.');
             return;
         }
-        if (authSession.role === 'VIEW_ONLY' || authSession.role === 'APPROVER') {
+
+        const isIndicative = (rfq?.quotation_base || '').toLowerCase() === 'indicative';
+        const hasExecutionDealers = rfq?.has_execution_dealers ?? true;
+        const canApproverExecute = isIndicative || !hasExecutionDealers;
+
+        if (authSession.role === 'VIEW_ONLY') {
+            alert('Quotes cannot be submitted in read-only mode.');
+            return;
+        }
+        if (authSession.role === 'APPROVER' && !canApproverExecute) {
             alert('Quotes can only be submitted by authorized Execution dealers.');
             return;
         }
@@ -1037,9 +1112,14 @@ export default function QuotationBankOfferPage() {
 
     if (!rfq) return <div className="p-8 text-center text-gray-500 animate-pulse mt-20">Loading Secure Quotation Link...</div>;
 
+    const isIndicative = (rfq?.quotation_base || '').toLowerCase() === 'indicative';
+    const hasExecutionDealers = rfq?.has_execution_dealers ?? true;
+    const canApproverExecute = isIndicative || !hasExecutionDealers;
+
     const isApprover = authSession?.role === 'APPROVER';
-    const isViewOnly = authSession?.role === 'VIEW_ONLY' || (isApprover && rfq?.approval_status === 'APPROVED');
-    const isSpectator = !!(deskState && !deskState.is_active_trader && !isViewOnly && authSession?.role === 'EXECUTION' && deskState.active_trader_email);
+    const isApproverViewer = isApprover && !canApproverExecute;
+    const isViewOnly = authSession?.role === 'VIEW_ONLY' || (isApproverViewer && rfq?.approval_status === 'APPROVED');
+    const isSpectator = !!(deskState && !deskState.is_active_trader && !isViewOnly && (authSession?.role === 'EXECUTION' || canApproverExecute) && deskState.active_trader_email);
 
     return (
         <div className="relative min-h-screen bg-slate-100/60">
@@ -1302,13 +1382,13 @@ export default function QuotationBankOfferPage() {
                                         authSession.role === 'EXECUTION' 
                                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
                                             : authSession.role === 'APPROVER'
-                                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                            ? (canApproverExecute ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200')
                                             : 'bg-blue-50 text-blue-700 border-blue-200'
                                     }`}>
                                         {authSession.role === 'EXECUTION' 
                                             ? '⚡ AUTHORIZED EXECUTION DEALER' 
                                             : authSession.role === 'APPROVER'
-                                            ? '🛡️ AUTHORIZED BANK APPROVER'
+                                            ? (canApproverExecute ? '⚡ AUTHORIZED DEALER' : '🛡️ AUTHORIZED BANK APPROVER')
                                             : '👁️ VIEW-ONLY OBSERVER'}
                                     </span>
                                 </div>
@@ -1316,9 +1396,13 @@ export default function QuotationBankOfferPage() {
                                     {authSession.role === 'EXECUTION' 
                                         ? 'Your quote submissions are binding and logged with your verified identity.' 
                                         : authSession.role === 'APPROVER'
-                                        ? (rfq.approval_status === 'APPROVED' 
-                                            ? 'Bank participation approved. You are viewing live standings in Approver Viewer Mode.' 
-                                            : 'Action Required: Review deal specifications and authorize bank participation.')
+                                        ? (isIndicative
+                                            ? 'Indicative Quotation: No bank approval required. You are authorized to submit indicative pricing.'
+                                            : !hasExecutionDealers
+                                            ? 'Solo bank contact: You are authorized to submit binding quotes directly.'
+                                            : (rfq.approval_status === 'APPROVED' 
+                                                ? 'Bank participation approved. You are viewing live standings in Approver Viewer Mode.' 
+                                                : 'Action Required: Review deal specifications and authorize bank participation.'))
                                         : 'You are viewing this RFQ in read-only mode.'}
                                 </p>
                             </div>
@@ -1337,7 +1421,7 @@ export default function QuotationBankOfferPage() {
                 {activeTab === 'LIVE' && (
                     <>
                         {/* Trade Execution / Outcome Result Banner */}
-                        {resultStatus && (
+                        {timeLeft.status === 'CLOSED' && resultStatus && rfq?.approval_status !== 'DECLINED' && (
                             <div
                                 className={`mb-3.5 p-3.5 sm:p-4 rounded-2xl border text-center animate-fade-in-up ${
                                     resultStatus === 'WINNER' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
@@ -1414,8 +1498,20 @@ export default function QuotationBankOfferPage() {
                                     {/* Corporate Client & RFQ Ref Top Header */}
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-5 border-b border-slate-100 gap-3">
                                         <div>
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Corporate Client</p>
-                                            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">{rfq.customer_name}</h2>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Requesting Legal Entity</p>
+                                            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                                                {rfq.entity_name || rfq.customer_name}
+                                            </h2>
+                                            {(rfq.entity_cr_number || rfq.entity_tax_id) && (
+                                                <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500 font-medium">
+                                                    {rfq.entity_cr_number && <span>CR: <strong className="font-mono text-gray-700">{rfq.entity_cr_number}</strong></span>}
+                                                    {rfq.entity_cr_number && rfq.entity_tax_id && <span>•</span>}
+                                                    {rfq.entity_tax_id && <span>Tax ID: <strong className="font-mono text-gray-700">{rfq.entity_tax_id}</strong></span>}
+                                                </div>
+                                            )}
+                                            {rfq.customer_name && rfq.entity_name && rfq.customer_name !== rfq.entity_name && (
+                                                <p className="text-[11px] text-gray-400 mt-0.5">Group: {rfq.customer_name}</p>
+                                            )}
                                         </div>
                                         <div className="flex items-center sm:flex-col sm:items-end gap-1.5">
                                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest sm:block">RFQ Reference</span>
@@ -1583,7 +1679,7 @@ export default function QuotationBankOfferPage() {
                                             The quotation window closed before bank participation was authorized by your Approver. As per platform policy, late responses result in exclusion from this quotation.
                                         </p>
                                     </section>
-                                ) : rfq.approval_status === 'PENDING' ? (
+                                ) : (rfq.approval_status === 'PENDING' && rfq.requires_bank_approval !== false && !isIndicative && hasExecutionDealers) ? (
                                     isApprover ? (
                                         <section className="bg-white p-6 sm:p-7 rounded-3xl shadow-md border-2 border-amber-500/60 flex-1 flex flex-col justify-between animate-fade-in">
                                             <div>
@@ -1722,13 +1818,21 @@ export default function QuotationBankOfferPage() {
                                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                                                         <CheckCircle2 size={14} className="text-emerald-600" /> Active Quote
                                                     </span>
-                                                ) : isApprover ? (
+                                                ) : isApproverViewer ? (
                                                     <span className="px-3 py-1 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full border border-amber-200">
                                                         🛡️ Approver Viewer Mode
+                                                    </span>
+                                                ) : isApprover && canApproverExecute ? (
+                                                    <span className="px-3 py-1 bg-emerald-50 text-emerald-800 text-[10px] font-bold rounded-full border border-emerald-200">
+                                                        {isIndicative ? 'Indicative Pricing' : '⚡ Acting Execution Dealer'}
                                                     </span>
                                                 ) : isViewOnly ? (
                                                     <span className="px-3 py-1 bg-blue-100 text-blue-800 text-[10px] font-bold rounded-full border border-blue-200">
                                                         👁️ View-Only Observer
+                                                    </span>
+                                                ) : isIndicative ? (
+                                                    <span className="px-3 py-1 bg-blue-50 text-blue-800 text-[10px] font-bold rounded-full border border-blue-200">
+                                                        Indicative Pricing
                                                     </span>
                                                 ) : timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 30 ? (
                                                     timeLeft.secondsRemaining <= 5 ? (
@@ -1847,32 +1951,35 @@ export default function QuotationBankOfferPage() {
                                                                         )}
                                                                     </div>
                                                                 </div>
-                                                                {timeLeft.status === 'OPEN' && (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={handleTakeoverDesk}
-                                                                        disabled={isTakingOver}
-                                                                        className="shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-xl shadow-xs transition-all cursor-pointer text-xs"
-                                                                    >
-                                                                        <Zap size={14} className={isTakingOver ? "animate-spin" : ""} />
-                                                                        {isTakingOver ? "Taking Over..." : "⚡ Take Over Desk"}
-                                                                    </button>
-                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleTakeoverDesk}
+                                                                    disabled={timeLeft.status === 'CLOSED' || isTakingOver}
+                                                                    className="shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-xl shadow-xs transition-all cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                >
+                                                                    <Zap size={14} className={isTakingOver ? "animate-spin" : ""} />
+                                                                    {isTakingOver ? "Taking Over..." : "⚡ Take Over Desk"}
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     )}
 
-                                                    {deskState?.is_active_trader && authSession?.role === 'EXECUTION' && (
+                                                    {deskState?.is_active_trader && (authSession?.role === 'EXECUTION' || canApproverExecute) && (
                                                         <div className="p-2.5 px-3.5 bg-emerald-50/90 border border-emerald-200 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
                                                             <div className="flex items-center gap-2">
                                                                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                                                                 <span className="font-bold text-emerald-900">Active Quoting Desk:</span>
-                                                                <span className="text-emerald-800 font-semibold">You ({authSession?.email})</span>
+                                                                <span className="text-emerald-800 font-semibold font-mono">You ({authSession?.email})</span>
                                                             </div>
                                                             {deskState.execution_colleagues_count > 0 ? (
+                                                                <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-800 bg-amber-100/70 border border-amber-300 px-2.5 py-0.5 rounded-lg">
+                                                                    <Users size={12} className="text-amber-700" />
+                                                                    <span>{deskState.execution_colleagues_count} Colleague Dealer{deskState.execution_colleagues_count > 1 ? 's' : ''} Online (Spectating)</span>
+                                                                </div>
+                                                            ) : (rfq?.total_execution_dealers > 1) ? (
                                                                 <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-100/60 px-2.5 py-0.5 rounded-lg">
                                                                     <Users size={12} />
-                                                                    <span>{deskState.execution_colleagues_count} Colleague Dealer{deskState.execution_colleagues_count > 1 ? 's' : ''} Online</span>
+                                                                    <span>Multi-Dealer Desk ({rfq.total_execution_dealers} Execution Contacts Configured &bull; Colleague Offline)</span>
                                                                 </div>
                                                             ) : (
                                                                 <span className="text-[11px] text-emerald-600 font-medium">Solo Execution Desk</span>
@@ -2085,7 +2192,7 @@ export default function QuotationBankOfferPage() {
                                                             <button
                                                                 type="button"
                                                                 onClick={handleTakeoverDesk}
-                                                                disabled={timeLeft.status !== 'OPEN' || isTakingOver}
+                                                                disabled={timeLeft.status === 'CLOSED' || isTakingOver}
                                                                 className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-2xl font-bold text-base transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
                                                             >
                                                                 <Zap size={16} className={isTakingOver ? "animate-spin" : ""} />
@@ -2113,10 +2220,12 @@ export default function QuotationBankOfferPage() {
                                                                 ) : timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10 ? (
                                                                     <>
                                                                         <Zap size={18} className="animate-bounce text-amber-200" />
-                                                                        <span>⚡ {submitted ? 'Update Quote' : 'Submit Binding Quote'} • {String(timeLeft.secondsRemaining).padStart(2, '0')}s Left!</span>
+                                                                        <span>⚡ {submitted ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote') : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')} • {String(timeLeft.secondsRemaining).padStart(2, '0')}s Left!</span>
                                                                     </>
                                                                 ) : (
-                                                                    submitted ? 'Update Quote' : 'Submit Binding Quote'
+                                                                    submitted 
+                                                                        ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote') 
+                                                                        : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')
                                                                 )}
                                                             </button>
                                                         )}
@@ -2125,13 +2234,20 @@ export default function QuotationBankOfferPage() {
                                                             <span>Institutional End-to-End Encryption & Audit Logging Active</span>
                                                         </div>
 
-                                                        {/* Transmission Latency & Liability Limitation Advisory */}
-                                                        <div className="mt-3.5 p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-[10.5px] leading-relaxed text-slate-500">
+                                                        {/* Transmission Latency & Legal Liability Limitation Advisory */}
+                                                        <div className="mt-3.5 p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl text-[10.5px] leading-relaxed text-slate-500 space-y-2">
                                                             <div className="flex items-start gap-2">
                                                                 <Info size={14} className="text-slate-400 shrink-0 mt-0.5" />
                                                                 <div>
                                                                     <strong className="text-slate-700 font-semibold">Transmission & Telemetry Advisory:</strong>{' '}
-                                                                    Quotations, desk concurrency, and live rankings are synchronized via high-frequency telemetry. Delivery timing is subject to local internet connectivity, ISP routing, and public internet conditions. The platform and client organization assume no liability for transmission latency, clock discrepancies, or submissions received after window expiry. Dealers are advised to transmit firm quotes well in advance of the cutoff time.
+                                                                    Quotations, desk concurrency, and live rankings are synchronized via high-frequency telemetry. Delivery timing is subject to local internet connectivity, ISP routing, and public internet conditions. The platform and client organization assume no liability for transmission latency, clock discrepancies, or submissions received after window expiry. Dealers are advised to transmit quotes well in advance of the cutoff time.
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-start gap-2 pt-2 border-t border-slate-200/60 text-slate-500">
+                                                                <Shield size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                                                                <div>
+                                                                    <strong className="text-slate-700 font-semibold">Platform Role & Liability Limitation:</strong>{' '}
+                                                                    Grow Treasury Platform operates solely as an independent communications and workflow routing technology (&ldquo;AS IS&rdquo;). Grow Treasury is not a principal, broker, or clearing party to this transaction and assumes zero transaction, credit, market, or settlement liability. All commercial terms, rate commitments, and trade execution obligations exist strictly and bilaterally between {rfq.entity_name || rfq.customer_name || 'the corporate legal entity'} and {rfq.bank_name || 'the participating bank'}.
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -2153,7 +2269,7 @@ export default function QuotationBankOfferPage() {
                             <div>
                                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                                     <History className="text-blue-600" size={20} />
-                                    Desk Quotation History with {rfq.customer_name}
+                                    Desk Quotation History with {rfq.entity_name || rfq.customer_name}
                                 </h2>
                                 <p className="text-xs text-gray-400 mt-0.5">Past request submissions, win rates, and execution status records for {rfq.bank_name}.</p>
                             </div>
@@ -2186,7 +2302,14 @@ export default function QuotationBankOfferPage() {
                                     <tbody className="divide-y divide-slate-100 text-xs">
                                         {historyData.map((h, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
-                                                <td className="py-3.5 px-4 font-mono font-bold text-gray-900">{h.ref_no}</td>
+                                                <td className="py-3.5 px-4 font-mono font-bold text-gray-900">
+                                                    <div>{h.ref_no}</div>
+                                                    {h.entity_name && (
+                                                        <div className="text-[10px] font-sans font-medium text-slate-500 mt-0.5">
+                                                            🏢 {h.entity_name}
+                                                        </div>
+                                                    )}
+                                                </td>
                                                 <td className="py-3.5 px-4">
                                                     <span className="font-semibold text-gray-800">{h.type}</span> &bull; <span className="text-gray-500">{h.direction || 'N/A'}</span>
                                                 </td>
@@ -2209,11 +2332,13 @@ export default function QuotationBankOfferPage() {
                                                         h.outcome === 'WON' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
                                                         h.outcome === 'NOT_SELECTED' ? 'bg-slate-100 text-slate-600 border-slate-200' :
                                                         h.outcome === 'SUBMITTED' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                        h.outcome === 'PARTICIPATION_DECLINED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                                                         'bg-gray-100 text-gray-600 border-gray-200'
                                                     }`}>
                                                         {h.outcome === 'WON' ? '🏆 Won Trade' :
                                                          h.outcome === 'NOT_SELECTED' ? 'Not Selected' :
-                                                         h.outcome === 'SUBMITTED' ? '⏳ Submitted' : h.outcome}
+                                                         h.outcome === 'SUBMITTED' ? '⏳ Submitted' :
+                                                         h.outcome === 'PARTICIPATION_DECLINED' ? '🚫 Declined' : h.outcome}
                                                     </span>
                                                 </td>
                                             </tr>

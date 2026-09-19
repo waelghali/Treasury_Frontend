@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, DollarSign, Copy, Check, ExternalLink, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 
@@ -41,14 +41,18 @@ export default function QuotationRequestDashboard() {
     const prevTypeRef = useRef('FX_SPOT');
     const isPrefillingRef = useRef(false);
 
+    const [entities, setEntities] = useState([]);
     const [banks, setBanks] = useState([]);
     const [selectedBanks, setSelectedBanks] = useState([]);
     const [recommendations, setRecommendations] = useState([]);
+    const [evalRateDetails, setEvalRateDetails] = useState(null);
+    const hasUserChangedEvalRateRef = useRef(false);
     const [formData, setFormData] = useState(() => {
         const now = new Date();
         const freshStart = toLocalISOString(new Date(now.getTime() + 60000));
         const todayDate = freshStart ? freshStart.split('T')[0] : '';
         return {
+            entityId: '',
             type: 'FX_SPOT',
             direction: 'Buy',
             valueDate: todayDate,
@@ -75,6 +79,41 @@ export default function QuotationRequestDashboard() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [createdRfq, setCreatedRfq] = useState(null);
     const [copiedToken, setCopiedToken] = useState(null);
+    const [legalAcknowledged, setLegalAcknowledged] = useState(false);
+
+    // Fetch accessible customer legal entities
+    useEffect(() => {
+        apiClient.get('/end-user/quotations/entities')
+            .then(res => {
+                const list = res.data || [];
+                setEntities(list);
+                if (list.length === 1 && !formData.entityId) {
+                    setFormData(prev => ({ ...prev, entityId: list[0].id }));
+                }
+            })
+            .catch(err => {
+                console.warn("Could not fetch accessible entities:", err);
+            });
+    }, []);
+
+    // Fetch CBE corridor evaluation benchmark rates (mid + customer margin)
+    useEffect(() => {
+        apiClient.get('/end-user/quotations/evaluation-rate')
+            .then(res => {
+                if (res.data) {
+                    setEvalRateDetails(res.data);
+                    if (!revisionRfqId && !retradeRfqId) {
+                        setFormData(prev => {
+                            if (prev.evalRate || hasUserChangedEvalRateRef.current) return prev;
+                            return { ...prev, evalRate: String(res.data.eval_rate) };
+                        });
+                    }
+                }
+            })
+            .catch(err => {
+                console.warn("Could not fetch quotation evaluation rate info:", err);
+            });
+    }, [revisionRfqId, retradeRfqId]);
 
     // Pre-fill state when opening in Revision Mode or Re-Trade Mode
     useEffect(() => {
@@ -93,6 +132,14 @@ export default function QuotationRequestDashboard() {
 
                 const now = new Date();
                 const freshStart = toLocalISOString(new Date(now.getTime() + 60000));
+                let preservedStart = freshStart;
+                if (rfq.window_start) {
+                    const parsedStart = new Date(rfq.window_start);
+                    // Preserve original scheduled start time if in the future
+                    if (!isNaN(parsedStart.getTime()) && parsedStart > now) {
+                        preservedStart = toLocalISOString(parsedStart);
+                    }
+                }
 
                 let durationSecs = '60';
                 if (rfq.window_start && rfq.window_end) {
@@ -102,21 +149,26 @@ export default function QuotationRequestDashboard() {
 
                 prevTypeRef.current = rfq.type || 'FX_SPOT';
 
+                const cleanD = (d) => d ? String(d).split('T')[0] : '';
+
                 setFormData({
+                    entityId: rfq.entity_id || '',
                     type: rfq.type || 'FX_SPOT',
                     direction: rfq.direction || 'Buy',
-                    valueDate: rfq.value_date || '',
+                    valueDate: cleanD(rfq.value_date),
                     allowAlternativeValueDate: rfq.allow_alternative_value_date || false,
                     amount: rfq.amount ? String(rfq.amount) : '',
                     minTicketAmount: rfq.min_ticket_amount ? String(rfq.min_ticket_amount) : '',
                     buyCurrency: rfq.buy_currency || 'USD',
                     sellCurrency: rfq.sell_currency || 'EGP',
-                    settlementDateStart: rfq.settlement_date_start || '',
-                    settlementDateEnd: rfq.settlement_date_end || '',
-                    maturityDateStart: rfq.maturity_date_start || '',
-                    maturityDateEnd: rfq.maturity_date_end || '',
-                    evalRate: rfq.eval_rate !== null && rfq.eval_rate !== undefined ? String(rfq.eval_rate) : '',
-                    windowStart: freshStart,
+                    settlementDateStart: cleanD(rfq.settlement_date_start),
+                    settlementDateEnd: cleanD(rfq.settlement_date_end),
+                    maturityDateStart: cleanD(rfq.maturity_date_start),
+                    maturityDateEnd: cleanD(rfq.maturity_date_end),
+                    evalRate: rfq.eval_rate !== null && rfq.eval_rate !== undefined 
+                        ? String(rfq.eval_rate) 
+                        : (evalRateDetails?.eval_rate ? String(evalRateDetails.eval_rate) : ''),
+                    windowStart: preservedStart,
                     windowDuration: durationSecs,
                     quotationBase: rfq.quotation_base || 'Execution',
                     maxTolerancePercent: rfq.max_tolerance_percent !== null && rfq.max_tolerance_percent !== undefined ? String(rfq.max_tolerance_percent) : '0.05',
@@ -134,8 +186,11 @@ export default function QuotationRequestDashboard() {
                         costFlat: r.cost_flat ?? 0,
                         quotationBase: r.quotation_base || rfq.quotation_base || 'Execution',
                         isDocumentVisible: r.is_document_visible !== false,
-                        valueDate: r.assigned_value_date || rfq.value_date || '',
-                        allowAlternativeValueDate: r.allow_alternative_value_date ?? rfq.allow_alternative_value_date ?? false
+                        valueDate: cleanD(r.assigned_value_date) || cleanD(rfq.value_date) || '',
+                        allowAlternativeValueDate: r.allow_alternative_value_date ?? rfq.allow_alternative_value_date ?? false,
+                        _baseCustomized: Boolean(r.quotation_base && r.quotation_base !== rfq.quotation_base),
+                        _dateCustomized: Boolean(r.assigned_value_date && cleanD(r.assigned_value_date) !== cleanD(rfq.value_date)),
+                        _altCustomized: r.allow_alternative_value_date !== undefined && r.allow_alternative_value_date !== null && r.allow_alternative_value_date !== rfq.allow_alternative_value_date
                     }));
                     setSelectedBanks(prefilledBanks);
                 }
@@ -164,8 +219,12 @@ export default function QuotationRequestDashboard() {
     }, [revisionRfqId, retradeRfqId]);
 
     useEffect(() => {
-        // Fetch banks configured for this customer, dynamically filtering by the currently selected trade type (FX_SPOT or TBILL)
-        apiClient.get(`/end-user/quotations/banks?trade_type=${formData.type}`)
+        // Fetch banks configured for this customer, dynamically filtering by trade type and selected legal entity
+        let url = `/end-user/quotations/banks?trade_type=${formData.type}`;
+        if (formData.entityId) {
+            url += `&entity_id=${formData.entityId}`;
+        }
+        apiClient.get(url)
             .then(res => setBanks(res.data))
             .catch(err => console.error("Error fetching banks", err));
 
@@ -174,7 +233,7 @@ export default function QuotationRequestDashboard() {
             setSelectedBanks([]);
             prevTypeRef.current = formData.type;
         }
-    }, [formData.type]);
+    }, [formData.type, formData.entityId]);
 
     // Mind-Reader: Fetch counterparty recommendations based on asset type & currency pair
     useEffect(() => {
@@ -256,13 +315,15 @@ export default function QuotationRequestDashboard() {
     };
 
     const handleBankToggle = async (bank) => {
-        if (selectedBanks.find(b => b.id === bank.bank_id)) { // Adjusted ID tracking
-            setSelectedBanks(selectedBanks.filter(b => b.id !== bank.bank_id));
+        const bankId = bank.bank_id;
+        const exists = selectedBanks.some(b => String(b.id) === String(bankId));
+        if (exists) {
+            setSelectedBanks(prev => prev.filter(b => String(b.id) !== String(bankId)));
         } else {
             const base = formData.quotationBase || 'Execution';
             let fetchedCosts = { costMin: 0, costPercent: 0, costMax: 0, costFlat: 0 };
             try {
-                const res = await apiClient.get(`/end-user/quotations/banks/latest-costs?bank_id=${bank.bank_id}`);
+                const res = await apiClient.get(`/end-user/quotations/banks/latest-costs?bank_id=${bankId}`);
                 if (res.data) {
                     fetchedCosts = {
                         costMin: res.data.cost_min ?? 0,
@@ -276,8 +337,8 @@ export default function QuotationRequestDashboard() {
             }
 
             const effectiveInitialDate = formData.valueDate || todayStr;
-            setSelectedBanks([
-                ...selectedBanks, 
+            setSelectedBanks(prev => [
+                ...prev.filter(b => String(b.id) !== String(bankId)), 
                 { 
                     id: bank.bank_id, 
                     name: bank.bank?.name || `Bank ${bank.bank_id}`, 
@@ -313,6 +374,7 @@ export default function QuotationRequestDashboard() {
 
         if (newVal) {
             setSelectedBanks(prev => prev.map(b => {
+                if (b._dateCustomized) return b;
                 if (!b.valueDate || b.valueDate === formData.valueDate || (windowStartDate && b.valueDate < windowStartDate)) {
                     return { ...b, valueDate: newVal };
                 }
@@ -364,29 +426,55 @@ export default function QuotationRequestDashboard() {
             toast.info("Please set a master value date first.");
             return;
         }
-        setSelectedBanks(prev => prev.map(b => ({ ...b, valueDate: formData.valueDate })));
+        setSelectedBanks(prev => prev.map(b => ({ ...b, valueDate: formData.valueDate, _dateCustomized: false })));
         toast.success(`Value Date (${formatDate(formData.valueDate)}) synced to all ${selectedBanks.length} selected banks.`);
     };
 
     const toggleMasterAlternativeValueDate = (enabled) => {
         setFormData(prev => ({ ...prev, allowAlternativeValueDate: enabled }));
-        setSelectedBanks(prev => prev.map(b => ({ ...b, allowAlternativeValueDate: enabled })));
+        setSelectedBanks(prev => prev.map(b => {
+            if (b._altCustomized) return b;
+            return { ...b, allowAlternativeValueDate: enabled };
+        }));
+    };
+
+    const handleApplyCbeBenchmarkRate = () => {
+        if (evalRateDetails?.eval_rate) {
+            hasUserChangedEvalRateRef.current = false;
+            setFormData(prev => ({ ...prev, evalRate: String(evalRateDetails.eval_rate) }));
+            toast.info(`Pre-filled Evaluation Rate: ${evalRateDetails.eval_rate}% (CBE Mid ${evalRateDetails.cbe_mid}% + Margin ${evalRateDetails.margin}%)`);
+        }
     };
 
     const toggleAllAlternativeValueDate = (enabled) => {
         setFormData(prev => ({ ...prev, allowAlternativeValueDate: enabled }));
-        setSelectedBanks(prev => prev.map(b => ({ ...b, allowAlternativeValueDate: enabled })));
+        setSelectedBanks(prev => prev.map(b => ({ ...b, allowAlternativeValueDate: enabled, _altCustomized: false })));
         toast.info(`${enabled ? 'Enabled' : 'Disabled'} alternative value date proposals for all selected banks.`);
     };
 
     const updateBankCost = (bankId, field, value) => {
-        setSelectedBanks(selectedBanks.map(b => {
-            if (b.id !== bankId) return b;
+        setSelectedBanks(prev => prev.map(b => {
+            if (String(b.id) !== String(bankId)) return b;
             if (field === 'quotationBase') {
                 return {
                     ...b,
                     quotationBase: value,
-                    isDocumentVisible: value === 'Execution'
+                    isDocumentVisible: value === 'Execution',
+                    _baseCustomized: true
+                };
+            }
+            if (field === 'valueDate') {
+                return {
+                    ...b,
+                    valueDate: value,
+                    _dateCustomized: true
+                };
+            }
+            if (field === 'allowAlternativeValueDate') {
+                return {
+                    ...b,
+                    allowAlternativeValueDate: value,
+                    _altCustomized: true
                 };
             }
             return { ...b, [field]: value };
@@ -395,11 +483,25 @@ export default function QuotationRequestDashboard() {
 
     const handleMasterQuotationBaseChange = (type) => {
         setFormData(prev => ({ ...prev, quotationBase: type }));
+        setSelectedBanks(prev => prev.map(b => {
+            if (b._baseCustomized) return b;
+            return {
+                ...b,
+                quotationBase: type,
+                isDocumentVisible: type === 'Execution'
+            };
+        }));
+    };
+
+    const applyQuotationBaseToAllBanks = () => {
+        const base = formData.quotationBase || 'Execution';
         setSelectedBanks(prev => prev.map(b => ({
             ...b,
-            quotationBase: type,
-            isDocumentVisible: type === 'Execution'
+            quotationBase: base,
+            isDocumentVisible: base === 'Execution',
+            _baseCustomized: false
         })));
+        toast.success(`Quotation Base (${base}) synced to all selected banks.`);
     };
 
     const uniqueBases = Array.from(new Set(selectedBanks.map(b => b.quotationBase || formData.quotationBase)));
@@ -519,16 +621,30 @@ export default function QuotationRequestDashboard() {
             costFlat: b.costFlat ?? 0,
             quotationBase: b.quotationBase || formData.quotationBase || 'Execution',
             isDocumentVisible: b.isDocumentVisible !== false,
-            valueDate: b.valueDate || formData.valueDate || null,
+            valueDate: b.valueDate ? String(b.valueDate).split('T')[0] : (formData.valueDate ? String(formData.valueDate).split('T')[0] : null),
             allowAlternativeValueDate: b.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false
         }));
 
         const combinedDocs = [...existingDocs, ...uploadedDocs];
         const finalDocPath = combinedDocs.length > 0 ? JSON.stringify(combinedDocs) : null;
 
+        if (entities.length > 1 && !formData.entityId) {
+            toast.error("Please select a Legal Entity for this quotation request.");
+            setIsSubmitting(false);
+            return;
+        }
+
+        const hasExecutionCounterparties = selectedBanks.some(b => (b.quotationBase || formData.quotationBase) === 'Execution') || (!selectedBanks.length && formData.quotationBase === 'Execution');
+        if (hasExecutionCounterparties && !legalAcknowledged) {
+            toast.error("Please accept the mandatory Counterparty Liability & Execution Acknowledgment before submitting.");
+            setIsSubmitting(false);
+            return;
+        }
+
         // If in Revision Mode, call resubmit endpoint to update existing RFQ and return to PENDING_APPROVAL
         if (revisionRfqId) {
             const revisionPayload = {
+                entity_id: formData.entityId ? parseInt(formData.entityId, 10) : undefined,
                 type: formData.type,
                 direction: formData.direction || null,
                 value_date: formData.valueDate || null,
@@ -551,6 +667,8 @@ export default function QuotationRequestDashboard() {
                 token_validity_hours: parseInt(formData.tokenValidityHours, 10),
                 user_notes: (userNotes || '').trim() || undefined,
                 internal_notes: (formData.internalNotes || '').trim() || undefined,
+                legal_disclaimer_accepted: hasExecutionCounterparties ? Boolean(legalAcknowledged) : false,
+                legalDisclaimerAccepted: hasExecutionCounterparties ? Boolean(legalAcknowledged) : false,
             };
 
             try {
@@ -569,6 +687,7 @@ export default function QuotationRequestDashboard() {
 
         // Prepare JSON payload according to backend schema (Standard or Re-Trade)
         const payload = {
+            entity_id: formData.entityId ? parseInt(formData.entityId, 10) : undefined,
             type: formData.type,
             direction: formData.direction || null,
             valueDate: formData.valueDate || null,
@@ -592,6 +711,8 @@ export default function QuotationRequestDashboard() {
             parent_rfq_id: retradeRfqId || undefined,
             internal_notes: (formData.internalNotes || '').trim() || undefined,
             internalNotes: (formData.internalNotes || '').trim() || undefined,
+            legal_disclaimer_accepted: hasExecutionCounterparties ? Boolean(legalAcknowledged) : false,
+            legalDisclaimerAccepted: hasExecutionCounterparties ? Boolean(legalAcknowledged) : false,
         };
 
         try {
@@ -642,11 +763,11 @@ export default function QuotationRequestDashboard() {
                                         <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
                                             <span className="font-medium text-sm text-gray-800">{bank?.name || `Bank ${a.bankId}`}</span>
                                         </div>
-                                        <div className="flex flex-wrap gap-2">
+                                        <div className="flex items-center gap-2">
                                             <input
                                                 readOnly
                                                 value={link}
-                                                className="flex-1 min-w-[150px] bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-[10px] sm:text-xs font-mono text-gray-400"
+                                                className="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-[10px] sm:text-xs font-mono text-gray-400 truncate"
                                             />
                                             <button
                                                 onClick={() => window.open(link, '_blank')}
@@ -672,7 +793,6 @@ export default function QuotationRequestDashboard() {
                                                 {copiedToken === a.token ? <Check size={16} /> : <Copy size={16} />}
                                                 {copiedToken === a.token && <span className="text-[10px] sm:text-xs font-semibold">Copied</span>}
                                             </button>
-
                                         </div>
                                     </div>
                                 );
@@ -693,6 +813,10 @@ export default function QuotationRequestDashboard() {
             </div>
         );
     }
+
+    const hasExecutionBanks = selectedBanks.some(b => (b.quotationBase || formData.quotationBase) === 'Execution') || (!selectedBanks.length && formData.quotationBase === 'Execution');
+    const selectedEntity = entities.find(e => String(e.id) === String(formData.entityId)) || (entities.length === 1 ? entities[0] : null);
+    const selectedEntityName = selectedEntity ? `${selectedEntity.code ? `[${selectedEntity.code}] ` : ''}${selectedEntity.name}` : 'Your Legal Entity';
 
     return (
         <div className="w-full max-w-[1400px] mx-auto p-4 sm:p-8">
@@ -789,7 +913,15 @@ export default function QuotationRequestDashboard() {
                             key={type}
                             type="button"
                             disabled={Boolean(retradeRfqId || revisionRfqId)}
-                            onClick={() => setFormData({ ...formData, type: type })}
+                            onClick={() => {
+                                setFormData(prev => ({
+                                    ...prev,
+                                    type: type,
+                                    evalRate: (!prev.evalRate && !hasUserChangedEvalRateRef.current && type === 'TBILL' && evalRateDetails?.eval_rate)
+                                        ? String(evalRateDetails.eval_rate)
+                                        : prev.evalRate
+                                }));
+                            }}
                             className={`px-4 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all border-2 flex-grow sm:flex-grow-0 ${
                                 formData.type === type
                                     ? 'bg-black border-black text-white'
@@ -811,6 +943,72 @@ export default function QuotationRequestDashboard() {
                         </h3>
 
                         <div className="space-y-5">
+                            {/* Legal Entity Selection */}
+                            {entities.length > 1 ? (
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <label className="block text-[10px] font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                                            <Building size={13} className="text-indigo-600" />
+                                            Requesting Legal Entity <span className="text-rose-500">*</span>
+                                        </label>
+                                        {retradeRfqId && (
+                                            <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                                                🔒 Locked
+                                            </span>
+                                        )}
+                                    </div>
+                                    <select
+                                        required
+                                        disabled={Boolean(retradeRfqId)}
+                                        value={formData.entityId || ''}
+                                        onChange={(e) => {
+                                            const nextEntityId = e.target.value;
+                                            setFormData(prev => ({ ...prev, entityId: nextEntityId }));
+                                            setSelectedBanks([]);
+                                        }}
+                                        className={`w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all ${
+                                            retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
+                                        }`}
+                                    >
+                                        <option value="">-- Select Legal Entity --</option>
+                                        {entities.map(ent => {
+                                            const entityName = ent.entity_name || ent.name || ent.code;
+                                            const label = ent.code && ent.code !== entityName
+                                                ? `${entityName} (${ent.code})`
+                                                : entityName;
+                                            return (
+                                                <option key={ent.id} value={ent.id}>
+                                                    {label}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                    <p className="text-[10px] text-gray-400 mt-1">
+                                        Quotes and bank counterparty routing will be specific to this legal entity.
+                                    </p>
+                                </div>
+                            ) : entities.length === 1 ? (
+                                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-2 text-slate-700">
+                                        <Building size={14} className="text-indigo-600 shrink-0" />
+                                        <div>
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Legal Entity</span>
+                                            <span className="text-xs font-bold text-slate-900">
+                                                {entities[0].code ? `[${entities[0].code}] ` : ''}{entities[0].name}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full uppercase">
+                                        Active
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs flex items-center gap-2">
+                                    <AlertCircle size={14} className="shrink-0 text-amber-600" />
+                                    <span>No legal entities assigned to your account. Contact your Corporate Administrator.</span>
+                                </div>
+                            )}
+
                             {formData.type === 'TBILL' ? (
                                 <>
                                     <div>
@@ -906,7 +1104,13 @@ export default function QuotationRequestDashboard() {
                                                 min={formData.settlementDateStart || todayStr}
                                                 className={`w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all ${formData.direction === 'Sell' ? 'opacity-30 cursor-not-allowed' : ''}`}
                                                 value={formData.direction === 'Sell' ? '' : formData.settlementDateEnd}
-                                                onChange={e => setFormData({ ...formData, settlementDateEnd: e.target.value })}
+                                                onChange={e => setFormData({
+                                                    ...formData,
+                                                    settlementDateEnd: e.target.value,
+                                                    evalRate: (!formData.evalRate && !hasUserChangedEvalRateRef.current && evalRateDetails?.eval_rate)
+                                                        ? String(evalRateDetails.eval_rate)
+                                                        : formData.evalRate
+                                                })}
                                             />
                                         </div>
                                     </div>
@@ -935,24 +1139,62 @@ export default function QuotationRequestDashboard() {
                                                 min={formData.maturityDateStart || formData.settlementDateStart || todayStr}
                                                 className={`w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all ${formData.direction === 'Sell' ? 'opacity-30 cursor-not-allowed' : ''}`}
                                                 value={formData.direction === 'Sell' ? '' : formData.maturityDateEnd}
-                                                onChange={e => setFormData({ ...formData, maturityDateEnd: e.target.value })}
+                                                onChange={e => setFormData({
+                                                    ...formData,
+                                                    maturityDateEnd: e.target.value,
+                                                    evalRate: (!formData.evalRate && !hasUserChangedEvalRateRef.current && evalRateDetails?.eval_rate)
+                                                        ? String(evalRateDetails.eval_rate)
+                                                        : formData.evalRate
+                                                })}
                                             />
                                         </div>
                                     </div>
 
                                     {formData.direction === 'Buy' && (formData.settlementDateEnd || formData.maturityDateEnd) && (
                                         <div className="animate-fade-in-up">
-                                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Evaluation Interest Rate (%)</label>
-                                            <input
-                                                type="number"
-                                                step="0.0001"
-                                                required
-                                                placeholder="e.g. 18.5"
-                                                className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                                                value={formData.evalRate}
-                                                onChange={e => setFormData({ ...formData, evalRate: e.target.value })}
-                                                onWheel={(e) => e.target.blur()}
-                                            />
+                                            <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase">
+                                                    Evaluation Interest Rate (%)
+                                                </label>
+                                                {evalRateDetails?.eval_rate && (
+                                                    <div className="flex items-center gap-1.5 text-[10px]">
+                                                        <span className="text-blue-700 bg-blue-50/80 border border-blue-200/60 px-2 py-0.5 rounded-md font-medium">
+                                                            CBE Mid ({evalRateDetails.cbe_mid}%) + Margin ({evalRateDetails.margin}%) = <span className="font-bold">{evalRateDetails.eval_rate}%</span>
+                                                        </span>
+                                                        {formData.evalRate !== String(evalRateDetails.eval_rate) && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleApplyCbeBenchmarkRate}
+                                                                className="text-blue-600 hover:text-blue-800 underline font-semibold cursor-pointer"
+                                                                title="Re-apply CBE Mid + Margin benchmark rate"
+                                                            >
+                                                                Pre-fill
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    step="0.0001"
+                                                    required
+                                                    placeholder={evalRateDetails?.eval_rate ? `e.g. ${evalRateDetails.eval_rate}` : "e.g. 18.5"}
+                                                    className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all font-semibold text-gray-900"
+                                                    value={formData.evalRate}
+                                                    onChange={e => {
+                                                        hasUserChangedEvalRateRef.current = true;
+                                                        setFormData({ ...formData, evalRate: e.target.value });
+                                                    }}
+                                                    onWheel={(e) => e.target.blur()}
+                                                />
+                                                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase tracking-wider pointer-events-none select-none">
+                                                    %
+                                                </div>
+                                            </div>
+                                            <p className="text-[10px] text-gray-500 mt-1">
+                                                Pre-filled with official CBE Mid-Corridor Rate plus customer margin. You can adjust or override this rate as needed.
+                                            </p>
                                         </div>
                                     )}
                                 </>
@@ -1082,6 +1324,31 @@ export default function QuotationRequestDashboard() {
                                                     {type}
                                                 </button>
                                             ))}
+                                        </div>
+                                        {/* Contextual Legal & Commitment Advisory */}
+                                        <div className={`mt-2 p-2.5 rounded-xl border text-[11px] leading-relaxed transition-all ${
+                                            formData.quotationBase === 'Execution'
+                                                ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                                                : 'bg-blue-50/80 border-blue-200 text-blue-900'
+                                        }`}>
+                                            <div className="flex items-start gap-2">
+                                                {formData.quotationBase === 'Execution' ? (
+                                                    <ShieldAlert size={14} className="text-amber-700 shrink-0 mt-0.5" />
+                                                ) : (
+                                                    <Info size={14} className="text-blue-600 shrink-0 mt-0.5" />
+                                                )}
+                                                <div>
+                                                    {formData.quotationBase === 'Execution' ? (
+                                                        <span>
+                                                            <strong className="font-semibold text-amber-950">Binding Execution:</strong> Winning quote automatically awarded at window closure creates a direct, binding commitment with the winning bank. Grow Treasury operates &ldquo;AS IS&rdquo; with zero financial liability.
+                                                        </span>
+                                                    ) : (
+                                                        <span>
+                                                            <strong className="font-semibold text-blue-950">Indicative Pricing:</strong> Sounding mode for pricing benchmarks and reference only. Non-binding and will not result in automated trade execution.
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1556,9 +1823,31 @@ export default function QuotationRequestDashboard() {
                             </div>
                         )}
 
+                        {/* Mandatory Legal & Execution Acknowledgment Checkbox (for Execution RFQs) */}
+                        {hasExecutionBanks && (
+                            <div className="mt-6 p-4 sm:p-5 rounded-2xl bg-amber-50/90 border-2 border-amber-300 text-xs text-amber-950 space-y-2 shadow-sm animate-fade-in-up">
+                                <div className="flex items-start gap-3">
+                                    <input
+                                        type="checkbox"
+                                        id="legalExecutionAcknowledgment"
+                                        checked={legalAcknowledged}
+                                        onChange={e => setLegalAcknowledged(e.target.checked)}
+                                        className="mt-1 h-4 w-4 rounded border-amber-400 text-amber-700 focus:ring-amber-500 cursor-pointer shrink-0"
+                                    />
+                                    <label htmlFor="legalExecutionAcknowledgment" className="cursor-pointer font-medium leading-relaxed select-none">
+                                        <span className="block text-amber-950 font-bold text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                                            <ShieldAlert size={15} className="text-amber-700" />
+                                            Mandatory Counterparty Liability & Execution Acknowledgment <span className="text-rose-600">*</span>
+                                        </span>
+                                        I confirm and authorize this Firm Execution RFQ on behalf of <strong className="text-gray-900 underline font-semibold">{selectedEntityName}</strong>. I acknowledge that selecting invited bank counterparties is solely our responsibility and that the winning quote automatically awarded at window closure constitutes a direct, legally enforceable settlement obligation between our legal entity and the winning bank. I acknowledge that Grow Treasury operates solely as an independent communications and workflow venue (&ldquo;AS IS&rdquo;) and bears no transaction, credit, execution, or settlement liability.
+                                    </label>
+                                </div>
+                            </div>
+                        )}
+
                         <button
                             type="submit"
-                            disabled={isSubmitting || selectedBanks.length === 0 || hasDateDiscrepancy}
+                            disabled={isSubmitting || selectedBanks.length === 0 || hasDateDiscrepancy || (hasExecutionBanks && !legalAcknowledged)}
                             className={`mt-6 sm:mt-8 w-full py-3.5 sm:py-5 rounded-2xl sm:rounded-3xl font-semibold text-sm sm:text-lg flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-xl disabled:opacity-30 disabled:cursor-not-allowed shrink-0 cursor-pointer ${
                                 revisionRfqId
                                     ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20'

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2 } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
 import QuotationCancellationModal from '../../../components/Modals/QuotationCancellationModal';
@@ -510,22 +510,84 @@ export default function ResultsView({ rfqId }) {
             )}
 
             {rfq && (
-                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4 mb-6">
-                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                        <div>
-                            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400">Trade Specifications</h4>
-                            <p className="text-base font-bold text-gray-900 mt-0.5">
-                                {rfq.type === 'TBILL' ? `${rfq.direction} T-Bill` : `${rfq.direction} ${rfq.amount?.toLocaleString()} ${rfq.buy_currency}/${rfq.sell_currency}`}
-                            </p>
+                <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-5 mb-6">
+                    {/* Header Row: Direction, Amount, Currency, Entity, and Value Date */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                        <div className="space-y-2.5">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Trade Specifications</span>
+                                {rfq.entity_name && (
+                                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
+                                        <Building size={13} className="text-indigo-600" />
+                                        {rfq.entity_name}
+                                    </span>
+                                )}
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs ${
+                                    (() => {
+                                        const counterpartyBases = Array.from(new Set((results || []).map(r => r.quotation_base).filter(Boolean)));
+                                        const isMixed = counterpartyBases.length > 1;
+                                        if (isMixed) return 'bg-indigo-50 text-indigo-900 border-indigo-200';
+                                        return (rfq.quotation_base === 'Execution' || counterpartyBases[0] === 'Execution')
+                                            ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                            : 'bg-slate-100 text-slate-700 border-slate-200';
+                                    })()
+                                }`}>
+                                    {(() => {
+                                        const counterpartyBases = Array.from(new Set((results || []).map(r => r.quotation_base).filter(Boolean)));
+                                        const isMixed = counterpartyBases.length > 1;
+                                        if (isMixed) return `⚡ Mixed Bases (${counterpartyBases.join(', ')})`;
+                                        return (rfq.quotation_base === 'Execution' || counterpartyBases[0] === 'Execution')
+                                            ? '⚡ Firm Execution'
+                                            : '👁️ Indicative';
+                                    })()}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-3 pt-0.5">
+                                <span className={`inline-flex items-center justify-center font-black text-sm px-3.5 py-1 rounded-lg uppercase tracking-wider shadow-xs ${
+                                    (rfq.direction || '').toUpperCase() === 'BUY'
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'bg-blue-600 text-white'
+                                }`}>
+                                    {rfq.direction || 'BUY'}
+                                </span>
+                                <div className="flex items-baseline gap-2.5">
+                                    <span className="text-3xl sm:text-4xl font-black text-slate-900 font-mono tracking-tight">
+                                        {rfq.type === 'TBILL'
+                                            ? `T-Bill (${rfq.direction})`
+                                            : new Intl.NumberFormat().format(rfq.amount || 0)}
+                                    </span>
+                                    {rfq.type !== 'TBILL' && (
+                                        <span className="text-xl sm:text-2xl font-bold text-slate-700">
+                                            {rfq.buy_currency}/{rfq.sell_currency}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                        <div className="text-right text-xs">
-                            <span className="font-bold text-gray-400 block uppercase text-[10px]">Value Date</span>
-                            <span className="font-mono font-semibold text-gray-700">{formatDate(rfq.value_date)}</span>
+
+                        {/* Value Date Box */}
+                        <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 text-right flex flex-col items-start md:items-end justify-center min-w-[220px] shrink-0 shadow-2xs">
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                <Calendar size={13} className="text-slate-600" /> Settlement (Value Date)
+                            </span>
+                            <span className="text-lg font-bold text-slate-900 font-sans mt-1">{formatDate(rfq.value_date)}</span>
+                            {(() => {
+                                const hasCustomDates = (results || []).some(r => r.is_custom_value_date || (r.assigned_value_date && rfq.value_date && String(r.assigned_value_date).split('T')[0] !== String(rfq.value_date).split('T')[0]));
+                                if (hasCustomDates) {
+                                    return (
+                                        <span className="inline-block text-[10px] font-bold mt-1 px-2 py-0.5 rounded border text-blue-700 bg-blue-50 border-blue-200">
+                                            • Per-Bank Custom Dates
+                                        </span>
+                                    );
+                                }
+                                return null;
+                            })()}
                             {rfq.type === 'FX_SPOT' && (
-                                <span className={`inline-block text-[10px] font-semibold mt-0.5 px-2 py-0.5 rounded border ${
+                                <span className={`inline-block text-xs font-semibold mt-1.5 px-2.5 py-0.5 rounded-md border ${
                                     rfq.allow_alternative_value_date 
                                         ? 'text-blue-700 bg-blue-50 border-blue-200' 
-                                        : 'text-gray-600 bg-gray-100 border-gray-200'
+                                        : 'text-slate-700 bg-white border-slate-200'
                                 }`}>
                                     {rfq.allow_alternative_value_date ? 'Alternative Date Permitted' : 'Fixed Date Only'}
                                 </span>
@@ -533,91 +595,116 @@ export default function ResultsView({ rfqId }) {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
-                        <div>
-                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Quotation Base</span>
-                            <span className="font-bold text-gray-800">{rfq.quotation_base || 'Execution'}</span>
-                        </div>
-                        <div>
-                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Max Tolerance</span>
-                            <span className="font-bold text-gray-800">{rfq.max_tolerance_percent ? `${rfq.max_tolerance_percent}%` : 'None'}</span>
-                        </div>
-                        <div>
-                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">
-                                {rfq.type === 'FX_SPOT' && rfq.allow_alternative_value_date ? 'Valuation Eval Rate' : 'Min Ticket Amount'}
+                    {/* Deal Parameters Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3.5">
+                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Requesting Entity</span>
+                            <span className="text-sm font-bold text-slate-900 truncate block" title={rfq.entity_name || '—'}>
+                                {rfq.entity_name || '—'}
                             </span>
-                            <span className="font-bold text-gray-800">
+                        </div>
+                        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3.5">
+                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Quotation Base</span>
+                            <span className="text-sm font-bold text-slate-900 block">
+                                {rfq.quotation_base || 'Execution'}
+                            </span>
+                        </div>
+                        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3.5">
+                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Max Tolerance</span>
+                            <span className="text-sm font-bold text-slate-900 font-mono block">
+                                {rfq.max_tolerance_percent ? `${rfq.max_tolerance_percent}%` : 'None'}
+                            </span>
+                        </div>
+                        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3.5">
+                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+                                {rfq.type === 'FX_SPOT' && rfq.allow_alternative_value_date 
+                                    ? 'Valuation Eval Rate' 
+                                    : (rfq.type === 'TBILL' && rfq.eval_rate ? 'Evaluation Rate' : 'Min Ticket Amount')}
+                            </span>
+                            <span className="text-sm font-bold text-slate-900 font-mono block">
                                 {rfq.type === 'FX_SPOT' && rfq.allow_alternative_value_date 
                                     ? `${rfq.eval_rate ?? 19.75}% (CBE Mid + Margin)`
-                                    : (rfq.min_ticket_amount ? rfq.min_ticket_amount.toLocaleString() : 'N/A')}
+                                    : (rfq.type === 'TBILL' && rfq.eval_rate 
+                                        ? `${rfq.eval_rate}%` 
+                                        : (rfq.min_ticket_amount ? rfq.min_ticket_amount.toLocaleString() : 'N/A'))}
                             </span>
                         </div>
-                        <div>
-                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Creator</span>
-                            <span className="font-bold text-gray-800">{rfq.creator_name || 'End User'}</span>
+                        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3.5">
+                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Creator</span>
+                            <span className="text-sm font-bold text-slate-900 flex items-center gap-1.5 truncate">
+                                <User size={14} className="text-slate-500 shrink-0" />
+                                <span className="truncate">{rfq.creator_name || 'End User'}</span>
+                            </span>
                         </div>
                     </div>
 
                     {/* Quotation Window Details */}
-                    <div className="pt-3 border-t border-gray-100">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Clock size={14} className="text-blue-500" />
-                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase tracking-wider">Quotation Window</span>
+                    <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                                <Clock size={16} className="text-blue-600" />
+                                <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700">Quotation Window Timeline</span>
+                            </div>
                             {(() => {
                                 const now = new Date();
                                 const start = rfq.window_start ? new Date(rfq.window_start) : null;
                                 const end = rfq.window_end ? new Date(rfq.window_end) : null;
                                 if (!start || !end) return null;
                                 if (now < start) {
-                                    return <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-full uppercase tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Scheduled</span>;
+                                    return <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 px-3 py-1 rounded-full uppercase tracking-wider"><span className="w-2 h-2 rounded-full bg-slate-400"></span>Scheduled</span>;
                                 }
                                 if (now >= start && now <= end) {
-                                    return <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Window Open</span>;
+                                    return <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 px-3 py-1 rounded-full uppercase tracking-wider shadow-2xs"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>Live Bidding Open</span>;
                                 }
                                 const validityHrs = rfq.token_validity_hours || 24;
                                 const linkExpiry = new Date(end.getTime() + validityHrs * 60 * 60 * 1000);
                                 if (now > end && now <= linkExpiry) {
-                                    return <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full uppercase tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Window Closed — Link Active</span>;
+                                    return <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-amber-50 text-amber-700 border border-amber-300 px-3 py-1 rounded-full uppercase tracking-wider"><span className="w-2 h-2 rounded-full bg-amber-500"></span>Bidding Closed — Link Active</span>;
                                 }
-                                return <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-full uppercase tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>Expired</span>;
+                                return <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-rose-50 text-rose-600 border border-rose-300 px-3 py-1 rounded-full uppercase tracking-wider"><span className="w-2 h-2 rounded-full bg-rose-400"></span>Expired</span>;
                             })()}
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs font-mono">
-                            <div>
-                                <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Sent to Banks</span>
-                                <span className="font-bold text-gray-800">{rfq.admin_reviewed_at ? formatDate(rfq.admin_reviewed_at) : formatDate(rfq.created_at)}</span>
-                                <span className="font-sans text-[10px] text-gray-400 block">{new Date(rfq.admin_reviewed_at || rfq.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
+                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Sent to Banks</span>
+                                <span className="text-sm font-bold text-slate-900 block">{rfq.admin_reviewed_at ? formatDate(rfq.admin_reviewed_at) : formatDate(rfq.created_at)}</span>
+                                <span className="text-xs font-medium text-slate-500 block mt-0.5">{new Date(rfq.admin_reviewed_at || rfq.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
-                            <div>
-                                <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Window Opens</span>
-                                <span className="font-bold text-gray-800">{rfq.window_start ? formatDate(rfq.window_start) : '—'}</span>
-                                {rfq.window_start && <span className="font-sans text-[10px] text-gray-400 block">{new Date(rfq.window_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Window Opens</span>
+                                <span className="text-sm font-bold text-slate-900 block">{rfq.window_start ? formatDate(rfq.window_start) : '—'}</span>
+                                {rfq.window_start && <span className="text-xs font-medium text-slate-500 block mt-0.5">{new Date(rfq.window_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
                             </div>
-                            <div>
-                                <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Window Closes</span>
-                                <span className="font-bold text-gray-800">{rfq.window_end ? formatDate(rfq.window_end) : '—'}</span>
-                                {rfq.window_end && <span className="font-sans text-[10px] text-gray-400 block">{new Date(rfq.window_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Window Closes</span>
+                                <span className="text-sm font-bold text-slate-900 block">{rfq.window_end ? formatDate(rfq.window_end) : '—'}</span>
+                                {rfq.window_end && <span className="text-xs font-medium text-slate-500 block mt-0.5">{new Date(rfq.window_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
                             </div>
-                            <div>
-                                <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Window Duration</span>
-                                <span className="font-bold text-gray-800">{(() => {
-                                    if (!rfq.window_start || !rfq.window_end) return '—';
-                                    const diffMs = new Date(rfq.window_end) - new Date(rfq.window_start);
-                                    const totalMins = Math.round(diffMs / 60000);
-                                    if (totalMins < 60) return `${totalMins} min`;
-                                    const hrs = Math.floor(totalMins / 60);
-                                    const mins = totalMins % 60;
-                                    return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
-                                })()}</span>
+                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Window Duration</span>
+                                <div>
+                                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black bg-blue-50 text-blue-800 border border-blue-200">
+                                        ⏱️ {(() => {
+                                            if (!rfq.window_start || !rfq.window_end) return '—';
+                                            const diffMs = new Date(rfq.window_end) - new Date(rfq.window_start);
+                                            const totalMins = Math.round(diffMs / 60000);
+                                            if (totalMins < 60) return `${totalMins} min`;
+                                            const hrs = Math.floor(totalMins / 60);
+                                            const mins = totalMins % 60;
+                                            return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+                                        })()}
+                                    </span>
+                                </div>
                             </div>
-                            <div>
-                                <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block">Link Expires</span>
+                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Link Expires</span>
                                 {rfq.window_end ? (
                                     <>
-                                        <span className="font-bold text-gray-800">{formatDate(new Date(new Date(rfq.window_end).getTime() + (rfq.token_validity_hours || 24) * 3600000))}</span>
-                                        <span className="font-sans text-[10px] text-gray-400 block">{new Date(new Date(rfq.window_end).getTime() + (rfq.token_validity_hours || 24) * 3600000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        <span className="text-sm font-bold text-slate-900 block">{formatDate(new Date(new Date(rfq.window_end).getTime() + (rfq.token_validity_hours || 24) * 3600000))}</span>
+                                        <span className="text-xs font-medium text-slate-500 block mt-0.5">{new Date(new Date(rfq.window_end).getTime() + (rfq.token_validity_hours || 24) * 3600000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                     </>
-                                ) : <span className="font-bold text-gray-800">—</span>}
+                                ) : <span className="text-sm font-bold text-slate-900 block">—</span>}
                             </div>
                         </div>
                     </div>
@@ -725,6 +812,16 @@ export default function ResultsView({ rfqId }) {
                                                 </span>
                                             )}
                                             {renderApprovalBadge(result)}
+                                            {result.assigned_value_date && (
+                                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
+                                                    result.is_custom_value_date 
+                                                        ? 'bg-blue-50 text-blue-800 border-blue-200' 
+                                                        : 'bg-slate-50 text-slate-600 border-slate-200'
+                                                }`}>
+                                                    Val: {result.assigned_value_date}
+                                                    {result.is_custom_value_date && ' (Custom)'}
+                                                </span>
+                                            )}
                                             {result.is_document_visible === false && (
                                                 <span className="text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded uppercase">Doc Hidden</span>
                                             )}
@@ -851,6 +948,16 @@ export default function ResultsView({ rfqId }) {
                                             </span>
                                         )}
                                         {renderApprovalBadge(result)}
+                                        {result.assigned_value_date && (
+                                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
+                                                result.is_custom_value_date 
+                                                    ? 'bg-blue-50 text-blue-800 border-blue-200' 
+                                                    : 'bg-slate-50 text-slate-600 border-slate-200'
+                                            }`}>
+                                                Val: {result.assigned_value_date}
+                                                {result.is_custom_value_date && ' (Custom)'}
+                                            </span>
+                                        )}
                                         {result.is_document_visible === false && (
                                             <span className="text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded uppercase">Doc Hidden</span>
                                         )}

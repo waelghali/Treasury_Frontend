@@ -6,9 +6,9 @@ import AdminRevisionModal from '../../components/Modals/AdminRevisionModal';
 import MarketSpreadTicker from '../../components/Quotations/MarketSpreadTicker';
 import { getRfqTimingState } from '../../utils/quotationTiming';
 import {
-    Bell, Check, X, BarChart3, Landmark, History, ChevronRight, Clock,
+    Bell, Check, X, BarChart3, Landmark, Building, History, ChevronRight, Clock,
     Search, Filter, AlertCircle, TrendingUp, ArrowUpRight, ArrowDownRight, FileText, Download,
-    Undo2, RefreshCw, Sparkles, Trophy, AlertTriangle
+    Undo2, RefreshCw, Sparkles, Trophy, AlertTriangle, Shield, ShieldAlert, Info, Loader2
 } from 'lucide-react';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -89,10 +89,14 @@ export default function AdminQuotationDashboard() {
     const [loading, setLoading] = useState(true);
     const [selectedRfqId, setSelectedRfqId] = useState(null);
     const [revisionModalRfq, setRevisionModalRfq] = useState(null);
+    const [approvingRfq, setApprovingRfq] = useState(null);
+    const [adminLegalAccepted, setAdminLegalAccepted] = useState(false);
+    const [isApproving, setIsApproving] = useState(false);
 
     // Filters
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [typeFilter, setTypeFilter] = useState('ALL');
+    const [entityFilter, setEntityFilter] = useState('ALL');
     const [searchTerm, setSearchTerm] = useState('');
 
     const fetchData = useCallback(async () => {
@@ -118,28 +122,49 @@ export default function AdminQuotationDashboard() {
         fetchData();
     }, [fetchData]);
 
+    const executeApprove = async (rfqId) => {
+        setIsApproving(true);
+        try {
+            await apiClient.post(`/corporate-admin/quotations/${rfqId}/approve`, {
+                legal_disclaimer_accepted: true
+            });
+            toast.success("Quotation approved and released to banks!");
+            setApprovingRfq(null);
+            fetchData();
+        } catch (err) {
+            toast.error("Failed to approve: " + (err.response?.data?.detail || err.message));
+        } finally {
+            setIsApproving(false);
+        }
+    };
+
     const handleApprove = async (rfqId) => {
         const rfq = pendingApprovals.find(r => r.id === rfqId);
+        if (!rfq) return;
+        let diffMins = null;
         if (rfq?.window_end) {
             const closingTime = new Date(rfq.window_end);
             const now = new Date();
-            const diffMins = Math.round((closingTime - now) / 60000);
+            diffMins = Math.round((closingTime - now) / 60000);
             if (diffMins < 0) {
                 toast.error("The window for this quotation has already closed.");
                 return;
             }
-            if (diffMins < 30) {
+        }
+        if (rfq.quotation_base === 'Indicative') {
+            // Indicative quotation has no binding settlement and no disclaimer modal will appear.
+            // Warn only if time is tight (< 30 min)
+            if (diffMins !== null && diffMins < 30) {
                 if (!window.confirm(`This quotation has only ${diffMins} minutes remaining. Are you sure you want to approve and release it?`)) {
                     return;
                 }
             }
-        }
-        try {
-            await apiClient.post(`/corporate-admin/quotations/${rfqId}/approve`);
-            toast.success("Quotation approved and released to banks!");
-            fetchData();
-        } catch (err) {
-            toast.error("Failed to approve: " + (err.response?.data?.detail || err.message));
+            executeApprove(rfq.id);
+        } else {
+            // Firm Execution quotation requires explicit legal commitment authorization
+            // Opens the disclaimer modal directly without interrupting popup message
+            setAdminLegalAccepted(false);
+            setApprovingRfq(rfq);
         }
     };
 
@@ -184,14 +209,22 @@ export default function AdminQuotationDashboard() {
     const completedRfqs = history.filter(r => r.status === 'COMPLETED' || r.status === 'EVALUATING').length;
     const rejectedRfqs = history.filter(r => r.status === 'REJECTED').length;
 
+    const uniqueEntities = Array.from(
+        new Map(
+            history.filter(r => r.entity_id && (r.entity_name || r.entity_code)).map(r => [r.entity_id, { id: r.entity_id, name: r.entity_name || `Entity ${r.entity_id}`, code: r.entity_code }])
+        ).values()
+    );
+
     // Filtered history
     const filteredHistory = history.filter(rfq => {
         const matchesStatus = statusFilter === 'ALL' || rfq.status === statusFilter;
         const matchesType = typeFilter === 'ALL' || rfq.type === typeFilter;
+        const matchesEntity = entityFilter === 'ALL' || String(rfq.entity_id) === String(entityFilter);
         const matchesSearch = !searchTerm ||
             (rfq.ref_no?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+            (rfq.entity_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
             (rfq.creator_name?.toLowerCase() || '').includes(searchTerm.toLowerCase());
-        return matchesStatus && matchesType && matchesSearch;
+        return matchesStatus && matchesType && matchesEntity && matchesSearch;
     });
 
 
@@ -332,6 +365,11 @@ export default function AdminQuotationDashboard() {
                                     <div className="flex items-center gap-3 mb-2 flex-wrap">
                                         <span className="font-mono text-sm font-bold bg-orange-50 text-orange-700 px-2 py-0.5 rounded">{rfq.ref_no}</span>
                                         <span className="text-xs font-bold text-gray-400 uppercase">{rfq.type === 'TBILL' ? 'T-Bill' : 'FX Spot'}</span>
+                                        {rfq.entity_name && (
+                                            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                                                🏢 {rfq.entity_name}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="text-base sm:text-lg font-bold text-gray-900">
                                         {rfq.type === 'TBILL' ? `${rfq.direction} Quotation` : `${rfq.direction} ${rfq.amount?.toLocaleString()} ${rfq.buy_currency}`}
@@ -345,6 +383,44 @@ export default function AdminQuotationDashboard() {
                                             <span className="text-xs text-gray-500">
                                                 Window closes: {formatDateTime(rfq.window_end)}
                                             </span>
+                                        </div>
+                                    )}
+
+                                    {/* Assigned Counterparties Breakdown */}
+                                    {rfq.assigned_banks && rfq.assigned_banks.length > 0 && (
+                                        <div className="mt-3 pt-3 border-t border-orange-100 flex flex-wrap items-center gap-2">
+                                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                                                Counterparties ({rfq.assigned_banks.length}):
+                                            </span>
+                                            {rfq.assigned_banks.map((b, bIdx) => (
+                                                <span
+                                                    key={bIdx}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-slate-50 border border-slate-200 text-slate-700 shadow-2xs"
+                                                >
+                                                    <Landmark size={12} className="text-slate-400" />
+                                                    <strong className="text-slate-900">{b.bank_name}</strong>
+                                                    <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                                                        (b.quotation_base || rfq.quotation_base) === 'Execution'
+                                                            ? 'bg-amber-100 text-amber-900'
+                                                            : 'bg-purple-100 text-purple-900'
+                                                    }`}>
+                                                        {b.quotation_base || rfq.quotation_base || 'Execution'}
+                                                    </span>
+                                                    {b.value_date && (
+                                                        <span className={`text-[11px] font-mono ${
+                                                            b.is_custom_value_date ? 'text-blue-700 font-bold' : 'text-gray-500'
+                                                        }`}>
+                                                            • {b.value_date}
+                                                            {b.is_custom_value_date && ' (custom)'}
+                                                        </span>
+                                                    )}
+                                                    {b.allow_alternative_value_date && (
+                                                        <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-1 rounded">
+                                                            Alt Date
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            ))}
                                         </div>
                                     )}
                                 </div>
@@ -487,6 +563,26 @@ export default function AdminQuotationDashboard() {
                             <option value="FX_SPOT">FX Spot</option>
                             <option value="TBILL">T-Bill</option>
                         </select>
+                        {uniqueEntities.length > 1 && (
+                            <select
+                                className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/5"
+                                value={entityFilter}
+                                onChange={e => setEntityFilter(e.target.value)}
+                            >
+                                <option value="ALL">All Legal Entities ({uniqueEntities.length})</option>
+                                {uniqueEntities.map(ent => {
+                                    const entityName = ent.entity_name || ent.name || ent.code;
+                                    const label = ent.code && ent.code !== entityName
+                                        ? `${entityName} (${ent.code})`
+                                        : entityName;
+                                    return (
+                                        <option key={ent.id} value={ent.id}>
+                                            {label}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                        )}
                     </div>
                 </div>
 
@@ -496,6 +592,7 @@ export default function AdminQuotationDashboard() {
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
                                     <th className="px-3.5 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Ref No</th>
+                                    <th className="px-3.5 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Entity</th>
                                     <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Type</th>
                                     <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Maker / Date</th>
                                     <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Details</th>
@@ -524,6 +621,16 @@ export default function AdminQuotationDashboard() {
                                                     <FileText size={10} className="text-blue-500 shrink-0" />
                                                     <span className="truncate">{rfq.internal_notes}</span>
                                                 </div>
+                                            )}
+                                        </td>
+                                        <td className="px-3.5 py-3 whitespace-nowrap">
+                                            {rfq.entity_name ? (
+                                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800 bg-slate-100 border border-slate-200/80 px-2.5 py-1 rounded-xl" title={rfq.entity_name}>
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                                                    <span className="truncate max-w-[130px]">{rfq.entity_name}</span>
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-gray-400 font-mono">—</span>
                                             )}
                                         </td>
                                         <td className="px-3 py-3 whitespace-nowrap">
@@ -674,6 +781,153 @@ export default function AdminQuotationDashboard() {
                     onClose={() => setRevisionModalRfq(null)}
                     onSuccess={fetchData}
                 />
+            )}
+
+            {/* Corporate Admin Execution Commitment & Approval Modal */}
+            {approvingRfq && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-amber-200 animate-scale-up">
+                        <div className="p-5 sm:p-6 bg-amber-500 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
+                                    <ShieldAlert size={22} className="text-white" />
+                                </div>
+                                <div>
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-amber-100 block">Corporate Execution Release</span>
+                                    <h3 className="text-base sm:text-lg font-bold">Binding Execution Authorization</h3>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => { if (!isApproving) setApprovingRfq(null); }}
+                                className="text-white/80 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-5">
+                            {/* Summary Card */}
+                            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-xs space-y-2">
+                                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                                    <span className="text-slate-500 font-medium">RFQ Reference:</span>
+                                    <span className="font-mono font-bold text-slate-900">{approvingRfq.ref_no}</span>
+                                </div>
+                                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                                    <span className="text-slate-500 font-medium">Requesting Entity:</span>
+                                    <span className="font-bold text-indigo-700">{approvingRfq.entity_name || 'Legal Entity'}</span>
+                                </div>
+                                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                                    <span className="text-slate-500 font-medium">Deal Type & Volume:</span>
+                                    <span className="font-bold text-slate-900">
+                                        {approvingRfq.type === 'TBILL'
+                                            ? `${approvingRfq.direction} T-Bill Quotation`
+                                            : `${approvingRfq.direction} ${approvingRfq.amount?.toLocaleString()} ${approvingRfq.buy_currency}/${approvingRfq.sell_currency}`}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-slate-500 font-medium">Quotation Base:</span>
+                                    {(() => {
+                                        const bases = Array.from(new Set((approvingRfq.assigned_banks || []).map(b => b.quotation_base).filter(Boolean)));
+                                        const isMixed = bases.length > 1;
+                                        const displayBase = isMixed ? 'Mixed Bases' : (bases[0] || approvingRfq.quotation_base || 'Firm Execution');
+                                        return (
+                                            <span className={`font-bold px-2 py-0.5 rounded border ${
+                                                isMixed 
+                                                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200' 
+                                                    : displayBase === 'Indicative' 
+                                                        ? 'text-purple-700 bg-purple-50 border-purple-200'
+                                                        : 'text-amber-700 bg-amber-50 border-amber-200'
+                                            }`}>
+                                                {isMixed ? `⚡ ${displayBase} (${bases.join(', ')})` : (displayBase === 'Execution' ? 'Firm Execution' : displayBase)}
+                                            </span>
+                                        );
+                                    })()}
+                                </div>
+                                {approvingRfq.assigned_banks && approvingRfq.assigned_banks.length > 0 && (
+                                    <div className="pt-2 border-t border-slate-200/60 space-y-1.5">
+                                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                                            Assigned Counterparties ({approvingRfq.assigned_banks.length}):
+                                        </span>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {approvingRfq.assigned_banks.map((b, idx) => (
+                                                <span key={idx} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] text-slate-800 shadow-2xs">
+                                                    <strong>{b.bank_name}</strong>
+                                                    <span className={`px-1 py-0.2 rounded text-[9px] font-bold ${
+                                                        (b.quotation_base || approvingRfq.quotation_base) === 'Execution'
+                                                            ? 'bg-amber-100 text-amber-900'
+                                                            : 'bg-purple-100 text-purple-900'
+                                                    }`}>
+                                                        {b.quotation_base || approvingRfq.quotation_base || 'Execution'}
+                                                    </span>
+                                                    {b.value_date && (
+                                                        <span className={`font-mono text-[10px] ${b.is_custom_value_date ? 'text-blue-700 font-bold' : 'text-slate-500'}`}>
+                                                            {b.value_date}
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {approvingRfq.window_end && (() => {
+                                    const diff = Math.round((new Date(approvingRfq.window_end) - new Date()) / 60000);
+                                    if (diff > 0 && diff < 30) {
+                                        return (
+                                            <div className="flex items-center gap-1.5 pt-2 border-t border-slate-200/60 text-amber-800 font-semibold">
+                                                <Clock size={13} className="text-amber-600 shrink-0" />
+                                                <span>Note: Quotation window closes in <strong>{diff} minutes</strong></span>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
+                            </div>
+
+                            {/* Mandatory Legal Disclaimer & Liability Acknowledgment */}
+                            <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/70 border-2 border-amber-300 text-amber-950 text-xs leading-relaxed space-y-2.5 transition-all">
+                                <div className="flex items-start gap-3">
+                                    <input
+                                        type="checkbox"
+                                        id="adminLegalConfirmed"
+                                        checked={adminLegalAccepted}
+                                        onChange={e => setAdminLegalAccepted(e.target.checked)}
+                                        className="mt-0.5 h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500 cursor-pointer shrink-0"
+                                    />
+                                    <label htmlFor="adminLegalConfirmed" className="cursor-pointer select-none space-y-1.5">
+                                        <span className="font-bold text-[11px] uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                                            <Shield size={14} className="text-amber-700 shrink-0" />
+                                            MANDATORY COUNTERPARTY LIABILITY & EXECUTION ACKNOWLEDGMENT <span className="text-rose-600">*</span>
+                                        </span>
+                                        <p className="text-xs text-amber-950 leading-relaxed">
+                                            I confirm and authorize this Firm Execution RFQ on behalf of <strong className="underline text-slate-900">{approvingRfq.entity_name ? (approvingRfq.entity_code ? `${approvingRfq.entity_name} (${approvingRfq.entity_code})` : approvingRfq.entity_name) : 'our legal entity'}</strong>. I acknowledge that selecting invited bank counterparties is solely our responsibility and that the winning quote automatically awarded at window closure constitutes a direct, legally enforceable settlement obligation between our legal entity and the winning bank. I acknowledge that Grow Treasury operates solely as an independent communications and workflow venue (&ldquo;AS IS&rdquo;) and bears no transaction, credit, execution, or settlement liability.
+                                        </p>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center justify-end gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    disabled={isApproving}
+                                    onClick={() => setApprovingRfq(null)}
+                                    className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={!adminLegalAccepted || isApproving}
+                                    onClick={() => executeApprove(approvingRfq.id)}
+                                    className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md shadow-amber-600/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 cursor-pointer"
+                                >
+                                    {isApproving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                                    {isApproving ? 'Authorizing & Releasing...' : 'Confirm & Release to Banks'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

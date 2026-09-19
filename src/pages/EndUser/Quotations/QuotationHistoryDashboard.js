@@ -7,7 +7,7 @@ import { getRfqTimingState } from '../../../utils/quotationTiming';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'react-toastify';
 import {
-    Check, X, Bell, Download, BarChart3, Landmark, History, ChevronRight,
+    Check, X, Bell, Download, BarChart3, Landmark, Building, History, ChevronRight,
     RefreshCw, AlertCircle, Radio, Clock, Undo2, ArrowUpRight, CheckCircle2, Trophy, XCircle, FileText
 } from 'lucide-react';
 import QuotationCancellationModal from '../../../components/Modals/QuotationCancellationModal';
@@ -36,6 +36,7 @@ export default function QuotationHistoryDashboard() {
     const [selectedRfqId, setSelectedRfqId] = useState(null);
     const [userRole, setUserRole] = useState(null);
     const [activeTab, setActiveTab] = useState('ALL'); // 'ALL' | 'LIVE' | 'ARCHIVE'
+    const [entityFilter, setEntityFilter] = useState('ALL');
     const [reTenderModalRfq, setReTenderModalRfq] = useState(null);
     const [cancelModalRfq, setCancelModalRfq] = useState(null);
     const location = useLocation();
@@ -168,7 +169,16 @@ export default function QuotationHistoryDashboard() {
     const archivedRfqs = history.filter(r => ['COMPLETED', 'INCONCLUSIVE', 'EXPIRED', 'REJECTED', 'CANCELLED'].includes(r.status));
     const needsRevisionRfqs = history.filter(r => r.status === 'NEEDS_REVISION');
 
-    const displayedRfqs = activeTab === 'LIVE' ? liveRfqs : activeTab === 'ARCHIVE' ? archivedRfqs : history;
+    const uniqueEntities = Array.from(
+        new Map(
+            history.filter(r => r.entity_id && (r.entity_name || r.entity_code)).map(r => [r.entity_id, { id: r.entity_id, name: r.entity_name || `Entity ${r.entity_id}`, code: r.entity_code }])
+        ).values()
+    );
+
+    const baseRfqs = activeTab === 'LIVE' ? liveRfqs : activeTab === 'ARCHIVE' ? archivedRfqs : history;
+    const displayedRfqs = entityFilter === 'ALL'
+        ? baseRfqs
+        : baseRfqs.filter(r => String(r.entity_id) === String(entityFilter));
 
     if (loading) return <div className="p-12 text-center text-gray-500">Loading quotation history...</div>;
 
@@ -368,6 +378,24 @@ export default function QuotationHistoryDashboard() {
                             Archive & Past Trades ({archivedRfqs.length})
                         </button>
                     </div>
+
+                    {uniqueEntities.length > 1 && (
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-500 font-semibold flex items-center gap-1">
+                                <Building size={14} className="text-indigo-600" /> Entity:
+                            </label>
+                            <select
+                                value={entityFilter}
+                                onChange={(e) => setEntityFilter(e.target.value)}
+                                className="text-xs font-semibold bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-700 outline-none focus:border-indigo-500 shadow-2xs"
+                            >
+                                <option value="ALL">All Legal Entities ({uniqueEntities.length})</option>
+                                {uniqueEntities.map(e => (
+                                    <option key={e.id} value={e.id}>{e.code ? `[${e.code}] ` : ''}{e.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
 
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
@@ -376,6 +404,7 @@ export default function QuotationHistoryDashboard() {
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
                                     <th className="px-3.5 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Ref No</th>
+                                    <th className="px-3.5 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Entity</th>
                                     <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Type</th>
                                     <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Date</th>
                                     <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Details</th>
@@ -404,6 +433,16 @@ export default function QuotationHistoryDashboard() {
                                                     <FileText size={10} className="text-gray-400 shrink-0" />
                                                     <span className="truncate">{rfq.internal_notes}</span>
                                                 </div>
+                                            )}
+                                        </td>
+                                        <td className="px-3.5 py-3 whitespace-nowrap">
+                                            {rfq.entity_name ? (
+                                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-lg" title={rfq.entity_name}>
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                                                    <span className="truncate max-w-[120px]">{rfq.entity_name}</span>
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-gray-400 font-mono">—</span>
                                             )}
                                         </td>
                                         <td className="px-3 py-3 whitespace-nowrap">
