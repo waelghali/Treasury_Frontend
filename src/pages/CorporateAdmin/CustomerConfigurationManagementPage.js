@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, X, Shield, Layers, Cpu, HardDrive, Settings, Clock, Server, Lock, MessageSquare, FileCheck, Building, LayoutTemplate, Sparkles, Sliders, KeyRound, Check, History, RefreshCw } from 'lucide-react';
+import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, X, Shield, ShieldCheck, Layers, Cpu, HardDrive, Settings, Clock, Server, Lock, MessageSquare, FileCheck, Building, LayoutTemplate, Sparkles, Sliders, KeyRound, Check, History, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import QuotationBanksModal from '../../components/Modals/QuotationBanksModal';
 import RangeBarController from '../../components/RangeBarController';
@@ -288,6 +288,9 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
   const [showImapPassword, setShowImapPassword] = useState(false);
   const [showAdvancedEmailSettings, setShowAdvancedEmailSettings] = useState(false);
   const [useSeparateImapCredentials, setUseSeparateImapCredentials] = useState(false);
+  const [useCustomSmtpUsername, setUseCustomSmtpUsername] = useState(false);
+  const [isTestingEmailConnection, setIsTestingEmailConnection] = useState(false);
+  const [emailConnectionSuccess, setEmailConnectionSuccess] = useState('');
 
   // --- Email List Modal State ---
   const [showEmailListModal, setShowEmailListModal] = useState(false);
@@ -384,12 +387,21 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
         });
         setIsNewSettings(false);
         setShowAdvancedEmailSettings(false); // Collapsed if it has existing details/data
+        if (response.smtp_username && response.sender_email && response.smtp_username !== response.sender_email) {
+          setUseCustomSmtpUsername(true);
+        } else {
+          setUseCustomSmtpUsername(false);
+        }
         if (response.imap_username && response.imap_username !== response.smtp_username) {
           setUseSeparateImapCredentials(true);
+        } else {
+          setUseSeparateImapCredentials(false);
         }
       } else {
         setEmailSettings(null);
         setIsNewSettings(true);
+        setUseCustomSmtpUsername(false);
+        setUseSeparateImapCredentials(false);
         setEmailSettingsForm({
           smtp_host: '',
           smtp_port: 587,
@@ -593,9 +605,12 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
         const rawEmail = newVal || '';
         const trimmedEmail = rawEmail.trim();
 
-        // If not using separate IMAP credentials, sync usernames automatically
-        if (!useSeparateImapCredentials) {
+        // If not using a custom login username, keep smtp_username in sync
+        if (!useCustomSmtpUsername) {
           next.smtp_username = trimmedEmail;
+        }
+        // If not using separate IMAP credentials and not custom username, sync IMAP username
+        if (!useSeparateImapCredentials && !useCustomSmtpUsername) {
           next.imap_username = trimmedEmail;
         }
 
@@ -610,8 +625,67 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
         }
       }
 
+      if (name === 'smtp_username') {
+        if (!useSeparateImapCredentials) {
+          next.imap_username = newVal;
+        }
+      }
+
       return next;
     });
+  };
+
+  const buildEmailSettingsPayload = () => {
+    const email = emailSettingsForm.sender_email?.trim() || '';
+    const smtpUsername = (useCustomSmtpUsername ? emailSettingsForm.smtp_username?.trim() : '') || email;
+    const imapUsername = useSeparateImapCredentials
+      ? (emailSettingsForm.imap_username?.trim() || email)
+      : smtpUsername;
+
+    const smtpPassword = emailSettingsForm.smtp_password ? emailSettingsForm.smtp_password : null;
+    const imapPassword = useSeparateImapCredentials
+      ? (emailSettingsForm.imap_password ? emailSettingsForm.imap_password : null)
+      : smtpPassword;
+
+    // Auto-fallback hosts if user left them blank
+    const preset = detectEmailProvider(email);
+    const smtpHost = emailSettingsForm.smtp_host?.trim() || preset?.smtp_host || 'smtp.office365.com';
+    const imapHost = emailSettingsForm.imap_host?.trim() || preset?.imap_host || 'outlook.office365.com';
+
+    return {
+      ...emailSettingsForm,
+      sender_email: email,
+      smtp_host: smtpHost,
+      smtp_username: smtpUsername,
+      smtp_password: smtpPassword,
+      imap_host: imapHost,
+      imap_username: imapUsername,
+      imap_password: imapPassword,
+      imap_inbox_folder: emailSettingsForm.imap_inbox_folder?.trim() || 'INBOX',
+      smtp_port: parseInt(emailSettingsForm.smtp_port, 10) || preset?.smtp_port || 587,
+      imap_port: parseInt(emailSettingsForm.imap_port, 10) || preset?.imap_port || 993,
+    };
+  };
+
+  const handleTestConnection = async () => {
+    setIsTestingEmailConnection(true);
+    setEmailSettingsError('');
+    setEmailConnectionSuccess('');
+
+    try {
+      const payload = buildEmailSettingsPayload();
+      const response = await apiRequest('/corporate-admin/email-settings/test', 'POST', payload);
+      const msg = response?.message || 'Connection verified successfully! Credentials confirmed.';
+      setEmailConnectionSuccess(msg);
+      toast.success(msg);
+    } catch (err) {
+      console.error('Email connection test failed:', err);
+      const detail = err.response?.data?.detail || err.message || 'Connection test failed. Please verify your host, port, credentials, and network connectivity.';
+      setEmailSettingsError(detail);
+      toast.error(`Connection failed: ${detail}`);
+    } finally {
+      setIsTestingEmailConnection(false);
+    }
   };
 
   const handleSaveEmailSettings = async () => {
@@ -621,52 +695,26 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     }
     setIsEmailSettingsSaving(true);
     setEmailSettingsError('');
+    setEmailConnectionSuccess('');
 
     try {
       const url = emailSettings?.id ? `/corporate-admin/email-settings/${emailSettings.id}` : '/corporate-admin/email-settings/';
       const method = emailSettings?.id ? 'PUT' : 'POST';
-
-      const email = emailSettingsForm.sender_email?.trim() || '';
-      const smtpUsername = emailSettingsForm.smtp_username?.trim() || email;
-      const imapUsername = useSeparateImapCredentials
-        ? (emailSettingsForm.imap_username?.trim() || email)
-        : smtpUsername;
-
-      const smtpPassword = emailSettingsForm.smtp_password ? emailSettingsForm.smtp_password : null;
-      const imapPassword = useSeparateImapCredentials
-        ? (emailSettingsForm.imap_password ? emailSettingsForm.imap_password : null)
-        : smtpPassword;
-
-      // Auto-fallback hosts if user left them blank
-      const preset = detectEmailProvider(email);
-      const smtpHost = emailSettingsForm.smtp_host?.trim() || preset?.smtp_host || 'smtp.office365.com';
-      const imapHost = emailSettingsForm.imap_host?.trim() || preset?.imap_host || 'outlook.office365.com';
-
-      const payload = {
-        ...emailSettingsForm,
-        sender_email: email,
-        smtp_host: smtpHost,
-        smtp_username: smtpUsername,
-        smtp_password: smtpPassword,
-        imap_host: imapHost,
-        imap_username: imapUsername,
-        imap_password: imapPassword,
-        imap_inbox_folder: emailSettingsForm.imap_inbox_folder?.trim() || 'INBOX',
-        smtp_port: parseInt(emailSettingsForm.smtp_port, 10) || preset?.smtp_port || 587,
-        imap_port: parseInt(emailSettingsForm.imap_port, 10) || preset?.imap_port || 993,
-      };
+      const payload = buildEmailSettingsPayload();
 
       const response = await apiRequest(url, method, payload);
       if (response && response.status === 'PENDING') {
-        toast.info('Email settings change submitted for approval by a second administrator.', { autoClose: 6000 });
+        toast.info('Email settings change verified and submitted for approval by a second administrator.', { autoClose: 6000 });
       } else {
-        toast.success('Email settings saved successfully!');
+        toast.success('Connection confirmed and email settings saved successfully!');
       }
       setShowEmailSettingsModal(false);
       fetchEmailSettings();
     } catch (err) {
       console.error('Failed to save email settings:', err);
-      setEmailSettingsError(err.message || 'Failed to save email settings.');
+      const detail = err.response?.data?.detail || err.message || 'Failed to save email settings. Connection could not be confirmed.';
+      setEmailSettingsError(detail);
+      toast.error(`Cannot save settings: ${detail}`);
     } finally {
       setIsEmailSettingsSaving(false);
     }
@@ -2551,9 +2599,16 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                 ) : (
                   <form className={`space-y-5 ${isGracePeriod ? 'opacity-50 pointer-events-none' : ''}`}>
                     {emailSettingsError && (
-                      <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-xs flex items-center gap-2" role="alert">
+                      <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-xs flex items-center gap-2 animate-fadeIn" role="alert">
                         <AlertCircle className="h-4 w-4 flex-shrink-0" />
                         <span>{emailSettingsError}</span>
+                      </div>
+                    )}
+
+                    {emailConnectionSuccess && (
+                      <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-xs flex items-center gap-2 animate-fadeIn" role="status">
+                        <CheckCircle className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+                        <span>{emailConnectionSuccess}</span>
                       </div>
                     )}
 
@@ -2585,7 +2640,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                             required
                             disabled={isGracePeriod}
                           />
-                          <p className="text-[11px] text-slate-400 mt-1">Used as your default sender & inbox login</p>
+                          <p className="text-[11px] text-slate-400 mt-1">Used as your default sender & inbox address</p>
                         </div>
 
                         <div>
@@ -2602,6 +2657,55 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                           />
                           <p className="text-[11px] text-slate-400 mt-1">Name visible to recipients in email headers</p>
                         </div>
+                      </div>
+
+                      {/* Domain / Username configuration for on-premise AD / Exchange */}
+                      <div className="pt-0.5">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={useCustomSmtpUsername}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setUseCustomSmtpUsername(checked);
+                              if (!checked) {
+                                const trimmed = emailSettingsForm.sender_email?.trim() || '';
+                                setEmailSettingsForm(prev => ({
+                                  ...prev,
+                                  smtp_username: trimmed,
+                                  ...(!useSeparateImapCredentials ? { imap_username: trimmed } : {})
+                                }));
+                              }
+                            }}
+                            className="h-3.5 w-3.5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                            disabled={isGracePeriod}
+                          />
+                          <span className="text-[11px] font-bold text-slate-700">
+                            Login account is different from email address (e.g. DOMAIN\username)
+                          </span>
+                        </label>
+
+                        {useCustomSmtpUsername && (
+                          <div className="mt-2 p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 animate-fadeIn">
+                            <label htmlFor="smtp_username" className="block text-[11px] font-bold text-slate-700 mb-1">
+                              Authentication Account / Username
+                            </label>
+                            <input
+                              type="text"
+                              id="smtp_username"
+                              name="smtp_username"
+                              value={emailSettingsForm.smtp_username}
+                              onChange={handleEmailSettingsChange}
+                              placeholder="e.g. DOMAIN\username or svc_treasury"
+                              className={inputClassNames}
+                              required={useCustomSmtpUsername}
+                              disabled={isGracePeriod}
+                            />
+                            <p className="text-[11px] text-slate-500 mt-1">
+                              Used for server authentication (Windows Domain / Active Directory / Exchange / LDAP), while outgoing emails will still show as <strong>{emailSettingsForm.sender_email || 'your email'}</strong>.
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       {/* Row 2: Mailbox Password / App Password */}
@@ -2727,7 +2831,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                           {/* SMTP Server Details */}
                           <div className="space-y-2">
                             <h5 className="text-[11px] font-black uppercase tracking-wider text-slate-600">Outbound SMTP Server</h5>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
                               <div className="sm:col-span-2">
                                 <label htmlFor="smtp_host" className="block text-[11px] font-semibold text-slate-600 mb-0.5">SMTP Host</label>
                                 <input
@@ -2741,7 +2845,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                                   disabled={isGracePeriod}
                                 />
                               </div>
-                              <div>
+                              <div className="sm:col-span-1">
                                 <label htmlFor="smtp_port" className="block text-[11px] font-semibold text-slate-600 mb-0.5">SMTP Port</label>
                                 <input
                                   type="number"
@@ -2750,6 +2854,19 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                                   value={emailSettingsForm.smtp_port}
                                   onChange={handleEmailSettingsChange}
                                   placeholder="587 or 465"
+                                  className={inputClassNames}
+                                  disabled={isGracePeriod}
+                                />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <label htmlFor="adv_smtp_username" className="block text-[11px] font-semibold text-slate-600 mb-0.5">SMTP Login Account</label>
+                                <input
+                                  type="text"
+                                  id="adv_smtp_username"
+                                  name="smtp_username"
+                                  value={emailSettingsForm.smtp_username}
+                                  onChange={handleEmailSettingsChange}
+                                  placeholder="e.g. DOMAIN\username or email"
                                   className={inputClassNames}
                                   disabled={isGracePeriod}
                                 />
@@ -2860,7 +2977,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                         type="button"
                         onClick={handleDeleteEmailSettings}
                         className="px-3.5 py-2 text-xs font-bold rounded-xl text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={isEmailSettingsSaving || isGracePeriod}
+                        disabled={isEmailSettingsSaving || isTestingEmailConnection || isGracePeriod}
                         title="Delete Custom Email Settings"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -2872,14 +2989,36 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                   <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                     <button
                       type="button"
+                      onClick={handleTestConnection}
+                      className="px-4 py-2 text-xs font-bold rounded-xl text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isTestingEmailConnection || isEmailSettingsSaving || isGracePeriod}
+                      title="Verify SMTP and IMAP connection without saving"
+                    >
+                      {isTestingEmailConnection ? (
+                        <>
+                          <Loader2 className="animate-spin h-3.5 w-3.5 text-indigo-600" />
+                          <span>Testing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="h-3.5 w-3.5 text-indigo-600" />
+                          <span>Test Connection</span>
+                        </>
+                      )}
+                    </button>
+                  </GracePeriodTooltip>
+
+                  <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                    <button
+                      type="button"
                       onClick={handleSaveEmailSettings}
                       className="px-5 py-2 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-200 flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={isEmailSettingsSaving || isGracePeriod}
+                      disabled={isEmailSettingsSaving || isTestingEmailConnection || isGracePeriod}
                     >
                       {isEmailSettingsSaving ? (
                         <>
                           <Loader2 className="animate-spin h-4 w-4" />
-                          <span>Saving...</span>
+                          <span>Verifying & Saving...</span>
                         </>
                       ) : (
                         <>

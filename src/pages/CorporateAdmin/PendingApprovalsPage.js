@@ -1796,10 +1796,16 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                             const map = {
                                                 smtp_host: 'SMTP Host',
                                                 smtp_port: 'SMTP Port',
-                                                smtp_username: 'SMTP Username',
+                                                smtp_username: 'SMTP Username / Account',
                                                 sender_email: 'Sender Email',
                                                 sender_display_name: 'Sender Display Name',
                                                 is_active: 'Active',
+                                                imap_host: 'IMAP Host',
+                                                imap_port: 'IMAP Port',
+                                                imap_username: 'IMAP Username',
+                                                imap_use_ssl: 'IMAP Use SSL',
+                                                imap_inbox_folder: 'IMAP Folder',
+                                                imap_is_active: 'Smart Inbox IMAP Active',
                                             };
                                             return map[key] || key.replace(/_/g, ' ');
                                         };
