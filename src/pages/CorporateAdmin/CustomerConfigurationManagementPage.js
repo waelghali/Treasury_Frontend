@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { Edit, Save, AlertCircle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, X, Shield, ShieldCheck, Layers, Cpu, HardDrive, Settings, Clock, Server, Lock, MessageSquare, FileCheck, Building, LayoutTemplate, Sparkles, Sliders, KeyRound, Check, History, RefreshCw } from 'lucide-react';
+import { Edit, Save, AlertCircle, AlertTriangle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, X, Shield, ShieldCheck, Layers, Cpu, HardDrive, Settings, Clock, Server, Lock, MessageSquare, FileCheck, Building, LayoutTemplate, Sparkles, Sliders, KeyRound, Check, History, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import QuotationBanksModal from '../../components/Modals/QuotationBanksModal';
 import RangeBarController from '../../components/RangeBarController';
@@ -291,6 +291,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
   const [useCustomSmtpUsername, setUseCustomSmtpUsername] = useState(false);
   const [isTestingEmailConnection, setIsTestingEmailConnection] = useState(false);
   const [emailConnectionSuccess, setEmailConnectionSuccess] = useState('');
+  const [emailConnectionWarning, setEmailConnectionWarning] = useState('');
 
   // --- Email List Modal State ---
   const [showEmailListModal, setShowEmailListModal] = useState(false);
@@ -664,6 +665,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
       imap_inbox_folder: emailSettingsForm.imap_inbox_folder?.trim() || 'INBOX',
       smtp_port: parseInt(emailSettingsForm.smtp_port, 10) || preset?.smtp_port || 587,
       imap_port: parseInt(emailSettingsForm.imap_port, 10) || preset?.imap_port || 993,
+      allow_fallback_on_unreachable: true,
     };
   };
 
@@ -671,13 +673,20 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     setIsTestingEmailConnection(true);
     setEmailSettingsError('');
     setEmailConnectionSuccess('');
+    setEmailConnectionWarning('');
 
     try {
       const payload = buildEmailSettingsPayload();
       const response = await apiRequest('/corporate-admin/email-settings/test', 'POST', payload);
-      const msg = response?.message || 'Connection verified successfully! Credentials confirmed.';
-      setEmailConnectionSuccess(msg);
-      toast.success(msg);
+      if (response?.status === 'warning') {
+        const msg = response?.message || 'Server unreachable from current network. Fallback to system email is active.';
+        setEmailConnectionWarning(msg);
+        toast.warn(msg, { autoClose: 7000 });
+      } else {
+        const msg = response?.message || 'Connection verified successfully! Credentials confirmed.';
+        setEmailConnectionSuccess(msg);
+        toast.success(msg);
+      }
     } catch (err) {
       console.error('Email connection test failed:', err);
       const detail = err.response?.data?.detail || err.message || 'Connection test failed. Please verify your host, port, credentials, and network connectivity.';
@@ -696,6 +705,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     setIsEmailSettingsSaving(true);
     setEmailSettingsError('');
     setEmailConnectionSuccess('');
+    setEmailConnectionWarning('');
 
     try {
       const url = emailSettings?.id ? `/corporate-admin/email-settings/${emailSettings.id}` : '/corporate-admin/email-settings/';
@@ -706,13 +716,13 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
       if (response && response.status === 'PENDING') {
         toast.info('Email settings change verified and submitted for approval by a second administrator.', { autoClose: 6000 });
       } else {
-        toast.success('Connection confirmed and email settings saved successfully!');
+        toast.success('Email settings saved successfully! Fallback to system email is active if your server is unreachable.');
       }
       setShowEmailSettingsModal(false);
       fetchEmailSettings();
     } catch (err) {
       console.error('Failed to save email settings:', err);
-      const detail = err.response?.data?.detail || err.message || 'Failed to save email settings. Connection could not be confirmed.';
+      const detail = err.response?.data?.detail || err.message || 'Failed to save email settings.';
       setEmailSettingsError(detail);
       toast.error(`Cannot save settings: ${detail}`);
     } finally {
@@ -2605,12 +2615,25 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                       </div>
                     )}
 
+                    {emailConnectionWarning && (
+                      <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-xs flex items-start gap-2 animate-fadeIn" role="alert">
+                        <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-600 mt-0.5" />
+                        <span>{emailConnectionWarning}</span>
+                      </div>
+                    )}
+
                     {emailConnectionSuccess && (
                       <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-xs flex items-center gap-2 animate-fadeIn" role="status">
                         <CheckCircle className="h-4 w-4 flex-shrink-0 text-emerald-600" />
                         <span>{emailConnectionSuccess}</span>
                       </div>
                     )}
+
+                    {/* Account Lockout Safety Notice */}
+                    <div className="bg-blue-50/70 border border-blue-100 px-3 py-2 rounded-lg text-[11px] text-blue-700 flex items-center gap-2">
+                      <ShieldCheck className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                      <span><strong>Active Directory Protection:</strong> Max 3 failed authentication attempts before a 15-min cooldown to protect corporate accounts from locking. Delivery automatically falls back to generic system email if your server is unreachable.</span>
+                    </div>
 
                     {/* MAIN SECTION: 3 CORE INPUTS */}
                     <div className="space-y-4">
