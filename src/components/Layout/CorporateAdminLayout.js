@@ -172,20 +172,22 @@ function CorporateAdminLayout({
           count += data.filter(req => req.status === 'PENDING' && req.maker_user?.email !== currentUserEmail).length;
         } catch (e) { }
       }
-      try {
-        const issuanceData = await apiRequest('/issuance/my-pending-approvals', 'GET');
-        count += (Array.isArray(issuanceData) ? issuanceData : []).filter(req => req.status === 'PENDING_APPROVAL' && req.requestor_email !== currentUserEmail).length;
-      } catch (e) { }
-      try {
-        const lgData = await apiRequest('/issuance/issued-lgs', 'GET');
-        count += (Array.isArray(lgData) ? lgData : []).filter(lg => lg.verification_status === 'DISCREPANCY').length;
-      } catch (e) { }
+      if (hasIssuanceModule) {
+        try {
+          const issuanceData = await apiRequest('/issuance/my-pending-approvals', 'GET');
+          count += (Array.isArray(issuanceData) ? issuanceData : []).filter(req => req.status === 'PENDING_APPROVAL' && req.requestor_email !== currentUserEmail).length;
+        } catch (e) { }
+        try {
+          const lgData = await apiRequest('/issuance/issued-lgs', 'GET');
+          count += (Array.isArray(lgData) ? lgData : []).filter(lg => lg.verification_status === 'DISCREPANCY').length;
+        } catch (e) { }
+      }
       setPendingCount(count);
       localStorage.setItem('sidebar_pending_count', count.toString());
     } catch (err) {
       console.error("Failed to fetch pending count", err);
     }
-  }, [isChecker]);
+  }, [isChecker, hasIssuanceModule]);
 
   useEffect(() => {
     fetchPendingCount();

@@ -78,7 +78,7 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
     setIsLoading(true);
     setError(null);
     try {
-      const promises = [apiRequest('/corporate-admin/users', 'GET')];
+      const promises = [apiRequest('/corporate-admin/users/', 'GET')];
       if (hasIssuanceModule) {
         promises.push(apiRequest('/corporate-admin/departments/', 'GET'));
         promises.push(apiRequest('/corporate-admin/approval-groups/', 'GET'));
@@ -110,8 +110,8 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
         try {
           const [matrixRes, usersRes, deptsRes, currsRes, groupsRes] = await Promise.all([
             apiRequest('/issuance/workflow-policies', 'GET').catch(() => []),
-            apiRequest('/corporate-admin/users', 'GET').catch(() => []),
-            apiRequest('/corporate-admin/departments', 'GET').catch(() => []),
+            apiRequest('/corporate-admin/users/', 'GET').catch(() => []),
+            apiRequest('/corporate-admin/departments/', 'GET').catch(() => []),
             apiRequest('/corporate-admin/currencies', 'GET').catch(() => []),
             apiRequest('/corporate-admin/approval-groups/', 'GET').catch(() => [])
           ]);
