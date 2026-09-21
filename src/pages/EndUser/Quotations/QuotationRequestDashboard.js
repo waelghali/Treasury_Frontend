@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 
@@ -28,6 +28,34 @@ const toLocalISOString = (d) => {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
+const getInitialFormData = (entityId = '') => {
+    const now = new Date();
+    const freshStart = toLocalISOString(new Date(now.getTime() + 60000));
+    const todayDate = freshStart ? freshStart.split('T')[0] : '';
+    return {
+        entityId: entityId || '',
+        type: 'FX_SPOT',
+        direction: 'Buy',
+        valueDate: todayDate,
+        allowAlternativeValueDate: false,
+        amount: '',
+        minTicketAmount: '',
+        buyCurrency: 'USD',
+        sellCurrency: 'EGP',
+        settlementDateStart: todayDate,
+        settlementDateEnd: '',
+        maturityDateStart: '',
+        maturityDateEnd: '',
+        evalRate: '',
+        windowStart: freshStart,
+        windowDuration: '60',
+        quotationBase: 'Execution',
+        maxTolerancePercent: '0.05',
+        tokenValidityHours: '24',
+        internalNotes: '',
+    };
+};
+
 export default function QuotationRequestDashboard() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -47,39 +75,32 @@ export default function QuotationRequestDashboard() {
     const [recommendations, setRecommendations] = useState([]);
     const [evalRateDetails, setEvalRateDetails] = useState(null);
     const hasUserChangedEvalRateRef = useRef(false);
-    const [formData, setFormData] = useState(() => {
-        const now = new Date();
-        const freshStart = toLocalISOString(new Date(now.getTime() + 60000));
-        const todayDate = freshStart ? freshStart.split('T')[0] : '';
-        return {
-            entityId: '',
-            type: 'FX_SPOT',
-            direction: 'Buy',
-            valueDate: todayDate,
-            allowAlternativeValueDate: false,
-            amount: '',
-            minTicketAmount: '',
-            buyCurrency: 'USD',
-            sellCurrency: 'EGP',
-            settlementDateStart: todayDate,
-            settlementDateEnd: '',
-            maturityDateStart: '',
-            maturityDateEnd: '',
-            evalRate: '',
-            windowStart: freshStart,
-            windowDuration: '60',
-            quotationBase: 'Execution',
-            maxTolerancePercent: '0.05',
-            tokenValidityHours: '24',
-            internalNotes: '',
-        };
-    });
+    const [formData, setFormData] = useState(() => getInitialFormData(''));
     const [files, setFiles] = useState([]);
     const [existingDocs, setExistingDocs] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [createdRfq, setCreatedRfq] = useState(null);
     const [copiedToken, setCopiedToken] = useState(null);
     const [legalAcknowledged, setLegalAcknowledged] = useState(false);
+
+    const handleReset = () => {
+        if (location.search) {
+            navigate('/end-user/quotations/active', { replace: true });
+        }
+        setSourceRfq(null);
+        setUserNotes('');
+        isPrefillingRef.current = false;
+        hasUserChangedEvalRateRef.current = false;
+        const defaultEntityId = entities.length === 1 ? entities[0].id : '';
+        setFormData(getInitialFormData(defaultEntityId));
+        setSelectedBanks([]);
+        setFiles([]);
+        setExistingDocs([]);
+        setCreatedRfq(null);
+        setLegalAcknowledged(false);
+        setCopiedToken(null);
+        toast.info('Quotation form reset to original state.');
+    };
 
     // Fetch accessible customer legal entities
     useEffect(() => {
@@ -799,10 +820,11 @@ export default function QuotationRequestDashboard() {
                             })}
                         </div>
                         <button
-                            onClick={() => setCreatedRfq(null)}
-                            className="mt-6 w-full py-3 sm:py-4 border-2 border-black rounded-2xl font-medium hover:bg-black hover:text-white transition-all text-sm"
+                            onClick={handleReset}
+                            className="mt-6 w-full py-3 sm:py-4 border-2 border-black rounded-2xl font-medium hover:bg-black hover:text-white transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
                         >
-                            Create New RFQ
+                            <RotateCcw size={16} />
+                            Create New RFQ (Reset Form)
                         </button>
                     </div>
 
@@ -888,25 +910,39 @@ export default function QuotationRequestDashboard() {
                     </div>
                     <button
                         type="button"
-                        onClick={() => {
-                            navigate('/end-user/quotations/active');
-                            window.location.reload();
-                        }}
-                        className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 bg-white border border-indigo-200 hover:bg-indigo-50 px-3.5 py-2 rounded-xl transition-colors shrink-0 cursor-pointer"
+                        onClick={handleReset}
+                        className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 bg-white border border-indigo-200 hover:bg-indigo-50 px-3.5 py-2 rounded-xl transition-colors shrink-0 cursor-pointer flex items-center gap-1.5"
                     >
+                        <RotateCcw size={13} />
                         Clear & Start Blank
                     </button>
                 </div>
             )}
 
             <header className="mb-8 sm:mb-12">
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-                    {revisionRfqId
-                        ? `Revise Quotation Request`
-                        : retradeRfqId
-                        ? `Re-Trade Quotation Request`
-                        : `New Quotation Request`}
-                </h1>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+                            {revisionRfqId
+                                ? `Revise Quotation Request`
+                                : retradeRfqId
+                                ? `Re-Trade Quotation Request`
+                                : `New Quotation Request`}
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-1">
+                            Configure parameters, select counterparty banks, and submit your RFQ.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handleReset}
+                        title="Reset entire form and page to initial blank state"
+                        className="self-start sm:self-auto px-4 py-2.5 rounded-xl text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 hover:text-gray-900 transition-all flex items-center gap-2 shadow-xs cursor-pointer"
+                    >
+                        <RotateCcw size={14} className="text-gray-500" />
+                        Reset Page
+                    </button>
+                </div>
                 <div className="flex flex-wrap gap-2 sm:gap-4 mt-6">
                     {['FX_SPOT', 'TBILL'].map(type => (
                         <button
@@ -1845,22 +1881,33 @@ export default function QuotationRequestDashboard() {
                             </div>
                         )}
 
-                        <button
-                            type="submit"
-                            disabled={isSubmitting || selectedBanks.length === 0 || hasDateDiscrepancy || (hasExecutionBanks && !legalAcknowledged)}
-                            className={`mt-6 sm:mt-8 w-full py-3.5 sm:py-5 rounded-2xl sm:rounded-3xl font-semibold text-sm sm:text-lg flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-xl disabled:opacity-30 disabled:cursor-not-allowed shrink-0 cursor-pointer ${
-                                revisionRfqId
-                                    ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20'
-                                    : retradeRfqId
-                                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20'
-                                    : 'bg-black hover:bg-gray-800 text-white shadow-black/10'
-                            }`}
-                        >
-                            {revisionRfqId ? <Undo2 size={18} /> : retradeRfqId ? <RefreshCw size={18} /> : <Send size={18} />}
-                            {isSubmitting
-                                ? (revisionRfqId ? 'Resubmitting for Approval...' : retradeRfqId ? 'Launching Re-Trade...' : 'Processing...')
-                                : (revisionRfqId ? 'Resubmit Quotation for Approval' : retradeRfqId ? 'Launch Re-Trade Quotation' : 'Submit Request for Quotation')}
-                        </button>
+                        <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={handleReset}
+                                title="Reset entire form to initial blank state"
+                                className="w-full sm:w-auto px-6 py-3.5 sm:py-5 rounded-2xl sm:rounded-3xl font-semibold text-sm sm:text-base text-gray-700 bg-gray-100 hover:bg-gray-200 hover:text-gray-900 transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer border border-gray-200"
+                            >
+                                <RotateCcw size={18} />
+                                Reset
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting || selectedBanks.length === 0 || hasDateDiscrepancy || (hasExecutionBanks && !legalAcknowledged)}
+                                className={`w-full flex-1 py-3.5 sm:py-5 rounded-2xl sm:rounded-3xl font-semibold text-sm sm:text-lg flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-xl disabled:opacity-30 disabled:cursor-not-allowed shrink-0 cursor-pointer ${
+                                    revisionRfqId
+                                        ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20'
+                                        : retradeRfqId
+                                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20'
+                                        : 'bg-black hover:bg-gray-800 text-white shadow-black/10'
+                                }`}
+                            >
+                                {revisionRfqId ? <Undo2 size={18} /> : retradeRfqId ? <RefreshCw size={18} /> : <Send size={18} />}
+                                {isSubmitting
+                                    ? (revisionRfqId ? 'Resubmitting for Approval...' : retradeRfqId ? 'Launching Re-Trade...' : 'Processing...')
+                                    : (revisionRfqId ? 'Resubmit Quotation for Approval' : retradeRfqId ? 'Launch Re-Trade Quotation' : 'Submit Request for Quotation')}
+                            </button>
+                        </div>
                     </section>
                 </div>
             </form>
