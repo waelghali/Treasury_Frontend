@@ -103,9 +103,11 @@ export const handleUserActivity = async (onWarning) => {
             setAuthToken(data.access_token);
             lastTokenRefreshTime = Date.now();
           }
+        } else {
+          // If refresh fails (e.g. 403 must_change_password or 401), update the timestamp
+          // to prevent spamming the backend on every single mouse move / keystroke.
+          lastTokenRefreshTime = Date.now();
         }
-        // If refresh fails (e.g. 401), we don't logout here —
-        // the next real API call will catch the 401 and handle it.
       }
     } catch (err) {
       console.warn('Silent token refresh failed:', err.message);
