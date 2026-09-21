@@ -103,10 +103,11 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
         setSubscriptionStatus(decoded.subscription_status || 'active');
         setSubscriptionEndDate(decoded.subscription_end_date || null);
         setUserPermissions(decoded.permissions || []);
-        setHasCustodyModule(decoded.has_custody_module !== undefined ? decoded.has_custody_module : true);
-        setHasIssuanceModule(decoded.has_issuance_module !== undefined ? decoded.has_issuance_module : false);
-        setHasQuotationModule(decoded.has_quotation_module !== undefined ? decoded.has_quotation_module : true);
-        setHasReconciliationModule(decoded.has_reconciliation_module !== undefined ? decoded.has_reconciliation_module : true);
+        const isSysOwner = decoded.role === 'system_owner';
+        setHasCustodyModule(isSysOwner ? true : (decoded.has_custody_module !== undefined ? Boolean(decoded.has_custody_module) : false));
+        setHasIssuanceModule(isSysOwner ? true : (decoded.has_issuance_module !== undefined ? Boolean(decoded.has_issuance_module) : false));
+        setHasQuotationModule(isSysOwner ? true : (decoded.has_quotation_module !== undefined ? Boolean(decoded.has_quotation_module) : false));
+        setHasReconciliationModule(isSysOwner ? true : (decoded.has_reconciliation_module !== undefined ? Boolean(decoded.has_reconciliation_module) : false));
         return {
           isAuthenticated: true,
           userRole: decoded.role,
@@ -198,9 +199,19 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
 
   const getDefaultRedirectPath = (role) => {
     if (role === 'system_owner') return "/system-owner/dashboard";
-    if (role === 'corporate_admin') return "/corporate-admin/dashboard";
+    if (role === 'corporate_admin') {
+      if (!hasCustodyModule && !hasIssuanceModule && hasQuotationModule) {
+        return "/corporate-admin/quotations";
+      }
+      return "/corporate-admin/dashboard";
+    }
     if (role === 'checker') return "/checker/approval-requests";
-    if (role === 'end_user' || role === 'viewer') return "/end-user/action-center";
+    if (role === 'end_user' || role === 'viewer') {
+      if (!hasCustodyModule && !hasIssuanceModule && hasQuotationModule) {
+        return "/end-user/quotations/active";
+      }
+      return "/end-user/action-center";
+    }
     return "/login";
   };
 
@@ -235,9 +246,9 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
             ) : (
               <Route path="/*" element={<ProtectedLayout onLogout={handleLogout} userRole={userRole} userPermissions={userPermissions} customerName={customerName} customerId={customerId} subscriptionStatus={subscriptionStatus} subscriptionEndDate={subscriptionEndDate} hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} hasQuotationModule={hasQuotationModule} hasReconciliationModule={hasReconciliationModule} />}>
                 <Route path="system-owner/*" element={<SystemOwnerRoutes onLogout={handleLogout} />} />
-                <Route path="corporate-admin/*" element={<CorporateAdminRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} hasIssuanceModule={hasIssuanceModule} hasCustodyModule={hasCustodyModule} />} />
+                <Route path="corporate-admin/*" element={<CorporateAdminRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} hasIssuanceModule={hasIssuanceModule} hasCustodyModule={hasCustodyModule} hasQuotationModule={hasQuotationModule} hasReconciliationModule={hasReconciliationModule} />} />
                 <Route path="checker/*" element={<CheckerRoutes />} />
-                <Route path="end-user/*" element={<EndUserRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} />} />
+                <Route path="end-user/*" element={<EndUserRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} hasQuotationModule={hasQuotationModule} hasReconciliationModule={hasReconciliationModule} />} />
                 <Route path="lg-records/:id" element={<LGRecordsRedirect />} />
                 <Route path="lg-records" element={<LGRecordsRedirect />} />
                 <Route path="issuance/facilities" element={<Navigate to="/corporate-admin/issuance/facilities" replace />} />

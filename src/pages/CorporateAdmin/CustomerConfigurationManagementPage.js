@@ -89,7 +89,7 @@ const getGroupKey = (configOrKey, moduleTags = null) => {
   }
 
   // 1. RFQ Quotations Module
-  if (tags.includes('quotation') || tags.includes('quotations') || key.includes('QUOTATION')) {
+  if (tags.includes('quotation') || tags.includes('quotations') || key.includes('QUOTATION') || key.startsWith('CBE_')) {
     return 'RFQ Quotations Module';
   }
 
@@ -2159,7 +2159,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                   })()}
 
                   {/* Central Bank of Egypt (CBE) Sovereign Policy Corridor — Dedicated Unified Benchmark Panel */}
-                  {(configs.some(c => c.global_config_key && c.global_config_key.startsWith('CBE_')) || (groupName === 'RFQ Quotations Module' && selectedGroup === 'RFQ Quotations Module')) && (() => {
+                  {(groupName === 'RFQ Quotations Module' || configs.some(c => c.global_config_key && c.global_config_key.startsWith('CBE_'))) && (() => {
                     const lendingCfg = configurations.find(c => c.global_config_key === 'CBE_OVERNIGHT_LENDING_RATE') || configs.find(c => c.global_config_key === 'CBE_OVERNIGHT_LENDING_RATE');
                     const depositCfg = configurations.find(c => c.global_config_key === 'CBE_OVERNIGHT_DEPOSIT_RATE') || configs.find(c => c.global_config_key === 'CBE_OVERNIGHT_DEPOSIT_RATE');
                     const midCfg = configurations.find(c => c.global_config_key === 'CBE_MID_CORRIDOR_RATE') || configs.find(c => c.global_config_key === 'CBE_MID_CORRIDOR_RATE');

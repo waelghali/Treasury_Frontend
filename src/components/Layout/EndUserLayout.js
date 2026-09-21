@@ -161,14 +161,15 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
   // Reusable Nav Links for both Desktop Sidebar and Mobile Drawer
   const renderNavLinks = (isDrawer = false) => (
     <>
+      {/* Dashboard - direct to quotations active if customer only has quotation module */}
       <Link
-        to="/end-user/dashboard"
+        to={(!hasCustodyModule && !hasIssuanceModule && hasQuotationModule) ? "/end-user/quotations/active" : "/end-user/dashboard"}
         title={isCollapsed && !isDrawer ? "Dashboard" : ""}
-        className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-dashboard'
+        className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-dashboard' || ((!hasCustodyModule && !hasIssuanceModule && hasQuotationModule) && activeMenuItem === 'end-user-quotations-active')
           ? 'font-semibold'
           : 'hover:bg-white/[0.07]'
           }`}
-        style={activeMenuItem === 'end-user-dashboard'
+        style={activeMenuItem === 'end-user-dashboard' || ((!hasCustodyModule && !hasIssuanceModule && hasQuotationModule) && activeMenuItem === 'end-user-quotations-active')
           ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
           : { color: '#cbd5e1' }}
       >
@@ -176,35 +177,39 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
         {(!isCollapsed || isDrawer) && <span className="ml-3">Dashboard</span>}
       </Link>
 
-      <Link
-        to="/end-user/action-center"
-        title={isCollapsed && !isDrawer ? "Action Center" : ""}
-        className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-action-center'
-          ? 'font-semibold'
-          : 'hover:bg-white/[0.07]'
-          }`}
-        style={activeMenuItem === 'end-user-action-center'
-          ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
-          : { color: '#cbd5e1' }}
-      >
-        <ListTodo className="h-5 w-5 flex-shrink-0" />
-        {(!isCollapsed || isDrawer) && <span className="ml-3">Action Center</span>}
-      </Link>
+      {(hasCustodyModule || hasIssuanceModule) && (
+        <>
+          <Link
+            to="/end-user/action-center"
+            title={isCollapsed && !isDrawer ? "Action Center" : ""}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-action-center'
+              ? 'font-semibold'
+              : 'hover:bg-white/[0.07]'
+              }`}
+            style={activeMenuItem === 'end-user-action-center'
+              ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
+              : { color: '#cbd5e1' }}
+          >
+            <ListTodo className="h-5 w-5 flex-shrink-0" />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Action Center</span>}
+          </Link>
 
-      <Link
-        to="/end-user/inbox"
-        title={isCollapsed && !isDrawer ? "Smart Inbox" : ""}
-        className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'smart-inbox'
-          ? 'font-semibold'
-          : 'hover:bg-white/[0.07]'
-          }`}
-        style={activeMenuItem === 'smart-inbox'
-          ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
-          : { color: '#cbd5e1' }}
-      >
-        <Inbox className="h-5 w-5 flex-shrink-0" />
-        {(!isCollapsed || isDrawer) && <span className="ml-3">Smart Inbox</span>}
-      </Link>
+          <Link
+            to="/end-user/inbox"
+            title={isCollapsed && !isDrawer ? "Smart Inbox" : ""}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'smart-inbox'
+              ? 'font-semibold'
+              : 'hover:bg-white/[0.07]'
+              }`}
+            style={activeMenuItem === 'smart-inbox'
+              ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
+              : { color: '#cbd5e1' }}
+          >
+            <Inbox className="h-5 w-5 flex-shrink-0" />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Smart Inbox</span>}
+          </Link>
+        </>
+      )}
 
       {/* LG Custody - only if plan includes custody module */}
       {hasCustodyModule && (
@@ -379,25 +384,29 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
         </>
       )}
 
-      {(!isCollapsed || isDrawer) && (
-        <div className="pt-3 pb-1 px-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Analytics</p>
-        </div>
+      {(hasCustodyModule || hasIssuanceModule) && (
+        <>
+          {(!isCollapsed || isDrawer) && (
+            <div className="pt-3 pb-1 px-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Analytics</p>
+            </div>
+          )}
+          <Link
+            to="/end-user/reports"
+            title={isCollapsed && !isDrawer ? "Reports" : ""}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-reports'
+              ? 'font-semibold'
+              : 'hover:bg-white/[0.07]'
+              }`}
+            style={activeMenuItem === 'end-user-reports'
+              ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
+              : { color: '#cbd5e1' }}
+          >
+            <BarChart className="h-5 w-5 flex-shrink-0" />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Reports</span>}
+          </Link>
+        </>
       )}
-      <Link
-        to="/end-user/reports"
-        title={isCollapsed && !isDrawer ? "Reports" : ""}
-        className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-reports'
-          ? 'font-semibold'
-          : 'hover:bg-white/[0.07]'
-          }`}
-        style={activeMenuItem === 'end-user-reports'
-          ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
-          : { color: '#cbd5e1' }}
-      >
-        <BarChart className="h-5 w-5 flex-shrink-0" />
-        {(!isCollapsed || isDrawer) && <span className="ml-3">Reports</span>}
-      </Link>
     </>
   );
 

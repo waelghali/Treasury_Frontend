@@ -33,7 +33,6 @@ import RuleManagement from '../pages/CorporateAdmin/BankReconciliation/RuleManag
 import AccountingExport from '../pages/CorporateAdmin/BankReconciliation/AccountingExport';
 // NEW: Import Admin Quotation Dashboard
 import AdminQuotationDashboard from '../pages/CorporateAdmin/AdminQuotationDashboard';
-import TreasuryDashboard from '../pages/CorporateAdmin/TreasuryDashboard';
 import InboxPage from '../pages/EndUser/InboxPage';
 import InboxScheduleConfigPage from '../pages/CorporateAdmin/InboxScheduleConfigPage';
 
@@ -51,12 +50,13 @@ const corporateAdminReports = [
   },
 ];
 
-function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIssuanceModule, hasCustodyModule }) {
+function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIssuanceModule, hasCustodyModule, hasQuotationModule = true, hasReconciliationModule = true }) {
   const isGracePeriod = subscriptionStatus === 'grace';
+  const isQuotationOnly = !hasCustodyModule && !hasIssuanceModule && hasQuotationModule;
 
   return (
     <Routes>
-      <Route path="dashboard" element={<UnifiedDashboard hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} isGracePeriod={isGracePeriod} />} />
+      <Route path="dashboard" element={isQuotationOnly ? <Navigate to="../quotations" replace /> : <UnifiedDashboard hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} isGracePeriod={isGracePeriod} />} />
       <Route path="lg-categories" element={<LGCategoryList onLogout={onLogout} isGracePeriod={isGracePeriod} />} />
       <Route path="lg-categories/new" element={<LGCategoryForm onLogout={onLogout} isGracePeriod={isGracePeriod} />} />
       <Route path="lg-categories/edit/:id" element={<LGCategoryForm onLogout={onLogout} isGracePeriod={isGracePeriod} />} />
@@ -116,7 +116,7 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIss
       <Route path="inbox" element={<InboxPage />} />
       <Route path="inbox/schedule" element={<InboxScheduleConfigPage />} />
 
-      <Route path="*" element={<Navigate to="dashboard" replace />} />
+      <Route path="*" element={<Navigate to={isQuotationOnly ? "quotations" : "dashboard"} replace />} />
     </Routes>
   );
 }

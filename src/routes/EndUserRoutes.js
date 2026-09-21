@@ -34,16 +34,17 @@ const endUserReports = [
   },
 ];
 
-function EndUserRoutes({ onLogout, subscriptionStatus, hasCustodyModule, hasIssuanceModule }) { // NEW: Receive subscriptionStatus prop
+function EndUserRoutes({ onLogout, subscriptionStatus, hasCustodyModule, hasIssuanceModule, hasQuotationModule = true, hasReconciliationModule = true }) { // NEW: Receive subscriptionStatus prop
   const isGracePeriod = subscriptionStatus === 'grace'; // NEW: Determine grace period status
+  const isQuotationOnly = !hasCustodyModule && !hasIssuanceModule && hasQuotationModule;
 
   return (
     <Routes>
       {/* End User Dashboard */}
-      <Route path="dashboard" element={<EndUserDashboard />} />
+      <Route path="dashboard" element={isQuotationOnly ? <Navigate to="../quotations/active" replace /> : <EndUserDashboard />} />
 
       {/* Action Center Page */}
-      <Route path="action-center" element={<EndUserActionCenter />} />
+      <Route path="action-center" element={isQuotationOnly ? <Navigate to="../quotations/active" replace /> : <EndUserActionCenter />} />
 
       {/* LG Custody routes — only if customer has custody module */}
       {hasCustodyModule ? (
@@ -96,8 +97,8 @@ function EndUserRoutes({ onLogout, subscriptionStatus, hasCustodyModule, hasIssu
         <Route path="my-lg-dashboard" element={<MyLGDashboardReport />} />
       </Route>
 
-      {/* Catch-all for End User paths, redirect to dashboard if no other match */}
-      <Route path="*" element={<Navigate to="dashboard" replace />} />
+      {/* Catch-all for End User paths, redirect to dashboard or quotation if no other match */}
+      <Route path="*" element={<Navigate to={isQuotationOnly ? "quotations/active" : "dashboard"} replace />} />
     </Routes>
   );
 }

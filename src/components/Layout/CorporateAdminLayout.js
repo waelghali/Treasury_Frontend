@@ -635,26 +635,30 @@ function CorporateAdminLayout({
                 >
                   <span>Settings</span>
                 </Link>
-                <Link
-                  to="/corporate-admin/inbox"
-                  className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
-                    activeMenuItem === 'smart-inbox'
-                      ? 'font-bold text-blue-400 bg-blue-500/15'
-                      : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
-                  }`}
-                >
-                  <span>Smart Inbox</span>
-                </Link>
-                <Link
-                  to="/corporate-admin/reports"
-                  className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
-                    activeMenuItem === 'reports'
-                      ? 'font-bold text-blue-400 bg-blue-500/15'
-                      : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
-                  }`}
-                >
-                  <span>Reports & Analytics</span>
-                </Link>
+                {(hasCustodyModule || hasIssuanceModule) && (
+                  <>
+                    <Link
+                      to="/corporate-admin/inbox"
+                      className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                        activeMenuItem === 'smart-inbox'
+                          ? 'font-bold text-blue-400 bg-blue-500/15'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <span>Smart Inbox</span>
+                    </Link>
+                    <Link
+                      to="/corporate-admin/reports"
+                      className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                        activeMenuItem === 'reports'
+                          ? 'font-bold text-blue-400 bg-blue-500/15'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <span>Reports & Analytics</span>
+                    </Link>
+                  </>
+                )}
                 <Link
                   to="/corporate-admin/audit-logs"
                   className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
