@@ -8,7 +8,8 @@ import { getRfqTimingState } from '../../utils/quotationTiming';
 import {
     Bell, Check, X, BarChart3, Landmark, Building, History, ChevronRight, Clock,
     Search, Filter, AlertCircle, TrendingUp, ArrowUpRight, ArrowDownRight, FileText, Download,
-    Undo2, RefreshCw, Sparkles, Trophy, AlertTriangle, Shield, ShieldAlert, Info, Loader2
+    Undo2, RefreshCw, Sparkles, Trophy, AlertTriangle, Shield, ShieldAlert, Info, Loader2,
+    Calendar, CalendarClock, Zap
 } from 'lucide-react';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -93,6 +94,15 @@ export default function AdminQuotationDashboard() {
     const [adminLegalAccepted, setAdminLegalAccepted] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
 
+    // Scheduled release state
+    const [releaseMode, setReleaseMode] = useState('IMMEDIATE'); // 'IMMEDIATE' | 'SCHEDULED'
+    const [scheduledDate, setScheduledDate] = useState('');
+    const [scheduledTime, setScheduledTime] = useState('10:00');
+    const [rescheduleModalRfq, setRescheduleModalRfq] = useState(null);
+    const [rescheduleDate, setRescheduleDate] = useState('');
+    const [rescheduleTime, setRescheduleTime] = useState('');
+    const [isRescheduling, setIsRescheduling] = useState(false);
+
     // Filters
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [typeFilter, setTypeFilter] = useState('ALL');
@@ -122,13 +132,81 @@ export default function AdminQuotationDashboard() {
         fetchData();
     }, [fetchData]);
 
+    const formatLocalDate = (d) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const formatLocalTime = (d) => {
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
+    };
+
+    const getDefaultScheduleTime = (rfq) => {
+        const now = new Date();
+        const qTimeRaw = rfq?.window_start || rfq?.window_end;
+        let defaultDate = null;
+
+        if (qTimeRaw) {
+            const quotationTime = new Date(qTimeRaw);
+            if (!isNaN(quotationTime.getTime())) {
+                const oneHourBefore = new Date(quotationTime.getTime() - 60 * 60 * 1000);
+                // If 1 hour before quotation time is still at least 2 minutes in the future, use it
+                if (oneHourBefore.getTime() > now.getTime() + 2 * 60 * 1000) {
+                    defaultDate = oneHourBefore;
+                } else {
+                    // Remaining time is less than 1 hour (or 1 hour before is in the past) -> default to now (+ 2 minutes)
+                    const soon = new Date(now.getTime() + 2 * 60 * 1000);
+                    // Ensure it does not exceed the quotation window close time
+                    if (rfq?.window_end) {
+                        const wEnd = new Date(rfq.window_end);
+                        if (!isNaN(wEnd.getTime()) && soon.getTime() >= wEnd.getTime()) {
+                            defaultDate = new Date(Math.max(now.getTime() + 60 * 1000, wEnd.getTime() - 60 * 1000));
+                        } else {
+                            defaultDate = soon;
+                        }
+                    } else {
+                        defaultDate = soon;
+                    }
+                }
+            }
+        }
+
+        if (!defaultDate) {
+            defaultDate = new Date(now.getTime() + 10 * 60 * 1000);
+        }
+
+        return {
+            date: formatLocalDate(defaultDate),
+            time: formatLocalTime(defaultDate)
+        };
+    };
+
     const executeApprove = async (rfqId) => {
+        let scheduledReleaseIso = null;
+        if (releaseMode === 'SCHEDULED') {
+            if (!scheduledDate || !scheduledTime) {
+                toast.error("Please pick both a date and time for scheduled release.");
+                return;
+            }
+            const combined = new Date(`${scheduledDate}T${scheduledTime}:00`);
+            if (combined <= new Date()) {
+                toast.error("Scheduled release time must be in the future.");
+                return;
+            }
+            scheduledReleaseIso = combined.toISOString();
+        }
+
         setIsApproving(true);
         try {
-            await apiClient.post(`/corporate-admin/quotations/${rfqId}/approve`, {
-                legal_disclaimer_accepted: true
+            const res = await apiClient.post(`/corporate-admin/quotations/${rfqId}/approve`, {
+                legal_disclaimer_accepted: true,
+                scheduled_release_at: scheduledReleaseIso
             });
-            toast.success("Quotation approved and released to banks!");
+            toast.success(res.data?.message || "Quotation approved!");
             setApprovingRfq(null);
             fetchData();
         } catch (err) {
@@ -141,30 +219,69 @@ export default function AdminQuotationDashboard() {
     const handleApprove = async (rfqId) => {
         const rfq = pendingApprovals.find(r => r.id === rfqId);
         if (!rfq) return;
-        let diffMins = null;
         if (rfq?.window_end) {
             const closingTime = new Date(rfq.window_end);
             const now = new Date();
-            diffMins = Math.round((closingTime - now) / 60000);
+            const diffMins = Math.round((closingTime - now) / 60000);
             if (diffMins < 0) {
                 toast.error("The window for this quotation has already closed.");
                 return;
             }
         }
-        if (rfq.quotation_base === 'Indicative') {
-            // Indicative quotation has no binding settlement and no disclaimer modal will appear.
-            // Warn only if time is tight (< 30 min)
-            if (diffMins !== null && diffMins < 30) {
-                if (!window.confirm(`This quotation has only ${diffMins} minutes remaining. Are you sure you want to approve and release it?`)) {
-                    return;
-                }
-            }
-            executeApprove(rfq.id);
-        } else {
-            // Firm Execution quotation requires explicit legal commitment authorization
-            // Opens the disclaimer modal directly without interrupting popup message
-            setAdminLegalAccepted(false);
-            setApprovingRfq(rfq);
+        const def = getDefaultScheduleTime(rfq);
+        setScheduledDate(def.date);
+        setScheduledTime(def.time);
+        setReleaseMode('IMMEDIATE');
+        setAdminLegalAccepted(rfq.quotation_base === 'Indicative');
+        setApprovingRfq(rfq);
+    };
+
+    const executeReleaseNow = async (rfqId) => {
+        if (!window.confirm("Release this quotation to bank counterparties immediately?")) return;
+        try {
+            await apiClient.post(`/corporate-admin/quotations/${rfqId}/reschedule-release`, {
+                release_now: true
+            });
+            toast.success("Quotation released to banks immediately!");
+            fetchData();
+        } catch (err) {
+            toast.error("Failed to release: " + (err.response?.data?.detail || err.message));
+        }
+    };
+
+    const executeCancelScheduledRelease = async (rfqId) => {
+        if (!window.confirm("Cancel scheduled release and return quotation to pending approval?")) return;
+        try {
+            await apiClient.post(`/corporate-admin/quotations/${rfqId}/cancel-scheduled-release`);
+            toast.success("Scheduled release cancelled. RFQ returned to pending approval.");
+            fetchData();
+        } catch (err) {
+            toast.error("Failed to cancel scheduled release: " + (err.response?.data?.detail || err.message));
+        }
+    };
+
+    const executeReschedule = async (rfqId) => {
+        if (!rescheduleDate || !rescheduleTime) {
+            toast.error("Please select both a date and time.");
+            return;
+        }
+        const combined = new Date(`${rescheduleDate}T${rescheduleTime}:00`);
+        if (combined <= new Date()) {
+            toast.error("Scheduled release time must be in the future.");
+            return;
+        }
+        setIsRescheduling(true);
+        try {
+            await apiClient.post(`/corporate-admin/quotations/${rfqId}/reschedule-release`, {
+                scheduled_release_at: combined.toISOString()
+            });
+            toast.success("Scheduled release updated successfully!");
+            setRescheduleModalRfq(null);
+            fetchData();
+        } catch (err) {
+            toast.error("Failed to reschedule: " + (err.response?.data?.detail || err.message));
+        } finally {
+            setIsRescheduling(false);
         }
     };
 
@@ -356,18 +473,29 @@ export default function AdminQuotationDashboard() {
             {pendingApprovals.length > 0 && (
                 <section className="animate-in fade-in slide-in-from-top-4 duration-500">
                     <h3 className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-4 flex items-center gap-2">
-                        <Bell size={14} className="animate-pulse" /> Action Required: {pendingApprovals.length} Pending Approval{pendingApprovals.length > 1 ? 's' : ''}
+                        <Bell size={14} className="animate-pulse" /> Action Required: {pendingApprovals.length} Quotation Request{pendingApprovals.length > 1 ? 's' : ''} (Pending / Scheduled)
                     </h3>
                     <div className="space-y-4">
                         {pendingApprovals.map((rfq) => (
-                            <div key={rfq.id} className="bg-white p-5 sm:p-6 rounded-2xl shadow-md border border-orange-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sm:gap-6">
+                            <div key={rfq.id} className={`bg-white p-5 sm:p-6 rounded-2xl shadow-md border flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sm:gap-6 ${
+                                rfq.status === 'APPROVED_SCHEDULED' ? 'border-blue-300 bg-blue-50/20 ring-1 ring-blue-100' : 'border-orange-100'
+                            }`}>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                        <span className="font-mono text-sm font-bold bg-orange-50 text-orange-700 px-2 py-0.5 rounded">{rfq.ref_no}</span>
+                                        <span className={`font-mono text-sm font-bold px-2 py-0.5 rounded ${
+                                            rfq.status === 'APPROVED_SCHEDULED' ? 'bg-blue-100 text-blue-800' : 'bg-orange-50 text-orange-700'
+                                        }`}>
+                                            {rfq.ref_no}
+                                        </span>
                                         <span className="text-xs font-bold text-gray-400 uppercase">{rfq.type === 'TBILL' ? 'T-Bill' : 'FX Spot'}</span>
                                         {rfq.entity_name && (
                                             <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                                                 🏢 {rfq.entity_name}
+                                            </span>
+                                        )}
+                                        {rfq.status === 'APPROVED_SCHEDULED' && (
+                                            <span className="text-xs font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2.5 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                                                <Clock size={12} /> Scheduled for {formatDateTime(rfq.scheduled_release_at)}
                                             </span>
                                         )}
                                     </div>
@@ -386,9 +514,22 @@ export default function AdminQuotationDashboard() {
                                         </div>
                                     )}
 
+                                    {/* Scheduled Info Alert */}
+                                    {rfq.status === 'APPROVED_SCHEDULED' && (
+                                        <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2">
+                                                <CalendarClock size={16} className="text-blue-600 shrink-0" />
+                                                <span>
+                                                    <strong>Approved by Corporate Admin.</strong> Counterparty bank emails are scheduled for dispatch at{' '}
+                                                    <span className="font-bold underline text-blue-800">{formatDateTime(rfq.scheduled_release_at)}</span>.
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Assigned Counterparties Breakdown */}
                                     {rfq.assigned_banks && rfq.assigned_banks.length > 0 && (
-                                        <div className="mt-3 pt-3 border-t border-orange-100 flex flex-wrap items-center gap-2">
+                                        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
                                             <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
                                                 Counterparties ({rfq.assigned_banks.length}):
                                             </span>
@@ -401,8 +542,8 @@ export default function AdminQuotationDashboard() {
                                                     <strong className="text-slate-900">{b.bank_name}</strong>
                                                     <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                                                         (b.quotation_base || rfq.quotation_base) === 'Execution'
-                                                            ? 'bg-amber-100 text-amber-900'
-                                                            : 'bg-purple-100 text-purple-900'
+                                                             ? 'bg-amber-100 text-amber-900'
+                                                             : 'bg-purple-100 text-purple-900'
                                                     }`}>
                                                         {b.quotation_base || rfq.quotation_base || 'Execution'}
                                                     </span>
@@ -424,32 +565,72 @@ export default function AdminQuotationDashboard() {
                                         </div>
                                     )}
                                 </div>
+
                                 <div className="flex flex-wrap gap-2.5 shrink-0">
-                                    <button
-                                        onClick={() => setSelectedRfqId(rfq.id)}
-                                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 font-semibold transition-all text-xs"
-                                    >
-                                        <ChevronRight size={15} /> Review
-                                    </button>
-                                    <button
-                                        onClick={() => setRevisionModalRfq(rfq)}
-                                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold transition-all text-xs border border-amber-200"
-                                        title="Send back to creator with revision comments"
-                                    >
-                                        <Undo2 size={15} /> Return for Revision
-                                    </button>
-                                    <button
-                                        onClick={() => handleReject(rfq.id)}
-                                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-50 text-gray-600 hover:bg-red-50 hover:text-red-600 font-bold transition-all text-xs"
-                                    >
-                                        <X size={15} /> Reject
-                                    </button>
-                                    <button
-                                        onClick={() => handleApprove(rfq.id)}
-                                        className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-black text-white hover:bg-gray-800 font-bold shadow-lg shadow-gray-200 transition-all text-xs"
-                                    >
-                                        <Check size={15} /> Approve
-                                    </button>
+                                    {rfq.status === 'APPROVED_SCHEDULED' ? (
+                                        <>
+                                            <button
+                                                onClick={() => executeReleaseNow(rfq.id)}
+                                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all text-xs shadow-md shadow-emerald-600/20 cursor-pointer"
+                                                title="Send invitation emails to bank dealers immediately"
+                                            >
+                                                <Zap size={14} /> Release Now
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setRescheduleModalRfq(rfq);
+                                                    if (rfq.scheduled_release_at) {
+                                                        const d = new Date(rfq.scheduled_release_at);
+                                                        setRescheduleDate(formatLocalDate(d));
+                                                        setRescheduleTime(formatLocalTime(d));
+                                                    } else {
+                                                        const def = getDefaultScheduleTime(rfq);
+                                                        setRescheduleDate(def.date);
+                                                        setRescheduleTime(def.time);
+                                                    }
+                                                }}
+                                                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold transition-all text-xs border border-blue-200 cursor-pointer"
+                                                title="Change scheduled dispatch time"
+                                            >
+                                                <Clock size={14} /> Reschedule
+                                            </button>
+                                            <button
+                                                onClick={() => executeCancelScheduledRelease(rfq.id)}
+                                                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-50 text-gray-600 hover:bg-rose-50 hover:text-rose-700 font-bold transition-all text-xs border border-gray-200 cursor-pointer"
+                                                title="Cancel scheduled dispatch and return to pending approval"
+                                            >
+                                                <X size={14} /> Cancel Release
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={() => setSelectedRfqId(rfq.id)}
+                                                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 font-semibold transition-all text-xs cursor-pointer"
+                                            >
+                                                <ChevronRight size={15} /> Review
+                                            </button>
+                                            <button
+                                                onClick={() => setRevisionModalRfq(rfq)}
+                                                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold transition-all text-xs border border-amber-200 cursor-pointer"
+                                                title="Send back to creator with revision comments"
+                                            >
+                                                <Undo2 size={15} /> Return for Revision
+                                            </button>
+                                            <button
+                                                onClick={() => handleReject(rfq.id)}
+                                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-50 text-gray-600 hover:bg-red-50 hover:text-red-600 font-bold transition-all text-xs cursor-pointer"
+                                            >
+                                                <X size={15} /> Reject
+                                            </button>
+                                            <button
+                                                onClick={() => handleApprove(rfq.id)}
+                                                className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-black text-white hover:bg-gray-800 font-bold shadow-lg shadow-gray-200 transition-all text-xs cursor-pointer"
+                                            >
+                                                <Check size={15} /> Approve
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -785,9 +966,10 @@ export default function AdminQuotationDashboard() {
 
             {/* Corporate Admin Execution Commitment & Approval Modal */}
             {approvingRfq && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-amber-200 animate-scale-up">
-                        <div className="p-5 sm:p-6 bg-amber-500 text-white flex items-center justify-between">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 sm:p-6 animate-fade-in">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl lg:max-w-5xl max-h-[88vh] flex flex-col overflow-hidden border border-amber-200 animate-scale-up">
+                        {/* Modal Header (Fixed Sticky Top) */}
+                        <div className="p-4 sm:p-5 bg-gradient-to-r from-amber-500 to-amber-600 text-white flex items-center justify-between shrink-0 shadow-xs">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
                                     <ShieldAlert size={22} className="text-white" />
@@ -799,131 +981,309 @@ export default function AdminQuotationDashboard() {
                             </div>
                             <button
                                 onClick={() => { if (!isApproving) setApprovingRfq(null); }}
-                                className="text-white/80 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                                className="text-white/80 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
                             >
                                 <X size={20} />
                             </button>
                         </div>
 
-                        <div className="p-6 space-y-5">
-                            {/* Summary Card */}
-                            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-xs space-y-2">
-                                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
-                                    <span className="text-slate-500 font-medium">RFQ Reference:</span>
-                                    <span className="font-mono font-bold text-slate-900">{approvingRfq.ref_no}</span>
-                                </div>
-                                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
-                                    <span className="text-slate-500 font-medium">Requesting Entity:</span>
-                                    <span className="font-bold text-indigo-700">{approvingRfq.entity_name || 'Legal Entity'}</span>
-                                </div>
-                                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
-                                    <span className="text-slate-500 font-medium">Deal Type & Volume:</span>
-                                    <span className="font-bold text-slate-900">
-                                        {approvingRfq.type === 'TBILL'
-                                            ? `${approvingRfq.direction} T-Bill Quotation`
-                                            : `${approvingRfq.direction} ${approvingRfq.amount?.toLocaleString()} ${approvingRfq.buy_currency}/${approvingRfq.sell_currency}`}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-slate-500 font-medium">Quotation Base:</span>
-                                    {(() => {
-                                        const bases = Array.from(new Set((approvingRfq.assigned_banks || []).map(b => b.quotation_base).filter(Boolean)));
-                                        const isMixed = bases.length > 1;
-                                        const displayBase = isMixed ? 'Mixed Bases' : (bases[0] || approvingRfq.quotation_base || 'Firm Execution');
-                                        return (
-                                            <span className={`font-bold px-2 py-0.5 rounded border ${
-                                                isMixed 
-                                                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200' 
-                                                    : displayBase === 'Indicative' 
-                                                        ? 'text-purple-700 bg-purple-50 border-purple-200'
-                                                        : 'text-amber-700 bg-amber-50 border-amber-200'
-                                            }`}>
-                                                {isMixed ? `⚡ ${displayBase} (${bases.join(', ')})` : (displayBase === 'Execution' ? 'Firm Execution' : displayBase)}
+                        {/* Modal Body (Scrollable with min-h-0) */}
+                        <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+                            {/* 2-Column Grid: Summary on Left, Release Timing on Right */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                                {/* Left Column: RFQ Summary & Counterparties */}
+                                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-xs space-y-2.5">
+                                    <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                                        <span className="text-slate-500 font-medium">RFQ Reference:</span>
+                                        <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">{approvingRfq.ref_no}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                                        <span className="text-slate-500 font-medium">Requesting Entity:</span>
+                                        <span className="font-bold text-indigo-700">{approvingRfq.entity_name || 'Legal Entity'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                                        <span className="text-slate-500 font-medium">Deal Type & Volume:</span>
+                                        <span className="font-bold text-slate-900">
+                                            {approvingRfq.type === 'TBILL'
+                                                ? `${approvingRfq.direction} T-Bill Quotation`
+                                                : `${approvingRfq.direction} ${approvingRfq.amount?.toLocaleString()} ${approvingRfq.buy_currency}/${approvingRfq.sell_currency}`}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                                        <span className="text-slate-500 font-medium">Quotation Base:</span>
+                                        {(() => {
+                                            const bases = Array.from(new Set((approvingRfq.assigned_banks || []).map(b => b.quotation_base).filter(Boolean)));
+                                            const isMixed = bases.length > 1;
+                                            const displayBase = isMixed ? 'Mixed Bases' : (bases[0] || approvingRfq.quotation_base || 'Firm Execution');
+                                            return (
+                                                <span className={`font-bold px-2 py-0.5 rounded border ${
+                                                    isMixed 
+                                                        ? 'text-indigo-700 bg-indigo-50 border-indigo-200' 
+                                                        : displayBase === 'Indicative' 
+                                                            ? 'text-purple-700 bg-purple-50 border-purple-200'
+                                                            : 'text-amber-700 bg-amber-50 border-amber-200'
+                                                }`}>
+                                                    {isMixed ? `⚡ ${displayBase} (${bases.join(', ')})` : (displayBase === 'Execution' ? 'Firm Execution' : displayBase)}
+                                                </span>
+                                            );
+                                        })()}
+                                    </div>
+
+                                    {/* Counterparties list */}
+                                    {approvingRfq.assigned_banks && approvingRfq.assigned_banks.length > 0 && (
+                                        <div className="pt-1 space-y-1.5">
+                                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                                                Assigned Counterparties ({approvingRfq.assigned_banks.length}):
                                             </span>
-                                        );
+                                            <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 bg-white rounded-xl border border-slate-200/60">
+                                                {approvingRfq.assigned_banks.map((b, idx) => (
+                                                    <span key={idx} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-[11px] text-slate-800">
+                                                        <strong>{b.bank_name}</strong>
+                                                        <span className={`px-1 py-0.2 rounded text-[9px] font-bold ${
+                                                            (b.quotation_base || approvingRfq.quotation_base) === 'Execution'
+                                                                ? 'bg-amber-100 text-amber-900'
+                                                                : 'bg-purple-100 text-purple-900'
+                                                        }`}>
+                                                            {b.quotation_base || approvingRfq.quotation_base || 'Execution'}
+                                                        </span>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {approvingRfq.window_end && (() => {
+                                        const diff = Math.round((new Date(approvingRfq.window_end) - new Date()) / 60000);
+                                        if (diff > 0 && diff < 30) {
+                                            return (
+                                                <div className="flex items-center gap-1.5 pt-1 text-amber-800 font-semibold text-[11px]">
+                                                    <Clock size={13} className="text-amber-600 shrink-0" />
+                                                    <span>Quotation window closes in <strong>{diff} minutes</strong></span>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
                                     })()}
                                 </div>
-                                {approvingRfq.assigned_banks && approvingRfq.assigned_banks.length > 0 && (
-                                    <div className="pt-2 border-t border-slate-200/60 space-y-1.5">
-                                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                                            Assigned Counterparties ({approvingRfq.assigned_banks.length}):
-                                        </span>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {approvingRfq.assigned_banks.map((b, idx) => (
-                                                <span key={idx} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] text-slate-800 shadow-2xs">
-                                                    <strong>{b.bank_name}</strong>
-                                                    <span className={`px-1 py-0.2 rounded text-[9px] font-bold ${
-                                                        (b.quotation_base || approvingRfq.quotation_base) === 'Execution'
-                                                            ? 'bg-amber-100 text-amber-900'
-                                                            : 'bg-purple-100 text-purple-900'
-                                                    }`}>
-                                                        {b.quotation_base || approvingRfq.quotation_base || 'Execution'}
-                                                    </span>
-                                                    {b.value_date && (
-                                                        <span className={`font-mono text-[10px] ${b.is_custom_value_date ? 'text-blue-700 font-bold' : 'text-slate-500'}`}>
-                                                            {b.value_date}
-                                                        </span>
-                                                    )}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                                {approvingRfq.window_end && (() => {
-                                    const diff = Math.round((new Date(approvingRfq.window_end) - new Date()) / 60000);
-                                    if (diff > 0 && diff < 30) {
-                                        return (
-                                            <div className="flex items-center gap-1.5 pt-2 border-t border-slate-200/60 text-amber-800 font-semibold">
-                                                <Clock size={13} className="text-amber-600 shrink-0" />
-                                                <span>Note: Quotation window closes in <strong>{diff} minutes</strong></span>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                })()}
-                            </div>
 
-                            {/* Mandatory Legal Disclaimer & Liability Acknowledgment */}
-                            <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/70 border-2 border-amber-300 text-amber-950 text-xs leading-relaxed space-y-2.5 transition-all">
-                                <div className="flex items-start gap-3">
-                                    <input
-                                        type="checkbox"
-                                        id="adminLegalConfirmed"
-                                        checked={adminLegalAccepted}
-                                        onChange={e => setAdminLegalAccepted(e.target.checked)}
-                                        className="mt-0.5 h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500 cursor-pointer shrink-0"
-                                    />
-                                    <label htmlFor="adminLegalConfirmed" className="cursor-pointer select-none space-y-1.5">
-                                        <span className="font-bold text-[11px] uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-                                            <Shield size={14} className="text-amber-700 shrink-0" />
-                                            MANDATORY COUNTERPARTY LIABILITY & EXECUTION ACKNOWLEDGMENT <span className="text-rose-600">*</span>
-                                        </span>
-                                        <p className="text-xs text-amber-950 leading-relaxed">
-                                            I confirm and authorize this Firm Execution RFQ on behalf of <strong className="underline text-slate-900">{approvingRfq.entity_name ? (approvingRfq.entity_code ? `${approvingRfq.entity_name} (${approvingRfq.entity_code})` : approvingRfq.entity_name) : 'our legal entity'}</strong>. I acknowledge that selecting invited bank counterparties is solely our responsibility and that the winning quote automatically awarded at window closure constitutes a direct, legally enforceable settlement obligation between our legal entity and the winning bank. I acknowledge that Grow Treasury operates solely as an independent communications and workflow venue (&ldquo;AS IS&rdquo;) and bears no transaction, credit, execution, or settlement liability.
-                                        </p>
-                                    </label>
+                                {/* Right Column: Release Timing Selector */}
+                                <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200 text-slate-800 flex flex-col justify-between space-y-3">
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs font-bold text-blue-900 flex items-center gap-1.5 uppercase tracking-wider">
+                                                <Clock size={14} className="text-blue-700" />
+                                                Bank Email Dispatch Timing
+                                            </label>
+                                            <span className="text-[11px] font-semibold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md">
+                                                {releaseMode === 'IMMEDIATE' ? 'Immediate' : 'Delayed Scheduled'}
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                            <button
+                                                type="button"
+                                                onClick={() => setReleaseMode('IMMEDIATE')}
+                                                className={`py-2 px-3 rounded-xl border text-center font-bold transition-all cursor-pointer ${
+                                                    releaseMode === 'IMMEDIATE'
+                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                ⚡ Release Immediately
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setReleaseMode('SCHEDULED')}
+                                                className={`py-2 px-3 rounded-xl border text-center font-bold transition-all cursor-pointer ${
+                                                    releaseMode === 'SCHEDULED'
+                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                🕒 Schedule for Later
+                                            </button>
+                                        </div>
+
+                                        {releaseMode === 'SCHEDULED' ? (
+                                            <div className="grid grid-cols-2 gap-2.5 pt-1 animate-in fade-in duration-200">
+                                                <div>
+                                                    <label className="text-[11px] font-semibold text-slate-700 mb-1 block">
+                                                        Release Date <span className="text-rose-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="date"
+                                                        value={scheduledDate}
+                                                        min={new Date().toISOString().split('T')[0]}
+                                                        onChange={e => setScheduledDate(e.target.value)}
+                                                        className="w-full text-xs p-2.5 rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[11px] font-semibold text-slate-700 mb-1 block">
+                                                        Release Time (Cairo) <span className="text-rose-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="time"
+                                                        value={scheduledTime}
+                                                        onChange={e => setScheduledTime(e.target.value)}
+                                                        className="w-full text-xs p-2.5 rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                                                    />
+                                                </div>
+                                                <p className="text-[11px] text-blue-700 col-span-2 italic leading-tight">
+                                                    * Emails and OTP links will be dispatched automatically to bank dealers at this time.
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className="p-3 bg-white/80 rounded-xl border border-blue-100 text-[11px] text-slate-600 leading-relaxed">
+                                                Approval will immediately broadcast quotation invitation emails to all {approvingRfq.assigned_banks?.length || 0} assigned bank trading desks.
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Actions */}
-                            <div className="flex items-center justify-end gap-3 pt-2">
+                            {/* Legal Disclaimer & Liability Acknowledgment (Conditional: Mandatory for Execution, Informational for Indicative) */}
+                            {((approvingRfq.quotation_base || '').toLowerCase() === 'indicative') ? (
+                                <div className="p-3.5 sm:p-4 rounded-2xl bg-indigo-50/80 border border-indigo-200 text-indigo-950 text-xs leading-relaxed space-y-1.5 transition-all">
+                                    <div className="flex items-start gap-2.5">
+                                        <Info size={16} className="text-indigo-600 shrink-0 mt-0.5" />
+                                        <div>
+                                            <span className="font-bold text-[11px] uppercase tracking-wider text-indigo-900 block">
+                                                Indicative Market Discovery Quotation
+                                            </span>
+                                            <p className="text-xs text-indigo-900/90 leading-relaxed mt-0.5">
+                                                This RFQ is requested for <strong>Indicative pricing discovery / market color only</strong>. Submitted bank quotes are non-binding and do not constitute a direct settlement obligation. Authorization will release this RFQ to the assigned counterparties for price indications without triggering binding execution acceptance.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-50/70 border border-amber-300 text-amber-950 text-xs leading-relaxed space-y-2 transition-all">
+                                    <div className="flex items-start gap-3">
+                                        <input
+                                            type="checkbox"
+                                            id="adminLegalConfirmed"
+                                            checked={adminLegalAccepted}
+                                            onChange={e => setAdminLegalAccepted(e.target.checked)}
+                                            className="mt-0.5 h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500 cursor-pointer shrink-0"
+                                        />
+                                        <label htmlFor="adminLegalConfirmed" className="cursor-pointer select-none space-y-1">
+                                            <span className="font-bold text-[11px] uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                                                <Shield size={14} className="text-amber-700 shrink-0" />
+                                                MANDATORY COUNTERPARTY LIABILITY & EXECUTION ACKNOWLEDGMENT <span className="text-rose-600">*</span>
+                                            </span>
+                                            <p className="text-xs text-amber-950 leading-relaxed">
+                                                I confirm and authorize this Firm Execution RFQ on behalf of <strong className="underline text-slate-900">{approvingRfq.entity_name ? (approvingRfq.entity_code ? `${approvingRfq.entity_name} (${approvingRfq.entity_code})` : approvingRfq.entity_name) : 'our legal entity'}</strong>. I acknowledge that selecting invited bank counterparties is solely our responsibility and that any quote awarded at window closure constitutes a direct, legally enforceable settlement obligation between our legal entity and the winning bank.
+                                            </p>
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Footer (Always Visible Sticky Bottom) */}
+                        <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-200/80 flex items-center justify-end gap-3 shrink-0">
+                            <button
+                                type="button"
+                                disabled={isApproving}
+                                onClick={() => setApprovingRfq(null)}
+                                className="px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                disabled={(((approvingRfq.quotation_base || '').toLowerCase() !== 'indicative' && !adminLegalAccepted)) || isApproving}
+                                onClick={() => executeApprove(approvingRfq.id)}
+                                className={`px-6 py-2.5 rounded-xl text-white text-xs font-bold shadow-md disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 cursor-pointer ${
+                                    releaseMode === 'SCHEDULED' ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20' : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
+                                }`}
+                            >
+                                {isApproving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                                {isApproving ? 'Authorizing...' : (releaseMode === 'SCHEDULED' ? 'Confirm & Schedule Release' : 'Confirm & Release to Banks')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Reschedule Release Modal */}
+            {rescheduleModalRfq && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-slate-100 overflow-hidden">
+                        <div className="p-6 bg-linear-to-r from-blue-700 to-indigo-800 text-white flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-xl bg-white/10 backdrop-blur-sm">
+                                    <Clock size={20} className="text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-base">Reschedule Bank Release</h3>
+                                    <p className="text-blue-100 text-xs font-mono">{rescheduleModalRfq.ref_no}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setRescheduleModalRfq(null)}
+                                className="p-1.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer text-white/80 hover:text-white"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-xs text-slate-600">
+                                Counterparty invitations are currently scheduled for{' '}
+                                <strong className="text-slate-900">{formatDateTime(rescheduleModalRfq.scheduled_release_at)}</strong>. You can update the dispatch date & time or release immediately.
+                            </p>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-[11px] font-semibold text-slate-700 mb-1 block">New Release Date</label>
+                                    <input
+                                        type="date"
+                                        value={rescheduleDate}
+                                        min={new Date().toISOString().split('T')[0]}
+                                        onChange={e => setRescheduleDate(e.target.value)}
+                                        className="w-full text-xs p-2.5 rounded-xl border border-slate-300 bg-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[11px] font-semibold text-slate-700 mb-1 block">New Release Time</label>
+                                    <input
+                                        type="time"
+                                        value={rescheduleTime}
+                                        onChange={e => setRescheduleTime(e.target.value)}
+                                        className="w-full text-xs p-2.5 rounded-xl border border-slate-300 bg-white"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                                 <button
                                     type="button"
-                                    disabled={isApproving}
-                                    onClick={() => setApprovingRfq(null)}
-                                    className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                                    onClick={() => {
+                                        const rfqId = rescheduleModalRfq.id;
+                                        setRescheduleModalRfq(null);
+                                        executeReleaseNow(rfqId);
+                                    }}
+                                    className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 cursor-pointer"
                                 >
-                                    Cancel
+                                    <Zap size={14} /> Release Now Instead
                                 </button>
-                                <button
-                                    type="button"
-                                    disabled={!adminLegalAccepted || isApproving}
-                                    onClick={() => executeApprove(approvingRfq.id)}
-                                    className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md shadow-amber-600/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 cursor-pointer"
-                                >
-                                    {isApproving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                                    {isApproving ? 'Authorizing & Releasing...' : 'Confirm & Release to Banks'}
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setRescheduleModalRfq(null)}
+                                        className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={isRescheduling}
+                                        onClick={() => executeReschedule(rescheduleModalRfq.id)}
+                                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                    >
+                                        {isRescheduling ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                                        Save New Time
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
