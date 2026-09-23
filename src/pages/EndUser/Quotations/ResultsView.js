@@ -21,6 +21,16 @@ const formatDate = (d) => {
     }
 };
 
+const formatAmount = (val) => {
+    if (val === null || val === undefined || val === '') return '0.00';
+    const num = Number(val);
+    if (isNaN(num)) return '0.00';
+    return num.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+};
+
 const renderApprovalBadge = (result) => {
     if (!result || !result.approval_status) return null;
 
@@ -1210,7 +1220,7 @@ export default function ResultsView({ rfqId }) {
                                 </div>
                                 <div>
                                     <span className="font-sans text-[10px] font-bold text-slate-400 uppercase block">Trade Volume</span>
-                                    <span className="font-bold text-slate-900">{rfq?.amount?.toLocaleString()} {rfq?.buy_currency}</span>
+                                    <span className="font-bold text-slate-900">{formatAmount(rfq?.amount)} {rfq?.buy_currency}</span>
                                 </div>
                                 <div>
                                     <span className="font-sans text-[10px] font-bold text-slate-400 uppercase block">Value Date</span>

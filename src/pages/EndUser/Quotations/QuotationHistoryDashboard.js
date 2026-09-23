@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
@@ -8,7 +8,8 @@ import { jwtDecode } from 'jwt-decode';
 import { toast } from 'react-toastify';
 import {
     Check, X, Bell, Download, BarChart3, Landmark, Building, History, ChevronRight,
-    RefreshCw, AlertCircle, Radio, Clock, Undo2, ArrowUpRight, CheckCircle2, Trophy, XCircle, FileText
+    RefreshCw, AlertCircle, Radio, Clock, Undo2, ArrowUpRight, CheckCircle2, Trophy, XCircle, FileText,
+    Search, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Filter
 } from 'lucide-react';
 import QuotationCancellationModal from '../../../components/Modals/QuotationCancellationModal';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -28,6 +29,16 @@ const formatDate = (d) => {
     }
 };
 
+const formatAmount = (val) => {
+    if (val === null || val === undefined || val === '') return '0.00';
+    const num = Number(val);
+    if (isNaN(num)) return '0.00';
+    return num.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+};
+
 export default function QuotationHistoryDashboard() {
     const [history, setHistory] = useState([]);
     const [stats, setStats] = useState([]);
@@ -37,6 +48,11 @@ export default function QuotationHistoryDashboard() {
     const [userRole, setUserRole] = useState(null);
     const [activeTab, setActiveTab] = useState('ALL'); // 'ALL' | 'LIVE' | 'ARCHIVE'
     const [entityFilter, setEntityFilter] = useState('ALL');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [typeFilter, setTypeFilter] = useState('ALL'); // 'ALL' | 'FX_SPOT' | 'TBILL'
+    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [sortField, setSortField] = useState('created_at');
+    const [sortDirection, setSortDirection] = useState('desc'); // 'asc' | 'desc'
     const [reTenderModalRfq, setReTenderModalRfq] = useState(null);
     const [cancelModalRfq, setCancelModalRfq] = useState(null);
     const location = useLocation();
@@ -176,9 +192,112 @@ export default function QuotationHistoryDashboard() {
     );
 
     const baseRfqs = activeTab === 'LIVE' ? liveRfqs : activeTab === 'ARCHIVE' ? archivedRfqs : history;
-    const displayedRfqs = entityFilter === 'ALL'
-        ? baseRfqs
-        : baseRfqs.filter(r => String(r.entity_id) === String(entityFilter));
+
+    const hasActiveFilters = searchQuery.trim() !== '' || typeFilter !== 'ALL' || statusFilter !== 'ALL' || entityFilter !== 'ALL';
+
+    const resetAllFilters = () => {
+        setSearchQuery('');
+        setTypeFilter('ALL');
+        setStatusFilter('ALL');
+        setEntityFilter('ALL');
+        setSortField('created_at');
+        setSortDirection('desc');
+    };
+
+    const handleSort = (field) => {
+        if (sortField === field) {
+            setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+        } else {
+            setSortField(field);
+            setSortDirection(field === 'created_at' || field === 'amount' ? 'desc' : 'asc');
+        }
+    };
+
+    const displayedRfqs = useMemo(() => {
+        let list = baseRfqs;
+
+        if (entityFilter !== 'ALL') {
+            list = list.filter(r => String(r.entity_id) === String(entityFilter));
+        }
+
+        if (typeFilter !== 'ALL') {
+            list = list.filter(r => r.type === typeFilter);
+        }
+
+        if (statusFilter !== 'ALL') {
+            list = list.filter(r => r.status === statusFilter);
+        }
+
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase().trim();
+            list = list.filter(r => {
+                const refNo = (r.ref_no || '').toLowerCase();
+                const entityName = (r.entity_name || '').toLowerCase();
+                const type = (r.type || '').toLowerCase();
+                const direction = (r.direction || '').toLowerCase();
+                const buyCurr = (r.buy_currency || '').toLowerCase();
+                const sellCurr = (r.sell_currency || '').toLowerCase();
+                const notes = (r.internal_notes || '').toLowerCase();
+                const creator = (r.creator_name || '').toLowerCase();
+                const winner = (r.winning_bank_name || '').toLowerCase();
+                const status = (r.status || '').toLowerCase();
+                const details = (r.type === 'TBILL' ? r.direction : `${r.buy_currency}/${r.sell_currency}`) || '';
+
+                return refNo.includes(q) ||
+                    entityName.includes(q) ||
+                    type.includes(q) ||
+                    direction.includes(q) ||
+                    buyCurr.includes(q) ||
+                    sellCurr.includes(q) ||
+                    notes.includes(q) ||
+                    creator.includes(q) ||
+                    winner.includes(q) ||
+                    status.includes(q) ||
+                    details.toLowerCase().includes(q);
+            });
+        }
+
+        return [...list].sort((a, b) => {
+            let valA, valB;
+            switch (sortField) {
+                case 'ref_no':
+                    valA = a.ref_no || '';
+                    valB = b.ref_no || '';
+                    return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+
+                case 'entity':
+                    valA = a.entity_name || '';
+                    valB = b.entity_name || '';
+                    return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+
+                case 'type':
+                    valA = a.type || '';
+                    valB = b.type || '';
+                    return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+
+                case 'details':
+                    valA = a.type === 'TBILL' ? (a.direction || '') : `${a.buy_currency}/${a.sell_currency}`;
+                    valB = b.type === 'TBILL' ? (b.direction || '') : `${b.buy_currency}/${b.sell_currency}`;
+                    return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+
+                case 'amount':
+                    valA = Number(a.amount) || 0;
+                    valB = Number(b.amount) || 0;
+                    return sortDirection === 'asc' ? valA - valB : valB - valA;
+
+                case 'status':
+                    valA = a.status || '';
+                    valB = b.status || '';
+                    return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+
+                case 'created_at':
+                default:
+                    valA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                    valB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                    return sortDirection === 'asc' ? valA - valB : valB - valA;
+            }
+        });
+    }, [baseRfqs, entityFilter, typeFilter, statusFilter, searchQuery, sortField, sortDirection]);
 
     if (loading) return <div className="p-12 text-center text-gray-500">Loading quotation history...</div>;
 
@@ -216,7 +335,7 @@ export default function QuotationHistoryDashboard() {
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <span className="font-mono text-xs font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded">{rfq.ref_no}</span>
-                                        <span className="text-xs text-gray-700 font-semibold">{rfq.direction} {rfq.amount?.toLocaleString()} {rfq.buy_currency}</span>
+                                        <span className="text-xs text-gray-700 font-semibold">{rfq.direction} {formatAmount(rfq.amount)} {rfq.buy_currency}</span>
                                     </div>
                                     {rfq.admin_revision_notes && (
                                         <p className="text-xs text-amber-950 mt-1.5 italic pl-2 border-l-2 border-amber-400">
@@ -251,7 +370,7 @@ export default function QuotationHistoryDashboard() {
                                         <span className="text-xs font-bold text-gray-400 uppercase">{rfq.type === 'TBILL' ? 'T-Bill' : 'FX Spot'}</span>
                                     </div>
                                     <div className="text-lg font-bold text-gray-900">
-                                        {rfq.type === 'TBILL' ? `${rfq.direction} Quotation` : `${rfq.direction} ${rfq.amount?.toLocaleString()} ${rfq.buy_currency}`}
+                                        {rfq.type === 'TBILL' ? `${rfq.direction} Quotation` : `${rfq.direction} ${formatAmount(rfq.amount)} ${rfq.buy_currency}`}
                                     </div>
                                     <div className="text-sm text-gray-500 mt-1">
                                         Requested by {rfq.creator_name || 'End User'} • {new Date(rfq.created_at).toLocaleString()}
@@ -398,24 +517,248 @@ export default function QuotationHistoryDashboard() {
                     )}
                 </div>
 
+                {/* Filter & Search Toolbar */}
+                <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-gray-100 shadow-xs flex flex-wrap items-center justify-between gap-3">
+                    {/* Search Input */}
+                    <div className="relative flex-1 min-w-[220px] max-w-md">
+                        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search by Ref #, entity, pair, notes..."
+                            className="w-full pl-9 pr-8 py-2 text-xs font-medium bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 outline-none focus:border-blue-500 focus:bg-white transition-all shadow-2xs"
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full"
+                            >
+                                <X size={12} />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Filter & Quick Sort Controls */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* Type Filter */}
+                        <select
+                            value={typeFilter}
+                            onChange={(e) => setTypeFilter(e.target.value)}
+                            className="text-xs font-semibold bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 outline-none focus:border-blue-500 shadow-2xs cursor-pointer"
+                        >
+                            <option value="ALL">All Types</option>
+                            <option value="FX_SPOT">FX Spot</option>
+                            <option value="TBILL">T-Bills</option>
+                        </select>
+
+                        {/* Status Filter */}
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="text-xs font-semibold bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 outline-none focus:border-blue-500 shadow-2xs cursor-pointer"
+                        >
+                            <option value="ALL">All Statuses</option>
+                            <option value="COMPLETED">Completed</option>
+                            <option value="OPEN">Open (Bidding)</option>
+                            <option value="AWAITING_ACCEPTANCE">Awaiting Acceptance</option>
+                            <option value="PENDING">Pending Window</option>
+                            <option value="PENDING_APPROVAL">Pending Approval</option>
+                            <option value="NEEDS_REVISION">Needs Revision</option>
+                            <option value="REJECTED">Rejected</option>
+                            <option value="CANCELLED">Cancelled</option>
+                        </select>
+
+                        {/* Quick Sort Dropdown */}
+                        <div className="flex items-center gap-1.5 pl-1.5 border-l border-gray-200">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden md:inline">Sort:</span>
+                            <select
+                                value={`${sortField}_${sortDirection}`}
+                                onChange={(e) => {
+                                    const [field, dir] = e.target.value.split('_');
+                                    setSortField(field);
+                                    setSortDirection(dir);
+                                }}
+                                className="text-xs font-semibold bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-2.5 py-2 text-gray-700 outline-none focus:border-blue-500 shadow-2xs cursor-pointer"
+                            >
+                                <option value="created_at_desc">Date: Newest First</option>
+                                <option value="created_at_asc">Date: Oldest First</option>
+                                <option value="amount_desc">Amount: High → Low</option>
+                                <option value="amount_asc">Amount: Low → High</option>
+                                <option value="ref_no_asc">Ref No: A → Z</option>
+                                <option value="ref_no_desc">Ref No: Z → A</option>
+                                <option value="status_asc">Status: A → Z</option>
+                            </select>
+                        </div>
+
+                        {/* Reset Filters */}
+                        {hasActiveFilters && (
+                            <button
+                                type="button"
+                                onClick={resetAllFilters}
+                                className="px-2.5 py-2 rounded-xl text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                                title="Reset all filters and sorting"
+                            >
+                                <RotateCcw size={11} /> Reset
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Summary Count Bar */}
+                <div className="flex items-center justify-between text-xs text-gray-500 px-1">
+                    <span>
+                        Showing <strong className="text-gray-800">{displayedRfqs.length}</strong> of {baseRfqs.length} quotation{baseRfqs.length === 1 ? '' : 's'}
+                        {hasActiveFilters && <span className="text-blue-600 font-semibold ml-1.5">(filtered)</span>}
+                    </span>
+                    <span className="text-[11px] text-gray-400 hidden sm:inline">
+                        Click column headers to sort ascending / descending
+                    </span>
+                </div>
+
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
-                                    <th className="px-3.5 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Ref No</th>
-                                    <th className="px-3.5 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Entity</th>
-                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Type</th>
-                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Date</th>
-                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Details</th>
-                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Amount</th>
+                                    <th
+                                        className={`px-3.5 py-3 text-[10px] font-bold uppercase whitespace-nowrap cursor-pointer select-none transition-colors ${
+                                            sortField === 'ref_no' ? 'text-blue-600 bg-blue-50/50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100/50'
+                                        }`}
+                                        onClick={() => handleSort('ref_no')}
+                                        title="Click to sort by Ref No"
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            <span>Ref No</span>
+                                            {sortField === 'ref_no' ? (
+                                                sortDirection === 'asc' ? <ArrowUp size={11} className="text-blue-600" /> : <ArrowDown size={11} className="text-blue-600" />
+                                            ) : (
+                                                <ArrowUpDown size={11} className="text-gray-300 opacity-60" />
+                                            )}
+                                        </div>
+                                    </th>
+                                    <th
+                                        className={`px-3.5 py-3 text-[10px] font-bold uppercase whitespace-nowrap cursor-pointer select-none transition-colors ${
+                                            sortField === 'entity' ? 'text-blue-600 bg-blue-50/50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100/50'
+                                        }`}
+                                        onClick={() => handleSort('entity')}
+                                        title="Click to sort by Entity"
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            <span>Entity</span>
+                                            {sortField === 'entity' ? (
+                                                sortDirection === 'asc' ? <ArrowUp size={11} className="text-blue-600" /> : <ArrowDown size={11} className="text-blue-600" />
+                                            ) : (
+                                                <ArrowUpDown size={11} className="text-gray-300 opacity-60" />
+                                            )}
+                                        </div>
+                                    </th>
+                                    <th
+                                        className={`px-3 py-3 text-[10px] font-bold uppercase whitespace-nowrap cursor-pointer select-none transition-colors ${
+                                            sortField === 'type' ? 'text-blue-600 bg-blue-50/50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100/50'
+                                        }`}
+                                        onClick={() => handleSort('type')}
+                                        title="Click to sort by Type"
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            <span>Type</span>
+                                            {sortField === 'type' ? (
+                                                sortDirection === 'asc' ? <ArrowUp size={11} className="text-blue-600" /> : <ArrowDown size={11} className="text-blue-600" />
+                                            ) : (
+                                                <ArrowUpDown size={11} className="text-gray-300 opacity-60" />
+                                            )}
+                                        </div>
+                                    </th>
+                                    <th
+                                        className={`px-3 py-3 text-[10px] font-bold uppercase whitespace-nowrap cursor-pointer select-none transition-colors ${
+                                            sortField === 'created_at' ? 'text-blue-600 bg-blue-50/50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100/50'
+                                        }`}
+                                        onClick={() => handleSort('created_at')}
+                                        title="Click to sort by Date"
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            <span>Date</span>
+                                            {sortField === 'created_at' ? (
+                                                sortDirection === 'asc' ? <ArrowUp size={11} className="text-blue-600" /> : <ArrowDown size={11} className="text-blue-600" />
+                                            ) : (
+                                                <ArrowUpDown size={11} className="text-gray-300 opacity-60" />
+                                            )}
+                                        </div>
+                                    </th>
+                                    <th
+                                        className={`px-3 py-3 text-[10px] font-bold uppercase whitespace-nowrap cursor-pointer select-none transition-colors ${
+                                            sortField === 'details' ? 'text-blue-600 bg-blue-50/50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100/50'
+                                        }`}
+                                        onClick={() => handleSort('details')}
+                                        title="Click to sort by Details"
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            <span>Details</span>
+                                            {sortField === 'details' ? (
+                                                sortDirection === 'asc' ? <ArrowUp size={11} className="text-blue-600" /> : <ArrowDown size={11} className="text-blue-600" />
+                                            ) : (
+                                                <ArrowUpDown size={11} className="text-gray-300 opacity-60" />
+                                            )}
+                                        </div>
+                                    </th>
+                                    <th
+                                        className={`px-3 py-3 text-[10px] font-bold uppercase whitespace-nowrap cursor-pointer select-none transition-colors ${
+                                            sortField === 'amount' ? 'text-blue-600 bg-blue-50/50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100/50'
+                                        }`}
+                                        onClick={() => handleSort('amount')}
+                                        title="Click to sort by Amount"
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            <span>Amount</span>
+                                            {sortField === 'amount' ? (
+                                                sortDirection === 'asc' ? <ArrowUp size={11} className="text-blue-600" /> : <ArrowDown size={11} className="text-blue-600" />
+                                            ) : (
+                                                <ArrowUpDown size={11} className="text-gray-300 opacity-60" />
+                                            )}
+                                        </div>
+                                    </th>
                                     <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Winning Counterparty & Rate</th>
-                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Status</th>
+                                    <th
+                                        className={`px-3 py-3 text-[10px] font-bold uppercase whitespace-nowrap cursor-pointer select-none transition-colors ${
+                                            sortField === 'status' ? 'text-blue-600 bg-blue-50/50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100/50'
+                                        }`}
+                                        onClick={() => handleSort('status')}
+                                        title="Click to sort by Status"
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            <span>Status</span>
+                                            {sortField === 'status' ? (
+                                                sortDirection === 'asc' ? <ArrowUp size={11} className="text-blue-600" /> : <ArrowDown size={11} className="text-blue-600" />
+                                            ) : (
+                                                <ArrowUpDown size={11} className="text-gray-300 opacity-60" />
+                                            )}
+                                        </div>
+                                    </th>
                                     <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase text-right whitespace-nowrap">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                                {displayedRfqs.map((rfq) => (
+                                {displayedRfqs.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="9" className="px-6 py-12 text-center text-gray-400">
+                                            <div className="flex flex-col items-center justify-center gap-2">
+                                                <AlertCircle size={24} className="text-gray-300" />
+                                                <p className="text-sm font-semibold text-gray-600">No quotations match your filter criteria</p>
+                                                {hasActiveFilters && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={resetAllFilters}
+                                                        className="text-xs font-bold text-blue-600 hover:text-blue-800 underline mt-1 cursor-pointer"
+                                                    >
+                                                        Reset filters to view all quotations
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    displayedRfqs.map((rfq) => (
                                     <tr
                                         key={rfq.id}
                                         className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
@@ -458,8 +801,8 @@ export default function QuotationHistoryDashboard() {
                                         </td>
                                         <td className="px-3 py-3 text-xs sm:text-sm whitespace-nowrap font-mono">
                                             {rfq.type === 'TBILL'
-                                                ? `Min: ${new Intl.NumberFormat().format(rfq.min_ticket_amount || 0)}`
-                                                : new Intl.NumberFormat().format(rfq.amount || 0)}
+                                                ? `Min: ${formatAmount(rfq.min_ticket_amount || 0)}`
+                                                : formatAmount(rfq.amount || 0)}
                                         </td>
                                         <td className="px-3 py-3 whitespace-nowrap">
                                             {(() => {
@@ -581,14 +924,8 @@ export default function QuotationHistoryDashboard() {
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
-                                {displayedRfqs.length === 0 && (
-                                    <tr>
-                                        <td colSpan="7" className="py-12 text-center text-gray-400 italic">
-                                            {activeTab === 'LIVE' ? 'No active quotes on the desk currently.' : 'No quotations found.'}
-                                        </td>
-                                    </tr>
-                                )}
+                                ))
+                            )}
                             </tbody>
                         </table>
                     </div>

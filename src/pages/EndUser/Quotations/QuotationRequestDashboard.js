@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 
@@ -72,6 +72,7 @@ export default function QuotationRequestDashboard() {
     const [entities, setEntities] = useState([]);
     const [banks, setBanks] = useState([]);
     const [selectedBanks, setSelectedBanks] = useState([]);
+    const [isSelectingAll, setIsSelectingAll] = useState(false);
     const [recommendations, setRecommendations] = useState([]);
     const [evalRateDetails, setEvalRateDetails] = useState(null);
     const hasUserChangedEvalRateRef = useRef(false);
@@ -333,6 +334,62 @@ export default function QuotationRequestDashboard() {
         if (banksToSelect.length > 0) {
             setSelectedBanks(banksToSelect);
         }
+    };
+
+    const handleSelectAllBanks = async () => {
+        if (!banks || banks.length === 0 || isSelectingAll) return;
+        setIsSelectingAll(true);
+        try {
+            const base = formData.quotationBase || 'Execution';
+            const effectiveInitialDate = formData.valueDate || todayStr;
+
+            const unselectedBanks = banks.filter(b => !selectedBanks.some(sb => String(sb.id) === String(b.bank_id)));
+
+            const costPromises = unselectedBanks.map(async (bank) => {
+                let fetchedCosts = { costMin: 0, costPercent: 0, costMax: 0, costFlat: 0 };
+                try {
+                    const res = await apiClient.get(`/end-user/quotations/banks/latest-costs?bank_id=${bank.bank_id}`);
+                    if (res.data) {
+                        fetchedCosts = {
+                            costMin: res.data.cost_min ?? 0,
+                            costPercent: res.data.cost_percent ?? 0,
+                            costMax: res.data.cost_max ?? 0,
+                            costFlat: res.data.cost_flat ?? 0
+                        };
+                    }
+                } catch (err) {
+                    console.warn('Could not fetch latest bank costs for bank', bank.bank_id, err);
+                }
+
+                return {
+                    id: bank.bank_id,
+                    name: bank.bank?.name || `Bank ${bank.bank_id}`,
+                    emails: bank.emails,
+                    contacts: bank.contacts || [],
+                    costMin: fetchedCosts.costMin,
+                    costPercent: fetchedCosts.costPercent,
+                    costMax: fetchedCosts.costMax,
+                    costFlat: fetchedCosts.costFlat,
+                    quotationBase: base,
+                    isDocumentVisible: base === 'Execution',
+                    valueDate: effectiveInitialDate,
+                    allowAlternativeValueDate: formData.allowAlternativeValueDate || false
+                };
+            });
+
+            const newSelected = await Promise.all(costPromises);
+            setSelectedBanks(prev => {
+                const existingIds = new Set(prev.map(b => String(b.id)));
+                const additions = newSelected.filter(b => !existingIds.has(String(b.id)));
+                return [...prev, ...additions];
+            });
+        } finally {
+            setIsSelectingAll(false);
+        }
+    };
+
+    const handleDeselectAllBanks = () => {
+        setSelectedBanks([]);
     };
 
     const handleBankToggle = async (bank) => {
@@ -1574,13 +1631,46 @@ export default function QuotationRequestDashboard() {
                 {/* Right Column: Bank Selection */}
                 <div className="xl:col-span-2 space-y-6">
                     <section className="bg-white p-5 sm:p-8 rounded-xl border border-gray-100 min-h-full flex flex-col">
-                        <div className="flex justify-between items-center mb-6 sm:mb-8">
+                        <div className="flex justify-between items-center mb-6 sm:mb-8 gap-3 flex-wrap">
                             <h3 className="text-xs font-bold uppercase tracking-widest text-blue-600 flex items-center gap-2">
                                 <Landmark size={14} /> Bank Selection & Costs
                             </h3>
-                            <span className="text-xs font-medium bg-black text-white px-3 py-1 rounded-full">
-                                {selectedBanks.length} Selected
-                            </span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {banks && banks.length > 0 && (
+                                    <>
+                                        {selectedBanks.length < banks.length && (
+                                            <button
+                                                type="button"
+                                                onClick={handleSelectAllBanks}
+                                                disabled={isSelectingAll}
+                                                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
+                                                title="Select all available counterparty banks"
+                                            >
+                                                {isSelectingAll ? (
+                                                    <RefreshCw size={12} className="animate-spin text-blue-600" />
+                                                ) : (
+                                                    <CheckSquare size={13} className="text-blue-600" />
+                                                )}
+                                                Select All
+                                            </button>
+                                        )}
+                                        {selectedBanks.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={handleDeselectAllBanks}
+                                                disabled={isSelectingAll}
+                                                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                                title="Deselect all counterparty banks"
+                                            >
+                                                <Square size={13} className="text-gray-500" /> Deselect All
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+                                <span className="text-xs font-medium bg-black text-white px-3 py-1 rounded-full shrink-0">
+                                    {selectedBanks.length} Selected
+                                </span>
+                            </div>
                         </div>
 
                         {hasMixedBases && (
