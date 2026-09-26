@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal, ArrowLeftRight } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, AlertTriangle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal, ArrowLeftRight } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
+
+const MAX_PAIRS = 4;
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const formatDate = (d) => {
@@ -18,6 +20,39 @@ const formatDate = (d) => {
     } catch {
         return d;
     }
+};
+
+const findDuplicatePairConflict = (pairsList) => {
+    if (!pairsList || pairsList.length <= 1) return null;
+    for (let i = 0; i < pairsList.length; i++) {
+        const p1 = pairsList[i];
+        const c1Buy = (p1.buyCurrency || '').trim().toUpperCase();
+        const c1Sell = (p1.sellCurrency || '').trim().toUpperCase();
+        const d1 = (p1.valueDate || '').trim();
+        const b1 = (p1.quotationBase || 'Execution').trim().toLowerCase();
+
+        for (let j = i + 1; j < pairsList.length; j++) {
+            const p2 = pairsList[j];
+            const c2Buy = (p2.buyCurrency || '').trim().toUpperCase();
+            const c2Sell = (p2.sellCurrency || '').trim().toUpperCase();
+            const d2 = (p2.valueDate || '').trim();
+            const b2 = (p2.quotationBase || 'Execution').trim().toLowerCase();
+
+            // Conflict if same currencies (matching or inverse), identical value date, and identical quotation base
+            const sameCurrencies = (c1Buy === c2Buy && c1Sell === c2Sell) || (c1Buy === c2Sell && c1Sell === c2Buy);
+            if (sameCurrencies && d1 && d2 && d1 === d2 && b1 === b2) {
+                return {
+                    firstIndex: i,
+                    secondIndex: j,
+                    pairLabel: `${c1Buy}/${c1Sell}`,
+                    valueDate: d1,
+                    quotationBase: p1.quotationBase || 'Execution',
+                    message: `Similar pairs detected: Pair #${i + 1} and Pair #${j + 1} have identical currencies (${c1Buy}/${c1Sell}), same settlement date (${formatDate(d1)}), and same quotation base (${p1.quotationBase || 'Execution'}). Multiple identical pairs on the same date and quotation base are not permitted.`
+                };
+            }
+        }
+    }
+    return null;
 };
 
 const toLocalISOString = (d) => {
@@ -127,8 +162,8 @@ export default function QuotationRequestDashboard() {
     };
 
     const handleAddPair = () => {
-        if (pairs.length >= 8) {
-            toast.warn('A maximum of 8 currency pairs can be quoted in a single session.');
+        if (pairs.length >= MAX_PAIRS) {
+            toast.warn(`A maximum of ${MAX_PAIRS} currency pairs can be quoted in a single session.`);
             return;
         }
         const masterDate = formData.valueDate || (pairs[0] ? pairs[0].valueDate : '');
@@ -482,6 +517,7 @@ export default function QuotationRequestDashboard() {
     const nowLocalIso = toLocalISOString(new Date());
 
     const activePair = pairs[activePairIndex] || pairs[0] || {};
+    const pairConflict = findDuplicatePairConflict(pairs);
 
     // Value Date (Settlement Date) is the primary anchor set by Treasury.
     // The Quotation Window (bidding window) must occur on or before the Value Date (window <= valueDate).
@@ -830,6 +866,20 @@ export default function QuotationRequestDashboard() {
         const windowStartDate = formData.windowStart ? formData.windowStart.split('T')[0] : '';
         if (windowStartDate) {
             if (formData.type === 'FX_SPOT') {
+                if (pairs.length > MAX_PAIRS) {
+                    toast.error(`A maximum of ${MAX_PAIRS} currency pairs can be submitted in a single quotation.`);
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                const conflict = findDuplicatePairConflict(pairs);
+                if (conflict) {
+                    toast.error(conflict.message);
+                    setActivePairIndex(conflict.secondIndex);
+                    setIsSubmitting(false);
+                    return;
+                }
+
                 for (let i = 0; i < pairs.length; i++) {
                     const p = pairs[i];
                     const pairNum = i + 1;
@@ -1576,15 +1626,15 @@ export default function QuotationRequestDashboard() {
                                                     Currency Pairs
                                                 </span>
                                                 <span className="text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200/80 px-2 py-0.5 rounded-full">
-                                                    {pairs.length} / 8
+                                                    {pairs.length} / {MAX_PAIRS}
                                                 </span>
                                             </div>
-                                            {!retradeRfqId && pairs.length < 8 && (
+                                            {!retradeRfqId && pairs.length < MAX_PAIRS && (
                                                 <button
                                                     type="button"
                                                     onClick={handleAddPair}
                                                     className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                                                    title="Add another currency pair (up to 8 pairs)"
+                                                    title={`Add another currency pair (up to ${MAX_PAIRS} pairs)`}
                                                 >
                                                     <Plus size={13} /> Add Pair
                                                 </button>
@@ -1596,6 +1646,7 @@ export default function QuotationRequestDashboard() {
                                             <div className="flex flex-wrap gap-2 pt-0.5">
                                                 {pairs.map((p, idx) => {
                                                     const isActive = activePairIndex === idx;
+                                                    const isConflicting = pairConflict && (pairConflict.firstIndex === idx || pairConflict.secondIndex === idx);
                                                     const amountFormatted = p.amount ? Number(p.amount).toLocaleString() : '0';
                                                     return (
                                                         <div
@@ -1604,16 +1655,19 @@ export default function QuotationRequestDashboard() {
                                                             className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all border select-none ${
                                                                 isActive
                                                                     ? 'bg-slate-900 border-slate-900 text-white shadow-xs ring-2 ring-blue-500/20'
+                                                                    : isConflicting
+                                                                    ? 'bg-amber-50/80 border-amber-300 text-slate-800 hover:bg-amber-100/70'
                                                                     : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
                                                             }`}
                                                         >
                                                             <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider ${
-                                                                isActive ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                                                                isActive ? 'bg-blue-600 text-white' : isConflicting ? 'bg-amber-200 text-amber-900' : 'bg-slate-100 text-slate-600'
                                                             }`}>
                                                                 P{idx + 1}
                                                             </span>
-                                                            <span className="font-bold">
+                                                            <span className="font-bold flex items-center gap-1">
                                                                 {p.buyCurrency || 'USD'}/{p.sellCurrency || 'EGP'}
+                                                                {isConflicting && <AlertTriangle size={11} className={isActive ? "text-amber-300" : "text-amber-600"} title="Similar pair conflict detected" />}
                                                             </span>
                                                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                                                                 p.direction === 'Sell' 
@@ -1648,42 +1702,28 @@ export default function QuotationRequestDashboard() {
 
                                     {/* Active Pair Card Editor */}
                                     <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200 space-y-4">
-                                        {/* Direction Selector */}
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Trade Direction</label>
-                                            <div className="grid grid-cols-2 p-1 bg-slate-200/70 rounded-xl gap-1">
-                                                {['Buy', 'Sell'].map(dir => {
-                                                    const isCurDir = (activePair.direction || 'Buy') === dir;
-                                                    return (
-                                                        <button
-                                                            key={dir}
-                                                            type="button"
-                                                            disabled={Boolean(retradeRfqId)}
-                                                            onClick={() => updateActivePair('direction', dir)}
-                                                            className={`py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                                                                isCurDir
-                                                                    ? (dir === 'Buy'
-                                                                        ? 'bg-emerald-600 text-white shadow-xs'
-                                                                        : 'bg-rose-600 text-white shadow-xs')
-                                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                                                            } ${retradeRfqId ? 'cursor-not-allowed opacity-80' : ''}`}
-                                                        >
-                                                            <span>{dir === 'Buy' ? 'Buy Base Currency' : 'Sell Base Currency'}</span>
-                                                        </button>
-                                                    );
-                                                })}
+                                        {/* Duplicate / Similar Pair Conflict Alert */}
+                                        {pairConflict && (
+                                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 animate-fade-in">
+                                                <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <span className="font-bold text-amber-950 block">Similar Pair Conflict</span>
+                                                    <p className="text-[11px] text-amber-800 leading-relaxed mt-0.5">
+                                                        {pairConflict.message}
+                                                    </p>
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
 
                                         {/* Currency Pair Pickers with Swap Button */}
                                         <div>
                                             <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                                                Currency Pair ({activePair.direction === 'Sell' ? 'Selling / Buying' : 'Buying / Selling'})
+                                                Currency Pair
                                             </label>
                                             <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-center">
                                                 <div>
                                                     <span className="block text-[9px] font-bold text-gray-500 mb-1">
-                                                        {activePair.direction === 'Sell' ? 'Base (Sell)' : 'Base (Buy)'}
+                                                        Base Currency
                                                     </span>
                                                     <select
                                                         disabled={Boolean(retradeRfqId)}
@@ -1713,7 +1753,7 @@ export default function QuotationRequestDashboard() {
 
                                                 <div>
                                                     <span className="block text-[9px] font-bold text-gray-500 mb-1">
-                                                        {activePair.direction === 'Sell' ? 'Quote (Receive)' : 'Quote (Pay)'}
+                                                        Quote Currency
                                                     </span>
                                                     <select
                                                         disabled={Boolean(retradeRfqId)}
@@ -1731,55 +1771,62 @@ export default function QuotationRequestDashboard() {
                                             </div>
                                         </div>
 
-                                        {/* Amount and Min Ticket Amount (No Badge Overlap) */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            <div>
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                                                        {activePair.direction === 'Sell' ? 'Amount to Sell' : 'Amount to Buy'}
-                                                    </label>
-                                                    {retradeRfqId && (
-                                                        <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
-                                                            🔒 Locked
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className={`flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all ${
-                                                    retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
-                                                }`}>
-                                                    <input
-                                                        type="number"
-                                                        required
-                                                        disabled={Boolean(retradeRfqId)}
-                                                        placeholder="0.00"
-                                                        className="w-full bg-transparent px-3 py-2 text-sm font-bold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                        value={activePair.amount || ''}
-                                                        onChange={e => updateActivePair('amount', e.target.value)}
-                                                        onWheel={(e) => e.target.blur()}
-                                                    />
-                                                    <span className="shrink-0 mr-2.5 px-2 py-0.5 bg-slate-100 border border-slate-200/80 rounded-md text-[11px] font-bold text-slate-600 uppercase select-none">
-                                                        {activePair.buyCurrency || 'USD'}
-                                                    </span>
-                                                </div>
+                                        {/* Direction Selector (Clean, non-redundant action toggle) */}
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Trade Direction</label>
+                                            <div className="grid grid-cols-2 p-1 bg-slate-200/70 rounded-xl gap-1">
+                                                {['Buy', 'Sell'].map(dir => {
+                                                    const isCurDir = (activePair.direction || 'Buy') === dir;
+                                                    const baseCurr = activePair.buyCurrency || 'USD';
+                                                    return (
+                                                        <button
+                                                            key={dir}
+                                                            type="button"
+                                                            disabled={Boolean(retradeRfqId)}
+                                                            onClick={() => updateActivePair('direction', dir)}
+                                                            className={`py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                                                                isCurDir
+                                                                    ? (dir === 'Buy'
+                                                                        ? 'bg-emerald-600 text-white shadow-xs'
+                                                                        : 'bg-rose-600 text-white shadow-xs')
+                                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                                                            } ${retradeRfqId ? 'cursor-not-allowed opacity-80' : ''}`}
+                                                        >
+                                                            <span>{dir === 'Buy' ? `Buy ${baseCurr}` : `Sell ${baseCurr}`}</span>
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
+                                        </div>
 
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
-                                                    Min Split Ticket (Optional)
+                                        {/* Amount (Matching font size, Min Ticket hidden for now) */}
+                                        <div>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                                                    {activePair.direction === 'Sell' ? 'Amount to Sell' : 'Amount to Buy'} ({activePair.buyCurrency || 'USD'})
                                                 </label>
-                                                <div className="flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all">
-                                                    <input
-                                                        type="number"
-                                                        placeholder="Optional"
-                                                        className="w-full bg-transparent px-3 py-2 text-sm font-semibold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                        value={activePair.minTicketAmount || ''}
-                                                        onChange={e => updateActivePair('minTicketAmount', e.target.value)}
-                                                        onWheel={(e) => e.target.blur()}
-                                                    />
-                                                    <span className="shrink-0 mr-2.5 px-2 py-0.5 bg-slate-100 border border-slate-200/80 rounded-md text-[11px] font-bold text-slate-600 uppercase select-none">
-                                                        {activePair.buyCurrency || 'USD'}
+                                                {retradeRfqId && (
+                                                    <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                                                        🔒 Locked
                                                     </span>
-                                                </div>
+                                                )}
+                                            </div>
+                                            <div className={`flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all ${
+                                                retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
+                                            }`}>
+                                                <input
+                                                    type="number"
+                                                    required
+                                                    disabled={Boolean(retradeRfqId)}
+                                                    placeholder="0.00"
+                                                    className="w-full bg-transparent px-3 py-2 text-xs font-semibold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                    value={activePair.amount || ''}
+                                                    onChange={e => updateActivePair('amount', e.target.value)}
+                                                    onWheel={(e) => e.target.blur()}
+                                                />
+                                                <span className="shrink-0 mr-2.5 px-2 py-0.5 bg-slate-100 border border-slate-200/80 rounded-md text-[11px] font-bold text-slate-600 uppercase select-none">
+                                                    {activePair.buyCurrency || 'USD'}
+                                                </span>
                                             </div>
                                         </div>
 
