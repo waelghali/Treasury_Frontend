@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal, ArrowLeftRight } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 
@@ -56,6 +56,22 @@ const getInitialFormData = (entityId = '') => {
     };
 };
 
+const getInitialPair = (valDate = '') => {
+    const today = new Date().toISOString().split('T')[0];
+    return {
+        id: `pair-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        direction: 'Buy',
+        buyCurrency: 'USD',
+        sellCurrency: 'EGP',
+        amount: '',
+        minTicketAmount: '',
+        valueDate: valDate || today,
+        allowAlternativeValueDate: false,
+        quotationBase: 'Execution',
+        maxTolerancePercent: '0.05'
+    };
+};
+
 export default function QuotationRequestDashboard() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -77,6 +93,9 @@ export default function QuotationRequestDashboard() {
     const [evalRateDetails, setEvalRateDetails] = useState(null);
     const hasUserChangedEvalRateRef = useRef(false);
     const [formData, setFormData] = useState(() => getInitialFormData(''));
+    const [pairs, setPairs] = useState(() => [getInitialPair('')]);
+    const [activePairIndex, setActivePairIndex] = useState(0);
+    const [bankActivePairTab, setBankActivePairTab] = useState({});
     const [files, setFiles] = useState([]);
     const [existingDocs, setExistingDocs] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,7 +112,11 @@ export default function QuotationRequestDashboard() {
         isPrefillingRef.current = false;
         hasUserChangedEvalRateRef.current = false;
         const defaultEntityId = entities.length === 1 ? entities[0].id : '';
-        setFormData(getInitialFormData(defaultEntityId));
+        const initialForm = getInitialFormData(defaultEntityId);
+        setFormData(initialForm);
+        setPairs([getInitialPair(initialForm.valueDate)]);
+        setActivePairIndex(0);
+        setBankActivePairTab({});
         setSelectedBanks([]);
         setFiles([]);
         setExistingDocs([]);
@@ -101,6 +124,155 @@ export default function QuotationRequestDashboard() {
         setLegalAcknowledged(false);
         setCopiedToken(null);
         toast.info('Quotation form reset to original state.');
+    };
+
+    const handleAddPair = () => {
+        if (pairs.length >= 8) {
+            toast.warn('A maximum of 8 currency pairs can be quoted in a single session.');
+            return;
+        }
+        const masterDate = formData.valueDate || (pairs[0] ? pairs[0].valueDate : '');
+        const usedBuyCurrencies = new Set(pairs.map(p => p.buyCurrency));
+        const candidateCurrencies = ['USD', 'EUR', 'GBP', 'AED', 'SAR', 'CHF', 'CAD', 'JPY'];
+        const nextCurr = candidateCurrencies.find(c => !usedBuyCurrencies.has(c)) || 'EUR';
+
+        const newPair = {
+            id: `pair-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+            direction: 'Buy',
+            buyCurrency: nextCurr,
+            sellCurrency: 'EGP',
+            amount: '',
+            minTicketAmount: '',
+            valueDate: masterDate,
+            allowAlternativeValueDate: formData.allowAlternativeValueDate || false,
+            quotationBase: formData.quotationBase || 'Execution',
+            maxTolerancePercent: formData.maxTolerancePercent || '0.05'
+        };
+
+        setPairs(prev => [...prev, newPair]);
+        setActivePairIndex(pairs.length);
+        toast.info(`Added Pair #${pairs.length + 1} (${nextCurr}/EGP)`);
+    };
+
+    const handleRemovePair = (indexToRemove) => {
+        if (pairs.length <= 1) {
+            toast.warn('At least one currency pair is required.');
+            return;
+        }
+        const removed = pairs[indexToRemove];
+        setPairs(prev => prev.filter((_, idx) => idx !== indexToRemove));
+        setActivePairIndex(prev => (prev >= indexToRemove && prev > 0 ? prev - 1 : 0));
+        toast.info(`Removed ${removed.buyCurrency}/${removed.sellCurrency}`);
+    };
+
+    const updateActivePair = (field, value) => {
+        setPairs(prev => {
+            const next = [...prev];
+            if (!next[activePairIndex]) return prev;
+            next[activePairIndex] = { ...next[activePairIndex], [field]: value };
+            return next;
+        });
+
+        if (activePairIndex === 0) {
+            setFormData(prev => ({
+                ...prev,
+                ...(field === 'buyCurrency' ? { buyCurrency: value } : {}),
+                ...(field === 'sellCurrency' ? { sellCurrency: value } : {}),
+                ...(field === 'amount' ? { amount: value } : {}),
+                ...(field === 'minTicketAmount' ? { minTicketAmount: value } : {}),
+                ...(field === 'valueDate' ? { valueDate: value } : {}),
+                ...(field === 'direction' ? { direction: value } : {}),
+                ...(field === 'quotationBase' ? { quotationBase: value } : {}),
+                ...(field === 'maxTolerancePercent' ? { maxTolerancePercent: value } : {}),
+                ...(field === 'allowAlternativeValueDate' ? { allowAlternativeValueDate: value } : {}),
+            }));
+        }
+    };
+
+    const handleSwapCurrencies = () => {
+        const curBuy = pairs[activePairIndex]?.buyCurrency || 'USD';
+        const curSell = pairs[activePairIndex]?.sellCurrency || 'EGP';
+        setPairs(prev => {
+            const next = [...prev];
+            if (!next[activePairIndex]) return prev;
+            next[activePairIndex] = {
+                ...next[activePairIndex],
+                buyCurrency: curSell,
+                sellCurrency: curBuy
+            };
+            return next;
+        });
+        if (activePairIndex === 0) {
+            setFormData(prev => ({
+                ...prev,
+                buyCurrency: curSell,
+                sellCurrency: curBuy
+            }));
+        }
+    };
+
+    const applyValueDateToAllPairs = (dateVal) => {
+        const d = dateVal || formData.valueDate || pairs[activePairIndex]?.valueDate;
+        if (!d) return;
+        setPairs(prev => prev.map(p => ({ ...p, valueDate: d })));
+        setFormData(prev => ({ ...prev, valueDate: d }));
+        toast.success(`Value Date (${formatDate(d)}) synced to all ${pairs.length} currency pair(s).`);
+    };
+
+    const toggleBankPairCustomization = (bankId, isCustomized) => {
+        setSelectedBanks(prev => prev.map(b => {
+            if (String(b.id) !== String(bankId)) return b;
+            const existingPairConfigs = { ...(b.pairConfigs || {}) };
+            if (isCustomized) {
+                pairs.forEach(p => {
+                    if (!existingPairConfigs[p.id]) {
+                        existingPairConfigs[p.id] = {
+                            costMin: b.costMin ?? 0,
+                            costPercent: b.costPercent ?? 0,
+                            costMax: b.costMax ?? 0,
+                            costFlat: b.costFlat ?? 0,
+                            quotationBase: b.quotationBase || formData.quotationBase || 'Execution',
+                            valueDate: b.valueDate || p.valueDate || formData.valueDate || '',
+                            allowAlternativeValueDate: b.allowAlternativeValueDate ?? p.allowAlternativeValueDate ?? false,
+                            isDocumentVisible: b.isDocumentVisible !== false
+                        };
+                    }
+                });
+            }
+            return {
+                ...b,
+                customPairTariffs: isCustomized,
+                pairConfigs: existingPairConfigs
+            };
+        }));
+    };
+
+    const updateBankPairConfig = (bankId, pairId, field, value) => {
+        setSelectedBanks(prev => prev.map(b => {
+            if (String(b.id) !== String(bankId)) return b;
+            const existingPairConfigs = b.pairConfigs || {};
+            const currentPairConfig = existingPairConfigs[pairId] || {
+                costMin: b.costMin,
+                costPercent: b.costPercent,
+                costMax: b.costMax,
+                costFlat: b.costFlat,
+                quotationBase: b.quotationBase,
+                valueDate: b.valueDate,
+                allowAlternativeValueDate: b.allowAlternativeValueDate,
+                isDocumentVisible: b.isDocumentVisible
+            };
+
+            return {
+                ...b,
+                pairConfigs: {
+                    ...existingPairConfigs,
+                    [pairId]: {
+                        ...currentPairConfig,
+                        [field]: value
+                    }
+                }
+            };
+        }));
     };
 
     // Fetch accessible customer legal entities
@@ -198,6 +370,37 @@ export default function QuotationRequestDashboard() {
                     internalNotes: rfq.internal_notes || '',
                 });
 
+                // Multi-pair leg prefill
+                const rfqLegs = res.data?.legs || rfq.legs || [];
+                if (rfqLegs && rfqLegs.length > 0) {
+                    setPairs(rfqLegs.map((l, idx) => ({
+                        id: l.id || `pair-${idx + 1}`,
+                        direction: l.direction || rfq.direction || 'Buy',
+                        buyCurrency: l.buy_currency || 'USD',
+                        sellCurrency: l.sell_currency || 'EGP',
+                        amount: l.amount ? String(l.amount) : '',
+                        minTicketAmount: l.min_ticket_amount ? String(l.min_ticket_amount) : '',
+                        valueDate: cleanD(l.value_date) || cleanD(rfq.value_date) || '',
+                        allowAlternativeValueDate: l.allow_alternative_value_date || false,
+                        quotationBase: l.quotation_base || rfq.quotation_base || 'Execution',
+                        maxTolerancePercent: l.max_tolerance_percent !== null && l.max_tolerance_percent !== undefined ? String(l.max_tolerance_percent) : '0.05'
+                    })));
+                } else if (rfq.type === 'FX_SPOT') {
+                    setPairs([{
+                        id: 'pair-1',
+                        direction: rfq.direction || 'Buy',
+                        buyCurrency: rfq.buy_currency || 'USD',
+                        sellCurrency: rfq.sell_currency || 'EGP',
+                        amount: rfq.amount ? String(rfq.amount) : '',
+                        minTicketAmount: rfq.min_ticket_amount ? String(rfq.min_ticket_amount) : '',
+                        valueDate: cleanD(rfq.value_date),
+                        allowAlternativeValueDate: rfq.allow_alternative_value_date || false,
+                        quotationBase: rfq.quotation_base || 'Execution',
+                        maxTolerancePercent: rfq.max_tolerance_percent !== null && rfq.max_tolerance_percent !== undefined ? String(rfq.max_tolerance_percent) : '0.05'
+                    }]);
+                }
+                setActivePairIndex(0);
+
                 if (results && results.length > 0) {
                     const prefilledBanks = results.map(r => ({
                         id: r.bank_id,
@@ -278,23 +481,33 @@ export default function QuotationRequestDashboard() {
     const todayStr = new Date().toISOString().split('T')[0];
     const nowLocalIso = toLocalISOString(new Date());
 
+    const activePair = pairs[activePairIndex] || pairs[0] || {};
+
     // Value Date (Settlement Date) is the primary anchor set by Treasury.
     // The Quotation Window (bidding window) must occur on or before the Value Date (window <= valueDate).
     const targetValueDate = formData.type === 'TBILL' 
         ? formData.settlementDateStart 
-        : formData.valueDate;
+        : (pairs.length > 0 ? pairs.map(p => p.valueDate).filter(Boolean).sort()[0] || formData.valueDate : formData.valueDate);
 
     const maxWindowDateTime = targetValueDate ? `${targetValueDate}T23:59` : undefined;
     const windowStartDate = formData.windowStart ? formData.windowStart.split('T')[0] : '';
 
+    const hasInvalidPairValueDate = formData.type === 'FX_SPOT' && pairs.some(p => {
+        return p.valueDate && windowStartDate && p.valueDate < windowStartDate;
+    });
+
     const hasInvalidBankValueDate = formData.type === 'FX_SPOT' && selectedBanks.some(b => {
+        if (b.customPairTariffs && b.pairConfigs) {
+            return Object.values(b.pairConfigs).some(cfg => cfg.valueDate && windowStartDate && cfg.valueDate < windowStartDate);
+        }
         const bDate = b.valueDate || formData.valueDate;
         return bDate && windowStartDate && bDate < windowStartDate;
     });
+
     const hasInvalidWindowDate = Boolean(
         targetValueDate && windowStartDate && windowStartDate > targetValueDate
     );
-    const hasDateDiscrepancy = hasInvalidBankValueDate || hasInvalidWindowDate;
+    const hasDateDiscrepancy = hasInvalidPairValueDate || hasInvalidBankValueDate || hasInvalidWindowDate;
     const hasUnsyncedBankDates = formData.type === 'FX_SPOT' && 
         selectedBanks.length > 0 && 
         Boolean(formData.valueDate) && 
@@ -617,17 +830,43 @@ export default function QuotationRequestDashboard() {
         const windowStartDate = formData.windowStart ? formData.windowStart.split('T')[0] : '';
         if (windowStartDate) {
             if (formData.type === 'FX_SPOT') {
-                if (formData.valueDate && formData.valueDate < windowStartDate) {
-                    toast.error(`Master Value Date (${formatDate(formData.valueDate)}) cannot be earlier than quotation window date (${formatDate(windowStartDate)}). Value date can be the same day or later, but never earlier.`);
-                    setIsSubmitting(false);
-                    return;
-                }
-                for (const b of selectedBanks) {
-                    const effectiveBankValDate = b.valueDate || formData.valueDate;
-                    if (effectiveBankValDate && effectiveBankValDate < windowStartDate) {
-                        toast.error(`Bank "${b.name || 'Selected Bank'}" has a Value Date (${formatDate(effectiveBankValDate)}) earlier than quotation window date (${formatDate(windowStartDate)}). Value date must be on or after the quotation window date.`);
+                for (let i = 0; i < pairs.length; i++) {
+                    const p = pairs[i];
+                    const pairNum = i + 1;
+                    if (!p.amount || parseFloat(p.amount) <= 0) {
+                        toast.error(`Please enter a valid amount for Pair #${pairNum} (${p.buyCurrency || 'USD'}/${p.sellCurrency || 'EGP'}).`);
                         setIsSubmitting(false);
                         return;
+                    }
+                    if (!p.buyCurrency || !p.sellCurrency || p.buyCurrency === p.sellCurrency) {
+                        toast.error(`Pair #${pairNum} cannot have identical Buy and Sell currencies (${p.buyCurrency}).`);
+                        setIsSubmitting(false);
+                        return;
+                    }
+                    if (p.valueDate && p.valueDate < windowStartDate) {
+                        toast.error(`Pair #${pairNum} (${p.buyCurrency}/${p.sellCurrency}) Value Date (${formatDate(p.valueDate)}) cannot be earlier than quotation window date (${formatDate(windowStartDate)}).`);
+                        setIsSubmitting(false);
+                        return;
+                    }
+                }
+
+                for (const b of selectedBanks) {
+                    if (b.customPairTariffs && b.pairConfigs) {
+                        for (const [pId, cfg] of Object.entries(b.pairConfigs)) {
+                            const effectiveValDate = cfg.valueDate || b.valueDate || formData.valueDate;
+                            if (effectiveValDate && effectiveValDate < windowStartDate) {
+                                toast.error(`Bank "${b.name || 'Selected Bank'}" has a custom Value Date (${formatDate(effectiveValDate)}) earlier than quotation window date (${formatDate(windowStartDate)}).`);
+                                setIsSubmitting(false);
+                                return;
+                            }
+                        }
+                    } else {
+                        const effectiveBankValDate = b.valueDate || formData.valueDate;
+                        if (effectiveBankValDate && effectiveBankValDate < windowStartDate) {
+                            toast.error(`Bank "${b.name || 'Selected Bank'}" has a Value Date (${formatDate(effectiveBankValDate)}) earlier than quotation window date (${formatDate(windowStartDate)}). Value date must be on or after the quotation window date.`);
+                            setIsSubmitting(false);
+                            return;
+                        }
                     }
                 }
             } else if (formData.type === 'TBILL') {
@@ -703,6 +942,39 @@ export default function QuotationRequestDashboard() {
             allowAlternativeValueDate: b.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false
         }));
 
+        let formattedPairs = undefined;
+        if (formData.type === 'FX_SPOT' && pairs.length > 0) {
+            formattedPairs = pairs.map((p, idx) => {
+                const legBanks = selectedBanks.map(b => {
+                    const cfg = (b.customPairTariffs && b.pairConfigs && b.pairConfigs[p.id]) ? b.pairConfigs[p.id] : null;
+                    return {
+                        id: b.id,
+                        costMin: cfg?.costMin !== undefined ? cfg.costMin : (b.costMin ?? 0),
+                        costPercent: cfg?.costPercent !== undefined ? cfg.costPercent : (b.costPercent ?? 0),
+                        costMax: cfg?.costMax !== undefined ? cfg.costMax : (b.costMax ?? 0),
+                        costFlat: cfg?.costFlat !== undefined ? cfg.costFlat : (b.costFlat ?? 0),
+                        quotationBase: cfg?.quotationBase || b.quotationBase || p.quotationBase || formData.quotationBase || 'Execution',
+                        isDocumentVisible: cfg?.isDocumentVisible !== undefined ? cfg.isDocumentVisible : (b.isDocumentVisible !== false),
+                        valueDate: cfg?.valueDate ? String(cfg.valueDate).split('T')[0] : (b.valueDate ? String(b.valueDate).split('T')[0] : (p.valueDate ? String(p.valueDate).split('T')[0] : null)),
+                        allowAlternativeValueDate: cfg?.allowAlternativeValueDate !== undefined ? cfg.allowAlternativeValueDate : (b.allowAlternativeValueDate ?? p.allowAlternativeValueDate ?? false)
+                    };
+                });
+
+                return {
+                    direction: p.direction || 'Buy',
+                    buyCurrency: p.buyCurrency || 'USD',
+                    sellCurrency: p.sellCurrency || 'EGP',
+                    amount: p.amount ? parseFloat(p.amount) : null,
+                    minTicketAmount: p.minTicketAmount ? parseFloat(p.minTicketAmount) : null,
+                    valueDate: p.valueDate ? String(p.valueDate).split('T')[0] : null,
+                    allowAlternativeValueDate: Boolean(p.allowAlternativeValueDate),
+                    quotationBase: p.quotationBase || 'Execution',
+                    maxTolerancePercent: p.maxTolerancePercent ? parseFloat(p.maxTolerancePercent) : null,
+                    selectedBanks: legBanks
+                };
+            });
+        }
+
         const combinedDocs = [...existingDocs, ...uploadedDocs];
         const finalDocPath = combinedDocs.length > 0 ? JSON.stringify(combinedDocs) : null;
 
@@ -719,18 +991,20 @@ export default function QuotationRequestDashboard() {
             return;
         }
 
+        const primaryPair = formattedPairs && formattedPairs[0] ? formattedPairs[0] : null;
+
         // If in Revision Mode, call resubmit endpoint to update existing RFQ and return to PENDING_APPROVAL
         if (revisionRfqId) {
             const revisionPayload = {
                 entity_id: formData.entityId ? parseInt(formData.entityId, 10) : undefined,
                 type: formData.type,
-                direction: formData.direction || null,
-                value_date: formData.valueDate || null,
-                allow_alternative_value_date: formData.allowAlternativeValueDate || false,
-                amount: formData.amount ? parseFloat(formData.amount) : null,
-                min_ticket_amount: formData.minTicketAmount ? parseFloat(formData.minTicketAmount) : null,
-                buy_currency: formData.buyCurrency || null,
-                sell_currency: formData.sellCurrency || null,
+                direction: primaryPair ? primaryPair.direction : (formData.direction || null),
+                value_date: primaryPair ? primaryPair.valueDate : (formData.valueDate || null),
+                allow_alternative_value_date: primaryPair ? primaryPair.allowAlternativeValueDate : (formData.allowAlternativeValueDate || false),
+                amount: primaryPair ? primaryPair.amount : (formData.amount ? parseFloat(formData.amount) : null),
+                min_ticket_amount: primaryPair ? primaryPair.minTicketAmount : (formData.minTicketAmount ? parseFloat(formData.minTicketAmount) : null),
+                buy_currency: primaryPair ? primaryPair.buyCurrency : (formData.buyCurrency || null),
+                sell_currency: primaryPair ? primaryPair.sellCurrency : (formData.sellCurrency || null),
                 settlement_date_start: formData.settlementDateStart || null,
                 settlement_date_end: formData.settlementDateEnd || null,
                 maturity_date_start: formData.maturityDateStart || null,
@@ -738,8 +1012,8 @@ export default function QuotationRequestDashboard() {
                 eval_rate: formData.evalRate ? parseFloat(formData.evalRate) : null,
                 window_start: windowStart.toISOString(),
                 window_end: windowEnd.toISOString(),
-                quotation_base: formData.quotationBase || null,
-                max_tolerance_percent: formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null,
+                quotation_base: primaryPair ? primaryPair.quotationBase : (formData.quotationBase || null),
+                max_tolerance_percent: primaryPair ? primaryPair.maxTolerancePercent : (formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null),
                 document_path: finalDocPath,
                 selected_banks: JSON.stringify(formattedBanks),
                 token_validity_hours: parseInt(formData.tokenValidityHours, 10),
@@ -747,6 +1021,7 @@ export default function QuotationRequestDashboard() {
                 internal_notes: (formData.internalNotes || '').trim() || undefined,
                 legal_disclaimer_accepted: hasExecutionCounterparties ? Boolean(legalAcknowledged) : false,
                 legalDisclaimerAccepted: hasExecutionCounterparties ? Boolean(legalAcknowledged) : false,
+                pairs: formattedPairs,
             };
 
             try {
@@ -767,13 +1042,13 @@ export default function QuotationRequestDashboard() {
         const payload = {
             entity_id: formData.entityId ? parseInt(formData.entityId, 10) : undefined,
             type: formData.type,
-            direction: formData.direction || null,
-            valueDate: formData.valueDate || null,
-            allowAlternativeValueDate: formData.allowAlternativeValueDate || false,
-            amount: formData.amount ? parseFloat(formData.amount) : null,
-            minTicketAmount: formData.minTicketAmount ? parseFloat(formData.minTicketAmount) : null,
-            buyCurrency: formData.buyCurrency || null,
-            sellCurrency: formData.sellCurrency || null,
+            direction: primaryPair ? primaryPair.direction : (formData.direction || null),
+            valueDate: primaryPair ? primaryPair.valueDate : (formData.valueDate || null),
+            allowAlternativeValueDate: primaryPair ? primaryPair.allowAlternativeValueDate : (formData.allowAlternativeValueDate || false),
+            amount: primaryPair ? primaryPair.amount : (formData.amount ? parseFloat(formData.amount) : null),
+            minTicketAmount: primaryPair ? primaryPair.minTicketAmount : (formData.minTicketAmount ? parseFloat(formData.minTicketAmount) : null),
+            buyCurrency: primaryPair ? primaryPair.buyCurrency : (formData.buyCurrency || null),
+            sellCurrency: primaryPair ? primaryPair.sellCurrency : (formData.sellCurrency || null),
             settlementDateStart: formData.settlementDateStart || null,
             settlementDateEnd: formData.settlementDateEnd || null,
             maturityDateStart: formData.maturityDateStart || null,
@@ -781,8 +1056,8 @@ export default function QuotationRequestDashboard() {
             evalRate: formData.evalRate ? parseFloat(formData.evalRate) : null,
             windowStart: windowStart.toISOString(),
             windowEnd: windowEnd.toISOString(),
-            quotationBase: formData.quotationBase || null,
-            maxTolerancePercent: formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null,
+            quotationBase: primaryPair ? primaryPair.quotationBase : (formData.quotationBase || null),
+            maxTolerancePercent: primaryPair ? primaryPair.maxTolerancePercent : (formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null),
             documentPath: finalDocPath,
             selectedBanks: JSON.stringify(formattedBanks),
             token_validity_hours: parseInt(formData.tokenValidityHours, 10),
@@ -791,6 +1066,7 @@ export default function QuotationRequestDashboard() {
             internalNotes: (formData.internalNotes || '').trim() || undefined,
             legal_disclaimer_accepted: hasExecutionCounterparties ? Boolean(legalAcknowledged) : false,
             legalDisclaimerAccepted: hasExecutionCounterparties ? Boolean(legalAcknowledged) : false,
+            pairs: formattedPairs,
         };
 
         try {
@@ -1293,173 +1569,363 @@ export default function QuotationRequestDashboard() {
                                 </>
                             ) : (
                                 <>
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <label className="block text-[10px] font-bold text-gray-400 uppercase">Value Date (Settlement Date)</label>
-                                            {selectedBanks.length > 0 && formData.valueDate && hasUnsyncedBankDates && (
-                                                <button
-                                                    type="button"
-                                                    onClick={applyValueDateToAllBanks}
-                                                    className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors cursor-pointer"
-                                                    title="Copy master value date to all selected banks"
-                                                >
-                                                    <Copy size={11} /> Sync Date to All Banks
-                                                </button>
-                                            )}
+                                    {/* Multi-Pair FX Spot Workstation Header */}
+                                    <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] font-bold text-gray-800 uppercase tracking-wider">
+                                                Currency Pairs
+                                            </span>
+                                            <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80 px-2 py-0.5 rounded-full">
+                                                {pairs.length} {pairs.length === 1 ? 'Pair' : 'Pairs'}
+                                            </span>
                                         </div>
-                                        <input
-                                            type="date"
-                                            required
-                                            min={todayStr}
-                                            className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                                            value={formData.valueDate}
-                                            onChange={e => handleMasterValueDateChange(e.target.value)}
-                                        />
-
-                                        <p className="text-[10px] text-gray-500 mt-1">
-                                            Value Date cannot be earlier than today ({formatDate(todayStr)}). The quotation offer window will be scheduled on or before this date.
-                                        </p>
-
-                                        {/* Master Alternative Value Date Toggle */}
-                                        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50/70 to-indigo-50/70 border border-blue-100 rounded-xl">
-                                            <div className="flex items-center gap-2.5 pr-2">
-                                                <div className="w-7 h-7 rounded-lg bg-blue-600/10 text-blue-600 flex items-center justify-center shrink-0">
-                                                    <Calendar size={14} />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs font-semibold text-gray-900 block">Allow Alternative Value Date</span>
-                                                    <p className="text-[10px] text-gray-500 leading-tight mt-0.5">Permit counterparties to propose a different settlement date</p>
-                                                </div>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only peer"
-                                                    checked={formData.allowAlternativeValueDate}
-                                                    onChange={e => toggleMasterAlternativeValueDate(e.target.checked)}
-                                                />
-                                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                                            </label>
-                                        </div>
+                                        {!retradeRfqId && (
+                                            <button
+                                                type="button"
+                                                disabled={pairs.length >= 8}
+                                                onClick={handleAddPair}
+                                                className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
+                                                title="Add another currency pair to this quotation session (up to 8 pairs)"
+                                            >
+                                                <Plus size={13} /> Add Pair ({pairs.length}/8)
+                                            </button>
+                                        )}
                                     </div>
 
-                                    <div>
-                                        <div className="flex items-center justify-between mb-1">
-                                            <label className="block text-[10px] font-bold text-gray-400 uppercase">Amount to Buy</label>
-                                            {retradeRfqId && (
-                                                <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-                                                    🔒 Locked for Re-Tender
+                                    {/* Multi-Pair Pill Navigation Strip (Visible when multiple pairs exist or for quick switching) */}
+                                    {pairs.length > 1 && (
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase">
+                                                    Select Pair to Configure
+                                                </label>
+                                                <span className="text-[10px] text-gray-400 font-medium">
+                                                    {activePairIndex + 1} of {pairs.length} active
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin">
+                                                {pairs.map((p, idx) => {
+                                                    const isActive = activePairIndex === idx;
+                                                    const amountFormatted = p.amount ? Number(p.amount).toLocaleString() : '0';
+                                                    return (
+                                                        <div
+                                                            key={p.id}
+                                                            onClick={() => setActivePairIndex(idx)}
+                                                            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold cursor-pointer transition-all shrink-0 select-none ${
+                                                                isActive
+                                                                    ? 'bg-slate-900 border-slate-900 text-white shadow-sm ring-2 ring-blue-500/20'
+                                                                    : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+                                                            }`}
+                                                        >
+                                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                                                                isActive ? 'bg-slate-800 text-blue-400' : 'bg-slate-200 text-slate-600'
+                                                            }`}>
+                                                                P{idx + 1}
+                                                            </span>
+                                                            <span className="font-bold tracking-tight">
+                                                                {p.buyCurrency || 'USD'}/{p.sellCurrency || 'EGP'}
+                                                            </span>
+                                                            <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ${
+                                                                p.direction === 'Sell' 
+                                                                    ? (isActive ? 'bg-rose-500/20 text-rose-300' : 'bg-rose-50 text-rose-700')
+                                                                    : (isActive ? 'bg-emerald-500/20 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
+                                                            }`}>
+                                                                {p.direction || 'Buy'} {amountFormatted}
+                                                            </span>
+                                                            {!retradeRfqId && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleRemovePair(idx);
+                                                                    }}
+                                                                    className={`p-1 rounded-md transition-colors ${
+                                                                        isActive
+                                                                            ? 'text-slate-400 hover:text-white hover:bg-slate-800'
+                                                                            : 'text-slate-400 hover:text-rose-600 hover:bg-slate-200'
+                                                                    }`}
+                                                                    title={`Remove ${p.buyCurrency}/${p.sellCurrency}`}
+                                                                >
+                                                                    <Trash2 size={12} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Active Pair Card Editor */}
+                                    <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200 space-y-4">
+                                        <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-slate-800">
+                                                    Pair #{activePairIndex + 1}: <span className="font-extrabold text-blue-900">{activePair.buyCurrency || 'USD'}/{activePair.sellCurrency || 'EGP'}</span>
+                                                </span>
+                                            </div>
+                                            {pairs.length > 1 && (
+                                                <span className="text-[10px] text-slate-500 font-medium">
+                                                    Tab {activePairIndex + 1} of {pairs.length}
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="relative">
-                                            <input
-                                                type="number"
-                                                required
-                                                disabled={Boolean(retradeRfqId)}
-                                                placeholder="0.00"
-                                                style={{ paddingLeft: '1rem', paddingRight: '3.75rem' }}
-                                                className={`w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 sm:py-3 text-base font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-black/5 outline-none transition-all ${
-                                                    retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
-                                                }`}
-                                                value={formData.amount}
-                                                onChange={e => setFormData({ ...formData, amount: e.target.value })}
-                                                onWheel={(e) => e.target.blur()}
-                                            />
-                                            <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase tracking-wider pointer-events-none select-none">
-                                                {formData.buyCurrency}
+
+                                        {/* Direction Selector */}
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Trade Direction</label>
+                                            <div className="flex gap-2">
+                                                {['Buy', 'Sell'].map(dir => {
+                                                    const isCurDir = (activePair.direction || 'Buy') === dir;
+                                                    return (
+                                                        <button
+                                                            key={dir}
+                                                            type="button"
+                                                            disabled={Boolean(retradeRfqId)}
+                                                            onClick={() => updateActivePair('direction', dir)}
+                                                            className={`flex-1 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                                                                isCurDir
+                                                                    ? (dir === 'Buy' ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs' : 'bg-rose-600 border-rose-600 text-white shadow-xs')
+                                                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                                                            } ${retradeRfqId ? 'cursor-not-allowed opacity-80' : ''}`}
+                                                        >
+                                                            {dir === 'Buy' ? 'Buy Currency' : 'Sell Currency'}
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                        {/* Currency Pair Pickers with Swap Button */}
                                         <div>
-                                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Buy Pair</label>
-                                            <select
-                                                disabled={Boolean(retradeRfqId)}
-                                                className={`w-full bg-gray-50 border-none rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all ${
-                                                    retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
-                                                }`}
-                                                value={formData.buyCurrency}
-                                                onChange={e => setFormData({ ...formData, buyCurrency: e.target.value })}
-                                            >
-                                                <option>EGP</option><option>USD</option><option>EUR</option><option>GBP</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Sell Pair</label>
-                                            <select
-                                                disabled={Boolean(retradeRfqId)}
-                                                className={`w-full bg-gray-50 border-none rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all ${
-                                                    retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
-                                                }`}
-                                                value={formData.sellCurrency}
-                                                onChange={e => setFormData({ ...formData, sellCurrency: e.target.value })}
-                                            >
-                                                <option>USD</option><option>EGP</option><option>EUR</option><option>GBP</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                     <div>
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Default Quotation Base</label>
-                                        <div className="flex gap-2">
-                                            {['Execution', 'Indicative'].map(type => (
-                                                <button
-                                                    key={type}
-                                                    type="button"
-                                                    onClick={() => handleMasterQuotationBaseChange(type)}
-                                                    className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${formData.quotationBase === type
-                                                        ? 'bg-black text-white'
-                                                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                                        }`}
-                                                >
-                                                    {type}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        {/* Contextual Legal & Commitment Advisory */}
-                                        <div className={`mt-2 p-2.5 rounded-xl border text-[11px] leading-relaxed transition-all ${
-                                            formData.quotationBase === 'Execution'
-                                                ? 'bg-amber-50/80 border-amber-200 text-amber-900'
-                                                : 'bg-blue-50/80 border-blue-200 text-blue-900'
-                                        }`}>
-                                            <div className="flex items-start gap-2">
-                                                {formData.quotationBase === 'Execution' ? (
-                                                    <ShieldAlert size={14} className="text-amber-700 shrink-0 mt-0.5" />
-                                                ) : (
-                                                    <Info size={14} className="text-blue-600 shrink-0 mt-0.5" />
-                                                )}
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
+                                                Currency Pair ({activePair.direction === 'Sell' ? 'Selling / Buying' : 'Buying / Selling'})
+                                            </label>
+                                            <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-center">
                                                 <div>
-                                                    {formData.quotationBase === 'Execution' ? (
-                                                        <span>
-                                                            <strong className="font-semibold text-amber-950">Binding Execution:</strong> Winning quote automatically awarded at window closure creates a direct, binding commitment with the winning bank. Grow Treasury operates &ldquo;AS IS&rdquo; with zero financial liability.
-                                                        </span>
-                                                    ) : (
-                                                        <span>
-                                                            <strong className="font-semibold text-blue-950">Indicative Pricing:</strong> Sounding mode for pricing benchmarks and reference only. Non-binding and will not result in automated trade execution.
-                                                        </span>
-                                                    )}
+                                                    <span className="block text-[9px] font-bold text-gray-500 mb-0.5">
+                                                        {activePair.direction === 'Sell' ? 'Base (Sell)' : 'Base (Buy)'}
+                                                    </span>
+                                                    <select
+                                                        disabled={Boolean(retradeRfqId)}
+                                                        className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-black/5 outline-none transition-all ${
+                                                            retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
+                                                        }`}
+                                                        value={activePair.buyCurrency || 'USD'}
+                                                        onChange={e => updateActivePair('buyCurrency', e.target.value)}
+                                                    >
+                                                        {['USD', 'EUR', 'GBP', 'EGP', 'AED', 'SAR', 'CHF', 'CAD', 'JPY', 'CNY', 'KWD'].map(c => (
+                                                            <option key={c} value={c}>{c}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                <div className="pt-3">
+                                                    <button
+                                                        type="button"
+                                                        disabled={Boolean(retradeRfqId)}
+                                                        onClick={handleSwapCurrencies}
+                                                        className="w-8 h-8 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-all cursor-pointer shadow-2xs disabled:opacity-40"
+                                                        title="Swap base and quote currencies"
+                                                    >
+                                                        <ArrowLeftRight size={13} />
+                                                    </button>
+                                                </div>
+
+                                                <div>
+                                                    <span className="block text-[9px] font-bold text-gray-500 mb-0.5">
+                                                        {activePair.direction === 'Sell' ? 'Quote (Receive)' : 'Quote (Pay)'}
+                                                    </span>
+                                                    <select
+                                                        disabled={Boolean(retradeRfqId)}
+                                                        className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-black/5 outline-none transition-all ${
+                                                            retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
+                                                        }`}
+                                                        value={activePair.sellCurrency || 'EGP'}
+                                                        onChange={e => updateActivePair('sellCurrency', e.target.value)}
+                                                    >
+                                                        {['EGP', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'CHF', 'CAD', 'JPY', 'CNY', 'KWD'].map(c => (
+                                                            <option key={c} value={c}>{c}</option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {/* Amount and Min Ticket Amount */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div>
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <label className="block text-[10px] font-bold text-gray-400 uppercase">
+                                                        {activePair.direction === 'Sell' ? 'Amount to Sell' : 'Amount to Buy'}
+                                                    </label>
+                                                    {retradeRfqId && (
+                                                        <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                                                            🔒 Locked
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="relative">
+                                                    <input
+                                                        type="number"
+                                                        required
+                                                        disabled={Boolean(retradeRfqId)}
+                                                        placeholder="0.00"
+                                                        style={{ paddingLeft: '0.85rem', paddingRight: '3.75rem' }}
+                                                        className={`w-full bg-white border border-slate-200 rounded-xl py-2 sm:py-2.5 text-sm font-bold text-gray-900 focus:ring-2 focus:ring-black/5 outline-none transition-all ${
+                                                            retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
+                                                        }`}
+                                                        value={activePair.amount || ''}
+                                                        onChange={e => updateActivePair('amount', e.target.value)}
+                                                        onWheel={(e) => e.target.blur()}
+                                                    />
+                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase tracking-wider pointer-events-none select-none">
+                                                        {activePair.buyCurrency || 'USD'}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
+                                                    Min Split Ticket (Optional)
+                                                </label>
+                                                <div className="relative">
+                                                    <input
+                                                        type="number"
+                                                        placeholder="Optional"
+                                                        style={{ paddingLeft: '0.85rem', paddingRight: '3.75rem' }}
+                                                        className="w-full bg-white border border-slate-200 rounded-xl py-2 sm:py-2.5 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-black/5 outline-none transition-all"
+                                                        value={activePair.minTicketAmount || ''}
+                                                        onChange={e => updateActivePair('minTicketAmount', e.target.value)}
+                                                        onWheel={(e) => e.target.blur()}
+                                                    />
+                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase tracking-wider pointer-events-none select-none">
+                                                        {activePair.buyCurrency || 'USD'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Value Date & Alternative Value Date */}
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase">
+                                                    Value Date (Settlement Date)
+                                                </label>
+                                                {pairs.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => applyValueDateToAllPairs(activePair.valueDate)}
+                                                        className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors cursor-pointer"
+                                                        title="Sync this value date to all currency pairs"
+                                                    >
+                                                        <Copy size={11} /> Sync Date to All Pairs
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <input
+                                                type="date"
+                                                required
+                                                min={todayStr}
+                                                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold focus:ring-2 focus:ring-black/5 outline-none transition-all text-slate-800"
+                                                value={activePair.valueDate || ''}
+                                                onChange={e => {
+                                                    const newVal = e.target.value;
+                                                    updateActivePair('valueDate', newVal);
+                                                    if (activePairIndex === 0) {
+                                                        handleMasterValueDateChange(newVal);
+                                                    }
+                                                }}
+                                            />
+
+                                            <div className="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-xl">
+                                                <div className="flex items-center gap-2 pr-2">
+                                                    <Calendar size={13} className="text-blue-600 shrink-0" />
+                                                    <div>
+                                                        <span className="text-xs font-semibold text-gray-900 block leading-tight">Allow Alternative Value Date</span>
+                                                        <p className="text-[9px] text-gray-500 leading-tight">Counterparties may propose another settlement date for this pair</p>
+                                                    </div>
+                                                </div>
+                                                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only peer"
+                                                        checked={Boolean(activePair.allowAlternativeValueDate)}
+                                                        onChange={e => updateActivePair('allowAlternativeValueDate', e.target.checked)}
+                                                    />
+                                                    <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-blue-600"></div>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        {/* Quotation Base for Active Pair */}
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
+                                                Quotation Base for This Pair
+                                            </label>
+                                            <div className="flex gap-2">
+                                                {['Execution', 'Indicative'].map(baseType => (
+                                                    <button
+                                                        key={baseType}
+                                                        type="button"
+                                                        onClick={() => updateActivePair('quotationBase', baseType)}
+                                                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                                                            (activePair.quotationBase || formData.quotationBase || 'Execution') === baseType
+                                                                ? 'bg-black border-black text-white'
+                                                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                                                        }`}
+                                                    >
+                                                        {baseType}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Max Tolerance for Active Pair */}
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
+                                                Max Tolerance (%) vs Indicative
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    placeholder="0.05"
+                                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-black/5 outline-none transition-all font-semibold"
+                                                    value={activePair.maxTolerancePercent !== undefined ? activePair.maxTolerancePercent : (formData.maxTolerancePercent || '0.05')}
+                                                    onChange={e => updateActivePair('maxTolerancePercent', e.target.value)}
+                                                    onWheel={(e) => e.target.blur()}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Max Tolerance (%) for Execution vs Indicative</label>
-                                        <div className="relative">
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                placeholder="0.50"
-                                                className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                                                value={formData.maxTolerancePercent}
-                                                onChange={e => setFormData({ ...formData, maxTolerancePercent: e.target.value })}
-                                                onWheel={(e) => e.target.blur()}
-                                            />
+                                    {/* Portfolio Recap Bar for Multi-Pair RFQs */}
+                                    {pairs.length > 1 && (
+                                        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-slate-50 via-blue-50/40 to-slate-50 border border-slate-200/80 text-xs shadow-2xs space-y-2">
+                                            <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                                                <span className="flex items-center gap-1.5 uppercase tracking-wider text-slate-500 text-[10px]">
+                                                    <Layers size={13} className="text-blue-600" />
+                                                    Multi-Pair Portfolio Summary
+                                                </span>
+                                                <span className="text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md font-semibold text-[10px]">
+                                                    {pairs.length} Legs
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                                                <div className="p-2 bg-white rounded-xl border border-slate-200/60">
+                                                    <span className="text-[9px] font-bold text-gray-400 uppercase block">Earliest Settlement</span>
+                                                    <span className="font-bold text-slate-900">{formatDate(targetValueDate)}</span>
+                                                </div>
+                                                <div className="p-2 bg-white rounded-xl border border-slate-200/60">
+                                                    <span className="text-[9px] font-bold text-gray-400 uppercase block">Configured Pairs</span>
+                                                    <span className="font-bold text-slate-900 truncate block">
+                                                        {pairs.map(p => `${p.buyCurrency}/${p.sellCurrency}`).join(', ')}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <p className="text-[10px] text-gray-400 mt-1">If Execution rate exceeds Indicative rate by more than this %, RFQ will close without a winner.</p>
-                                    </div>
+                                    )}
                                 </>
                             )}
 
@@ -1818,113 +2284,254 @@ export default function QuotationRequestDashboard() {
                                             </button>
                                         </div>
 
-                                         {isSelected && (
-                                            <div className="animate-fade-in-up space-y-3 pt-4 mt-2 border-t border-gray-200">
-                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-                                                    <div>
-                                                        <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Min Cost</label>
-                                                        <input
-                                                            type="number"
-                                                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black"
-                                                            value={isSelected.costMin}
-                                                            onChange={e => updateBankCost(bank.bank_id, 'costMin', parseFloat(e.target.value))}
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Cost %</label>
-                                                        <input
-                                                            type="number"
-                                                            step="0.01"
-                                                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black"
-                                                            value={isSelected.costPercent}
-                                                            onChange={e => updateBankCost(bank.bank_id, 'costPercent', parseFloat(e.target.value))}
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Max Cost</label>
-                                                        <input
-                                                            type="number"
-                                                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black"
-                                                            value={isSelected.costMax}
-                                                            onChange={e => updateBankCost(bank.bank_id, 'costMax', parseFloat(e.target.value))}
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Flat Fee</label>
-                                                        <input
-                                                            type="number"
-                                                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black"
-                                                            value={isSelected.costFlat}
-                                                            onChange={e => updateBankCost(bank.bank_id, 'costFlat', parseFloat(e.target.value))}
-                                                        />
-                                                    </div>
-                                                </div>
+                                         {isSelected && (() => {
+                                            const isMultiPairMode = formData.type === 'FX_SPOT' && pairs.length > 1;
+                                            const curTabId = bankActivePairTab[bank.bank_id] || pairs[0]?.id;
+                                            const curPair = pairs.find(p => p.id === curTabId) || pairs[0] || {};
+                                            const activeCfg = (isSelected.customPairTariffs && isSelected.pairConfigs && isSelected.pairConfigs[curTabId])
+                                                ? isSelected.pairConfigs[curTabId]
+                                                : {
+                                                    costMin: isSelected.costMin ?? 0,
+                                                    costPercent: isSelected.costPercent ?? 0,
+                                                    costMax: isSelected.costMax ?? 0,
+                                                    costFlat: isSelected.costFlat ?? 0,
+                                                    quotationBase: isSelected.quotationBase || formData.quotationBase || 'Execution',
+                                                    isDocumentVisible: isSelected.isDocumentVisible !== false,
+                                                    valueDate: isSelected.valueDate || '',
+                                                    allowAlternativeValueDate: isSelected.allowAlternativeValueDate ?? false
+                                                };
 
-                                                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100 text-xs">
-                                                    <div className="flex items-center gap-2">
-                                                        <label className="text-[10px] font-bold text-gray-400 uppercase">Base Type:</label>
-                                                        <select
-                                                            className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black"
-                                                            value={isSelected.quotationBase || formData.quotationBase}
-                                                            onChange={e => updateBankCost(bank.bank_id, 'quotationBase', e.target.value)}
-                                                        >
-                                                            <option value="Execution">Execution</option>
-                                                            <option value="Indicative">Indicative</option>
-                                                        </select>
-                                                    </div>
+                                            return (
+                                                <div className="animate-fade-in-up space-y-3 pt-3 mt-2 border-t border-gray-200">
+                                                    {/* Multi-Pair Scope Switcher */}
+                                                    {isMultiPairMode && (
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center justify-between p-2 rounded-xl bg-slate-100/90 border border-slate-200 text-xs">
+                                                                <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                                                                    <SlidersHorizontal size={12} className="text-blue-600" />
+                                                                    Tariffs Scope:
+                                                                </span>
+                                                                <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => toggleBankPairCustomization(bank.bank_id, false)}
+                                                                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                                                            !isSelected.customPairTariffs ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                                                                        }`}
+                                                                    >
+                                                                        Same for All
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => toggleBankPairCustomization(bank.bank_id, true)}
+                                                                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                                                            isSelected.customPairTariffs ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                                                                        }`}
+                                                                    >
+                                                                        Customize per Pair
+                                                                    </button>
+                                                                </div>
+                                                            </div>
 
-                                                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-gray-600 font-medium select-none">
-                                                        <input
-                                                            type="checkbox"
-                                                            className="rounded border-gray-300 text-black focus:ring-black"
-                                                            checked={isSelected.isDocumentVisible !== false}
-                                                            onChange={e => updateBankCost(bank.bank_id, 'isDocumentVisible', e.target.checked)}
-                                                        />
-                                                        Document Visible
-                                                    </label>
-                                                </div>
+                                                            {/* Bank Pair Tabs (when custom tariffs per pair enabled) */}
+                                                            {isSelected.customPairTariffs && (
+                                                                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                                                                    {pairs.map((p, pIdx) => {
+                                                                        const isTabActive = curTabId === p.id;
+                                                                        return (
+                                                                            <button
+                                                                                key={p.id}
+                                                                                type="button"
+                                                                                onClick={() => setBankActivePairTab(prev => ({ ...prev, [bank.bank_id]: p.id }))}
+                                                                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shrink-0 flex items-center gap-1 ${
+                                                                                    isTabActive 
+                                                                                        ? 'bg-slate-900 text-white border-slate-900 shadow-2xs' 
+                                                                                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                                                                }`}
+                                                                            >
+                                                                                <span>{p.buyCurrency}/{p.sellCurrency}</span>
+                                                                                <span className={`text-[8px] px-1 py-0.2 rounded font-semibold ${isTabActive ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-500'}`}>
+                                                                                    P{pIdx + 1}
+                                                                                </span>
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
 
-                                                {formData.type === 'FX_SPOT' && (
-                                                    <div className="pt-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2.5 text-xs">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <label className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Value Date:</label>
+                                                            {isSelected.customPairTariffs && (
+                                                                <div className="text-[10px] font-semibold text-blue-700 bg-blue-50/70 border border-blue-200/60 px-2 py-1 rounded-lg">
+                                                                    Configuring tariffs specifically for <span className="font-bold">{curPair.buyCurrency}/{curPair.sellCurrency}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+                                                        <div>
+                                                            <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Min Cost</label>
                                                             <input
-                                                                type="date"
-                                                                min={windowStartDate || todayStr}
-                                                                className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black"
-                                                                value={isSelected.valueDate || ''}
+                                                                type="number"
+                                                                className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black font-semibold text-gray-900"
+                                                                value={activeCfg.costMin}
                                                                 onChange={e => {
-                                                                    const val = e.target.value;
-                                                                    if (val && windowStartDate && val < windowStartDate) {
-                                                                        toast.warn(`Value Date for ${bank.bank?.name || 'bank'} cannot be earlier than quotation window date (${formatDate(windowStartDate)}). Setting to ${formatDate(windowStartDate)}.`);
-                                                                        updateBankCost(bank.bank_id, 'valueDate', windowStartDate);
+                                                                    const val = parseFloat(e.target.value) || 0;
+                                                                    if (isSelected.customPairTariffs) {
+                                                                        updateBankPairConfig(bank.bank_id, curTabId, 'costMin', val);
                                                                     } else {
-                                                                        updateBankCost(bank.bank_id, 'valueDate', val);
+                                                                        updateBankCost(bank.bank_id, 'costMin', val);
                                                                     }
                                                                 }}
                                                             />
                                                         </div>
-                                                        <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-gray-700 font-medium select-none bg-white border border-gray-200 hover:border-blue-300 px-2 py-1 rounded-lg transition-colors">
+                                                        <div>
+                                                            <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Cost %</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black font-semibold text-gray-900"
+                                                                value={activeCfg.costPercent}
+                                                                onChange={e => {
+                                                                    const val = parseFloat(e.target.value) || 0;
+                                                                    if (isSelected.customPairTariffs) {
+                                                                        updateBankPairConfig(bank.bank_id, curTabId, 'costPercent', val);
+                                                                    } else {
+                                                                        updateBankCost(bank.bank_id, 'costPercent', val);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Max Cost</label>
+                                                            <input
+                                                                type="number"
+                                                                className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black font-semibold text-gray-900"
+                                                                value={activeCfg.costMax}
+                                                                onChange={e => {
+                                                                    const val = parseFloat(e.target.value) || 0;
+                                                                    if (isSelected.customPairTariffs) {
+                                                                        updateBankPairConfig(bank.bank_id, curTabId, 'costMax', val);
+                                                                    } else {
+                                                                        updateBankCost(bank.bank_id, 'costMax', val);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Flat Fee</label>
+                                                            <input
+                                                                type="number"
+                                                                className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black font-semibold text-gray-900"
+                                                                value={activeCfg.costFlat}
+                                                                onChange={e => {
+                                                                    const val = parseFloat(e.target.value) || 0;
+                                                                    if (isSelected.customPairTariffs) {
+                                                                        updateBankPairConfig(bank.bank_id, curTabId, 'costFlat', val);
+                                                                    } else {
+                                                                        updateBankCost(bank.bank_id, 'costFlat', val);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100 text-xs">
+                                                        <div className="flex items-center gap-2">
+                                                            <label className="text-[10px] font-bold text-gray-400 uppercase">Base Type:</label>
+                                                            <select
+                                                                className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black font-semibold text-gray-900"
+                                                                value={activeCfg.quotationBase || formData.quotationBase || 'Execution'}
+                                                                onChange={e => {
+                                                                    const val = e.target.value;
+                                                                    if (isSelected.customPairTariffs) {
+                                                                        updateBankPairConfig(bank.bank_id, curTabId, 'quotationBase', val);
+                                                                    } else {
+                                                                        updateBankCost(bank.bank_id, 'quotationBase', val);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <option value="Execution">Execution</option>
+                                                                <option value="Indicative">Indicative</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-gray-600 font-medium select-none">
                                                             <input
                                                                 type="checkbox"
-                                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-600"
-                                                                checked={isSelected.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false}
-                                                                onChange={e => updateBankCost(bank.bank_id, 'allowAlternativeValueDate', e.target.checked)}
+                                                                className="rounded border-gray-300 text-black focus:ring-black"
+                                                                checked={activeCfg.isDocumentVisible !== false}
+                                                                onChange={e => {
+                                                                    const val = e.target.checked;
+                                                                    if (isSelected.customPairTariffs) {
+                                                                        updateBankPairConfig(bank.bank_id, curTabId, 'isDocumentVisible', val);
+                                                                    } else {
+                                                                        updateBankCost(bank.bank_id, 'isDocumentVisible', val);
+                                                                    }
+                                                                }}
                                                             />
-                                                            <span className={isSelected.allowAlternativeValueDate ? 'text-blue-700 font-semibold' : 'text-gray-600'}>
-                                                                Allow Alt Date
-                                                            </span>
+                                                            Document Visible
                                                         </label>
-
-                                                        {isSelected.valueDate && windowStartDate && isSelected.valueDate < windowStartDate && (
-                                                            <div className="w-full text-[10px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
-                                                                <AlertCircle size={11} /> Value Date ({formatDate(isSelected.valueDate)}) cannot precede Offer Window ({formatDate(windowStartDate)})
-                                                            </div>
-                                                        )}
                                                     </div>
-                                                )}
-                                            </div>
-                                        )}
+
+                                                    {formData.type === 'FX_SPOT' && (
+                                                        <div className="pt-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <label className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">
+                                                                    Value Date{isSelected.customPairTariffs ? ` (${curPair.buyCurrency}/${curPair.sellCurrency})` : ''}:
+                                                                </label>
+                                                                <input
+                                                                    type="date"
+                                                                    min={windowStartDate || todayStr}
+                                                                    className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black font-semibold text-gray-900"
+                                                                    value={activeCfg.valueDate || ''}
+                                                                    onChange={e => {
+                                                                        const val = e.target.value;
+                                                                        if (val && windowStartDate && val < windowStartDate) {
+                                                                            toast.warn(`Value Date for ${bank.bank?.name || 'bank'} cannot be earlier than quotation window date (${formatDate(windowStartDate)}). Setting to ${formatDate(windowStartDate)}.`);
+                                                                            if (isSelected.customPairTariffs) {
+                                                                                updateBankPairConfig(bank.bank_id, curTabId, 'valueDate', windowStartDate);
+                                                                            } else {
+                                                                                updateBankCost(bank.bank_id, 'valueDate', windowStartDate);
+                                                                            }
+                                                                        } else {
+                                                                            if (isSelected.customPairTariffs) {
+                                                                                updateBankPairConfig(bank.bank_id, curTabId, 'valueDate', val);
+                                                                            } else {
+                                                                                updateBankCost(bank.bank_id, 'valueDate', val);
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-gray-700 font-medium select-none bg-white border border-gray-200 hover:border-blue-300 px-2 py-1 rounded-lg transition-colors">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                                                                    checked={activeCfg.allowAlternativeValueDate ?? false}
+                                                                    onChange={e => {
+                                                                        const val = e.target.checked;
+                                                                        if (isSelected.customPairTariffs) {
+                                                                            updateBankPairConfig(bank.bank_id, curTabId, 'allowAlternativeValueDate', val);
+                                                                        } else {
+                                                                            updateBankCost(bank.bank_id, 'allowAlternativeValueDate', val);
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                <span className={activeCfg.allowAlternativeValueDate ? 'text-blue-700 font-semibold' : 'text-gray-600'}>
+                                                                    Allow Alt Date
+                                                                </span>
+                                                            </label>
+
+                                                            {activeCfg.valueDate && windowStartDate && activeCfg.valueDate < windowStartDate && (
+                                                                <div className="w-full text-[10px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
+                                                                    <AlertCircle size={11} /> Value Date ({formatDate(activeCfg.valueDate)}) cannot precede Offer Window ({formatDate(windowStartDate)})
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 );
                             })}
