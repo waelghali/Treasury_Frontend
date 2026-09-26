@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, AlertTriangle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal, ArrowLeftRight } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, AlertTriangle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 
@@ -220,28 +220,6 @@ export default function QuotationRequestDashboard() {
                 ...(field === 'quotationBase' ? { quotationBase: value } : {}),
                 ...(field === 'maxTolerancePercent' ? { maxTolerancePercent: value } : {}),
                 ...(field === 'allowAlternativeValueDate' ? { allowAlternativeValueDate: value } : {}),
-            }));
-        }
-    };
-
-    const handleSwapCurrencies = () => {
-        const curBuy = pairs[activePairIndex]?.buyCurrency || 'USD';
-        const curSell = pairs[activePairIndex]?.sellCurrency || 'EGP';
-        setPairs(prev => {
-            const next = [...prev];
-            if (!next[activePairIndex]) return prev;
-            next[activePairIndex] = {
-                ...next[activePairIndex],
-                buyCurrency: curSell,
-                sellCurrency: curBuy
-            };
-            return next;
-        });
-        if (activePairIndex === 0) {
-            setFormData(prev => ({
-                ...prev,
-                buyCurrency: curSell,
-                sellCurrency: curBuy
             }));
         }
     };
@@ -1715,69 +1693,12 @@ export default function QuotationRequestDashboard() {
                                             </div>
                                         )}
 
-                                        {/* Currency Pair Pickers with Swap Button */}
+                                        {/* Trade Action (Buy vs Sell) */}
                                         <div>
-                                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                                                Currency Pair
-                                            </label>
-                                            <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-center">
-                                                <div>
-                                                    <span className="block text-[9px] font-bold text-gray-500 mb-1">
-                                                        Base Currency
-                                                    </span>
-                                                    <select
-                                                        disabled={Boolean(retradeRfqId)}
-                                                        className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
-                                                            retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
-                                                        }`}
-                                                        value={activePair.buyCurrency || 'USD'}
-                                                        onChange={e => updateActivePair('buyCurrency', e.target.value)}
-                                                    >
-                                                        {['USD', 'EUR', 'GBP', 'EGP', 'AED', 'SAR', 'CHF', 'CAD', 'JPY', 'CNY', 'KWD'].map(c => (
-                                                            <option key={c} value={c}>{c}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                <div className="pt-3">
-                                                    <button
-                                                        type="button"
-                                                        disabled={Boolean(retradeRfqId)}
-                                                        onClick={handleSwapCurrencies}
-                                                        className="w-8 h-8 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-all cursor-pointer shadow-2xs disabled:opacity-40"
-                                                        title="Swap base and quote currencies"
-                                                    >
-                                                        <ArrowLeftRight size={13} />
-                                                    </button>
-                                                </div>
-
-                                                <div>
-                                                    <span className="block text-[9px] font-bold text-gray-500 mb-1">
-                                                        Quote Currency
-                                                    </span>
-                                                    <select
-                                                        disabled={Boolean(retradeRfqId)}
-                                                        className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
-                                                            retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
-                                                        }`}
-                                                        value={activePair.sellCurrency || 'EGP'}
-                                                        onChange={e => updateActivePair('sellCurrency', e.target.value)}
-                                                    >
-                                                        {['EGP', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'CHF', 'CAD', 'JPY', 'CNY', 'KWD'].map(c => (
-                                                            <option key={c} value={c}>{c}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Direction Selector (Clean, non-redundant action toggle) */}
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Trade Direction</label>
+                                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Trade Action</label>
                                             <div className="grid grid-cols-2 p-1 bg-slate-200/70 rounded-xl gap-1">
                                                 {['Buy', 'Sell'].map(dir => {
                                                     const isCurDir = (activePair.direction || 'Buy') === dir;
-                                                    const baseCurr = activePair.buyCurrency || 'USD';
                                                     return (
                                                         <button
                                                             key={dir}
@@ -1792,10 +1713,49 @@ export default function QuotationRequestDashboard() {
                                                                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                                                             } ${retradeRfqId ? 'cursor-not-allowed opacity-80' : ''}`}
                                                         >
-                                                            <span>{dir === 'Buy' ? `Buy ${baseCurr}` : `Sell ${baseCurr}`}</span>
+                                                            <span>{dir === 'Buy' ? 'Buy' : 'Sell'}</span>
                                                         </button>
                                                     );
                                                 })}
+                                            </div>
+                                        </div>
+
+                                        {/* Currencies (Action-first natural labeling, zero base/quote confusion) */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                                                    {activePair.direction === 'Sell' ? 'Currency to Sell' : 'Currency to Buy'}
+                                                </label>
+                                                <select
+                                                    disabled={Boolean(retradeRfqId)}
+                                                    className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
+                                                        retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
+                                                    }`}
+                                                    value={activePair.buyCurrency || 'USD'}
+                                                    onChange={e => updateActivePair('buyCurrency', e.target.value)}
+                                                >
+                                                    {['USD', 'EUR', 'GBP', 'EGP', 'AED', 'SAR', 'CHF', 'CAD', 'JPY', 'CNY', 'KWD'].map(c => (
+                                                        <option key={c} value={c}>{c}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                                                    {activePair.direction === 'Sell' ? 'Against (Receive)' : 'Against (Pay with)'}
+                                                </label>
+                                                <select
+                                                    disabled={Boolean(retradeRfqId)}
+                                                    className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
+                                                        retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
+                                                    }`}
+                                                    value={activePair.sellCurrency || 'EGP'}
+                                                    onChange={e => updateActivePair('sellCurrency', e.target.value)}
+                                                >
+                                                    {['EGP', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'CHF', 'CAD', 'JPY', 'CNY', 'KWD'].map(c => (
+                                                        <option key={c} value={c}>{c}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                         </div>
 
