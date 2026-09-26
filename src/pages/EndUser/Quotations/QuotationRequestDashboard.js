@@ -1303,9 +1303,9 @@ export default function QuotationRequestDashboard() {
                 </div>
             </header>
 
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-7">
                 {/* Left Column: RFQ Details */}
-                <div className="xl:col-span-1 space-y-6">
+                <div className="lg:col-span-5 space-y-6">
                     <section className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100">
                         <h3 className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-6 flex items-center gap-2">
                             <FileText size={14} /> {formData.type === 'TBILL' ? 'T-Bill Details' : 'Trade Details'}
@@ -1403,48 +1403,46 @@ export default function QuotationRequestDashboard() {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
                                             <div className="flex items-center justify-between mb-1">
-                                                <label className="block text-[10px] font-bold text-gray-400 uppercase">Total Amount</label>
+                                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Amount</label>
                                                 {retradeRfqId && (
                                                     <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
                                                         🔒 Locked
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="relative">
+                                            <div className={`flex items-center bg-gray-50 border border-gray-200 rounded-xl overflow-hidden focus-within:bg-white focus-within:ring-2 focus-within:ring-black/5 focus-within:border-gray-400 transition-all ${
+                                                retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
+                                            }`}>
                                                 <input
                                                     type="number"
                                                     required
                                                     disabled={Boolean(retradeRfqId)}
                                                     placeholder="0.00"
-                                                    style={{ paddingLeft: '1rem', paddingRight: '3.75rem' }}
-                                                    className={`w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 sm:py-3 text-base font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none ${
-                                                        retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
-                                                    }`}
+                                                    className="w-full bg-transparent px-3.5 py-2.5 sm:py-3 text-base font-semibold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                     value={formData.amount}
                                                     onChange={e => setFormData({ ...formData, amount: e.target.value })}
                                                     onWheel={(e) => e.target.blur()}
                                                 />
-                                                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase tracking-wider pointer-events-none select-none">
+                                                <span className="shrink-0 mr-3 px-2 py-0.5 bg-gray-200/80 rounded-md text-xs font-bold text-gray-600 uppercase select-none">
                                                     EGP
-                                                </div>
+                                                </span>
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Min Ticket Amount</label>
-                                            <div className="relative">
+                                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Min Ticket Amount</label>
+                                            <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl overflow-hidden focus-within:bg-white focus-within:ring-2 focus-within:ring-black/5 focus-within:border-gray-400 transition-all">
                                                 <input
                                                     type="number"
                                                     required
                                                     placeholder="0.00"
-                                                    style={{ paddingLeft: '1rem', paddingRight: '3.75rem' }}
-                                                    className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 sm:py-3 text-base font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none"
+                                                    className="w-full bg-transparent px-3.5 py-2.5 sm:py-3 text-base font-semibold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                     value={formData.minTicketAmount}
                                                     onChange={e => setFormData({ ...formData, minTicketAmount: e.target.value })}
                                                     onWheel={(e) => e.target.blur()}
                                                 />
-                                                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase tracking-wider pointer-events-none select-none">
+                                                <span className="shrink-0 mr-3 px-2 py-0.5 bg-gray-200/80 rounded-md text-xs font-bold text-gray-600 uppercase select-none">
                                                     EGP
-                                                </div>
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
@@ -1570,40 +1568,32 @@ export default function QuotationRequestDashboard() {
                             ) : (
                                 <>
                                     {/* Multi-Pair FX Spot Workstation Header */}
-                                    <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[11px] font-bold text-gray-800 uppercase tracking-wider">
-                                                Currency Pairs
-                                            </span>
-                                            <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80 px-2 py-0.5 rounded-full">
-                                                {pairs.length} {pairs.length === 1 ? 'Pair' : 'Pairs'}
-                                            </span>
-                                        </div>
-                                        {!retradeRfqId && (
-                                            <button
-                                                type="button"
-                                                disabled={pairs.length >= 8}
-                                                onClick={handleAddPair}
-                                                className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
-                                                title="Add another currency pair to this quotation session (up to 8 pairs)"
-                                            >
-                                                <Plus size={13} /> Add Pair ({pairs.length}/8)
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* Multi-Pair Pill Navigation Strip (Visible when multiple pairs exist or for quick switching) */}
-                                    {pairs.length > 1 && (
-                                        <div className="space-y-1.5">
-                                            <div className="flex items-center justify-between">
-                                                <label className="block text-[10px] font-bold text-gray-400 uppercase">
-                                                    Select Pair to Configure
-                                                </label>
-                                                <span className="text-[10px] text-gray-400 font-medium">
-                                                    {activePairIndex + 1} of {pairs.length} active
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between pb-2.5 border-b border-gray-100">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                                                    <Layers size={13} className="text-blue-600" />
+                                                    Currency Pairs
+                                                </span>
+                                                <span className="text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200/80 px-2 py-0.5 rounded-full">
+                                                    {pairs.length} / 8
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin">
+                                            {!retradeRfqId && pairs.length < 8 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleAddPair}
+                                                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                                                    title="Add another currency pair (up to 8 pairs)"
+                                                >
+                                                    <Plus size={13} /> Add Pair
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Multi-Pair Tabs Strip (Wrap-enabled to avoid scroll clipping) */}
+                                        {pairs.length > 1 && (
+                                            <div className="flex flex-wrap gap-2 pt-0.5">
                                                 {pairs.map((p, idx) => {
                                                     const isActive = activePairIndex === idx;
                                                     const amountFormatted = p.amount ? Number(p.amount).toLocaleString() : '0';
@@ -1611,38 +1601,38 @@ export default function QuotationRequestDashboard() {
                                                         <div
                                                             key={p.id}
                                                             onClick={() => setActivePairIndex(idx)}
-                                                            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold cursor-pointer transition-all shrink-0 select-none ${
+                                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all border select-none ${
                                                                 isActive
-                                                                    ? 'bg-slate-900 border-slate-900 text-white shadow-sm ring-2 ring-blue-500/20'
-                                                                    : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+                                                                    ? 'bg-slate-900 border-slate-900 text-white shadow-xs ring-2 ring-blue-500/20'
+                                                                    : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
                                                             }`}
                                                         >
-                                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
-                                                                isActive ? 'bg-slate-800 text-blue-400' : 'bg-slate-200 text-slate-600'
+                                                            <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                                                                isActive ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
                                                             }`}>
                                                                 P{idx + 1}
                                                             </span>
-                                                            <span className="font-bold tracking-tight">
+                                                            <span className="font-bold">
                                                                 {p.buyCurrency || 'USD'}/{p.sellCurrency || 'EGP'}
                                                             </span>
-                                                            <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ${
+                                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                                                                 p.direction === 'Sell' 
-                                                                    ? (isActive ? 'bg-rose-500/20 text-rose-300' : 'bg-rose-50 text-rose-700')
-                                                                    : (isActive ? 'bg-emerald-500/20 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
+                                                                    ? (isActive ? 'bg-rose-500/30 text-rose-200' : 'bg-rose-50 text-rose-700')
+                                                                    : (isActive ? 'bg-emerald-500/30 text-emerald-200' : 'bg-emerald-50 text-emerald-700')
                                                             }`}>
                                                                 {p.direction || 'Buy'} {amountFormatted}
                                                             </span>
-                                                            {!retradeRfqId && (
+                                                            {!retradeRfqId && pairs.length > 1 && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         handleRemovePair(idx);
                                                                     }}
-                                                                    className={`p-1 rounded-md transition-colors ${
+                                                                    className={`p-0.5 rounded-md transition-colors ${
                                                                         isActive
                                                                             ? 'text-slate-400 hover:text-white hover:bg-slate-800'
-                                                                            : 'text-slate-400 hover:text-rose-600 hover:bg-slate-200'
+                                                                            : 'text-slate-400 hover:text-rose-600 hover:bg-slate-100'
                                                                     }`}
                                                                     title={`Remove ${p.buyCurrency}/${p.sellCurrency}`}
                                                                 >
@@ -1653,28 +1643,15 @@ export default function QuotationRequestDashboard() {
                                                     );
                                                 })}
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
 
                                     {/* Active Pair Card Editor */}
                                     <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200 space-y-4">
-                                        <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-slate-800">
-                                                    Pair #{activePairIndex + 1}: <span className="font-extrabold text-blue-900">{activePair.buyCurrency || 'USD'}/{activePair.sellCurrency || 'EGP'}</span>
-                                                </span>
-                                            </div>
-                                            {pairs.length > 1 && (
-                                                <span className="text-[10px] text-slate-500 font-medium">
-                                                    Tab {activePairIndex + 1} of {pairs.length}
-                                                </span>
-                                            )}
-                                        </div>
-
                                         {/* Direction Selector */}
                                         <div>
-                                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Trade Direction</label>
-                                            <div className="flex gap-2">
+                                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Trade Direction</label>
+                                            <div className="grid grid-cols-2 p-1 bg-slate-200/70 rounded-xl gap-1">
                                                 {['Buy', 'Sell'].map(dir => {
                                                     const isCurDir = (activePair.direction || 'Buy') === dir;
                                                     return (
@@ -1683,13 +1660,15 @@ export default function QuotationRequestDashboard() {
                                                             type="button"
                                                             disabled={Boolean(retradeRfqId)}
                                                             onClick={() => updateActivePair('direction', dir)}
-                                                            className={`flex-1 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                                                            className={`py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                                                                 isCurDir
-                                                                    ? (dir === 'Buy' ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs' : 'bg-rose-600 border-rose-600 text-white shadow-xs')
-                                                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                                                                    ? (dir === 'Buy'
+                                                                        ? 'bg-emerald-600 text-white shadow-xs'
+                                                                        : 'bg-rose-600 text-white shadow-xs')
+                                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                                                             } ${retradeRfqId ? 'cursor-not-allowed opacity-80' : ''}`}
                                                         >
-                                                            {dir === 'Buy' ? 'Buy Currency' : 'Sell Currency'}
+                                                            <span>{dir === 'Buy' ? 'Buy Base Currency' : 'Sell Base Currency'}</span>
                                                         </button>
                                                     );
                                                 })}
@@ -1698,17 +1677,17 @@ export default function QuotationRequestDashboard() {
 
                                         {/* Currency Pair Pickers with Swap Button */}
                                         <div>
-                                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
+                                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
                                                 Currency Pair ({activePair.direction === 'Sell' ? 'Selling / Buying' : 'Buying / Selling'})
                                             </label>
                                             <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-center">
                                                 <div>
-                                                    <span className="block text-[9px] font-bold text-gray-500 mb-0.5">
+                                                    <span className="block text-[9px] font-bold text-gray-500 mb-1">
                                                         {activePair.direction === 'Sell' ? 'Base (Sell)' : 'Base (Buy)'}
                                                     </span>
                                                     <select
                                                         disabled={Boolean(retradeRfqId)}
-                                                        className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-black/5 outline-none transition-all ${
+                                                        className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
                                                             retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
                                                         }`}
                                                         value={activePair.buyCurrency || 'USD'}
@@ -1733,12 +1712,12 @@ export default function QuotationRequestDashboard() {
                                                 </div>
 
                                                 <div>
-                                                    <span className="block text-[9px] font-bold text-gray-500 mb-0.5">
+                                                    <span className="block text-[9px] font-bold text-gray-500 mb-1">
                                                         {activePair.direction === 'Sell' ? 'Quote (Receive)' : 'Quote (Pay)'}
                                                     </span>
                                                     <select
                                                         disabled={Boolean(retradeRfqId)}
-                                                        className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-black/5 outline-none transition-all ${
+                                                        className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
                                                             retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
                                                         }`}
                                                         value={activePair.sellCurrency || 'EGP'}
@@ -1752,11 +1731,11 @@ export default function QuotationRequestDashboard() {
                                             </div>
                                         </div>
 
-                                        {/* Amount and Min Ticket Amount */}
+                                        {/* Amount and Min Ticket Amount (No Badge Overlap) */}
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             <div>
                                                 <div className="flex items-center justify-between mb-1">
-                                                    <label className="block text-[10px] font-bold text-gray-400 uppercase">
+                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                                                         {activePair.direction === 'Sell' ? 'Amount to Sell' : 'Amount to Buy'}
                                                     </label>
                                                     {retradeRfqId && (
@@ -1765,43 +1744,41 @@ export default function QuotationRequestDashboard() {
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="relative">
+                                                <div className={`flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all ${
+                                                    retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
+                                                }`}>
                                                     <input
                                                         type="number"
                                                         required
                                                         disabled={Boolean(retradeRfqId)}
                                                         placeholder="0.00"
-                                                        style={{ paddingLeft: '0.85rem', paddingRight: '3.75rem' }}
-                                                        className={`w-full bg-white border border-slate-200 rounded-xl py-2 sm:py-2.5 text-sm font-bold text-gray-900 focus:ring-2 focus:ring-black/5 outline-none transition-all ${
-                                                            retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
-                                                        }`}
+                                                        className="w-full bg-transparent px-3 py-2 text-sm font-bold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                         value={activePair.amount || ''}
                                                         onChange={e => updateActivePair('amount', e.target.value)}
                                                         onWheel={(e) => e.target.blur()}
                                                     />
-                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase tracking-wider pointer-events-none select-none">
+                                                    <span className="shrink-0 mr-2.5 px-2 py-0.5 bg-slate-100 border border-slate-200/80 rounded-md text-[11px] font-bold text-slate-600 uppercase select-none">
                                                         {activePair.buyCurrency || 'USD'}
-                                                    </div>
+                                                    </span>
                                                 </div>
                                             </div>
 
                                             <div>
-                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
+                                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
                                                     Min Split Ticket (Optional)
                                                 </label>
-                                                <div className="relative">
+                                                <div className="flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all">
                                                     <input
                                                         type="number"
                                                         placeholder="Optional"
-                                                        style={{ paddingLeft: '0.85rem', paddingRight: '3.75rem' }}
-                                                        className="w-full bg-white border border-slate-200 rounded-xl py-2 sm:py-2.5 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-black/5 outline-none transition-all"
+                                                        className="w-full bg-transparent px-3 py-2 text-sm font-semibold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                         value={activePair.minTicketAmount || ''}
                                                         onChange={e => updateActivePair('minTicketAmount', e.target.value)}
                                                         onWheel={(e) => e.target.blur()}
                                                     />
-                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase tracking-wider pointer-events-none select-none">
+                                                    <span className="shrink-0 mr-2.5 px-2 py-0.5 bg-slate-100 border border-slate-200/80 rounded-md text-[11px] font-bold text-slate-600 uppercase select-none">
                                                         {activePair.buyCurrency || 'USD'}
-                                                    </div>
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1809,7 +1786,7 @@ export default function QuotationRequestDashboard() {
                                         {/* Value Date & Alternative Value Date */}
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between">
-                                                <label className="block text-[10px] font-bold text-gray-400 uppercase">
+                                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                                                     Value Date (Settlement Date)
                                                 </label>
                                                 {pairs.length > 1 && (
@@ -1827,7 +1804,7 @@ export default function QuotationRequestDashboard() {
                                                 type="date"
                                                 required
                                                 min={todayStr}
-                                                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold focus:ring-2 focus:ring-black/5 outline-none transition-all text-slate-800"
+                                                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-slate-800"
                                                 value={activePair.valueDate || ''}
                                                 onChange={e => {
                                                     const newVal = e.target.value;
@@ -1858,44 +1835,53 @@ export default function QuotationRequestDashboard() {
                                             </div>
                                         </div>
 
-                                        {/* Quotation Base for Active Pair */}
+                                        {/* Quotation Base for Active Pair (Clean Segmented Control) */}
                                         <div>
-                                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
+                                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
                                                 Quotation Base for This Pair
                                             </label>
-                                            <div className="flex gap-2">
-                                                {['Execution', 'Indicative'].map(baseType => (
-                                                    <button
-                                                        key={baseType}
-                                                        type="button"
-                                                        onClick={() => updateActivePair('quotationBase', baseType)}
-                                                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
-                                                            (activePair.quotationBase || formData.quotationBase || 'Execution') === baseType
-                                                                ? 'bg-black border-black text-white'
-                                                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-                                                        }`}
-                                                    >
-                                                        {baseType}
-                                                    </button>
-                                                ))}
+                                            <div className="grid grid-cols-2 p-1 bg-slate-200/70 rounded-xl gap-1">
+                                                {[
+                                                    { id: 'Execution', label: 'Execution (Binding)' },
+                                                    { id: 'Indicative', label: 'Indicative (Non-Binding)' }
+                                                ].map(item => {
+                                                    const isCurBase = (activePair.quotationBase || formData.quotationBase || 'Execution') === item.id;
+                                                    return (
+                                                        <button
+                                                            key={item.id}
+                                                            type="button"
+                                                            onClick={() => updateActivePair('quotationBase', item.id)}
+                                                            className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                                                isCurBase
+                                                                    ? 'bg-slate-900 text-white shadow-xs'
+                                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                                                            }`}
+                                                        >
+                                                            {item.label}
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
 
                                         {/* Max Tolerance for Active Pair */}
                                         <div>
-                                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
+                                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
                                                 Max Tolerance (%) vs Indicative
                                             </label>
-                                            <div className="relative">
+                                            <div className="flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all">
                                                 <input
                                                     type="number"
                                                     step="0.01"
                                                     placeholder="0.05"
-                                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-black/5 outline-none transition-all font-semibold"
+                                                    className="w-full bg-transparent px-3 py-1.5 text-xs font-semibold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                     value={activePair.maxTolerancePercent !== undefined ? activePair.maxTolerancePercent : (formData.maxTolerancePercent || '0.05')}
                                                     onChange={e => updateActivePair('maxTolerancePercent', e.target.value)}
                                                     onWheel={(e) => e.target.blur()}
                                                 />
+                                                <span className="shrink-0 mr-2.5 px-2 py-0.5 bg-slate-100 border border-slate-200/80 rounded-md text-[11px] font-bold text-slate-600 select-none">
+                                                    %
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
@@ -2095,7 +2081,7 @@ export default function QuotationRequestDashboard() {
                 </div>
 
                 {/* Right Column: Bank Selection */}
-                <div className="xl:col-span-2 space-y-6">
+                <div className="lg:col-span-7 space-y-6">
                     <section className="bg-white p-5 sm:p-8 rounded-xl border border-gray-100 min-h-full flex flex-col">
                         <div className="flex justify-between items-center mb-6 sm:mb-8 gap-3 flex-wrap">
                             <h3 className="text-xs font-bold uppercase tracking-widest text-blue-600 flex items-center gap-2">
@@ -2239,49 +2225,61 @@ export default function QuotationRequestDashboard() {
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-3 sm:gap-4 flex-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5 flex-1">
                             {banks.map(bank => {
                                 const isSelected = selectedBanks.find(b => b.id === bank.bank_id);
                                 const rec = recommendations.find(r => r.bank_id === bank.bank_id);
                                 return (
                                     <div
                                         key={bank.id}
-                                        className={`p-3.5 sm:p-5 rounded-2xl border transition-all h-fit ${isSelected ? 'border-black bg-gray-50 shadow-sm' : 'border-gray-100 hover:border-gray-300'
-                                            }`}
+                                        className={`p-3.5 sm:p-4 rounded-2xl border transition-all h-fit flex flex-col justify-between ${
+                                            isSelected ? 'border-slate-900 bg-slate-50/70 shadow-xs ring-1 ring-slate-900/10' : 'border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-xs'
+                                        }`}
                                     >
-                                        <div className="flex items-center justify-between gap-2 mb-2">
-                                            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 mr-1">
-                                                <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-black text-white' : 'bg-gray-100 text-gray-400'}`}>
-                                                    <Landmark size={17} />
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                                        <h4 className="font-semibold text-xs sm:text-base text-gray-900 truncate leading-tight">{bank.bank?.name || `Bank ${bank.bank_id}`}</h4>
-                                                        {bank.contacts?.some(c => c.role === 'APPROVER') && (
-                                                            <span className="text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Counterparty has internal bank approver contact configured">
-                                                                Approver Layer
-                                                            </span>
-                                                        )}
+                                        <div>
+                                            <div className="flex items-start justify-between gap-2.5">
+                                                <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                                                        isSelected ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
+                                                    }`}>
+                                                        <Landmark size={17} />
                                                     </div>
-                                                    <p className="text-[10px] sm:text-xs text-gray-400 truncate mt-0.5">{bank.emails}</p>
+                                                    <div className="min-w-0 flex-1">
+                                                        <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate leading-snug">
+                                                            {bank.bank?.name || `Bank ${bank.bank_id}`}
+                                                        </h4>
+                                                        <p className="text-[10px] text-slate-400 truncate mt-0.5" title={bank.emails}>
+                                                            {bank.emails}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleBankToggle(bank)}
+                                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                                                        isSelected ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200' : 'bg-slate-900 text-white hover:bg-slate-800 shadow-xs'
+                                                    }`}
+                                                >
+                                                    {isSelected ? 'Remove' : 'Select'}
+                                                </button>
+                                            </div>
+
+                                            {/* Badges metadata row */}
+                                            {(bank.contacts?.some(c => c.role === 'APPROVER') || rec?.highlight) && (
+                                                <div className="flex items-center gap-1.5 flex-wrap mt-2.5 pt-2 border-t border-slate-100">
+                                                    {bank.contacts?.some(c => c.role === 'APPROVER') && (
+                                                        <span className="text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Counterparty has internal bank approver contact configured">
+                                                            Approver Layer
+                                                        </span>
+                                                    )}
                                                     {rec?.highlight && (
-                                                        <div className="mt-1">
-                                                            <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold text-blue-700 bg-blue-50/90 border border-blue-200/90 px-2 py-0.5 rounded-full">
-                                                                <Sparkles size={10} className="text-blue-500 shrink-0" />
-                                                                {rec.highlight}
-                                                            </span>
-                                                        </div>
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-full">
+                                                            <Sparkles size={10} className="text-blue-500 shrink-0" />
+                                                            {rec.highlight}
+                                                        </span>
                                                     )}
                                                 </div>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleBankToggle(bank)}
-                                                className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all shrink-0 ${isSelected ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-black text-white hover:bg-gray-800'
-                                                    }`}
-                                            >
-                                                {isSelected ? 'Remove' : 'Select'}
-                                            </button>
+                                            )}
                                         </div>
 
                                          {isSelected && (() => {
@@ -2367,12 +2365,12 @@ export default function QuotationRequestDashboard() {
                                                         </div>
                                                     )}
 
-                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+                                                    <div className="grid grid-cols-2 gap-2.5">
                                                         <div>
-                                                            <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Min Cost</label>
+                                                            <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Min Cost</label>
                                                             <input
                                                                 type="number"
-                                                                className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black font-semibold text-gray-900"
+                                                                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-slate-900 font-bold text-slate-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                                 value={activeCfg.costMin}
                                                                 onChange={e => {
                                                                     const val = parseFloat(e.target.value) || 0;
@@ -2385,11 +2383,11 @@ export default function QuotationRequestDashboard() {
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Cost %</label>
+                                                            <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Cost %</label>
                                                             <input
                                                                 type="number"
                                                                 step="0.01"
-                                                                className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black font-semibold text-gray-900"
+                                                                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-slate-900 font-bold text-slate-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                                 value={activeCfg.costPercent}
                                                                 onChange={e => {
                                                                     const val = parseFloat(e.target.value) || 0;
@@ -2402,10 +2400,10 @@ export default function QuotationRequestDashboard() {
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Max Cost</label>
+                                                            <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Max Cost</label>
                                                             <input
                                                                 type="number"
-                                                                className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black font-semibold text-gray-900"
+                                                                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-slate-900 font-bold text-slate-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                                 value={activeCfg.costMax}
                                                                 onChange={e => {
                                                                     const val = parseFloat(e.target.value) || 0;
@@ -2418,10 +2416,10 @@ export default function QuotationRequestDashboard() {
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label className="block text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase mb-1">Flat Fee</label>
+                                                            <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Flat Fee</label>
                                                             <input
                                                                 type="number"
-                                                                className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-black font-semibold text-gray-900"
+                                                                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-slate-900 font-bold text-slate-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                                 value={activeCfg.costFlat}
                                                                 onChange={e => {
                                                                     const val = parseFloat(e.target.value) || 0;
