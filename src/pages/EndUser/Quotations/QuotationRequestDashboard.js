@@ -11,6 +11,13 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const formatDate = (d) => {
     if (!d) return '—';
     try {
+        if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) {
+            const parts = d.split('T')[0].split('-');
+            const year = parts[0];
+            const month = MONTHS[parseInt(parts[1], 10) - 1] || parts[1];
+            const day = String(parseInt(parts[2], 10)).padStart(2, '0');
+            return `${day} ${month} ${year}`;
+        }
         const date = new Date(d);
         if (isNaN(date.getTime())) return d;
         const day = String(date.getDate()).padStart(2, '0');
@@ -50,6 +57,84 @@ const findDuplicatePairConflict = (pairsList) => {
                     message: `Similar pairs detected: Pair #${i + 1} and Pair #${j + 1} have identical currencies (${c1Buy}/${c1Sell}), same settlement date (${formatDate(d1)}), and same quotation base (${p1.quotationBase || 'Execution'}). Multiple identical pairs on the same date and quotation base are not permitted.`
                 };
             }
+        }
+    }
+    return null;
+};
+
+// Modular signature helpers for Bank-level leg uniqueness
+// Easily hardened or eased by adjusting what fields are included in getBankLegSignature.
+const getBankLegNormalizedKey = (buyCurr, sellCurr, direction) => {
+    const b = (buyCurr || '').trim().toUpperCase();
+    const s = (sellCurr || '').trim().toUpperCase();
+    const d = (direction || 'Buy').trim().toUpperCase();
+    if (b <= s) {
+        return `${b}/${s}:${d}`;
+    } else {
+        const invDir = d === 'BUY' ? 'SELL' : 'BUY';
+        return `${s}/${b}:${invDir}`;
+    }
+};
+
+const getBankLegSignature = (leg) => {
+    // Modular signature: [CurrencyPair & Direction] + [Effective Value Date] + [Quotation Base]
+    const normKey = getBankLegNormalizedKey(leg.buyCurrency, leg.sellCurrency, leg.direction);
+    const valDate = (leg.effectiveValueDate || '').trim().split('T')[0];
+    const base = (leg.effectiveBase || 'Execution').trim().toLowerCase();
+    return `${normKey}:${valDate}:${base}`;
+};
+
+const findBankLegConflict = (selectedBanksList, pairsList, formData) => {
+    if (!selectedBanksList || !selectedBanksList.length || !pairsList || pairsList.length <= 1) {
+        return null;
+    }
+    if (formData.type !== 'FX_SPOT') return null;
+
+    for (const b of selectedBanksList) {
+        const bankName = b.name || b.bank?.name || `Bank #${b.bank_id || b.id}`;
+        const bankId = b.bank_id || b.id;
+        const seenSignatures = new Map();
+
+        for (let i = 0; i < pairsList.length; i++) {
+            const p = pairsList[i];
+            const cfg = (b.customPairTariffs && b.pairConfigs && b.pairConfigs[p.id]) ? b.pairConfigs[p.id] : null;
+
+            const effectiveValueDate = cfg?.valueDate 
+                ? String(cfg.valueDate).split('T')[0] 
+                : (b.valueDate ? String(b.valueDate).split('T')[0] : (p.valueDate ? String(p.valueDate).split('T')[0] : (formData.valueDate ? String(formData.valueDate).split('T')[0] : '')));
+
+            const effectiveBase = cfg?.quotationBase 
+                || b.quotationBase 
+                || p.quotationBase 
+                || formData.quotationBase 
+                || 'Execution';
+
+            const legInfo = {
+                buyCurrency: p.buyCurrency || 'USD',
+                sellCurrency: p.sellCurrency || 'EGP',
+                direction: p.direction || formData.direction || 'Buy',
+                effectiveValueDate,
+                effectiveBase
+            };
+
+            const sig = getBankLegSignature(legInfo);
+
+            if (seenSignatures.has(sig)) {
+                const prev = seenSignatures.get(sig);
+                return {
+                    bankId,
+                    bankName,
+                    firstPairIndex: prev.pairIndex,
+                    secondPairIndex: i,
+                    pair1Label: `${prev.leg.buyCurrency}/${prev.leg.sellCurrency}`,
+                    pair2Label: `${legInfo.buyCurrency}/${legInfo.sellCurrency}`,
+                    effectiveValueDate,
+                    quotationBase: effectiveBase,
+                    message: `Counterparty conflict for ${bankName}: Pair #${prev.pairIndex + 1} (${prev.leg.buyCurrency}/${prev.leg.sellCurrency}) and Pair #${i + 1} (${legInfo.buyCurrency}/${legInfo.sellCurrency}) have identical effective value date (${formatDate(effectiveValueDate)}) and base type (${effectiveBase}). A bank cannot receive identical quote requests on the same value date.`
+                };
+            }
+
+            seenSignatures.set(sig, { pairIndex: i, leg: legInfo });
         }
     }
     return null;
@@ -123,6 +208,20 @@ export default function QuotationRequestDashboard() {
     const [entities, setEntities] = useState([]);
     const [banks, setBanks] = useState([]);
     const [selectedBanks, setSelectedBanks] = useState([]);
+    const [includeCrossEntityBanks, setIncludeCrossEntityBanks] = useState(false);
+
+    // Smart Cross-Entity Bank Partitioning
+    const directBanks = React.useMemo(() => (banks || []).filter(b => !b.is_cross_entity), [banks]);
+    const crossEntityBanks = React.useMemo(() => (banks || []).filter(b => b.is_cross_entity), [banks]);
+    const displayedBanks = includeCrossEntityBanks ? banks : directBanks;
+
+    // Automatically enable cross-entity toggle if any selected bank is cross-entity
+    useEffect(() => {
+        if (selectedBanks.some(sb => crossEntityBanks.some(cb => String(cb.bank_id) === String(sb.id)))) {
+            setIncludeCrossEntityBanks(true);
+        }
+    }, [selectedBanks, crossEntityBanks]);
+
     const [isSelectingAll, setIsSelectingAll] = useState(false);
     const [recommendations, setRecommendations] = useState([]);
     const [evalRateDetails, setEvalRateDetails] = useState(null);
@@ -220,6 +319,44 @@ export default function QuotationRequestDashboard() {
                 ...(field === 'quotationBase' ? { quotationBase: value } : {}),
                 ...(field === 'maxTolerancePercent' ? { maxTolerancePercent: value } : {}),
                 ...(field === 'allowAlternativeValueDate' ? { allowAlternativeValueDate: value } : {}),
+            }));
+        }
+
+        // When quotation base is toggled (e.g. from Execution to Indicative),
+        // cascade base type to all selected banks so counterparty base types update immediately
+        if (field === 'quotationBase') {
+            const curPairId = pairs[activePairIndex]?.id;
+            setSelectedBanks(prev => prev.map(b => {
+                if (b.is_cross_entity) {
+                    return b; // Cross-entity banks are strictly locked to Indicative benchmark
+                }
+                const existingConfigs = b.pairConfigs || {};
+                const updatedConfigs = { ...existingConfigs };
+                if (curPairId) {
+                    const curCfg = updatedConfigs[curPairId] || {};
+                    updatedConfigs[curPairId] = {
+                        ...curCfg,
+                        quotationBase: value,
+                        isDocumentVisible: value === 'Execution'
+                    };
+                }
+                if (pairs.length <= 1 || !b.customPairTariffs) {
+                    pairs.forEach(p => {
+                        const pCfg = updatedConfigs[p.id] || {};
+                        updatedConfigs[p.id] = {
+                            ...pCfg,
+                            quotationBase: value,
+                            isDocumentVisible: value === 'Execution'
+                        };
+                    });
+                }
+                return {
+                    ...b,
+                    quotationBase: value,
+                    isDocumentVisible: value === 'Execution',
+                    pairConfigs: updatedConfigs,
+                    _baseCustomized: true
+                };
             }));
         }
     };
@@ -496,6 +633,7 @@ export default function QuotationRequestDashboard() {
 
     const activePair = pairs[activePairIndex] || pairs[0] || {};
     const pairConflict = findDuplicatePairConflict(pairs);
+    const bankConflict = findBankLegConflict(selectedBanks, pairs, formData);
 
     // Value Date (Settlement Date) is the primary anchor set by Treasury.
     // The Quotation Window (bidding window) must occur on or before the Value Date (window <= valueDate).
@@ -570,7 +708,7 @@ export default function QuotationRequestDashboard() {
             const base = formData.quotationBase || 'Execution';
             const effectiveInitialDate = formData.valueDate || todayStr;
 
-            const unselectedBanks = banks.filter(b => !selectedBanks.some(sb => String(sb.id) === String(b.bank_id)));
+            const unselectedBanks = displayedBanks.filter(b => !selectedBanks.some(sb => String(sb.id) === String(b.bank_id)));
 
             const costPromises = unselectedBanks.map(async (bank) => {
                 let fetchedCosts = { costMin: 0, costPercent: 0, costMax: 0, costFlat: 0 };
@@ -588,6 +726,23 @@ export default function QuotationRequestDashboard() {
                     console.warn('Could not fetch latest bank costs for bank', bank.bank_id, err);
                 }
 
+                const isCross = Boolean(bank.is_cross_entity);
+                const bankBase = isCross ? 'Indicative' : base;
+                const initialPairConfigs = {};
+                pairs.forEach(p => {
+                    const pBase = isCross ? 'Indicative' : (p.quotationBase || base);
+                    initialPairConfigs[p.id] = {
+                        costMin: fetchedCosts.costMin,
+                        costPercent: fetchedCosts.costPercent,
+                        costMax: fetchedCosts.costMax,
+                        costFlat: fetchedCosts.costFlat,
+                        quotationBase: pBase,
+                        isDocumentVisible: isCross ? false : (pBase === 'Execution'),
+                        valueDate: p.valueDate || effectiveInitialDate,
+                        allowAlternativeValueDate: p.allowAlternativeValueDate ?? (formData.allowAlternativeValueDate || false)
+                    };
+                });
+
                 return {
                     id: bank.bank_id,
                     name: bank.bank?.name || `Bank ${bank.bank_id}`,
@@ -597,10 +752,12 @@ export default function QuotationRequestDashboard() {
                     costPercent: fetchedCosts.costPercent,
                     costMax: fetchedCosts.costMax,
                     costFlat: fetchedCosts.costFlat,
-                    quotationBase: base,
-                    isDocumentVisible: base === 'Execution',
+                    quotationBase: bankBase,
+                    isDocumentVisible: isCross ? false : (bankBase === 'Execution'),
                     valueDate: effectiveInitialDate,
-                    allowAlternativeValueDate: formData.allowAlternativeValueDate || false
+                    allowAlternativeValueDate: formData.allowAlternativeValueDate || false,
+                    is_cross_entity: isCross,
+                    pairConfigs: initialPairConfigs
                 };
             });
 
@@ -625,7 +782,8 @@ export default function QuotationRequestDashboard() {
         if (exists) {
             setSelectedBanks(prev => prev.filter(b => String(b.id) !== String(bankId)));
         } else {
-            const base = formData.quotationBase || 'Execution';
+            const isCross = Boolean(bank.is_cross_entity);
+            const base = isCross ? 'Indicative' : (pairs[activePairIndex]?.quotationBase || formData.quotationBase || 'Execution');
             let fetchedCosts = { costMin: 0, costPercent: 0, costMax: 0, costFlat: 0 };
             try {
                 const res = await apiClient.get(`/end-user/quotations/banks/latest-costs?bank_id=${bankId}`);
@@ -642,6 +800,21 @@ export default function QuotationRequestDashboard() {
             }
 
             const effectiveInitialDate = formData.valueDate || todayStr;
+            const initialPairConfigs = {};
+            pairs.forEach(p => {
+                const pBase = isCross ? 'Indicative' : (p.quotationBase || base);
+                initialPairConfigs[p.id] = {
+                    costMin: fetchedCosts.costMin,
+                    costPercent: fetchedCosts.costPercent,
+                    costMax: fetchedCosts.costMax,
+                    costFlat: fetchedCosts.costFlat,
+                    quotationBase: pBase,
+                    isDocumentVisible: isCross ? false : (pBase === 'Execution'),
+                    valueDate: p.valueDate || effectiveInitialDate,
+                    allowAlternativeValueDate: p.allowAlternativeValueDate ?? (formData.allowAlternativeValueDate || false)
+                };
+            });
+
             setSelectedBanks(prev => [
                 ...prev.filter(b => String(b.id) !== String(bankId)), 
                 { 
@@ -654,9 +827,11 @@ export default function QuotationRequestDashboard() {
                     costMax: fetchedCosts.costMax, 
                     costFlat: fetchedCosts.costFlat,
                     quotationBase: base,
-                    isDocumentVisible: base === 'Execution',
+                    isDocumentVisible: isCross ? false : (base === 'Execution'),
                     valueDate: effectiveInitialDate,
-                    allowAlternativeValueDate: formData.allowAlternativeValueDate || false
+                    allowAlternativeValueDate: formData.allowAlternativeValueDate || false,
+                    is_cross_entity: isCross,
+                    pairConfigs: initialPairConfigs
                 }
             ]);
         }
@@ -789,6 +964,13 @@ export default function QuotationRequestDashboard() {
     const handleMasterQuotationBaseChange = (type) => {
         setFormData(prev => ({ ...prev, quotationBase: type }));
         setSelectedBanks(prev => prev.map(b => {
+            if (b.is_cross_entity) {
+                return {
+                    ...b,
+                    quotationBase: 'Indicative',
+                    isDocumentVisible: false
+                };
+            }
             if (b._baseCustomized) return b;
             return {
                 ...b,
@@ -800,13 +982,22 @@ export default function QuotationRequestDashboard() {
 
     const applyQuotationBaseToAllBanks = () => {
         const base = formData.quotationBase || 'Execution';
-        setSelectedBanks(prev => prev.map(b => ({
-            ...b,
-            quotationBase: base,
-            isDocumentVisible: base === 'Execution',
-            _baseCustomized: false
-        })));
-        toast.success(`Quotation Base (${base}) synced to all selected banks.`);
+        setSelectedBanks(prev => prev.map(b => {
+            if (b.is_cross_entity) {
+                return {
+                    ...b,
+                    quotationBase: 'Indicative',
+                    isDocumentVisible: false
+                };
+            }
+            return {
+                ...b,
+                quotationBase: base,
+                isDocumentVisible: base === 'Execution',
+                _baseCustomized: false
+            };
+        }));
+        toast.success(`Quotation Base (${base}) synced to eligible banks.`);
     };
 
     const uniqueBases = Array.from(new Set(selectedBanks.map(b => b.quotationBase || formData.quotationBase)));
@@ -854,6 +1045,13 @@ export default function QuotationRequestDashboard() {
                 if (conflict) {
                     toast.error(conflict.message);
                     setActivePairIndex(conflict.secondIndex);
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                const bankLegConflict = findBankLegConflict(selectedBanks, pairs, formData);
+                if (bankLegConflict) {
+                    toast.error(bankLegConflict.message);
                     setIsSubmitting(false);
                     return;
                 }
@@ -964,7 +1162,7 @@ export default function QuotationRequestDashboard() {
             costPercent: b.costPercent ?? 0,
             costMax: b.costMax ?? 0,
             costFlat: b.costFlat ?? 0,
-            quotationBase: b.quotationBase || formData.quotationBase || 'Execution',
+            quotationBase: (pairs.length === 1 && pairs[0]?.quotationBase) ? pairs[0].quotationBase : (b.quotationBase || formData.quotationBase || 'Execution'),
             isDocumentVisible: b.isDocumentVisible !== false,
             valueDate: b.valueDate ? String(b.valueDate).split('T')[0] : (formData.valueDate ? String(formData.valueDate).split('T')[0] : null),
             allowAlternativeValueDate: b.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false
@@ -1654,6 +1852,22 @@ export default function QuotationRequestDashboard() {
                                                             }`}>
                                                                 {p.direction || 'Buy'} {amountFormatted}
                                                             </span>
+                                                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded tracking-wide ${
+                                                                (p.quotationBase || formData.quotationBase || 'Execution') === 'Execution'
+                                                                    ? (isActive ? 'bg-amber-400 text-slate-950 shadow-2xs' : 'bg-amber-100 text-amber-900 border border-amber-300')
+                                                                    : (isActive ? 'bg-sky-400 text-slate-950 shadow-2xs' : 'bg-sky-100 text-sky-900 border border-sky-300')
+                                                            }`}>
+                                                                {(p.quotationBase || formData.quotationBase || 'Execution') === 'Execution' ? '⚡ EXEC' : '📊 INDIC'}
+                                                            </span>
+                                                            {(p.valueDate || formData.valueDate) && (
+                                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                                                                    isActive 
+                                                                        ? 'bg-slate-800 text-slate-200 border border-slate-700' 
+                                                                        : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                                                }`} title={`Value Date: ${p.valueDate || formData.valueDate}`}>
+                                                                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">VD:</span> {formatDate(p.valueDate || formData.valueDate)}
+                                                                </span>
+                                                            )}
                                                             {!retradeRfqId && pairs.length > 1 && (
                                                                 <button
                                                                     type="button"
@@ -2095,9 +2309,27 @@ export default function QuotationRequestDashboard() {
                                 <Landmark size={14} /> Bank Selection & Costs
                             </h3>
                             <div className="flex items-center gap-2 flex-wrap">
-                                {banks && banks.length > 0 && (
+                                {crossEntityBanks.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setIncludeCrossEntityBanks(prev => !prev)}
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                                            includeCrossEntityBanks
+                                                ? 'bg-purple-100 text-purple-900 border-purple-300 shadow-2xs'
+                                                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                        }`}
+                                        title="Show counterparties from other group entities for indicative market benchmark comparison"
+                                    >
+                                        <span>🌐</span>
+                                        <span>Group Benchmark Banks ({crossEntityBanks.length})</span>
+                                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${includeCrossEntityBanks ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                                            {includeCrossEntityBanks ? 'Active' : 'Off'}
+                                        </span>
+                                    </button>
+                                )}
+                                {displayedBanks && displayedBanks.length > 0 && (
                                     <>
-                                        {selectedBanks.length < banks.length && (
+                                        {selectedBanks.length < displayedBanks.length && (
                                             <button
                                                 type="button"
                                                 onClick={handleSelectAllBanks}
@@ -2131,6 +2363,27 @@ export default function QuotationRequestDashboard() {
                                 </span>
                             </div>
                         </div>
+
+                        {includeCrossEntityBanks && crossEntityBanks.length > 0 && (
+                            <div className="mb-5 p-3 sm:p-3.5 rounded-2xl bg-purple-50/90 border border-purple-200 text-purple-900 flex items-center justify-between gap-3 text-xs animate-fade-in shadow-2xs">
+                                <div className="flex items-center gap-2.5">
+                                    <span className="text-base shrink-0">🌐</span>
+                                    <div>
+                                        <strong className="block text-purple-950 font-bold uppercase tracking-wider text-[10px]">Cross-Entity Benchmark Mode Enabled</strong>
+                                        <span className="text-purple-800/90 text-[11px]">
+                                            Including {crossEntityBanks.length} counterparty bank(s) from other group entities. All cross-entity counterparties are strictly locked to <strong>Indicative benchmark only</strong>.
+                                        </span>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIncludeCrossEntityBanks(false)}
+                                    className="text-purple-700 hover:text-purple-900 font-bold underline text-[11px] shrink-0 cursor-pointer"
+                                >
+                                    Hide
+                                </button>
+                            </div>
+                        )}
 
                         {hasMixedBases && (
                             <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm animate-fade-in-up">
@@ -2233,7 +2486,7 @@ export default function QuotationRequestDashboard() {
                         )}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5 flex-1">
-                            {banks.map(bank => {
+                            {displayedBanks.map(bank => {
                                 const isSelected = selectedBanks.find(b => b.id === bank.bank_id);
                                 const rec = recommendations.find(r => r.bank_id === bank.bank_id);
                                 return (
@@ -2252,9 +2505,16 @@ export default function QuotationRequestDashboard() {
                                                         <Landmark size={17} />
                                                     </div>
                                                     <div className="min-w-0 flex-1">
-                                                        <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate leading-snug">
-                                                            {bank.bank?.name || `Bank ${bank.bank_id}`}
-                                                        </h4>
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate leading-snug">
+                                                                {bank.bank?.name || `Bank ${bank.bank_id}`}
+                                                            </h4>
+                                                            {bank.is_cross_entity && (
+                                                                <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Counterparty from another group entity invited for indicative benchmarking">
+                                                                    🌐 Group Benchmark
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <p className="text-[10px] text-slate-400 truncate mt-0.5" title={bank.emails}>
                                                             {bank.emails}
                                                         </p>
@@ -2306,8 +2566,21 @@ export default function QuotationRequestDashboard() {
                                                     allowAlternativeValueDate: isSelected.allowAlternativeValueDate ?? false
                                                 };
 
+                                            const thisBankConflict = bankConflict && (String(bankConflict.bankId) === String(bank.bank_id) || String(bankConflict.bankId) === String(bank.id));
+
                                             return (
                                                 <div className="animate-fade-in-up space-y-3 pt-3 mt-2 border-t border-gray-200">
+                                                    {thisBankConflict && (
+                                                        <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2 text-xs text-rose-800 animate-fade-in">
+                                                            <AlertTriangle size={14} className="text-rose-600 shrink-0 mt-0.5" />
+                                                            <div>
+                                                                <span className="font-bold text-rose-950 block">Bank Leg Collision Detected</span>
+                                                                <p className="text-[11px] text-rose-700 leading-tight mt-0.5">
+                                                                    {thisBankConflict.message}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                     {/* Multi-Pair Scope Switcher */}
                                                     {isMultiPairMode && (
                                                         <div className="space-y-2">
@@ -2441,42 +2714,66 @@ export default function QuotationRequestDashboard() {
                                                     </div>
 
                                                     <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100 text-xs">
-                                                        <div className="flex items-center gap-2">
-                                                            <label className="text-[10px] font-bold text-gray-400 uppercase">Base Type:</label>
-                                                            <select
-                                                                className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black font-semibold text-gray-900"
-                                                                value={activeCfg.quotationBase || formData.quotationBase || 'Execution'}
-                                                                onChange={e => {
-                                                                    const val = e.target.value;
-                                                                    if (isSelected.customPairTariffs) {
-                                                                        updateBankPairConfig(bank.bank_id, curTabId, 'quotationBase', val);
-                                                                    } else {
-                                                                        updateBankCost(bank.bank_id, 'quotationBase', val);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <option value="Execution">Execution</option>
-                                                                <option value="Indicative">Indicative</option>
-                                                            </select>
-                                                        </div>
+                                                        {bank.is_cross_entity ? (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <label className="text-[10px] font-bold text-gray-400 uppercase">Base Type:</label>
+                                                                <span className="text-xs font-bold text-purple-800 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-2xs">
+                                                                    🌐 Indicative Benchmark
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2">
+                                                                <label className="text-[10px] font-bold text-gray-400 uppercase">Base Type:</label>
+                                                                <select
+                                                                    className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black font-semibold text-gray-900"
+                                                                    value={activeCfg.quotationBase || formData.quotationBase || 'Execution'}
+                                                                    onChange={e => {
+                                                                        const val = e.target.value;
+                                                                        if (isSelected.customPairTariffs) {
+                                                                            updateBankPairConfig(bank.bank_id, curTabId, 'quotationBase', val);
+                                                                        } else {
+                                                                            updateBankCost(bank.bank_id, 'quotationBase', val);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <option value="Execution">Execution</option>
+                                                                    <option value="Indicative">Indicative</option>
+                                                                </select>
+                                                            </div>
+                                                        )}
 
-                                                        <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-gray-600 font-medium select-none">
-                                                            <input
-                                                                type="checkbox"
-                                                                className="rounded border-gray-300 text-black focus:ring-black"
-                                                                checked={activeCfg.isDocumentVisible !== false}
-                                                                onChange={e => {
-                                                                    const val = e.target.checked;
-                                                                    if (isSelected.customPairTariffs) {
-                                                                        updateBankPairConfig(bank.bank_id, curTabId, 'isDocumentVisible', val);
-                                                                    } else {
-                                                                        updateBankCost(bank.bank_id, 'isDocumentVisible', val);
-                                                                    }
-                                                                }}
-                                                            />
-                                                            Document Visible
-                                                        </label>
+                                                        {bank.is_cross_entity ? (
+                                                            <span className="text-[10px] text-gray-400 italic" title="Entity documents are omitted for cross-entity group benchmarking">
+                                                                Documents Omitted
+                                                            </span>
+                                                        ) : (
+                                                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-gray-600 font-medium select-none">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    className="rounded border-gray-300 text-black focus:ring-black"
+                                                                    checked={activeCfg.isDocumentVisible !== false}
+                                                                    onChange={e => {
+                                                                        const val = e.target.checked;
+                                                                        if (isSelected.customPairTariffs) {
+                                                                            updateBankPairConfig(bank.bank_id, curTabId, 'isDocumentVisible', val);
+                                                                        } else {
+                                                                            updateBankCost(bank.bank_id, 'isDocumentVisible', val);
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                Document Visible
+                                                            </label>
+                                                        )}
                                                     </div>
+
+                                                    {bank.is_cross_entity && (
+                                                        <div className="p-2.5 bg-purple-50/70 border border-purple-200 rounded-xl text-[11px] text-purple-900 leading-snug flex items-start gap-1.5">
+                                                            <Info size={13} className="text-purple-600 shrink-0 mt-0.5" />
+                                                            <span>
+                                                                <strong>Group Benchmark Counterparty:</strong> Invited on behalf of Group Treasury for indicative pricing comparison only. Cannot be awarded for execution.
+                                                            </span>
+                                                        </div>
+                                                    )}
 
                                                     {formData.type === 'FX_SPOT' && (
                                                         <div className="pt-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2.5 text-xs">
@@ -2561,6 +2858,16 @@ export default function QuotationRequestDashboard() {
                             </div>
                         )}
 
+                        {bankConflict && (
+                            <div className="mt-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-3">
+                                <AlertTriangle size={18} className="text-rose-600 shrink-0" />
+                                <div>
+                                    <strong className="block font-bold">Counterparty Leg Collision</strong>
+                                    <span>{bankConflict.message}</span>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Mandatory Legal & Execution Acknowledgment Checkbox (for Execution RFQs) */}
                         {hasExecutionBanks && (
                             <div className="mt-6 p-4 sm:p-5 rounded-2xl bg-amber-50/90 border-2 border-amber-300 text-xs text-amber-950 space-y-2 shadow-sm animate-fade-in-up">
@@ -2595,7 +2902,7 @@ export default function QuotationRequestDashboard() {
                             </button>
                             <button
                                 type="submit"
-                                disabled={isSubmitting || selectedBanks.length === 0 || hasDateDiscrepancy || (hasExecutionBanks && !legalAcknowledged)}
+                                disabled={isSubmitting || selectedBanks.length === 0 || hasDateDiscrepancy || Boolean(bankConflict) || (hasExecutionBanks && !legalAcknowledged)}
                                 className={`w-full flex-1 py-3.5 sm:py-5 rounded-2xl sm:rounded-3xl font-semibold text-sm sm:text-lg flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-xl disabled:opacity-30 disabled:cursor-not-allowed shrink-0 cursor-pointer ${
                                     revisionRfqId
                                         ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20'

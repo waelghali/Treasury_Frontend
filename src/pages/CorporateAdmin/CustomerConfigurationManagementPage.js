@@ -89,7 +89,15 @@ const getGroupKey = (configOrKey, moduleTags = null) => {
   }
 
   // 1. RFQ Quotations Module
-  if (tags.includes('quotation') || tags.includes('quotations') || key.includes('QUOTATION') || key.startsWith('CBE_')) {
+  const normTags = tags.map(t => String(t).toLowerCase());
+  if (
+    normTags.includes('quotation') ||
+    normTags.includes('quotations') ||
+    key.includes('QUOTATION') ||
+    key.includes('QUOTE') ||
+    key.includes('CROSS_ENTITY') ||
+    key.startsWith('CBE_')
+  ) {
     return 'RFQ Quotations Module';
   }
 
@@ -253,6 +261,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
   const [showQuotationBanksModal, setShowQuotationBanksModal] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [savingKey, setSavingKey] = useState(null);
   const [saveError, setSaveError] = useState('');
 
   // --- CBE Rate History Modal State ---
@@ -512,13 +521,18 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
       return;
     }
     setIsSaving(true);
+    setSavingKey(config.global_config_key);
     setSaveError('');
 
     let valueToSave;
 
     // Logic for direct toggle save (Boolean Switch)
     if (directValue !== null) {
-      valueToSave = String(directValue).toLowerCase();
+      if (config.global_config_key === 'QUOTATION_ACCEPTANCE_DEFAULT_ACTION') {
+        valueToSave = directValue ? 'AUTO_ACCEPT' : 'AUTO_REJECT';
+      } else {
+        valueToSave = String(directValue).toLowerCase();
+      }
     }
     // Logic for standard edit mode (Input/Select)
     else if (config.global_config_key === 'COMMON_COMMUNICATION_LIST') {
@@ -548,14 +562,18 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
           return;
         }
         valueToSave = String(parsedValue);
-      } else if (config.global_unit === 'boolean') {
-        // Fallback validation for standard edits
-        if (!['true', 'false'].includes(String(editValue).toLowerCase())) {
-          setSaveError('Value must be either "true" or "false".');
-          setIsSaving(false);
-          return;
+      } else if (config.global_unit === 'boolean' || config.global_config_key === 'QUOTATION_ACCEPTANCE_DEFAULT_ACTION') {
+        if (config.global_config_key === 'QUOTATION_ACCEPTANCE_DEFAULT_ACTION') {
+          valueToSave = ['auto_accept', 'true', 'accept'].includes(String(editValue).toLowerCase()) ? 'AUTO_ACCEPT' : 'AUTO_REJECT';
+        } else {
+          // Fallback validation for standard edits
+          if (!['true', 'false'].includes(String(editValue).toLowerCase())) {
+            setSaveError('Value must be either "true" or "false".');
+            setIsSaving(false);
+            return;
+          }
+          valueToSave = String(editValue).toLowerCase();
         }
-        valueToSave = String(editValue).toLowerCase();
       } else {
         valueToSave = String(editValue);
       }
@@ -589,6 +607,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
       setSaveError(err.message || 'Failed to save configuration.');
     } finally {
       setIsSaving(false);
+      setSavingKey(null);
     }
   };
 
@@ -914,7 +933,8 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
         return { ...mod, count: configurations.length };
       }
       const count = configurations.filter(c => {
-        const tags = c.global_module_tags || [];
+        const tags = (c.global_module_tags || []).map(t => String(t).toLowerCase());
+        const key = (c.global_config_key || '').toUpperCase();
         if (mod.id === 'general') {
           return (!tags || tags.length === 0) || c.group === 'General Platform & Security Policies';
         }
@@ -925,10 +945,10 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
           return tags.includes('custody') || c.group === 'LG Custody Lifecycle & Evidences';
         }
         if (mod.id === 'quotation') {
-          return tags.includes('quotation') || tags.includes('quotations') || c.group === 'RFQ Quotations Module';
+          return tags.includes('quotation') || tags.includes('quotations') || c.group === 'RFQ Quotations Module' || key.includes('CROSS_ENTITY') || key.includes('QUOTATION');
         }
         if (mod.id === 'reconciliation') {
-          return tags.includes('reconciliation') || c.group === 'Bank Position Reconciliation' || c.global_config_key?.includes('RECONCILIATION');
+          return tags.includes('reconciliation') || c.group === 'Bank Position Reconciliation' || key.includes('RECONCILIATION');
         }
         return false;
       }).length;
@@ -991,7 +1011,8 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
         if (subscriptionData) {
           const tags = config.global_module_tags;
           if (tags && Array.isArray(tags) && tags.length > 0) {
-            const hasAccess = tags.some(tag => {
+            const hasAccess = tags.some(rawTag => {
+              const tag = String(rawTag).toLowerCase();
               if (tag === 'custody') return hasCustody;
               if (tag === 'issuance') return hasIssuance;
               if (tag === 'quotation' || tag === 'quotations') return hasQuotation;
@@ -1008,7 +1029,8 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
 
         // Active module filter (from tabs/dropdown)
         if (selectedModule !== 'ALL') {
-          const tags = config.global_module_tags || [];
+          const tags = (config.global_module_tags || []).map(t => String(t).toLowerCase());
+          const key = (config.global_config_key || '').toUpperCase();
           if (selectedModule === 'general') {
             const isGeneral = (!tags || tags.length === 0) || config.group === 'General Platform & Security Policies';
             if (!isGeneral) return false;
@@ -1019,10 +1041,10 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
             const isCustody = tags.includes('custody') || config.group === 'LG Custody Lifecycle & Evidences';
             if (!isCustody) return false;
           } else if (selectedModule === 'quotation') {
-            const isQuotation = tags.includes('quotation') || tags.includes('quotations') || config.group === 'RFQ Quotations Module';
+            const isQuotation = tags.includes('quotation') || tags.includes('quotations') || config.group === 'RFQ Quotations Module' || key.includes('CROSS_ENTITY') || key.includes('QUOTATION');
             if (!isQuotation) return false;
           } else if (selectedModule === 'reconciliation') {
-            const isReconciliation = tags.includes('reconciliation') || config.group === 'Bank Position Reconciliation' || config.global_config_key?.includes('RECONCILIATION');
+            const isReconciliation = tags.includes('reconciliation') || config.group === 'Bank Position Reconciliation' || key.includes('RECONCILIATION');
             if (!isReconciliation) return false;
           }
         }
@@ -1360,12 +1382,12 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
                           <colgroup>
-                            <col style={{ width: '23%' }} /> {/* Setting */}
-                            <col style={{ width: '29%' }} /> {/* Description */}
+                            <col style={{ width: '22%' }} /> {/* Setting */}
+                            <col style={{ width: '28%' }} /> {/* Description */}
                             <col style={{ width: '6%' }} />  {/* Min Value */}
                             <col style={{ width: '6%' }} />  {/* Max Value */}
-                            <col style={{ width: '6%' }} />  {/* Default Value */}
-                            <col style={{ width: '16%' }} /> {/* Current Value */}
+                            <col style={{ width: '10%' }} /> {/* Default Value */}
+                            <col style={{ width: '14%' }} /> {/* Current Value */}
                             <col style={{ width: '6%' }} />  {/* Unit */}
                             <col style={{ width: '8%' }} />  {/* Actions */}
                           </colgroup>
@@ -1422,8 +1444,11 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                           <tbody className="bg-white divide-y divide-gray-200">
                             {tableConfigs.map((config) => {
                               // Determine if this config is a boolean and check its state
-                              const isBoolean = config.global_unit === 'boolean';
-                              const isChecked = String(config.effective_value).toLowerCase() === 'true';
+                              const isAcceptanceAction = config.global_config_key === 'QUOTATION_ACCEPTANCE_DEFAULT_ACTION';
+                              const isBoolean = config.global_unit === 'boolean' || isAcceptanceAction;
+                              const isChecked = isAcceptanceAction
+                                ? ['auto_accept', 'true', 'accept'].includes(String(config.effective_value ?? config.global_value_default ?? '').toLowerCase())
+                                : String(config.effective_value).toLowerCase() === 'true';
 
                               return (
                                 <tr key={config.global_config_id} className="hover:bg-gray-50">
@@ -1439,13 +1464,23 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                                   <td className="px-3 py-2 text-sm text-gray-500 text-center">
                                     {config.global_unit === 'json' ? '-' : (config.global_value_max !== null ? config.global_value_max : '-')}
                                   </td>
-                                  <td className="px-3 py-2 text-sm text-gray-500 text-center">
+                                  <td className="px-3 py-2 text-sm text-gray-500 text-center overflow-hidden">
                                     {config.global_unit === 'json' || (typeof config.global_value_default === 'string' && config.global_value_default.startsWith('{')) ? (
                                       <span 
                                         className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200 cursor-help"
                                         title={config.global_value_default}
                                       >
                                         JSON Policy
+                                      </span>
+                                    ) : isAcceptanceAction ? (
+                                      <span 
+                                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                          String(config.global_value_default).toUpperCase().includes('ACCEPT') 
+                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                                            : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                        }`}
+                                      >
+                                        {String(config.global_value_default).toUpperCase().includes('ACCEPT') ? 'Auto Accept' : 'Auto Reject'}
                                       </span>
                                     ) : (config.global_value_default !== null ? config.global_value_default : '-')}
                                   </td>
@@ -1487,9 +1522,19 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                                     ) : (
                                       /* VIEW MODE (TEXT) - For ALL types, including boolean */
                                       <div className="flex flex-col items-center gap-1">
-                                        <span className={`font-semibold ${isBoolean ? (isChecked ? 'text-green-600' : 'text-red-600') : ''}`}>
-                                          {getEffectiveValue(config)}
-                                        </span>
+                                        {isAcceptanceAction ? (
+                                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold tracking-wide shadow-2xs ${
+                                            isChecked 
+                                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                                              : 'bg-rose-100 text-rose-800 border border-rose-300'
+                                          }`}>
+                                            {isChecked ? '✓ Auto Accept' : '✕ Auto Reject'}
+                                          </span>
+                                        ) : (
+                                          <span className={`font-semibold ${isBoolean ? (isChecked ? 'text-green-600' : 'text-red-600') : ''}`}>
+                                            {getEffectiveValue(config)}
+                                          </span>
+                                        )}
                                         {config.global_value_min !== null && config.global_value_max !== null && !isNaN(parseFloat(config.global_value_min)) && !isNaN(parseFloat(config.global_value_max)) && (
                                           <RangeBarController
                                             min={config.global_value_min}
@@ -1506,7 +1551,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                                   </td>
 
                                   <td className="px-3 py-2 text-sm text-gray-500 text-center">
-                                    {config.global_unit || 'N/A'}
+                                    {isAcceptanceAction ? 'action' : (config.global_unit || 'N/A')}
                                   </td>
 
                                   {/* --- Actions Column (Edit Btn OR Toggle) --- */}
@@ -1535,14 +1580,21 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                                       </div>
                                     ) : isBoolean ? (
                                       /* TOGGLE SWITCH - For Boolean types (Replaces Edit Button) */
-                                      <div className="flex justify-center">
+                                      <div className="flex flex-col items-center justify-center">
                                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                          <ToggleSwitch
-                                            checked={isChecked}
-                                            onChange={() => handleSave(config, !isChecked)}
-                                            disabled={isGracePeriod || isSaving}
-                                          />
+                                          <div title={isAcceptanceAction ? (isChecked ? 'Current: Auto Accept (Click to switch to Auto Reject)' : 'Current: Auto Reject (Click to switch to Auto Accept)') : (isChecked ? 'Click to disable' : 'Click to enable')}>
+                                            <ToggleSwitch
+                                              checked={isChecked}
+                                              onChange={() => handleSave(config, !isChecked)}
+                                              disabled={isGracePeriod || savingKey === config.global_config_key}
+                                            />
+                                          </div>
                                         </GracePeriodTooltip>
+                                        {isAcceptanceAction && (
+                                          <span className={`text-[10px] font-semibold mt-0.5 ${isChecked ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                            {isChecked ? 'Accept' : 'Reject'}
+                                          </span>
+                                        )}
                                       </div>
                                     ) : config.global_unit === 'json' || config.global_config_key === 'ISSUED_LG_VERIFICATION_POLICY' ? (
                                       /* DEDICATED CONFIGURE BUTTON - Navigates to friendly Form Settings page */

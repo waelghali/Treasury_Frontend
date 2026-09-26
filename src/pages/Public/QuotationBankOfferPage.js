@@ -5,8 +5,9 @@ import {
     Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, 
     Mail, KeyRound, UserCheck, Eye, History, RefreshCw, MessageSquare, Shield,
     BarChart2, ShieldAlert, WifiOff, FileQuestion, Calendar,
-    Users, Lock, Zap, Info, Loader2, Ban
+    Users, Lock, Zap, Info, Loader2, Ban, Volume2, VolumeX
 } from 'lucide-react';
+import tradingAudio from '../../utils/tradingAudioEngine';
 import './quotation-animations.css';
 
 const DIRECT_BACKEND_URL = 'https://api.growbusinessdevelopment.com';
@@ -88,6 +89,7 @@ export default function QuotationBankOfferPage() {
     const [submitted, setSubmitted] = useState(false);
     const [timeLeft, setTimeLeft] = useState({ label: '', status: 'PRE', secondsRemaining: null, days: 0, hours: 0, mins: 0, secs: 0 });
     const [resultStatus, setResultStatus] = useState(null);
+    const [outcomeData, setOutcomeData] = useState(null);
     const [timeOffset, setTimeOffset] = useState(0);
 
     // Live Ranking State
@@ -101,6 +103,20 @@ export default function QuotationBankOfferPage() {
     const prevStatusRef = useRef(null);
     const [showWindowOpenedAlert, setShowWindowOpenedAlert] = useState(false);
     const originalTitleRef = useRef(typeof document !== 'undefined' ? document.title : 'Grow Treasury');
+
+    // Trading Audio Engine (Desk Sound Effects)
+    const [soundEnabled, setSoundEnabled] = useState(() => tradingAudio.isSoundEnabled());
+    const lastTickedSecondRef = useRef(null);
+    const hasPlayedResultSoundRef = useRef(false);
+
+    const handleToggleSound = () => {
+        const next = !soundEnabled;
+        setSoundEnabled(next);
+        tradingAudio.setSoundEnabled(next);
+        if (next) {
+            tradingAudio.playUrgencyTick(10);
+        }
+    };
 
     // Active View Tab: 'LIVE' or 'HISTORY'
     const [activeTab, setActiveTab] = useState('LIVE');
@@ -136,6 +152,15 @@ export default function QuotationBankOfferPage() {
     const [isTakingOver, setIsTakingOver] = useState(false);
     const [deskNotice, setDeskNotice] = useState(null);
     const [draftRestored, setDraftRestored] = useState(false);
+    const tabSessionIdRef = useRef(null);
+    if (!tabSessionIdRef.current) {
+        tabSessionIdRef.current = 'tab_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
+    }
+
+    const getEffectiveSessionToken = useCallback(() => {
+        if (!authSession?.session_token) return undefined;
+        return `${authSession.session_token}_tab_${tabSessionIdRef.current}`;
+    }, [authSession?.session_token]);
 
     const storageKey = emailParam ? `quotation_auth_${token}_${emailParam.toLowerCase()}` : `quotation_auth_${token}`;
 
@@ -157,17 +182,28 @@ export default function QuotationBankOfferPage() {
                     total_quotes: data.total_quotes,
                     is_leading: data.live_rank === 1
                 });
-            }
-            if (data.legs && Array.isArray(data.legs)) {
-                const initialRanks = {};
-                data.legs.forEach(l => {
-                    if (l.live_rank) {
-                        initialRanks[l.id] = l.live_rank;
+                if (data.legs && Array.isArray(data.legs)) {
+                    const initialRanks = {};
+                    data.legs.forEach((l, idx) => {
+                        const r = l.live_rank;
+                        if (r) {
+                            initialRanks[l.id] = r;
+                            initialRanks[String(l.id)] = r;
+                            initialRanks[idx] = r;
+                            initialRanks[String(idx)] = r;
+                            if (l.currency_pair) initialRanks[l.currency_pair] = r;
+                        }
+                    });
+                    if (data.ranks_by_leg && Object.keys(data.ranks_by_leg).length > 0) {
+                        Object.assign(initialRanks, data.ranks_by_leg);
                     }
-                });
-                if (Object.keys(initialRanks).length > 0) {
-                    setLegLiveRanks(initialRanks);
+                    if (Object.keys(initialRanks).length > 0) {
+                        setLegLiveRanks(initialRanks);
+                    }
                 }
+            } else {
+                setLiveRank(null);
+                setLegLiveRanks({});
             }
         } catch (err) {
             const status = err.response?.status;
@@ -213,7 +249,9 @@ export default function QuotationBankOfferPage() {
         }
         try {
             const res = await quotationApi.get(`/api/v1/public-quotation/${token}/result`);
-            const status = res.data?.status;
+            const data = res.data;
+            setOutcomeData(data);
+            const status = data?.status;
 
             // If window has not closed or bank declined participation, never evaluate or display selection/outcome banners
             if (status === 'SCHEDULED' || status === 'OPEN' || status === 'PARTICIPATION_DECLINED' || status === 'DECLINED' || timeLeft.status !== 'CLOSED' || rfq.approval_status === 'DECLINED') {
@@ -223,6 +261,8 @@ export default function QuotationBankOfferPage() {
 
             if (status === 'WINNER') {
                 setResultStatus('WINNER');
+            } else if (status === 'PARTIALLY_WON') {
+                setResultStatus('PARTIALLY_WON');
             } else if (status === 'INCONCLUSIVE') {
                 setResultStatus('INCONCLUSIVE');
             } else if (status === 'AWAITING_MANUAL_SELECTION' || status === 'PENDING') {
@@ -333,19 +373,23 @@ export default function QuotationBankOfferPage() {
     }, [rfq?.is_live_ranking_enabled, timeLeft.status, token]);
 
     // 4c. Desk Session & Multi-Dealer Concurrency Polling
-    // Runs starting 10 minutes before window start and ends 1 minute after window close
+    // Runs starting 10 minutes before window start and ends (Corporate Acceptance Timeout + 1 minute) after window close
     useEffect(() => {
         if (!authSession?.email || !token || !rfq || rfq.status === 'CANCELLED' || error?.isCancelled) {
             return;
         }
 
+        const acceptanceTimeoutSeconds = Number(rfq?.acceptance_timeout_seconds) || (rfq?.type === 'TBILL' ? 120 : 30);
         const PRE_BUFFER_MS = 10 * 60 * 1000; // 10 minutes before start
-        const POST_BUFFER_MS = 1 * 60 * 1000;  // 1 minute after close
+        const POST_BUFFER_MS = (acceptanceTimeoutSeconds + 60) * 1000;  // Corporate Acceptance Timeout + 1 minute buffer
 
         const startTime = rfq.window_start ? new Date(rfq.window_start).getTime() : NaN;
         const endTime = rfq.window_end ? new Date(rfq.window_end).getTime() : NaN;
 
         const checkEligibility = () => {
+            if (!rfq || rfq.status === 'CANCELLED' || rfq.status === 'COMPLETED') {
+                return false;
+            }
             const now = Date.now() + timeOffset;
             if (!isNaN(startTime) && !isNaN(endTime)) {
                 return now >= (startTime - PRE_BUFFER_MS) && now <= (endTime + POST_BUFFER_MS);
@@ -360,7 +404,7 @@ export default function QuotationBankOfferPage() {
         const syncDeskSession = async () => {
             try {
                 const res = await quotationApi.post(`/api/v1/public-quotation/${token}/desk-heartbeat`, {
-                    session_token: authSession.session_token,
+                    session_token: getEffectiveSessionToken(),
                     email: authSession.email,
                     name: authSession.name || authSession.email.split('@')[0],
                     role: authSession.role || 'EXECUTION'
@@ -424,7 +468,7 @@ export default function QuotationBankOfferPage() {
         }, 2000);
 
         return () => clearInterval(interval);
-    }, [authSession, token, timeLeft.status, rfq?.window_start, rfq?.window_end, rfq?.status, error?.isCancelled, timeOffset]);
+    }, [authSession, token, timeLeft.status, rfq?.window_start, rfq?.window_end, rfq?.status, rfq?.acceptance_timeout_seconds, error?.isCancelled, timeOffset, getEffectiveSessionToken]);
 
     // 4d. Real-Time Cancellation & Status Polling for Unauthenticated View
     useEffect(() => {
@@ -445,6 +489,7 @@ export default function QuotationBankOfferPage() {
             const now = new Date(Date.now() + timeOffset);
             const start = new Date(rfq.window_start);
             const end = new Date(rfq.window_end);
+            const acceptanceTimeoutSeconds = Number(rfq?.acceptance_timeout_seconds) || (rfq?.type === 'TBILL' ? 120 : 30);
 
             if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
 
@@ -469,6 +514,7 @@ export default function QuotationBankOfferPage() {
                     label: labelText, 
                     status: 'PRE', 
                     secondsRemaining: diff,
+                    acceptanceSecondsRemaining: acceptanceTimeoutSeconds,
                     days,
                     hours,
                     mins,
@@ -502,6 +548,7 @@ export default function QuotationBankOfferPage() {
                     label: labelText, 
                     status: 'OPEN', 
                     secondsRemaining: diff,
+                    acceptanceSecondsRemaining: acceptanceTimeoutSeconds,
                     days: 0,
                     hours,
                     mins,
@@ -517,10 +564,46 @@ export default function QuotationBankOfferPage() {
                         document.title = `🟢 [OPEN] Quote Now | Grow Treasury`;
                     }
                 }
-            } else {
-                setTimeLeft({ label: 'Window Closed', status: 'CLOSED', secondsRemaining: 0, days: 0, hours: 0, mins: 0, secs: 0 });
+            } else if (now > end && now <= new Date(end.getTime() + (acceptanceTimeoutSeconds * 1000))) {
+                const isBankAllIndicative = Boolean(rfq?.is_all_indicative || (!rfq?.has_execution_legs) || (rfq?.quotation_base || '').toLowerCase() === 'indicative');
+                if (isBankAllIndicative) {
+                    setTimeLeft({ 
+                        label: 'Quotation Closed', 
+                        status: 'CLOSED', 
+                        secondsRemaining: 0, 
+                        acceptanceSecondsRemaining: 0, 
+                        days: 0, 
+                        hours: 0, 
+                        mins: 0, 
+                        secs: 0 
+                    });
+                    if (typeof document !== 'undefined') {
+                        document.title = 'Quotation Closed — Thank You | Grow Treasury';
+                    }
+                    if (timer) clearInterval(timer);
+                    checkResult();
+                    return;
+                }
+                const acceptDiff = Math.max(0, Math.floor(((end.getTime() + (acceptanceTimeoutSeconds * 1000)) - now.getTime()) / 1000));
+                setTimeLeft({ 
+                    label: `Window Closed • Corporate Acceptance Window (${acceptDiff}s)`, 
+                    status: 'CLOSED', 
+                    secondsRemaining: 0, 
+                    acceptanceSecondsRemaining: acceptDiff,
+                    days: 0, 
+                    hours: 0, 
+                    mins: 0, 
+                    secs: 0 
+                });
                 if (typeof document !== 'undefined') {
-                    document.title = 'Window Closed | Grow Treasury';
+                    document.title = `Acceptance Window (${acceptDiff}s) | Grow Treasury`;
+                }
+                checkResult();
+            } else {
+                const isBankAllIndicative = Boolean(rfq?.is_all_indicative || (!rfq?.has_execution_legs) || (rfq?.quotation_base || '').toLowerCase() === 'indicative');
+                setTimeLeft({ label: isBankAllIndicative ? 'Quotation Closed' : 'Window Closed', status: 'CLOSED', secondsRemaining: 0, acceptanceSecondsRemaining: 0, days: 0, hours: 0, mins: 0, secs: 0 });
+                if (typeof document !== 'undefined') {
+                    document.title = isBankAllIndicative ? 'Quotation Closed — Thank You | Grow Treasury' : 'Window Closed | Grow Treasury';
                 }
                 if (timer) clearInterval(timer);
                 checkResult();
@@ -545,10 +628,11 @@ export default function QuotationBankOfferPage() {
         }
     }, [error?.isCancelled]);
 
-    // 5c. Window Just Opened Transition Alert
+    // 5c. Window Just Opened Transition Alert & Audio Chime
     useEffect(() => {
         if (prevStatusRef.current === 'PRE' && timeLeft.status === 'OPEN') {
             setShowWindowOpenedAlert(true);
+            tradingAudio.playWindowOpened();
             const card = document.getElementById('bidding-quote-card');
             if (card) {
                 card.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -556,6 +640,24 @@ export default function QuotationBankOfferPage() {
         }
         prevStatusRef.current = timeLeft.status;
     }, [timeLeft.status]);
+
+    // 5d. Urgency Warning Audio Cues (Final 10 seconds before close)
+    useEffect(() => {
+        if (timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10 && timeLeft.secondsRemaining > 0) {
+            if (lastTickedSecondRef.current !== timeLeft.secondsRemaining) {
+                lastTickedSecondRef.current = timeLeft.secondsRemaining;
+                tradingAudio.playUrgencyTick(timeLeft.secondsRemaining);
+            }
+        }
+    }, [timeLeft.status, timeLeft.secondsRemaining]);
+
+    // 5e. Result Resolution Audio Cue
+    useEffect(() => {
+        if (resultStatus && !hasPlayedResultSoundRef.current && timeLeft.status === 'CLOSED') {
+            hasPlayedResultSoundRef.current = true;
+            tradingAudio.playResultOut(resultStatus);
+        }
+    }, [resultStatus, timeLeft.status]);
 
     // 6. Pre-fill existing offers
     useEffect(() => {
@@ -768,7 +870,7 @@ export default function QuotationBankOfferPage() {
         setIsTakingOver(true);
         try {
             const res = await quotationApi.post(`/api/v1/public-quotation/${token}/desk-takeover`, {
-                session_token: authSession.session_token,
+                session_token: getEffectiveSessionToken(),
                 email: authSession.email,
                 name: authSession.name || authSession.email.split('@')[0],
                 role: authSession.role || 'EXECUTION'
@@ -808,7 +910,7 @@ export default function QuotationBankOfferPage() {
                     token, 
                     lines: linesToUse.map(l => ({ ...l, discountRate: parseFloat(l.discountRate), maxAmount: parseFloat(l.maxAmount) })),
                     notes: traderNotes.trim() || undefined,
-                    session_token: authSession.session_token,
+                    session_token: getEffectiveSessionToken(),
                     email: authSession.email
                 }
                 : { 
@@ -816,7 +918,7 @@ export default function QuotationBankOfferPage() {
                     price: priceToSubmit !== undefined && priceToSubmit !== null ? priceToSubmit : parseFloat(price),
                     offered_value_date: rfq.allow_alternative_value_date ? (offeredValueDate || rfq.value_date || undefined) : undefined,
                     notes: traderNotes.trim() || undefined,
-                    session_token: authSession.session_token,
+                    session_token: getEffectiveSessionToken(),
                     email: authSession.email
                 };
 
@@ -828,13 +930,16 @@ export default function QuotationBankOfferPage() {
             } catch (e) {}
             setDraftRestored(false);
 
-            if (res.data?.live_rank) {
+            if (rfq?.is_live_ranking_enabled && res.data?.live_rank) {
                 setLiveRank({
                     is_enabled: true,
                     rank: res.data.live_rank.rank,
                     total_quotes: res.data.live_rank.total_quotes,
                     is_leading: res.data.live_rank.is_leading
                 });
+            }
+            if (rfq?.is_live_ranking_enabled && res.data?.ranks_by_leg && Object.keys(res.data.ranks_by_leg).length > 0) {
+                setLegLiveRanks(res.data.ranks_by_leg);
             }
             await fetchRfq();
         } catch (err) {
@@ -854,7 +959,9 @@ export default function QuotationBankOfferPage() {
             return;
         }
 
-        const isIndicative = (rfq?.quotation_base || '').toLowerCase() === 'indicative';
+        const currentLegBases = Array.from(new Set((rfq?.legs || []).map(l => (l.quotation_base || rfq.quotation_base || 'Execution').toLowerCase())));
+        const currentHasExecLegs = rfq?.has_execution_legs ?? (currentLegBases.length === 0 ? (rfq?.quotation_base || '').toLowerCase() !== 'indicative' : currentLegBases.includes('execution'));
+        const isIndicative = !currentHasExecLegs;
         const hasExecutionDealers = rfq?.has_execution_dealers ?? true;
         const canApproverExecute = isIndicative || !hasExecutionDealers;
 
@@ -1018,7 +1125,9 @@ export default function QuotationBankOfferPage() {
             return;
         }
 
-        const isIndicative = (rfq?.quotation_base || '').toLowerCase() === 'indicative';
+        const currentLegBases = Array.from(new Set((rfq?.legs || []).map(l => (l.quotation_base || rfq.quotation_base || 'Execution').toLowerCase())));
+        const currentHasExecLegs = rfq?.has_execution_legs ?? (currentLegBases.length === 0 ? (rfq?.quotation_base || '').toLowerCase() !== 'indicative' : currentLegBases.includes('execution'));
+        const isIndicative = !currentHasExecLegs;
         const hasExecutionDealers = rfq?.has_execution_dealers ?? true;
         const canApproverExecute = isIndicative || !hasExecutionDealers;
 
@@ -1061,12 +1170,12 @@ export default function QuotationBankOfferPage() {
             const res = await quotationApi.post('/api/v1/public-quotation/offers-batch', {
                 token,
                 quotes: quotesToSubmit,
-                session_token: authSession.session_token,
+                session_token: getEffectiveSessionToken(),
                 email: authSession.email,
                 notes: traderNotes.trim() || undefined
             });
             setSubmitted(true);
-            if (res.data?.ranks_by_leg) {
+            if (rfq?.is_live_ranking_enabled && res.data?.ranks_by_leg) {
                 setLegLiveRanks(res.data.ranks_by_leg);
             }
             await fetchRfq();
@@ -1223,7 +1332,10 @@ export default function QuotationBankOfferPage() {
 
     if (!rfq) return <div className="p-8 text-center text-gray-500 animate-pulse mt-20">Loading Secure Quotation Link...</div>;
 
-    const isIndicative = (rfq?.quotation_base || '').toLowerCase() === 'indicative';
+    const legBases = Array.from(new Set((rfq?.legs || []).map(l => (l.quotation_base || rfq.quotation_base || 'Execution').toLowerCase())));
+    const isMixed = rfq?.is_mixed || (legBases.length > 1 && legBases.includes('execution') && legBases.includes('indicative'));
+    const hasExecutionLegs = rfq?.has_execution_legs ?? (legBases.length === 0 ? (rfq?.quotation_base || '').toLowerCase() !== 'indicative' : legBases.includes('execution'));
+    const isIndicative = Boolean(rfq?.is_all_indicative || (!hasExecutionLegs && (legBases.length <= 1 ? (legBases[0] || (rfq?.quotation_base || '')).toLowerCase() === 'indicative' : false)) || (rfq?.quotation_base || '').toLowerCase() === 'indicative');
     const hasExecutionDealers = rfq?.has_execution_dealers ?? true;
     const canApproverExecute = isIndicative || !hasExecutionDealers;
 
@@ -1366,7 +1478,7 @@ export default function QuotationBankOfferPage() {
                     </div>
 
                     {/* View Tabs & Countdown */}
-                    <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                    <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
                         <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
                             <button
                                 onClick={() => handleTabSwitch('LIVE')}
@@ -1381,6 +1493,21 @@ export default function QuotationBankOfferPage() {
                                 <History size={14} /> Desk History
                             </button>
                         </div>
+
+                        {/* Institutional Audio Alerts Toggle */}
+                        <button
+                            type="button"
+                            onClick={handleToggleSound}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0 ${
+                                soundEnabled 
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100' 
+                                    : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'
+                            }`}
+                            title={soundEnabled ? "Audio cues active: Trading Desk Chimes (Click to mute)" : "Audio cues muted (Click to enable)"}
+                        >
+                            {soundEnabled ? <Volume2 size={13} className="text-emerald-600" /> : <VolumeX size={13} className="text-slate-400" />}
+                            <span className="hidden sm:inline">{soundEnabled ? 'Alerts On' : 'Muted'}</span>
+                        </button>
 
                         {/* Executive Countdown Timer Badge */}
                         <div className="shrink-0">
@@ -1532,31 +1659,56 @@ export default function QuotationBankOfferPage() {
                 {activeTab === 'LIVE' && (
                     <>
                         {/* Trade Execution / Outcome Result Banner */}
-                        {timeLeft.status === 'CLOSED' && resultStatus && rfq?.approval_status !== 'DECLINED' && (
+                        {timeLeft.status === 'CLOSED' && (resultStatus || isIndicative) && rfq?.approval_status !== 'DECLINED' && (
                             <div
                                 className={`mb-3.5 p-3.5 sm:p-4 rounded-2xl border text-center animate-fade-in-up ${
-                                    resultStatus === 'WINNER' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+                                    resultStatus === 'WINNER' ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs' :
+                                    resultStatus === 'PARTIALLY_WON' ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs' :
+                                    (isIndicative || resultStatus === 'INDICATIVE_ONLY') ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950 shadow-2xs' :
                                     resultStatus === 'INCONCLUSIVE' ? 'bg-amber-50 border-amber-200 text-amber-900' :
                                     resultStatus === 'AWAITING_SELECTION' ? 'bg-blue-50/70 border-blue-200 text-blue-900' :
                                     'bg-gray-50 border-gray-200 text-gray-600'
                                 }`}
                             >
-                                {resultStatus === 'WINNER' ? (
+                                {(isIndicative || resultStatus === 'INDICATIVE_ONLY') ? (
                                     <div className="flex flex-col items-center">
-                                        <CheckCircle2 className="mb-1 text-emerald-500" size={24} />
-                                        <h2 className="text-base sm:text-lg font-bold">Trade Execution Confirmed!</h2>
-                                        <p className="text-xs sm:text-sm mt-0.5">Congratulations, your quote was selected as the winning offer. Our treasury team will contact you shortly.</p>
+                                        <CheckCircle2 className="mb-1 text-emerald-600" size={26} />
+                                        <h2 className="text-base sm:text-lg font-bold text-gray-900">Quotation Closed — Thank You</h2>
+                                        <p className="text-xs sm:text-sm text-gray-600 mt-0.5">Indicative pricing received. Thank you for your quote.</p>
+                                    </div>
+                                ) : (resultStatus === 'WINNER' && (!outcomeData?.total_legs_count || outcomeData?.total_legs_count <= 1 || outcomeData?.won_legs_count === outcomeData?.total_legs_count)) ? (
+                                    <div className="flex flex-col items-center">
+                                        <CheckCircle2 className="mb-1 text-emerald-600" size={26} />
+                                        <h2 className="text-base sm:text-lg font-bold">
+                                            Trade Execution Confirmed{outcomeData?.total_legs_count > 1 ? ` — All ${outcomeData.total_legs_count} Pairs Won!` : '!'}
+                                        </h2>
+                                        <p className="text-xs sm:text-sm mt-0.5 text-emerald-800">
+                                            {outcomeData?.total_legs_count > 1
+                                                ? `Congratulations, your quotes won every currency pair in this package (${outcomeData?.won_pairs?.join(', ')}). Our treasury team will contact you shortly.`
+                                                : 'Congratulations, your quote was selected as the winning offer. Our treasury team will contact you shortly.'}
+                                        </p>
+                                    </div>
+                                ) : (resultStatus === 'PARTIALLY_WON' || (resultStatus === 'WINNER' && outcomeData?.won_legs_count < outcomeData?.total_legs_count)) ? (
+                                    <div className="flex flex-col items-center">
+                                        <CheckCircle2 className="mb-1 text-emerald-600" size={26} />
+                                        <h2 className="text-base sm:text-lg font-bold">
+                                            Trade Execution Confirmed — Partially Won ({outcomeData?.won_legs_count || outcomeData?.won_pairs?.length || 1} of {outcomeData?.total_legs_count || 2} Pairs)!
+                                        </h2>
+                                        <p className="text-xs sm:text-sm mt-0.5 text-emerald-800 text-center">
+                                            Congratulations, your quotes won: <strong className="font-mono">{outcomeData?.won_pairs?.join(', ')}</strong>.
+                                            {outcomeData?.lost_pairs?.length > 0 && (
+                                                <span> (Awarded to competing counterparties: <span className="font-mono">{outcomeData.lost_pairs.join(', ')}</span>).</span>
+                                            )}
+                                            {outcomeData?.inconclusive_pairs?.length > 0 && (
+                                                <span> (Other pairs closed without execution / inconclusive: <span className="font-mono">{outcomeData.inconclusive_pairs.join(', ')}</span>).</span>
+                                            )}
+                                        </p>
                                     </div>
                                 ) : resultStatus === 'AWAITING_SELECTION' ? (
                                     <div className="flex flex-col items-center">
                                         <Clock className="mb-1 text-blue-500 animate-spin-slow" size={24} />
                                         <h2 className="text-base sm:text-lg font-bold">Selection in Progress</h2>
                                         <p className="text-xs sm:text-sm mt-0.5">Thank you for your quote. The corporate treasury team is currently evaluating all counterparties.</p>
-                                    </div>
-                                ) : resultStatus === 'INDICATIVE_ONLY' ? (
-                                    <div className="flex flex-col items-center">
-                                        <h2 className="text-base sm:text-lg font-bold text-gray-800">Indicative Quotation Completed</h2>
-                                        <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Thank you for providing market sounding pricing for this request.</p>
                                     </div>
                                 ) : resultStatus === 'INCONCLUSIVE' ? (
                                     <div className="flex flex-col items-center">
@@ -1609,19 +1761,34 @@ export default function QuotationBankOfferPage() {
                                     {/* Corporate Client & RFQ Ref Top Header */}
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-5 border-b border-slate-100 gap-3">
                                         <div>
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Requesting Legal Entity</p>
-                                            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
-                                                {rfq.entity_name || rfq.customer_name}
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">
+                                                {rfq.is_cross_entity ? "Requesting Organization (Group Level)" : "Requesting Legal Entity"}
+                                            </p>
+                                            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2 flex-wrap">
+                                                <span>{rfq.entity_name || rfq.customer_name}</span>
+                                                {rfq.is_cross_entity && (
+                                                    <span className="text-[10px] font-extrabold uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-full">
+                                                        Group Benchmark
+                                                    </span>
+                                                )}
                                             </h2>
-                                            {(rfq.entity_cr_number || rfq.entity_tax_id) && (
-                                                <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500 font-medium">
-                                                    {rfq.entity_cr_number && <span>CR: <strong className="font-mono text-gray-700">{rfq.entity_cr_number}</strong></span>}
-                                                    {rfq.entity_cr_number && rfq.entity_tax_id && <span>•</span>}
-                                                    {rfq.entity_tax_id && <span>Tax ID: <strong className="font-mono text-gray-700">{rfq.entity_tax_id}</strong></span>}
-                                                </div>
-                                            )}
-                                            {rfq.customer_name && rfq.entity_name && rfq.customer_name !== rfq.entity_name && (
-                                                <p className="text-[11px] text-gray-400 mt-0.5">Group: {rfq.customer_name}</p>
+                                            {rfq.is_cross_entity ? (
+                                                <p className="text-xs text-blue-700 bg-blue-50/80 border border-blue-200/60 px-2.5 py-1.5 rounded-lg mt-2 font-medium">
+                                                    This request is sent on behalf of <strong>{rfq.customer_name}</strong> for comparative indicative price discovery. No trade execution commitment will be entered with your institution.
+                                                </p>
+                                            ) : (
+                                                <>
+                                                    {(rfq.entity_cr_number || rfq.entity_tax_id) && (
+                                                        <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500 font-medium">
+                                                            {rfq.entity_cr_number && <span>CR: <strong className="font-mono text-gray-700">{rfq.entity_cr_number}</strong></span>}
+                                                            {rfq.entity_cr_number && rfq.entity_tax_id && <span>•</span>}
+                                                            {rfq.entity_tax_id && <span>Tax ID: <strong className="font-mono text-gray-700">{rfq.entity_tax_id}</strong></span>}
+                                                        </div>
+                                                    )}
+                                                    {rfq.customer_name && rfq.entity_name && rfq.customer_name !== rfq.entity_name && (
+                                                        <p className="text-[11px] text-gray-400 mt-0.5">Group: {rfq.customer_name}</p>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                         <div className="flex items-center sm:flex-col sm:items-end gap-1.5">
@@ -1631,9 +1798,13 @@ export default function QuotationBankOfferPage() {
                                                     {rfq.ref_no}
                                                 </span>
                                                 <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider ${
-                                                    rfq.quotation_base === 'Execution' ? 'bg-black text-white' : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                                    isMixed
+                                                        ? 'bg-purple-900 text-purple-100 border border-purple-700 shadow-2xs'
+                                                        : (rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
+                                                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                                            : 'bg-black text-white'
                                                 }`}>
-                                                    {rfq.quotation_base || 'Execution'}
+                                                    {isMixed ? '⚡📊 MIXED (EXECUTION / INDICATIVE)' : (rfq.quotation_base || 'Execution')}
                                                 </span>
                                             </div>
                                         </div>
@@ -1691,6 +1862,13 @@ export default function QuotationBankOfferPage() {
                                                                     </span>
                                                                     <span className="font-mono font-bold text-sm text-slate-900">
                                                                         {leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`}
+                                                                    </span>
+                                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded tracking-wide ${
+                                                                        (leg.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
+                                                                            ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                                                                            : 'bg-black text-white'
+                                                                    }`}>
+                                                                        {(leg.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative' ? '📊 INDIC' : '⚡ EXEC'}
                                                                     </span>
                                                                 </div>
                                                                 <span className="font-mono font-bold text-xs text-slate-900">
@@ -1783,9 +1961,11 @@ export default function QuotationBankOfferPage() {
                                         <li className="flex gap-3">
                                             <span className="w-5 h-5 bg-black text-white rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5">!</span>
                                             <span className="font-semibold text-gray-900">
-                                                {rfq.quotation_base === 'Execution'
-                                                    ? 'This is an EXECUTION request. Your submitted quote is binding upon window close.'
-                                                    : 'This is an INDICATIVE request for market pricing sounding.'}
+                                                {isMixed
+                                                    ? 'This is a MIXED package with both Execution and Indicative currency pairs. Execution legs are binding upon window close, while Indicative legs are for price discovery.'
+                                                    : hasExecutionLegs
+                                                        ? 'This is an EXECUTION request. Your submitted quote is binding upon window close.'
+                                                        : 'This is an INDICATIVE request for market pricing sounding.'}
                                             </span>
                                         </li>
                                         <li className="flex gap-3">
@@ -1857,12 +2037,16 @@ export default function QuotationBankOfferPage() {
 
                                                 <div className="space-y-4 text-xs text-gray-600 leading-relaxed">
                                                     <p>
-                                                        As an authorized Approver for <strong>{rfq.bank_name}</strong>, your authorization is required before execution dealers on your desk can submit binding quotes for this <strong>{rfq.quotation_base || 'Execution'}</strong> request from <strong>{rfq.customer_name}</strong>.
+                                                        As an authorized Approver for <strong>{rfq.bank_name}</strong>, your authorization is required before execution dealers on your desk can submit binding quotes for {isMixed ? (
+                                                            <span>the execution legs of this <strong className="text-purple-900 font-bold">Mixed Package (Execution &amp; Indicative)</strong></span>
+                                                        ) : (
+                                                            <span>this <strong>{rfq.quotation_base || 'Execution'}</strong> request</span>
+                                                        )} from <strong>{rfq.customer_name}</strong>.
                                                     </p>
 
                                                     <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs">
                                                         <div className="font-bold text-gray-900 mb-1">Deal Summary:</div>
-                                                        <ul className="space-y-1 text-slate-600 font-medium">
+                                                        <ul className="space-y-1.5 text-slate-600 font-medium">
                                                             <li>&bull; Reference: <span className="font-mono font-bold text-gray-900">{rfq.ref_no}</span></li>
                                                             <li>&bull; Product: <span className="font-bold text-gray-900">{rfq.type}</span></li>
                                                             {rfq.type === 'TBILL' ? (
@@ -1874,14 +2058,31 @@ export default function QuotationBankOfferPage() {
                                                                 <>
                                                                     <li>&bull; Package: <span className="font-bold text-gray-900">{rfq.legs.length} Currency Pairs</span></li>
                                                                     {rfq.legs.map((l, i) => (
-                                                                        <li key={l.id || i} className="pl-2 text-[11px] text-gray-500">
-                                                                            &bull; Leg {i + 1}: <strong className="text-gray-800">{l.currency_pair || `${l.buy_currency}/${l.sell_currency}`}</strong> &bull; {new Intl.NumberFormat().format(l.amount || 0)} {l.buy_currency} &bull; Val: {formatDate(l.value_date)}
+                                                                        <li key={l.id || i} className="pl-2 text-[11px] text-gray-600 flex items-center gap-1.5 flex-wrap">
+                                                                            <span>&bull; Leg {i + 1}: <strong className="text-gray-900 font-mono">{l.currency_pair || `${l.buy_currency}/${l.sell_currency}`}</strong></span>
+                                                                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded tracking-wide ${
+                                                                                (l.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
+                                                                                    ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                                                                                    : 'bg-black text-white'
+                                                                            }`}>
+                                                                                {(l.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative' ? '📊 INDICATIVE' : '⚡ EXECUTION'}
+                                                                            </span>
+                                                                            <span>&bull; {new Intl.NumberFormat().format(l.amount || 0)} {l.buy_currency} &bull; Val: {formatDate(l.value_date)}</span>
                                                                         </li>
                                                                     ))}
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    <li>&bull; Pair: <span className="font-bold text-gray-900">{rfq.buy_currency}/{rfq.sell_currency}</span></li>
+                                                                    <li className="flex items-center gap-1.5">
+                                                                        <span>&bull; Pair: <span className="font-bold text-gray-900">{rfq.buy_currency}/{rfq.sell_currency}</span></span>
+                                                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded tracking-wide ${
+                                                                            (rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
+                                                                                ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                                                                                : 'bg-black text-white'
+                                                                        }`}>
+                                                                            {(rfq.quotation_base || 'Execution').toLowerCase() === 'indicative' ? '📊 INDICATIVE' : '⚡ EXECUTION'}
+                                                                        </span>
+                                                                    </li>
                                                                     <li>&bull; Amount: <span className="font-bold text-gray-900">{new Intl.NumberFormat().format(rfq.amount || 0)} {rfq.buy_currency}</span></li>
                                                                     <li>&bull; Value Date: <span className="font-bold text-gray-900">{formatDate(rfq.value_date)}</span></li>
                                                                 </>
@@ -1937,22 +2138,25 @@ export default function QuotationBankOfferPage() {
                                     )
                                 ) : (
                                     <>
-                                        {/* Success Status Notification Card when Quote is Active */}
+                                        {/* Neutral Status Notification Card when Quote is Active */}
                                         {submitted && !isViewOnly && (
-                                            <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-2xl p-3 text-center flex flex-col items-center justify-center animate-fade-in shadow-xs">
-                                                <div className="w-7 h-7 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mb-1">
-                                                    <CheckCircle2 size={16} className="text-emerald-600" />
+                                            <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3 text-center flex flex-col items-center justify-center animate-fade-in shadow-2xs">
+                                                <div className="w-7 h-7 bg-slate-200/80 text-slate-700 rounded-full flex items-center justify-center mb-1">
+                                                    <CheckCircle2 size={16} className="text-slate-600" />
                                                 </div>
-                                                <h3 className="text-sm font-bold text-emerald-950">Quote Recorded Successfully</h3>
-                                                <p className="text-xs text-emerald-800 mt-0.5">
-                                                    {rfq.type === 'TBILL' ? 'Your T-Bill quote lines are actively registered with the client.' : 'Your spot price is actively registered with the client.'}
+                                                <h3 className="text-sm font-semibold text-slate-800">Quote Recorded Successfully</h3>
+                                                <p className="text-xs text-slate-500 mt-0.5">
+                                                    {timeLeft.status === 'OPEN'
+                                                        ? (rfq.type === 'TBILL' ? 'Your T-Bill quote lines are actively registered with the client.' : 'Your spot price is actively registered with the client.')
+                                                        : (rfq.type === 'TBILL' ? 'Your T-Bill quote lines were received for evaluation.' : 'Your spot price was received for evaluation.')
+                                                    }
                                                 </p>
                                             </div>
                                         )}
 
                                         {isApprover && rfq.approval_status === 'APPROVED' && (
-                                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-xs text-emerald-900 flex items-center gap-2">
-                                                <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                                            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs text-slate-700 flex items-center gap-2">
+                                                <CheckCircle2 size={16} className="text-slate-500 shrink-0" />
                                                 <span>
                                                     <strong>Participation Approved:</strong> You authorized this RFQ on {formatDate(rfq.approved_at)}. You are observing desk activity in Approver Viewer Mode.
                                                 </span>
@@ -1974,7 +2178,7 @@ export default function QuotationBankOfferPage() {
                                             <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
                                                 <div>
                                                     <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                                                        <TrendingUp size={14} className="text-emerald-600" /> {rfq.type === 'TBILL' ? 'T-Bill Quotation Lines' : 'Your Price Quote'}
+                                                        <TrendingUp size={14} className="text-slate-500" /> {rfq.type === 'TBILL' ? 'T-Bill Quotation Lines' : 'Your Price Quote'}
                                                     </h3>
                                                     <p className="text-[11px] text-gray-500 mt-0.5">
                                                         {timeLeft.status === 'OPEN' ? 'Enter your binding rate for this quotation request.' : 'Quotation window is currently closed.'}
@@ -1982,8 +2186,8 @@ export default function QuotationBankOfferPage() {
                                                 </div>
                                                 
                                                 {submitted ? (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                                        <CheckCircle2 size={14} className="text-emerald-600" /> Active Quote
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                                        <CheckCircle2 size={13} className="text-slate-500" /> {timeLeft.status === 'OPEN' ? 'Active Quote' : 'Quote Submitted'}
                                                     </span>
                                                 ) : isApproverViewer ? (
                                                     <span className="px-3 py-1 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full border border-amber-200">
@@ -1996,6 +2200,10 @@ export default function QuotationBankOfferPage() {
                                                 ) : isViewOnly ? (
                                                     <span className="px-3 py-1 bg-blue-100 text-blue-800 text-[10px] font-bold rounded-full border border-blue-200">
                                                         👁️ View-Only Observer
+                                                    </span>
+                                                ) : isMixed ? (
+                                                    <span className="px-3 py-1 bg-purple-100 text-purple-900 text-[10px] font-bold rounded-full border border-purple-300">
+                                                        ⚡📊 Mixed Package
                                                     </span>
                                                 ) : isIndicative ? (
                                                     <span className="px-3 py-1 bg-blue-50 text-blue-800 text-[10px] font-bold rounded-full border border-blue-200">
@@ -2015,72 +2223,121 @@ export default function QuotationBankOfferPage() {
                                                 ) : null}
                                             </div>
 
-                                            {/* Live Ranking HUD Widget */}
-                                            {rfq?.is_live_ranking_enabled && (
+                                            {/* Live Ranking HUD Widget - ONLY during OPEN window and ONLY if live ranking is enabled by system owner */}
+                                            {rfq?.is_live_ranking_enabled && timeLeft.status === 'OPEN' && (
                                                 <div 
                                                     className="mb-4 overflow-hidden rounded-2xl border transition-all duration-300 shadow-xs"
                                                     style={{
-                                                        background: liveRank?.rank === 1
+                                                        background: (liveRank?.rank === 1 || Object.values(legLiveRanks).some(r => (typeof r === 'object' ? r?.rank === 1 : r === 1)))
                                                             ? 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)'
-                                                            : liveRank?.rank
+                                                            : (liveRank?.rank || Object.values(legLiveRanks).some(r => (typeof r === 'object' ? r?.rank > 0 : r > 0)))
                                                                 ? 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)'
                                                                 : 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)',
-                                                        borderColor: liveRank?.rank === 1
+                                                        borderColor: (liveRank?.rank === 1 || Object.values(legLiveRanks).some(r => (typeof r === 'object' ? r?.rank === 1 : r === 1)))
                                                             ? '#6EE7B7'
-                                                            : liveRank?.rank
+                                                            : (liveRank?.rank || Object.values(legLiveRanks).some(r => (typeof r === 'object' ? r?.rank > 0 : r > 0)))
                                                                 ? '#93C5FD'
                                                                 : '#E2E8F0'
                                                     }}
                                                 >
-                                                    <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-base shadow-xs ${
-                                                                liveRank?.rank === 1
-                                                                    ? 'bg-emerald-600 text-white shadow-emerald-500/20'
-                                                                    : liveRank?.rank
-                                                                        ? 'bg-blue-600 text-white shadow-blue-500/20'
-                                                                        : 'bg-slate-200 text-slate-600'
-                                                            }`}>
-                                                                {liveRank?.rank ? `#${liveRank.rank}` : <BarChart2 size={18} />}
-                                                            </div>
-                                                            <div>
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
-                                                                        Live Market Ranking
-                                                                    </span>
-                                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-white/90 border border-slate-200 text-slate-700">
-                                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping mr-1" />
-                                                                        Real-Time
-                                                                    </span>
+                                                    <div className="p-3.5 sm:p-4">
+                                                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-base shadow-xs shrink-0 ${
+                                                                    (liveRank?.rank === 1 || Object.values(legLiveRanks).some(r => (typeof r === 'object' ? r?.rank === 1 : r === 1)))
+                                                                        ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                                                                        : (liveRank?.rank || Object.values(legLiveRanks).some(r => (typeof r === 'object' ? r?.rank > 0 : r > 0)))
+                                                                            ? 'bg-blue-600 text-white shadow-blue-500/20'
+                                                                            : 'bg-slate-200 text-slate-600'
+                                                                }`}>
+                                                                    {rfq.legs && rfq.legs.length > 1 ? (
+                                                                        <BarChart2 size={18} />
+                                                                    ) : (liveRank?.rank ? `#${liveRank.rank}` : <BarChart2 size={18} />)}
                                                                 </div>
-                                                                <div className="text-xs sm:text-sm font-bold text-slate-900 mt-0.5">
-                                                                    {liveRank?.rank === 1 ? (
-                                                                        <span className="text-emerald-800 flex items-center gap-1">
-                                                                            🏆 Leading Quote — Best in Market!
+                                                                <div>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                                                                            {rfq.legs && rfq.legs.length > 1 ? 'Live Multi-Pair Ranking' : 'Live Market Ranking'}
                                                                         </span>
-                                                                    ) : liveRank?.rank ? (
-                                                                        <span className="text-blue-900">
-                                                                            Your Rank: #{liveRank.rank} of {liveRank.total_quotes || 1} submitted
+                                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-white/90 border border-slate-200 text-slate-700">
+                                                                            {timeLeft.status === 'CLOSED' ? (
+                                                                                <>🏁 Final Standings</>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping mr-1" />
+                                                                                    Real-Time
+                                                                                </>
+                                                                            )}
                                                                         </span>
+                                                                    </div>
+                                                                    {rfq.legs && rfq.legs.length > 1 ? (
+                                                                        <div className="text-xs sm:text-sm font-bold text-slate-900 mt-0.5">
+                                                                            {timeLeft.status === 'CLOSED' ? (
+                                                                                <span>Window Closed — Final Standings per Leg</span>
+                                                                            ) : (
+                                                                                <span>Active Telemetry — Individual Rankings per Leg Below</span>
+                                                                            )}
+                                                                        </div>
                                                                     ) : (
-                                                                        <span className="text-slate-600">
-                                                                            Submit your quote to view competitive rank
-                                                                        </span>
+                                                                        <div className="text-xs sm:text-sm font-bold text-slate-900 mt-0.5">
+                                                                            {liveRank?.rank === 1 ? (
+                                                                                <span className="text-emerald-800 flex items-center gap-1">
+                                                                                    🏆 Leading Quote — Best in Market!
+                                                                                </span>
+                                                                            ) : liveRank?.rank ? (
+                                                                                <span className="text-blue-900">
+                                                                                    Your Rank: #{liveRank.rank} of {liveRank.total_quotes || 1} submitted
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="text-slate-600">
+                                                                                    Submit your quote to view competitive rank
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                     )}
                                                                 </div>
                                                             </div>
+
+                                                            {/* For multi-pair: quick chips per leg in HUD */}
+                                                            {rfq.legs && rfq.legs.length > 1 && (
+                                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                                    {rfq.legs.map((leg, lIdx) => {
+                                                                        const lPair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
+                                                                        const r = legLiveRanks[leg.id] || legLiveRanks[String(leg.id)] || legLiveRanks[lIdx] || legLiveRanks[String(lIdx)] || legLiveRanks[lPair] || leg.live_rank;
+                                                                        const lRank = typeof r === 'number' ? { rank: r, total_quotes: liveRank?.total_quotes || 1, is_leading: r === 1 } : (r || null);
+                                                                        const isWon = timeLeft.status === 'CLOSED' && (outcomeData?.won_pairs?.includes(lPair) || outcomeData?.legs_breakdown?.[leg.id]?.is_winner || outcomeData?.legs_breakdown?.[lPair]?.is_winner);
+
+                                                                        return (
+                                                                            <span
+                                                                                key={leg.id || lIdx}
+                                                                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono font-bold border shadow-2xs ${
+                                                                                    isWon || lRank?.is_leading || lRank?.rank === 1
+                                                                                        ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
+                                                                                        : lRank?.rank
+                                                                                            ? 'bg-blue-100/90 text-blue-950 border-blue-300'
+                                                                                            : 'bg-white text-slate-600 border-slate-200'
+                                                                                }`}
+                                                                            >
+                                                                                <span className="font-sans font-black">{lPair}:</span>
+                                                                                {isWon ? (
+                                                                                    <span className="text-emerald-800 font-sans font-bold">🏆 Won (Rank #1)</span>
+                                                                                ) : lRank?.rank === 1 ? (
+                                                                                    <span className="text-emerald-800 font-sans font-bold">🏆 #1 Lead</span>
+                                                                                ) : lRank?.rank ? (
+                                                                                    <span>Rank #{lRank.rank}</span>
+                                                                                ) : (
+                                                                                    <span className="font-sans font-normal text-slate-400">Awaiting</span>
+                                                                                )}
+                                                                            </span>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                        {liveRank?.rank && liveRank.rank > 1 && timeLeft.status === 'OPEN' && (
-                                                            <div className="hidden sm:flex flex-col items-end">
-                                                                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100 border border-amber-300 px-2.5 py-1 rounded-full animate-pulse">
-                                                                    Improve Quote to Lead
-                                                                </span>
-                                                            </div>
-                                                        )}
                                                     </div>
                                                     <div className="px-3.5 py-2 bg-black/[0.02] border-t border-black/[0.04] flex items-center justify-between text-[10px] text-slate-500">
-                                                        <span>Indicative real-time telemetry feed</span>
-                                                        <span className="italic text-slate-400">Subject to counterparty network transmission variance</span>
+                                                        <span>Individual pair live rank computed against competing counterparty quotes</span>
+                                                        <span className="italic text-slate-400">Subject to network latency</span>
                                                     </div>
                                                 </div>
                                             )}
@@ -2132,24 +2389,28 @@ export default function QuotationBankOfferPage() {
                                                     )}
 
                                                     {deskState?.is_active_trader && (authSession?.role === 'EXECUTION' || canApproverExecute) && (
-                                                        <div className="p-2.5 px-3.5 bg-emerald-50/90 border border-emerald-200 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
+                                                        <div className={`p-2.5 px-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs ${
+                                                            timeLeft.status === 'OPEN'
+                                                                ? 'bg-slate-100/90 border border-slate-200 text-slate-800'
+                                                                : 'bg-slate-50 border border-slate-200 text-slate-700'
+                                                        }`}>
                                                             <div className="flex items-center gap-2">
-                                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                                <span className="font-bold text-emerald-900">Active Quoting Desk:</span>
-                                                                <span className="text-emerald-800 font-semibold font-mono">You ({authSession?.email})</span>
+                                                                <span className={`w-2 h-2 rounded-full ${timeLeft.status === 'OPEN' ? 'bg-sky-500 animate-pulse' : 'bg-slate-400'}`} />
+                                                                <span className="font-semibold text-slate-900">Active Quoting Desk:</span>
+                                                                <span className="text-slate-700 font-mono">You ({authSession?.email})</span>
                                                             </div>
                                                             {deskState.execution_colleagues_count > 0 ? (
-                                                                <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-800 bg-amber-100/70 border border-amber-300 px-2.5 py-0.5 rounded-lg">
+                                                                <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-800 bg-amber-100/70 border border-amber-300 px-2.5 py-0.5 rounded-lg">
                                                                     <Users size={12} className="text-amber-700" />
                                                                     <span>{deskState.execution_colleagues_count} Colleague Dealer{deskState.execution_colleagues_count > 1 ? 's' : ''} Online (Spectating)</span>
                                                                 </div>
                                                             ) : (rfq?.total_execution_dealers > 1) ? (
-                                                                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-100/60 px-2.5 py-0.5 rounded-lg">
+                                                                <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 bg-slate-200/60 px-2.5 py-0.5 rounded-lg">
                                                                     <Users size={12} />
                                                                     <span>Multi-Dealer Desk ({rfq.total_execution_dealers} Execution Contacts Configured &bull; Colleague Offline)</span>
                                                                 </div>
                                                             ) : (
-                                                                <span className="text-[11px] text-emerald-600 font-medium">Solo Execution Desk</span>
+                                                                <span className="text-[11px] text-slate-500 font-medium">Solo Execution Desk</span>
                                                             )}
                                                         </div>
                                                     )}
@@ -2286,7 +2547,20 @@ export default function QuotationBankOfferPage() {
                                                             <div className="space-y-3.5">
                                                                 {rfq.legs.map((leg, idx) => {
                                                                     const q = legQuotes[leg.id] || { price: '', offered_value_date: leg.value_date || '', notes: '' };
-                                                                    const legRank = legLiveRanks[leg.id];
+                                                                    const legPairName = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
+                                                                    const rawRank = rfq?.is_live_ranking_enabled ? (
+                                                                        legLiveRanks[leg.id]
+                                                                        || legLiveRanks[String(leg.id)]
+                                                                        || legLiveRanks[idx]
+                                                                        || legLiveRanks[String(idx)]
+                                                                        || legLiveRanks[legPairName]
+                                                                        || leg.live_rank
+                                                                    ) : null;
+                                                                    const legRank = (rfq?.is_live_ranking_enabled && rawRank)
+                                                                        ? (typeof rawRank === 'number'
+                                                                            ? { rank: rawRank, total_quotes: liveRank?.total_quotes || 1, is_leading: rawRank === 1 }
+                                                                            : rawRank)
+                                                                        : null;
                                                                     const hasQuote = q.price && parseFloat(q.price) > 0;
 
                                                                     return (
@@ -2309,28 +2583,124 @@ export default function QuotationBankOfferPage() {
                                                                                     <span className="font-mono font-black text-sm text-slate-900">
                                                                                         {leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`}
                                                                                     </span>
+                                                                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded tracking-wide uppercase ${
+                                                                                        (leg.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
+                                                                                            ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                                                                                            : 'bg-black text-white'
+                                                                                    }`}>
+                                                                                        {(leg.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative' ? '📊 INDICATIVE' : '⚡ EXECUTION'}
+                                                                                    </span>
                                                                                     <span className="text-xs text-slate-500 font-semibold">
                                                                                         ({new Intl.NumberFormat().format(leg.amount || 0)} {leg.buy_currency})
                                                                                     </span>
                                                                                 </div>
 
-                                                                                {rfq.is_live_ranking_enabled && (
-                                                                                    <div>
-                                                                                        {legRank?.rank === 1 ? (
-                                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white shadow-2xs animate-pulse">
-                                                                                                🏆 #1 Leading
+                                                                                {/* Status / Live Ranking / Awarding Outcome Stamp */}
+                                                                                <div>
+                                                                                    {timeLeft.status === 'CLOSED' ? (
+                                                                                        (() => {
+                                                                                            const isSinglePair = !rfq.legs || rfq.legs.length <= 1;
+                                                                                            const legOutcome = outcomeData?.legs_breakdown?.[leg.id]
+                                                                                                || outcomeData?.legs_breakdown?.[String(leg.id)]
+                                                                                                || outcomeData?.legs_breakdown?.[idx]
+                                                                                                || outcomeData?.legs_breakdown?.[String(idx)]
+                                                                                                || outcomeData?.legs_breakdown?.[legPairName]
+                                                                                                || (outcomeData?.won_pairs?.includes(legPairName) ? { is_winner: true, status: 'WINNER' } : null)
+                                                                                                || (outcomeData?.lost_pairs?.includes(legPairName) ? { is_winner: false, status: 'NOT_SELECTED' } : null)
+                                                                                                || (outcomeData?.inconclusive_pairs?.includes(legPairName) ? { is_winner: false, status: 'INCONCLUSIVE' } : null);
+
+                                                                                            const isLegWon = Boolean(
+                                                                                                legOutcome?.status === 'WINNER' || 
+                                                                                                legOutcome?.status === 'WON' || 
+                                                                                                legOutcome?.is_winner || 
+                                                                                                legOutcome?.won || 
+                                                                                                outcomeData?.won_pairs?.includes(legPairName) ||
+                                                                                                (isSinglePair && resultStatus === 'WINNER')
+                                                                                            );
+                                                                                            const isLegNotSelected = Boolean(
+                                                                                                legOutcome?.status === 'NOT_SELECTED' || 
+                                                                                                legOutcome?.status === 'LOST' || 
+                                                                                                outcomeData?.lost_pairs?.includes(legPairName) ||
+                                                                                                (isSinglePair && resultStatus === 'NOT_SELECTED')
+                                                                                            );
+                                                                                            const isLegInconclusive = Boolean(
+                                                                                                legOutcome?.status === 'INCONCLUSIVE' || 
+                                                                                                legOutcome?.raw_status === 'INCONCLUSIVE' || 
+                                                                                                outcomeData?.inconclusive_pairs?.includes(legPairName) ||
+                                                                                                (isSinglePair && resultStatus === 'INCONCLUSIVE')
+                                                                                            );
+                                                                                            const isLegIndicative = Boolean(
+                                                                                                legOutcome?.status === 'INDICATIVE' || 
+                                                                                                legOutcome?.status === 'INDICATIVE_ONLY' || 
+                                                                                                (resultStatus === 'INDICATIVE_ONLY') || 
+                                                                                                (leg.quotation_base || '').toLowerCase() === 'indicative'
+                                                                                            );
+
+                                                                                            if (isLegWon) {
+                                                                                                return (
+                                                                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-600 text-white shadow-2xs">
+                                                                                                        🏆 WON (AWARDED)
+                                                                                                    </span>
+                                                                                                );
+                                                                                            } else if (isLegNotSelected) {
+                                                                                                return (
+                                                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs">
+                                                                                                        ❌ NOT SELECTED
+                                                                                                    </span>
+                                                                                                );
+                                                                                            } else if (isLegIndicative) {
+                                                                                                return (
+                                                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-300">
+                                                                                                        📊 INDICATIVE RECORDED
+                                                                                                    </span>
+                                                                                                );
+                                                                                            } else if (isLegInconclusive) {
+                                                                                                return (
+                                                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                                                                                        ⚠️ NO WINNER
+                                                                                                    </span>
+                                                                                                );
+                                                                                            } else {
+                                                                                                return (
+                                                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700">
+                                                                                                        Quotation Closed
+                                                                                                    </span>
+                                                                                                );
+                                                                                            }
+                                                                                        })()
+                                                                                    ) : rfq.is_live_ranking_enabled ? (
+                                                                                        legRank?.rank === 1 ? (
+                                                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-xs animate-pulse">
+                                                                                                🏆 #1 Leading Quote
                                                                                             </span>
                                                                                         ) : legRank?.rank ? (
-                                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono">
-                                                                                                Rank #{legRank.rank} of {legRank.total_quotes || 1}
+                                                                                            <div className="flex items-center gap-1.5">
+                                                                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono shadow-2xs">
+                                                                                                    📊 Live Rank: #{legRank.rank} of {legRank.total_quotes || 1}
+                                                                                                </span>
+                                                                                                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300">
+                                                                                                    ⚡ Improve Quote
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        ) : hasQuote ? (
+                                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                                                                                ✍️ Draft (Ready to Submit)
                                                                                             </span>
                                                                                         ) : (
-                                                                                            <span className="text-[10px] text-slate-400 font-medium">
-                                                                                                Unquoted
+                                                                                            <span className="text-[11px] text-slate-400 font-semibold bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+                                                                                                ⏳ Awaiting Quote
                                                                                             </span>
-                                                                                        )}
-                                                                                    </div>
-                                                                                )}
+                                                                                        )
+                                                                                    ) : hasQuote ? (
+                                                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                                                                            ✍️ Draft Quote
+                                                                                        </span>
+                                                                                    ) : (
+                                                                                        <span className="text-[11px] text-slate-400 font-semibold bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+                                                                                            ⏳ Awaiting Quote
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
                                                                             </div>
 
                                                                             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">

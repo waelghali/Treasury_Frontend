@@ -89,7 +89,7 @@ function GlobalConfigurationList({ onLogout }) {
 
   // Helper to check if a config is boolean
   const isBooleanConfig = (config) => {
-    if (config.data_type === 'BOOLEAN') return true;
+    if (config.data_type === 'BOOLEAN' || config.unit === 'boolean' || config.key === 'QUOTATION_ACCEPTANCE_DEFAULT_ACTION') return true;
     const val = String(config.value_default).toLowerCase();
     return val === 'true' || val === 'false';
   };
@@ -98,12 +98,17 @@ function GlobalConfigurationList({ onLogout }) {
   const handleToggleUpdate = async (config) => {
     setUpdatingId(config.id);
     try {
+      const isAcceptanceAction = config.key === 'QUOTATION_ACCEPTANCE_DEFAULT_ACTION';
       const currentValString = String(config.value_default).toLowerCase();
-      const isCurrentlyTrue = currentValString === 'true';
+      const isCurrentlyTrue = isAcceptanceAction
+        ? ['auto_accept', 'true'].includes(currentValString)
+        : currentValString === 'true';
       
-      const newValue = typeof config.value_default === 'boolean' 
-        ? !config.value_default 
-        : (isCurrentlyTrue ? 'false' : 'true');
+      const newValue = isAcceptanceAction
+        ? (isCurrentlyTrue ? 'AUTO_REJECT' : 'AUTO_ACCEPT')
+        : (typeof config.value_default === 'boolean' 
+            ? !config.value_default 
+            : (isCurrentlyTrue ? 'false' : 'true'));
 
       // Optimistic update
       const updatedConfigs = configs.map(c => 

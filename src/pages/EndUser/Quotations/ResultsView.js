@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Layers } from 'lucide-react';
@@ -111,6 +112,11 @@ export default function ResultsView({ rfqId }) {
     const [showReTenderModal, setShowReTenderModal] = useState(false);
     const [showCancellationModal, setShowCancellationModal] = useState(false);
     const [copiedToken, setCopiedToken] = useState(null);
+    const [isAcceptingDeal, setIsAcceptingDeal] = useState(false);
+    const [isDecliningDeal, setIsDecliningDeal] = useState(false);
+
+    const legBases = Array.from(new Set((legs || []).map(l => (l.quotation_base || rfq?.quotation_base || 'Execution')).concat((results || []).map(r => r.quotation_base).filter(Boolean))));
+    const isMixedPackage = legBases.length > 1;
 
     const handleCopyBiddingLink = (token) => {
         const link = `${window.location.origin}/public-quotation/${token}`;
@@ -126,6 +132,42 @@ export default function ResultsView({ rfqId }) {
             (rfq.window_end && new Date() > new Date(rfq.window_end))
         )
     );
+
+    const isAutoRejected = rfq?.acceptance_status === 'AUTO_REJECTED';
+    const isDeclined = rfq?.status === 'REJECTED' || rfq?.acceptance_status === 'REJECTED' || isAutoRejected;
+    const isAccepted = Boolean(
+        !isDeclined && (
+            rfq?.acceptance_status === 'ACCEPTED' ||
+            rfq?.acceptance_status === 'AUTO_ACCEPTED' ||
+            (rfq?.status === 'COMPLETED' && !rfq?.acceptance_status)
+        )
+    );
+    const isAwaitingAcceptance = Boolean(
+        isWindowClosed &&
+        !isDeclined &&
+        !isAccepted &&
+        (rfq?.acceptance_status === 'PENDING' || rfq?.status === 'EVALUATING' || (isWindowClosed && !rfq?.acceptance_status && rfq?.status !== 'COMPLETED'))
+    );
+
+    const [acceptanceSecondsRemaining, setAcceptanceSecondsRemaining] = useState(null);
+
+    useEffect(() => {
+        if (!isAwaitingAcceptance || !rfq?.acceptance_deadline) {
+            setAcceptanceSecondsRemaining(null);
+            return;
+        }
+
+        const updateTimer = () => {
+            const now = new Date().getTime();
+            const deadline = new Date(rfq.acceptance_deadline).getTime();
+            const diff = Math.max(0, Math.floor((deadline - now) / 1000));
+            setAcceptanceSecondsRemaining(diff);
+        };
+
+        updateTimer();
+        const intervalId = setInterval(updateTimer, 1000);
+        return () => clearInterval(intervalId);
+    }, [isAwaitingAcceptance, rfq?.acceptance_deadline]);
 
     const fetchResults = async () => {
         if (!rfqId) return null;
@@ -234,6 +276,37 @@ export default function ResultsView({ rfqId }) {
         }
     };
 
+    const handleAcceptDeal = async () => {
+        if (!window.confirm(`Accept winning deal for RFQ ${rfq?.ref_no || rfqId}? This will confirm trade execution and dispatch confirmation emails.`)) return;
+        try {
+            setIsAcceptingDeal(true);
+            const res = await apiClient.post(`/corporate-admin/quotations/${rfqId}/accept-deal`);
+            toast.success(res.data?.message || "Deal accepted! Trade execution confirmed.");
+            fetchResults();
+        } catch (err) {
+            console.error("Failed to accept deal:", err);
+            toast.error("Failed to accept deal: " + (err.response?.data?.detail || err.message));
+        } finally {
+            setIsAcceptingDeal(false);
+        }
+    };
+
+    const handleDeclineDeal = async () => {
+        const reason = window.prompt("Please enter the reason for declining this deal:", "Price exceeded internal budget / market volatility");
+        if (reason === null) return;
+        try {
+            setIsDecliningDeal(true);
+            const res = await apiClient.post(`/corporate-admin/quotations/${rfqId}/decline-deal`, { reason });
+            toast.info(res.data?.message || "Deal declined.");
+            fetchResults();
+        } catch (err) {
+            console.error("Failed to decline deal:", err);
+            toast.error("Failed to decline deal: " + (err.response?.data?.detail || err.message));
+        } finally {
+            setIsDecliningDeal(false);
+        }
+    };
+
     const handleSendResults = async () => {
         if (!window.confirm("Are you sure you want to send winner and regret emails to all assigned Execution banks? This will use your configured email settings.")) return;
 
@@ -275,6 +348,11 @@ export default function ResultsView({ rfqId }) {
                             <h4 className="font-bold text-lg">{result.bank_name}</h4>
                             {isWinner && (
                                 <span className="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded uppercase tracking-wider">Winner</span>
+                            )}
+                            {result.is_cross_entity && (
+                                <span className="text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1" title="Group Counterparty Benchmark (Indicative Reference Only)">
+                                    🌐 Group Benchmark
+                                </span>
                             )}
                             {result.quotation_base && (
                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${result.quotation_base === 'Execution' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700'}`}>
@@ -505,7 +583,44 @@ export default function ResultsView({ rfqId }) {
                             <RefreshCw size={13} /> ⚡ 1-Click Re-Tender
                         </button>
                     )}
-                    {(rfq?.status === 'COMPLETED' || rfq?.status === 'EVALUATING') && !resultsMeta.isInconclusive && (
+                    {isWindowClosed && isCorporateAdmin && !resultsMeta.isInconclusive && rfq?.status !== 'CANCELLED' && (
+                        isDeclined ? (
+                            <span className="px-3 py-1.5 bg-rose-100 text-rose-800 border border-rose-300 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs">
+                                <XCircle size={14} /> {isAutoRejected ? 'Deal Auto-Rejected (Timeout)' : 'Deal Declined'}
+                            </span>
+                        ) : isAccepted ? (
+                            <span className="px-3 py-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs">
+                                <CheckCircle2 size={14} className="text-emerald-600" /> {rfq?.acceptance_status === 'AUTO_ACCEPTED' ? 'Deal Auto-Accepted' : 'Deal Executed & Confirmed'}
+                            </span>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                {acceptanceSecondsRemaining !== null && (
+                                    <span className="px-2.5 py-1.5 bg-amber-50 text-amber-800 border border-amber-300 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs" title={`Default action on timeout: ${rfq?.acceptance_timeout_action || 'AUTO_REJECT'}`}>
+                                        <Clock size={13} className="text-amber-600 animate-spin" /> {acceptanceSecondsRemaining}s left
+                                    </span>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={handleDeclineDeal}
+                                    disabled={isDecliningDeal || isAcceptingDeal}
+                                    className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                                    title="Decline and reject trade execution for this deal"
+                                >
+                                    <XCircle size={13} /> {isDecliningDeal ? 'Declining...' : 'Decline Deal'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleAcceptDeal}
+                                    disabled={isDecliningDeal || isAcceptingDeal}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-200 cursor-pointer disabled:opacity-50"
+                                    title="Accept winning counterparty quote and finalize execution"
+                                >
+                                    <CheckCircle2 size={13} /> {isAcceptingDeal ? 'Accepting...' : 'Accept Deal (Execute)'}
+                                </button>
+                            </div>
+                        )
+                    )}
+                    {isAccepted && !resultsMeta.isInconclusive && (
                         <button
                             onClick={handleSendResults}
                             disabled={sendingResults}
@@ -546,6 +661,129 @@ export default function ResultsView({ rfqId }) {
                     )}
                 </div>
             </div>
+
+            {/* Corporate Admin Approval Required Banner (Promoted to the very top for instant visibility) */}
+            {rfq?.status === 'PENDING_APPROVAL' && (
+                <div className="p-5 sm:p-6 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 rounded-2xl border-2 border-amber-300 shadow-sm animate-fade-in-up">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex items-start gap-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 shrink-0 mt-0.5">
+                                <AlertCircle size={22} />
+                            </div>
+                            <div>
+                                <h4 className="text-base font-bold text-amber-950 flex items-center gap-2">
+                                    <span>Corporate Admin Approval Required</span>
+                                    <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Action Needed</span>
+                                </h4>
+                                <p className="text-xs text-amber-800 mt-1 max-w-2xl leading-relaxed">
+                                    {isCorporateAdmin 
+                                        ? 'This quotation request has been submitted and requires your authorization. Counterparties will only be notified once you approve and release this RFQ.'
+                                        : 'This quotation request has been submitted and is currently awaiting Corporate Admin authorization before bank links are dispatched.'}
+                                </p>
+                            </div>
+                        </div>
+                        {isCorporateAdmin && (
+                            <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-amber-200">
+                                <button
+                                    onClick={() => handleApproval('REJECTED')}
+                                    className="px-4 py-2 bg-white text-rose-700 border border-rose-300 font-bold rounded-xl hover:bg-rose-50 transition-all text-xs cursor-pointer shadow-2xs"
+                                >
+                                    Reject Request
+                                </button>
+                                <button
+                                    onClick={() => handleApproval('PENDING')}
+                                    className="px-5 py-2 bg-slate-900 text-white font-bold rounded-xl hover:bg-black transition-all shadow-md text-xs cursor-pointer flex items-center gap-1.5"
+                                >
+                                    <CheckCircle2 size={14} className="text-emerald-400" />
+                                    <span>Approve & Release RFQ</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Corporate Admin Post-Window Deal Decision Panel */}
+            {isWindowClosed && isCorporateAdmin && !resultsMeta.isInconclusive && rfq?.status !== 'CANCELLED' && rfq?.status !== 'PENDING_APPROVAL' && (
+                <div className={`p-5 sm:p-6 rounded-2xl border-2 shadow-sm animate-fade-in-up ${
+                    isDeclined
+                        ? 'bg-rose-50/80 border-rose-300 text-rose-950'
+                        : isAccepted
+                        ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+                        : 'bg-gradient-to-r from-amber-50/90 via-orange-50/80 to-amber-50/90 border-amber-400 text-amber-950 shadow-md'
+                }`}>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex items-start gap-3.5">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                                isDeclined
+                                    ? 'bg-rose-100 text-rose-700 border border-rose-300'
+                                    : isAccepted
+                                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                                    : 'bg-amber-100 text-amber-700 border border-amber-300'
+                            }`}>
+                                {isDeclined ? <XCircle size={22} /> : isAccepted ? <CheckCircle2 size={22} /> : <Clock size={22} className="animate-spin text-amber-600" />}
+                            </div>
+                            <div>
+                                <h4 className="text-base font-bold flex items-center gap-2">
+                                    <span>
+                                        {isAutoRejected
+                                            ? 'Quotation Deal Auto-Rejected (Timeout)'
+                                            : isDeclined
+                                            ? 'Quotation Deal Declined'
+                                            : isAccepted
+                                            ? (rfq?.acceptance_status === 'AUTO_ACCEPTED' ? 'Quotation Deal Auto-Accepted & Executed' : 'Quotation Deal Accepted & Executed')
+                                            : 'Corporate Admin Deal Acceptance Required'}
+                                    </span>
+                                    {isAutoRejected && (
+                                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-200 text-rose-900 px-2 py-0.5 rounded-full">
+                                            Policy: Auto Reject
+                                        </span>
+                                    )}
+                                    {isAwaitingAcceptance && (
+                                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full animate-pulse flex items-center gap-1">
+                                            Action Needed {acceptanceSecondsRemaining !== null ? `(${acceptanceSecondsRemaining}s)` : ''}
+                                        </span>
+                                    )}
+                                </h4>
+                                <p className="text-xs mt-1 max-w-2xl leading-relaxed">
+                                    {isAutoRejected ? (
+                                        <span>Corporate acceptance window expired without confirmation. Quotation was automatically rejected per default policy (<span className="font-semibold text-rose-900">AUTO_REJECT</span>). No binding trade contracts were executed.</span>
+                                    ) : isDeclined ? (
+                                        <span>Deal execution was declined by Corporate Treasury{rfq?.admin_revision_notes ? `: "${rfq.admin_revision_notes}"` : '.'} No binding contracts will be executed.</span>
+                                    ) : isAccepted ? (
+                                        <span>Winning quotes have been confirmed and officially executed. Trade confirmation emails have been dispatched to counterparties.</span>
+                                    ) : (
+                                        <span>The quotation window has closed. Review the winning rate(s) below. As Corporate Admin, accept to confirm trade execution and notify counterparties, or decline to cancel execution. {rfq?.acceptance_timeout_action ? `(Timeout policy: ${rfq.acceptance_timeout_action.replace('_', ' ')})` : ''}</span>
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+
+                        {isAwaitingAcceptance && (
+                            <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-amber-200">
+                                <button
+                                    type="button"
+                                    onClick={handleDeclineDeal}
+                                    disabled={isDecliningDeal || isAcceptingDeal}
+                                    className="px-4 py-2.5 bg-white text-rose-700 border border-rose-300 font-bold rounded-xl hover:bg-rose-50 transition-all text-xs cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                                >
+                                    <XCircle size={14} />
+                                    <span>{isDecliningDeal ? 'Declining...' : 'Decline Deal'}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleAcceptDeal}
+                                    disabled={isDecliningDeal || isAcceptingDeal}
+                                    className="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 text-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                                >
+                                    <CheckCircle2 size={14} className="text-emerald-100" />
+                                    <span>{isAcceptingDeal ? 'Accepting...' : 'Accept Deal & Execute'}</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Cancellation Status Banners */}
             {rfq?.status === 'CANCEL_REQUESTED' && (
@@ -915,23 +1153,17 @@ export default function ResultsView({ rfqId }) {
                                         </span>
                                     )}
                                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs ${
-                                        (() => {
-                                            const counterpartyBases = Array.from(new Set((results || []).map(r => r.quotation_base).filter(Boolean)));
-                                            const isMixed = counterpartyBases.length > 1;
-                                            if (isMixed) return 'bg-indigo-50 text-indigo-900 border-indigo-200';
-                                            return (rfq.quotation_base === 'Execution' || counterpartyBases[0] === 'Execution')
+                                        isMixedPackage 
+                                            ? 'bg-purple-100 text-purple-900 border-purple-300' 
+                                            : ((rfq.quotation_base === 'Execution' || legBases[0] === 'Execution')
                                                 ? 'bg-amber-50 text-amber-900 border-amber-300'
-                                                : 'bg-slate-100 text-slate-700 border-slate-200';
-                                        })()
+                                                : 'bg-slate-100 text-slate-700 border-slate-200')
                                     }`}>
-                                        {(() => {
-                                            const counterpartyBases = Array.from(new Set((results || []).map(r => r.quotation_base).filter(Boolean)));
-                                            const isMixed = counterpartyBases.length > 1;
-                                            if (isMixed) return `⚡ Mixed Bases (${counterpartyBases.join(', ')})`;
-                                            return (rfq.quotation_base === 'Execution' || counterpartyBases[0] === 'Execution')
+                                        {isMixedPackage 
+                                            ? `⚡📊 Mixed Package (${legBases.join(', ')})`
+                                            : ((rfq.quotation_base === 'Execution' || legBases[0] === 'Execution')
                                                 ? '⚡ Firm Execution'
-                                                : '👁️ Indicative';
-                                        })()}
+                                                : '👁️ Indicative')}
                                     </span>
                                 </div>
 
@@ -999,7 +1231,11 @@ export default function ResultsView({ rfqId }) {
                         <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3.5">
                             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Quotation Base</span>
                             <span className="text-sm font-bold text-slate-900 block">
-                                {rfq.quotation_base || 'Execution'}
+                                {isMixedPackage ? (
+                                    <span className="inline-flex items-center gap-1 text-purple-800 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded text-xs">
+                                        ⚡📊 Mixed (Exec / Indic)
+                                    </span>
+                                ) : (rfq.quotation_base || 'Execution')}
                             </span>
                         </div>
                         <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3.5">
@@ -1143,35 +1379,7 @@ export default function ResultsView({ rfqId }) {
                 </div>
             )}
 
-            {rfq?.status === 'PENDING_APPROVAL' && (
-                <div className="p-8 bg-orange-50 rounded-3xl border border-orange-200 mb-6">
-                    <div className="flex flex-col items-center text-center space-y-4">
-                        <AlertCircle className="text-orange-500" size={48} />
-                        <div>
-                            <h4 className="text-lg font-bold text-orange-900 mb-1">Corporate Admin Approval Required</h4>
-                            <p className="text-sm text-orange-700 max-w-lg mx-auto">
-                                Review the trade specifications and selected counterparty list above before releasing this quotation.
-                            </p>
-                        </div>
-                        {userRole === 'corporate_admin' && (
-                            <div className="flex items-center gap-4 mt-4">
-                                <button
-                                    onClick={() => handleApproval('REJECTED')}
-                                    className="px-6 py-2.5 bg-white text-red-600 border border-red-200 font-bold rounded-xl hover:bg-red-50 transition-colors"
-                                >
-                                    Reject Request
-                                </button>
-                                <button
-                                    onClick={() => handleApproval('PENDING')}
-                                    className="px-6 py-2.5 bg-black text-white font-bold rounded-xl hover:bg-gray-800 transition-colors shadow-lg shadow-black/20"
-                                >
-                                    Approve & Release RFQ
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
+
 
             {rfq?.status === 'REJECTED' ? (
                 <div className="p-12 bg-red-50 rounded-3xl border border-red-100 text-center">
@@ -1199,6 +1407,11 @@ export default function ResultsView({ rfqId }) {
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <h4 className="font-bold text-lg">{result.bank_name}</h4>
                                             {index === 0 && result.best_score && <span className="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded uppercase tracking-wider">Winner</span>}
+                                            {result.is_cross_entity && (
+                                                <span className="text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1" title="Group Counterparty Benchmark (Indicative Reference Only)">
+                                                    🌐 Group Benchmark
+                                                </span>
+                                            )}
                                             {result.quotation_base && (
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${result.quotation_base === 'Execution' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700'}`}>
                                                     {result.quotation_base}
@@ -1509,11 +1722,144 @@ export default function ResultsView({ rfqId }) {
             )}
 
             {/* Certified Best Execution Audit Pack Modal */}
-            {showAuditPack && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-                    <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden text-slate-900">
-                        {/* Modal Header */}
-                        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white shrink-0">
+            {showAuditPack && typeof document !== 'undefined' && createPortal(
+                <div 
+                    id="audit-certificate-portal"
+                    className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
+                    onClick={(e) => {
+                        if (e.target.id === 'audit-certificate-portal') {
+                            setShowAuditPack(false);
+                        }
+                    }}
+                >
+                    <div 
+                        id="audit-certificate-card"
+                        className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden text-slate-900"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Printable Certificate Scoped Stylesheet */}
+                        <style>{`
+                            @media print {
+                                @page {
+                                    size: A4 portrait;
+                                    margin: 10mm 12mm;
+                                }
+                                html, body {
+                                    background: #ffffff !important;
+                                    margin: 0 !important;
+                                    padding: 0 !important;
+                                    width: 100% !important;
+                                    height: auto !important;
+                                    min-height: auto !important;
+                                    overflow: visible !important;
+                                }
+                                body > *:not(#audit-certificate-portal) {
+                                    display: none !important;
+                                }
+                                #audit-certificate-portal {
+                                    display: block !important;
+                                    position: static !important;
+                                    width: 100% !important;
+                                    height: auto !important;
+                                    min-height: auto !important;
+                                    margin: 0 !important;
+                                    padding: 0 !important;
+                                    background: transparent !important;
+                                    overflow: visible !important;
+                                }
+                                #audit-certificate-card {
+                                    display: block !important;
+                                    position: static !important;
+                                    width: 100% !important;
+                                    max-width: 100% !important;
+                                    height: auto !important;
+                                    max-height: none !important;
+                                    overflow: visible !important;
+                                    border: none !important;
+                                    box-shadow: none !important;
+                                    border-radius: 0 !important;
+                                    background: #ffffff !important;
+                                    color: #0f172a !important;
+                                    margin: 0 !important;
+                                    padding: 0 !important;
+                                }
+                                .audit-print-header {
+                                    display: flex !important;
+                                    border-bottom: 2px solid #059669 !important;
+                                    padding-bottom: 12px !important;
+                                    margin-bottom: 16px !important;
+                                    background: transparent !important;
+                                    color: #0f172a !important;
+                                }
+                                .audit-screen-header {
+                                    display: none !important;
+                                }
+                                .audit-modal-body {
+                                    overflow: visible !important;
+                                    max-height: none !important;
+                                    height: auto !important;
+                                    padding: 0 !important;
+                                    display: block !important;
+                                }
+                                .no-print {
+                                    display: none !important;
+                                    visibility: hidden !important;
+                                }
+                                * {
+                                    -webkit-print-color-adjust: exact !important;
+                                    print-color-adjust: exact !important;
+                                }
+                                .avoid-break {
+                                    break-inside: avoid !important;
+                                    page-break-inside: avoid !important;
+                                }
+                                table {
+                                    page-break-inside: auto !important;
+                                    width: 100% !important;
+                                    border-collapse: collapse !important;
+                                }
+                                tr {
+                                    break-inside: avoid !important;
+                                    page-break-inside: avoid !important;
+                                    page-break-after: auto !important;
+                                }
+                                thead {
+                                    display: table-header-group !important;
+                                }
+                            }
+                        `}</style>
+
+                        {/* Print-Only Executive Letterhead */}
+                        <div className="audit-print-header hidden pb-4 mb-4 border-b-2 border-emerald-600 justify-between items-start">
+                            <div className="flex items-center gap-3.5">
+                                <div className="w-12 h-12 rounded-xl bg-emerald-50 border-2 border-emerald-600 flex items-center justify-center text-emerald-700">
+                                    <Shield size={26} />
+                                </div>
+                                <div>
+                                    <div className="text-[10px] font-extrabold tracking-widest text-emerald-700 uppercase">
+                                        Corporate Treasury &bull; Best Execution Certificate
+                                    </div>
+                                    <h1 className="text-xl font-black text-slate-900 tracking-tight leading-tight">
+                                        Competitive Tender Audit Record
+                                    </h1>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                        Official institutional verification of blind competitive bidding, quote ranking, and value delivery
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="text-right font-mono text-[10px] border border-slate-200 rounded-xl p-2.5 bg-slate-50 min-w-[200px]">
+                                <div className="font-bold text-slate-900 text-xs">RFQ #{rfq?.ref_no}</div>
+                                <div className="text-slate-500 mt-0.5">
+                                    {new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                                <div className="text-emerald-700 font-bold mt-1 inline-block px-1.5 py-0.5 bg-emerald-100 rounded text-[9px]">
+                                    STATUS: EXECUTED & AUDITED
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Screen Header */}
+                        <div className="audit-screen-header p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400">
                                     <Shield size={22} />
@@ -1527,17 +1873,18 @@ export default function ResultsView({ rfqId }) {
                                     </p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 no-print">
                                 <button
                                     onClick={() => window.print()}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
                                     title="Print or Save as PDF"
                                 >
-                                    <Printer size={14} /> Print Audit Sheet
+                                    <Printer size={14} /> Print / Export PDF
                                 </button>
                                 <button
                                     onClick={() => setShowAuditPack(false)}
-                                    className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors"
+                                    className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors cursor-pointer"
+                                    title="Close Certificate"
                                 >
                                     <X size={18} />
                                 </button>
@@ -1545,12 +1892,12 @@ export default function ResultsView({ rfqId }) {
                         </div>
 
                         {/* Printable Certificate Body */}
-                        <div className="p-6 overflow-y-auto space-y-6 text-sm">
+                        <div className="audit-modal-body p-6 sm:p-8 overflow-y-auto space-y-6 text-sm">
                             {/* Executive Summary */}
-                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono text-xs">
+                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono text-xs avoid-break">
                                 <div>
-                                    <span className="font-sans text-[10px] font-bold text-slate-400 uppercase block">Trade Instrument</span>
-                                    <span className="font-bold text-slate-900">
+                                    <span className="font-sans text-[10px] font-bold text-slate-400 uppercase block mb-1">Trade Instrument</span>
+                                    <span className="font-bold text-slate-900 block leading-snug">
                                         {rfq?.type === 'TBILL' 
                                             ? 'T-Bill Auction' 
                                             : (legs && legs.length > 1 
@@ -1559,24 +1906,42 @@ export default function ResultsView({ rfqId }) {
                                     </span>
                                 </div>
                                 <div>
-                                    <span className="font-sans text-[10px] font-bold text-slate-400 uppercase block">Trade Volume</span>
-                                    <span className="font-bold text-slate-900 truncate block">
-                                        {legs && legs.length > 1 
-                                            ? legs.map(l => `${formatAmount(l.amount)} ${l.buy_currency}`).join(' + ') 
-                                            : `${formatAmount(rfq?.amount)} ${rfq?.buy_currency}`}
-                                    </span>
+                                    <span className="font-sans text-[10px] font-bold text-slate-400 uppercase block mb-1">Trade Volume</span>
+                                    {legs && legs.length > 1 ? (
+                                        <div className="flex flex-col gap-0.5 font-bold text-slate-900 leading-snug">
+                                            {legs.map((l, idx) => (
+                                                <div key={idx} className="whitespace-nowrap">
+                                                    <span className="text-[10px] text-slate-400 font-sans font-semibold mr-1">L{idx + 1}:</span>
+                                                    <span>{formatAmount(l.amount)} {l.buy_currency}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <span className="font-bold text-slate-900 block leading-snug">
+                                            {formatAmount(rfq?.amount)} {rfq?.buy_currency}
+                                        </span>
+                                    )}
                                 </div>
                                 <div>
-                                    <span className="font-sans text-[10px] font-bold text-slate-400 uppercase block">Value Date</span>
-                                    <span className="font-bold text-slate-900 truncate block">
-                                        {legs && legs.length > 1 
-                                            ? `${legs.length} Specific Dates` 
-                                            : (rfq?.value_date || 'N/A')}
-                                    </span>
+                                    <span className="font-sans text-[10px] font-bold text-slate-400 uppercase block mb-1">Value Date</span>
+                                    {legs && legs.length > 1 ? (
+                                        <div className="flex flex-col gap-0.5 font-bold text-slate-900 leading-snug">
+                                            {legs.map((l, idx) => (
+                                                <div key={idx} className="whitespace-nowrap">
+                                                    <span className="text-[10px] text-slate-400 font-sans font-semibold mr-1">L{idx + 1}:</span>
+                                                    <span>{formatDate(l.value_date)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <span className="font-bold text-slate-900 block leading-snug">
+                                            {formatDate(rfq?.value_date)}
+                                        </span>
+                                    )}
                                 </div>
                                 <div>
-                                    <span className="font-sans text-[10px] font-bold text-slate-400 uppercase block">Tender Mechanism</span>
-                                    <span className="font-bold text-emerald-700">Blind Simultaneous Tender</span>
+                                    <span className="font-sans text-[10px] font-bold text-slate-400 uppercase block mb-1">Tender Mechanism</span>
+                                    <span className="font-bold text-emerald-700 block leading-snug">Blind Simultaneous Tender</span>
                                 </div>
                             </div>
 
@@ -1585,7 +1950,7 @@ export default function ResultsView({ rfqId }) {
                                 (() => {
                                     const totalSavedVsAvg = legs.reduce((acc, l) => acc + (l.saved_vs_avg || l.savings_summary?.saved_vs_avg || 0), 0);
                                     return (
-                                        <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200">
+                                        <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 avoid-break">
                                             <div className="flex items-center gap-2 mb-2">
                                                 <Award size={18} className="text-emerald-700" />
                                                 <h4 className="font-bold text-emerald-900 text-sm">Audit Findings & Quantified Portfolio Value Delivery</h4>
@@ -1594,20 +1959,29 @@ export default function ResultsView({ rfqId }) {
                                                 Portfolio executed across {legs.length} currency pairs via competitive blind tender. Net quantified savings of <strong className="font-mono font-semibold">EGP {totalSavedVsAvg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> achieved across all evaluated legs relative to average market bids.
                                             </p>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
-                                                {legs.map((l, idx) => (
-                                                    <div key={idx} className="bg-white/80 p-2.5 rounded-xl border border-emerald-200/60 flex items-center justify-between">
-                                                        <span className="font-bold text-slate-700">{l.currency_pair || `${l.buy_currency}/${l.sell_currency}`}:</span>
-                                                        <strong className="text-emerald-950">
-                                                            {l.winner_bank_name ? `${l.winner_bank_name} @ ${l.winner_rate}` : 'Inconclusive / No Quote'}
-                                                        </strong>
-                                                    </div>
-                                                ))}
+                                                {legs.map((l, idx) => {
+                                                    const pair = l.currency_pair || `${l.buy_currency}/${l.sell_currency}`;
+                                                    const isWin = Boolean(l.winner_bank_name);
+                                                    const isPending = l.status === 'PENDING_APPROVAL';
+                                                    return (
+                                                        <div key={idx} className="bg-white/80 p-2.5 rounded-xl border border-emerald-200/60 flex items-center justify-between gap-2">
+                                                            <span className="font-bold text-slate-700">{pair} ({formatAmount(l.amount)} {l.buy_currency}):</span>
+                                                            <strong className="text-emerald-950 text-right">
+                                                                {isWin 
+                                                                    ? `${l.winner_bank_name} @ ${typeof l.winner_rate === 'number' ? l.winner_rate.toFixed(4) : l.winner_rate}` 
+                                                                    : isPending 
+                                                                        ? 'Pending Corporate Approval' 
+                                                                        : 'Inconclusive / No Quote'}
+                                                            </strong>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     );
                                 })()
                             ) : resultsMeta.savingsSummary ? (
-                                <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200">
+                                <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 avoid-break">
                                     <div className="flex items-center gap-2 mb-2">
                                         <Award size={18} className="text-emerald-700" />
                                         <h4 className="font-bold text-emerald-900 text-sm">Audit Findings & Quantified Value Delivery</h4>
@@ -1626,10 +2000,11 @@ export default function ResultsView({ rfqId }) {
                                     <div className="space-y-4">
                                         {legs.map((leg, lIdx) => {
                                             const legPair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
+                                            const legWinnerBankId = leg.winner_bank_id;
                                             return (
-                                                <div key={leg.leg_id || lIdx} className="border border-slate-200 rounded-2xl overflow-hidden">
-                                                    <div className="bg-slate-100 px-3.5 py-2 font-bold text-xs text-slate-800 border-b border-slate-200 flex items-center justify-between">
-                                                        <span>Leg #{lIdx + 1}: {legPair} ({formatAmount(leg.amount)})</span>
+                                                <div key={leg.leg_id || lIdx} className="border border-slate-200 rounded-2xl overflow-hidden avoid-break mb-4">
+                                                    <div className="bg-slate-100 px-3.5 py-2.5 font-bold text-xs text-slate-800 border-b border-slate-200 flex items-center justify-between">
+                                                        <span>Leg #{lIdx + 1}: {legPair} &bull; {formatAmount(leg.amount)} {leg.buy_currency}</span>
                                                         <span className="text-[10px] text-slate-500 font-mono">Val: {formatDate(leg.value_date)}</span>
                                                     </div>
                                                     <table className="w-full text-left text-xs">
@@ -1645,20 +2020,35 @@ export default function ResultsView({ rfqId }) {
                                                         </thead>
                                                         <tbody className="divide-y divide-slate-100">
                                                             {(leg.results || []).map((res, idx) => {
-                                                                const isWin = res.bank_id === leg.winner_bank_id || (idx === 0 && res.price != null);
+                                                                const isWin = Boolean(legWinnerBankId && res.bank_id === legWinnerBankId && !leg.is_inconclusive);
+                                                                const isIndicativeQuote = (res.quotation_base || '').toLowerCase() === 'indicative' || Boolean(res.is_cross_entity);
+                                                                const isLegPending = leg.status === 'PENDING_APPROVAL';
+
                                                                 return (
                                                                     <tr key={idx} className={isWin ? 'bg-emerald-50/70 font-semibold' : 'hover:bg-slate-50'}>
                                                                         <td className="py-2.5 px-3 flex items-center gap-2">
-                                                                            {isWin ? <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">1</span> : <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">{idx + 1}</span>}
+                                                                            {isWin ? (
+                                                                                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">1</span>
+                                                                            ) : (
+                                                                                <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">{idx + 1}</span>
+                                                                            )}
                                                                             <span>{res.bank_name}</span>
                                                                         </td>
                                                                         <td className="py-2.5 px-3 text-slate-500">{res.quotation_base || 'Execution'}</td>
                                                                         <td className="py-2.5 px-3 font-mono">{res.price ? res.price.toFixed(5) : '—'}</td>
                                                                         <td className="py-2.5 px-3 font-mono text-emerald-700">{res.finalPrice ? res.finalPrice.toFixed(5) : '—'}</td>
-                                                                        <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px]">{res.submitted_at ? new Date(res.submitted_at).toLocaleTimeString() : 'No Submission'}</td>
+                                                                        <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px]">
+                                                                            {res.submitted_at ? new Date(res.submitted_at).toLocaleTimeString() : 'No Submission'}
+                                                                        </td>
                                                                         <td className="py-2.5 px-3 text-right">
                                                                             {isWin ? (
                                                                                 <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold uppercase">Awarded</span>
+                                                                            ) : isIndicativeQuote ? (
+                                                                                <span className="px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-bold uppercase">Benchmark</span>
+                                                                            ) : isLegPending ? (
+                                                                                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold uppercase">Pending Approval</span>
+                                                                            ) : leg.is_inconclusive ? (
+                                                                                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold uppercase">Inconclusive</span>
                                                                             ) : res.submitted_at ? (
                                                                                 <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">Competitive</span>
                                                                             ) : (
@@ -1675,7 +2065,7 @@ export default function ResultsView({ rfqId }) {
                                         })}
                                     </div>
                                 ) : (
-                                    <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                                    <div className="border border-slate-200 rounded-2xl overflow-hidden avoid-break">
                                         <table className="w-full text-left text-xs">
                                             <thead className="bg-slate-50 border-b border-slate-200 font-bold uppercase text-[10px] text-slate-500">
                                                 <tr>
@@ -1689,7 +2079,8 @@ export default function ResultsView({ rfqId }) {
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
                                                 {results.map((res, idx) => {
-                                                    const isWin = res.bank_id === resultsMeta.winnerBankId || idx === 0;
+                                                    const isWin = Boolean(resultsMeta.winnerBankId && res.bank_id === resultsMeta.winnerBankId && !resultsMeta.isInconclusive);
+                                                    const isIndicativeQuote = (res.quotation_base || '').toLowerCase() === 'indicative' || Boolean(res.is_cross_entity);
                                                     return (
                                                         <tr key={idx} className={isWin ? 'bg-emerald-50/70 font-semibold' : 'hover:bg-slate-50'}>
                                                             <td className="py-2.5 px-3 flex items-center gap-2">
@@ -1703,6 +2094,10 @@ export default function ResultsView({ rfqId }) {
                                                             <td className="py-2.5 px-3 text-right">
                                                                 {isWin ? (
                                                                     <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold uppercase">Awarded</span>
+                                                                ) : isIndicativeQuote ? (
+                                                                    <span className="px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-bold uppercase">Benchmark</span>
+                                                                ) : resultsMeta.isInconclusive ? (
+                                                                    <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold uppercase">Inconclusive</span>
                                                                 ) : res.submitted_at ? (
                                                                     <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">Competitive</span>
                                                                 ) : (
@@ -1719,7 +2114,7 @@ export default function ResultsView({ rfqId }) {
                             </div>
 
                             {/* Compliance Sign-off */}
-                            <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-slate-500">
+                            <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-slate-500 avoid-break">
                                 <div>
                                     <p className="font-semibold text-slate-800">Compliance & Regulatory Attestation</p>
                                     <p className="text-[11px] text-slate-500 mt-0.5">
@@ -1734,22 +2129,23 @@ export default function ResultsView({ rfqId }) {
                         </div>
 
                         {/* Modal Footer */}
-                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+                        <div className="no-print p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
                             <button
                                 onClick={() => setShowAuditPack(false)}
-                                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-colors"
+                                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer"
                             >
                                 Close
                             </button>
                             <button
                                 onClick={() => window.print()}
-                                className="flex items-center gap-1.5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-emerald-200"
+                                className="flex items-center gap-1.5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-emerald-200 cursor-pointer"
                             >
                                 <Printer size={14} /> Print / Export PDF
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* 1-Click Re-Tender Modal */}

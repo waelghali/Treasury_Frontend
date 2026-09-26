@@ -221,7 +221,13 @@ export default function QuotationHistoryDashboard() {
         }
 
         if (typeFilter !== 'ALL') {
-            list = list.filter(r => r.type === typeFilter);
+            if (typeFilter === 'FX_PORTFOLIO') {
+                list = list.filter(r => r.type !== 'TBILL' && r.legs && r.legs.length > 1);
+            } else if (typeFilter === 'FX_SPOT') {
+                list = list.filter(r => r.type !== 'TBILL' && (!r.legs || r.legs.length <= 1));
+            } else {
+                list = list.filter(r => r.type === typeFilter);
+            }
         }
 
         if (statusFilter !== 'ALL') {
@@ -239,9 +245,12 @@ export default function QuotationHistoryDashboard() {
                 const sellCurr = (r.sell_currency || '').toLowerCase();
                 const notes = (r.internal_notes || '').toLowerCase();
                 const creator = (r.creator_name || '').toLowerCase();
-                const winner = (r.winning_bank_name || '').toLowerCase();
+                const winner = (r.winner_bank_name || r.winning_bank_name || '').toLowerCase();
                 const status = (r.status || '').toLowerCase();
                 const details = (r.type === 'TBILL' ? r.direction : `${r.buy_currency}/${r.sell_currency}`) || '';
+                
+                // Multi-leg fields search
+                const legDetails = (r.legs || []).map(l => `${l.buy_currency} ${l.sell_currency} ${l.currency_pair || ''} ${l.winner_bank_name || ''} ${l.amount || ''}`).join(' ').toLowerCase();
 
                 return refNo.includes(q) ||
                     entityName.includes(q) ||
@@ -253,7 +262,8 @@ export default function QuotationHistoryDashboard() {
                     creator.includes(q) ||
                     winner.includes(q) ||
                     status.includes(q) ||
-                    details.toLowerCase().includes(q);
+                    details.toLowerCase().includes(q) ||
+                    legDetails.includes(q);
             });
         }
 
@@ -271,18 +281,18 @@ export default function QuotationHistoryDashboard() {
                     return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
 
                 case 'type':
-                    valA = a.type || '';
-                    valB = b.type || '';
+                    valA = a.type === 'TBILL' ? 'TBILL' : (a.legs && a.legs.length > 1 ? 'FX_PORTFOLIO' : 'FX_SPOT');
+                    valB = b.type === 'TBILL' ? 'TBILL' : (b.legs && b.legs.length > 1 ? 'FX_PORTFOLIO' : 'FX_SPOT');
                     return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
 
                 case 'details':
-                    valA = a.type === 'TBILL' ? (a.direction || '') : `${a.buy_currency}/${a.sell_currency}`;
-                    valB = b.type === 'TBILL' ? (b.direction || '') : `${b.buy_currency}/${b.sell_currency}`;
+                    valA = a.type === 'TBILL' ? (a.direction || '') : (a.legs && a.legs.length > 1 ? a.legs.map(l => l.currency_pair || `${l.buy_currency}/${l.sell_currency}`).join(' ') : `${a.buy_currency}/${a.sell_currency}`);
+                    valB = b.type === 'TBILL' ? (b.direction || '') : (b.legs && b.legs.length > 1 ? b.legs.map(l => l.currency_pair || `${l.buy_currency}/${l.sell_currency}`).join(' ') : `${b.buy_currency}/${b.sell_currency}`);
                     return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
 
                 case 'amount':
-                    valA = Number(a.amount) || 0;
-                    valB = Number(b.amount) || 0;
+                    valA = a.legs && a.legs.length > 1 ? a.legs.reduce((acc, l) => acc + (Number(l.amount) || 0), 0) : (Number(a.amount) || 0);
+                    valB = b.legs && b.legs.length > 1 ? b.legs.reduce((acc, l) => acc + (Number(l.amount) || 0), 0) : (Number(b.amount) || 0);
                     return sortDirection === 'asc' ? valA - valB : valB - valA;
 
                 case 'status':
@@ -549,7 +559,8 @@ export default function QuotationHistoryDashboard() {
                             className="text-xs font-semibold bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 outline-none focus:border-blue-500 shadow-2xs cursor-pointer"
                         >
                             <option value="ALL">All Types</option>
-                            <option value="FX_SPOT">FX Spot</option>
+                            <option value="FX_SPOT">FX Spot (Single Leg)</option>
+                            <option value="FX_PORTFOLIO">FX Portfolio (Multi-Leg)</option>
                             <option value="TBILL">T-Bills</option>
                         </select>
 
@@ -789,24 +800,217 @@ export default function QuotationHistoryDashboard() {
                                             )}
                                         </td>
                                         <td className="px-3 py-3 whitespace-nowrap">
-                                            <span className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider whitespace-nowrap ${rfq.type === 'TBILL' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                                                {rfq.type === 'TBILL' ? 'T-Bill' : 'FX Spot'}
-                                            </span>
+                                            {rfq.type === 'TBILL' ? (
+                                                <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider whitespace-nowrap bg-blue-50 text-blue-600">
+                                                    T-Bill
+                                                </span>
+                                            ) : rfq.legs && rfq.legs.length > 1 ? (
+                                                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                                    <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/70">
+                                                        FX Portfolio
+                                                    </span>
+                                                    <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800" title={`${rfq.legs.length} currency pairs in portfolio`}>
+                                                        {rfq.legs.length}L
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider whitespace-nowrap bg-emerald-50 text-emerald-600">
+                                                    FX Spot
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
                                             {formatDate(rfq.created_at)}
                                         </td>
-                                        <td className="px-3 py-3 text-xs sm:text-sm font-semibold whitespace-nowrap">
-                                            {rfq.type === 'TBILL' ? rfq.direction : `${rfq.buy_currency}/${rfq.sell_currency}`}
+                                        <td className="px-3 py-3 text-xs whitespace-nowrap">
+                                            {rfq.type === 'TBILL' ? (
+                                                <span className="font-semibold text-gray-800">{rfq.direction}</span>
+                                            ) : rfq.legs && rfq.legs.length > 1 ? (
+                                                <div className="flex flex-col gap-1 py-0.5">
+                                                    <div className="flex items-center gap-1.5 flex-wrap max-w-[240px]">
+                                                        {rfq.legs.map((leg, idx) => {
+                                                            const pair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
+                                                            return (
+                                                                <span 
+                                                                    key={leg.id || idx} 
+                                                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-800 bg-slate-100 border border-slate-200/80 px-1.5 py-0.5 rounded"
+                                                                    title={`Leg ${idx + 1}: ${pair}${leg.value_date ? ` • Val: ${formatDate(leg.value_date)}` : ''}`}
+                                                                >
+                                                                    <span className="text-[9px] text-indigo-600 font-extrabold">L{idx + 1}</span>
+                                                                    <span>{pair}</span>
+                                                                </span>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    {(() => {
+                                                        const legBases = Array.from(new Set(rfq.legs.map(l => l.quotation_base).filter(Boolean)));
+                                                        const isMixed = rfq.quotation_base === 'Mixed' || legBases.length > 1;
+                                                        if (isMixed) {
+                                                            return <span className="text-[9px] font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.2 w-fit">⚡📊 Mixed</span>;
+                                                        } else if ((rfq.quotation_base || legBases[0] || '').toLowerCase() === 'indicative') {
+                                                            return <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.2 w-fit">📊 Indicative</span>;
+                                                        }
+                                                        return null;
+                                                    })()}
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <div className="text-xs sm:text-sm font-semibold whitespace-nowrap text-gray-800">
+                                                        {rfq.buy_currency}/{rfq.sell_currency}
+                                                    </div>
+                                                    {rfq.value_date && (
+                                                        <div className="text-[10px] text-gray-400 font-mono">
+                                                            Val: {formatDate(rfq.value_date)}
+                                                        </div>
+                                                    )}
+                                                    {(rfq.quotation_base || '').toLowerCase() === 'indicative' && (
+                                                        <span className="block text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.2 w-fit mt-0.5">📊 Indicative</span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </td>
-                                        <td className="px-3 py-3 text-xs sm:text-sm whitespace-nowrap font-mono">
-                                            {rfq.type === 'TBILL'
-                                                ? `Min: ${formatAmount(rfq.min_ticket_amount || 0)}`
-                                                : formatAmount(rfq.amount || 0)}
+                                        <td className="px-3 py-3 text-xs whitespace-nowrap font-mono">
+                                            {rfq.type === 'TBILL' ? (
+                                                <span className="font-semibold text-gray-900">Min: {formatAmount(rfq.min_ticket_amount || 0)}</span>
+                                            ) : rfq.legs && rfq.legs.length > 1 ? (
+                                                <div className="flex flex-col gap-0.5 py-0.5 font-mono text-xs">
+                                                    {rfq.legs.map((leg, idx) => (
+                                                        <div key={leg.id || idx} className="flex items-center gap-1 whitespace-nowrap text-slate-900">
+                                                            <span className="text-[9px] text-slate-400 font-sans font-semibold">L{idx + 1}:</span>
+                                                            <span className="font-bold">{formatAmount(leg.amount)}</span>
+                                                            <span className="text-[10px] text-slate-500 font-semibold">{leg.buy_currency}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="whitespace-nowrap font-mono">
+                                                    <span className="font-bold text-gray-900">{formatAmount(rfq.amount || 0)}</span>
+                                                    <span className="text-[10px] text-slate-500 font-semibold ml-1">{rfq.buy_currency}</span>
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-3 py-3 whitespace-nowrap">
                                             {(() => {
                                                 const timing = getRfqTimingState(rfq);
+                                                const isMultiLeg = Boolean(rfq.legs && rfq.legs.length > 1);
+
+                                                if (rfq.status === 'CANCELLED') {
+                                                    return <span className="text-xs text-gray-400 italic">Withdrawn / Cancelled</span>;
+                                                }
+                                                if (rfq.status === 'CANCEL_REQUESTED') {
+                                                    return (
+                                                        <span className="inline-flex items-center gap-1.5 text-xs text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-lg">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                                            Cancel Requested
+                                                        </span>
+                                                    );
+                                                }
+                                                if (rfq.status === 'PENDING_APPROVAL') {
+                                                    return <span className="text-xs text-orange-600 font-medium">Pending Approval</span>;
+                                                }
+                                                if (rfq.status === 'NEEDS_REVISION') {
+                                                    return <span className="text-xs text-amber-700 font-medium">Needs Revision</span>;
+                                                }
+                                                if (timing.isLive) {
+                                                    return (
+                                                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg shadow-2xs">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                            Live Bidding
+                                                        </span>
+                                                    );
+                                                }
+                                                if (timing.isScheduled) {
+                                                    return (
+                                                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 font-medium bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-lg">
+                                                            <Clock size={12} className="text-slate-400 shrink-0" />
+                                                            {timing.counterpartyLabel}
+                                                        </span>
+                                                    );
+                                                }
+
+                                                // Concluded / Closed RFQ Display
+                                                if (isMultiLeg) {
+                                                    const legsWithWinner = rfq.legs.filter(l => l.winner_bank_name);
+                                                    const legsPendingApproval = rfq.status === 'PENDING_APPROVAL' ? rfq.legs.filter(l => l.status === 'PENDING_APPROVAL') : [];
+                                                    const hasAnyWinner = legsWithWinner.length > 0;
+
+                                                    // If completely inconclusive / no quotes
+                                                    if (!hasAnyWinner && legsPendingApproval.length === 0) {
+                                                        if (rfq.status === 'COMPLETED') {
+                                                            return <span className="text-xs text-gray-400 italic">No quotes (Inconclusive)</span>;
+                                                        }
+                                                        return (
+                                                            <span className="text-xs text-purple-600 font-semibold bg-purple-50 px-2 py-0.5 rounded-lg">
+                                                                {timing.counterpartyLabel || 'Evaluating quotes...'}
+                                                            </span>
+                                                        );
+                                                    }
+
+                                                    // All legs won by the exact same bank
+                                                    const allWonSameBank = hasAnyWinner && 
+                                                        legsWithWinner.length === rfq.legs.length && 
+                                                        rfq.legs.every(l => l.winner_bank_name && l.winner_bank_name === rfq.legs[0].winner_bank_name);
+
+                                                    if (allWonSameBank) {
+                                                        return (
+                                                            <div className="flex flex-col">
+                                                                <span className="inline-flex items-center gap-1.5 font-bold text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-xl w-fit shadow-xs">
+                                                                    <Trophy size={12} className="text-amber-500 shrink-0" />
+                                                                    <span className="truncate max-w-[130px] lg:max-w-[160px]">{rfq.legs[0].winner_bank_name}</span>
+                                                                    <span className="text-[9px] text-emerald-700 bg-emerald-100/70 px-1 py-0.2 rounded font-bold">All {rfq.legs.length}L</span>
+                                                                </span>
+                                                                <div className="text-[10px] font-mono text-slate-600 mt-1 flex flex-col gap-0.5 pl-1">
+                                                                    {rfq.legs.map((l, i) => (
+                                                                        <div key={i} className="flex items-center gap-1">
+                                                                            <span className="text-slate-400 font-sans">L{i + 1}:</span>
+                                                                            <span className="font-bold text-slate-800">@{typeof l.winner_rate === 'number' ? l.winner_rate.toFixed(4) : l.winner_rate}</span>
+                                                                            {l.saved_vs_avg ? <span className="text-[9px] text-emerald-600 font-sans font-semibold">+{parseFloat(l.saved_vs_avg).toFixed(2)}</span> : null}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    // Multi-leg breakdown (some won, some pending, some split)
+                                                    return (
+                                                        <div className="flex flex-col gap-1 py-0.5">
+                                                            {rfq.legs.map((leg, idx) => {
+                                                                const isLegWin = Boolean(leg.winner_bank_name);
+                                                                const isLegPending = leg.status === 'PENDING_APPROVAL' && rfq.status === 'PENDING_APPROVAL';
+                                                                const isLegInconclusive = leg.status === 'INCONCLUSIVE' || leg.is_inconclusive || (!isLegWin && (rfq.status === 'COMPLETED' || timing.badge === 'WINDOW_CLOSED'));
+
+                                                                return (
+                                                                    <div key={leg.id || idx} className="flex items-center gap-1.5 text-xs whitespace-nowrap">
+                                                                        <span className="text-[10px] font-mono text-slate-400 font-bold">L{idx + 1}:</span>
+                                                                        {isLegWin ? (
+                                                                            <div className="flex items-center gap-1">
+                                                                                <span className="inline-flex items-center gap-1 font-bold text-[11px] text-emerald-900 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 rounded-md">
+                                                                                    <Trophy size={10} className="text-amber-500 shrink-0" />
+                                                                                    <span className="truncate max-w-[100px]">{leg.winner_bank_name}</span>
+                                                                                </span>
+                                                                                <span className="font-mono font-bold text-slate-800 text-[11px]">
+                                                                                    @{typeof leg.winner_rate === 'number' ? leg.winner_rate.toFixed(4) : leg.winner_rate}
+                                                                                </span>
+                                                                            </div>
+                                                                        ) : isLegPending ? (
+                                                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded-md">
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                                                                Pending Approval
+                                                                            </span>
+                                                                        ) : isLegInconclusive ? (
+                                                                            <span className="text-[10px] text-gray-400 italic">Inconclusive</span>
+                                                                        ) : (
+                                                                            <span className="text-[10px] text-purple-600 font-medium">Evaluating...</span>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    );
+                                                }
+
+                                                // Single-leg display
                                                 if (rfq.winner_bank_name) {
                                                     return (
                                                         <div className="flex flex-col">
@@ -828,39 +1032,6 @@ export default function QuotationHistoryDashboard() {
                                                 if (rfq.status === 'COMPLETED') {
                                                     return <span className="text-xs text-gray-400 italic">No quotes (Inconclusive)</span>;
                                                 }
-                                                if (rfq.status === 'PENDING_APPROVAL') {
-                                                    return <span className="text-xs text-orange-600 font-medium">Pending Approval</span>;
-                                                }
-                                                if (rfq.status === 'NEEDS_REVISION') {
-                                                    return <span className="text-xs text-amber-700 font-medium">Needs Revision</span>;
-                                                }
-                                                if (rfq.status === 'CANCEL_REQUESTED') {
-                                                    return (
-                                                        <span className="inline-flex items-center gap-1.5 text-xs text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-lg">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                                                            Cancel Requested
-                                                        </span>
-                                                    );
-                                                }
-                                                if (rfq.status === 'CANCELLED') {
-                                                    return <span className="text-xs text-gray-400 italic">Withdrawn / Cancelled</span>;
-                                                }
-                                                if (timing.isLive) {
-                                                    return (
-                                                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg shadow-2xs">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                            Live Bidding
-                                                        </span>
-                                                    );
-                                                }
-                                                if (timing.isScheduled) {
-                                                    return (
-                                                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 font-medium bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-lg">
-                                                            <Clock size={12} className="text-slate-400 shrink-0" />
-                                                            {timing.counterpartyLabel}
-                                                        </span>
-                                                    );
-                                                }
                                                 return (
                                                     <span className="text-xs text-purple-600 font-semibold bg-purple-50 px-2 py-0.5 rounded-lg">
                                                         {timing.counterpartyLabel || 'Evaluating quotes...'}
@@ -871,6 +1042,29 @@ export default function QuotationHistoryDashboard() {
                                         <td className="px-3 py-3 whitespace-nowrap">
                                             {(() => {
                                                 const timing = getRfqTimingState(rfq);
+                                                const isMultiLeg = Boolean(rfq.legs && rfq.legs.length > 1);
+                                                const hasLegPendingApproval = isMultiLeg && rfq.status === 'PENDING_APPROVAL' && rfq.legs.some(l => l.status === 'PENDING_APPROVAL');
+
+                                                if (hasLegPendingApproval) {
+                                                    return (
+                                                        <span className="text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wide whitespace-nowrap bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                                            Action Required
+                                                        </span>
+                                                    );
+                                                }
+
+                                                if (isMultiLeg && (rfq.status === 'COMPLETED' || rfq.status === 'TRADED')) {
+                                                    const legsWithWinner = rfq.legs.filter(l => l.winner_bank_name);
+                                                    if (legsWithWinner.length > 0 && legsWithWinner.length < rfq.legs.length) {
+                                                        return (
+                                                            <span className="text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wide whitespace-nowrap bg-teal-50 text-teal-800 border border-teal-200 flex items-center gap-1 w-fit">
+                                                                Partially Awarded ({legsWithWinner.length}/{rfq.legs.length})
+                                                            </span>
+                                                        );
+                                                    }
+                                                }
+
                                                 return (
                                                     <span className={`text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wide whitespace-nowrap ${timing.style}`}>
                                                         {timing.label}
