@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Layers } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
 import QuotationCancellationModal from '../../../components/Modals/QuotationCancellationModal';
@@ -99,6 +99,8 @@ export default function ResultsView({ rfqId }) {
     const location = useLocation();
     const [results, setResults] = useState([]);
     const [rfq, setRfq] = useState(null);
+    const [legs, setLegs] = useState([]);
+    const [selectedLegIndex, setSelectedLegIndex] = useState('ALL');
     const [loading, setLoading] = useState(true);
     const [sendingResults, setSendingResults] = useState(false);
     const userRole = localStorage.getItem('user_role'); // Check role
@@ -132,6 +134,7 @@ export default function ResultsView({ rfqId }) {
             // Axios auto-parses JSON into res.data
             setResults(res.data.results || []);
             setRfq(res.data.rfq);
+            setLegs(res.data.legs || []);
             setResultsMeta({
                 winnerBankId: res.data.winner_bank_id,
                 isInconclusive: res.data.is_inconclusive,
@@ -244,6 +247,234 @@ export default function ResultsView({ rfqId }) {
         } finally {
             setSendingResults(false);
         }
+    };
+
+    const renderFxCounterpartyCard = (result, index, legContext = null) => {
+        const targetPair = legContext ? (legContext.currency_pair || `${legContext.buy_currency}/${legContext.sell_currency}`) : `${rfq?.buy_currency}/${rfq?.sell_currency}`;
+        const targetAmount = legContext ? legContext.amount : rfq?.amount;
+        const targetValueDate = legContext ? legContext.value_date : rfq?.value_date;
+        const targetDirection = legContext ? legContext.direction : rfq?.direction;
+        const winnerId = legContext ? legContext.winner_bank_id : resultsMeta.winnerBankId;
+        const isWinner = winnerId ? (result.bank_id === winnerId) : (index === 0 && result.price);
+
+        return (
+            <div
+                key={result.bank_name || result.bank_id || index}
+                className={`p-6 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-all duration-300 transform translate-x-0 opacity-100 ${
+                    isWinner && result.price ? 'bg-emerald-50 border-emerald-200 ring-2 ring-emerald-500/20' : 'bg-white border-gray-100'
+                }`}
+            >
+                <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${
+                        isWinner && result.price ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'
+                    }`}>
+                        {isWinner && result.price ? <Trophy size={20} /> : <Landmark size={20} />}
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-bold text-lg">{result.bank_name}</h4>
+                            {isWinner && (
+                                <span className="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded uppercase tracking-wider">Winner</span>
+                            )}
+                            {result.quotation_base && (
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${result.quotation_base === 'Execution' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700'}`}>
+                                    {result.quotation_base}
+                                </span>
+                            )}
+                            {renderApprovalBadge(result)}
+                            {result.assigned_value_date && (
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
+                                    result.is_custom_value_date 
+                                        ? 'bg-blue-50 text-blue-800 border-blue-200' 
+                                        : 'bg-slate-50 text-slate-600 border-slate-200'
+                                }`}>
+                                    Val: {result.assigned_value_date}
+                                    {result.is_custom_value_date && ' (Custom)'}
+                                </span>
+                            )}
+                            {result.is_document_visible === false && (
+                                <span className="text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded uppercase">Doc Hidden</span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            {result.submitted_at ? (
+                                <p className="text-xs text-gray-400">
+                                    Submitted at {new Date(result.submitted_at).toLocaleTimeString()}
+                                    {result.submitted_by_email && (
+                                        <span className="ml-2 font-mono text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                            by {result.submitted_by_email}
+                                        </span>
+                                    )}
+                                </p>
+                            ) : isWindowClosed ? (
+                                <p className="text-xs text-slate-400 font-medium">Window closed &bull; No quote submitted</p>
+                            ) : (
+                                <p className="text-xs text-amber-500 font-medium">No quote submitted</p>
+                            )}
+                            {result.token && (
+                                <button
+                                    onClick={() => handleCopyBiddingLink(result.token)}
+                                    className={`text-[10px] flex items-center gap-1 font-medium transition-colors cursor-pointer ${
+                                        copiedToken === result.token 
+                                            ? 'text-emerald-700 font-bold' 
+                                            : 'text-blue-600 hover:underline'
+                                    }`}
+                                    title={copiedToken === result.token ? "Copied!" : "Copy bidding link"}
+                                >
+                                    {copiedToken === result.token ? <Check size={10} className="text-emerald-700" /> : <ExternalLink size={10} />}
+                                    {copiedToken === result.token ? 'Copied!' : 'Link'}
+                                </button>
+                            )}
+                            {result.quotation_bank_id && (
+                                <button
+                                    onClick={() => handleResendInvite(result.quotation_bank_id, result.bank_name)}
+                                    className="text-[10px] text-emerald-600 hover:underline flex items-center gap-1 font-medium"
+                                    title="Resend invitation email to this bank"
+                                >
+                                    <Mail size={10} /> Resend Invite
+                                </button>
+                            )}
+                        </div>
+                        {result.approval_status === 'DECLINED' && result.approval_notes && (
+                            <div className="mt-2 text-xs bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5 text-rose-800 flex items-start gap-2 max-w-lg">
+                                <AlertCircle size={13} className="text-rose-500 shrink-0 mt-0.5" />
+                                <span className="leading-snug"><strong className="text-rose-900 font-semibold">Approver Decline Reason:</strong> {result.approval_notes}</span>
+                            </div>
+                        )}
+                        {result.notes && (
+                            <div className="mt-2 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 flex items-start gap-2 max-w-lg">
+                                <MessageSquare size={13} className="text-blue-500 shrink-0 mt-0.5" />
+                                <span className="leading-snug"><strong className="text-slate-900 font-semibold">Trader Notes:</strong> {result.notes}</span>
+                            </div>
+                        )}
+                        {/* Value Date & Settlement Policy Badge */}
+                        {rfq?.type === 'FX_SPOT' && (
+                            <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-semibold ${
+                                    result.is_alternative_value_date 
+                                        ? 'bg-blue-50 text-blue-800 border-blue-200' 
+                                        : 'bg-slate-50 text-slate-700 border-slate-200'
+                                }`}>
+                                    <Calendar size={12} className={result.is_alternative_value_date ? 'text-blue-600' : 'text-slate-400'} />
+                                    <span>
+                                        Value Date: <strong>{formatDate(result.offered_value_date || result.assigned_value_date || targetValueDate)}</strong>
+                                    </span>
+                                    {result.is_alternative_value_date && (
+                                        <span className="text-[10px] font-normal text-blue-600 ml-1">
+                                            (Target: {formatDate(targetValueDate)})
+                                        </span>
+                                    )}
+                                </span>
+                                {result.allow_alternative_value_date ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                                        Alternative Date Permitted
+                                    </span>
+                                ) : result.is_alternative_value_date ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                                        Custom Settlement Date
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 bg-gray-100 border border-gray-200/60 px-2 py-0.5 rounded">
+                                        Fixed Settlement Date
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {result.price && result.finalPrice ? (
+                    <div className="text-right flex flex-wrap items-center gap-4 sm:gap-6 w-full md:w-auto">
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bank Quote</label>
+                            <p className="text-sm font-mono text-gray-500">{result.price.toFixed(5)}</p>
+                        </div>
+                        <ArrowRight className="text-gray-300 hidden sm:block" size={16} />
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">All-In Price</label>
+                            <p className="text-sm font-mono font-semibold text-gray-700">{result.finalPrice.toFixed(5)}</p>
+                        </div>
+                        {result.is_alternative_value_date && result.normalized_price ? (
+                            <>
+                                <ArrowRight className="text-gray-300 hidden sm:block" size={16} />
+                                <div>
+                                    <div className="flex items-center justify-end gap-1 mb-1">
+                                        <label className="block text-[10px] font-bold text-blue-600 uppercase">TVM Eval Price</label>
+                                        <span className="text-[9px] font-mono font-bold bg-blue-100 text-blue-800 px-1 rounded">
+                                            {result.time_value_adjustment >= 0 ? '+' : ''}{result.time_value_adjustment.toFixed(4)}
+                                        </span>
+                                    </div>
+                                    <p className={`text-2xl font-bold font-mono ${isWinner ? 'text-emerald-600' : 'text-blue-950'}`}>
+                                        {result.normalized_price.toFixed(5)}
+                                    </p>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <ArrowRight className="text-gray-300 hidden sm:block" size={16} />
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Adjusted Price</label>
+                                    <p className={`text-2xl font-bold font-mono ${isWinner ? 'text-emerald-600' : 'text-gray-900'}`}>
+                                        {result.finalPrice.toFixed(5)}
+                                    </p>
+                                </div>
+                            </>
+                        )}
+                        <div className="pl-4 border-l border-gray-100">
+                            <button
+                                onClick={() => {
+                                    const refNo = rfq?.ref_no || '';
+                                    const executedValueDate = result.offered_value_date || result.assigned_value_date || targetValueDate;
+                                    const subject = encodeURIComponent(isWinner
+                                        ? `Deal Confirmation: RFQ ${refNo} - ${targetPair}`
+                                        : `RFQ Result: RFQ ${refNo} - ${targetPair}`
+                                    );
+
+                                    const body = encodeURIComponent(isWinner
+                                        ? `Dear ${result.bank_name} FX Desk,\n\nWe are pleased to confirm the execution of the following trade based on your winning quote:\n\nREFERENCE: ${refNo}\n- Pair: ${targetPair}\n- Direction: ${targetDirection || 'BUY'}\n- Amount: ${targetAmount}\n- Executed Rate: ${result.price.toFixed(5)}\n- Value Date: ${formatDate(executedValueDate)}\n\nPlease proceed with the standard settlement instructions.\n\nBest regards,\nTreasury Team`
+                                        : `Dear ${result.bank_name} FX Desk,\n\nThank you for participating in our Request for Quotation (RFQ) for ${targetPair}.\n\nREFERENCE: ${refNo}\n\nWe are writing to inform you that your quote was not selected for this specific transaction as we have executed with another counterparty at a more competitive all-in rate.\n\nWe appreciate your participation and look forward to your quotes on future requests.\n\nBest regards,\nTreasury Team`
+                                    );
+
+                                    window.open(`mailto:${result.bank_emails}?subject=${subject}&body=${body}`, '_blank');
+                                }}
+                                title={isWinner ? "Draft Confirmation Email" : "Draft Regret Email"}
+                                className={`p-3 rounded-xl transition-all flex items-center gap-2 ${isWinner
+                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                    }`}
+                            >
+                                <Mail size={18} />
+                                <span className="text-xs font-bold sm:hidden">Email</span>
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-right w-full md:w-auto">
+                        {result.approval_status === 'DECLINED' ? (
+                            <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg inline-block">
+                                Declined by Bank
+                            </span>
+                        ) : result.approval_status === 'EXPIRED' ? (
+                            <span className="text-xs font-bold text-gray-500 bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg inline-block">
+                                Approval Expired
+                            </span>
+                        ) : result.approval_status === 'PENDING' ? (
+                            <span className={`text-xs font-bold px-3 py-1.5 rounded-lg inline-block ${
+                                isWindowClosed ? 'text-gray-500 bg-gray-100 border border-gray-200' : 'text-amber-600 bg-amber-50 border border-amber-200'
+                            }`}>
+                                {isWindowClosed ? 'Approval Expired' : 'Pending Bank Approval'}
+                            </span>
+                        ) : isWindowClosed ? (
+                            <span className="text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg inline-block">
+                                No Offer Received
+                            </span>
+                        ) : (
+                            <span className="text-sm font-bold text-gray-400">Awaiting Submission</span>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
     };
 
     return (
@@ -452,7 +683,88 @@ export default function ResultsView({ rfqId }) {
             )}
 
             {/* Phase 2: Best Execution & Monetary Savings Hero Card */}
-            {resultsMeta.savingsSummary && (
+            {legs && legs.length > 1 ? (
+                (() => {
+                    const totalSavedVsAvg = legs.reduce((acc, l) => acc + (l.saved_vs_avg || l.savings_summary?.saved_vs_avg || 0), 0);
+                    const totalQuotesCount = legs.reduce((acc, l) => acc + (l.savings_summary?.total_quotes || (l.results || []).filter(r => r.price != null).length || 0), 0);
+                    const awardedLegs = legs.filter(l => l.winner_bank_name && !l.is_inconclusive);
+
+                    if (awardedLegs.length === 0 && !resultsMeta.savingsSummary) return null;
+
+                    return (
+                        <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-900 via-teal-900 to-emerald-950 text-white shadow-xl border border-emerald-500/30 space-y-4">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-emerald-700/50 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+                                        <Trophy size={26} />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                                                Certified Best Execution Portfolio
+                                            </span>
+                                            <span className="text-xs text-emerald-200/70 font-mono">Multi-Currency Package ({legs.length} Legs)</span>
+                                        </div>
+                                        <h3 className="text-lg font-bold text-white mt-1">
+                                            {awardedLegs.length === legs.length 
+                                                ? `All ${legs.length} Currency Pairs Successfully Awarded` 
+                                                : `${awardedLegs.length} of ${legs.length} Pairs Concluded`}
+                                        </h3>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowAuditPack(true)}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-emerald-950 hover:bg-emerald-50 transition-all shadow-md active:scale-95 shrink-0"
+                                >
+                                    <FileText size={14} className="text-emerald-700" /> Best Execution Audit Pack
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                                <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/20">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/80 block mb-1">
+                                        Total Value Generated vs Avg
+                                    </span>
+                                    <p className="text-xl sm:text-2xl font-black font-mono text-emerald-300">
+                                        EGP {totalSavedVsAvg?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </p>
+                                    <span className="text-[10px] text-emerald-200/60 mt-0.5 block">
+                                        Combined savings across all evaluated currency pairs
+                                    </span>
+                                </div>
+
+                                <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/20">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-teal-300/80 block mb-1">
+                                        Winning Counterparties
+                                    </span>
+                                    <div className="space-y-1 mt-1">
+                                        {legs.map((l, i) => (
+                                            <div key={i} className="flex items-center justify-between text-xs font-mono">
+                                                <span className="text-slate-300 font-bold">{l.currency_pair || `${l.buy_currency}/${l.sell_currency}`}:</span>
+                                                <span className="text-emerald-300 font-semibold truncate ml-2">
+                                                    {l.winner_bank_name ? `${l.winner_bank_name} @ ${l.winner_rate}` : 'Inconclusive'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/20">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300/80 block mb-1">
+                                        Competitive Bids Evaluated
+                                    </span>
+                                    <p className="text-xl sm:text-2xl font-black font-mono text-white">
+                                        {totalQuotesCount} Total Bids
+                                    </p>
+                                    <span className="text-[10px] text-slate-300/70 mt-0.5 block">
+                                        Simultaneous competitive tender across {legs.length} currency pairs
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()
+            ) : resultsMeta.savingsSummary ? (
                 <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-900 via-teal-900 to-emerald-950 text-white shadow-xl border border-emerald-500/30 space-y-4">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-emerald-700/50 pb-4">
                         <div className="flex items-center gap-3">
@@ -517,93 +829,164 @@ export default function ResultsView({ rfqId }) {
                         </div>
                     </div>
                 </div>
-            )}
+            ) : null}
 
             {rfq && (
                 <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-5 mb-6">
                     {/* Header Row: Direction, Amount, Currency, Entity, and Value Date */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-                        <div className="space-y-2.5">
-                            <div className="flex items-center gap-2.5 flex-wrap">
-                                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Trade Specifications</span>
-                                {rfq.entity_name && (
+                    {legs && legs.length > 1 ? (
+                        <div className="space-y-4 pb-4 border-b border-slate-100">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="flex items-center gap-2.5 flex-wrap">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Trade Specifications</span>
                                     <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
-                                        <Building size={13} className="text-indigo-600" />
-                                        {rfq.entity_name}
+                                        <Layers size={13} className="text-indigo-600" />
+                                        Multi-Currency Portfolio ({legs.length} Pairs)
                                     </span>
-                                )}
-                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs ${
-                                    (() => {
-                                        const counterpartyBases = Array.from(new Set((results || []).map(r => r.quotation_base).filter(Boolean)));
-                                        const isMixed = counterpartyBases.length > 1;
-                                        if (isMixed) return 'bg-indigo-50 text-indigo-900 border-indigo-200';
-                                        return (rfq.quotation_base === 'Execution' || counterpartyBases[0] === 'Execution')
-                                            ? 'bg-amber-50 text-amber-900 border-amber-300'
-                                            : 'bg-slate-100 text-slate-700 border-slate-200';
-                                    })()
-                                }`}>
-                                    {(() => {
-                                        const counterpartyBases = Array.from(new Set((results || []).map(r => r.quotation_base).filter(Boolean)));
-                                        const isMixed = counterpartyBases.length > 1;
-                                        if (isMixed) return `⚡ Mixed Bases (${counterpartyBases.join(', ')})`;
-                                        return (rfq.quotation_base === 'Execution' || counterpartyBases[0] === 'Execution')
-                                            ? '⚡ Firm Execution'
-                                            : '👁️ Indicative';
-                                    })()}
-                                </span>
-                            </div>
-
-                            <div className="flex items-center gap-3 pt-0.5">
-                                <span className={`inline-flex items-center justify-center font-black text-sm px-3.5 py-1 rounded-lg uppercase tracking-wider shadow-xs ${
-                                    (rfq.direction || '').toUpperCase() === 'BUY'
-                                        ? 'bg-emerald-600 text-white'
-                                        : 'bg-blue-600 text-white'
-                                }`}>
-                                    {rfq.direction || 'BUY'}
-                                </span>
-                                <div className="flex items-baseline gap-2.5">
-                                    <span className="text-3xl sm:text-4xl font-black text-slate-900 font-mono tracking-tight">
-                                        {rfq.type === 'TBILL'
-                                            ? `T-Bill (${rfq.direction})`
-                                            : new Intl.NumberFormat().format(rfq.amount || 0)}
-                                    </span>
-                                    {rfq.type !== 'TBILL' && (
-                                        <span className="text-xl sm:text-2xl font-bold text-slate-700">
-                                            {rfq.buy_currency}/{rfq.sell_currency}
+                                    {rfq.entity_name && (
+                                        <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
+                                            <Building size={13} className="text-slate-600" />
+                                            {rfq.entity_name}
                                         </span>
                                     )}
                                 </div>
+                                <div className="text-xs text-slate-500 font-mono">
+                                    Ref: <strong className="text-slate-800">{rfq.ref_no}</strong>
+                                </div>
+                            </div>
+
+                            {/* Portfolio Legs Cards Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {legs.map((leg, lIdx) => {
+                                    const pair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
+                                    const isBuy = (leg.direction || '').toUpperCase() === 'BUY';
+                                    return (
+                                        <div 
+                                            key={leg.leg_id || lIdx}
+                                            onClick={() => setSelectedLegIndex(lIdx)}
+                                            className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                                                selectedLegIndex === lIdx
+                                                    ? 'bg-indigo-50/60 border-indigo-300 ring-2 ring-indigo-500/20'
+                                                    : 'bg-slate-50/60 border-slate-200/80 hover:bg-slate-100/60'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                    Leg #{lIdx + 1}
+                                                </span>
+                                                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded shadow-2xs ${
+                                                    isBuy ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                                                }`}>
+                                                    {leg.direction || 'BUY'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-baseline justify-between gap-2">
+                                                <span className="text-lg font-black text-slate-900 font-mono">
+                                                    {new Intl.NumberFormat().format(leg.amount || 0)}
+                                                </span>
+                                                <span className="text-sm font-bold text-slate-700">
+                                                    {pair}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs text-slate-500 mt-2 pt-2 border-t border-slate-200/60">
+                                                <span>Val: {formatDate(leg.value_date)}</span>
+                                                {leg.winner_bank_name ? (
+                                                    <span className="font-bold text-emerald-700 text-[11px] truncate ml-1">
+                                                        🏆 {leg.winner_bank_name}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-slate-400 text-[11px] italic">Competitive</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
-
-                        {/* Value Date Box */}
-                        <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 text-right flex flex-col items-start md:items-end justify-center min-w-[220px] shrink-0 shadow-2xs">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                                <Calendar size={13} className="text-slate-600" /> Settlement (Value Date)
-                            </span>
-                            <span className="text-lg font-bold text-slate-900 font-sans mt-1">{formatDate(rfq.value_date)}</span>
-                            {(() => {
-                                const hasCustomDates = (results || []).some(r => r.is_custom_value_date || (r.assigned_value_date && rfq.value_date && String(r.assigned_value_date).split('T')[0] !== String(rfq.value_date).split('T')[0]));
-                                if (hasCustomDates) {
-                                    return (
-                                        <span className="inline-block text-[10px] font-bold mt-1 px-2 py-0.5 rounded border text-blue-700 bg-blue-50 border-blue-200">
-                                            • Per-Bank Custom Dates
+                    ) : (
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                            <div className="space-y-2.5">
+                                <div className="flex items-center gap-2.5 flex-wrap">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Trade Specifications</span>
+                                    {rfq.entity_name && (
+                                        <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
+                                            <Building size={13} className="text-indigo-600" />
+                                            {rfq.entity_name}
                                         </span>
-                                    );
-                                }
-                                return null;
-                            })()}
-                            {rfq.type === 'FX_SPOT' && (
-                                <span className={`inline-block text-xs font-semibold mt-1.5 px-2.5 py-0.5 rounded-md border ${
-                                    rfq.allow_alternative_value_date 
-                                        ? 'text-blue-700 bg-blue-50 border-blue-200' 
-                                        : 'text-slate-700 bg-white border-slate-200'
-                                }`}>
-                                    {rfq.allow_alternative_value_date ? 'Alternative Date Permitted' : 'Fixed Date Only'}
+                                    )}
+                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs ${
+                                        (() => {
+                                            const counterpartyBases = Array.from(new Set((results || []).map(r => r.quotation_base).filter(Boolean)));
+                                            const isMixed = counterpartyBases.length > 1;
+                                            if (isMixed) return 'bg-indigo-50 text-indigo-900 border-indigo-200';
+                                            return (rfq.quotation_base === 'Execution' || counterpartyBases[0] === 'Execution')
+                                                ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                                : 'bg-slate-100 text-slate-700 border-slate-200';
+                                        })()
+                                    }`}>
+                                        {(() => {
+                                            const counterpartyBases = Array.from(new Set((results || []).map(r => r.quotation_base).filter(Boolean)));
+                                            const isMixed = counterpartyBases.length > 1;
+                                            if (isMixed) return `⚡ Mixed Bases (${counterpartyBases.join(', ')})`;
+                                            return (rfq.quotation_base === 'Execution' || counterpartyBases[0] === 'Execution')
+                                                ? '⚡ Firm Execution'
+                                                : '👁️ Indicative';
+                                        })()}
+                                    </span>
+                                </div>
+
+                                <div className="flex items-center gap-3 pt-0.5">
+                                    <span className={`inline-flex items-center justify-center font-black text-sm px-3.5 py-1 rounded-lg uppercase tracking-wider shadow-xs ${
+                                        (rfq.direction || '').toUpperCase() === 'BUY'
+                                            ? 'bg-emerald-600 text-white'
+                                            : 'bg-blue-600 text-white'
+                                    }`}>
+                                        {rfq.direction || 'BUY'}
+                                    </span>
+                                    <div className="flex items-baseline gap-2.5">
+                                        <span className="text-3xl sm:text-4xl font-black text-slate-900 font-mono tracking-tight">
+                                            {rfq.type === 'TBILL'
+                                                ? `T-Bill (${rfq.direction})`
+                                                : new Intl.NumberFormat().format(rfq.amount || 0)}
+                                        </span>
+                                        {rfq.type !== 'TBILL' && (
+                                            <span className="text-xl sm:text-2xl font-bold text-slate-700">
+                                                {rfq.buy_currency}/{rfq.sell_currency}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Value Date Box */}
+                            <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 text-right flex flex-col items-start md:items-end justify-center min-w-[220px] shrink-0 shadow-2xs">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Calendar size={13} className="text-slate-600" /> Settlement (Value Date)
                                 </span>
-                            )}
+                                <span className="text-lg font-bold text-slate-900 font-sans mt-1">{formatDate(rfq.value_date)}</span>
+                                {(() => {
+                                    const hasCustomDates = (results || []).some(r => r.is_custom_value_date || (r.assigned_value_date && rfq.value_date && String(r.assigned_value_date).split('T')[0] !== String(rfq.value_date).split('T')[0]));
+                                    if (hasCustomDates) {
+                                        return (
+                                            <span className="inline-block text-[10px] font-bold mt-1 px-2 py-0.5 rounded border text-blue-700 bg-blue-50 border-blue-200">
+                                                • Per-Bank Custom Dates
+                                            </span>
+                                        );
+                                    }
+                                    return null;
+                                })()}
+                                {rfq.type === 'FX_SPOT' && (
+                                    <span className={`inline-block text-xs font-semibold mt-1.5 px-2.5 py-0.5 rounded-md border ${
+                                        rfq.allow_alternative_value_date 
+                                            ? 'text-blue-700 bg-blue-50 border-blue-200' 
+                                            : 'text-slate-700 bg-white border-slate-200'
+                                    }`}>
+                                        {rfq.allow_alternative_value_date ? 'Alternative Date Permitted' : 'Fixed Date Only'}
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Deal Parameters Grid */}
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -934,224 +1317,175 @@ export default function ResultsView({ rfqId }) {
                     ))}
                 </div>
             ) : (
-                <div className="space-y-4">
-                    {results.map((result, index) => (
-                        <div
-                            key={result.bank_name}
-                            className={`p-6 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-all duration-300 transform translate-x-0 opacity-100 ${index === 0 && result.price ? 'bg-emerald-50 border-emerald-200 ring-2 ring-emerald-500/20' : 'bg-white border-gray-100'
+                <div className="space-y-6">
+                    {/* Leg Switcher Tab Bar for Multi-Leg RFQs */}
+                    {legs && legs.length > 1 && (
+                        <div className="flex items-center gap-2 p-1.5 bg-slate-100 rounded-2xl border border-slate-200/80 overflow-x-auto">
+                            <button
+                                onClick={() => setSelectedLegIndex('ALL')}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                                    selectedLegIndex === 'ALL'
+                                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                                 }`}
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${index === 0 && result.price ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'
-                                    }`}>
-                                    {index === 0 && result.price ? <Trophy size={20} /> : <Landmark size={20} />}
-                                </div>
-                                <div>
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                        <h4 className="font-bold text-lg">{result.bank_name}</h4>
-                                        {resultsMeta.winnerBankId && result.bank_id === resultsMeta.winnerBankId && (
-                                            <span className="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded uppercase tracking-wider">Winner</span>
-                                        )}
-                                        {result.quotation_base && (
-                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${result.quotation_base === 'Execution' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700'}`}>
-                                                {result.quotation_base}
+                            >
+                                <span>All Currency Pairs</span>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    selectedLegIndex === 'ALL' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
+                                }`}>
+                                    {legs.length}
+                                </span>
+                            </button>
+                            {legs.map((leg, lIdx) => {
+                                const isSelected = selectedLegIndex === lIdx;
+                                const pair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
+                                return (
+                                    <button
+                                        key={leg.leg_id || lIdx}
+                                        onClick={() => setSelectedLegIndex(lIdx)}
+                                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                                            isSelected
+                                                ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
+                                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                                        }`}
+                                    >
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                            (leg.direction || '').toUpperCase() === 'BUY' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
+                                        }`}>
+                                            {leg.direction || 'BUY'}
+                                        </span>
+                                        <span>{pair}</span>
+                                        {leg.winner_bank_name && !leg.is_inconclusive && (
+                                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                                                🏆 {leg.winner_bank_name}
                                             </span>
                                         )}
-                                        {renderApprovalBadge(result)}
-                                        {result.assigned_value_date && (
-                                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
-                                                result.is_custom_value_date 
-                                                    ? 'bg-blue-50 text-blue-800 border-blue-200' 
-                                                    : 'bg-slate-50 text-slate-600 border-slate-200'
-                                            }`}>
-                                                Val: {result.assigned_value_date}
-                                                {result.is_custom_value_date && ' (Custom)'}
-                                            </span>
-                                        )}
-                                        {result.is_document_visible === false && (
-                                            <span className="text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded uppercase">Doc Hidden</span>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                                        {result.submitted_at ? (
-                                            <p className="text-xs text-gray-400">
-                                                Submitted at {new Date(result.submitted_at).toLocaleTimeString()}
-                                                {result.submitted_by_email && (
-                                                    <span className="ml-2 font-mono text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                                        by {result.submitted_by_email}
-                                                    </span>
-                                                )}
-                                            </p>
-                                        ) : isWindowClosed ? (
-                                            <p className="text-xs text-slate-400 font-medium">Window closed &bull; No quote submitted</p>
-                                        ) : (
-                                            <p className="text-xs text-amber-500 font-medium">No quote submitted</p>
-                                        )}
-                                        {result.token && (
-                                            <button
-                                                onClick={() => handleCopyBiddingLink(result.token)}
-                                                className={`text-[10px] flex items-center gap-1 font-medium transition-colors cursor-pointer ${
-                                                    copiedToken === result.token 
-                                                        ? 'text-emerald-700 font-bold' 
-                                                        : 'text-blue-600 hover:underline'
-                                                }`}
-                                                title={copiedToken === result.token ? "Copied!" : "Copy bidding link"}
-                                            >
-                                                {copiedToken === result.token ? <Check size={10} className="text-emerald-700" /> : <ExternalLink size={10} />}
-                                                {copiedToken === result.token ? 'Copied!' : 'Link'}
-                                            </button>
-                                        )}
-                                        {result.quotation_bank_id && (
-                                            <button
-                                                onClick={() => handleResendInvite(result.quotation_bank_id, result.bank_name)}
-                                                className="text-[10px] text-emerald-600 hover:underline flex items-center gap-1 font-medium"
-                                                title="Resend invitation email to this bank"
-                                            >
-                                                <Mail size={10} /> Resend Invite
-                                            </button>
-                                        )}
-                                    </div>
-                                    {result.approval_status === 'DECLINED' && result.approval_notes && (
-                                        <div className="mt-2 text-xs bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5 text-rose-800 flex items-start gap-2 max-w-lg">
-                                            <AlertCircle size={13} className="text-rose-500 shrink-0 mt-0.5" />
-                                            <span className="leading-snug"><strong className="text-rose-900 font-semibold">Approver Decline Reason:</strong> {result.approval_notes}</span>
-                                        </div>
-                                    )}
-                                    {result.notes && (
-                                        <div className="mt-2 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 flex items-start gap-2 max-w-lg">
-                                            <MessageSquare size={13} className="text-blue-500 shrink-0 mt-0.5" />
-                                            <span className="leading-snug"><strong className="text-slate-900 font-semibold">Trader Notes:</strong> {result.notes}</span>
-                                        </div>
-                                    )}
-                                    {/* Value Date & Settlement Policy Badge (visible during approval and execution) */}
-                                    {rfq?.type === 'FX_SPOT' && (
-                                        <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
-                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-semibold ${
-                                                result.is_alternative_value_date 
-                                                    ? 'bg-blue-50 text-blue-800 border-blue-200' 
-                                                    : 'bg-slate-50 text-slate-700 border-slate-200'
-                                            }`}>
-                                                <Calendar size={12} className={result.is_alternative_value_date ? 'text-blue-600' : 'text-slate-400'} />
-                                                <span>
-                                                    Value Date: <strong>{formatDate(result.offered_value_date || result.assigned_value_date || rfq?.value_date)}</strong>
-                                                </span>
-                                                {result.is_alternative_value_date && (
-                                                    <span className="text-[10px] font-normal text-blue-600 ml-1">
-                                                        (Target: {formatDate(rfq?.value_date)})
-                                                    </span>
-                                                )}
-                                            </span>
-                                            {result.allow_alternative_value_date ? (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
-                                                    Alternative Date Permitted
-                                                </span>
-                                            ) : result.is_alternative_value_date ? (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
-                                                    Custom Settlement Date
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 bg-gray-100 border border-gray-200/60 px-2 py-0.5 rounded">
-                                                    Fixed Settlement Date
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
 
-                            {result.price && result.finalPrice ? (
-                                <div className="text-right flex flex-wrap items-center gap-4 sm:gap-6 w-full md:w-auto">
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bank Quote</label>
-                                        <p className="text-sm font-mono text-gray-500">{result.price.toFixed(5)}</p>
-                                    </div>
-                                    <ArrowRight className="text-gray-300 hidden sm:block" size={16} />
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">All-In Price</label>
-                                        <p className="text-sm font-mono font-semibold text-gray-700">{result.finalPrice.toFixed(5)}</p>
-                                    </div>
-                                    {result.is_alternative_value_date && result.normalized_price ? (
-                                        <>
-                                            <ArrowRight className="text-gray-300 hidden sm:block" size={16} />
-                                            <div>
-                                                <div className="flex items-center justify-end gap-1 mb-1">
-                                                    <label className="block text-[10px] font-bold text-blue-600 uppercase">TVM Eval Price</label>
-                                                    <span className="text-[9px] font-mono font-bold bg-blue-100 text-blue-800 px-1 rounded">
-                                                        {result.time_value_adjustment >= 0 ? '+' : ''}{result.time_value_adjustment.toFixed(4)}
+                    {/* Multi-Leg Bidding Ladders */}
+                    {legs && legs.length > 1 ? (
+                        selectedLegIndex === 'ALL' ? (
+                            <div className="space-y-8">
+                                {legs.map((leg, lIdx) => {
+                                    const legPair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
+                                    const legWinner = leg.winner_bank_name;
+                                    const isBuy = (leg.direction || '').toUpperCase() === 'BUY';
+                                    return (
+                                        <div key={leg.leg_id || lIdx} className="bg-slate-50/70 rounded-3xl p-5 sm:p-6 border border-slate-200/80 space-y-4">
+                                            {/* Leg Header Banner */}
+                                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
+                                                <div className="flex items-center gap-3 flex-wrap">
+                                                    <span className="text-xs font-black uppercase tracking-wider text-slate-400 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                                                        Leg #{lIdx + 1}
+                                                    </span>
+                                                    <span className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider ${
+                                                        isBuy ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                                                    }`}>
+                                                        {leg.direction || 'BUY'}
+                                                    </span>
+                                                    <span className="text-xl font-black text-slate-900 font-mono">
+                                                        {new Intl.NumberFormat().format(leg.amount || 0)}
+                                                    </span>
+                                                    <span className="text-base font-bold text-slate-700">
+                                                        {legPair}
+                                                    </span>
+                                                    <span className="text-xs text-slate-500 font-medium">
+                                                        &bull; Settlement: <strong>{formatDate(leg.value_date)}</strong>
+                                                    </span>
+                                                    <span className="text-[11px] font-bold text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded uppercase">
+                                                        {leg.quotation_base || 'Execution'}
                                                     </span>
                                                 </div>
-                                                <p className={`text-2xl font-bold font-mono ${index === 0 ? 'text-emerald-600' : 'text-blue-950'}`}>
-                                                    {result.normalized_price.toFixed(5)}
-                                                </p>
+                                                {legWinner && !leg.is_inconclusive && (
+                                                    <div className="flex items-center gap-2 bg-emerald-100/90 border border-emerald-300 text-emerald-950 px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-2xs">
+                                                        <Trophy size={14} className="text-emerald-700" />
+                                                        <span>Awarded to {legWinner} @ {leg.winner_rate}</span>
+                                                        {leg.saved_vs_avg > 0 && (
+                                                            <span className="text-emerald-800 font-mono text-[11px]">
+                                                                (+{leg.saved_vs_avg.toLocaleString(undefined, { minimumFractionDigits: 2 })} {leg.savings_summary?.currency || 'EGP'})
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <ArrowRight className="text-gray-300 hidden sm:block" size={16} />
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Adjusted Price</label>
-                                                <p className={`text-2xl font-bold font-mono ${index === 0 ? 'text-emerald-600' : 'text-gray-900'}`}>
-                                                    {result.finalPrice.toFixed(5)}
-                                                </p>
+
+                                            {/* Counterparty Rows for this leg */}
+                                            <div className="space-y-3">
+                                                {(leg.results || []).map((res, rIdx) => renderFxCounterpartyCard(res, rIdx, leg))}
+                                                {(!leg.results || leg.results.length === 0) && (
+                                                    <div className="p-8 text-center text-slate-400 italic bg-white rounded-2xl border border-dashed border-slate-200">
+                                                        No quotes submitted for this currency pair yet.
+                                                    </div>
+                                                )}
                                             </div>
-                                        </>
-                                    )}
-                                    <div className="pl-4 border-l border-gray-100">
-                                        <button
-                                            onClick={() => {
-                                                const isWinner = index === 0;
-                                                const refNo = rfq?.ref_no || '';
-                                                const executedValueDate = result.offered_value_date || rfq?.value_date;
-                                                const subject = encodeURIComponent(isWinner
-                                                    ? `Deal Confirmation: RFQ ${refNo} - ${rfq.buy_currency}/${rfq.sell_currency}`
-                                                    : `RFQ Result: RFQ ${refNo} - ${rfq.buy_currency}/${rfq.sell_currency}`
-                                                );
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            (() => {
+                                const currentLeg = legs[selectedLegIndex] || legs[0];
+                                const legPair = currentLeg.currency_pair || `${currentLeg.buy_currency}/${currentLeg.sell_currency}`;
+                                const isBuy = (currentLeg.direction || '').toUpperCase() === 'BUY';
+                                return (
+                                    <div className="bg-slate-50/70 rounded-3xl p-5 sm:p-6 border border-slate-200/80 space-y-4">
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
+                                            <div className="flex items-center gap-3 flex-wrap">
+                                                <span className="text-xs font-black uppercase tracking-wider text-slate-400 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                                                    Leg #{Number(selectedLegIndex) + 1}
+                                                </span>
+                                                <span className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider ${
+                                                    isBuy ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                                                }`}>
+                                                    {currentLeg.direction || 'BUY'}
+                                                </span>
+                                                <span className="text-xl font-black text-slate-900 font-mono">
+                                                    {new Intl.NumberFormat().format(currentLeg.amount || 0)}
+                                                </span>
+                                                <span className="text-base font-bold text-slate-700">
+                                                    {legPair}
+                                                </span>
+                                                <span className="text-xs text-slate-500 font-medium">
+                                                    &bull; Settlement: <strong>{formatDate(currentLeg.value_date)}</strong>
+                                                </span>
+                                                <span className="text-[11px] font-bold text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded uppercase">
+                                                    {currentLeg.quotation_base || 'Execution'}
+                                                </span>
+                                            </div>
+                                            {currentLeg.winner_bank_name && !currentLeg.is_inconclusive && (
+                                                <div className="flex items-center gap-2 bg-emerald-100/90 border border-emerald-300 text-emerald-950 px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-2xs">
+                                                    <Trophy size={14} className="text-emerald-700" />
+                                                    <span>Awarded to {currentLeg.winner_bank_name} @ {currentLeg.winner_rate}</span>
+                                                    {currentLeg.saved_vs_avg > 0 && (
+                                                        <span className="text-emerald-800 font-mono text-[11px]">
+                                                            (+{currentLeg.saved_vs_avg.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currentLeg.savings_summary?.currency || 'EGP'})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
 
-                                                const body = encodeURIComponent(isWinner
-                                                    ? `Dear ${result.bank_name} FX Desk,\n\nWe are pleased to confirm the execution of the following trade based on your winning quote:\n\nREFERENCE: ${refNo}\n- Pair: ${rfq.buy_currency}/${rfq.sell_currency}\n- Amount: ${rfq.amount}\n- Executed Rate: ${result.price.toFixed(5)}\n- Value Date: ${formatDate(executedValueDate)}\n\nPlease proceed with the standard settlement instructions.\n\nBest regards,\nTreasury Team`
-                                                    : `Dear ${result.bank_name} FX Desk,\n\nThank you for participating in our Request for Quotation (RFQ) for ${rfq.buy_currency}/${rfq.sell_currency}.\n\nREFERENCE: ${refNo}\n\nWe are writing to inform you that your quote was not selected for this specific transaction as we have executed with another counterparty at a more competitive all-in rate.\n\nWe appreciate your participation and look forward to your quotes on future requests.\n\nBest regards,\nTreasury Team`
-                                                );
-
-                                                window.open(`mailto:${result.bank_emails}?subject=${subject}&body=${body}`, '_blank');
-                                            }}
-                                            title={index === 0 ? "Draft Confirmation Email" : "Draft Regret Email"}
-                                            className={`p-3 rounded-xl transition-all flex items-center gap-2 ${index === 0
-                                                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                                }`}
-                                        >
-                                            <Mail size={18} />
-                                            <span className="text-xs font-bold sm:hidden">Email</span>
-                                        </button>
+                                        <div className="space-y-3">
+                                            {(currentLeg.results || []).map((res, rIdx) => renderFxCounterpartyCard(res, rIdx, currentLeg))}
+                                            {(!currentLeg.results || currentLeg.results.length === 0) && (
+                                                <div className="p-8 text-center text-slate-400 italic bg-white rounded-2xl border border-dashed border-slate-200">
+                                                    No quotes submitted for this currency pair yet.
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="text-right w-full md:w-auto">
-                                    {result.approval_status === 'DECLINED' ? (
-                                        <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg inline-block">
-                                            Declined by Bank
-                                        </span>
-                                    ) : result.approval_status === 'EXPIRED' ? (
-                                        <span className="text-xs font-bold text-gray-500 bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg inline-block">
-                                            Approval Expired
-                                        </span>
-                                    ) : result.approval_status === 'PENDING' ? (
-                                        <span className={`text-xs font-bold px-3 py-1.5 rounded-lg inline-block ${
-                                            isWindowClosed ? 'text-gray-500 bg-gray-100 border border-gray-200' : 'text-amber-600 bg-amber-50 border border-amber-200'
-                                        }`}>
-                                            {isWindowClosed ? 'Approval Expired' : 'Pending Bank Approval'}
-                                        </span>
-                                    ) : isWindowClosed ? (
-                                        <span className="text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg inline-block">
-                                            No Offer Received
-                                        </span>
-                                    ) : (
-                                        <span className="text-sm font-bold text-gray-400">Awaiting Submission</span>
-                                    )}
-                                </div>
-                            )}
+                                );
+                            })()
+                        )
+                    ) : (
+                        <div className="space-y-4">
+                            {results.map((result, index) => renderFxCounterpartyCard(result, index))}
                         </div>
-                    ))}
+                    )}
                 </div>
             )}
 
@@ -1216,15 +1550,29 @@ export default function ResultsView({ rfqId }) {
                             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono text-xs">
                                 <div>
                                     <span className="font-sans text-[10px] font-bold text-slate-400 uppercase block">Trade Instrument</span>
-                                    <span className="font-bold text-slate-900">{rfq?.type === 'TBILL' ? 'T-Bill Auction' : `FX Spot (${rfq?.buy_currency}/${rfq?.sell_currency})`}</span>
+                                    <span className="font-bold text-slate-900">
+                                        {rfq?.type === 'TBILL' 
+                                            ? 'T-Bill Auction' 
+                                            : (legs && legs.length > 1 
+                                                ? `FX Portfolio (${legs.length} Pairs)` 
+                                                : `FX Spot (${rfq?.buy_currency}/${rfq?.sell_currency})`)}
+                                    </span>
                                 </div>
                                 <div>
                                     <span className="font-sans text-[10px] font-bold text-slate-400 uppercase block">Trade Volume</span>
-                                    <span className="font-bold text-slate-900">{formatAmount(rfq?.amount)} {rfq?.buy_currency}</span>
+                                    <span className="font-bold text-slate-900 truncate block">
+                                        {legs && legs.length > 1 
+                                            ? legs.map(l => `${formatAmount(l.amount)} ${l.buy_currency}`).join(' + ') 
+                                            : `${formatAmount(rfq?.amount)} ${rfq?.buy_currency}`}
+                                    </span>
                                 </div>
                                 <div>
                                     <span className="font-sans text-[10px] font-bold text-slate-400 uppercase block">Value Date</span>
-                                    <span className="font-bold text-slate-900">{rfq?.value_date || 'N/A'}</span>
+                                    <span className="font-bold text-slate-900 truncate block">
+                                        {legs && legs.length > 1 
+                                            ? `${legs.length} Specific Dates` 
+                                            : (rfq?.value_date || 'N/A')}
+                                    </span>
                                 </div>
                                 <div>
                                     <span className="font-sans text-[10px] font-bold text-slate-400 uppercase block">Tender Mechanism</span>
@@ -1233,7 +1581,32 @@ export default function ResultsView({ rfqId }) {
                             </div>
 
                             {/* Savings Certification Block */}
-                            {resultsMeta.savingsSummary && (
+                            {legs && legs.length > 1 ? (
+                                (() => {
+                                    const totalSavedVsAvg = legs.reduce((acc, l) => acc + (l.saved_vs_avg || l.savings_summary?.saved_vs_avg || 0), 0);
+                                    return (
+                                        <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Award size={18} className="text-emerald-700" />
+                                                <h4 className="font-bold text-emerald-900 text-sm">Audit Findings & Quantified Portfolio Value Delivery</h4>
+                                            </div>
+                                            <p className="text-xs text-emerald-800 leading-relaxed mb-3">
+                                                Portfolio executed across {legs.length} currency pairs via competitive blind tender. Net quantified savings of <strong className="font-mono font-semibold">EGP {totalSavedVsAvg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> achieved across all evaluated legs relative to average market bids.
+                                            </p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                                                {legs.map((l, idx) => (
+                                                    <div key={idx} className="bg-white/80 p-2.5 rounded-xl border border-emerald-200/60 flex items-center justify-between">
+                                                        <span className="font-bold text-slate-700">{l.currency_pair || `${l.buy_currency}/${l.sell_currency}`}:</span>
+                                                        <strong className="text-emerald-950">
+                                                            {l.winner_bank_name ? `${l.winner_bank_name} @ ${l.winner_rate}` : 'Inconclusive / No Quote'}
+                                                        </strong>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })()
+                            ) : resultsMeta.savingsSummary ? (
                                 <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200">
                                     <div className="flex items-center gap-2 mb-2">
                                         <Award size={18} className="text-emerald-700" />
@@ -1244,51 +1617,105 @@ export default function ResultsView({ rfqId }) {
                                         Execution achieved a net verified savings of <strong className="font-mono font-semibold">{resultsMeta.savingsSummary.currency} {resultsMeta.savingsSummary.saved_vs_avg?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> compared to the mean quote of <strong className="font-mono">{resultsMeta.savingsSummary.avg_rate}</strong> across {resultsMeta.savingsSummary.total_quotes} participating banking desks.
                                     </p>
                                 </div>
-                            )}
+                            ) : null}
 
                             {/* Audit Trail Table */}
                             <div>
                                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Counterparty Submission Audit Log</h4>
-                                <div className="border border-slate-200 rounded-2xl overflow-hidden">
-                                    <table className="w-full text-left text-xs">
-                                        <thead className="bg-slate-50 border-b border-slate-200 font-bold uppercase text-[10px] text-slate-500">
-                                            <tr>
-                                                <th className="py-2.5 px-3">Rank / Counterparty</th>
-                                                <th className="py-2.5 px-3">Type</th>
-                                                <th className="py-2.5 px-3 font-mono">Bank Quote</th>
-                                                <th className="py-2.5 px-3 font-mono">Final Price</th>
-                                                <th className="py-2.5 px-3">Submission Timestamp</th>
-                                                <th className="py-2.5 px-3 text-right">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {results.map((res, idx) => {
-                                                const isWin = res.bank_id === resultsMeta.winnerBankId || idx === 0;
-                                                return (
-                                                    <tr key={idx} className={isWin ? 'bg-emerald-50/70 font-semibold' : 'hover:bg-slate-50'}>
-                                                        <td className="py-2.5 px-3 flex items-center gap-2">
-                                                            {isWin ? <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">1</span> : <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">{idx + 1}</span>}
-                                                            <span>{res.bank_name}</span>
-                                                        </td>
-                                                        <td className="py-2.5 px-3 text-slate-500">{res.quotation_base || 'Execution'}</td>
-                                                        <td className="py-2.5 px-3 font-mono">{res.price ? res.price.toFixed(5) : '—'}</td>
-                                                        <td className="py-2.5 px-3 font-mono text-emerald-700">{res.finalPrice ? res.finalPrice.toFixed(5) : (res.best_score ? res.best_score.toFixed(6) : '—')}</td>
-                                                        <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px]">{res.submitted_at ? new Date(res.submitted_at).toLocaleTimeString() : 'No Submission'}</td>
-                                                        <td className="py-2.5 px-3 text-right">
-                                                            {isWin ? (
-                                                                <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold uppercase">Awarded</span>
-                                                            ) : res.submitted_at ? (
-                                                                <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">Competitive</span>
-                                                            ) : (
-                                                                <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 text-[10px] font-bold uppercase">Unquoted</span>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                {legs && legs.length > 1 ? (
+                                    <div className="space-y-4">
+                                        {legs.map((leg, lIdx) => {
+                                            const legPair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
+                                            return (
+                                                <div key={leg.leg_id || lIdx} className="border border-slate-200 rounded-2xl overflow-hidden">
+                                                    <div className="bg-slate-100 px-3.5 py-2 font-bold text-xs text-slate-800 border-b border-slate-200 flex items-center justify-between">
+                                                        <span>Leg #{lIdx + 1}: {legPair} ({formatAmount(leg.amount)})</span>
+                                                        <span className="text-[10px] text-slate-500 font-mono">Val: {formatDate(leg.value_date)}</span>
+                                                    </div>
+                                                    <table className="w-full text-left text-xs">
+                                                        <thead className="bg-slate-50 border-b border-slate-200 font-bold uppercase text-[10px] text-slate-500">
+                                                            <tr>
+                                                                <th className="py-2.5 px-3">Rank / Counterparty</th>
+                                                                <th className="py-2.5 px-3">Type</th>
+                                                                <th className="py-2.5 px-3 font-mono">Bank Quote</th>
+                                                                <th className="py-2.5 px-3 font-mono">Final Price</th>
+                                                                <th className="py-2.5 px-3">Submission Timestamp</th>
+                                                                <th className="py-2.5 px-3 text-right">Status</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-slate-100">
+                                                            {(leg.results || []).map((res, idx) => {
+                                                                const isWin = res.bank_id === leg.winner_bank_id || (idx === 0 && res.price != null);
+                                                                return (
+                                                                    <tr key={idx} className={isWin ? 'bg-emerald-50/70 font-semibold' : 'hover:bg-slate-50'}>
+                                                                        <td className="py-2.5 px-3 flex items-center gap-2">
+                                                                            {isWin ? <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">1</span> : <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">{idx + 1}</span>}
+                                                                            <span>{res.bank_name}</span>
+                                                                        </td>
+                                                                        <td className="py-2.5 px-3 text-slate-500">{res.quotation_base || 'Execution'}</td>
+                                                                        <td className="py-2.5 px-3 font-mono">{res.price ? res.price.toFixed(5) : '—'}</td>
+                                                                        <td className="py-2.5 px-3 font-mono text-emerald-700">{res.finalPrice ? res.finalPrice.toFixed(5) : '—'}</td>
+                                                                        <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px]">{res.submitted_at ? new Date(res.submitted_at).toLocaleTimeString() : 'No Submission'}</td>
+                                                                        <td className="py-2.5 px-3 text-right">
+                                                                            {isWin ? (
+                                                                                <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold uppercase">Awarded</span>
+                                                                            ) : res.submitted_at ? (
+                                                                                <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">Competitive</span>
+                                                                            ) : (
+                                                                                <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 text-[10px] font-bold uppercase">Unquoted</span>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                                        <table className="w-full text-left text-xs">
+                                            <thead className="bg-slate-50 border-b border-slate-200 font-bold uppercase text-[10px] text-slate-500">
+                                                <tr>
+                                                    <th className="py-2.5 px-3">Rank / Counterparty</th>
+                                                    <th className="py-2.5 px-3">Type</th>
+                                                    <th className="py-2.5 px-3 font-mono">Bank Quote</th>
+                                                    <th className="py-2.5 px-3 font-mono">Final Price</th>
+                                                    <th className="py-2.5 px-3">Submission Timestamp</th>
+                                                    <th className="py-2.5 px-3 text-right">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {results.map((res, idx) => {
+                                                    const isWin = res.bank_id === resultsMeta.winnerBankId || idx === 0;
+                                                    return (
+                                                        <tr key={idx} className={isWin ? 'bg-emerald-50/70 font-semibold' : 'hover:bg-slate-50'}>
+                                                            <td className="py-2.5 px-3 flex items-center gap-2">
+                                                                {isWin ? <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">1</span> : <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">{idx + 1}</span>}
+                                                                <span>{res.bank_name}</span>
+                                                            </td>
+                                                            <td className="py-2.5 px-3 text-slate-500">{res.quotation_base || 'Execution'}</td>
+                                                            <td className="py-2.5 px-3 font-mono">{res.price ? res.price.toFixed(5) : '—'}</td>
+                                                            <td className="py-2.5 px-3 font-mono text-emerald-700">{res.finalPrice ? res.finalPrice.toFixed(5) : (res.best_score ? res.best_score.toFixed(6) : '—')}</td>
+                                                            <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px]">{res.submitted_at ? new Date(res.submitted_at).toLocaleTimeString() : 'No Submission'}</td>
+                                                            <td className="py-2.5 px-3 text-right">
+                                                                {isWin ? (
+                                                                    <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold uppercase">Awarded</span>
+                                                                ) : res.submitted_at ? (
+                                                                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">Competitive</span>
+                                                                ) : (
+                                                                    <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 text-[10px] font-bold uppercase">Unquoted</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Compliance Sign-off */}

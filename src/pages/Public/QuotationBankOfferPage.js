@@ -93,6 +93,10 @@ export default function QuotationBankOfferPage() {
     // Live Ranking State
     const [liveRank, setLiveRank] = useState(null);
 
+    // Multi-Pair Leg Quotes and Leg Live Ranks
+    const [legQuotes, setLegQuotes] = useState({});
+    const [legLiveRanks, setLegLiveRanks] = useState({});
+
     // Attention cues for window opening and title
     const prevStatusRef = useRef(null);
     const [showWindowOpenedAlert, setShowWindowOpenedAlert] = useState(false);
@@ -153,6 +157,17 @@ export default function QuotationBankOfferPage() {
                     total_quotes: data.total_quotes,
                     is_leading: data.live_rank === 1
                 });
+            }
+            if (data.legs && Array.isArray(data.legs)) {
+                const initialRanks = {};
+                data.legs.forEach(l => {
+                    if (l.live_rank) {
+                        initialRanks[l.id] = l.live_rank;
+                    }
+                });
+                if (Object.keys(initialRanks).length > 0) {
+                    setLegLiveRanks(initialRanks);
+                }
             }
         } catch (err) {
             const status = err.response?.status;
@@ -303,6 +318,9 @@ export default function QuotationBankOfferPage() {
                         total_quotes: res.data.total_quotes,
                         is_leading: res.data.is_leading
                     });
+                    if (res.data.ranks_by_leg && Object.keys(res.data.ranks_by_leg).length > 0) {
+                        setLegLiveRanks(res.data.ranks_by_leg);
+                    }
                 }
             } catch (err) {
                 // Background polling errors are ignored
@@ -585,7 +603,21 @@ export default function QuotationBankOfferPage() {
                 }
             }
         } else if (rfq.type === 'FX_SPOT') {
-            if (rfq.offers && rfq.offers.length > 0) {
+            if (rfq.legs && rfq.legs.length > 1) {
+                const initialQuotes = {};
+                let anySubmitted = false;
+                rfq.legs.forEach(leg => {
+                    const offer = (leg.offers && leg.offers.length > 0) ? leg.offers[0] : null;
+                    if (offer) anySubmitted = true;
+                    initialQuotes[leg.id] = {
+                        price: offer ? String(offer.price) : '',
+                        offered_value_date: offer?.offered_value_date || leg.value_date || '',
+                        notes: offer?.notes || ''
+                    };
+                });
+                setLegQuotes(initialQuotes);
+                if (anySubmitted) setSubmitted(true);
+            } else if (rfq.offers && rfq.offers.length > 0) {
                 setPrice(rfq.offers[0].price.toString());
                 if (rfq.offers[0].offered_value_date) {
                     setOfferedValueDate(rfq.offers[0].offered_value_date);
@@ -964,6 +996,85 @@ export default function QuotationBankOfferPage() {
             await executeSubmit(null);
         } else {
             await executeSubmit(null);
+        }
+    };
+
+    const updateLegQuote = (legId, field, value) => {
+        setLegQuotes(prev => ({
+            ...prev,
+            [legId]: {
+                ...(prev[legId] || {}),
+                [field]: value
+            }
+        }));
+    };
+
+    const handleBatchSubmit = async (e) => {
+        e?.preventDefault();
+        if (isSubmitting) return;
+        if (timeLeft.status !== 'OPEN') return;
+        if (!authSession) {
+            alert('Please authenticate first.');
+            return;
+        }
+
+        const isIndicative = (rfq?.quotation_base || '').toLowerCase() === 'indicative';
+        const hasExecutionDealers = rfq?.has_execution_dealers ?? true;
+        const canApproverExecute = isIndicative || !hasExecutionDealers;
+
+        if (authSession.role === 'VIEW_ONLY') {
+            alert('Quotes cannot be submitted in read-only mode.');
+            return;
+        }
+        if (authSession.role === 'APPROVER' && !canApproverExecute) {
+            alert('Quotes can only be submitted by authorized Execution dealers.');
+            return;
+        }
+
+        const quotesToSubmit = [];
+        for (const leg of (rfq.legs || [])) {
+            const q = legQuotes[leg.id];
+            const p = q?.price ? parseFloat(q.price) : NaN;
+            if (isNaN(p) || p <= 0) {
+                alert(`Please enter a valid rate for leg ${leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`}.`);
+                return;
+            }
+
+            if (leg.allow_alternative_value_date && q?.offered_value_date) {
+                const tradeDateLimit = rfq?.window_start ? rfq.window_start.split('T')[0] : '';
+                if (tradeDateLimit && q.offered_value_date < tradeDateLimit) {
+                    alert(`Proposed Value Date for ${leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`} cannot be earlier than quotation trade date (${formatDate(tradeDateLimit)}).`);
+                    return;
+                }
+            }
+
+            quotesToSubmit.push({
+                leg_id: leg.id,
+                price: p,
+                offered_value_date: leg.allow_alternative_value_date ? (q?.offered_value_date || leg.value_date || undefined) : undefined,
+                notes: q?.notes?.trim() || undefined
+            });
+        }
+
+        setIsSubmitting(true);
+        try {
+            const res = await quotationApi.post('/api/v1/public-quotation/offers-batch', {
+                token,
+                quotes: quotesToSubmit,
+                session_token: authSession.session_token,
+                email: authSession.email,
+                notes: traderNotes.trim() || undefined
+            });
+            setSubmitted(true);
+            if (res.data?.ranks_by_leg) {
+                setLegLiveRanks(res.data.ranks_by_leg);
+            }
+            await fetchRfq();
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.detail || "Batch submission failed. Please try again.");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -1555,6 +1666,53 @@ export default function QuotationBankOfferPage() {
                                                     </p>
                                                 </div>
                                             </>
+                                        ) : (rfq.legs && rfq.legs.length > 1) ? (
+                                            <div className="col-span-2 space-y-3">
+                                                <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                        Multi-Currency Package ({rfq.legs.length} Pairs)
+                                                    </span>
+                                                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                                                        Multi-Pair RFQ
+                                                    </span>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    {rfq.legs.map((leg, idx) => (
+                                                        <div key={leg.id || idx} className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl flex flex-col justify-between gap-2 shadow-2xs">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="w-5 h-5 rounded-md bg-slate-800 text-white text-[10px] font-black flex items-center justify-center font-mono">
+                                                                        {idx + 1}
+                                                                    </span>
+                                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase text-white ${
+                                                                        (leg.direction || 'BUY').toUpperCase() === 'BUY' ? 'bg-emerald-600' : 'bg-blue-600'
+                                                                    }`}>
+                                                                        {leg.direction || 'BUY'}
+                                                                    </span>
+                                                                    <span className="font-mono font-bold text-sm text-slate-900">
+                                                                        {leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="font-mono font-bold text-xs text-slate-900">
+                                                                    {new Intl.NumberFormat().format(leg.amount || 0)} <span className="text-[10px] text-slate-500 font-normal">{leg.buy_currency}</span>
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-200/60">
+                                                                <span>Value: <strong className="text-slate-700 font-semibold">{formatDate(leg.value_date)}</strong></span>
+                                                                {leg.allow_alternative_value_date ? (
+                                                                    <span className="text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                                                                        Alt Date Allowed
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-[9px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                                                        Fixed Date
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         ) : (
                                             <>
                                                 <div>
@@ -1711,6 +1869,15 @@ export default function QuotationBankOfferPage() {
                                                                 <>
                                                                     <li>&bull; Min Ticket: <span className="font-bold text-gray-900">{new Intl.NumberFormat().format(rfq.min_ticket_amount || 0)}</span></li>
                                                                     <li>&bull; Settlement: <span className="font-bold text-gray-900">{formatDate(rfq.settlement_date_start)}</span></li>
+                                                                </>
+                                                            ) : (rfq.legs && rfq.legs.length > 1) ? (
+                                                                <>
+                                                                    <li>&bull; Package: <span className="font-bold text-gray-900">{rfq.legs.length} Currency Pairs</span></li>
+                                                                    {rfq.legs.map((l, i) => (
+                                                                        <li key={l.id || i} className="pl-2 text-[11px] text-gray-500">
+                                                                            &bull; Leg {i + 1}: <strong className="text-gray-800">{l.currency_pair || `${l.buy_currency}/${l.sell_currency}`}</strong> &bull; {new Intl.NumberFormat().format(l.amount || 0)} {l.buy_currency} &bull; Val: {formatDate(l.value_date)}
+                                                                        </li>
+                                                                    ))}
                                                                 </>
                                                             ) : (
                                                                 <>
@@ -1928,7 +2095,7 @@ export default function QuotationBankOfferPage() {
                                                         : 'Your registered account has observer permissions. You can inspect trade parameters and history, but only dealers tagged for Execution can enter binding quotes.'}
                                                 </div>
                                             ) : (
-                                                <form id="quote-form" onSubmit={handleSubmit} className="space-y-4">
+                                                <form id="quote-form" onSubmit={(rfq?.legs && rfq.legs.length > 1) ? handleBatchSubmit : handleSubmit} className="space-y-4">
                                                     {/* Multi-Dealer Desk Concurrency Banner */}
                                                     {isSpectator && (
                                                         <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl shadow-xs text-xs animate-fade-in-up">
@@ -2100,6 +2267,130 @@ export default function QuotationBankOfferPage() {
                                                                 </button>
                                                             )}
                                                         </div>
+                                                    ) : (rfq.legs && rfq.legs.length > 1) ? (
+                                                        <div className="space-y-4">
+                                                            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                                                <div>
+                                                                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                                                                        <TrendingUp size={14} className="text-emerald-600" /> Multi-Pair Quoting Console
+                                                                    </h4>
+                                                                    <p className="text-[11px] text-slate-500 mt-0.5">
+                                                                        Enter your firm quotes for all {rfq.legs.length} currency pair legs.
+                                                                    </p>
+                                                                </div>
+                                                                <span className="text-[10px] font-bold font-mono px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                                    {Object.values(legQuotes).filter(q => q?.price && parseFloat(q.price) > 0).length} / {rfq.legs.length} Quoted
+                                                                </span>
+                                                            </div>
+
+                                                            <div className="space-y-3.5">
+                                                                {rfq.legs.map((leg, idx) => {
+                                                                    const q = legQuotes[leg.id] || { price: '', offered_value_date: leg.value_date || '', notes: '' };
+                                                                    const legRank = legLiveRanks[leg.id];
+                                                                    const hasQuote = q.price && parseFloat(q.price) > 0;
+
+                                                                    return (
+                                                                        <div 
+                                                                            key={leg.id || idx}
+                                                                            className={`p-4 rounded-2xl border transition-all ${
+                                                                                hasQuote ? 'bg-white border-slate-300 shadow-xs' : 'bg-slate-50 border-slate-200'
+                                                                            }`}
+                                                                        >
+                                                                            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="w-6 h-6 rounded-lg bg-slate-900 text-white text-xs font-black flex items-center justify-center font-mono">
+                                                                                        {idx + 1}
+                                                                                    </span>
+                                                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase text-white ${
+                                                                                        (leg.direction || 'BUY').toUpperCase() === 'BUY' ? 'bg-emerald-600' : 'bg-blue-600'
+                                                                                    }`}>
+                                                                                        {leg.direction || 'BUY'}
+                                                                                    </span>
+                                                                                    <span className="font-mono font-black text-sm text-slate-900">
+                                                                                        {leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`}
+                                                                                    </span>
+                                                                                    <span className="text-xs text-slate-500 font-semibold">
+                                                                                        ({new Intl.NumberFormat().format(leg.amount || 0)} {leg.buy_currency})
+                                                                                    </span>
+                                                                                </div>
+
+                                                                                {rfq.is_live_ranking_enabled && (
+                                                                                    <div>
+                                                                                        {legRank?.rank === 1 ? (
+                                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white shadow-2xs animate-pulse">
+                                                                                                🏆 #1 Leading
+                                                                                            </span>
+                                                                                        ) : legRank?.rank ? (
+                                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono">
+                                                                                                Rank #{legRank.rank} of {legRank.total_quotes || 1}
+                                                                                            </span>
+                                                                                        ) : (
+                                                                                            <span className="text-[10px] text-slate-400 font-medium">
+                                                                                                Unquoted
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+
+                                                                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                                                                                <div className={leg.allow_alternative_value_date ? "sm:col-span-7" : "sm:col-span-8"}>
+                                                                                    <div className="flex items-center justify-between mb-1">
+                                                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">
+                                                                                            Rate ({leg.sell_currency} per 1 {leg.buy_currency})
+                                                                                        </label>
+                                                                                        {leg.cbe_benchmark_rate && (
+                                                                                            <span className="text-[10px] font-mono text-gray-400">
+                                                                                                CBE: ~{parseFloat(leg.cbe_benchmark_rate).toFixed(4)}
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <div className="relative">
+                                                                                        <input
+                                                                                            type="number"
+                                                                                            step="0.0001"
+                                                                                            required
+                                                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator}
+                                                                                            onWheel={(e) => e.currentTarget.blur()}
+                                                                                            placeholder="Enter rate (e.g. 48.6500)"
+                                                                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-base font-bold font-mono focus:bg-white focus:border-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                                                                                            value={q.price}
+                                                                                            onChange={e => updateLegQuote(leg.id, 'price', e.target.value)}
+                                                                                        />
+                                                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs pointer-events-none">
+                                                                                            {leg.sell_currency}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+
+                                                                                {leg.allow_alternative_value_date ? (
+                                                                                    <div className="sm:col-span-5">
+                                                                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                                                                                            Proposed Value Date
+                                                                                        </label>
+                                                                                        <input
+                                                                                            type="date"
+                                                                                            min={rfq?.window_start ? rfq.window_start.split('T')[0] : new Date().toISOString().split('T')[0]}
+                                                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator}
+                                                                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 focus:bg-white focus:border-slate-900 outline-none disabled:bg-slate-100"
+                                                                                            value={q.offered_value_date || leg.value_date || ''}
+                                                                                            onChange={e => updateLegQuote(leg.id, 'offered_value_date', e.target.value)}
+                                                                                        />
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <div className="sm:col-span-4 flex flex-col justify-end">
+                                                                                        <span className="text-[10px] text-slate-400 block mb-1">Value Date</span>
+                                                                                        <span className="text-xs font-semibold text-slate-800 py-1.5">
+                                                                                            {formatDate(leg.value_date)}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
                                                     ) : (
                                                         <div className="space-y-4">
                                                             <div>
@@ -2201,7 +2492,13 @@ export default function QuotationBankOfferPage() {
                                                         ) : (
                                                             <button
                                                                 type="submit"
-                                                                disabled={timeLeft.status !== 'OPEN' || isSubmitting || !authSession || (rfq.type === 'TBILL' ? tbillLines.some(l => !l.discountRate || !l.maxAmount) : !price)}
+                                                                disabled={timeLeft.status !== 'OPEN' || isSubmitting || !authSession || (
+                                                                    rfq.type === 'TBILL' 
+                                                                        ? tbillLines.some(l => !l.discountRate || !l.maxAmount) 
+                                                                        : (rfq.legs && rfq.legs.length > 1)
+                                                                        ? rfq.legs.some(l => !legQuotes[l.id]?.price || parseFloat(legQuotes[l.id].price) <= 0)
+                                                                        : !price
+                                                                )}
                                                                 className={`w-full py-3.5 rounded-2xl font-bold text-base transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
                                                                     timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10
                                                                         ? 'bg-gradient-to-r from-amber-600 via-rose-600 to-red-600 hover:from-amber-700 hover:to-red-700 text-white animate-pulse shadow-red-500/25 ring-2 ring-red-400/50'
@@ -2220,10 +2517,16 @@ export default function QuotationBankOfferPage() {
                                                                 ) : timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10 ? (
                                                                     <>
                                                                         <Zap size={18} className="animate-bounce text-amber-200" />
-                                                                        <span>⚡ {submitted ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote') : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')} • {String(timeLeft.secondsRemaining).padStart(2, '0')}s Left!</span>
+                                                                        <span>⚡ {
+                                                                            (rfq.legs && rfq.legs.length > 1)
+                                                                                ? (submitted ? `Update All Quotes (${rfq.legs.length} Pairs)` : `Submit All Quotes (${rfq.legs.length} Pairs)`)
+                                                                                : submitted ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote') : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')
+                                                                        } • {String(timeLeft.secondsRemaining).padStart(2, '0')}s Left!</span>
                                                                     </>
                                                                 ) : (
-                                                                    submitted 
+                                                                    (rfq.legs && rfq.legs.length > 1)
+                                                                        ? (submitted ? `Update All Quotes (${rfq.legs.length} Pairs)` : `Submit All Quotes (${rfq.legs.length} Pairs)`)
+                                                                        : submitted 
                                                                         ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote') 
                                                                         : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')
                                                                 )}
