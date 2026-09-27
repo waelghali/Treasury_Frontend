@@ -1165,7 +1165,107 @@ export default function QuotationBankOfferPage() {
             });
         }
 
+        // Fat-Finger / Unreasonable Rate Safeguard across all multi-currency legs
+        if (rfq.type === 'FX_SPOT') {
+            for (let lIdx = 0; lIdx < (rfq.legs || []).length; lIdx++) {
+                const leg = rfq.legs[lIdx];
+                const q = legQuotes[leg.id];
+                const p = q?.price ? parseFloat(q.price) : NaN;
+                const bm = parseFloat(leg.cbe_benchmark_rate || rfq.cbe_benchmark_rate);
+
+                if (!isNaN(p) && !isNaN(bm) && p > 0 && bm > 0) {
+                    const pair = leg.currency_pair || (leg.buy_currency && leg.sell_currency ? `${leg.buy_currency}/${leg.sell_currency}` : `Leg ${lIdx + 1}`);
+
+                    // Check 1: Inverted / reciprocal rate
+                    const inv = 1 / p;
+                    if (Math.abs(inv - bm) / bm < 0.15) {
+                        const suggested = (1 / p).toFixed(4);
+                        setFatFingerModal({
+                            isBatch: true,
+                            legId: leg.id,
+                            enteredPrice: p,
+                            benchmark: bm,
+                            type: 'INVERSION',
+                            suggestedRate: suggested,
+                            title: `⚠️ Leg #${lIdx + 1} (${pair}): Possible Inverted Rate Detected`,
+                            message: `For ${pair}, you entered ${p}, which matches the reciprocal (inverted) quotation. Prevailing CBE market benchmark is ~${bm.toFixed(4)}. Did you mean ${suggested}?`
+                        });
+                        return;
+                    }
+
+                    // Check 2: 10x Displaced Decimal (High)
+                    const ratio = p / bm;
+                    if (ratio >= 8 && ratio <= 12) {
+                        const suggested = (p / 10).toFixed(4);
+                        setFatFingerModal({
+                            isBatch: true,
+                            legId: leg.id,
+                            enteredPrice: p,
+                            benchmark: bm,
+                            type: 'DECIMAL_10X_HIGH',
+                            suggestedRate: suggested,
+                            title: `⚠️ Leg #${lIdx + 1} (${pair}): Displaced Decimal Point (~10x High)`,
+                            message: `For ${pair}, you entered ${p}, which appears approximately 10x higher than prevailing CBE reference rate (~${bm.toFixed(4)}). Did you mean ${suggested}?`
+                        });
+                        return;
+                    }
+
+                    // Check 2b: 10x Displaced Decimal (Low)
+                    if (ratio >= 0.08 && ratio <= 0.12) {
+                        const suggested = (p * 10).toFixed(4);
+                        setFatFingerModal({
+                            isBatch: true,
+                            legId: leg.id,
+                            enteredPrice: p,
+                            benchmark: bm,
+                            type: 'DECIMAL_10X_LOW',
+                            suggestedRate: suggested,
+                            title: `⚠️ Leg #${lIdx + 1} (${pair}): Displaced Decimal Point (~10x Low)`,
+                            message: `For ${pair}, you entered ${p}, which appears approximately 10x lower than prevailing CBE reference rate (~${bm.toFixed(4)}). Did you mean ${suggested}?`
+                        });
+                        return;
+                    }
+
+                    // Check 3: Extreme Market Deviation (> 25%)
+                    const pctDiff = ((p - bm) / bm) * 100;
+                    if (Math.abs(pctDiff) >= 25) {
+                        setFatFingerModal({
+                            isBatch: true,
+                            legId: leg.id,
+                            enteredPrice: p,
+                            benchmark: bm,
+                            type: 'EXTREME_OUTLIER',
+                            suggestedRate: null,
+                            title: `⚠️ Leg #${lIdx + 1} (${pair}): Significant Rate Deviation Warning`,
+                            message: `Your quote of ${p} for ${pair} deviates by ${pctDiff > 0 ? '+' : ''}${pctDiff.toFixed(1)}% from prevailing CBE benchmark (~${bm.toFixed(4)}). Please confirm this is intentional.`
+                        });
+                        return;
+                    }
+                }
+            }
+        }
+
+        await executeBatchSubmit(quotesToSubmit);
+    };
+
+    const executeBatchSubmit = async (overrideQuotes = null) => {
+        let quotesToSubmit = overrideQuotes;
+        if (!quotesToSubmit) {
+            quotesToSubmit = [];
+            for (const leg of (rfq.legs || [])) {
+                const q = legQuotes[leg.id];
+                const p = q?.price ? parseFloat(q.price) : NaN;
+                quotesToSubmit.push({
+                    leg_id: leg.id,
+                    price: p,
+                    offered_value_date: leg.allow_alternative_value_date ? (q?.offered_value_date || leg.value_date || undefined) : undefined,
+                    notes: q?.notes?.trim() || undefined
+                });
+            }
+        }
+
         setIsSubmitting(true);
+        setFatFingerModal(null);
         try {
             const res = await quotationApi.post('/api/v1/public-quotation/offers-batch', {
                 token,
@@ -3053,6 +3153,21 @@ export default function QuotationBankOfferPage() {
                                             if (fatFingerModal.isTBill && fatFingerModal.suggestedLines) {
                                                 setTbillLines(fatFingerModal.suggestedLines);
                                                 executeSubmit(null, fatFingerModal.suggestedLines);
+                                            } else if (fatFingerModal.isBatch) {
+                                                const correctedPrice = fatFingerModal.suggestedRate;
+                                                updateLegQuote(fatFingerModal.legId, 'price', correctedPrice);
+                                                const updatedQuotes = [];
+                                                for (const leg of (rfq.legs || [])) {
+                                                    const q = legQuotes[leg.id];
+                                                    const p = leg.id === fatFingerModal.legId ? parseFloat(correctedPrice) : (q?.price ? parseFloat(q.price) : NaN);
+                                                    updatedQuotes.push({
+                                                        leg_id: leg.id,
+                                                        price: p,
+                                                        offered_value_date: leg.allow_alternative_value_date ? (q?.offered_value_date || leg.value_date || undefined) : undefined,
+                                                        notes: q?.notes?.trim() || undefined
+                                                    });
+                                                }
+                                                executeBatchSubmit(updatedQuotes);
                                             } else {
                                                 const corrected = parseFloat(fatFingerModal.suggestedRate);
                                                 setPrice(fatFingerModal.suggestedRate);
@@ -3069,6 +3184,8 @@ export default function QuotationBankOfferPage() {
                                     onClick={() => {
                                         if (fatFingerModal.isTBill) {
                                             executeSubmit(null, tbillLines);
+                                        } else if (fatFingerModal.isBatch) {
+                                            executeBatchSubmit();
                                         } else {
                                             executeSubmit(fatFingerModal.enteredPrice);
                                         }

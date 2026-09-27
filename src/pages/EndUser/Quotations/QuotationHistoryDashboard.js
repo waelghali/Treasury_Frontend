@@ -343,9 +343,27 @@ export default function QuotationHistoryDashboard() {
                         {needsRevisionRfqs.map((rfq) => (
                             <div key={rfq.id} className="bg-white/80 backdrop-blur-xs rounded-2xl p-4 border border-amber-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                 <div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-mono text-xs font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded">{rfq.ref_no}</span>
-                                        <span className="text-xs text-gray-700 font-semibold">{rfq.direction} {formatAmount(rfq.amount)} {rfq.buy_currency}</span>
+                                        {rfq.type === 'TBILL' ? (
+                                            <span className="text-xs text-gray-700 font-semibold">{rfq.direction} Quotation</span>
+                                        ) : rfq.legs && rfq.legs.length > 1 ? (
+                                            <div className="inline-flex items-center gap-1.5 flex-wrap">
+                                                <span className="text-xs text-gray-700 font-semibold">{rfq.direction}</span>
+                                                {rfq.legs.map((leg, lIdx) => {
+                                                    const pair = leg.currency_pair || (leg.buy_currency && leg.sell_currency ? `${leg.buy_currency}/${leg.sell_currency}` : leg.buy_currency);
+                                                    return (
+                                                        <span key={leg.id || lIdx} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold bg-amber-100/70 text-amber-900 border border-amber-200">
+                                                            <span className="text-[9px] text-amber-700 font-extrabold">L{lIdx + 1}</span>
+                                                            <span>{formatAmount(leg.amount)}</span>
+                                                            <span className="font-mono text-[10px] text-amber-800">{pair}</span>
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs text-gray-700 font-semibold">{rfq.direction} {formatAmount(rfq.amount)} {rfq.buy_currency}</span>
+                                        )}
                                     </div>
                                     {rfq.admin_revision_notes && (
                                         <p className="text-xs text-amber-950 mt-1.5 italic pl-2 border-l-2 border-amber-400">
@@ -380,7 +398,28 @@ export default function QuotationHistoryDashboard() {
                                         <span className="text-xs font-bold text-gray-400 uppercase">{rfq.type === 'TBILL' ? 'T-Bill' : 'FX Spot'}</span>
                                     </div>
                                     <div className="text-lg font-bold text-gray-900">
-                                        {rfq.type === 'TBILL' ? `${rfq.direction} Quotation` : `${rfq.direction} ${formatAmount(rfq.amount)} ${rfq.buy_currency}`}
+                                        {rfq.type === 'TBILL' ? (
+                                            `${rfq.direction} Quotation`
+                                        ) : rfq.legs && rfq.legs.length > 1 ? (
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span>{rfq.direction}</span>
+                                                {rfq.legs.map((leg, lIdx) => {
+                                                    const pair = leg.currency_pair || (leg.buy_currency && leg.sell_currency ? `${leg.buy_currency}/${leg.sell_currency}` : leg.buy_currency);
+                                                    return (
+                                                        <span
+                                                            key={leg.id || lIdx}
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs sm:text-sm bg-slate-100 text-slate-800 border border-slate-200 font-semibold shadow-2xs"
+                                                        >
+                                                            <span className="text-[10px] text-indigo-600 font-extrabold uppercase">Leg #{lIdx + 1}</span>
+                                                            <span className="font-bold text-slate-900">{formatAmount(leg.amount)}</span>
+                                                            <span className="font-mono text-xs text-slate-600 font-bold">{pair}</span>
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            `${rfq.direction} ${formatAmount(rfq.amount)} ${rfq.buy_currency}`
+                                        )}
                                     </div>
                                     <div className="text-sm text-gray-500 mt-1">
                                         Requested by {rfq.creator_name || 'End User'} • {new Date(rfq.created_at).toLocaleString()}

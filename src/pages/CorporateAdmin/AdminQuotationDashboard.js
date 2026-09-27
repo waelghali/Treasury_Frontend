@@ -538,7 +538,28 @@ export default function AdminQuotationDashboard() {
                                         <span className="text-xs font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full">Cancellation Pending</span>
                                     </div>
                                     <div className="text-base sm:text-lg font-bold text-gray-900">
-                                        {rfq.type === 'TBILL' ? `${rfq.direction} Quotation` : `${rfq.direction} ${rfq.amount?.toLocaleString()} ${rfq.buy_currency}`}
+                                        {rfq.type === 'TBILL' ? (
+                                            `${rfq.direction} Quotation`
+                                        ) : rfq.legs && rfq.legs.length > 1 ? (
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="text-gray-900">{rfq.direction}</span>
+                                                {rfq.legs.map((leg, lIdx) => {
+                                                    const pair = leg.currency_pair || (leg.buy_currency && leg.sell_currency ? `${leg.buy_currency}/${leg.sell_currency}` : leg.buy_currency);
+                                                    return (
+                                                        <span
+                                                            key={leg.id || lIdx}
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs sm:text-sm bg-rose-50 text-rose-900 border border-rose-200/80 font-semibold"
+                                                        >
+                                                            <span className="text-[10px] text-rose-600 font-extrabold uppercase">Leg #{lIdx + 1}</span>
+                                                            <span className="font-bold text-slate-900">{leg.amount != null ? Number(leg.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 }) : '-'}</span>
+                                                            <span className="font-mono text-xs text-rose-700 font-bold">{pair}</span>
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            `${rfq.direction} ${rfq.amount != null ? Number(rfq.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 }) : ''} ${rfq.buy_currency}${rfq.sell_currency ? `/${rfq.sell_currency}` : ''}`
+                                        )}
                                     </div>
                                     <div className="text-xs text-rose-900 mt-2 p-3 bg-rose-50/70 rounded-xl border border-rose-100 space-y-1">
                                         <div><span className="font-bold">Stated Reason:</span> {rfq.cancellation_reason || 'Administrative Rescheduling'}</div>
@@ -625,7 +646,28 @@ export default function AdminQuotationDashboard() {
                                         )}
                                     </div>
                                     <div className="text-base sm:text-lg font-bold text-gray-900">
-                                        {rfq.type === 'TBILL' ? `${rfq.direction} Quotation` : `${rfq.direction} ${rfq.amount?.toLocaleString()} ${rfq.buy_currency}`}
+                                        {rfq.type === 'TBILL' ? (
+                                            `${rfq.direction} Quotation`
+                                        ) : rfq.legs && rfq.legs.length > 1 ? (
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="text-gray-900">{rfq.direction}</span>
+                                                {rfq.legs.map((leg, lIdx) => {
+                                                    const pair = leg.currency_pair || (leg.buy_currency && leg.sell_currency ? `${leg.buy_currency}/${leg.sell_currency}` : leg.buy_currency);
+                                                    return (
+                                                        <span
+                                                            key={leg.id || lIdx}
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs sm:text-sm bg-slate-100 text-slate-800 border border-slate-200 font-semibold shadow-2xs"
+                                                        >
+                                                            <span className="text-[10px] text-indigo-600 font-extrabold tracking-wide uppercase">Leg #{lIdx + 1}</span>
+                                                            <span className="font-bold text-slate-900">{leg.amount != null ? Number(leg.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 }) : '-'}</span>
+                                                            <span className="font-mono text-xs text-slate-600 font-bold">{pair}</span>
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            `${rfq.direction} ${rfq.amount != null ? Number(rfq.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 }) : ''} ${rfq.buy_currency}${rfq.sell_currency ? `/${rfq.sell_currency}` : ''}`
+                                        )}
                                     </div>
                                     <div className="text-sm text-gray-500 mt-1">
                                         Requested by {rfq.creator_name || 'End User'} • {formatDateTime(rfq.created_at)}
@@ -1312,11 +1354,28 @@ export default function AdminQuotationDashboard() {
                                     </div>
                                     <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
                                         <span className="text-slate-500 font-medium">Deal Type & Volume:</span>
-                                        <span className="font-bold text-slate-900">
-                                            {approvingRfq.type === 'TBILL'
-                                                ? `${approvingRfq.direction} T-Bill Quotation`
-                                                : `${approvingRfq.direction} ${approvingRfq.amount?.toLocaleString()} ${approvingRfq.buy_currency}/${approvingRfq.sell_currency}`}
-                                        </span>
+                                        <div className="font-bold text-slate-900 text-right">
+                                            {approvingRfq.type === 'TBILL' ? (
+                                                `${approvingRfq.direction} T-Bill Quotation`
+                                            ) : approvingRfq.legs && approvingRfq.legs.length > 1 ? (
+                                                <div className="flex flex-col gap-1 items-end">
+                                                    <span className="text-xs text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                                                        {approvingRfq.legs.length} Currency Pairs Package
+                                                    </span>
+                                                    {approvingRfq.legs.map((leg, lIdx) => {
+                                                        const pair = leg.currency_pair || (leg.buy_currency && leg.sell_currency ? `${leg.buy_currency}/${leg.sell_currency}` : leg.buy_currency);
+                                                        return (
+                                                            <div key={leg.id || lIdx} className="text-xs font-mono text-slate-800">
+                                                                <span className="text-indigo-600 font-bold mr-1">L{lIdx + 1}:</span>
+                                                                {approvingRfq.direction} {leg.amount != null ? Number(leg.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 }) : '-'} {pair}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                `${approvingRfq.direction} ${approvingRfq.amount != null ? Number(approvingRfq.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 }) : ''} ${approvingRfq.buy_currency}${approvingRfq.sell_currency ? `/${approvingRfq.sell_currency}` : ''}`
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
                                         <span className="text-slate-500 font-medium">Quotation Base:</span>
