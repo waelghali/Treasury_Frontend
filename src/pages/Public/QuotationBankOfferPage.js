@@ -1765,7 +1765,7 @@ export default function QuotationBankOfferPage() {
                                     resultStatus === 'WINNER' ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs' :
                                     resultStatus === 'PARTIALLY_WON' ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs' :
                                     (isIndicative || resultStatus === 'INDICATIVE_ONLY') ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950 shadow-2xs' :
-                                    resultStatus === 'INCONCLUSIVE' ? 'bg-amber-50 border-amber-200 text-amber-900' :
+                                    (resultStatus === 'INCONCLUSIVE' || resultStatus === 'UNEXECUTED') ? 'bg-amber-50 border-amber-200 text-amber-900' :
                                     resultStatus === 'AWAITING_SELECTION' ? 'bg-blue-50/70 border-blue-200 text-blue-900' :
                                     'bg-gray-50 border-gray-200 text-gray-600'
                                 }`}
@@ -1810,11 +1810,15 @@ export default function QuotationBankOfferPage() {
                                         <h2 className="text-base sm:text-lg font-bold">Selection in Progress</h2>
                                         <p className="text-xs sm:text-sm mt-0.5">Thank you for your quote. The corporate treasury team is currently evaluating all counterparties.</p>
                                     </div>
-                                ) : resultStatus === 'INCONCLUSIVE' ? (
+                                ) : (resultStatus === 'INCONCLUSIVE' || resultStatus === 'UNEXECUTED') ? (
                                     <div className="flex flex-col items-center">
                                         <AlertCircle className="mb-1 text-amber-500" size={24} />
                                         <h2 className="text-base sm:text-lg font-bold text-amber-900">Quotation Closed Without Winner</h2>
-                                        <p className="text-xs sm:text-sm text-amber-700 mt-0.5">This quotation closed without trade execution due to tolerance limits or counterparty responses. Thank you for your participation.</p>
+                                        <p className="text-xs sm:text-sm text-amber-700 mt-0.5">
+                                            {resultStatus === 'UNEXECUTED'
+                                                ? 'This quotation closed without trade execution (declined or expired without corporate acceptance). No counterparty was awarded. Thank you for your participation.'
+                                                : 'This quotation closed without trade execution due to tolerance limits or counterparty responses. Thank you for your participation.'}
+                                        </p>
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center">

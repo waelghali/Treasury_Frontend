@@ -105,7 +105,7 @@ export default function ResultsView({ rfqId }) {
     const [loading, setLoading] = useState(true);
     const [sendingResults, setSendingResults] = useState(false);
     const userRole = localStorage.getItem('user_role'); // Check role
-    const isCorporateAdmin = location.pathname.startsWith('/corporate-admin') || (userRole || '').toLowerCase().includes('corporate_admin');
+    const isCorporateAdmin = location.pathname.startsWith('/corporate-admin') || decodeURIComponent(location.pathname).startsWith('/corporate admin') || (userRole || '').toLowerCase().includes('corporate_admin');
 
     const [resultsMeta, setResultsMeta] = useState({});
     const [showAuditPack, setShowAuditPack] = useState(false);
@@ -1381,12 +1381,27 @@ export default function ResultsView({ rfqId }) {
 
 
 
-            {rfq?.status === 'REJECTED' ? (
-                <div className="p-12 bg-red-50 rounded-3xl border border-red-100 text-center">
-                    <AlertCircle className="mx-auto text-red-400 mb-4" size={32} />
-                    <p className="text-red-700 font-medium tracking-tight">This quotation request was rejected by the Corporate Admin.</p>
+            {rfq?.status === 'REJECTED' && (
+                <div className="p-5 mb-6 bg-red-50/90 rounded-2xl border border-red-200 flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                        <AlertCircle className="text-red-600" size={22} />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-bold text-red-900">
+                            {rfq?.acceptance_status === 'AUTO_REJECTED'
+                                ? 'Quotation Request Auto-Rejected (Corporate Acceptance Window Expired)'
+                                : 'Quotation Request Rejected by Corporate Admin'}
+                        </h4>
+                        <p className="text-xs text-red-700 mt-1 leading-relaxed">
+                            {rfq?.admin_revision_notes || (rfq?.acceptance_status === 'AUTO_REJECTED'
+                                ? 'The corporate acceptance window expired without confirmation. Submitted bank quotes are preserved below for historical audit and rate comparison.'
+                                : 'This quotation request was rejected. Submitted bank quotes are preserved below for historical review.')}
+                        </p>
+                    </div>
                 </div>
-            ) : results.length === 0 ? (
+            )}
+
+            {results.length === 0 ? (
                 <div className="p-12 bg-gray-50 rounded-3xl border border-dashed border-gray-200 text-center">
                     <Clock className="mx-auto text-gray-300 mb-4" size={32} />
                     <p className="text-gray-500">No counterparties assigned to this quotation request.</p>
