@@ -23,11 +23,20 @@ const ACTION_TYPES = [
   'SETTING_UPDATE',
   'ONBOARD',
   'RESTORE',
+  'QUOTATION_BANK_LATE_ACCESS_ATTEMPT',
+  'QUOTATION_BANK_EARLY_ACCESS_ATTEMPT',
+  'QUOTATION_PORTAL_ACCESSED',
+  'QUOTATION_PORTAL_AUTHENTICATED',
+  'QUOTATION_OFFER_SUBMITTED',
+  'QUOTATION_RESULTS_SENT',
+  'QUOTATION_BANK_APPROVED',
+  'QUOTATION_BANK_DECLINED',
 ];
 
 // Known Entity Types for Corporate scope
 const ENTITY_TYPES = [
   'ALL',
+  'QuotationRequest',
   'User',
   'CustomerEntity',
   'LGRecord',
@@ -233,6 +242,12 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) {
   // Action badge styling helper
   const getActionBadge = (actionType = '') => {
     const act = actionType.toUpperCase();
+    if (act.includes('LATE')) {
+      return 'bg-amber-50 text-amber-700 border-amber-200';
+    }
+    if (act.includes('QUOTATION')) {
+      return 'bg-purple-50 text-purple-700 border-purple-200';
+    }
     if (act.includes('CREATE') || act.includes('SUCCESS') || act.includes('RESTORE') || act.includes('ONBOARD')) {
       return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     }
