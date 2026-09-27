@@ -147,6 +147,9 @@ export default function QuotationBankOfferPage() {
     // Fat-Finger Confirmation Modal (Triggers ONLY upon submit for genuine anomalies)
     const [fatFingerModal, setFatFingerModal] = useState(null);
 
+    // Post-Window Acceptance Countdown Timer for Banks
+    const [acceptanceSecondsRemaining, setAcceptanceSecondsRemaining] = useState(null);
+
     // Multi-Dealer Desk Concurrency State
     const [deskState, setDeskState] = useState(null);
     const [isTakingOver, setIsTakingOver] = useState(false);
@@ -279,6 +282,40 @@ export default function QuotationBankOfferPage() {
         }
     }, [rfq, token, timeLeft.status]);
 
+    // Acceptance Countdown Timer for Banks (Ticks down during corporate acceptance window)
+    useEffect(() => {
+        if (resultStatus !== 'AWAITING_SELECTION') {
+            setAcceptanceSecondsRemaining(null);
+            return;
+        }
+
+        const getDeadline = () => {
+            if (outcomeData?.acceptance_deadline) {
+                return new Date(outcomeData.acceptance_deadline).getTime();
+            }
+            if (rfq?.window_end && rfq?.acceptance_timeout_seconds) {
+                return new Date(rfq.window_end).getTime() + (rfq.acceptance_timeout_seconds * 1000);
+            }
+            return null;
+        };
+
+        const deadline = getDeadline();
+        if (!deadline) {
+            setAcceptanceSecondsRemaining(null);
+            return;
+        }
+
+        const updateTimer = () => {
+            const now = Date.now() + (timeOffset || 0);
+            const diff = Math.max(0, Math.floor((deadline - now) / 1000));
+            setAcceptanceSecondsRemaining(diff);
+        };
+
+        updateTimer();
+        const interval = setInterval(updateTimer, 1000);
+        return () => clearInterval(interval);
+    }, [resultStatus, outcomeData?.acceptance_deadline, rfq?.window_end, rfq?.acceptance_timeout_seconds, timeOffset]);
+
     // 3. Auto-Auth via Magic Link or SessionStorage
     useEffect(() => {
         const stored = sessionStorage.getItem(storageKey);
@@ -323,7 +360,7 @@ export default function QuotationBankOfferPage() {
     // 4. Polling for results when closed
     useEffect(() => {
         let interval = null;
-        const terminalStatuses = ['WINNER', 'NOT_SELECTED', 'INCONCLUSIVE', 'INDICATIVE_ONLY', 'COMPLETED'];
+        const terminalStatuses = ['WINNER', 'PARTIALLY_WON', 'NOT_SELECTED', 'UNEXECUTED', 'INCONCLUSIVE', 'INDICATIVE_ONLY', 'COMPLETED'];
         const isTerminal = terminalStatuses.includes(resultStatus);
 
         if (timeLeft.status === 'CLOSED' && !isTerminal) {
@@ -1765,9 +1802,8 @@ export default function QuotationBankOfferPage() {
                                     resultStatus === 'WINNER' ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs' :
                                     resultStatus === 'PARTIALLY_WON' ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs' :
                                     (isIndicative || resultStatus === 'INDICATIVE_ONLY') ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950 shadow-2xs' :
-                                    (resultStatus === 'INCONCLUSIVE' || resultStatus === 'UNEXECUTED') ? 'bg-amber-50 border-amber-200 text-amber-900' :
                                     resultStatus === 'AWAITING_SELECTION' ? 'bg-blue-50/70 border-blue-200 text-blue-900' :
-                                    'bg-gray-50 border-gray-200 text-gray-600'
+                                    'bg-slate-50 border-slate-200 text-slate-700'
                                 }`}
                             >
                                 {(isIndicative || resultStatus === 'INDICATIVE_ONLY') ? (
@@ -1805,25 +1841,36 @@ export default function QuotationBankOfferPage() {
                                         </p>
                                     </div>
                                 ) : resultStatus === 'AWAITING_SELECTION' ? (
-                                    <div className="flex flex-col items-center">
-                                        <Clock className="mb-1 text-blue-500 animate-spin-slow" size={24} />
-                                        <h2 className="text-base sm:text-lg font-bold">Selection in Progress</h2>
-                                        <p className="text-xs sm:text-sm mt-0.5">Thank you for your quote. The corporate treasury team is currently evaluating all counterparties.</p>
-                                    </div>
-                                ) : (resultStatus === 'INCONCLUSIVE' || resultStatus === 'UNEXECUTED') ? (
-                                    <div className="flex flex-col items-center">
-                                        <AlertCircle className="mb-1 text-amber-500" size={24} />
-                                        <h2 className="text-base sm:text-lg font-bold text-amber-900">Quotation Closed Without Winner</h2>
-                                        <p className="text-xs sm:text-sm text-amber-700 mt-0.5">
-                                            {resultStatus === 'UNEXECUTED'
-                                                ? 'This quotation closed without trade execution (declined or expired without corporate acceptance). No counterparty was awarded. Thank you for your participation.'
-                                                : 'This quotation closed without trade execution due to tolerance limits or counterparty responses. Thank you for your participation.'}
+                                    <div className="flex flex-col items-center text-center">
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                            <Clock className="text-blue-500 animate-spin-slow" size={24} />
+                                            {acceptanceSecondsRemaining !== null && (
+                                                <span className={`font-mono text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${
+                                                    acceptanceSecondsRemaining > 0 
+                                                        ? 'bg-blue-100/80 text-blue-800 border-blue-200' 
+                                                        : 'bg-amber-100/80 text-amber-800 border-amber-200 animate-pulse'
+                                                }`}>
+                                                    {acceptanceSecondsRemaining > 0 ? `⏱ ${acceptanceSecondsRemaining}s remaining` : 'Finalizing Decision...'}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <h2 className="text-base sm:text-lg font-bold text-blue-950">
+                                            {acceptanceSecondsRemaining !== null && acceptanceSecondsRemaining === 0
+                                                ? 'Finalizing Execution Decision'
+                                                : 'Selection in Progress'}
+                                        </h2>
+                                        <p className="text-xs sm:text-sm mt-0.5 text-blue-800 max-w-lg leading-relaxed">
+                                            {acceptanceSecondsRemaining !== null && acceptanceSecondsRemaining > 0
+                                                ? `The bidding window has closed. Corporate Treasury is reviewing counterparty quotes (Decision window closes in ${acceptanceSecondsRemaining}s).`
+                                                : 'Thank you for your quotation. The corporate treasury team is currently finalizing counterparty selection.'}
                                         </p>
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center">
-                                        <h2 className="text-base sm:text-lg font-bold">Quotation Completed</h2>
-                                        <p className="text-xs sm:text-sm mt-0.5">Thank you for your prompt quote. Another counterparty was executed for this deal.</p>
+                                        <h2 className="text-base sm:text-lg font-bold text-slate-800">Quotation Concluded</h2>
+                                        <p className="text-xs sm:text-sm text-slate-600 mt-1 text-center max-w-lg">
+                                            Thank you for submitting your quotation. This request has concluded and your offer was not selected for trade execution on this occasion. We appreciate your participation.
+                                        </p>
                                     </div>
                                 )}
                             </div>
