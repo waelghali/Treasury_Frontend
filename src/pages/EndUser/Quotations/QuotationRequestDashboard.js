@@ -649,6 +649,8 @@ export default function QuotationRequestDashboard() {
             };
 
             const isDateCustom = field === 'valueDate' ? Boolean(value) : currentPairConfig._dateCustomized;
+            const isBaseCustom = field === 'quotationBase' ? true : currentPairConfig._baseCustomized;
+            const isDocCustom = field === 'isDocumentVisible' ? true : currentPairConfig._docCustomized;
 
             return {
                 ...b,
@@ -657,7 +659,9 @@ export default function QuotationRequestDashboard() {
                     [pairId]: {
                         ...currentPairConfig,
                         [field]: value,
-                        ...(field === 'valueDate' ? { _dateCustomized: isDateCustom } : {})
+                        ...(field === 'valueDate' ? { _dateCustomized: isDateCustom } : {}),
+                        ...(field === 'quotationBase' ? { _baseCustomized: isBaseCustom, isDocumentVisible: value === 'Execution', _docCustomized: false } : {}),
+                        ...(field === 'isDocumentVisible' ? { _docCustomized: isDocCustom } : {})
                     }
                 }
             };
@@ -1206,11 +1210,45 @@ export default function QuotationRequestDashboard() {
         setSelectedBanks(prev => prev.map(b => {
             if (String(b.id) !== String(bankId) && String(b.bank_id) !== String(bankId)) return b;
             if (field === 'quotationBase') {
+                const existingConfigs = b.pairConfigs || {};
+                const updatedConfigs = { ...existingConfigs };
+                pairs.forEach(p => {
+                    if (updatedConfigs[p.id]) {
+                        updatedConfigs[p.id] = {
+                            ...updatedConfigs[p.id],
+                            quotationBase: value,
+                            isDocumentVisible: value === 'Execution',
+                            _baseCustomized: true,
+                            _docCustomized: false
+                        };
+                    }
+                });
                 return {
                     ...b,
                     quotationBase: value,
                     isDocumentVisible: value === 'Execution',
-                    _baseCustomized: true
+                    _baseCustomized: true,
+                    _docCustomized: false,
+                    pairConfigs: updatedConfigs
+                };
+            }
+            if (field === 'isDocumentVisible') {
+                const existingConfigs = b.pairConfigs || {};
+                const updatedConfigs = { ...existingConfigs };
+                pairs.forEach(p => {
+                    if (updatedConfigs[p.id]) {
+                        updatedConfigs[p.id] = {
+                            ...updatedConfigs[p.id],
+                            isDocumentVisible: value,
+                            _docCustomized: true
+                        };
+                    }
+                });
+                return {
+                    ...b,
+                    isDocumentVisible: value,
+                    _docCustomized: true,
+                    pairConfigs: updatedConfigs
                 };
             }
             if (field === 'valueDate') {
@@ -1250,6 +1288,7 @@ export default function QuotationRequestDashboard() {
         const masterDateForCur = curPair.valueDate || formData.valueDate || '';
         const masterBaseForCur = curPair.quotationBase || formData.quotationBase || 'Execution';
         const masterAltForCur = Boolean(curPair.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false);
+        const masterDocVisForCur = !bankObj.is_cross_entity && (masterBaseForCur === 'Execution');
 
         let curTabDivergent = false;
         let anyDivergent = false;
@@ -1262,12 +1301,15 @@ export default function QuotationRequestDashboard() {
                 const pMasterDate = p.valueDate || formData.valueDate || '';
                 const pMasterBase = p.quotationBase || formData.quotationBase || 'Execution';
                 const pMasterAlt = Boolean(p.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false);
+                const pMasterDocVis = !bankObj.is_cross_entity && (pMasterBase === 'Execution');
 
                 const isDateDiff = Boolean(cfg.valueDate && pMasterDate && String(cfg.valueDate).split('T')[0] !== String(pMasterDate).split('T')[0]);
                 const isBaseDiff = Boolean(!bankObj.is_cross_entity && cfg.quotationBase && cfg.quotationBase !== pMasterBase);
                 const isAltDiff = Boolean(typeof cfg.allowAlternativeValueDate === 'boolean' && cfg.allowAlternativeValueDate !== pMasterAlt);
+                const cfgDocVis = cfg.isDocumentVisible !== undefined ? Boolean(cfg.isDocumentVisible) : (cfg.quotationBase || pMasterBase) === 'Execution';
+                const isDocDiff = Boolean(!bankObj.is_cross_entity && cfgDocVis !== pMasterDocVis);
 
-                if (isDateDiff || isBaseDiff || isAltDiff) {
+                if (isDateDiff || isBaseDiff || isAltDiff || isDocDiff) {
                     anyDivergent = true;
                     if (p.id === curTabId) {
                         curTabDivergent = true;
@@ -1280,8 +1322,10 @@ export default function QuotationRequestDashboard() {
             const isDateDiff = Boolean(bankObj._dateCustomized && bankDate && masterDateForCur && String(bankDate).split('T')[0] !== String(masterDateForCur).split('T')[0]);
             const isBaseDiff = Boolean(!bankObj.is_cross_entity && bankObj._baseCustomized && bankObj.quotationBase && bankObj.quotationBase !== masterBaseForCur);
             const isAltDiff = Boolean(bankObj._altCustomized && typeof bankObj.allowAlternativeValueDate === 'boolean' && bankObj.allowAlternativeValueDate !== masterAltForCur);
+            const bankDocVis = bankObj.isDocumentVisible !== undefined ? Boolean(bankObj.isDocumentVisible) : (bankObj.quotationBase || masterBaseForCur) === 'Execution';
+            const isDocDiff = Boolean(!bankObj.is_cross_entity && bankDocVis !== masterDocVisForCur);
 
-            if (isDateDiff || isBaseDiff || isAltDiff) {
+            if (isDateDiff || isBaseDiff || isAltDiff || isDocDiff) {
                 anyDivergent = true;
                 curTabDivergent = true;
             }
@@ -1300,12 +1344,15 @@ export default function QuotationRequestDashboard() {
         setSelectedBanks(prev => prev.map(b => {
             if (String(b.id) !== String(bankId) && String(b.bank_id) !== String(bankId)) return b;
 
+            const isCross = Boolean(b.is_cross_entity);
+            const effMasterBase = isCross ? 'Indicative' : masterBase;
+
             const updatedPairConfigs = { ...(b.pairConfigs || {}) };
             pairs.forEach(p => {
                 const pDate = p.valueDate || formData.valueDate || '';
-                const pBase = b.is_cross_entity ? 'Indicative' : (p.quotationBase || formData.quotationBase || 'Execution');
+                const pBase = isCross ? 'Indicative' : (p.quotationBase || formData.quotationBase || 'Execution');
                 const pAlt = Boolean(p.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false);
-                const pDocVis = pBase === 'Execution';
+                const pDocVis = !isCross && (pBase === 'Execution');
 
                 if (updatedPairConfigs[p.id]) {
                     updatedPairConfigs[p.id] = {
@@ -1314,7 +1361,10 @@ export default function QuotationRequestDashboard() {
                         quotationBase: pBase,
                         allowAlternativeValueDate: pAlt,
                         isDocumentVisible: pDocVis,
-                        _dateCustomized: false
+                        _dateCustomized: false,
+                        _baseCustomized: false,
+                        _altCustomized: false,
+                        _docCustomized: false
                     };
                 }
             });
@@ -1323,11 +1373,12 @@ export default function QuotationRequestDashboard() {
                 ...b,
                 valueDate: masterDate,
                 _dateCustomized: false,
-                quotationBase: b.is_cross_entity ? 'Indicative' : masterBase,
+                quotationBase: effMasterBase,
                 _baseCustomized: false,
                 allowAlternativeValueDate: masterAlt,
                 _altCustomized: false,
-                isDocumentVisible: masterBase === 'Execution',
+                isDocumentVisible: !isCross && (masterBase === 'Execution'),
+                _docCustomized: false,
                 pairConfigs: updatedPairConfigs
             };
         }));
@@ -1342,7 +1393,7 @@ export default function QuotationRequestDashboard() {
         const pDate = targetPair.valueDate || formData.valueDate || '';
         const pBase = bankToSync?.is_cross_entity ? 'Indicative' : (targetPair.quotationBase || formData.quotationBase || 'Execution');
         const pAlt = Boolean(targetPair.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false);
-        const pDocVis = pBase === 'Execution';
+        const pDocVis = !bankToSync?.is_cross_entity && (pBase === 'Execution');
 
         setSelectedBanks(prev => prev.map(b => {
             if (String(b.id) !== String(bankId) && String(b.bank_id) !== String(bankId)) return b;
@@ -1355,7 +1406,10 @@ export default function QuotationRequestDashboard() {
                     quotationBase: pBase,
                     allowAlternativeValueDate: pAlt,
                     isDocumentVisible: pDocVis,
-                    _dateCustomized: false
+                    _dateCustomized: false,
+                    _baseCustomized: false,
+                    _altCustomized: false,
+                    _docCustomized: false
                 };
             }
 
@@ -1394,14 +1448,31 @@ export default function QuotationRequestDashboard() {
                 return {
                     ...b,
                     quotationBase: 'Indicative',
-                    isDocumentVisible: false
+                    isDocumentVisible: false,
+                    _baseCustomized: false,
+                    _docCustomized: false
                 };
             }
+            const existingConfigs = b.pairConfigs || {};
+            const updatedConfigs = { ...existingConfigs };
+            pairs.forEach(p => {
+                if (updatedConfigs[p.id]) {
+                    updatedConfigs[p.id] = {
+                        ...updatedConfigs[p.id],
+                        quotationBase: base,
+                        isDocumentVisible: base === 'Execution',
+                        _baseCustomized: false,
+                        _docCustomized: false
+                    };
+                }
+            });
             return {
                 ...b,
                 quotationBase: base,
                 isDocumentVisible: base === 'Execution',
-                _baseCustomized: false
+                _baseCustomized: false,
+                _docCustomized: false,
+                pairConfigs: updatedConfigs
             };
         }));
         toast.success(`Quotation Base (${base}) synced to eligible banks.`);
@@ -1569,7 +1640,7 @@ export default function QuotationRequestDashboard() {
             costPercent: b.costPercent ?? 0,
             costMax: b.costMax ?? 0,
             costFlat: b.costFlat ?? 0,
-            quotationBase: (pairs.length === 1 && pairs[0]?.quotationBase) ? pairs[0].quotationBase : (b.quotationBase || formData.quotationBase || 'Execution'),
+            quotationBase: (b._baseCustomized && b.quotationBase) ? b.quotationBase : ((pairs.length === 1 && pairs[0]?.quotationBase) ? pairs[0].quotationBase : (b.quotationBase || formData.quotationBase || 'Execution')),
             isDocumentVisible: b.isDocumentVisible !== false,
             valueDate: b.valueDate ? String(b.valueDate).split('T')[0] : (formData.valueDate ? String(formData.valueDate).split('T')[0] : null),
             allowAlternativeValueDate: b.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false
