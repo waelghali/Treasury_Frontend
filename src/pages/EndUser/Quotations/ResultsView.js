@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Layers } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Layers, Loader2 } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
 import QuotationCancellationModal from '../../../components/Modals/QuotationCancellationModal';
@@ -20,6 +20,56 @@ const formatDate = (d) => {
     } catch {
         return d;
     }
+};
+
+const formatLocalDate = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const formatLocalTime = (d) => {
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+};
+
+const getDefaultScheduleTime = (targetRfq) => {
+    const now = new Date();
+    const qTimeRaw = targetRfq?.window_start || targetRfq?.window_end;
+    let defaultDate = null;
+
+    if (qTimeRaw) {
+        const quotationTime = new Date(qTimeRaw);
+        if (!isNaN(quotationTime.getTime())) {
+            const oneHourBefore = new Date(quotationTime.getTime() - 60 * 60 * 1000);
+            if (oneHourBefore.getTime() > now.getTime() + 2 * 60 * 1000) {
+                defaultDate = oneHourBefore;
+            } else {
+                const soon = new Date(now.getTime() + 2 * 60 * 1000);
+                if (targetRfq?.window_end) {
+                    const wEnd = new Date(targetRfq.window_end);
+                    if (!isNaN(wEnd.getTime()) && soon.getTime() >= wEnd.getTime()) {
+                        defaultDate = new Date(Math.max(now.getTime() + 60 * 1000, wEnd.getTime() - 60 * 1000));
+                    } else {
+                        defaultDate = soon;
+                    }
+                } else {
+                    defaultDate = soon;
+                }
+            }
+        }
+    }
+
+    if (!defaultDate) {
+        defaultDate = new Date(now.getTime() + 10 * 60 * 1000);
+    }
+
+    return {
+        date: formatLocalDate(defaultDate),
+        time: formatLocalTime(defaultDate)
+    };
 };
 
 const formatAmount = (val) => {
@@ -114,6 +164,15 @@ export default function ResultsView({ rfqId }) {
     const [copiedToken, setCopiedToken] = useState(null);
     const [isAcceptingDeal, setIsAcceptingDeal] = useState(false);
     const [isDecliningDeal, setIsDecliningDeal] = useState(false);
+    const [selectedLegDecisions, setSelectedLegDecisions] = useState({});
+
+    // Inline Approval & Scheduling State (Corporate Admin)
+    const [showApprovalPanel, setShowApprovalPanel] = useState(false);
+    const [isApproving, setIsApproving] = useState(false);
+    const [approvalReleaseMode, setApprovalReleaseMode] = useState('IMMEDIATE');
+    const [approvalScheduledDate, setApprovalScheduledDate] = useState('');
+    const [approvalScheduledTime, setApprovalScheduledTime] = useState('');
+    const [approvalLegalAccepted, setApprovalLegalAccepted] = useState(false);
 
     const legBases = Array.from(new Set((legs || []).map(l => (l.quotation_base || rfq?.quotation_base || 'Execution')).concat((results || []).map(r => r.quotation_base).filter(Boolean))));
     const isMixedPackage = legBases.length > 1;
@@ -177,6 +236,20 @@ export default function ResultsView({ rfqId }) {
             setResults(res.data.results || []);
             setRfq(res.data.rfq);
             setLegs(res.data.legs || []);
+
+            if (res.data.legs && res.data.legs.length > 1) {
+                setSelectedLegDecisions(prev => {
+                    const next = { ...prev };
+                    res.data.legs.forEach((l, idx) => {
+                        const lid = l.id || l.leg_id || idx;
+                        if (next[lid] === undefined) {
+                            next[lid] = Boolean(l.winner_bank_name && !l.is_inconclusive);
+                        }
+                    });
+                    return next;
+                });
+            }
+
             setResultsMeta({
                 winnerBankId: res.data.winner_bank_id,
                 isInconclusive: res.data.is_inconclusive,
@@ -242,45 +315,112 @@ export default function ResultsView({ rfqId }) {
 
 
 
-    const handleApproval = async (status) => {
-        try {
-            if (status === 'PENDING') {
-                // Time Safety Check
-                if (rfq?.window_end) {
-                    const closingTime = new Date(rfq.window_end);
-                    const now = new Date();
-                    const diffMins = Math.round((closingTime - now) / 60000);
+    const handleOpenApprovalPanel = () => {
+        if (rfq?.window_end) {
+            const closingTime = new Date(rfq.window_end);
+            const now = new Date();
+            const diffMins = Math.round((closingTime - now) / 60000);
 
-                    if (diffMins < 0) {
-                        alert("The window for this quotation has already closed. It cannot be approved.");
-                        return;
-                    }
-                    if (diffMins < 30) {
-                        if (!window.confirm(`This quotation has only ${diffMins} minutes remaining. Are you sure you want to approve and release it?`)) {
-                            return;
-                        }
-                    }
-                }
-
-                await apiClient.post(`/corporate-admin/quotations/${rfqId}/approve`);
-                alert(`Quotation Approved and Released successfully.`);
-            } else {
-                await apiClient.post(`/corporate-admin/quotations/${rfqId}/reject`);
-                alert(`Quotation Request Rejected.`);
+            if (diffMins < 0) {
+                toast.error("The window for this quotation has already closed. It cannot be approved.");
+                return;
             }
-            // Refresh explicitly after changing the status
+        }
+        const def = getDefaultScheduleTime(rfq);
+        setApprovalScheduledDate(def.date);
+        setApprovalScheduledTime(def.time);
+
+        const bases = Array.from(new Set([
+            ...((results || []).map(b => b.quotation_base).filter(Boolean)),
+            ...((rfq?.assigned_banks || []).map(b => b.quotation_base).filter(Boolean)),
+            ...((legs || []).map(l => l.quotation_base).filter(Boolean)),
+            rfq?.quotation_base
+        ].filter(Boolean)));
+        const hasExecution = bases.some(b => b?.toLowerCase() === 'execution') || rfq?.quotation_base === 'Mixed' || (rfq?.quotation_base || '').toLowerCase() === 'execution';
+        setApprovalLegalAccepted(!hasExecution);
+        setShowApprovalPanel(true);
+    };
+
+    const executeApprove = async () => {
+        let scheduledReleaseIso = null;
+        if (approvalReleaseMode === 'SCHEDULED') {
+            if (!approvalScheduledDate || !approvalScheduledTime) {
+                toast.error("Please pick both a date and time for scheduled release.");
+                return;
+            }
+            const combined = new Date(`${approvalScheduledDate}T${approvalScheduledTime}:00`);
+            if (combined <= new Date()) {
+                toast.error("Scheduled release time must be in the future.");
+                return;
+            }
+            scheduledReleaseIso = combined.toISOString();
+        }
+
+        setIsApproving(true);
+        try {
+            const res = await apiClient.post(`/corporate-admin/quotations/${rfqId}/approve`, {
+                legal_disclaimer_accepted: true,
+                scheduled_release_at: scheduledReleaseIso
+            });
+            toast.success(res.data?.message || "Quotation approved and released successfully!");
+            setShowApprovalPanel(false);
             fetchResults();
         } catch (err) {
-            console.error('Approval action failed:', err);
-            alert('Action failed: ' + (err.response?.data?.detail || err.message));
+            console.error('Approval failed:', err);
+            toast.error("Failed to approve: " + (err.response?.data?.detail || err.message));
+        } finally {
+            setIsApproving(false);
+        }
+    };
+
+    const executeReject = async () => {
+        if (!window.confirm("Are you sure you want to reject this quotation request?")) return;
+        try {
+            await apiClient.post(`/corporate-admin/quotations/${rfqId}/reject`);
+            toast.success("Quotation Request Rejected.");
+            setShowApprovalPanel(false);
+            fetchResults();
+        } catch (err) {
+            console.error('Rejection failed:', err);
+            toast.error("Action failed: " + (err.response?.data?.detail || err.message));
         }
     };
 
     const handleAcceptDeal = async () => {
-        if (!window.confirm(`Accept winning deal for RFQ ${rfq?.ref_no || rfqId}? This will confirm trade execution and dispatch confirmation emails.`)) return;
+        const isMulti = legs && legs.length > 1;
+        let acceptedIds = [];
+        let declinedIds = [];
+
+        if (isMulti) {
+            legs.forEach((leg, idx) => {
+                const legId = leg.id || leg.leg_id || idx;
+                const isSelected = selectedLegDecisions[legId] !== false;
+                const hasWinner = Boolean(leg.winner_bank_name && !leg.is_inconclusive);
+                if (isSelected && hasWinner) {
+                    acceptedIds.push(leg.id || leg.leg_id);
+                } else {
+                    declinedIds.push(leg.id || leg.leg_id);
+                }
+            });
+
+            if (acceptedIds.length === 0) {
+                if (!window.confirm("No currency pair legs are selected for execution. Declining all legs will mark the quotation as rejected. Proceed?")) return;
+                return handleDeclineDeal();
+            }
+
+            const promptMsg = acceptedIds.length === legs.length
+                ? `Accept all ${legs.length} currency pairs for RFQ ${rfq?.ref_no || rfqId}? This will confirm trade execution and dispatch confirmation emails.`
+                : `Execute ${acceptedIds.length} of ${legs.length} legs (and decline the remaining ${declinedIds.length}) for RFQ ${rfq?.ref_no || rfqId}? Proceed with trade confirmation?`;
+
+            if (!window.confirm(promptMsg)) return;
+        } else {
+            if (!window.confirm(`Accept winning deal for RFQ ${rfq?.ref_no || rfqId}? This will confirm trade execution and dispatch confirmation emails.`)) return;
+        }
+
         try {
             setIsAcceptingDeal(true);
-            const res = await apiClient.post(`/corporate-admin/quotations/${rfqId}/accept-deal`);
+            const payload = isMulti ? { accepted_leg_ids: acceptedIds, declined_leg_ids: declinedIds } : {};
+            const res = await apiClient.post(`/corporate-admin/quotations/${rfqId}/accept-deal`, payload);
             toast.success(res.data?.message || "Deal accepted! Trade execution confirmed.");
             fetchResults();
         } catch (err) {
@@ -327,8 +467,16 @@ export default function ResultsView({ rfqId }) {
         const targetAmount = legContext ? legContext.amount : rfq?.amount;
         const targetValueDate = legContext ? legContext.value_date : rfq?.value_date;
         const targetDirection = legContext ? legContext.direction : rfq?.direction;
-        const winnerId = legContext ? legContext.winner_bank_id : resultsMeta.winnerBankId;
-        const isWinner = winnerId ? (result.bank_id === winnerId) : (index === 0 && result.price);
+        const isLegRejected = Boolean(legContext && (legContext.status === 'REJECTED' || legContext.status === 'DECLINED' || legContext.status === 'CANCELLED'));
+        const isRfqRejected = Boolean(rfq && (rfq.status === 'REJECTED' || rfq.status === 'DECLINED' || rfq.status === 'CANCELLED'));
+        const winnerId = (isLegRejected || (!legContext && isRfqRejected)) ? null : (legContext ? legContext.winner_bank_id : resultsMeta.winnerBankId);
+        const isWinner = (!isLegRejected && !isRfqRejected) && Boolean(winnerId ? (result.bank_id === winnerId) : (!legContext && index === 0 && result.price && rfq?.status === 'ACCEPTED'));
+        const effectiveValueDate = result.offered_value_date || result.assigned_value_date;
+        const isDiffValueDate = Boolean(
+            result.is_custom_value_date ||
+            result.is_alternative_value_date ||
+            (effectiveValueDate && targetValueDate && String(effectiveValueDate).split('T')[0] !== String(targetValueDate).split('T')[0])
+        );
 
         return (
             <div
@@ -360,14 +508,19 @@ export default function ResultsView({ rfqId }) {
                                 </span>
                             )}
                             {renderApprovalBadge(result)}
-                            {result.assigned_value_date && (
-                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
-                                    result.is_custom_value_date 
-                                        ? 'bg-blue-50 text-blue-800 border-blue-200' 
+                            {effectiveValueDate && (
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
+                                    isDiffValueDate 
+                                        ? 'bg-amber-50 text-amber-900 border-amber-300 ring-1 ring-amber-300/40' 
                                         : 'bg-slate-50 text-slate-600 border-slate-200'
                                 }`}>
-                                    Val: {result.assigned_value_date}
-                                    {result.is_custom_value_date && ' (Custom)'}
+                                    <Calendar size={11} className={isDiffValueDate ? 'text-amber-600' : 'text-slate-400'} />
+                                    <span>Val: {formatDate(effectiveValueDate)}</span>
+                                    {isDiffValueDate && (
+                                        <span className="text-[9px] font-bold bg-amber-200 text-amber-900 px-1 py-0.2 rounded ml-0.5">
+                                            Alt Date
+                                        </span>
+                                    )}
                                 </span>
                             )}
                             {result.is_document_visible === false && (
@@ -429,17 +582,17 @@ export default function ResultsView({ rfqId }) {
                         {rfq?.type === 'FX_SPOT' && (
                             <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-semibold ${
-                                    result.is_alternative_value_date 
-                                        ? 'bg-blue-50 text-blue-800 border-blue-200' 
+                                    isDiffValueDate 
+                                        ? 'bg-amber-50 text-amber-900 border-amber-300 ring-1 ring-amber-300/40' 
                                         : 'bg-slate-50 text-slate-700 border-slate-200'
                                 }`}>
-                                    <Calendar size={12} className={result.is_alternative_value_date ? 'text-blue-600' : 'text-slate-400'} />
+                                    <Calendar size={12} className={isDiffValueDate ? 'text-amber-600' : 'text-slate-400'} />
                                     <span>
-                                        Value Date: <strong>{formatDate(result.offered_value_date || result.assigned_value_date || targetValueDate)}</strong>
+                                        Value Date: <strong>{formatDate(effectiveValueDate || targetValueDate)}</strong>
                                     </span>
-                                    {result.is_alternative_value_date && (
-                                        <span className="text-[10px] font-normal text-blue-600 ml-1">
-                                            (Target: {formatDate(targetValueDate)})
+                                    {isDiffValueDate && (
+                                        <span className="text-[10px] font-bold bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded ml-1">
+                                            Alt Date
                                         </span>
                                     )}
                                 </span>
@@ -447,8 +600,8 @@ export default function ResultsView({ rfqId }) {
                                     <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
                                         Alternative Date Permitted
                                     </span>
-                                ) : result.is_alternative_value_date ? (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                                ) : isDiffValueDate ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded">
                                         Custom Settlement Date
                                     </span>
                                 ) : (
@@ -615,7 +768,7 @@ export default function ResultsView({ rfqId }) {
                                     className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-200 cursor-pointer disabled:opacity-50"
                                     title="Accept winning counterparty quote and finalize execution"
                                 >
-                                    <CheckCircle2 size={13} /> {isAcceptingDeal ? 'Accepting...' : 'Accept Deal (Execute)'}
+                                    <CheckCircle2 size={13} /> {isAcceptingDeal ? 'Accepting...' : (legs && legs.length > 1 && legs.filter(l => selectedLegDecisions[l.id || l.leg_id] !== false && l.winner_bank_name && !l.is_inconclusive).length < legs.length) ? `Accept Selected Legs` : 'Accept Deal (Execute)'}
                                 </button>
                             </div>
                         )
@@ -682,16 +835,16 @@ export default function ResultsView({ rfqId }) {
                                 </p>
                             </div>
                         </div>
-                        {isCorporateAdmin && (
+                        {isCorporateAdmin && !showApprovalPanel && (
                             <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-amber-200">
                                 <button
-                                    onClick={() => handleApproval('REJECTED')}
+                                    onClick={executeReject}
                                     className="px-4 py-2 bg-white text-rose-700 border border-rose-300 font-bold rounded-xl hover:bg-rose-50 transition-all text-xs cursor-pointer shadow-2xs"
                                 >
                                     Reject Request
                                 </button>
                                 <button
-                                    onClick={() => handleApproval('PENDING')}
+                                    onClick={handleOpenApprovalPanel}
                                     className="px-5 py-2 bg-slate-900 text-white font-bold rounded-xl hover:bg-black transition-all shadow-md text-xs cursor-pointer flex items-center gap-1.5"
                                 >
                                     <CheckCircle2 size={14} className="text-emerald-400" />
@@ -700,6 +853,188 @@ export default function ResultsView({ rfqId }) {
                             </div>
                         )}
                     </div>
+
+                    {/* Inline Scheduling & Legal Acknowledgment Panel (Zero Modal-inside-Modal) */}
+                    {isCorporateAdmin && showApprovalPanel && (
+                        <div className="mt-4 pt-4 border-t border-amber-300/80 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                            {/* Panel Header */}
+                            <div className="flex items-center justify-between bg-amber-100/70 p-3 rounded-xl border border-amber-200">
+                                <div className="flex items-center gap-2">
+                                    <Clock size={16} className="text-amber-800 shrink-0" />
+                                    <span className="text-xs font-bold text-amber-950 uppercase tracking-wide">
+                                        Release Dispatch & Compliance Authorization
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowApprovalPanel(false)}
+                                    className="text-xs font-semibold text-amber-900 hover:text-black underline cursor-pointer"
+                                >
+                                    Collapse
+                                </button>
+                            </div>
+
+                            {/* Release Timing Selector */}
+                            <div className="p-4 rounded-2xl bg-blue-50/80 border border-blue-200 text-slate-800 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold text-blue-900 flex items-center gap-1.5 uppercase tracking-wider">
+                                        <Clock size={14} className="text-blue-700" />
+                                        Bank Email Dispatch Timing
+                                    </label>
+                                    <span className="text-[11px] font-semibold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md">
+                                        {approvalReleaseMode === 'IMMEDIATE' ? 'Immediate' : 'Delayed Scheduled'}
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <button
+                                        type="button"
+                                        onClick={() => setApprovalReleaseMode('IMMEDIATE')}
+                                        className={`py-2 px-3 rounded-xl border text-center font-bold transition-all cursor-pointer ${
+                                            approvalReleaseMode === 'IMMEDIATE'
+                                                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        ⚡ Release Immediately
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setApprovalReleaseMode('SCHEDULED')}
+                                        className={`py-2 px-3 rounded-xl border text-center font-bold transition-all cursor-pointer ${
+                                            approvalReleaseMode === 'SCHEDULED'
+                                                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        🕒 Schedule for Later
+                                    </button>
+                                </div>
+
+                                {approvalReleaseMode === 'SCHEDULED' ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 animate-in fade-in duration-200">
+                                        <div>
+                                            <label className="text-[11px] font-semibold text-slate-700 mb-1 block">
+                                                Release Date <span className="text-rose-500">*</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={approvalScheduledDate}
+                                                min={new Date().toISOString().split('T')[0]}
+                                                onChange={e => setApprovalScheduledDate(e.target.value)}
+                                                className="w-full text-xs p-2.5 rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[11px] font-semibold text-slate-700 mb-1 block">
+                                                Release Time (Cairo) <span className="text-rose-500">*</span>
+                                            </label>
+                                            <input
+                                                type="time"
+                                                value={approvalScheduledTime}
+                                                onChange={e => setApprovalScheduledTime(e.target.value)}
+                                                className="w-full text-xs p-2.5 rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                                            />
+                                        </div>
+                                        <p className="text-[11px] text-blue-700 sm:col-span-2 italic leading-tight">
+                                            * Emails and OTP links will be dispatched automatically to bank dealers at this time.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="p-3 bg-white/80 rounded-xl border border-blue-100 text-[11px] text-slate-600 leading-relaxed">
+                                        Approval will immediately broadcast quotation invitation emails to all {results.length || (rfq.assigned_banks?.length) || 'assigned'} counterparties.
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Legal Disclaimer & Liability Acknowledgment (Conditional: Mandatory for Execution/Mixed, Informational for Indicative) */}
+                            {(() => {
+                                const bases = Array.from(new Set([
+                                    ...((results || []).map(b => b.quotation_base).filter(Boolean)),
+                                    ...((rfq?.assigned_banks || []).map(b => b.quotation_base).filter(Boolean)),
+                                    ...((legs || []).map(l => l.quotation_base).filter(Boolean)),
+                                    rfq?.quotation_base
+                                ].filter(Boolean)));
+                                const hasExecution = bases.some(b => b?.toLowerCase() === 'execution') || rfq?.quotation_base === 'Mixed' || (rfq?.quotation_base || '').toLowerCase() === 'execution';
+                                const isMixed = rfq?.quotation_base === 'Mixed' || bases.length > 1;
+                                const isPureIndicative = !hasExecution && (rfq?.quotation_base || '').toLowerCase() === 'indicative';
+
+                                if (isPureIndicative) {
+                                    return (
+                                        <div className="p-3.5 sm:p-4 rounded-2xl bg-indigo-50/80 border border-indigo-200 text-indigo-950 text-xs leading-relaxed space-y-1.5 transition-all">
+                                            <div className="flex items-start gap-2.5">
+                                                <Info size={16} className="text-indigo-600 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <span className="font-bold text-[11px] uppercase tracking-wider text-indigo-900 block">
+                                                        Indicative Market Discovery Quotation
+                                                    </span>
+                                                    <p className="text-xs text-indigo-900/90 leading-relaxed mt-0.5">
+                                                        This RFQ is requested for <strong>Indicative pricing discovery / market color only</strong>. Submitted bank quotes are non-binding and do not constitute a direct settlement obligation. Authorization will release this RFQ to the assigned counterparties for price indications without triggering binding execution acceptance.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-50/70 border border-amber-300 text-amber-950 text-xs leading-relaxed space-y-2 transition-all">
+                                        <div className="flex items-start gap-3">
+                                            <input
+                                                type="checkbox"
+                                                id="inlineAdminLegalConfirmed"
+                                                checked={approvalLegalAccepted}
+                                                onChange={e => setApprovalLegalAccepted(e.target.checked)}
+                                                className="mt-0.5 h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500 cursor-pointer shrink-0"
+                                            />
+                                            <label htmlFor="inlineAdminLegalConfirmed" className="cursor-pointer select-none space-y-1">
+                                                <span className="font-bold text-[11px] uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                                                    <Shield size={14} className="text-amber-700 shrink-0" />
+                                                    MANDATORY COUNTERPARTY LIABILITY & EXECUTION ACKNOWLEDGMENT <span className="text-rose-600">*</span>
+                                                </span>
+                                                <p className="text-xs text-amber-950 leading-relaxed">
+                                                    I confirm and authorize this {isMixed ? 'Mixed (Execution & Indicative)' : 'Firm Execution'} RFQ on behalf of <strong className="underline text-slate-900">{rfq?.entity_name ? (rfq?.entity_code ? `${rfq.entity_name} (${rfq.entity_code})` : rfq.entity_name) : 'our legal entity'}</strong>. I acknowledge that selecting invited bank counterparties is solely our responsibility and that any quote awarded on execution legs at window closure constitutes a direct, legally enforceable settlement obligation between our legal entity and the winning bank.
+                                                </p>
+                                            </label>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Action Buttons */}
+                            <div className="flex items-center justify-end gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    disabled={isApproving}
+                                    onClick={() => setShowApprovalPanel(false)}
+                                    className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={(() => {
+                                        const bases = Array.from(new Set([
+                                            ...((results || []).map(b => b.quotation_base).filter(Boolean)),
+                                            ...((rfq?.assigned_banks || []).map(b => b.quotation_base).filter(Boolean)),
+                                            ...((legs || []).map(l => l.quotation_base).filter(Boolean)),
+                                            rfq?.quotation_base
+                                        ].filter(Boolean)));
+                                        const hasExecution = bases.some(b => b?.toLowerCase() === 'execution') || rfq?.quotation_base === 'Mixed' || (rfq?.quotation_base || '').toLowerCase() === 'execution';
+                                        const isPureIndicative = !hasExecution && (rfq?.quotation_base || '').toLowerCase() === 'indicative';
+                                        return (!isPureIndicative && !approvalLegalAccepted) || isApproving;
+                                    })()}
+                                    onClick={executeApprove}
+                                    className={`px-6 py-2.5 rounded-xl text-white text-xs font-bold shadow-md disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 cursor-pointer ${
+                                        approvalReleaseMode === 'SCHEDULED' ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20' : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
+                                    }`}
+                                >
+                                    {isApproving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                                    {isApproving ? 'Authorizing...' : (approvalReleaseMode === 'SCHEDULED' ? 'Confirm & Schedule Release' : 'Confirm & Release to Banks')}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -759,8 +1094,79 @@ export default function ResultsView({ rfqId }) {
                             </div>
                         </div>
 
+                        {isAwaitingAcceptance && legs && legs.length > 1 && (
+                            <div className="w-full mt-4 pt-4 border-t border-amber-200/80">
+                                <div className="text-[11px] font-bold uppercase tracking-wider text-amber-950 flex items-center justify-between mb-2">
+                                    <span>Currency Pair Selection (Select which legs to execute):</span>
+                                    <span className="text-[10px] font-medium text-amber-800">
+                                        {legs.filter(l => (selectedLegDecisions[l.id || l.leg_id] !== false) && l.winner_bank_name && !l.is_inconclusive).length} of {legs.length} legs selected
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                    {legs.map((leg, idx) => {
+                                        const legId = leg.id || leg.leg_id || idx;
+                                        const isChecked = selectedLegDecisions[legId] !== false;
+                                        const pair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
+                                        const hasWinner = Boolean(leg.winner_bank_name && !leg.is_inconclusive);
+                                        return (
+                                            <label
+                                                key={legId}
+                                                className={`flex items-start gap-3 p-3 rounded-xl border transition-all select-none ${
+                                                    !hasWinner
+                                                        ? 'bg-gray-50/80 border-gray-200 opacity-60 cursor-not-allowed'
+                                                        : isChecked
+                                                            ? 'bg-white border-emerald-300 shadow-xs ring-1 ring-emerald-200 cursor-pointer'
+                                                            : 'bg-rose-50/40 border-rose-200 text-rose-800 cursor-pointer'
+                                                }`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    disabled={!hasWinner || isAcceptingDeal || isDecliningDeal}
+                                                    checked={isChecked && hasWinner}
+                                                    onChange={(e) => {
+                                                        setSelectedLegDecisions(prev => ({
+                                                            ...prev,
+                                                            [legId]: e.target.checked
+                                                        }));
+                                                    }}
+                                                    className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                                />
+                                                <div className="min-w-0 flex-1 text-xs">
+                                                    <div className="flex items-center gap-1.5 font-bold text-gray-900">
+                                                        <span className="uppercase text-[10px] px-1.5 py-0.5 rounded bg-slate-100 font-black">
+                                                            {leg.direction || 'BUY'}
+                                                        </span>
+                                                        <span>{pair}</span>
+                                                        <span className="text-gray-500 font-normal">
+                                                            ({Number(leg.amount || 0).toLocaleString()} {leg.buy_currency})
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-[11px] text-gray-600 mt-0.5 truncate">
+                                                        {hasWinner ? (
+                                                            <span className="text-emerald-700 font-semibold">
+                                                                🏆 Winning Bank: {leg.winner_bank_name} @ {leg.winner_rate}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-amber-700 italic">
+                                                                No winning quote / Inconclusive
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {hasWinner && !isChecked && (
+                                                        <span className="inline-block mt-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                                                            Will be declined / dropped
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
                         {isAwaitingAcceptance && (
-                            <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-amber-200">
+                            <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto justify-end pt-3 sm:pt-2 border-t sm:border-t-0 border-amber-200">
                                 <button
                                     type="button"
                                     onClick={handleDeclineDeal}
@@ -768,7 +1174,7 @@ export default function ResultsView({ rfqId }) {
                                     className="px-4 py-2.5 bg-white text-rose-700 border border-rose-300 font-bold rounded-xl hover:bg-rose-50 transition-all text-xs cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
                                 >
                                     <XCircle size={14} />
-                                    <span>{isDecliningDeal ? 'Declining...' : 'Decline Deal'}</span>
+                                    <span>{isDecliningDeal ? 'Declining...' : 'Decline Entire Deal'}</span>
                                 </button>
                                 <button
                                     type="button"
@@ -777,7 +1183,18 @@ export default function ResultsView({ rfqId }) {
                                     className="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 text-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                                 >
                                     <CheckCircle2 size={14} className="text-emerald-100" />
-                                    <span>{isAcceptingDeal ? 'Accepting...' : 'Accept Deal & Execute'}</span>
+                                    <span>
+                                        {isAcceptingDeal
+                                            ? 'Accepting...'
+                                            : (legs && legs.length > 1)
+                                                ? (() => {
+                                                    const sCount = legs.filter(l => selectedLegDecisions[l.id || l.leg_id] !== false && l.winner_bank_name && !l.is_inconclusive).length;
+                                                    if (sCount === legs.length) return 'Accept All Legs & Execute';
+                                                    if (sCount > 0) return `Accept (${sCount} of ${legs.length} Legs) & Execute`;
+                                                    return 'Decline All Legs';
+                                                })()
+                                                : 'Accept Deal & Execute'}
+                                    </span>
                                 </button>
                             </div>
                         )}
@@ -923,9 +1340,11 @@ export default function ResultsView({ rfqId }) {
             {/* Phase 2: Best Execution & Monetary Savings Hero Card */}
             {legs && legs.length > 1 ? (
                 (() => {
-                    const totalSavedVsAvg = legs.reduce((acc, l) => acc + (l.saved_vs_avg || l.savings_summary?.saved_vs_avg || 0), 0);
+                    const isLegValid = (l) => l.status !== 'REJECTED' && l.status !== 'DECLINED' && l.status !== 'CANCELLED';
+                    const activeLegs = legs.filter(isLegValid);
+                    const totalSavedVsAvg = activeLegs.reduce((acc, l) => acc + (l.saved_vs_avg || l.savings_summary?.saved_vs_avg || 0), 0);
                     const totalQuotesCount = legs.reduce((acc, l) => acc + (l.savings_summary?.total_quotes || (l.results || []).filter(r => r.price != null).length || 0), 0);
-                    const awardedLegs = legs.filter(l => l.winner_bank_name && !l.is_inconclusive);
+                    const awardedLegs = legs.filter(l => isLegValid(l) && l.winner_bank_name && !l.is_inconclusive);
 
                     if (awardedLegs.length === 0 && !resultsMeta.savingsSummary) return null;
 
@@ -946,7 +1365,7 @@ export default function ResultsView({ rfqId }) {
                                         <h3 className="text-lg font-bold text-white mt-1">
                                             {awardedLegs.length === legs.length 
                                                 ? `All ${legs.length} Currency Pairs Successfully Awarded` 
-                                                : `${awardedLegs.length} of ${legs.length} Pairs Concluded`}
+                                                : `${awardedLegs.length} of ${legs.length} Pairs Awarded`}
                                         </h3>
                                     </div>
                                 </div>
@@ -967,7 +1386,7 @@ export default function ResultsView({ rfqId }) {
                                         EGP {totalSavedVsAvg?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </p>
                                     <span className="text-[10px] text-emerald-200/60 mt-0.5 block">
-                                        Combined savings across all evaluated currency pairs
+                                        Combined savings across awarded currency pairs
                                     </span>
                                 </div>
 
@@ -979,8 +1398,10 @@ export default function ResultsView({ rfqId }) {
                                         {legs.map((l, i) => (
                                             <div key={i} className="flex items-center justify-between text-xs font-mono">
                                                 <span className="text-slate-300 font-bold">{l.currency_pair || `${l.buy_currency}/${l.sell_currency}`}:</span>
-                                                <span className="text-emerald-300 font-semibold truncate ml-2">
-                                                    {l.winner_bank_name ? `${l.winner_bank_name} @ ${l.winner_rate}` : 'Inconclusive'}
+                                                <span className={`${l.status === 'REJECTED' || l.status === 'DECLINED' ? 'text-rose-300' : 'text-emerald-300'} font-semibold truncate ml-2`}>
+                                                    {l.status === 'REJECTED' || l.status === 'DECLINED' 
+                                                        ? 'Declined / Not Awarded' 
+                                                        : (l.winner_bank_name ? `${l.winner_bank_name} @ ${l.winner_rate}` : 'Inconclusive')}
                                                 </span>
                                             </div>
                                         ))}
@@ -1002,7 +1423,7 @@ export default function ResultsView({ rfqId }) {
                         </div>
                     );
                 })()
-            ) : resultsMeta.savingsSummary ? (
+            ) : (resultsMeta.savingsSummary && resultsMeta.status !== 'REJECTED' && rfq?.status !== 'REJECTED') ? (
                 <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-900 via-teal-900 to-emerald-950 text-white shadow-xl border border-emerald-500/30 space-y-4">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-emerald-700/50 pb-4">
                         <div className="flex items-center gap-3">
@@ -1197,11 +1618,14 @@ export default function ResultsView({ rfqId }) {
                                 </span>
                                 <span className="text-lg font-bold text-slate-900 font-sans mt-1">{formatDate(rfq.value_date)}</span>
                                 {(() => {
-                                    const hasCustomDates = (results || []).some(r => r.is_custom_value_date || (r.assigned_value_date && rfq.value_date && String(r.assigned_value_date).split('T')[0] !== String(rfq.value_date).split('T')[0]));
+                                    const hasCustomDates = (results || []).some(r => {
+                                        const eff = r.offered_value_date || r.assigned_value_date;
+                                        return r.is_custom_value_date || r.is_alternative_value_date || (eff && rfq?.value_date && String(eff).split('T')[0] !== String(rfq.value_date).split('T')[0]);
+                                    });
                                     if (hasCustomDates) {
                                         return (
-                                            <span className="inline-block text-[10px] font-bold mt-1 px-2 py-0.5 rounded border text-blue-700 bg-blue-50 border-blue-200">
-                                                • Per-Bank Custom Dates
+                                            <span className="inline-block text-[10px] font-bold mt-1 px-2 py-0.5 rounded border text-amber-800 bg-amber-50 border-amber-300">
+                                                • Custom Dates Present
                                             </span>
                                         );
                                     }
@@ -1433,16 +1857,26 @@ export default function ResultsView({ rfqId }) {
                                                 </span>
                                             )}
                                             {renderApprovalBadge(result)}
-                                            {result.assigned_value_date && (
-                                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
-                                                    result.is_custom_value_date 
-                                                        ? 'bg-blue-50 text-blue-800 border-blue-200' 
-                                                        : 'bg-slate-50 text-slate-600 border-slate-200'
-                                                }`}>
-                                                    Val: {result.assigned_value_date}
-                                                    {result.is_custom_value_date && ' (Custom)'}
-                                                </span>
-                                            )}
+                                            {(() => {
+                                                const effDate = result.offered_value_date || result.assigned_value_date;
+                                                const isDiff = Boolean(
+                                                    result.is_custom_value_date ||
+                                                    result.is_alternative_value_date ||
+                                                    (effDate && rfq?.value_date && String(effDate).split('T')[0] !== String(rfq.value_date).split('T')[0])
+                                                );
+                                                if (!effDate) return null;
+                                                return (
+                                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
+                                                        isDiff 
+                                                            ? 'bg-amber-50 text-amber-900 border-amber-300 ring-1 ring-amber-300/40' 
+                                                            : 'bg-slate-50 text-slate-600 border-slate-200'
+                                                    }`}>
+                                                        <Calendar size={11} className={isDiff ? 'text-amber-600' : 'text-slate-400'} />
+                                                        <span>Val: {formatDate(effDate)}</span>
+                                                        {isDiff && <span className="text-[9px] font-bold bg-amber-200 text-amber-900 px-1 rounded ml-0.5">Alt Date</span>}
+                                                    </span>
+                                                );
+                                            })()}
                                             {result.is_document_visible === false && (
                                                 <span className="text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded uppercase">Doc Hidden</span>
                                             )}
@@ -1583,7 +2017,11 @@ export default function ResultsView({ rfqId }) {
                                             {leg.direction || 'BUY'}
                                         </span>
                                         <span>{pair}</span>
-                                        {leg.winner_bank_name && !leg.is_inconclusive && (
+                                        {leg.status === 'REJECTED' || leg.status === 'DECLINED' ? (
+                                            <span className="text-[10px] font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 flex items-center gap-1">
+                                                ❌ Declined
+                                            </span>
+                                        ) : leg.winner_bank_name && !leg.is_inconclusive && (
                                             <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
                                                 🏆 {leg.winner_bank_name}
                                             </span>
@@ -1628,7 +2066,11 @@ export default function ResultsView({ rfqId }) {
                                                         {leg.quotation_base || 'Execution'}
                                                     </span>
                                                 </div>
-                                                {legWinner && !leg.is_inconclusive && (
+                                                {leg.status === 'REJECTED' || leg.status === 'DECLINED' ? (
+                                                    <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 text-rose-800 px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-2xs">
+                                                        <span>❌ Declined by Treasury / Not Awarded</span>
+                                                    </div>
+                                                ) : legWinner && !leg.is_inconclusive && (
                                                     <div className="flex items-center gap-2 bg-emerald-100/90 border border-emerald-300 text-emerald-950 px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-2xs">
                                                         <Trophy size={14} className="text-emerald-700" />
                                                         <span>Awarded to {legWinner} @ {leg.winner_rate}</span>
@@ -1684,7 +2126,11 @@ export default function ResultsView({ rfqId }) {
                                                     {currentLeg.quotation_base || 'Execution'}
                                                 </span>
                                             </div>
-                                            {currentLeg.winner_bank_name && !currentLeg.is_inconclusive && (
+                                            {currentLeg.status === 'REJECTED' || currentLeg.status === 'DECLINED' ? (
+                                                <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 text-rose-800 px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-2xs">
+                                                    <span>❌ Declined by Treasury / Not Awarded</span>
+                                                </div>
+                                            ) : currentLeg.winner_bank_name && !currentLeg.is_inconclusive && (
                                                 <div className="flex items-center gap-2 bg-emerald-100/90 border border-emerald-300 text-emerald-950 px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-2xs">
                                                     <Trophy size={14} className="text-emerald-700" />
                                                     <span>Awarded to {currentLeg.winner_bank_name} @ {currentLeg.winner_rate}</span>

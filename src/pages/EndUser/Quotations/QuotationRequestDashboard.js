@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, AlertTriangle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, AlertTriangle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal, Save } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
+import { safeLocalStorage } from '../../../utils/safeStorage';
+import { getCurrentUser } from '../../../utils/authUtils';
 import ResultsView from './ResultsView';
 
 const MAX_PAIRS = 4;
@@ -176,6 +178,18 @@ const getInitialFormData = (entityId = '') => {
     };
 };
 
+const DRAFT_STORAGE_KEY_PREFIX = 'rfq_builder_draft_';
+const getDraftStorageKey = () => {
+    try {
+        const user = getCurrentUser();
+        const customerId = user?.customer_id || 'default';
+        const userId = user?.id || 'anon';
+        return `${DRAFT_STORAGE_KEY_PREFIX}${customerId}_${userId}`;
+    } catch {
+        return `${DRAFT_STORAGE_KEY_PREFIX}generic`;
+    }
+};
+
 const getInitialPair = (valDate = '') => {
     const today = new Date().toISOString().split('T')[0];
     return {
@@ -237,10 +251,21 @@ export default function QuotationRequestDashboard() {
     const [copiedToken, setCopiedToken] = useState(null);
     const [legalAcknowledged, setLegalAcknowledged] = useState(false);
 
+    // Auto-Save Draft State
+    const [savedDraft, setSavedDraft] = useState(null);
+    const [showDraftBanner, setShowDraftBanner] = useState(false);
+    const [lastSavedTime, setLastSavedTime] = useState(null);
+
     const handleReset = () => {
         if (location.search) {
             navigate('/end-user/quotations/active', { replace: true });
         }
+        try {
+            safeLocalStorage.removeItem(getDraftStorageKey());
+        } catch (e) {}
+        setSavedDraft(null);
+        setShowDraftBanner(false);
+        setLastSavedTime(null);
         setSourceRfq(null);
         setUserNotes('');
         isPrefillingRef.current = false;
@@ -258,6 +283,140 @@ export default function QuotationRequestDashboard() {
         setLegalAcknowledged(false);
         setCopiedToken(null);
         toast.info('Quotation form reset to original state.');
+    };
+
+    // Check for existing saved draft on initial page mount
+    useEffect(() => {
+        if (revisionRfqId || retradeRfqId) return;
+        try {
+            const raw = safeLocalStorage.getItem(getDraftStorageKey());
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && (parsed.formData || parsed.pairs?.length || parsed.selectedBanks?.length)) {
+                    const ageDays = (Date.now() - (parsed.timestamp || 0)) / (1000 * 60 * 60 * 24);
+                    if (ageDays <= 7) {
+                        setSavedDraft(parsed);
+                        setShowDraftBanner(true);
+                        if (parsed.savedAtFormatted) {
+                            setLastSavedTime(parsed.savedAtFormatted);
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Error reading saved RFQ draft:', e);
+        }
+    }, [revisionRfqId, retradeRfqId]);
+
+    // Check if current form has user data worth saving
+    const isFormDirty = Boolean(
+        formData.amount ||
+        pairs.some(p => p.amount && parseFloat(p.amount) > 0) ||
+        pairs.length > 1 ||
+        selectedBanks.length > 0 ||
+        (formData.entityId && entities.length > 1) ||
+        userNotes ||
+        formData.internalNotes
+    );
+
+    // Auto-save debounced effect (800ms)
+    useEffect(() => {
+        if (revisionRfqId || retradeRfqId || createdRfq) return;
+        if (!isFormDirty) return;
+
+        const timer = setTimeout(() => {
+            try {
+                const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const draftData = {
+                    timestamp: Date.now(),
+                    savedAtFormatted: nowTime,
+                    formData,
+                    pairs,
+                    selectedBanks,
+                    includeCrossEntityBanks,
+                    userNotes,
+                    hasFilesAttached: files.length > 0
+                };
+                safeLocalStorage.setItem(getDraftStorageKey(), JSON.stringify(draftData));
+                setLastSavedTime(nowTime);
+            } catch (e) {
+                console.warn('Failed to auto-save RFQ draft:', e);
+            }
+        }, 800);
+
+        return () => clearTimeout(timer);
+    }, [formData, pairs, selectedBanks, includeCrossEntityBanks, userNotes, files.length, isFormDirty, revisionRfqId, retradeRfqId, createdRfq]);
+
+    const handleManualSaveDraft = () => {
+        try {
+            const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const draftData = {
+                timestamp: Date.now(),
+                savedAtFormatted: nowTime,
+                formData,
+                pairs,
+                selectedBanks,
+                includeCrossEntityBanks,
+                userNotes,
+                hasFilesAttached: files.length > 0
+            };
+            safeLocalStorage.setItem(getDraftStorageKey(), JSON.stringify(draftData));
+            setLastSavedTime(nowTime);
+            setSavedDraft(draftData);
+            toast.success('RFQ draft saved! You can safely navigate away and resume anytime.');
+        } catch (e) {
+            console.error('Failed to save draft:', e);
+            toast.error('Could not save draft to local storage.');
+        }
+    };
+
+    const handleRestoreDraft = () => {
+        if (!savedDraft) return;
+        try {
+            if (savedDraft.formData) {
+                const restoredForm = { ...savedDraft.formData };
+                // Adjust windowStart if it is already in the past
+                if (restoredForm.windowStart) {
+                    const ws = new Date(restoredForm.windowStart);
+                    if (ws.getTime() <= Date.now()) {
+                        restoredForm.windowStart = toLocalISOString(new Date(Date.now() + 60000));
+                    }
+                }
+                setFormData(restoredForm);
+            }
+            if (Array.isArray(savedDraft.pairs) && savedDraft.pairs.length > 0) {
+                setPairs(savedDraft.pairs);
+                setActivePairIndex(0);
+            }
+            if (Array.isArray(savedDraft.selectedBanks)) {
+                setSelectedBanks(savedDraft.selectedBanks);
+            }
+            if (typeof savedDraft.includeCrossEntityBanks === 'boolean') {
+                setIncludeCrossEntityBanks(savedDraft.includeCrossEntityBanks);
+            }
+            if (savedDraft.userNotes) {
+                setUserNotes(savedDraft.userNotes);
+            }
+            setShowDraftBanner(false);
+            if (savedDraft.hasFilesAttached) {
+                toast.info('Draft restored. Please re-attach your supporting documents if needed.');
+            } else {
+                toast.success('RFQ draft restored successfully!');
+            }
+        } catch (err) {
+            console.error('Error restoring draft:', err);
+            toast.error('Failed to restore saved draft.');
+        }
+    };
+
+    const handleDiscardDraft = () => {
+        try {
+            safeLocalStorage.removeItem(getDraftStorageKey());
+        } catch (e) {}
+        setSavedDraft(null);
+        setShowDraftBanner(false);
+        setLastSavedTime(null);
+        toast.info('Draft discarded.');
     };
 
     const handleAddPair = () => {
@@ -285,6 +444,24 @@ export default function QuotationRequestDashboard() {
 
         setPairs(prev => [...prev, newPair]);
         setActivePairIndex(pairs.length);
+
+        // Pre-populate bank pair configs for the new currency pair
+        setSelectedBanks(prev => prev.map(b => {
+            const existingConfigs = { ...(b.pairConfigs || {}) };
+            existingConfigs[newPair.id] = {
+                costMin: b.costMin ?? 0,
+                costPercent: b.costPercent ?? 0,
+                costMax: b.costMax ?? 0,
+                costFlat: b.costFlat ?? 0,
+                quotationBase: b.quotationBase || formData.quotationBase || 'Execution',
+                valueDate: newPair.valueDate,
+                allowAlternativeValueDate: b.allowAlternativeValueDate ?? false,
+                isDocumentVisible: b.isDocumentVisible !== false,
+                _dateCustomized: false
+            };
+            return { ...b, pairConfigs: existingConfigs };
+        }));
+
         toast.info(`Added Pair #${pairs.length + 1} (${nextCurr}/EGP)`);
     };
 
@@ -319,6 +496,40 @@ export default function QuotationRequestDashboard() {
                 ...(field === 'quotationBase' ? { quotationBase: value } : {}),
                 ...(field === 'maxTolerancePercent' ? { maxTolerancePercent: value } : {}),
                 ...(field === 'allowAlternativeValueDate' ? { allowAlternativeValueDate: value } : {}),
+            }));
+        }
+
+        // When pair's value date changes, cascade to all selected banks unless individually customized
+        if (field === 'valueDate') {
+            const curPairId = pairs[activePairIndex]?.id;
+            setSelectedBanks(prev => prev.map(b => {
+                const existingConfigs = b.pairConfigs || {};
+                const updatedConfigs = { ...existingConfigs };
+                if (curPairId && updatedConfigs[curPairId]) {
+                    if (!updatedConfigs[curPairId]._dateCustomized) {
+                        updatedConfigs[curPairId] = {
+                            ...updatedConfigs[curPairId],
+                            valueDate: value
+                        };
+                    }
+                }
+                let updatedBankDate = b.valueDate;
+                if (!b.customPairTariffs && !b._dateCustomized) {
+                    updatedBankDate = value;
+                    pairs.forEach(p => {
+                        if (updatedConfigs[p.id] && !updatedConfigs[p.id]._dateCustomized) {
+                            updatedConfigs[p.id] = {
+                                ...updatedConfigs[p.id],
+                                valueDate: value
+                            };
+                        }
+                    });
+                }
+                return {
+                    ...b,
+                    valueDate: updatedBankDate,
+                    pairConfigs: updatedConfigs
+                };
             }));
         }
 
@@ -366,15 +577,33 @@ export default function QuotationRequestDashboard() {
         if (!d) return;
         setPairs(prev => prev.map(p => ({ ...p, valueDate: d })));
         setFormData(prev => ({ ...prev, valueDate: d }));
-        toast.success(`Value Date (${formatDate(d)}) synced to all ${pairs.length} currency pair(s).`);
+        setSelectedBanks(prev => prev.map(b => {
+            const existingConfigs = b.pairConfigs || {};
+            const updatedConfigs = { ...existingConfigs };
+            pairs.forEach(p => {
+                if (updatedConfigs[p.id] && !updatedConfigs[p.id]._dateCustomized) {
+                    updatedConfigs[p.id] = {
+                        ...updatedConfigs[p.id],
+                        valueDate: d
+                    };
+                }
+            });
+            return {
+                ...b,
+                valueDate: !b._dateCustomized ? d : b.valueDate,
+                pairConfigs: updatedConfigs
+            };
+        }));
+        toast.success(`Value Date (${formatDate(d)}) synced to all ${pairs.length} currency pair(s) and selected counterparties.`);
     };
 
     const toggleBankPairCustomization = (bankId, isCustomized) => {
         setSelectedBanks(prev => prev.map(b => {
-            if (String(b.id) !== String(bankId)) return b;
+            if (String(b.id) !== String(bankId) && String(b.bank_id) !== String(bankId)) return b;
             const existingPairConfigs = { ...(b.pairConfigs || {}) };
             if (isCustomized) {
                 pairs.forEach(p => {
+                    const pDate = p.valueDate || b.valueDate || formData.valueDate || '';
                     if (!existingPairConfigs[p.id]) {
                         existingPairConfigs[p.id] = {
                             costMin: b.costMin ?? 0,
@@ -382,9 +611,16 @@ export default function QuotationRequestDashboard() {
                             costMax: b.costMax ?? 0,
                             costFlat: b.costFlat ?? 0,
                             quotationBase: b.quotationBase || formData.quotationBase || 'Execution',
-                            valueDate: b.valueDate || p.valueDate || formData.valueDate || '',
+                            valueDate: pDate,
                             allowAlternativeValueDate: b.allowAlternativeValueDate ?? p.allowAlternativeValueDate ?? false,
-                            isDocumentVisible: b.isDocumentVisible !== false
+                            isDocumentVisible: b.isDocumentVisible !== false,
+                            _dateCustomized: false
+                        };
+                    } else if (!existingPairConfigs[p.id]._dateCustomized) {
+                        // Ensure non-customized dates always mirror the current pair date
+                        existingPairConfigs[p.id] = {
+                            ...existingPairConfigs[p.id],
+                            valueDate: pDate
                         };
                     }
                 });
@@ -399,7 +635,7 @@ export default function QuotationRequestDashboard() {
 
     const updateBankPairConfig = (bankId, pairId, field, value) => {
         setSelectedBanks(prev => prev.map(b => {
-            if (String(b.id) !== String(bankId)) return b;
+            if (String(b.id) !== String(bankId) && String(b.bank_id) !== String(bankId)) return b;
             const existingPairConfigs = b.pairConfigs || {};
             const currentPairConfig = existingPairConfigs[pairId] || {
                 costMin: b.costMin,
@@ -412,13 +648,16 @@ export default function QuotationRequestDashboard() {
                 isDocumentVisible: b.isDocumentVisible
             };
 
+            const isDateCustom = field === 'valueDate' ? Boolean(value) : currentPairConfig._dateCustomized;
+
             return {
                 ...b,
                 pairConfigs: {
                     ...existingPairConfigs,
                     [pairId]: {
                         ...currentPairConfig,
-                        [field]: value
+                        [field]: value,
+                        ...(field === 'valueDate' ? { _dateCustomized: isDateCustom } : {})
                     }
                 }
             };
@@ -854,11 +1093,23 @@ export default function QuotationRequestDashboard() {
 
         if (newVal) {
             setSelectedBanks(prev => prev.map(b => {
-                if (b._dateCustomized) return b;
-                if (!b.valueDate || b.valueDate === formData.valueDate || (windowStartDate && b.valueDate < windowStartDate)) {
-                    return { ...b, valueDate: newVal };
+                const existingConfigs = b.pairConfigs || {};
+                const updatedConfigs = { ...existingConfigs };
+                pairs.forEach(p => {
+                    if (updatedConfigs[p.id] && !updatedConfigs[p.id]._dateCustomized) {
+                        updatedConfigs[p.id] = {
+                            ...updatedConfigs[p.id],
+                            valueDate: newVal
+                        };
+                    }
+                });
+                if (b._dateCustomized) {
+                    return { ...b, pairConfigs: updatedConfigs };
                 }
-                return b;
+                if (!b.valueDate || b.valueDate === formData.valueDate || (windowStartDate && b.valueDate < windowStartDate)) {
+                    return { ...b, valueDate: newVal, pairConfigs: updatedConfigs };
+                }
+                return { ...b, pairConfigs: updatedConfigs };
             }));
         }
     };
@@ -906,8 +1157,27 @@ export default function QuotationRequestDashboard() {
             toast.info("Please set a master value date first.");
             return;
         }
-        setSelectedBanks(prev => prev.map(b => ({ ...b, valueDate: formData.valueDate, _dateCustomized: false })));
-        toast.success(`Value Date (${formatDate(formData.valueDate)}) synced to all ${selectedBanks.length} selected banks.`);
+        const masterDate = formData.valueDate;
+        setSelectedBanks(prev => prev.map(b => {
+            const existingConfigs = b.pairConfigs || {};
+            const updatedConfigs = { ...existingConfigs };
+            pairs.forEach(p => {
+                if (updatedConfigs[p.id]) {
+                    updatedConfigs[p.id] = {
+                        ...updatedConfigs[p.id],
+                        valueDate: masterDate,
+                        _dateCustomized: false
+                    };
+                }
+            });
+            return {
+                ...b,
+                valueDate: masterDate,
+                _dateCustomized: false,
+                pairConfigs: updatedConfigs
+            };
+        }));
+        toast.success(`Value Date (${formatDate(masterDate)}) synced to all ${selectedBanks.length} selected banks.`);
     };
 
     const toggleMasterAlternativeValueDate = (enabled) => {
@@ -934,7 +1204,7 @@ export default function QuotationRequestDashboard() {
 
     const updateBankCost = (bankId, field, value) => {
         setSelectedBanks(prev => prev.map(b => {
-            if (String(b.id) !== String(bankId)) return b;
+            if (String(b.id) !== String(bankId) && String(b.bank_id) !== String(bankId)) return b;
             if (field === 'quotationBase') {
                 return {
                     ...b,
@@ -944,10 +1214,21 @@ export default function QuotationRequestDashboard() {
                 };
             }
             if (field === 'valueDate') {
+                const existingConfigs = b.pairConfigs || {};
+                const updatedConfigs = { ...existingConfigs };
+                pairs.forEach(p => {
+                    if (updatedConfigs[p.id] && !updatedConfigs[p.id]._dateCustomized) {
+                        updatedConfigs[p.id] = {
+                            ...updatedConfigs[p.id],
+                            valueDate: value
+                        };
+                    }
+                });
                 return {
                     ...b,
                     valueDate: value,
-                    _dateCustomized: true
+                    _dateCustomized: Boolean(value),
+                    pairConfigs: updatedConfigs
                 };
             }
             if (field === 'allowAlternativeValueDate') {
@@ -1181,7 +1462,9 @@ export default function QuotationRequestDashboard() {
                         costFlat: cfg?.costFlat !== undefined ? cfg.costFlat : (b.costFlat ?? 0),
                         quotationBase: cfg?.quotationBase || b.quotationBase || p.quotationBase || formData.quotationBase || 'Execution',
                         isDocumentVisible: cfg?.isDocumentVisible !== undefined ? cfg.isDocumentVisible : (b.isDocumentVisible !== false),
-                        valueDate: cfg?.valueDate ? String(cfg.valueDate).split('T')[0] : (b.valueDate ? String(b.valueDate).split('T')[0] : (p.valueDate ? String(p.valueDate).split('T')[0] : null)),
+                        valueDate: (cfg && cfg._dateCustomized && cfg.valueDate)
+                            ? String(cfg.valueDate).split('T')[0]
+                            : (p.valueDate ? String(p.valueDate).split('T')[0] : (b.valueDate && b._dateCustomized ? String(b.valueDate).split('T')[0] : (formData.valueDate ? String(formData.valueDate).split('T')[0] : null))),
                         allowAlternativeValueDate: cfg?.allowAlternativeValueDate !== undefined ? cfg.allowAlternativeValueDate : (b.allowAlternativeValueDate ?? p.allowAlternativeValueDate ?? false)
                     };
                 });
@@ -1252,6 +1535,12 @@ export default function QuotationRequestDashboard() {
 
             try {
                 await apiClient.post(`/end-user/quotations/${revisionRfqId}/resubmit`, revisionPayload);
+                try {
+                    safeLocalStorage.removeItem(getDraftStorageKey());
+                } catch (e) {}
+                setSavedDraft(null);
+                setShowDraftBanner(false);
+                setLastSavedTime(null);
                 toast.success(`RFQ ${sourceRfq?.ref_no || ''} revised and resubmitted for Corporate Admin approval!`);
                 navigate('/end-user/quotations/history');
                 return;
@@ -1298,6 +1587,12 @@ export default function QuotationRequestDashboard() {
         try {
             const res = await apiClient.post('/end-user/quotations/', payload);
             console.log('RFQ Created:', res.data);
+            try {
+                safeLocalStorage.removeItem(getDraftStorageKey());
+            } catch (e) {}
+            setSavedDraft(null);
+            setShowDraftBanner(false);
+            setLastSavedTime(null);
             if (retradeRfqId) {
                 toast.success(`Re-trade RFQ ${res.data.ref_no} launched successfully!`);
             } else {
@@ -1478,6 +1773,58 @@ export default function QuotationRequestDashboard() {
                 </div>
             )}
 
+            {/* Unsaved Draft Notification Banner */}
+            {showDraftBanner && savedDraft && !revisionRfqId && !retradeRfqId && (
+                <div className="mb-6 p-4 sm:p-5 rounded-3xl bg-slate-900 text-white shadow-lg animate-fade-in flex flex-col md:flex-row md:items-center justify-between gap-4 border border-slate-800">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                            <FileText size={20} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                    Unsaved Draft Found
+                                </span>
+                                <span className="text-xs text-slate-400">
+                                    Saved at {savedDraft.savedAtFormatted || formatDate(savedDraft.timestamp)}
+                                </span>
+                            </div>
+                            <h4 className="text-sm font-bold text-white mt-1">
+                                {savedDraft.pairs?.length > 1
+                                    ? `Multi-Pair Package (${savedDraft.pairs.length} Legs • ${savedDraft.pairs.map(p => `${p.buyCurrency || 'USD'}/${p.sellCurrency || 'EGP'}`).join(', ')})`
+                                    : `${savedDraft.formData?.buyCurrency || 'USD'}/${savedDraft.formData?.sellCurrency || 'EGP'} Spot FX`
+                                }
+                                {savedDraft.selectedBanks?.length > 0 && (
+                                    <span className="text-slate-400 font-normal ml-2">
+                                        • {savedDraft.selectedBanks.length} bank{savedDraft.selectedBanks.length > 1 ? 's' : ''} configured
+                                    </span>
+                                )}
+                            </h4>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                                You have an unsubmitted quotation draft. Would you like to restore all parameters and counterparties or discard it?
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+                        <button
+                            type="button"
+                            onClick={handleDiscardDraft}
+                            className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all cursor-pointer"
+                        >
+                            Discard Draft
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleRestoreDraft}
+                            className="px-4 py-2 rounded-xl text-xs font-black text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                        >
+                            <RotateCcw size={14} />
+                            Restore Draft
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <header className="mb-8 sm:mb-12">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
@@ -1492,15 +1839,33 @@ export default function QuotationRequestDashboard() {
                             Configure parameters, select counterparty banks, and submit your RFQ.
                         </p>
                     </div>
-                    <button
-                        type="button"
-                        onClick={handleReset}
-                        title="Reset entire form and page to initial blank state"
-                        className="self-start sm:self-auto px-4 py-2.5 rounded-xl text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 hover:text-gray-900 transition-all flex items-center gap-2 shadow-xs cursor-pointer"
-                    >
-                        <RotateCcw size={14} className="text-gray-500" />
-                        Reset Page
-                    </button>
+                    <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+                        {lastSavedTime && !revisionRfqId && !retradeRfqId && (
+                            <span className="text-[11px] text-gray-400 flex items-center gap-1 font-medium bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-100">
+                                <Check size={12} className="text-emerald-500" /> Draft saved ({lastSavedTime})
+                            </span>
+                        )}
+                        {!revisionRfqId && !retradeRfqId && (
+                            <button
+                                type="button"
+                                onClick={handleManualSaveDraft}
+                                title="Save current quotation parameters as a draft"
+                                className="px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                            >
+                                <Save size={14} className="text-blue-600" />
+                                Save Draft
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={handleReset}
+                            title="Reset entire form and page to initial blank state"
+                            className="px-4 py-2.5 rounded-xl text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 hover:text-gray-900 transition-all flex items-center gap-2 shadow-xs cursor-pointer"
+                        >
+                            <RotateCcw size={14} className="text-gray-500" />
+                            Reset Page
+                        </button>
+                    </div>
                 </div>
                 <div className="flex flex-wrap gap-2 sm:gap-4 mt-6">
                     {['FX_SPOT', 'TBILL'].map(type => (
@@ -2551,10 +2916,21 @@ export default function QuotationRequestDashboard() {
 
                                          {isSelected && (() => {
                                             const isMultiPairMode = formData.type === 'FX_SPOT' && pairs.length > 1;
-                                            const curTabId = bankActivePairTab[bank.bank_id] || pairs[0]?.id;
-                                            const curPair = pairs.find(p => p.id === curTabId) || pairs[0] || {};
-                                            const activeCfg = (isSelected.customPairTariffs && isSelected.pairConfigs && isSelected.pairConfigs[curTabId])
+                                            const curTabId = bankActivePairTab[bank.bank_id] || pairs[activePairIndex]?.id || pairs[0]?.id;
+                                            const curPair = pairs.find(p => p.id === curTabId) || pairs[activePairIndex] || pairs[0] || {};
+                                            const rawPairCfg = (isSelected.customPairTariffs && isSelected.pairConfigs && isSelected.pairConfigs[curTabId])
                                                 ? isSelected.pairConfigs[curTabId]
+                                                : null;
+
+                                            const effectiveValueDate = (rawPairCfg && rawPairCfg._dateCustomized)
+                                                ? rawPairCfg.valueDate
+                                                : (curPair.valueDate || isSelected.valueDate || formData.valueDate || '');
+
+                                            const activeCfg = rawPairCfg
+                                                ? {
+                                                    ...rawPairCfg,
+                                                    valueDate: effectiveValueDate
+                                                }
                                                 : {
                                                     costMin: isSelected.costMin ?? 0,
                                                     costPercent: isSelected.costPercent ?? 0,
@@ -2562,7 +2938,7 @@ export default function QuotationRequestDashboard() {
                                                     costFlat: isSelected.costFlat ?? 0,
                                                     quotationBase: isSelected.quotationBase || formData.quotationBase || 'Execution',
                                                     isDocumentVisible: isSelected.isDocumentVisible !== false,
-                                                    valueDate: isSelected.valueDate || '',
+                                                    valueDate: (isSelected._dateCustomized && isSelected.valueDate) ? isSelected.valueDate : (curPair.valueDate || isSelected.valueDate || formData.valueDate || ''),
                                                     allowAlternativeValueDate: isSelected.allowAlternativeValueDate ?? false
                                                 };
 

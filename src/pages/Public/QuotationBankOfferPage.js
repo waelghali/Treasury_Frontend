@@ -4,7 +4,7 @@ import axios from 'axios';
 import { 
     Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, 
     Mail, KeyRound, UserCheck, Eye, History, RefreshCw, MessageSquare, Shield,
-    BarChart2, ShieldAlert, WifiOff, FileQuestion, Calendar,
+    BarChart2, ShieldAlert, WifiOff, FileQuestion,
     Users, Lock, Zap, Info, Loader2, Ban, Volume2, VolumeX
 } from 'lucide-react';
 import tradingAudio from '../../utils/tradingAudioEngine';
@@ -103,6 +103,10 @@ export default function QuotationBankOfferPage() {
     const prevStatusRef = useRef(null);
     const [showWindowOpenedAlert, setShowWindowOpenedAlert] = useState(false);
     const originalTitleRef = useRef(typeof document !== 'undefined' ? document.title : 'Grow Treasury');
+    const resultStatusRef = useRef(resultStatus);
+    useEffect(() => {
+        resultStatusRef.current = resultStatus;
+    }, [resultStatus]);
 
     // Trading Audio Engine (Desk Sound Effects)
     const [soundEnabled, setSoundEnabled] = useState(() => tradingAudio.isSoundEnabled());
@@ -270,10 +274,13 @@ export default function QuotationBankOfferPage() {
                 setResultStatus('INCONCLUSIVE');
             } else if (status === 'AWAITING_MANUAL_SELECTION' || status === 'PENDING') {
                 setResultStatus('AWAITING_SELECTION');
-            } else if (status === 'NOT_SELECTED') {
+            } else if (status === 'NOT_SELECTED' || status === 'UNEXECUTED') {
                 setResultStatus('NOT_SELECTED');
             } else if (status === 'INDICATIVE_ONLY' || status === 'COMPLETED') {
                 setResultStatus(status);
+            } else if (status) {
+                // Safety fallback: any unhandled terminal status should clear AWAITING_SELECTION
+                setResultStatus('NOT_SELECTED');
             }
             return status;
         } catch (err) {
@@ -476,6 +483,22 @@ export default function QuotationBankOfferPage() {
                     if (data.mirrored_quote.notes !== undefined) {
                         setTraderNotes(data.mirrored_quote.notes || '');
                     }
+                    if (data.mirrored_quote.legs_quotes && typeof data.mirrored_quote.legs_quotes === 'object') {
+                        setLegQuotes(prev => {
+                            const updated = { ...prev };
+                            Object.entries(data.mirrored_quote.legs_quotes).forEach(([legKey, qData]) => {
+                                if (qData && typeof qData === 'object') {
+                                    updated[legKey] = {
+                                        ...(updated[legKey] || {}),
+                                        price: qData.price !== undefined && qData.price !== null ? String(qData.price) : (updated[legKey]?.price || ''),
+                                        offered_value_date: qData.offered_value_date || updated[legKey]?.offered_value_date || '',
+                                        notes: qData.notes !== undefined ? (qData.notes || '') : (updated[legKey]?.notes || '')
+                                    };
+                                }
+                            });
+                            return updated;
+                        });
+                    }
                 }
             } catch (err) {
                 const status = err.response?.status;
@@ -602,6 +625,32 @@ export default function QuotationBankOfferPage() {
                     }
                 }
             } else if (now > end && now <= new Date(end.getTime() + (acceptanceTimeoutSeconds * 1000))) {
+                const currentResult = resultStatusRef.current || resultStatus;
+                const terminalStatuses = ['WINNER', 'PARTIALLY_WON', 'NOT_SELECTED', 'UNEXECUTED', 'INCONCLUSIVE', 'INDICATIVE_ONLY', 'COMPLETED'];
+                if (terminalStatuses.includes(currentResult)) {
+                    setTimeLeft({ 
+                        label: (currentResult === 'WINNER' || currentResult === 'PARTIALLY_WON') ? 'Trade Execution Confirmed' : 'Quotation Concluded', 
+                        status: 'CLOSED', 
+                        secondsRemaining: 0, 
+                        acceptanceSecondsRemaining: 0, 
+                        days: 0, 
+                        hours: 0, 
+                        mins: 0, 
+                        secs: 0 
+                    });
+                    if (typeof document !== 'undefined') {
+                        if (currentResult === 'WINNER' || currentResult === 'PARTIALLY_WON') {
+                            document.title = '🏆 Trade Execution Confirmed | Grow Treasury';
+                        } else if (currentResult === 'INDICATIVE_ONLY') {
+                            document.title = 'Quotation Closed — Thank You | Grow Treasury';
+                        } else {
+                            document.title = 'Quotation Concluded | Grow Treasury';
+                        }
+                    }
+                    if (timer) clearInterval(timer);
+                    return;
+                }
+
                 const isBankAllIndicative = Boolean(rfq?.is_all_indicative || (!rfq?.has_execution_legs) || (rfq?.quotation_base || '').toLowerCase() === 'indicative');
                 if (isBankAllIndicative) {
                     setTimeLeft({ 
@@ -626,7 +675,7 @@ export default function QuotationBankOfferPage() {
                     label: `Window Closed • Corporate Acceptance Window (${acceptDiff}s)`, 
                     status: 'CLOSED', 
                     secondsRemaining: 0, 
-                    acceptanceSecondsRemaining: acceptDiff,
+                    acceptanceSecondsRemaining: acceptDiff, 
                     days: 0, 
                     hours: 0, 
                     mins: 0, 
@@ -656,7 +705,31 @@ export default function QuotationBankOfferPage() {
                 document.title = originalTitleRef.current;
             }
         };
-    }, [rfq, timeOffset, checkResult]);
+    }, [rfq, timeOffset, checkResult, resultStatus]);
+
+    // 5a-2. Concluded Result Document Title & Counter Freeze
+    useEffect(() => {
+        if (!resultStatus) return;
+        const terminalStatuses = ['WINNER', 'PARTIALLY_WON', 'NOT_SELECTED', 'UNEXECUTED', 'INCONCLUSIVE', 'INDICATIVE_ONLY', 'COMPLETED'];
+        if (terminalStatuses.includes(resultStatus)) {
+            setTimeLeft(prev => ({
+                ...prev,
+                status: 'CLOSED',
+                secondsRemaining: 0,
+                acceptanceSecondsRemaining: 0,
+                label: (resultStatus === 'WINNER' || resultStatus === 'PARTIALLY_WON') ? 'Trade Execution Confirmed' : 'Quotation Concluded'
+            }));
+            if (typeof document !== 'undefined') {
+                if (resultStatus === 'WINNER' || resultStatus === 'PARTIALLY_WON') {
+                    document.title = '🏆 Trade Execution Confirmed | Grow Treasury';
+                } else if (resultStatus === 'INDICATIVE_ONLY') {
+                    document.title = 'Quotation Closed — Thank You | Grow Treasury';
+                } else {
+                    document.title = 'Quotation Concluded | Grow Treasury';
+                }
+            }
+        }
+    }, [resultStatus]);
 
     // 5b. Cancellation Document Title
     useEffect(() => {
@@ -1474,12 +1547,13 @@ export default function QuotationBankOfferPage() {
     const hasExecutionLegs = rfq?.has_execution_legs ?? (legBases.length === 0 ? (rfq?.quotation_base || '').toLowerCase() !== 'indicative' : legBases.includes('execution'));
     const isIndicative = Boolean(rfq?.is_all_indicative || (!hasExecutionLegs && (legBases.length <= 1 ? (legBases[0] || (rfq?.quotation_base || '')).toLowerCase() === 'indicative' : false)) || (rfq?.quotation_base || '').toLowerCase() === 'indicative');
     const hasExecutionDealers = rfq?.has_execution_dealers ?? true;
-    const canApproverExecute = isIndicative || !hasExecutionDealers;
+    const canApproverExecute = !hasExecutionDealers;
 
     const isApprover = authSession?.role === 'APPROVER';
     const isApproverViewer = isApprover && !canApproverExecute;
-    const isViewOnly = authSession?.role === 'VIEW_ONLY' || (isApproverViewer && rfq?.approval_status === 'APPROVED');
-    const isSpectator = !!(deskState && !deskState.is_active_trader && !isViewOnly && (authSession?.role === 'EXECUTION' || canApproverExecute) && deskState.active_trader_email);
+    const isViewOnly = authSession?.role === 'VIEW_ONLY';
+    const isReadOnlyViewer = isViewOnly || isApproverViewer;
+    const isSpectator = !!(timeLeft.status === 'OPEN' && deskState && !deskState.is_active_trader && !isReadOnlyViewer && (authSession?.role === 'EXECUTION' || canApproverExecute) && deskState.active_trader_email);
 
     return (
         <div className="relative min-h-screen bg-slate-100/60">
@@ -1771,13 +1845,11 @@ export default function QuotationBankOfferPage() {
                                     {authSession.role === 'EXECUTION' 
                                         ? 'Your quote submissions are binding and logged with your verified identity.' 
                                         : authSession.role === 'APPROVER'
-                                        ? (isIndicative
-                                            ? 'Indicative Quotation: No bank approval required. You are authorized to submit indicative pricing.'
-                                            : !hasExecutionDealers
+                                        ? (!hasExecutionDealers
                                             ? 'Solo bank contact: You are authorized to submit binding quotes directly.'
-                                            : (rfq.approval_status === 'APPROVED' 
-                                                ? 'Bank participation approved. You are viewing live standings in Approver Viewer Mode.' 
-                                                : 'Action Required: Review deal specifications and authorize bank participation.'))
+                                            : (rfq.approval_status === 'PENDING' && rfq.requires_bank_approval !== false && !isIndicative)
+                                                ? 'Action Required: Review deal specifications and authorize bank participation.'
+                                                : 'Bank participation authorized. You are observing live desk activity in Approver Monitoring Mode.')
                                         : 'You are viewing this RFQ in read-only mode.'}
                                 </p>
                             </div>
@@ -2046,8 +2118,13 @@ export default function QuotationBankOfferPage() {
                                             <>
                                                 <div>
                                                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Currency Pair</label>
-                                                    <p className="text-xl sm:text-2xl font-bold text-emerald-900 bg-emerald-50 px-3 py-1 rounded-xl inline-block border border-emerald-200">
-                                                        {rfq.buy_currency} / {rfq.sell_currency}
+                                                    <p className="text-xl sm:text-2xl font-bold text-emerald-900 bg-emerald-50 px-3 py-1 rounded-xl inline-flex items-center gap-2 border border-emerald-200">
+                                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase text-white ${
+                                                            (rfq.direction || 'BUY').toUpperCase() === 'BUY' ? 'bg-emerald-600' : 'bg-blue-600'
+                                                        }`}>
+                                                            {rfq.direction || 'BUY'}
+                                                        </span>
+                                                        <span>{rfq.buy_currency} / {rfq.sell_currency}</span>
                                                     </p>
                                                 </div>
                                                 <div>
@@ -2290,16 +2367,19 @@ export default function QuotationBankOfferPage() {
                                 ) : (
                                     <>
                                         {/* Neutral Status Notification Card when Quote is Active */}
-                                        {submitted && !isViewOnly && (
+                                        {submitted && (
                                             <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3 text-center flex flex-col items-center justify-center animate-fade-in shadow-2xs">
                                                 <div className="w-7 h-7 bg-slate-200/80 text-slate-700 rounded-full flex items-center justify-center mb-1">
                                                     <CheckCircle2 size={16} className="text-slate-600" />
                                                 </div>
                                                 <h3 className="text-sm font-semibold text-slate-800">Quote Recorded Successfully</h3>
                                                 <p className="text-xs text-slate-500 mt-0.5">
-                                                    {timeLeft.status === 'OPEN'
-                                                        ? (rfq.type === 'TBILL' ? 'Your T-Bill quote lines are actively registered with the client.' : 'Your spot price is actively registered with the client.')
-                                                        : (rfq.type === 'TBILL' ? 'Your T-Bill quote lines were received for evaluation.' : 'Your spot price was received for evaluation.')
+                                                    {isReadOnlyViewer
+                                                        ? 'Your bank’s active quotes have been successfully registered with the client.'
+                                                        : (timeLeft.status === 'OPEN'
+                                                            ? (rfq.type === 'TBILL' ? 'Your T-Bill quote lines are actively registered with the client.' : 'Your spot price is actively registered with the client.')
+                                                            : (rfq.type === 'TBILL' ? 'Your T-Bill quote lines were received for evaluation.' : 'Your spot price was received for evaluation.')
+                                                        )
                                                     }
                                                 </p>
                                             </div>
@@ -2318,8 +2398,8 @@ export default function QuotationBankOfferPage() {
                                         <section
                                             id="bidding-quote-card"
                                             className={`p-5 sm:p-6 rounded-3xl shadow-xs border transition-all flex-1 flex flex-col ${
-                                                isViewOnly
-                                                    ? 'bg-slate-50 border-slate-200 opacity-80'
+                                                isReadOnlyViewer
+                                                    ? 'bg-white border-slate-200'
                                                     : timeLeft.status === 'OPEN' 
                                                         ? 'bg-white border-2 border-slate-950 shadow-md' 
                                                         : 'bg-white border-slate-200'
@@ -2374,170 +2454,130 @@ export default function QuotationBankOfferPage() {
                                                 ) : null}
                                             </div>
 
-                                            {/* Live Ranking HUD Widget - ONLY during OPEN window and ONLY if live ranking is enabled by system owner */}
+                                            {/* Live Ranking HUD Widget */}
                                             {rfq?.is_live_ranking_enabled && timeLeft.status === 'OPEN' && (
                                                 <div 
                                                     className="mb-4 overflow-hidden rounded-2xl border transition-all duration-300 shadow-xs"
                                                     style={{
-                                                        background: (liveRank?.rank === 1 || Object.values(legLiveRanks).some(r => (typeof r === 'object' ? r?.rank === 1 : r === 1)))
+                                                        background: liveRank?.rank === 1
                                                             ? 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)'
-                                                            : (liveRank?.rank || Object.values(legLiveRanks).some(r => (typeof r === 'object' ? r?.rank > 0 : r > 0)))
+                                                            : liveRank?.rank
                                                                 ? 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)'
                                                                 : 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)',
-                                                        borderColor: (liveRank?.rank === 1 || Object.values(legLiveRanks).some(r => (typeof r === 'object' ? r?.rank === 1 : r === 1)))
+                                                        borderColor: liveRank?.rank === 1
                                                             ? '#6EE7B7'
-                                                            : (liveRank?.rank || Object.values(legLiveRanks).some(r => (typeof r === 'object' ? r?.rank > 0 : r > 0)))
+                                                            : liveRank?.rank
                                                                 ? '#93C5FD'
                                                                 : '#E2E8F0'
                                                     }}
                                                 >
-                                                    <div className="p-3.5 sm:p-4">
-                                                        <div className="flex items-center justify-between gap-3 flex-wrap">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-base shadow-xs shrink-0 ${
-                                                                    (liveRank?.rank === 1 || Object.values(legLiveRanks).some(r => (typeof r === 'object' ? r?.rank === 1 : r === 1)))
-                                                                        ? 'bg-emerald-600 text-white shadow-emerald-500/20'
-                                                                        : (liveRank?.rank || Object.values(legLiveRanks).some(r => (typeof r === 'object' ? r?.rank > 0 : r > 0)))
-                                                                            ? 'bg-blue-600 text-white shadow-blue-500/20'
-                                                                            : 'bg-slate-200 text-slate-600'
-                                                                }`}>
-                                                                    {rfq.legs && rfq.legs.length > 1 ? (
-                                                                        <BarChart2 size={18} />
-                                                                    ) : (liveRank?.rank ? `#${liveRank.rank}` : <BarChart2 size={18} />)}
+                                                    <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-base shadow-xs ${
+                                                                liveRank?.rank === 1
+                                                                    ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                                                                    : liveRank?.rank
+                                                                        ? 'bg-blue-600 text-white shadow-blue-500/20'
+                                                                        : 'bg-slate-200 text-slate-600'
+                                                            }`}>
+                                                                {liveRank?.rank ? `#${liveRank.rank}` : <BarChart2 size={18} />}
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                                                                        Live Market Ranking
+                                                                    </span>
+                                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-white/90 border border-slate-200 text-slate-700">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping mr-1" />
+                                                                        Real-Time
+                                                                    </span>
                                                                 </div>
-                                                                <div>
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
-                                                                            {rfq.legs && rfq.legs.length > 1 ? 'Live Multi-Pair Ranking' : 'Live Market Ranking'}
+                                                                <div className="text-xs sm:text-sm font-bold text-slate-900 mt-0.5">
+                                                                    {liveRank?.rank === 1 ? (
+                                                                        <span className="text-emerald-800 flex items-center gap-1">
+                                                                            🏆 Leading Quote — Best in Market!
                                                                         </span>
-                                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-white/90 border border-slate-200 text-slate-700">
-                                                                            {timeLeft.status === 'CLOSED' ? (
-                                                                                <>🏁 Final Standings</>
-                                                                            ) : (
-                                                                                <>
-                                                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping mr-1" />
-                                                                                    Real-Time
-                                                                                </>
-                                                                            )}
+                                                                    ) : liveRank?.rank ? (
+                                                                        <span className="text-blue-900">
+                                                                            Your Rank: #{liveRank.rank} of {liveRank.total_quotes || 1} submitted
                                                                         </span>
-                                                                    </div>
-                                                                    {rfq.legs && rfq.legs.length > 1 ? (
-                                                                        <div className="text-xs sm:text-sm font-bold text-slate-900 mt-0.5">
-                                                                            {timeLeft.status === 'CLOSED' ? (
-                                                                                <span>Window Closed — Final Standings per Leg</span>
-                                                                            ) : (
-                                                                                <span>Active Telemetry — Individual Rankings per Leg Below</span>
-                                                                            )}
-                                                                        </div>
                                                                     ) : (
-                                                                        <div className="text-xs sm:text-sm font-bold text-slate-900 mt-0.5">
-                                                                            {liveRank?.rank === 1 ? (
-                                                                                <span className="text-emerald-800 flex items-center gap-1">
-                                                                                    🏆 Leading Quote — Best in Market!
-                                                                                </span>
-                                                                            ) : liveRank?.rank ? (
-                                                                                <span className="text-blue-900">
-                                                                                    Your Rank: #{liveRank.rank} of {liveRank.total_quotes || 1} submitted
-                                                                                </span>
-                                                                            ) : (
-                                                                                <span className="text-slate-600">
-                                                                                    Submit your quote to view competitive rank
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
+                                                                        <span className="text-slate-600">
+                                                                            Submit your quote to view competitive rank
+                                                                        </span>
                                                                     )}
                                                                 </div>
                                                             </div>
-
-                                                            {/* For multi-pair: quick chips per leg in HUD */}
-                                                            {rfq.legs && rfq.legs.length > 1 && (
-                                                                <div className="flex flex-wrap items-center gap-1.5">
-                                                                    {rfq.legs.map((leg, lIdx) => {
-                                                                        const lPair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
-                                                                        const r = legLiveRanks[leg.id] || legLiveRanks[String(leg.id)] || legLiveRanks[lIdx] || legLiveRanks[String(lIdx)] || legLiveRanks[lPair] || leg.live_rank;
-                                                                        const lRank = typeof r === 'number' ? { rank: r, total_quotes: liveRank?.total_quotes || 1, is_leading: r === 1 } : (r || null);
-                                                                        const isWon = timeLeft.status === 'CLOSED' && (outcomeData?.won_pairs?.includes(lPair) || outcomeData?.legs_breakdown?.[leg.id]?.is_winner || outcomeData?.legs_breakdown?.[lPair]?.is_winner);
-
-                                                                        return (
-                                                                            <span
-                                                                                key={leg.id || lIdx}
-                                                                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono font-bold border shadow-2xs ${
-                                                                                    isWon || lRank?.is_leading || lRank?.rank === 1
-                                                                                        ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
-                                                                                        : lRank?.rank
-                                                                                            ? 'bg-blue-100/90 text-blue-950 border-blue-300'
-                                                                                            : 'bg-white text-slate-600 border-slate-200'
-                                                                                }`}
-                                                                            >
-                                                                                <span className="font-sans font-black">{lPair}:</span>
-                                                                                {isWon ? (
-                                                                                    <span className="text-emerald-800 font-sans font-bold">🏆 Won (Rank #1)</span>
-                                                                                ) : lRank?.rank === 1 ? (
-                                                                                    <span className="text-emerald-800 font-sans font-bold">🏆 #1 Lead</span>
-                                                                                ) : lRank?.rank ? (
-                                                                                    <span>Rank #{lRank.rank}</span>
-                                                                                ) : (
-                                                                                    <span className="font-sans font-normal text-slate-400">Awaiting</span>
-                                                                                )}
-                                                                            </span>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            )}
                                                         </div>
+                                                        {liveRank?.rank && liveRank.rank > 1 && timeLeft.status === 'OPEN' && (
+                                                            <div className="hidden sm:flex flex-col items-end">
+                                                                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100 border border-amber-300 px-2.5 py-1 rounded-full animate-pulse">
+                                                                    Improve Quote to Lead
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div className="px-3.5 py-2 bg-black/[0.02] border-t border-black/[0.04] flex items-center justify-between text-[10px] text-slate-500">
-                                                        <span>Individual pair live rank computed against competing counterparty quotes</span>
-                                                        <span className="italic text-slate-400">Subject to network latency</span>
+                                                        <span>Indicative real-time telemetry feed</span>
+                                                        <span className="italic text-slate-400">Subject to counterparty network transmission variance</span>
                                                     </div>
                                                 </div>
                                             )}
 
-                                            {isViewOnly ? (
-                                                <div className={`p-4 rounded-2xl text-xs leading-relaxed mb-4 border ${
-                                                    isApprover ? 'bg-amber-50/60 border-amber-200 text-amber-900' : 'bg-blue-50/60 border-blue-200 text-blue-900'
-                                                }`}>
-                                                    <strong>{isApprover ? 'Approver Viewer Notice:' : 'View-Only Notice:'}</strong>{' '}
-                                                    {isApprover
-                                                        ? 'You have approved bank participation. As an Approver, you can monitor the live RFQ and submissions entered by your execution traders.'
-                                                        : 'Your registered account has observer permissions. You can inspect trade parameters and history, but only dealers tagged for Execution can enter binding quotes.'}
-                                                </div>
-                                            ) : (
-                                                <form id="quote-form" onSubmit={(rfq?.legs && rfq.legs.length > 1) ? handleBatchSubmit : handleSubmit} className="space-y-4">
-                                                    {/* Multi-Dealer Desk Concurrency Banner */}
-                                                    {isSpectator && (
-                                                        <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl shadow-xs text-xs animate-fade-in-up">
-                                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                                                <div className="flex items-start gap-3">
-                                                                    <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 shrink-0 mt-0.5">
-                                                                        <Lock size={18} />
-                                                                    </div>
-                                                                    <div>
-                                                                        <div className="font-bold text-amber-950 text-sm flex items-center gap-1.5">
-                                                                            <span>Desk Actively Controlled by Colleague</span>
-                                                                        </div>
-                                                                        <p className="text-amber-800 text-xs mt-0.5">
-                                                                            <strong>{deskState?.active_trader_name || deskState?.active_trader_email}</strong> ({deskState?.active_trader_email}) is currently the designated active dealer. Your desk inputs are locked in spectator mode to prevent pricing collisions.
-                                                                        </p>
-                                                                        {deskNotice && (
-                                                                            <p className="text-blue-700 font-semibold mt-1 bg-blue-50/80 px-2 py-0.5 rounded border border-blue-200">
-                                                                                ℹ️ {deskNotice}
-                                                                            </p>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={handleTakeoverDesk}
-                                                                    disabled={timeLeft.status === 'CLOSED' || isTakingOver}
-                                                                    className="shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-xl shadow-xs transition-all cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                >
-                                                                    <Zap size={14} className={isTakingOver ? "animate-spin" : ""} />
-                                                                    {isTakingOver ? "Taking Over..." : "⚡ Take Over Desk"}
-                                                                </button>
-                                                            </div>
+                                            <form id="quote-form" onSubmit={(rfq?.legs && rfq.legs.length > 1) ? handleBatchSubmit : handleSubmit} className="space-y-4">
+                                                {/* Viewer / Monitoring Mode Banner */}
+                                                {isReadOnlyViewer && (
+                                                    <div className={`p-4 rounded-2xl text-xs leading-relaxed border ${
+                                                        isApprover ? 'bg-amber-50/70 border-amber-200 text-amber-900' : 'bg-blue-50/70 border-blue-200 text-blue-900'
+                                                    }`}>
+                                                        <div className="flex items-center gap-2 font-bold mb-1">
+                                                            <Shield size={15} className={isApprover ? 'text-amber-600' : 'text-blue-600'} />
+                                                            <span>{isApprover ? 'Approver Monitoring Mode' : 'View-Only Observer Mode'}</span>
                                                         </div>
-                                                    )}
+                                                        <p className="text-[11.5px] leading-relaxed">
+                                                            {isApprover
+                                                                ? (deskState?.active_trader_name || deskState?.active_trader_email
+                                                                    ? `Live RFQ desk is actively managed by ${deskState?.active_trader_name || deskState?.active_trader_email}. Rates and inputs entered by your execution desk are mirrored dynamically below in read-only mode.`
+                                                                    : 'You are monitoring this quotation in read-only mode. Inputs entered by your bank’s execution dealers will be mirrored dynamically below.')
+                                                                : 'Your registered account has observer permissions. You can inspect trade parameters and mirror live pricing entered by execution dealers.'}
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                {/* Multi-Dealer Desk Concurrency Banner (Only for Execution Dealers in Spectator Mode) */}
+                                                {isSpectator && (
+                                                    <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl shadow-xs text-xs animate-fade-in-up">
+                                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                            <div className="flex items-start gap-3">
+                                                                <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 shrink-0 mt-0.5">
+                                                                    <Lock size={18} />
+                                                                </div>
+                                                                <div>
+                                                                    <div className="font-bold text-amber-950 text-sm flex items-center gap-1.5">
+                                                                        <span>Desk Actively Controlled by Colleague</span>
+                                                                    </div>
+                                                                    <p className="text-amber-800 text-xs mt-0.5">
+                                                                        <strong>{deskState?.active_trader_name || deskState?.active_trader_email}</strong> ({deskState?.active_trader_email}) is currently the designated active dealer. Your desk inputs are locked in spectator mode to prevent pricing collisions.
+                                                                    </p>
+                                                                    {deskNotice && (
+                                                                        <p className="text-blue-700 font-semibold mt-1 bg-blue-50/80 px-2 py-0.5 rounded border border-blue-200">
+                                                                            ℹ️ {deskNotice}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleTakeoverDesk}
+                                                                disabled={timeLeft.status === 'CLOSED' || isTakingOver}
+                                                                className="shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-xl shadow-xs transition-all cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            >
+                                                                <Zap size={14} className={isTakingOver ? "animate-spin" : ""} />
+                                                                {isTakingOver ? "Taking Over..." : "⚡ Take Over Desk"}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                     {deskState?.is_active_trader && (authSession?.role === 'EXECUTION' || canApproverExecute) && (
                                                         <div className={`p-2.5 px-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs ${
@@ -2599,7 +2639,7 @@ export default function QuotationBankOfferPage() {
                                                             )}
                                                             {tbillLines.map((line, index) => (
                                                                 <div key={index} className="p-3.5 sm:p-4 bg-slate-50 rounded-2xl border border-slate-200 relative group">
-                                                                    {tbillLines.length > 1 && timeLeft.status === 'OPEN' && !isSpectator && (
+                                                                    {tbillLines.length > 1 && timeLeft.status === 'OPEN' && !isSpectator && !isReadOnlyViewer && (
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => removeTbillLine(index)}
@@ -2614,7 +2654,7 @@ export default function QuotationBankOfferPage() {
                                                                             <input
                                                                                 type="date"
                                                                                 required
-                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator}
+                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
                                                                                 className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
                                                                                 value={line.settlementDate}
                                                                                 onChange={e => updateTbillLine(index, 'settlementDate', e.target.value)}
@@ -2625,7 +2665,7 @@ export default function QuotationBankOfferPage() {
                                                                             <input
                                                                                 type="date"
                                                                                 required
-                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator}
+                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
                                                                                 className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
                                                                                 value={line.maturityDate}
                                                                                 onChange={e => updateTbillLine(index, 'maturityDate', e.target.value)}
@@ -2637,7 +2677,7 @@ export default function QuotationBankOfferPage() {
                                                                                 type="number"
                                                                                 step="0.0001"
                                                                                 required
-                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator}
+                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
                                                                                 onWheel={(e) => e.currentTarget.blur()}
                                                                                 placeholder="e.g. 18.50"
                                                                                 className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
@@ -2650,7 +2690,7 @@ export default function QuotationBankOfferPage() {
                                                                             <input
                                                                                 type="number"
                                                                                 required
-                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator}
+                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
                                                                                 onWheel={(e) => e.currentTarget.blur()}
                                                                                 placeholder="e.g. 10000000"
                                                                                 className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
@@ -2669,7 +2709,7 @@ export default function QuotationBankOfferPage() {
                                                                 </div>
                                                             ))}
 
-                                                            {timeLeft.status === 'OPEN' && !isSpectator && (
+                                                            {timeLeft.status === 'OPEN' && !isSpectator && !isReadOnlyViewer && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={addTbillLine}
@@ -2825,14 +2865,9 @@ export default function QuotationBankOfferPage() {
                                                                                                 🏆 #1 Leading Quote
                                                                                             </span>
                                                                                         ) : legRank?.rank ? (
-                                                                                            <div className="flex items-center gap-1.5">
-                                                                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono shadow-2xs">
-                                                                                                    📊 Live Rank: #{legRank.rank} of {legRank.total_quotes || 1}
-                                                                                                </span>
-                                                                                                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300">
-                                                                                                    ⚡ Improve Quote
-                                                                                                </span>
-                                                                                            </div>
+                                                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono shadow-2xs">
+                                                                                                Rank #{legRank.rank} of {legRank.total_quotes || 1}
+                                                                                            </span>
                                                                                         ) : hasQuote ? (
                                                                                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
                                                                                                 ✍️ Draft (Ready to Submit)
@@ -2871,7 +2906,7 @@ export default function QuotationBankOfferPage() {
                                                                                             type="number"
                                                                                             step="0.0001"
                                                                                             required
-                                                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator}
+                                                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
                                                                                             onWheel={(e) => e.currentTarget.blur()}
                                                                                             placeholder="Enter rate (e.g. 48.6500)"
                                                                                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-base font-bold font-mono focus:bg-white focus:border-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
@@ -2892,7 +2927,7 @@ export default function QuotationBankOfferPage() {
                                                                                         <input
                                                                                             type="date"
                                                                                             min={rfq?.window_start ? rfq.window_start.split('T')[0] : new Date().toISOString().split('T')[0]}
-                                                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator}
+                                                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
                                                                                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 focus:bg-white focus:border-slate-900 outline-none disabled:bg-slate-100"
                                                                                             value={q.offered_value_date || leg.value_date || ''}
                                                                                             onChange={e => updateLegQuote(leg.id, 'offered_value_date', e.target.value)}
@@ -2914,71 +2949,177 @@ export default function QuotationBankOfferPage() {
                                                         </div>
                                                     ) : (
                                                         <div className="space-y-4">
-                                                            <div>
-                                                                <div className="flex items-center justify-between mb-2">
-                                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase">
-                                                                        Spot Rate Quote ({rfq.sell_currency} per 1 {rfq.buy_currency})
-                                                                    </label>
-                                                                    {rfq.cbe_benchmark_rate && (
-                                                                        <span className="text-[10px] font-mono text-gray-400 font-semibold" title="Central Bank of Egypt benchmark reference">
-                                                                            CBE Ref: ~{parseFloat(rfq.cbe_benchmark_rate).toFixed(4)}
-                                                                        </span>
-                                                                    )}
+                                                            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                                                <div>
+                                                                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                                                                        <TrendingUp size={14} className="text-emerald-600" /> Spot FX Quoting Console
+                                                                    </h4>
+                                                                    <p className="text-[11px] text-slate-500 mt-0.5">
+                                                                        {timeLeft.status === 'OPEN' ? 'Enter your firm quote for this currency pair.' : 'Quotation window is currently closed.'}
+                                                                    </p>
                                                                 </div>
-                                                                <div className="relative">
-                                                                    <input
-                                                                        type="number"
-                                                                        step="0.0001"
-                                                                        required
-                                                                        disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator}
-                                                                        onWheel={(e) => e.currentTarget.blur()}
-                                                                        placeholder="Enter spot rate (e.g. 48.6500)"
-                                                                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-2xl font-bold focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                                                                        value={price}
-                                                                        onChange={e => setPrice(e.target.value)}
-                                                                    />
-                                                                    <div className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">
-                                                                        {rfq.sell_currency}
+                                                                <span className="text-[10px] font-bold font-mono px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                                    {(price && parseFloat(price) > 0) ? '1 / 1 Quoted' : '0 / 1 Quoted'}
+                                                                </span>
+                                                            </div>
+
+                                                            <div className="space-y-3.5">
+                                                                <div 
+                                                                    className={`p-4 rounded-2xl border transition-all ${
+                                                                        (price && parseFloat(price) > 0) ? 'bg-white border-slate-300 shadow-xs' : 'bg-slate-50 border-slate-200'
+                                                                    }`}
+                                                                >
+                                                                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="w-6 h-6 rounded-lg bg-slate-900 text-white text-xs font-black flex items-center justify-center font-mono">
+                                                                                1
+                                                                            </span>
+                                                                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase text-white ${
+                                                                                (rfq.direction || 'BUY').toUpperCase() === 'BUY' ? 'bg-emerald-600' : 'bg-blue-600'
+                                                                            }`}>
+                                                                                {rfq.direction || 'BUY'}
+                                                                            </span>
+                                                                            <span className="font-mono font-black text-sm text-slate-900">
+                                                                                {rfq.buy_currency}/{rfq.sell_currency}
+                                                                            </span>
+                                                                            <span className={`text-[9px] font-black px-2 py-0.5 rounded tracking-wide uppercase ${
+                                                                                (rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
+                                                                                    ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                                                                                    : 'bg-black text-white'
+                                                                            }`}>
+                                                                                {(rfq.quotation_base || 'Execution').toLowerCase() === 'indicative' ? '📊 INDICATIVE' : '⚡ EXECUTION'}
+                                                                            </span>
+                                                                            <span className="text-xs text-slate-500 font-semibold">
+                                                                                ({new Intl.NumberFormat().format(rfq.amount || 0)} {rfq.buy_currency})
+                                                                            </span>
+                                                                        </div>
+
+                                                                        {/* Status / Live Ranking / Awarding Outcome Stamp */}
+                                                                        <div>
+                                                                            {timeLeft.status === 'CLOSED' ? (
+                                                                                (() => {
+                                                                                    const isWon = resultStatus === 'WINNER';
+                                                                                    const isNotSelected = resultStatus === 'NOT_SELECTED';
+                                                                                    const isIndicativeClosed = (resultStatus === 'INDICATIVE_ONLY') || (rfq.quotation_base || '').toLowerCase() === 'indicative';
+                                                                                    const isInconclusive = resultStatus === 'INCONCLUSIVE';
+
+                                                                                    if (isWon) {
+                                                                                        return (
+                                                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-600 text-white shadow-2xs">
+                                                                                                🏆 WON (AWARDED)
+                                                                                            </span>
+                                                                                        );
+                                                                                    } else if (isNotSelected) {
+                                                                                        return (
+                                                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs">
+                                                                                                ❌ NOT SELECTED
+                                                                                            </span>
+                                                                                        );
+                                                                                    } else if (isIndicativeClosed) {
+                                                                                        return (
+                                                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-300">
+                                                                                                📊 INDICATIVE RECORDED
+                                                                                            </span>
+                                                                                        );
+                                                                                    } else if (isInconclusive) {
+                                                                                        return (
+                                                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                                                                                ⚠️ NO WINNER
+                                                                                            </span>
+                                                                                        );
+                                                                                    } else {
+                                                                                        return (
+                                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700">
+                                                                                                Quotation Closed
+                                                                                            </span>
+                                                                                        );
+                                                                                    }
+                                                                                })()
+                                                                            ) : rfq.is_live_ranking_enabled ? (
+                                                                                liveRank?.rank === 1 ? (
+                                                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-xs animate-pulse">
+                                                                                        🏆 #1 Leading Quote
+                                                                                    </span>
+                                                                                ) : liveRank?.rank ? (
+                                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono shadow-2xs">
+                                                                                        Rank #{liveRank.rank} of {liveRank.total_quotes || 1}
+                                                                                    </span>
+                                                                                ) : (price && parseFloat(price) > 0) ? (
+                                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                                                                        ✍️ Draft (Ready to Submit)
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span className="text-[11px] text-slate-400 font-semibold bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+                                                                                        ⏳ Awaiting Quote
+                                                                                    </span>
+                                                                                )
+                                                                            ) : (price && parseFloat(price) > 0) ? (
+                                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                                                                    ✍️ Draft Quote
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="text-[11px] text-slate-400 font-semibold bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+                                                                                    ⏳ Awaiting Quote
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                                                                        <div className={rfq.allow_alternative_value_date ? "sm:col-span-7" : "sm:col-span-8"}>
+                                                                            <div className="flex items-center justify-between mb-1">
+                                                                                <label className="text-[10px] font-bold text-gray-500 uppercase">
+                                                                                    Rate ({rfq.sell_currency} per 1 {rfq.buy_currency})
+                                                                                </label>
+                                                                                {rfq.cbe_benchmark_rate && (
+                                                                                    <span className="text-[10px] font-mono text-gray-400 font-semibold" title="Central Bank of Egypt benchmark reference">
+                                                                                        CBE Ref: ~{parseFloat(rfq.cbe_benchmark_rate).toFixed(4)}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            <div className="relative">
+                                                                                <input
+                                                                                    type="number"
+                                                                                    step="0.0001"
+                                                                                    required
+                                                                                    disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
+                                                                                    onWheel={(e) => e.currentTarget.blur()}
+                                                                                    placeholder="Enter spot rate (e.g. 48.6500)"
+                                                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-base font-bold font-mono focus:bg-white focus:border-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                                                                                    value={price}
+                                                                                    onChange={e => setPrice(e.target.value)}
+                                                                                />
+                                                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs pointer-events-none">
+                                                                                    {rfq.sell_currency}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {rfq.allow_alternative_value_date ? (
+                                                                            <div className="sm:col-span-5">
+                                                                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                                                                                    Proposed Value Date
+                                                                                </label>
+                                                                                <input
+                                                                                    type="date"
+                                                                                    min={rfq?.window_start ? rfq.window_start.split('T')[0] : new Date().toISOString().split('T')[0]}
+                                                                                    disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
+                                                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 focus:bg-white focus:border-slate-900 outline-none disabled:bg-slate-100"
+                                                                                    value={offeredValueDate || rfq.value_date || ''}
+                                                                                    onChange={e => setOfferedValueDate(e.target.value)}
+                                                                                />
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="sm:col-span-4 flex flex-col justify-end">
+                                                                                <span className="text-[10px] text-slate-400 block mb-1">Value Date</span>
+                                                                                <span className="text-xs font-semibold text-slate-800 py-1.5">
+                                                                                    {formatDate(rfq.value_date)}
+                                                                                </span>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </div>
-
-                                                            {/* Proposed Settlement / Value Date */}
-                                                            {rfq.allow_alternative_value_date ? (
-                                                                <div>
-                                                                    <div className="flex items-center justify-between mb-1.5">
-                                                                        <label className="block text-[10px] font-bold text-gray-500 uppercase flex items-center gap-1.5">
-                                                                            <Calendar size={13} className="text-blue-600" />
-                                                                            Proposed Value Date
-                                                                        </label>
-                                                                        <span className="text-[10px] text-blue-700 font-semibold bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
-                                                                            Alternative Date Permitted
-                                                                        </span>
-                                                                    </div>
-                                                                    <input
-                                                                        type="date"
-                                                                        min={rfq?.window_start ? rfq.window_start.split('T')[0] : new Date().toISOString().split('T')[0]}
-                                                                        disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator}
-                                                                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                                                                        value={offeredValueDate || rfq.value_date || ''}
-                                                                        onChange={e => setOfferedValueDate(e.target.value)}
-                                                                    />
-                                                                    <p className="text-[10px] text-gray-400 mt-1">
-                                                                        Client target: <strong className="text-gray-600">{formatDate(rfq.value_date)}</strong>. Cannot be earlier than quotation trade date ({formatDate(rfq.window_start)}).
-                                                                    </p>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between text-xs">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Calendar size={14} className="text-gray-400" />
-                                                                        <span className="text-gray-500 text-[11px]">Value Date:</span>
-                                                                        <span className="font-semibold text-gray-800">{formatDate(rfq.value_date)}</span>
-                                                                    </div>
-                                                                    <span className="text-[10px] font-medium text-gray-400 bg-gray-200/60 px-2 py-0.5 rounded">
-                                                                        Fixed Date
-                                                                    </span>
-                                                                </div>
-                                                            )}
                                                         </div>
                                                     )}
 
@@ -2990,7 +3131,7 @@ export default function QuotationBankOfferPage() {
                                                         </label>
                                                         <textarea
                                                             rows={2}
-                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator}
+                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
                                                             placeholder="Add any settlement notes, execution remarks, or comments for the treasury desk..."
                                                             className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-gray-800 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none resize-none disabled:bg-slate-100 disabled:text-slate-400"
                                                             value={traderNotes}
@@ -3000,7 +3141,16 @@ export default function QuotationBankOfferPage() {
 
                                                     {/* Form Submit Action directly below */}
                                                     <div className="pt-1">
-                                                        {isSpectator ? (
+                                                        {isReadOnlyViewer ? (
+                                                            <div className="w-full py-3.5 bg-slate-100 border border-slate-200 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2">
+                                                                <Shield size={16} className={isApprover ? 'text-amber-600' : 'text-blue-600'} />
+                                                                <span>
+                                                                    {isApprover
+                                                                        ? '🛡️ Approver Monitoring Mode • Submissions are managed by your execution desk'
+                                                                        : '👁️ View-Only Observer Mode • Rates entered by execution dealers are mirrored above'}
+                                                                </span>
+                                                            </div>
+                                                        ) : isSpectator ? (
                                                             <button
                                                                 type="button"
                                                                 onClick={handleTakeoverDesk}
@@ -3077,7 +3227,6 @@ export default function QuotationBankOfferPage() {
                                                         </div>
                                                     </div>
                                                 </form>
-                                            )}
                                         </section>
                                     </>
                                 )}
