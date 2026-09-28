@@ -255,6 +255,7 @@ export default function QuotationRequestDashboard() {
     const [savedDraft, setSavedDraft] = useState(null);
     const [showDraftBanner, setShowDraftBanner] = useState(false);
     const [lastSavedTime, setLastSavedTime] = useState(null);
+    const [expandedCosts, setExpandedCosts] = useState({});
 
     const handleReset = () => {
         if (location.search) {
@@ -266,6 +267,7 @@ export default function QuotationRequestDashboard() {
         setSavedDraft(null);
         setShowDraftBanner(false);
         setLastSavedTime(null);
+        setExpandedCosts({});
         setSourceRfq(null);
         setUserNotes('');
         isPrefillingRef.current = false;
@@ -422,6 +424,12 @@ export default function QuotationRequestDashboard() {
     const handleAddPair = () => {
         if (pairs.length >= MAX_PAIRS) {
             toast.warn(`A maximum of ${MAX_PAIRS} currency pairs can be quoted in a single session.`);
+            return;
+        }
+        const invalidPair = pairs.find((p) => !p.amount || parseFloat(p.amount) <= 0);
+        if (invalidPair) {
+            const pIdx = pairs.indexOf(invalidPair) + 1;
+            toast.warn(`Please enter a positive amount for Pair #${pIdx} (${invalidPair.buyCurrency || 'USD'}/${invalidPair.sellCurrency || 'EGP'}) before adding another pair.`);
             return;
         }
         const masterDate = formData.valueDate || (pairs[0] ? pairs[0].valueDate : '');
@@ -953,32 +961,17 @@ export default function QuotationRequestDashboard() {
 
             const unselectedBanks = displayedBanks.filter(b => !selectedBanks.some(sb => String(sb.id) === String(b.bank_id)));
 
-            const costPromises = unselectedBanks.map(async (bank) => {
-                let fetchedCosts = { costMin: 0, costPercent: 0, costMax: 0, costFlat: 0 };
-                try {
-                    const res = await apiClient.get(`/end-user/quotations/banks/latest-costs?bank_id=${bank.bank_id}`);
-                    if (res.data) {
-                        fetchedCosts = {
-                            costMin: res.data.cost_min ?? 0,
-                            costPercent: res.data.cost_percent ?? 0,
-                            costMax: res.data.cost_max ?? 0,
-                            costFlat: res.data.cost_flat ?? 0
-                        };
-                    }
-                } catch (err) {
-                    console.warn('Could not fetch latest bank costs for bank', bank.bank_id, err);
-                }
-
+            const newBankEntries = unselectedBanks.map(bank => {
                 const isCross = Boolean(bank.is_cross_entity);
                 const bankBase = isCross ? 'Indicative' : base;
                 const initialPairConfigs = {};
                 pairs.forEach(p => {
                     const pBase = isCross ? 'Indicative' : (p.quotationBase || base);
                     initialPairConfigs[p.id] = {
-                        costMin: fetchedCosts.costMin,
-                        costPercent: fetchedCosts.costPercent,
-                        costMax: fetchedCosts.costMax,
-                        costFlat: fetchedCosts.costFlat,
+                        costMin: 0,
+                        costPercent: 0,
+                        costMax: 0,
+                        costFlat: 0,
                         quotationBase: pBase,
                         isDocumentVisible: isCross ? false : (pBase === 'Execution'),
                         valueDate: p.valueDate || effectiveInitialDate,
@@ -991,10 +984,10 @@ export default function QuotationRequestDashboard() {
                     name: bank.bank?.name || `Bank ${bank.bank_id}`,
                     emails: bank.emails,
                     contacts: bank.contacts || [],
-                    costMin: fetchedCosts.costMin,
-                    costPercent: fetchedCosts.costPercent,
-                    costMax: fetchedCosts.costMax,
-                    costFlat: fetchedCosts.costFlat,
+                    costMin: 0,
+                    costPercent: 0,
+                    costMax: 0,
+                    costFlat: 0,
                     quotationBase: bankBase,
                     isDocumentVisible: isCross ? false : (bankBase === 'Execution'),
                     valueDate: effectiveInitialDate,
@@ -1004,10 +997,9 @@ export default function QuotationRequestDashboard() {
                 };
             });
 
-            const newSelected = await Promise.all(costPromises);
             setSelectedBanks(prev => {
                 const existingIds = new Set(prev.map(b => String(b.id)));
-                const additions = newSelected.filter(b => !existingIds.has(String(b.id)));
+                const additions = newBankEntries.filter(b => !existingIds.has(String(b.id)));
                 return [...prev, ...additions];
             });
         } finally {
@@ -1019,7 +1011,7 @@ export default function QuotationRequestDashboard() {
         setSelectedBanks([]);
     };
 
-    const handleBankToggle = async (bank) => {
+    const handleBankToggle = (bank) => {
         const bankId = bank.bank_id;
         const exists = selectedBanks.some(b => String(b.id) === String(bankId));
         if (exists) {
@@ -1027,30 +1019,15 @@ export default function QuotationRequestDashboard() {
         } else {
             const isCross = Boolean(bank.is_cross_entity);
             const base = isCross ? 'Indicative' : (pairs[activePairIndex]?.quotationBase || formData.quotationBase || 'Execution');
-            let fetchedCosts = { costMin: 0, costPercent: 0, costMax: 0, costFlat: 0 };
-            try {
-                const res = await apiClient.get(`/end-user/quotations/banks/latest-costs?bank_id=${bankId}`);
-                if (res.data) {
-                    fetchedCosts = {
-                        costMin: res.data.cost_min ?? 0,
-                        costPercent: res.data.cost_percent ?? 0,
-                        costMax: res.data.cost_max ?? 0,
-                        costFlat: res.data.cost_flat ?? 0
-                    };
-                }
-            } catch (err) {
-                console.warn('Could not fetch latest bank costs:', err);
-            }
-
             const effectiveInitialDate = formData.valueDate || todayStr;
             const initialPairConfigs = {};
             pairs.forEach(p => {
                 const pBase = isCross ? 'Indicative' : (p.quotationBase || base);
                 initialPairConfigs[p.id] = {
-                    costMin: fetchedCosts.costMin,
-                    costPercent: fetchedCosts.costPercent,
-                    costMax: fetchedCosts.costMax,
-                    costFlat: fetchedCosts.costFlat,
+                    costMin: 0,
+                    costPercent: 0,
+                    costMax: 0,
+                    costFlat: 0,
                     quotationBase: pBase,
                     isDocumentVisible: isCross ? false : (pBase === 'Execution'),
                     valueDate: p.valueDate || effectiveInitialDate,
@@ -1065,10 +1042,10 @@ export default function QuotationRequestDashboard() {
                     name: bank.bank?.name || `Bank ${bank.bank_id}`, 
                     emails: bank.emails, 
                     contacts: bank.contacts || [],
-                    costMin: fetchedCosts.costMin, 
-                    costPercent: fetchedCosts.costPercent, 
-                    costMax: fetchedCosts.costMax, 
-                    costFlat: fetchedCosts.costFlat,
+                    costMin: 0, 
+                    costPercent: 0, 
+                    costMax: 0, 
+                    costFlat: 0,
                     quotationBase: base,
                     isDocumentVisible: isCross ? false : (base === 'Execution'),
                     valueDate: effectiveInitialDate,
@@ -1077,6 +1054,63 @@ export default function QuotationRequestDashboard() {
                     pairConfigs: initialPairConfigs
                 }
             ]);
+        }
+    };
+
+    const handleRetrieveLastCosts = async (bankId, pairId = null) => {
+        try {
+            const res = await apiClient.get(`/end-user/quotations/banks/latest-costs?bank_id=${bankId}`);
+            if (res.data) {
+                const fetched = {
+                    costMin: res.data.cost_min ?? 0,
+                    costPercent: res.data.cost_percent ?? 0,
+                    costMax: res.data.cost_max ?? 0,
+                    costFlat: res.data.cost_flat ?? 0
+                };
+                const costKey = pairId ? `${bankId}_${pairId}` : String(bankId);
+                setExpandedCosts(prev => ({ ...prev, [costKey]: true }));
+
+                if (pairId) {
+                    updateBankPairConfig(bankId, pairId, 'costMin', fetched.costMin);
+                    updateBankPairConfig(bankId, pairId, 'costPercent', fetched.costPercent);
+                    updateBankPairConfig(bankId, pairId, 'costMax', fetched.costMax);
+                    updateBankPairConfig(bankId, pairId, 'costFlat', fetched.costFlat);
+                } else {
+                    updateBankCost(bankId, 'costMin', fetched.costMin);
+                    updateBankCost(bankId, 'costPercent', fetched.costPercent);
+                    updateBankCost(bankId, 'costMax', fetched.costMax);
+                    updateBankCost(bankId, 'costFlat', fetched.costFlat);
+                }
+
+                const feeParts = [];
+                if (fetched.costPercent) feeParts.push(`${fetched.costPercent}%`);
+                if (fetched.costFlat) feeParts.push(`Flat ${fetched.costFlat}`);
+                if (fetched.costMin) feeParts.push(`Min ${fetched.costMin}`);
+                if (fetched.costMax) feeParts.push(`Max ${fetched.costMax}`);
+                const feeText = feeParts.length > 0 ? feeParts.join(', ') : '0 fees';
+                toast.success(`Retrieved last recorded costs: ${feeText}`);
+            } else {
+                toast.info('No prior recorded tariff costs found for this bank.');
+            }
+        } catch (err) {
+            console.warn('Failed to retrieve latest bank costs', err);
+            toast.error('Could not retrieve historical costs.');
+        }
+    };
+
+    const handleClearCosts = (bankId, pairId = null, costKey = null) => {
+        const key = costKey || (pairId ? `${bankId}_${pairId}` : String(bankId));
+        setExpandedCosts(prev => ({ ...prev, [key]: false }));
+        if (pairId) {
+            updateBankPairConfig(bankId, pairId, 'costMin', 0);
+            updateBankPairConfig(bankId, pairId, 'costPercent', 0);
+            updateBankPairConfig(bankId, pairId, 'costMax', 0);
+            updateBankPairConfig(bankId, pairId, 'costFlat', 0);
+        } else {
+            updateBankCost(bankId, 'costMin', 0);
+            updateBankCost(bankId, 'costPercent', 0);
+            updateBankCost(bankId, 'costMax', 0);
+            updateBankCost(bankId, 'costFlat', 0);
         }
     };
 
@@ -1274,6 +1308,23 @@ export default function QuotationRequestDashboard() {
                     ...b,
                     allowAlternativeValueDate: value,
                     _altCustomized: true
+                };
+            }
+            if (['costMin', 'costPercent', 'costMax', 'costFlat'].includes(field)) {
+                const existingConfigs = b.pairConfigs || {};
+                const updatedConfigs = { ...existingConfigs };
+                pairs.forEach(p => {
+                    if (updatedConfigs[p.id]) {
+                        updatedConfigs[p.id] = {
+                            ...updatedConfigs[p.id],
+                            [field]: value
+                        };
+                    }
+                });
+                return {
+                    ...b,
+                    [field]: value,
+                    pairConfigs: updatedConfigs
                 };
             }
             return { ...b, [field]: value };
@@ -1509,44 +1560,60 @@ export default function QuotationRequestDashboard() {
         const windowStart = new Date(formData.windowStart);
         const windowEnd = new Date(windowStart.getTime() + parseInt(formData.windowDuration) * 1000);
 
+        // Strict Positive Amount and Consistency Checks
+        if (formData.type === 'FX_SPOT') {
+            if (pairs.length > MAX_PAIRS) {
+                toast.error(`A maximum of ${MAX_PAIRS} currency pairs can be submitted in a single quotation.`);
+                setIsSubmitting(false);
+                return;
+            }
+
+            for (let i = 0; i < pairs.length; i++) {
+                const p = pairs[i];
+                const pairNum = i + 1;
+                if (!p.amount || parseFloat(p.amount) <= 0) {
+                    toast.error(`Please enter a valid positive amount greater than 0 for Pair #${pairNum} (${p.buyCurrency || 'USD'}/${p.sellCurrency || 'EGP'}).`);
+                    setActivePairIndex(i);
+                    setIsSubmitting(false);
+                    return;
+                }
+                if (!p.buyCurrency || !p.sellCurrency || p.buyCurrency === p.sellCurrency) {
+                    toast.error(`Pair #${pairNum} cannot have identical Buy and Sell currencies (${p.buyCurrency}).`);
+                    setActivePairIndex(i);
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
+            const conflict = findDuplicatePairConflict(pairs);
+            if (conflict) {
+                toast.error(conflict.message);
+                setActivePairIndex(conflict.secondIndex);
+                setIsSubmitting(false);
+                return;
+            }
+
+            const bankLegConflict = findBankLegConflict(selectedBanks, pairs, formData);
+            if (bankLegConflict) {
+                toast.error(bankLegConflict.message);
+                setIsSubmitting(false);
+                return;
+            }
+        } else if (formData.type === 'TBILL') {
+            if (!formData.amount || parseFloat(formData.amount) <= 0) {
+                toast.error("Total quotation amount must be a positive number strictly greater than 0.");
+                setIsSubmitting(false);
+                return;
+            }
+        }
+
         // Date Consistency Check: Value Date and Settlement Date cannot precede quotation window date
         const windowStartDate = formData.windowStart ? formData.windowStart.split('T')[0] : '';
         if (windowStartDate) {
             if (formData.type === 'FX_SPOT') {
-                if (pairs.length > MAX_PAIRS) {
-                    toast.error(`A maximum of ${MAX_PAIRS} currency pairs can be submitted in a single quotation.`);
-                    setIsSubmitting(false);
-                    return;
-                }
-
-                const conflict = findDuplicatePairConflict(pairs);
-                if (conflict) {
-                    toast.error(conflict.message);
-                    setActivePairIndex(conflict.secondIndex);
-                    setIsSubmitting(false);
-                    return;
-                }
-
-                const bankLegConflict = findBankLegConflict(selectedBanks, pairs, formData);
-                if (bankLegConflict) {
-                    toast.error(bankLegConflict.message);
-                    setIsSubmitting(false);
-                    return;
-                }
-
                 for (let i = 0; i < pairs.length; i++) {
                     const p = pairs[i];
                     const pairNum = i + 1;
-                    if (!p.amount || parseFloat(p.amount) <= 0) {
-                        toast.error(`Please enter a valid amount for Pair #${pairNum} (${p.buyCurrency || 'USD'}/${p.sellCurrency || 'EGP'}).`);
-                        setIsSubmitting(false);
-                        return;
-                    }
-                    if (!p.buyCurrency || !p.sellCurrency || p.buyCurrency === p.sellCurrency) {
-                        toast.error(`Pair #${pairNum} cannot have identical Buy and Sell currencies (${p.buyCurrency}).`);
-                        setIsSubmitting(false);
-                        return;
-                    }
                     if (p.valueDate && p.valueDate < windowStartDate) {
                         toast.error(`Pair #${pairNum} (${p.buyCurrency}/${p.sellCurrency}) Value Date (${formatDate(p.valueDate)}) cannot be earlier than quotation window date (${formatDate(windowStartDate)}).`);
                         setIsSubmitting(false);
@@ -2198,11 +2265,17 @@ export default function QuotationRequestDashboard() {
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className={`flex items-center bg-gray-50 border border-gray-200 rounded-xl overflow-hidden focus-within:bg-white focus-within:ring-2 focus-within:ring-black/5 focus-within:border-gray-400 transition-all ${
+                                            <div className={`flex items-center bg-gray-50 border rounded-xl overflow-hidden focus-within:bg-white focus-within:ring-2 transition-all ${
+                                                formData.amount !== '' && formData.amount !== undefined && parseFloat(formData.amount) <= 0
+                                                    ? 'border-rose-300 focus-within:border-rose-500 focus-within:ring-rose-500/20'
+                                                    : 'border-gray-200 focus-within:ring-black/5 focus-within:border-gray-400'
+                                            } ${
                                                 retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
                                             }`}>
                                                 <input
                                                     type="number"
+                                                    min="0.01"
+                                                    step="any"
                                                     required
                                                     disabled={Boolean(retradeRfqId)}
                                                     placeholder="0.00"
@@ -2215,6 +2288,11 @@ export default function QuotationRequestDashboard() {
                                                     EGP
                                                 </span>
                                             </div>
+                                            {formData.amount !== '' && formData.amount !== undefined && parseFloat(formData.amount) <= 0 && (
+                                                <p className="text-[10px] text-rose-600 font-semibold mt-1 flex items-center gap-1">
+                                                    <AlertCircle size={11} /> Amount must be a positive value greater than 0
+                                                </p>
+                                            )}
                                         </div>
                                         <div>
                                             <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Min Ticket Amount</label>
@@ -2385,7 +2463,8 @@ export default function QuotationRequestDashboard() {
                                                 {pairs.map((p, idx) => {
                                                     const isActive = activePairIndex === idx;
                                                     const isConflicting = pairConflict && (pairConflict.firstIndex === idx || pairConflict.secondIndex === idx);
-                                                    const amountFormatted = p.amount ? Number(p.amount).toLocaleString() : '0';
+                                                    const isAmountValid = p.amount && parseFloat(p.amount) > 0;
+                                                    const amountFormatted = isAmountValid ? Number(p.amount).toLocaleString() : null;
                                                     return (
                                                         <div
                                                             key={p.id}
@@ -2407,12 +2486,21 @@ export default function QuotationRequestDashboard() {
                                                                 {p.buyCurrency || 'USD'}/{p.sellCurrency || 'EGP'}
                                                                 {isConflicting && <AlertTriangle size={11} className={isActive ? "text-amber-300" : "text-amber-600"} title="Similar pair conflict detected" />}
                                                             </span>
-                                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                                                p.direction === 'Sell' 
-                                                                    ? (isActive ? 'bg-rose-500/30 text-rose-200' : 'bg-rose-50 text-rose-700')
-                                                                    : (isActive ? 'bg-emerald-500/30 text-emerald-200' : 'bg-emerald-50 text-emerald-700')
+                                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                                                                !isAmountValid
+                                                                    ? (isActive ? 'bg-rose-500/20 text-rose-200 border border-rose-400/30' : 'bg-rose-50 text-rose-700 border border-rose-200')
+                                                                    : p.direction === 'Sell' 
+                                                                        ? (isActive ? 'bg-rose-500/30 text-rose-200' : 'bg-rose-50 text-rose-700')
+                                                                        : (isActive ? 'bg-emerald-500/30 text-emerald-200' : 'bg-emerald-50 text-emerald-700')
                                                             }`}>
-                                                                {p.direction || 'Buy'} {amountFormatted}
+                                                                {isAmountValid ? (
+                                                                    `${p.direction || 'Buy'} ${amountFormatted}`
+                                                                ) : (
+                                                                    <>
+                                                                        <AlertCircle size={10} className={isActive ? "text-rose-300" : "text-rose-600"} />
+                                                                        Amount required
+                                                                    </>
+                                                                )}
                                                             </span>
                                                             <span className={`text-[9px] font-black px-1.5 py-0.5 rounded tracking-wide ${
                                                                 (p.quotationBase || formData.quotationBase || 'Execution') === 'Execution'
@@ -2547,11 +2635,17 @@ export default function QuotationRequestDashboard() {
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className={`flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all ${
+                                            <div className={`flex items-center bg-white border rounded-xl overflow-hidden focus-within:ring-2 transition-all ${
+                                                activePair.amount !== '' && activePair.amount !== undefined && parseFloat(activePair.amount) <= 0
+                                                    ? 'border-rose-300 focus-within:border-rose-500 focus-within:ring-rose-500/20 bg-rose-50/10'
+                                                    : 'border-slate-200 focus-within:ring-blue-500/20 focus-within:border-blue-500'
+                                            } ${
                                                 retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
                                             }`}>
                                                 <input
                                                     type="number"
+                                                    min="0.01"
+                                                    step="any"
                                                     required
                                                     disabled={Boolean(retradeRfqId)}
                                                     placeholder="0.00"
@@ -2564,6 +2658,11 @@ export default function QuotationRequestDashboard() {
                                                     {activePair.buyCurrency || 'USD'}
                                                 </span>
                                             </div>
+                                            {activePair.amount !== '' && activePair.amount !== undefined && parseFloat(activePair.amount) <= 0 && (
+                                                <p className="text-[10px] text-rose-600 font-semibold mt-1 flex items-center gap-1">
+                                                    <AlertCircle size={11} /> Amount must be a positive value greater than 0
+                                                </p>
+                                            )}
                                         </div>
 
                                         {/* Value Date & Alternative Value Date */}
@@ -3047,88 +3146,81 @@ export default function QuotationRequestDashboard() {
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5 flex-1">
+                        <div className="flex flex-col gap-3.5 flex-1">
                             {displayedBanks.map(bank => {
                                 const isSelected = selectedBanks.find(b => b.id === bank.bank_id);
                                 const rec = recommendations.find(r => r.bank_id === bank.bank_id);
+                                const hasApprover = bank.contacts?.some(c => c.role === 'APPROVER');
                                 return (
                                     <div
                                         key={bank.id}
-                                        className={`p-3.5 sm:p-4 rounded-2xl border transition-all h-fit flex flex-col justify-between ${
+                                        className={`p-3.5 sm:p-4 rounded-2xl border transition-all ${
                                             isSelected ? 'border-slate-900 bg-slate-50/70 shadow-xs ring-1 ring-slate-900/10' : 'border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-xs'
                                         }`}
                                     >
-                                        <div>
-                                            <div className="flex items-start justify-between gap-2.5">
-                                                <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                                                        isSelected ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
-                                                    }`}>
-                                                        <Landmark size={17} />
-                                                    </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                                            <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate leading-snug">
-                                                                {bank.bank?.name || `Bank ${bank.bank_id}`}
-                                                            </h4>
-                                                            {bank.is_cross_entity && (
-                                                                <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Counterparty from another group entity invited for indicative benchmarking">
-                                                                    🌐 Group Benchmark
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <p className="text-[10px] text-slate-400 truncate mt-0.5" title={bank.emails}>
-                                                            {bank.emails}
-                                                        </p>
-                                                    </div>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                                                    isSelected ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
+                                                }`}>
+                                                    <Landmark size={17} />
                                                 </div>
-                                                <div className="flex items-center gap-1.5 shrink-0">
-                                                    {isSelected && (() => {
-                                                        const divergence = getBankDivergence(isSelected);
-                                                        if (!divergence.isDivergent) return null;
-                                                        return (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleResyncBank(bank.bank_id)}
-                                                                title="Re-sync this bank's parameters with main quotation details"
-                                                                className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 transition-all flex items-center gap-1 shadow-2xs cursor-pointer animate-fade-in"
-                                                            >
-                                                                <RotateCcw size={12} className="text-amber-700" />
-                                                                <span>Re-Sync</span>
-                                                            </button>
-                                                        );
-                                                    })()}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleBankToggle(bank)}
-                                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                                                            isSelected ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200' : 'bg-slate-900 text-white hover:bg-slate-800 shadow-xs'
-                                                        }`}
-                                                    >
-                                                        {isSelected ? 'Remove' : 'Select'}
-                                                    </button>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate leading-snug">
+                                                            {bank.bank?.name || `Bank ${bank.bank_id}`}
+                                                        </h4>
+                                                        {hasApprover && (
+                                                            <span className="text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Counterparty has internal bank approver contact configured">
+                                                                Approver Layer
+                                                            </span>
+                                                        )}
+                                                        {rec?.highlight && (
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-full">
+                                                                <Sparkles size={10} className="text-blue-500 shrink-0" />
+                                                                {rec.highlight}
+                                                            </span>
+                                                        )}
+                                                        {bank.is_cross_entity && (
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Counterparty from another group entity invited for indicative benchmarking">
+                                                                🌐 Group Benchmark
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[10px] text-slate-400 truncate mt-0.5" title={bank.emails}>
+                                                        {bank.emails || 'No contact email configured'}
+                                                    </p>
                                                 </div>
                                             </div>
-
-                                            {/* Badges metadata row */}
-                                            {(bank.contacts?.some(c => c.role === 'APPROVER') || rec?.highlight) && (
-                                                <div className="flex items-center gap-1.5 flex-wrap mt-2.5 pt-2 border-t border-slate-100">
-                                                    {bank.contacts?.some(c => c.role === 'APPROVER') && (
-                                                        <span className="text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Counterparty has internal bank approver contact configured">
-                                                            Approver Layer
-                                                        </span>
-                                                    )}
-                                                    {rec?.highlight && (
-                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-full">
-                                                            <Sparkles size={10} className="text-blue-500 shrink-0" />
-                                                            {rec.highlight}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            )}
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                {isSelected && (() => {
+                                                    const divergence = getBankDivergence(isSelected);
+                                                    if (!divergence.isDivergent) return null;
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleResyncBank(bank.bank_id)}
+                                                            title="Re-sync this bank's parameters with main quotation details"
+                                                            className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 transition-all flex items-center gap-1 shadow-2xs cursor-pointer animate-fade-in"
+                                                        >
+                                                            <RotateCcw size={12} className="text-amber-700" />
+                                                            <span>Re-Sync</span>
+                                                        </button>
+                                                    );
+                                                })()}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleBankToggle(bank)}
+                                                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                                                        isSelected ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200' : 'bg-slate-900 text-white hover:bg-slate-800 shadow-xs'
+                                                    }`}
+                                                >
+                                                    {isSelected ? 'Remove' : 'Select'}
+                                                </button>
+                                            </div>
                                         </div>
 
-                                         {isSelected && (() => {
+                                        {isSelected && (() => {
                                             const isMultiPairMode = formData.type === 'FX_SPOT' && pairs.length > 1;
                                             const curTabId = bankActivePairTab[bank.bank_id] || pairs[activePairIndex]?.id || pairs[0]?.id;
                                             const curPair = pairs.find(p => p.id === curTabId) || pairs[activePairIndex] || pairs[0] || {};
@@ -3159,18 +3251,19 @@ export default function QuotationRequestDashboard() {
                                             const thisBankConflict = bankConflict && (String(bankConflict.bankId) === String(bank.bank_id) || String(bankConflict.bankId) === String(bank.id));
 
                                             return (
-                                                <div className="animate-fade-in-up space-y-3 pt-3 mt-2 border-t border-gray-200">
+                                                <div className="animate-fade-in-up space-y-2.5 pt-3 mt-2.5 border-t border-slate-200/80">
                                                     {thisBankConflict && (
                                                         <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2 text-xs text-rose-800 animate-fade-in">
                                                             <AlertTriangle size={14} className="text-rose-600 shrink-0 mt-0.5" />
                                                             <div>
-                                                                <span className="font-bold text-rose-950 block">Bank Leg Collision Detected</span>
+                                                                <span className="font-bold text-rose-950 block text-xs">Bank Leg Collision Detected</span>
                                                                 <p className="text-[11px] text-rose-700 leading-tight mt-0.5">
                                                                     {thisBankConflict.message}
                                                                 </p>
                                                             </div>
                                                         </div>
                                                     )}
+
                                                     {/* Multi-Pair Scope Switcher */}
                                                     {isMultiPairMode && (
                                                         <div className="space-y-2">
@@ -3183,7 +3276,7 @@ export default function QuotationRequestDashboard() {
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => toggleBankPairCustomization(bank.bank_id, false)}
-                                                                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                                                        className={`px-2.5 py-0.5 rounded text-[10px] font-semibold transition-all ${
                                                                             !isSelected.customPairTariffs ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                                                                         }`}
                                                                     >
@@ -3192,7 +3285,7 @@ export default function QuotationRequestDashboard() {
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => toggleBankPairCustomization(bank.bank_id, true)}
-                                                                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                                                        className={`px-2.5 py-0.5 rounded text-[10px] font-semibold transition-all ${
                                                                             isSelected.customPairTariffs ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                                                                         }`}
                                                                     >
@@ -3201,7 +3294,7 @@ export default function QuotationRequestDashboard() {
                                                                 </div>
                                                             </div>
 
-                                                            {/* Bank Pair Tabs (when custom tariffs per pair enabled) */}
+                                                            {/* Bank Pair Tabs */}
                                                             {isSelected.customPairTariffs && (
                                                                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
                                                                     {pairs.map((p, pIdx) => {
@@ -3249,87 +3342,148 @@ export default function QuotationRequestDashboard() {
                                                         </div>
                                                     )}
 
-                                                    <div className="grid grid-cols-2 gap-2.5">
-                                                        <div>
-                                                            <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Min Cost</label>
-                                                            <input
-                                                                type="number"
-                                                                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-slate-900 font-bold text-slate-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                                value={activeCfg.costMin}
-                                                                onChange={e => {
-                                                                    const val = parseFloat(e.target.value) || 0;
-                                                                    if (isSelected.customPairTariffs) {
-                                                                        updateBankPairConfig(bank.bank_id, curTabId, 'costMin', val);
-                                                                    } else {
-                                                                        updateBankCost(bank.bank_id, 'costMin', val);
-                                                                    }
-                                                                }}
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Cost %</label>
-                                                            <input
-                                                                type="number"
-                                                                step="0.01"
-                                                                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-slate-900 font-bold text-slate-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                                value={activeCfg.costPercent}
-                                                                onChange={e => {
-                                                                    const val = parseFloat(e.target.value) || 0;
-                                                                    if (isSelected.customPairTariffs) {
-                                                                        updateBankPairConfig(bank.bank_id, curTabId, 'costPercent', val);
-                                                                    } else {
-                                                                        updateBankCost(bank.bank_id, 'costPercent', val);
-                                                                    }
-                                                                }}
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Max Cost</label>
-                                                            <input
-                                                                type="number"
-                                                                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-slate-900 font-bold text-slate-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                                value={activeCfg.costMax}
-                                                                onChange={e => {
-                                                                    const val = parseFloat(e.target.value) || 0;
-                                                                    if (isSelected.customPairTariffs) {
-                                                                        updateBankPairConfig(bank.bank_id, curTabId, 'costMax', val);
-                                                                    } else {
-                                                                        updateBankCost(bank.bank_id, 'costMax', val);
-                                                                    }
-                                                                }}
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Flat Fee</label>
-                                                            <input
-                                                                type="number"
-                                                                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-slate-900 font-bold text-slate-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                                value={activeCfg.costFlat}
-                                                                onChange={e => {
-                                                                    const val = parseFloat(e.target.value) || 0;
-                                                                    if (isSelected.customPairTariffs) {
-                                                                        updateBankPairConfig(bank.bank_id, curTabId, 'costFlat', val);
-                                                                    } else {
-                                                                        updateBankCost(bank.bank_id, 'costFlat', val);
-                                                                    }
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    </div>
+                                                    {/* Bank Tariff Fees Box */}
+                                                    {(() => {
+                                                        const costKey = isSelected.customPairTariffs ? `${bank.bank_id}_${curTabId}` : String(bank.bank_id);
+                                                        const hasConfiguredCost = Boolean(
+                                                            (activeCfg.costMin && activeCfg.costMin > 0) ||
+                                                            (activeCfg.costPercent && activeCfg.costPercent > 0) ||
+                                                            (activeCfg.costMax && activeCfg.costMax > 0) ||
+                                                            (activeCfg.costFlat && activeCfg.costFlat > 0)
+                                                        );
+                                                        const isCostVisible = hasConfiguredCost || Boolean(expandedCosts[costKey]);
 
-                                                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100 text-xs">
-                                                        {bank.is_cross_entity ? (
-                                                            <div className="flex items-center gap-1.5">
-                                                                <label className="text-[10px] font-bold text-gray-400 uppercase">Base Type:</label>
-                                                                <span className="text-xs font-bold text-purple-800 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-2xs">
-                                                                    🌐 Indicative Benchmark
-                                                                </span>
+                                                        if (!isCostVisible) {
+                                                            return (
+                                                                <div className="flex items-center justify-between py-1.5 px-2.5 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-xs">
+                                                                    <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1.5">
+                                                                        <DollarSign size={11} className="text-slate-400 shrink-0" />
+                                                                        No Bank Tariff Fees (0 fees applied)
+                                                                    </span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setExpandedCosts(prev => ({ ...prev, [costKey]: true }))}
+                                                                        className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1 cursor-pointer bg-white px-2 py-0.5 rounded-md border border-blue-200 hover:border-blue-300 shadow-2xs"
+                                                                    >
+                                                                        + Add Tariff Fees
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <div className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-200 space-y-2 animate-fade-in">
+                                                                <div className="flex items-center justify-between text-xs pb-1 border-b border-slate-200/60">
+                                                                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                                                                        <DollarSign size={11} className="text-blue-600 shrink-0" />
+                                                                        Bank Tariff Fees
+                                                                    </span>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleRetrieveLastCosts(bank.bank_id, isSelected.customPairTariffs ? curTabId : null)}
+                                                                            className="text-[10px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                                                                            title="Retrieve and apply the latest recorded tariff parameters for this bank"
+                                                                        >
+                                                                            <RotateCcw size={10} className="text-indigo-600" />
+                                                                            Retrieve Last Cost
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleClearCosts(bank.bank_id, isSelected.customPairTariffs ? curTabId : null, costKey)}
+                                                                            className="text-[10px] font-bold text-rose-600 hover:text-rose-800 hover:underline cursor-pointer"
+                                                                            title="Reset costs to 0 and collapse"
+                                                                        >
+                                                                            Hide / Clear
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                                                                    <div>
+                                                                        <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1 h-3.5 truncate">Min Cost</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            className="w-full h-8 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs outline-none focus:border-slate-900 font-bold text-slate-900 shadow-2xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                            value={activeCfg.costMin}
+                                                                            onChange={e => {
+                                                                                const val = parseFloat(e.target.value) || 0;
+                                                                                if (isSelected.customPairTariffs) {
+                                                                                    updateBankPairConfig(bank.bank_id, curTabId, 'costMin', val);
+                                                                                } else {
+                                                                                    updateBankCost(bank.bank_id, 'costMin', val);
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1 h-3.5 truncate">Cost %</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            className="w-full h-8 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs outline-none focus:border-slate-900 font-bold text-slate-900 shadow-2xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                            value={activeCfg.costPercent}
+                                                                            onChange={e => {
+                                                                                const val = parseFloat(e.target.value) || 0;
+                                                                                if (isSelected.customPairTariffs) {
+                                                                                    updateBankPairConfig(bank.bank_id, curTabId, 'costPercent', val);
+                                                                                } else {
+                                                                                    updateBankCost(bank.bank_id, 'costPercent', val);
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1 h-3.5 truncate" title="0 or left empty means no ceiling limit">
+                                                                            Max Cost
+                                                                        </label>
+                                                                        <input
+                                                                            type="number"
+                                                                            placeholder="0 (No Cap)"
+                                                                            className="w-full h-8 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs outline-none focus:border-slate-900 font-bold text-slate-900 shadow-2xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                            value={activeCfg.costMax}
+                                                                            onChange={e => {
+                                                                                const val = parseFloat(e.target.value) || 0;
+                                                                                if (isSelected.customPairTariffs) {
+                                                                                    updateBankPairConfig(bank.bank_id, curTabId, 'costMax', val);
+                                                                                } else {
+                                                                                    updateBankCost(bank.bank_id, 'costMax', val);
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1 h-3.5 truncate">Flat Fee</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            className="w-full h-8 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs outline-none focus:border-slate-900 font-bold text-slate-900 shadow-2xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                            value={activeCfg.costFlat}
+                                                                            onChange={e => {
+                                                                                const val = parseFloat(e.target.value) || 0;
+                                                                                if (isSelected.customPairTariffs) {
+                                                                                    updateBankPairConfig(bank.bank_id, curTabId, 'costFlat', val);
+                                                                                } else {
+                                                                                    updateBankCost(bank.bank_id, 'costFlat', val);
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-2">
-                                                                <label className="text-[10px] font-bold text-gray-400 uppercase">Base Type:</label>
+                                                        );
+                                                    })()}
+
+                                                    {/* Symmetric Parameters Grid (Matches the 4 columns of the Tariff Fees above) */}
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 pt-2 border-t border-slate-100">
+                                                        <div>
+                                                            <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1 h-3.5 truncate">Base Type</label>
+                                                            {bank.is_cross_entity ? (
+                                                                <div className="h-8 flex items-center px-2 bg-purple-50 border border-purple-200 rounded-lg text-[11px] font-bold text-purple-800 shadow-2xs truncate">
+                                                                    🌐 Indicative
+                                                                </div>
+                                                            ) : (
                                                                 <select
-                                                                    className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black font-semibold text-gray-900"
+                                                                    className="w-full h-8 bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black font-semibold text-gray-900 shadow-2xs cursor-pointer"
                                                                     value={activeCfg.quotationBase || formData.quotationBase || 'Execution'}
                                                                     onChange={e => {
                                                                         const val = e.target.value;
@@ -3343,35 +3497,93 @@ export default function QuotationRequestDashboard() {
                                                                     <option value="Execution">Execution</option>
                                                                     <option value="Indicative">Indicative</option>
                                                                 </select>
-                                                            </div>
-                                                        )}
+                                                            )}
+                                                        </div>
 
-                                                        {bank.is_cross_entity ? (
-                                                            <span className="text-[10px] text-gray-400 italic" title="Entity documents are omitted for cross-entity group benchmarking">
-                                                                Documents Omitted
-                                                            </span>
-                                                        ) : (
-                                                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-gray-600 font-medium select-none">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    className="rounded border-gray-300 text-black focus:ring-black"
-                                                                    checked={activeCfg.isDocumentVisible !== false}
-                                                                    onChange={e => {
-                                                                        const val = e.target.checked;
-                                                                        if (isSelected.customPairTariffs) {
-                                                                            updateBankPairConfig(bank.bank_id, curTabId, 'isDocumentVisible', val);
-                                                                        } else {
-                                                                            updateBankCost(bank.bank_id, 'isDocumentVisible', val);
-                                                                        }
-                                                                    }}
-                                                                />
-                                                                Document Visible
-                                                            </label>
-                                                        )}
+                                                        <div>
+                                                            <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1 h-3.5 truncate">Documents</label>
+                                                            {bank.is_cross_entity ? (
+                                                                <div className="h-8 flex items-center px-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] text-gray-400 italic">
+                                                                    Omitted
+                                                                </div>
+                                                            ) : (
+                                                                <label className="flex items-center gap-1.5 h-8 px-2.5 py-1 rounded-lg border border-gray-200 bg-white cursor-pointer text-[11px] text-gray-700 font-medium shadow-2xs select-none hover:bg-slate-50">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        className="rounded border-gray-300 text-black focus:ring-black"
+                                                                        checked={activeCfg.isDocumentVisible !== false}
+                                                                        onChange={e => {
+                                                                            const val = e.target.checked;
+                                                                            if (isSelected.customPairTariffs) {
+                                                                                updateBankPairConfig(bank.bank_id, curTabId, 'isDocumentVisible', val);
+                                                                            } else {
+                                                                                updateBankCost(bank.bank_id, 'isDocumentVisible', val);
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                    <span className="truncate">Visible to Bank</span>
+                                                                </label>
+                                                            )}
+                                                        </div>
+
+                                                        {formData.type === 'FX_SPOT' ? (
+                                                            <>
+                                                                <div>
+                                                                    <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1 h-3.5 truncate">
+                                                                        Value Date{isSelected.customPairTariffs ? ` (${curPair.buyCurrency}/${curPair.sellCurrency})` : ''}
+                                                                    </label>
+                                                                    <input
+                                                                        type="date"
+                                                                        min={windowStartDate || todayStr}
+                                                                        className="w-full h-8 bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black font-semibold text-gray-900 shadow-2xs"
+                                                                        value={activeCfg.valueDate || ''}
+                                                                        onChange={e => {
+                                                                            const val = e.target.value;
+                                                                            if (val && windowStartDate && val < windowStartDate) {
+                                                                                toast.warn(`Value Date for ${bank.bank?.name || 'bank'} cannot be earlier than quotation window date (${formatDate(windowStartDate)}). Setting to ${formatDate(windowStartDate)}.`);
+                                                                                if (isSelected.customPairTariffs) {
+                                                                                    updateBankPairConfig(bank.bank_id, curTabId, 'valueDate', windowStartDate);
+                                                                                } else {
+                                                                                    updateBankCost(bank.bank_id, 'valueDate', windowStartDate);
+                                                                                }
+                                                                            } else {
+                                                                                if (isSelected.customPairTariffs) {
+                                                                                    updateBankPairConfig(bank.bank_id, curTabId, 'valueDate', val);
+                                                                                } else {
+                                                                                    updateBankCost(bank.bank_id, 'valueDate', val);
+                                                                                }
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </div>
+
+                                                                <div>
+                                                                    <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1 h-3.5 truncate">Settlement Alt</label>
+                                                                    <label className="flex items-center gap-1.5 h-8 px-2.5 py-1 rounded-lg border border-gray-200 bg-white hover:border-blue-300 cursor-pointer text-[11px] font-medium shadow-2xs select-none transition-colors">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                                                                            checked={activeCfg.allowAlternativeValueDate ?? false}
+                                                                            onChange={e => {
+                                                                                const val = e.target.checked;
+                                                                                if (isSelected.customPairTariffs) {
+                                                                                    updateBankPairConfig(bank.bank_id, curTabId, 'allowAlternativeValueDate', val);
+                                                                                } else {
+                                                                                    updateBankCost(bank.bank_id, 'allowAlternativeValueDate', val);
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                        <span className={`truncate ${activeCfg.allowAlternativeValueDate ? 'text-blue-700 font-semibold' : 'text-gray-600'}`}>
+                                                                            Allow Alt Date
+                                                                        </span>
+                                                                    </label>
+                                                                </div>
+                                                            </>
+                                                        ) : null}
                                                     </div>
 
                                                     {bank.is_cross_entity && (
-                                                        <div className="p-2.5 bg-purple-50/70 border border-purple-200 rounded-xl text-[11px] text-purple-900 leading-snug flex items-start gap-1.5">
+                                                        <div className="p-2.5 bg-purple-50/70 border border-purple-200 rounded-xl text-[11px] text-purple-900 leading-snug flex items-start gap-1.5 mt-2">
                                                             <Info size={13} className="text-purple-600 shrink-0 mt-0.5" />
                                                             <span>
                                                                 <strong>Group Benchmark Counterparty:</strong> Invited on behalf of Group Treasury for indicative pricing comparison only. Cannot be awarded for execution.
@@ -3379,60 +3591,9 @@ export default function QuotationRequestDashboard() {
                                                         </div>
                                                     )}
 
-                                                    {formData.type === 'FX_SPOT' && (
-                                                        <div className="pt-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2.5 text-xs">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <label className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">
-                                                                    Value Date{isSelected.customPairTariffs ? ` (${curPair.buyCurrency}/${curPair.sellCurrency})` : ''}:
-                                                                </label>
-                                                                <input
-                                                                    type="date"
-                                                                    min={windowStartDate || todayStr}
-                                                                    className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black font-semibold text-gray-900"
-                                                                    value={activeCfg.valueDate || ''}
-                                                                    onChange={e => {
-                                                                        const val = e.target.value;
-                                                                        if (val && windowStartDate && val < windowStartDate) {
-                                                                            toast.warn(`Value Date for ${bank.bank?.name || 'bank'} cannot be earlier than quotation window date (${formatDate(windowStartDate)}). Setting to ${formatDate(windowStartDate)}.`);
-                                                                            if (isSelected.customPairTariffs) {
-                                                                                updateBankPairConfig(bank.bank_id, curTabId, 'valueDate', windowStartDate);
-                                                                            } else {
-                                                                                updateBankCost(bank.bank_id, 'valueDate', windowStartDate);
-                                                                            }
-                                                                        } else {
-                                                                            if (isSelected.customPairTariffs) {
-                                                                                updateBankPairConfig(bank.bank_id, curTabId, 'valueDate', val);
-                                                                            } else {
-                                                                                updateBankCost(bank.bank_id, 'valueDate', val);
-                                                                            }
-                                                                        }
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-gray-700 font-medium select-none bg-white border border-gray-200 hover:border-blue-300 px-2 py-1 rounded-lg transition-colors">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-600"
-                                                                    checked={activeCfg.allowAlternativeValueDate ?? false}
-                                                                    onChange={e => {
-                                                                        const val = e.target.checked;
-                                                                        if (isSelected.customPairTariffs) {
-                                                                            updateBankPairConfig(bank.bank_id, curTabId, 'allowAlternativeValueDate', val);
-                                                                        } else {
-                                                                            updateBankCost(bank.bank_id, 'allowAlternativeValueDate', val);
-                                                                        }
-                                                                    }}
-                                                                />
-                                                                <span className={activeCfg.allowAlternativeValueDate ? 'text-blue-700 font-semibold' : 'text-gray-600'}>
-                                                                    Allow Alt Date
-                                                                </span>
-                                                            </label>
-
-                                                            {activeCfg.valueDate && windowStartDate && activeCfg.valueDate < windowStartDate && (
-                                                                <div className="w-full text-[10px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
-                                                                    <AlertCircle size={11} /> Value Date ({formatDate(activeCfg.valueDate)}) cannot precede Offer Window ({formatDate(windowStartDate)})
-                                                                </div>
-                                                            )}
+                                                    {formData.type === 'FX_SPOT' && activeCfg.valueDate && windowStartDate && activeCfg.valueDate < windowStartDate && (
+                                                        <div className="w-full text-[10px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
+                                                            <AlertCircle size={11} /> Value Date ({formatDate(activeCfg.valueDate)}) cannot precede Offer Window ({formatDate(windowStartDate)})
                                                         </div>
                                                     )}
                                                 </div>
@@ -3506,7 +3667,14 @@ export default function QuotationRequestDashboard() {
                             </button>
                             <button
                                 type="submit"
-                                disabled={isSubmitting || selectedBanks.length === 0 || hasDateDiscrepancy || Boolean(bankConflict) || (hasExecutionBanks && !legalAcknowledged)}
+                                disabled={
+                                    isSubmitting ||
+                                    selectedBanks.length === 0 ||
+                                    hasDateDiscrepancy ||
+                                    Boolean(bankConflict) ||
+                                    (hasExecutionBanks && !legalAcknowledged) ||
+                                    (formData.type === 'FX_SPOT' ? pairs.some(p => !p.amount || parseFloat(p.amount) <= 0) : (!formData.amount || parseFloat(formData.amount) <= 0))
+                                }
                                 className={`w-full flex-1 py-3.5 sm:py-5 rounded-2xl sm:rounded-3xl font-semibold text-sm sm:text-lg flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-xl disabled:opacity-30 disabled:cursor-not-allowed shrink-0 cursor-pointer ${
                                     revisionRfqId
                                         ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20'
