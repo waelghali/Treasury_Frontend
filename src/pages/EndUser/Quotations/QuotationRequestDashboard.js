@@ -1242,6 +1242,132 @@ export default function QuotationRequestDashboard() {
         }));
     };
 
+    // Helper to detect if a selected bank's settings diverge from main quotation details
+    const getBankDivergence = (bankObj) => {
+        if (!bankObj) return { isDivergent: false, curTabDivergent: false };
+        const curTabId = bankActivePairTab[bankObj.bank_id || bankObj.id] || pairs[activePairIndex]?.id || pairs[0]?.id;
+        const curPair = pairs.find(p => p.id === curTabId) || pairs[0] || {};
+        const masterDateForCur = curPair.valueDate || formData.valueDate || '';
+        const masterBaseForCur = curPair.quotationBase || formData.quotationBase || 'Execution';
+        const masterAltForCur = Boolean(curPair.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false);
+
+        let curTabDivergent = false;
+        let anyDivergent = false;
+
+        if (bankObj.customPairTariffs && bankObj.pairConfigs) {
+            // Multi-pair per-leg mode
+            for (const p of pairs) {
+                const cfg = bankObj.pairConfigs[p.id];
+                if (!cfg) continue;
+                const pMasterDate = p.valueDate || formData.valueDate || '';
+                const pMasterBase = p.quotationBase || formData.quotationBase || 'Execution';
+                const pMasterAlt = Boolean(p.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false);
+
+                const isDateDiff = Boolean(cfg.valueDate && pMasterDate && String(cfg.valueDate).split('T')[0] !== String(pMasterDate).split('T')[0]);
+                const isBaseDiff = Boolean(!bankObj.is_cross_entity && cfg.quotationBase && cfg.quotationBase !== pMasterBase);
+                const isAltDiff = Boolean(typeof cfg.allowAlternativeValueDate === 'boolean' && cfg.allowAlternativeValueDate !== pMasterAlt);
+
+                if (isDateDiff || isBaseDiff || isAltDiff) {
+                    anyDivergent = true;
+                    if (p.id === curTabId) {
+                        curTabDivergent = true;
+                    }
+                }
+            }
+        } else {
+            // Single-pair or same-for-all mode
+            const bankDate = bankObj.valueDate || '';
+            const isDateDiff = Boolean(bankObj._dateCustomized && bankDate && masterDateForCur && String(bankDate).split('T')[0] !== String(masterDateForCur).split('T')[0]);
+            const isBaseDiff = Boolean(!bankObj.is_cross_entity && bankObj._baseCustomized && bankObj.quotationBase && bankObj.quotationBase !== masterBaseForCur);
+            const isAltDiff = Boolean(bankObj._altCustomized && typeof bankObj.allowAlternativeValueDate === 'boolean' && bankObj.allowAlternativeValueDate !== masterAltForCur);
+
+            if (isDateDiff || isBaseDiff || isAltDiff) {
+                anyDivergent = true;
+                curTabDivergent = true;
+            }
+        }
+
+        return { isDivergent: anyDivergent, curTabDivergent };
+    };
+
+    const handleResyncBank = (bankId) => {
+        const bankToSync = banks.find(b => b.bank_id === bankId || b.id === bankId);
+        const bankName = bankToSync?.bank?.name || bankToSync?.name || `Bank #${bankId}`;
+        const masterDate = pairs[0]?.valueDate || formData.valueDate || '';
+        const masterBase = pairs[0]?.quotationBase || formData.quotationBase || 'Execution';
+        const masterAlt = Boolean(pairs[0]?.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false);
+
+        setSelectedBanks(prev => prev.map(b => {
+            if (String(b.id) !== String(bankId) && String(b.bank_id) !== String(bankId)) return b;
+
+            const updatedPairConfigs = { ...(b.pairConfigs || {}) };
+            pairs.forEach(p => {
+                const pDate = p.valueDate || formData.valueDate || '';
+                const pBase = b.is_cross_entity ? 'Indicative' : (p.quotationBase || formData.quotationBase || 'Execution');
+                const pAlt = Boolean(p.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false);
+                const pDocVis = pBase === 'Execution';
+
+                if (updatedPairConfigs[p.id]) {
+                    updatedPairConfigs[p.id] = {
+                        ...updatedPairConfigs[p.id],
+                        valueDate: pDate,
+                        quotationBase: pBase,
+                        allowAlternativeValueDate: pAlt,
+                        isDocumentVisible: pDocVis,
+                        _dateCustomized: false
+                    };
+                }
+            });
+
+            return {
+                ...b,
+                valueDate: masterDate,
+                _dateCustomized: false,
+                quotationBase: b.is_cross_entity ? 'Indicative' : masterBase,
+                _baseCustomized: false,
+                allowAlternativeValueDate: masterAlt,
+                _altCustomized: false,
+                isDocumentVisible: masterBase === 'Execution',
+                pairConfigs: updatedPairConfigs
+            };
+        }));
+
+        toast.success(`${bankName} re-synced with main quotation details.`);
+    };
+
+    const handleResyncBankLeg = (bankId, legId) => {
+        const bankToSync = banks.find(b => b.bank_id === bankId || b.id === bankId);
+        const bankName = bankToSync?.bank?.name || bankToSync?.name || `Bank #${bankId}`;
+        const targetPair = pairs.find(p => p.id === legId) || pairs[0] || {};
+        const pDate = targetPair.valueDate || formData.valueDate || '';
+        const pBase = bankToSync?.is_cross_entity ? 'Indicative' : (targetPair.quotationBase || formData.quotationBase || 'Execution');
+        const pAlt = Boolean(targetPair.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false);
+        const pDocVis = pBase === 'Execution';
+
+        setSelectedBanks(prev => prev.map(b => {
+            if (String(b.id) !== String(bankId) && String(b.bank_id) !== String(bankId)) return b;
+
+            const updatedPairConfigs = { ...(b.pairConfigs || {}) };
+            if (updatedPairConfigs[legId]) {
+                updatedPairConfigs[legId] = {
+                    ...updatedPairConfigs[legId],
+                    valueDate: pDate,
+                    quotationBase: pBase,
+                    allowAlternativeValueDate: pAlt,
+                    isDocumentVisible: pDocVis,
+                    _dateCustomized: false
+                };
+            }
+
+            return {
+                ...b,
+                pairConfigs: updatedPairConfigs
+            };
+        }));
+
+        toast.success(`${bankName} (${targetPair.buyCurrency}/${targetPair.sellCurrency}) re-synced with main quote.`);
+    };
+
     const handleMasterQuotationBaseChange = (type) => {
         setFormData(prev => ({ ...prev, quotationBase: type }));
         setSelectedBanks(prev => prev.map(b => {
@@ -2885,15 +3011,32 @@ export default function QuotationRequestDashboard() {
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleBankToggle(bank)}
-                                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                                                        isSelected ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200' : 'bg-slate-900 text-white hover:bg-slate-800 shadow-xs'
-                                                    }`}
-                                                >
-                                                    {isSelected ? 'Remove' : 'Select'}
-                                                </button>
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    {isSelected && (() => {
+                                                        const divergence = getBankDivergence(isSelected);
+                                                        if (!divergence.isDivergent) return null;
+                                                        return (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleResyncBank(bank.bank_id)}
+                                                                title="Re-sync this bank's parameters with main quotation details"
+                                                                className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 transition-all flex items-center gap-1 shadow-2xs cursor-pointer animate-fade-in"
+                                                            >
+                                                                <RotateCcw size={12} className="text-amber-700" />
+                                                                <span>Re-Sync</span>
+                                                            </button>
+                                                        );
+                                                    })()}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleBankToggle(bank)}
+                                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                                                            isSelected ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200' : 'bg-slate-900 text-white hover:bg-slate-800 shadow-xs'
+                                                        }`}
+                                                    >
+                                                        {isSelected ? 'Remove' : 'Select'}
+                                                    </button>
+                                                </div>
                                             </div>
 
                                             {/* Badges metadata row */}
@@ -3013,11 +3156,25 @@ export default function QuotationRequestDashboard() {
                                                                 </div>
                                                             )}
 
-                                                            {isSelected.customPairTariffs && (
-                                                                <div className="text-[10px] font-semibold text-blue-700 bg-blue-50/70 border border-blue-200/60 px-2 py-1 rounded-lg">
-                                                                    Configuring tariffs specifically for <span className="font-bold">{curPair.buyCurrency}/{curPair.sellCurrency}</span>
-                                                                </div>
-                                                            )}
+                                                            {isSelected.customPairTariffs && (() => {
+                                                                const divergence = getBankDivergence(isSelected);
+                                                                return (
+                                                                    <div className="flex items-center justify-between text-[10px] font-semibold text-blue-700 bg-blue-50/70 border border-blue-200/60 px-2.5 py-1.5 rounded-lg flex-wrap gap-2">
+                                                                        <span>Configuring tariffs specifically for <span className="font-bold">{curPair.buyCurrency}/{curPair.sellCurrency}</span></span>
+                                                                        {divergence.curTabDivergent && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleResyncBankLeg(bank.bank_id, curTabId)}
+                                                                                title={`Re-sync ${curPair.buyCurrency}/${curPair.sellCurrency} for this bank with main quote`}
+                                                                                className="text-[10px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                                                                            >
+                                                                                <RotateCcw size={10} className="text-amber-700" />
+                                                                                Re-Sync This Leg
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     )}
 
