@@ -1423,72 +1423,76 @@ export default function ResultsView({ rfqId }) {
                         </div>
                     );
                 })()
-            ) : (resultsMeta.savingsSummary && resultsMeta.status !== 'REJECTED' && rfq?.status !== 'REJECTED') ? (
-                <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-900 via-teal-900 to-emerald-950 text-white shadow-xl border border-emerald-500/30 space-y-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-emerald-700/50 pb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
-                                <Trophy size={26} />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                                        Certified Best Execution
-                                    </span>
-                                    <span className="text-xs text-emerald-200/70 font-mono">Regulatory & Governance Standard</span>
+            ) : (() => {
+                const effectiveSavings = resultsMeta.savingsSummary || (legs && legs.length === 1 ? legs[0].savings_summary : null);
+                if (!effectiveSavings || rfq?.status === 'REJECTED' || (legs && legs[0] && (legs[0].status === 'REJECTED' || legs[0].is_inconclusive))) return null;
+                return (
+                    <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-900 via-teal-900 to-emerald-950 text-white shadow-xl border border-emerald-500/30 space-y-4">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-emerald-700/50 pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+                                    <Trophy size={26} />
                                 </div>
-                                <h3 className="text-lg font-bold text-white mt-1">
-                                    Awarded to {resultsMeta.savingsSummary.winner_bank_name} @ {resultsMeta.savingsSummary.winner_rate}
-                                </h3>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                                            Certified Best Execution
+                                        </span>
+                                        <span className="text-xs text-emerald-200/70 font-mono">Regulatory & Governance Standard</span>
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white mt-1">
+                                        Awarded to {effectiveSavings.winner_bank_name} @ {effectiveSavings.winner_rate}
+                                    </h3>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowAuditPack(true)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-emerald-950 hover:bg-emerald-50 transition-all shadow-md active:scale-95 shrink-0 cursor-pointer"
+                            >
+                                <FileText size={14} className="text-emerald-700" /> Best Execution Audit Pack
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                            <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/20">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/80 block mb-1">
+                                    Net Value Generated vs Avg
+                                </span>
+                                <p className="text-xl sm:text-2xl font-black font-mono text-emerald-300">
+                                    {effectiveSavings.currency} {effectiveSavings.saved_vs_avg?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                                <span className="text-[10px] text-emerald-200/60 mt-0.5 block">
+                                    Benchmarked against average bid of {effectiveSavings.avg_rate}
+                                </span>
+                            </div>
+
+                            <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/20">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-teal-300/80 block mb-1">
+                                    Max Protection vs Worst Quote
+                                </span>
+                                <p className="text-xl sm:text-2xl font-black font-mono text-teal-300">
+                                    {effectiveSavings.currency} {effectiveSavings.saved_vs_worst?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                                <span className="text-[10px] text-teal-200/60 mt-0.5 block">
+                                    Protected against worst quote of {effectiveSavings.worst_rate}
+                                </span>
+                            </div>
+
+                            <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/20">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300/80 block mb-1">
+                                    Competitive Bids Evaluated
+                                </span>
+                                <p className="text-xl sm:text-2xl font-black font-mono text-white">
+                                    {effectiveSavings.total_quotes} Bids Received
+                                </p>
+                                <span className="text-[10px] text-slate-300/70 mt-0.5 block">
+                                    Simultaneous blind competitive tender
+                                </span>
                             </div>
                         </div>
-                        <button
-                            onClick={() => setShowAuditPack(true)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-emerald-950 hover:bg-emerald-50 transition-all shadow-md active:scale-95 shrink-0"
-                        >
-                            <FileText size={14} className="text-emerald-700" /> Best Execution Audit Pack
-                        </button>
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-                        <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/20">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/80 block mb-1">
-                                Net Value Generated vs Avg
-                            </span>
-                            <p className="text-xl sm:text-2xl font-black font-mono text-emerald-300">
-                                {resultsMeta.savingsSummary.currency} {resultsMeta.savingsSummary.saved_vs_avg?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                            <span className="text-[10px] text-emerald-200/60 mt-0.5 block">
-                                Benchmarked against average bid of {resultsMeta.savingsSummary.avg_rate}
-                            </span>
-                        </div>
-
-                        <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/20">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-300/80 block mb-1">
-                                Max Protection vs Worst Quote
-                            </span>
-                            <p className="text-xl sm:text-2xl font-black font-mono text-teal-300">
-                                {resultsMeta.savingsSummary.currency} {resultsMeta.savingsSummary.saved_vs_worst?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                            <span className="text-[10px] text-teal-200/60 mt-0.5 block">
-                                Protected against worst quote of {resultsMeta.savingsSummary.worst_rate}
-                            </span>
-                        </div>
-
-                        <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/20">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300/80 block mb-1">
-                                Competitive Bids Evaluated
-                            </span>
-                            <p className="text-xl sm:text-2xl font-black font-mono text-white">
-                                {resultsMeta.savingsSummary.total_quotes} Bids Received
-                            </p>
-                            <span className="text-[10px] text-slate-300/70 mt-0.5 block">
-                                Simultaneous blind competitive tender
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
+                );
+            })()}
 
             {rfq && (
                 <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-5 mb-6">

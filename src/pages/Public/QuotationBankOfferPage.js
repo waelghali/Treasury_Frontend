@@ -5,7 +5,7 @@ import {
     Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, 
     Mail, KeyRound, UserCheck, Eye, History, RefreshCw, MessageSquare, Shield,
     BarChart2, ShieldAlert, WifiOff, FileQuestion,
-    Users, Lock, Zap, Info, Loader2, Ban, Volume2, VolumeX
+    Users, Lock, Zap, Info, Loader2, Ban, Volume2, VolumeX, Copy, Check
 } from 'lucide-react';
 import tradingAudio from '../../utils/tradingAudioEngine';
 import './quotation-animations.css';
@@ -91,6 +91,23 @@ export default function QuotationBankOfferPage() {
     const [resultStatus, setResultStatus] = useState(null);
     const [outcomeData, setOutcomeData] = useState(null);
     const [timeOffset, setTimeOffset] = useState(0);
+    const [copiedReceiptHash, setCopiedReceiptHash] = useState(false);
+
+    const handleCopyReceiptHash = useCallback((hash) => {
+        if (!hash) return;
+        if (navigator?.clipboard?.writeText) {
+            navigator.clipboard.writeText(hash);
+        } else {
+            const textArea = document.createElement('textarea');
+            textArea.value = hash;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+        }
+        setCopiedReceiptHash(true);
+        setTimeout(() => setCopiedReceiptHash(false), 2000);
+    }, []);
 
     // Live Ranking State
     const [liveRank, setLiveRank] = useState(null);
@@ -1919,26 +1936,46 @@ export default function QuotationBankOfferPage() {
                                                 : 'Congratulations, your quote was selected as the winning offer. Our treasury team will contact you shortly.'}
                                         </p>
                                         {outcomeData?.receipt && (
-                                            <div className="mt-3 w-full max-w-xl mx-auto p-3 rounded-xl bg-emerald-950/5 border border-emerald-500/30 text-emerald-950 text-left text-xs font-sans">
-                                                <div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 pb-2 mb-2">
+                                            <div className="mt-3 w-full max-w-xl mx-auto p-3.5 rounded-xl bg-emerald-950/5 border border-emerald-500/30 text-emerald-950 text-left text-xs font-sans shadow-xs">
+                                                <div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 pb-2 mb-2.5">
                                                     <div className="flex items-center gap-1.5 font-bold text-emerald-900">
                                                         <Shield size={14} className="text-emerald-600" />
                                                         <span>Cryptographic Deal Execution Receipt</span>
                                                     </div>
-                                                    <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
+                                                    <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold border border-emerald-300/60">
                                                         {outcomeData.receipt.receipt_id}
                                                     </span>
                                                 </div>
-                                                <div className="space-y-1 text-[11px] text-emerald-900">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-emerald-700">Digital Signature:</span>
-                                                        <span className="font-mono text-[10px] text-emerald-950 font-medium truncate max-w-[280px]" title={outcomeData.receipt.signature_hash}>
+                                                <div className="space-y-2 text-[11px] text-emerald-900">
+                                                    <div>
+                                                        <div className="flex items-center justify-between text-emerald-700 mb-1">
+                                                            <span className="font-semibold text-[11px]">Digital Signature (HMAC-SHA256):</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleCopyReceiptHash(outcomeData.receipt.signature_hash)}
+                                                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 hover:text-emerald-950 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                                                                title="Copy full cryptographic signature"
+                                                            >
+                                                                {copiedReceiptHash ? (
+                                                                    <>
+                                                                        <Check size={11} className="text-emerald-700 stroke-[2.5]" />
+                                                                        <span className="font-bold text-emerald-800">Copied!</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Copy size={11} />
+                                                                        <span>Copy Hash</span>
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                        <div className="font-mono text-[10px] text-emerald-950 bg-white/80 border border-emerald-500/20 rounded-md p-2 break-all select-all leading-relaxed shadow-inner">
                                                             {outcomeData.receipt.signature_hash}
-                                                        </span>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex justify-between items-center">
+                                                    <div className="flex justify-between items-center pt-1 border-t border-emerald-500/15">
                                                         <span className="text-emerald-700">Execution Timestamp:</span>
-                                                        <span className="font-mono text-[10px] text-emerald-950">{outcomeData.receipt.executed_at}</span>
+                                                        <span className="font-mono text-[10px] text-emerald-950 font-medium">{outcomeData.receipt.executed_at}</span>
                                                     </div>
                                                     <div className="flex justify-between items-center">
                                                         <span className="text-emerald-700">Counterparty Leg Scope:</span>
@@ -1964,26 +2001,46 @@ export default function QuotationBankOfferPage() {
                                             )}
                                         </p>
                                         {outcomeData?.receipt && (
-                                            <div className="mt-3 w-full max-w-xl mx-auto p-3 rounded-xl bg-emerald-950/5 border border-emerald-500/30 text-emerald-950 text-left text-xs font-sans">
-                                                <div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 pb-2 mb-2">
+                                            <div className="mt-3 w-full max-w-xl mx-auto p-3.5 rounded-xl bg-emerald-950/5 border border-emerald-500/30 text-emerald-950 text-left text-xs font-sans shadow-xs">
+                                                <div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 pb-2 mb-2.5">
                                                     <div className="flex items-center gap-1.5 font-bold text-emerald-900">
                                                         <Shield size={14} className="text-emerald-600" />
                                                         <span>Cryptographic Deal Execution Receipt</span>
                                                     </div>
-                                                    <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
+                                                    <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold border border-emerald-300/60">
                                                         {outcomeData.receipt.receipt_id}
                                                     </span>
                                                 </div>
-                                                <div className="space-y-1 text-[11px] text-emerald-900">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-emerald-700">Digital Signature:</span>
-                                                        <span className="font-mono text-[10px] text-emerald-950 font-medium truncate max-w-[280px]" title={outcomeData.receipt.signature_hash}>
-                                                             {outcomeData.receipt.signature_hash}
-                                                        </span>
+                                                <div className="space-y-2 text-[11px] text-emerald-900">
+                                                    <div>
+                                                        <div className="flex items-center justify-between text-emerald-700 mb-1">
+                                                            <span className="font-semibold text-[11px]">Digital Signature (HMAC-SHA256):</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleCopyReceiptHash(outcomeData.receipt.signature_hash)}
+                                                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 hover:text-emerald-950 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                                                                title="Copy full cryptographic signature"
+                                                            >
+                                                                {copiedReceiptHash ? (
+                                                                    <>
+                                                                        <Check size={11} className="text-emerald-700 stroke-[2.5]" />
+                                                                        <span className="font-bold text-emerald-800">Copied!</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Copy size={11} />
+                                                                        <span>Copy Hash</span>
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                        <div className="font-mono text-[10px] text-emerald-950 bg-white/80 border border-emerald-500/20 rounded-md p-2 break-all select-all leading-relaxed shadow-inner">
+                                                            {outcomeData.receipt.signature_hash}
+                                                        </div>
                                                     </div>
-                                                    <div className="flex justify-between items-center">
+                                                    <div className="flex justify-between items-center pt-1 border-t border-emerald-500/15">
                                                         <span className="text-emerald-700">Execution Timestamp:</span>
-                                                        <span className="font-mono text-[10px] text-emerald-950">{outcomeData.receipt.executed_at}</span>
+                                                        <span className="font-mono text-[10px] text-emerald-950 font-medium">{outcomeData.receipt.executed_at}</span>
                                                     </div>
                                                     <div className="flex justify-between items-center">
                                                         <span className="text-emerald-700">Counterparty Leg Scope:</span>
