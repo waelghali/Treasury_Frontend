@@ -3425,10 +3425,40 @@ export default function QuotationBankOfferPage() {
                                                     <span className="font-semibold text-gray-800">{h.type}</span> &bull; <span className="text-gray-500">{h.direction || 'N/A'}</span>
                                                 </td>
                                                 <td className="py-3.5 px-4 font-semibold text-gray-900">
-                                                    {h.amount ? `${new Intl.NumberFormat().format(h.amount)}` : 'N/A'} {h.currency_pair ? `(${h.currency_pair})` : ''}
+                                                    {h.is_multi_leg && h.legs && h.legs.length > 0 ? (
+                                                        <div className="space-y-1">
+                                                            <div className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
+                                                                <span>📦 Package</span>
+                                                                <span className="text-[10px] text-slate-500 font-normal">({h.legs.length} Pairs)</span>
+                                                            </div>
+                                                            {h.legs.map((leg, lIdx) => (
+                                                                <div key={lIdx} className="text-[10.5px] text-slate-600 font-mono">
+                                                                    {new Intl.NumberFormat().format(leg.amount)} {leg.pair}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            {h.amount ? `${new Intl.NumberFormat().format(h.amount)}` : 'N/A'} {h.currency_pair ? `(${h.currency_pair})` : ''}
+                                                        </>
+                                                    )}
                                                 </td>
                                                 <td className="py-3.5 px-4 font-mono font-bold text-blue-600">
-                                                    {h.best_quote !== null ? h.best_quote : <span className="text-gray-400 font-sans font-normal">No Quote</span>}
+                                                    {h.is_multi_leg && h.legs && h.legs.length > 0 ? (
+                                                        <div className="space-y-1">
+                                                            {h.legs.map((leg, lIdx) => (
+                                                                <div key={lIdx} className="text-[10.5px] flex items-center gap-1.5">
+                                                                    <span className="text-[10px] text-slate-400 font-sans font-semibold">{leg.pair}:</span>
+                                                                    <span className={leg.is_winner ? 'text-emerald-600 font-black' : 'text-blue-600'}>
+                                                                        {leg.submitted_price !== null ? leg.submitted_price : <span className="text-gray-400 font-normal">—</span>}
+                                                                    </span>
+                                                                    {leg.is_winner && <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1 rounded font-sans font-bold">WON</span>}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        h.best_quote !== null ? h.best_quote : <span className="text-gray-400 font-sans font-normal">No Quote</span>
+                                                    )}
                                                 </td>
                                                 <td className="py-3.5 px-4 text-gray-500 font-mono">
                                                     <div>{h.submitted_by || '—'}</div>
@@ -3440,16 +3470,24 @@ export default function QuotationBankOfferPage() {
                                                 </td>
                                                 <td className="py-3.5 px-4 text-right">
                                                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                                                        h.outcome === 'WON' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                                                        h.outcome === 'WON' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
+                                                        h.outcome === 'PARTIALLY_WON' ? 'bg-teal-50 text-teal-800 border-teal-300' :
                                                         h.outcome === 'NOT_SELECTED' ? 'bg-slate-100 text-slate-600 border-slate-200' :
                                                         h.outcome === 'SUBMITTED' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                                         h.outcome === 'PARTICIPATION_DECLINED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                        h.outcome === 'EXPIRED' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                        h.outcome === 'REJECTED' ? 'bg-slate-100 text-slate-500 border-slate-200' :
                                                         'bg-gray-100 text-gray-600 border-gray-200'
                                                     }`}>
-                                                        {h.outcome === 'WON' ? '🏆 Won Trade' :
+                                                        {h.outcome === 'WON' 
+                                                            ? (h.is_multi_leg ? `🏆 Won (${h.won_legs_count || h.legs_count}/${h.legs_count} Pairs)` : '🏆 Won (Awarded)') :
+                                                         h.outcome === 'PARTIALLY_WON' 
+                                                            ? `⚡ Won ${h.won_legs_count} of ${h.legs_count} Pairs` :
                                                          h.outcome === 'NOT_SELECTED' ? 'Not Selected' :
                                                          h.outcome === 'SUBMITTED' ? '⏳ Submitted' :
-                                                         h.outcome === 'PARTICIPATION_DECLINED' ? '🚫 Declined' : h.outcome}
+                                                         h.outcome === 'PARTICIPATION_DECLINED' ? '🚫 Declined' :
+                                                         h.outcome === 'EXPIRED' ? '⏰ Expired' :
+                                                         h.outcome === 'REJECTED' ? 'Unexecuted' : h.outcome}
                                                     </span>
                                                 </td>
                                             </tr>

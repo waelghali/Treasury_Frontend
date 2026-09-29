@@ -238,6 +238,7 @@ export default function QuotationRequestDashboard() {
 
     const [isSelectingAll, setIsSelectingAll] = useState(false);
     const [recommendations, setRecommendations] = useState([]);
+    const [bankAnalytics, setBankAnalytics] = useState({});
     const [evalRateDetails, setEvalRateDetails] = useState(null);
     const hasUserChangedEvalRateRef = useRef(false);
     const [formData, setFormData] = useState(() => getInitialFormData(''));
@@ -861,28 +862,39 @@ export default function QuotationRequestDashboard() {
         }
     }, [formData.type, formData.entityId]);
 
-    // Mind-Reader: Fetch counterparty recommendations based on asset type & currency pair
+    const activePair = pairs[activePairIndex] || pairs[0] || {};
+
+    // Mind-Reader: Fetch counterparty recommendations based on asset type, active currency pair, ticket amount, and multi-leg package
     useEffect(() => {
+        const curAmount = activePair?.amount || formData.amount;
+        const curBase = activePair?.quotationBase || formData.quotationBase || 'Execution';
+        const curBuy = activePair?.buyCurrency || formData.buyCurrency;
+        const curSell = activePair?.sellCurrency || formData.sellCurrency;
+        const allPairs = pairs.map(p => `${p.buyCurrency || ''}/${p.sellCurrency || ''}`).filter(p => p !== '/').join(',');
+
         apiClient.get('/end-user/quotations/recommendations', {
             params: {
                 trade_type: formData.type,
-                buy_currency: formData.type === 'FX_SPOT' ? formData.buyCurrency : undefined,
-                sell_currency: formData.type === 'FX_SPOT' ? formData.sellCurrency : undefined,
+                buy_currency: formData.type === 'FX_SPOT' ? curBuy : undefined,
+                sell_currency: formData.type === 'FX_SPOT' ? curSell : undefined,
+                amount: curAmount ? parseFloat(curAmount) : undefined,
+                quotation_base: curBase,
+                currency_pairs: allPairs || undefined
             }
         })
         .then(res => {
             setRecommendations(res.data?.recommendations || []);
+            setBankAnalytics(res.data?.all_bank_analytics || {});
         })
         .catch(err => {
             console.error("Failed to load recommendations", err);
             setRecommendations([]);
+            setBankAnalytics({});
         });
-    }, [formData.type, formData.buyCurrency, formData.sellCurrency]);
+    }, [formData.type, formData.buyCurrency, formData.sellCurrency, activePair?.buyCurrency, activePair?.sellCurrency, activePair?.amount, activePair?.quotationBase, pairs]);
 
     const todayStr = new Date().toISOString().split('T')[0];
     const nowLocalIso = toLocalISOString(new Date());
-
-    const activePair = pairs[activePairIndex] || pairs[0] || {};
     const pairConflict = findDuplicatePairConflict(pairs);
     const bankConflict = findBankLegConflict(selectedBanks, pairs, formData);
 
@@ -3150,6 +3162,7 @@ export default function QuotationRequestDashboard() {
                             {displayedBanks.map(bank => {
                                 const isSelected = selectedBanks.find(b => b.id === bank.bank_id);
                                 const rec = recommendations.find(r => r.bank_id === bank.bank_id);
+                                const analytics = bankAnalytics[bank.bank_id] || rec;
                                 const hasApprover = bank.contacts?.some(c => c.role === 'APPROVER');
                                 return (
                                     <div
@@ -3170,15 +3183,15 @@ export default function QuotationRequestDashboard() {
                                                         <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate leading-snug">
                                                             {bank.bank?.name || `Bank ${bank.bank_id}`}
                                                         </h4>
+                                                        {analytics?.is_top_recommended && (
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-blue-800 bg-blue-100/90 border border-blue-300 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                                                                <Sparkles size={10} className="text-blue-600 shrink-0" />
+                                                                Top Pick
+                                                            </span>
+                                                        )}
                                                         {hasApprover && (
                                                             <span className="text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Counterparty has internal bank approver contact configured">
                                                                 Approver Layer
-                                                            </span>
-                                                        )}
-                                                        {rec?.highlight && (
-                                                            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-full">
-                                                                <Sparkles size={10} className="text-blue-500 shrink-0" />
-                                                                {rec.highlight}
                                                             </span>
                                                         )}
                                                         {bank.is_cross_entity && (
@@ -3190,6 +3203,38 @@ export default function QuotationRequestDashboard() {
                                                     <p className="text-[10px] text-slate-400 truncate mt-0.5" title={bank.emails}>
                                                         {bank.emails || 'No contact email configured'}
                                                     </p>
+                                                    {analytics?.badges && analytics.badges.length > 0 ? (
+                                                        <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                                                            {analytics.badges.map((badge, bIdx) => {
+                                                                const isNegative = badge.startsWith('⚠️');
+                                                                const isSpecialist = badge.startsWith('⭐');
+                                                                const isCompetitor = badge.startsWith('🎯');
+                                                                const isMega = badge.startsWith('🏛️');
+
+                                                                let colorClasses = "bg-blue-50 text-blue-700 border-blue-200/80";
+                                                                if (isNegative) colorClasses = "bg-amber-50 text-amber-800 border-amber-300";
+                                                                else if (isSpecialist) colorClasses = "bg-emerald-50 text-emerald-800 border-emerald-300";
+                                                                else if (isCompetitor) colorClasses = "bg-indigo-50 text-indigo-800 border-indigo-200";
+                                                                else if (isMega) colorClasses = "bg-purple-50 text-purple-800 border-purple-200";
+
+                                                                return (
+                                                                    <span
+                                                                        key={bIdx}
+                                                                        className={`inline-flex items-center gap-1 text-[9px] font-bold border px-2 py-0.5 rounded-full ${colorClasses}`}
+                                                                    >
+                                                                        {badge}
+                                                                    </span>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    ) : rec?.highlight ? (
+                                                        <div className="mt-1.5">
+                                                            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-full">
+                                                                <Sparkles size={10} className="text-blue-500 shrink-0" />
+                                                                {rec.highlight}
+                                                            </span>
+                                                        </div>
+                                                    ) : null}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1.5 shrink-0">
