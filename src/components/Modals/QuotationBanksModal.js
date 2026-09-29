@@ -76,9 +76,48 @@ export default function QuotationBanksModal({ onClose }) {
 
     const handleAddContactToForm = () => {
         const email = newContact.email.trim();
-        if (!email) {
+        if (!email || !email.includes('@')) {
             alert('Please enter a valid contact email address.');
             return;
+        }
+
+        // --- Negative List & Anti-Collusion Validation ---
+        const DISALLOWED_PUBLIC_DOMAINS = [
+            'gmail.com', 'googlemail.com',
+            'yahoo.com', 'ymail.com', 'rocketmail.com', 'yahoo.co.uk', 'yahoo.fr',
+            'hotmail.com', 'outlook.com', 'live.com', 'msn.com',
+            'icloud.com', 'me.com', 'mac.com',
+            'proton.me', 'protonmail.com',
+            'mail.com', 'email.com',
+            'zoho.com', 'zohomail.com',
+            'yandex.com', 'yandex.ru',
+            'gmx.com', 'gmx.net',
+            'aol.com', 'aim.com',
+            'mailinator.com', 'tempmail.com', '10minutemail.com', 'guerrillamail.com'
+        ];
+
+        // Explicit whitelist for authorized testing counterparty accounts
+        const isWhitelistedTest = /^waelghali79(\+.*)?@gmail\.com$/i.test(email);
+
+        if (!isWhitelistedTest) {
+            const domain = email.split('@')[1]?.toLowerCase().trim();
+
+            // 1. If bank has official registered email_domain, enforce domain match
+            const selectedBank = systemBanks.find(b => String(b.id) === String(formData.bank_id));
+            if (selectedBank?.email_domain) {
+                const expectedDomain = selectedBank.email_domain.toLowerCase().trim().replace(/^@/, '');
+                const isDomainMatch = domain === expectedDomain || (domain && domain.endsWith(`.${expectedDomain}`));
+                if (!isDomainMatch) {
+                    alert(`Contact email domain (@${domain}) does not match the official registered domain (@${expectedDomain}) for ${selectedBank.name}.`);
+                    return;
+                }
+            }
+
+            // 2. Block public / disposable email domains
+            if (domain && DISALLOWED_PUBLIC_DOMAINS.includes(domain)) {
+                alert(`Registration with personal or public email providers (@${domain}) is prohibited for bank counterparties. Please use the representative's official corporate banking email address.`);
+                return;
+            }
         }
 
         const existingIdx = formData.contacts.findIndex(
@@ -481,6 +520,11 @@ export default function QuotationBanksModal({ onClose }) {
                                                         <div className="flex items-center gap-2 truncate">
                                                             <Building className="w-4 h-4 text-blue-600 shrink-0" />
                                                             <span className="truncate">{selectedSystemBank.name}</span>
+                                                            {selectedSystemBank.email_domain && (
+                                                                <span className="ml-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-100 text-blue-800 border border-blue-200 shrink-0">
+                                                                    @{selectedSystemBank.email_domain}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <div className="flex items-center gap-1.5 shrink-0">
                                                             <button
@@ -680,7 +724,14 @@ export default function QuotationBanksModal({ onClose }) {
                                                 <Mail className="w-3.5 h-3.5 text-blue-600" />
                                                 Desk Contacts & Roles
                                             </label>
-                                            <p className="text-[11px] text-gray-500 mt-0.5">Define who can execute quotes (⚡), observe (👁️), or approve bank participation (🛡️).</p>
+                                            <p className="text-[11px] text-gray-500 mt-0.5">
+                                                Define who can execute quotes (⚡), observe (👁️), or approve bank participation (🛡️).
+                                                {selectedSystemBank?.email_domain && (
+                                                    <span className="ml-1 text-blue-700 font-semibold">
+                                                        • Must use official @{selectedSystemBank.email_domain} email.
+                                                    </span>
+                                                )}
+                                            </p>
                                         </div>
                                     </div>
 
@@ -689,7 +740,7 @@ export default function QuotationBanksModal({ onClose }) {
                                         <div className="md:col-span-5">
                                             <input
                                                 type="email"
-                                                placeholder="trader@bank.com (Email)"
+                                                placeholder={selectedSystemBank?.email_domain ? `trader@${selectedSystemBank.email_domain}` : "trader@bank.com (Email)"}
                                                 className="w-full text-xs rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
                                                 style={{ height: '40px', padding: '0 12px', boxSizing: 'border-box' }}
                                                 value={newContact.email}
