@@ -1634,19 +1634,42 @@ export default function QuotationBankOfferPage() {
                                             value={otpCode}
                                             onChange={(e) => setOtpCode(e.target.value)}
                                         />
+                                        <div className="flex justify-between items-center text-[11px] text-slate-400 mt-1.5 px-0.5">
+                                            <span>Didn't receive or code expired?</span>
+                                            <button
+                                                type="button"
+                                                onClick={handleRequestOtp}
+                                                disabled={isRequestingOtp}
+                                                className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors cursor-pointer disabled:opacity-50"
+                                            >
+                                                {isRequestingOtp ? 'Sending...' : 'Resend Code'}
+                                            </button>
+                                        </div>
                                     </div>
 
                                     {otpError && (
-                                        <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl text-left flex items-center gap-2">
-                                            <AlertCircle size={14} className="shrink-0" />
-                                            <span>{otpError}</span>
+                                        <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl text-left flex flex-col gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <AlertCircle size={14} className="shrink-0 text-red-400" />
+                                                <span className="font-medium leading-relaxed">{otpError}</span>
+                                            </div>
+                                            {(otpError.toLowerCase().includes('request a new') || otpError.toLowerCase().includes('locked') || otpError.toLowerCase().includes('no longer valid') || otpError.toLowerCase().includes('expired')) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleRequestOtp}
+                                                    disabled={isRequestingOtp}
+                                                    className="self-start text-[11px] font-bold text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors cursor-pointer"
+                                                >
+                                                    {isRequestingOtp ? 'Sending New Code...' : '👉 Request New Verification Code Now'}
+                                                </button>
+                                            )}
                                         </div>
                                     )}
 
                                     <div className="flex gap-2">
                                         <button
                                             type="button"
-                                            onClick={() => { setOtpSent(false); setOtpError(''); }}
+                                            onClick={() => { setOtpSent(false); setOtpError(''); setOtpCode(''); }}
                                             className="w-1/3 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-all cursor-pointer"
                                         >
                                             Change Email
@@ -1895,6 +1918,35 @@ export default function QuotationBankOfferPage() {
                                                 ? `Congratulations, your quotes won every currency pair in this package (${outcomeData?.won_pairs?.join(', ')}). Our treasury team will contact you shortly.`
                                                 : 'Congratulations, your quote was selected as the winning offer. Our treasury team will contact you shortly.'}
                                         </p>
+                                        {outcomeData?.receipt && (
+                                            <div className="mt-3 w-full max-w-xl mx-auto p-3 rounded-xl bg-emerald-950/5 border border-emerald-500/30 text-emerald-950 text-left text-xs font-sans">
+                                                <div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 pb-2 mb-2">
+                                                    <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                                                        <Shield size={14} className="text-emerald-600" />
+                                                        <span>Cryptographic Deal Execution Receipt</span>
+                                                    </div>
+                                                    <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
+                                                        {outcomeData.receipt.receipt_id}
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-1 text-[11px] text-emerald-900">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-emerald-700">Digital Signature:</span>
+                                                        <span className="font-mono text-[10px] text-emerald-950 font-medium truncate max-w-[280px]" title={outcomeData.receipt.signature_hash}>
+                                                            {outcomeData.receipt.signature_hash}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-emerald-700">Execution Timestamp:</span>
+                                                        <span className="font-mono text-[10px] text-emerald-950">{outcomeData.receipt.executed_at}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-emerald-700">Counterparty Leg Scope:</span>
+                                                        <span className="text-emerald-950 font-bold">{outcomeData.receipt.scoped_legs_count} Leg(s) Won &amp; Executed</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (resultStatus === 'PARTIALLY_WON' || (resultStatus === 'WINNER' && outcomeData?.won_legs_count < outcomeData?.total_legs_count)) ? (
                                     <div className="flex flex-col items-center">
@@ -1911,6 +1963,35 @@ export default function QuotationBankOfferPage() {
                                                 <span> (Other pairs closed without execution / inconclusive: <span className="font-mono">{outcomeData.inconclusive_pairs.join(', ')}</span>).</span>
                                             )}
                                         </p>
+                                        {outcomeData?.receipt && (
+                                            <div className="mt-3 w-full max-w-xl mx-auto p-3 rounded-xl bg-emerald-950/5 border border-emerald-500/30 text-emerald-950 text-left text-xs font-sans">
+                                                <div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 pb-2 mb-2">
+                                                    <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                                                        <Shield size={14} className="text-emerald-600" />
+                                                        <span>Cryptographic Deal Execution Receipt</span>
+                                                    </div>
+                                                    <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
+                                                        {outcomeData.receipt.receipt_id}
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-1 text-[11px] text-emerald-900">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-emerald-700">Digital Signature:</span>
+                                                        <span className="font-mono text-[10px] text-emerald-950 font-medium truncate max-w-[280px]" title={outcomeData.receipt.signature_hash}>
+                                                             {outcomeData.receipt.signature_hash}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-emerald-700">Execution Timestamp:</span>
+                                                        <span className="font-mono text-[10px] text-emerald-950">{outcomeData.receipt.executed_at}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-emerald-700">Counterparty Leg Scope:</span>
+                                                        <span className="text-emerald-950 font-bold">{outcomeData.receipt.scoped_legs_count} Leg(s) Won &amp; Executed</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : resultStatus === 'AWAITING_SELECTION' ? (
                                     <div className="flex flex-col items-center text-center">
