@@ -1294,7 +1294,7 @@ export default function AdminQuotationDashboard() {
             {selectedRfqId && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-2 sm:p-4 overflow-hidden">
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[94vh] sm:max-h-[92vh] overflow-hidden flex flex-col border border-slate-200 animate-fade-in-up">
-                        <div className="p-3.5 sm:p-5 border-b border-gray-100 flex justify-between items-center bg-white z-10 shrink-0">
+                        <div className="p-3.5 sm:p-4 border-b border-gray-100 flex justify-between items-center bg-white z-10 shrink-0">
                             <h3 className="font-bold text-sm sm:text-base text-gray-900 truncate pr-4">
                                 RFQ Details: {history.find(r => r.id === selectedRfqId)?.ref_no || pendingApprovals.find(r => r.id === selectedRfqId)?.ref_no || cancellationRequests.find(r => r.id === selectedRfqId)?.ref_no || selectedRfqId}
                             </h3>
@@ -1305,7 +1305,7 @@ export default function AdminQuotationDashboard() {
                                 Close
                             </button>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-gray-50/40">
+                        <div className="flex-1 overflow-y-auto p-3 sm:p-5 bg-gray-50/40">
                             <ResultsView rfqId={selectedRfqId} />
                         </div>
                     </div>

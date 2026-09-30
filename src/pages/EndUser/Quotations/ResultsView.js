@@ -1598,19 +1598,19 @@ export default function ResultsView({ rfqId }) {
                 const effectiveSavings = resultsMeta.savingsSummary || (legs && legs.length === 1 ? legs[0].savings_summary : null);
                 if (!effectiveSavings || rfq?.status === 'REJECTED' || (legs && legs[0] && (legs[0].status === 'REJECTED' || legs[0].is_inconclusive))) return null;
                 return (
-                    <div className={`p-6 rounded-3xl text-white shadow-xl border space-y-4 ${
+                    <div className={`p-4 sm:p-5 rounded-2xl text-white shadow-xl border space-y-3 mb-5 ${
                         isAccepted
                             ? 'bg-gradient-to-br from-emerald-900 via-teal-900 to-emerald-950 border-emerald-500/30'
                             : 'bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 border-slate-700'
                     }`}>
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
                             <div className="flex items-center gap-3">
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                                     isAccepted
                                         ? 'bg-emerald-500/20 border border-emerald-400/30 text-emerald-300'
                                         : 'bg-slate-700/50 border border-slate-600 text-slate-300'
                                 }`}>
-                                    <Trophy size={26} />
+                                    <Trophy size={22} />
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
@@ -1623,7 +1623,7 @@ export default function ResultsView({ rfqId }) {
                                         </span>
                                         <span className="text-xs text-slate-300 font-mono">Regulatory & Governance Standard</span>
                                     </div>
-                                    <h3 className="text-lg font-bold text-white mt-1">
+                                    <h3 className="text-base sm:text-lg font-bold text-white mt-0.5">
                                         {isAccepted ? `Awarded to ${effectiveSavings.winner_bank_name} @ ${effectiveSavings.winner_rate}` : `Leading Quote: ${effectiveSavings.winner_bank_name} @ ${effectiveSavings.winner_rate} (Pending Acceptance)`}
                                     </h3>
                                 </div>
@@ -1631,7 +1631,7 @@ export default function ResultsView({ rfqId }) {
                             {isAccepted ? (
                                 <button
                                     onClick={() => setShowAuditPack(true)}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-emerald-950 hover:bg-emerald-50 transition-all shadow-md active:scale-95 shrink-0 cursor-pointer"
+                                    className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white text-emerald-950 hover:bg-emerald-50 transition-all shadow-md active:scale-95 shrink-0 cursor-pointer"
                                 >
                                     <FileText size={14} className="text-emerald-700" /> Best Execution Audit Pack
                                 </button>
@@ -1642,12 +1642,12 @@ export default function ResultsView({ rfqId }) {
                             )}
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-                            <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/20">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-0.5">
+                            <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/20">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/80 block mb-1">
                                     Net Value Generated vs Avg
                                 </span>
-                                <p className="text-xl sm:text-2xl font-black font-mono text-emerald-300">
+                                <p className="text-lg sm:text-xl font-black font-mono text-emerald-300">
                                     {effectiveSavings.currency} {effectiveSavings.saved_vs_avg?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </p>
                                 <span className="text-[10px] text-emerald-200/60 mt-0.5 block">
@@ -1655,11 +1655,11 @@ export default function ResultsView({ rfqId }) {
                                 </span>
                             </div>
 
-                            <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/20">
+                            <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/20">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-teal-300/80 block mb-1">
                                     Max Protection vs Worst Quote
                                 </span>
-                                <p className="text-xl sm:text-2xl font-black font-mono text-teal-300">
+                                <p className="text-lg sm:text-xl font-black font-mono text-teal-300">
                                     {effectiveSavings.currency} {effectiveSavings.saved_vs_worst?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </p>
                                 <span className="text-[10px] text-teal-200/60 mt-0.5 block">
@@ -1667,11 +1667,11 @@ export default function ResultsView({ rfqId }) {
                                 </span>
                             </div>
 
-                            <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/20">
+                            <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/20">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300/80 block mb-1">
                                     Competitive Bids Evaluated
                                 </span>
-                                <p className="text-xl sm:text-2xl font-black font-mono text-white">
+                                <p className="text-lg sm:text-xl font-black font-mono text-white">
                                     {effectiveSavings.total_quotes} Bids Received
                                 </p>
                                 <span className="text-[10px] text-slate-300/70 mt-0.5 block">
@@ -1684,20 +1684,20 @@ export default function ResultsView({ rfqId }) {
             })()}
 
             {rfq && (
-                <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-5 mb-6">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3.5 mb-5">
                     {/* Header Row: Direction, Amount, Currency, Entity, and Value Date */}
                     {legs && legs.length > 1 ? (
-                        <div className="space-y-4 pb-4 border-b border-slate-100">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                <div className="flex items-center gap-2.5 flex-wrap">
-                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Trade Specifications</span>
-                                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
-                                        <Layers size={13} className="text-indigo-600" />
+                        <div className="space-y-3 pb-3 border-b border-slate-100">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Trade Specifications</span>
+                                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
+                                        <Layers size={12} className="text-indigo-600" />
                                         Multi-Currency Portfolio ({legs.length} Pairs)
                                     </span>
                                     {rfq.entity_name && (
-                                        <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
-                                            <Building size={13} className="text-slate-600" />
+                                        <span className="text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
+                                            <Building size={12} className="text-slate-600" />
                                             {rfq.entity_name}
                                         </span>
                                     )}
@@ -1708,7 +1708,7 @@ export default function ResultsView({ rfqId }) {
                             </div>
 
                             {/* Portfolio Legs Cards Grid */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                                 {legs.map((leg, lIdx) => {
                                     const pair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
                                     const isBuy = (leg.direction || '').toUpperCase() === 'BUY';
@@ -1716,13 +1716,13 @@ export default function ResultsView({ rfqId }) {
                                         <div 
                                             key={leg.leg_id || lIdx}
                                             onClick={() => setSelectedLegIndex(lIdx)}
-                                            className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                                            className={`p-2.5 sm:p-3 rounded-xl border transition-all cursor-pointer ${
                                                 selectedLegIndex === lIdx
                                                     ? 'bg-indigo-50/60 border-indigo-300 ring-2 ring-indigo-500/20'
                                                     : 'bg-slate-50/60 border-slate-200/80 hover:bg-slate-100/60'
                                             }`}
                                         >
-                                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                                            <div className="flex items-center justify-between gap-2 mb-1">
                                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                                                     Leg #{lIdx + 1}
                                                 </span>
@@ -1733,14 +1733,14 @@ export default function ResultsView({ rfqId }) {
                                                 </span>
                                             </div>
                                             <div className="flex items-baseline justify-between gap-2">
-                                                <span className="text-lg font-black text-slate-900 font-mono">
+                                                <span className="text-base font-black text-slate-900 font-mono">
                                                     {new Intl.NumberFormat().format(leg.amount || 0)}
                                                 </span>
-                                                <span className="text-sm font-bold text-slate-700">
+                                                <span className="text-xs font-bold text-slate-700">
                                                     {pair}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center justify-between text-xs text-slate-500 mt-2 pt-2 border-t border-slate-200/60">
+                                            <div className="flex items-center justify-between text-xs text-slate-500 mt-1.5 pt-1.5 border-t border-slate-200/60">
                                                 <span>Val: {formatDate(leg.value_date)}</span>
                                                 {leg.winner_bank_name ? (
                                                     <span className="font-bold text-emerald-700 text-[11px] truncate ml-1">
@@ -1756,17 +1756,17 @@ export default function ResultsView({ rfqId }) {
                             </div>
                         </div>
                     ) : (
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-                            <div className="space-y-2.5">
-                                <div className="flex items-center gap-2.5 flex-wrap">
-                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Trade Specifications</span>
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Trade Specifications</span>
                                     {rfq.entity_name && (
-                                        <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
-                                            <Building size={13} className="text-indigo-600" />
+                                        <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
+                                            <Building size={12} className="text-indigo-600" />
                                             {rfq.entity_name}
                                         </span>
                                     )}
-                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs ${
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border shadow-2xs ${
                                         isMixedPackage 
                                             ? 'bg-purple-100 text-purple-900 border-purple-300' 
                                             : ((rfq.quotation_base === 'Execution' || legBases[0] === 'Execution')
@@ -1782,21 +1782,21 @@ export default function ResultsView({ rfqId }) {
                                 </div>
 
                                 <div className="flex items-center gap-3 pt-0.5">
-                                    <span className={`inline-flex items-center justify-center font-black text-sm px-3.5 py-1 rounded-lg uppercase tracking-wider shadow-xs ${
+                                    <span className={`inline-flex items-center justify-center font-black text-xs px-3 py-1 rounded-md uppercase tracking-wider shadow-xs ${
                                         (rfq.direction || '').toUpperCase() === 'BUY'
                                             ? 'bg-emerald-600 text-white'
                                             : 'bg-blue-600 text-white'
                                     }`}>
                                         {rfq.direction || 'BUY'}
                                     </span>
-                                    <div className="flex items-baseline gap-2.5">
-                                        <span className="text-3xl sm:text-4xl font-black text-slate-900 font-mono tracking-tight">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight">
                                             {rfq.type === 'TBILL'
                                                 ? `T-Bill (${rfq.direction})`
                                                 : new Intl.NumberFormat().format(rfq.amount || 0)}
                                         </span>
                                         {rfq.type !== 'TBILL' && (
-                                            <span className="text-xl sm:text-2xl font-bold text-slate-700">
+                                            <span className="text-lg sm:text-xl font-bold text-slate-700">
                                                 {rfq.buy_currency}/{rfq.sell_currency}
                                             </span>
                                         )}
@@ -1805,11 +1805,11 @@ export default function ResultsView({ rfqId }) {
                             </div>
 
                             {/* Value Date Box */}
-                            <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 text-right flex flex-col items-start md:items-end justify-center min-w-[220px] shrink-0 shadow-2xs">
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                                    <Calendar size={13} className="text-slate-600" /> Settlement (Value Date)
+                            <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl p-3 px-3.5 text-right flex flex-col items-start md:items-end justify-center min-w-[200px] shrink-0 shadow-2xs">
+                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Calendar size={12} className="text-slate-500" /> Settlement (Value Date)
                                 </span>
-                                <span className="text-lg font-bold text-slate-900 font-sans mt-1">{formatDate(rfq.value_date)}</span>
+                                <span className="text-base font-bold text-slate-900 font-sans mt-0.5">{formatDate(rfq.value_date)}</span>
                                 {(() => {
                                     const hasCustomDates = (results || []).some(r => {
                                         const eff = r.offered_value_date || r.assigned_value_date;
@@ -1825,7 +1825,7 @@ export default function ResultsView({ rfqId }) {
                                     return null;
                                 })()}
                                 {rfq.type === 'FX_SPOT' && (
-                                    <span className={`inline-block text-xs font-semibold mt-1.5 px-2.5 py-0.5 rounded-md border ${
+                                    <span className={`inline-block text-[11px] font-semibold mt-1 px-2 py-0.5 rounded border ${
                                         rfq.allow_alternative_value_date 
                                             ? 'text-blue-700 bg-blue-50 border-blue-200' 
                                             : 'text-slate-700 bg-white border-slate-200'
@@ -1837,37 +1837,37 @@ export default function ResultsView({ rfqId }) {
                         </div>
                     )}
 
-                    {/* Deal Parameters Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3.5">
-                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Requesting Entity</span>
-                            <span className="text-sm font-bold text-slate-900 truncate block" title={rfq.entity_name || '—'}>
+                    {/* Deal Parameters Grid (Balanced 4 Columns - Creator relocated to Governance Card below) */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 sm:p-3">
+                            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Requesting Entity</span>
+                            <span className="text-xs sm:text-sm font-bold text-slate-900 truncate block" title={rfq.entity_name || '—'}>
                                 {rfq.entity_name || '—'}
                             </span>
                         </div>
-                        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3.5">
-                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Quotation Base</span>
-                            <span className="text-sm font-bold text-slate-900 block">
+                        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 sm:p-3">
+                            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Quotation Base</span>
+                            <span className="text-xs sm:text-sm font-bold text-slate-900 block">
                                 {isMixedPackage ? (
                                     <span className="inline-flex items-center gap-1 text-purple-800 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded text-xs">
-                                        ⚡📊 Mixed (Exec / Indic)
+                                        ⚡ Mixed
                                     </span>
                                 ) : (rfq.quotation_base || 'Execution')}
                             </span>
                         </div>
-                        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3.5">
-                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Max Tolerance</span>
-                            <span className="text-sm font-bold text-slate-900 font-mono block">
+                        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 sm:p-3">
+                            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Max Tolerance</span>
+                            <span className="text-xs sm:text-sm font-bold text-slate-900 font-mono block">
                                 {rfq.max_tolerance_percent ? `${rfq.max_tolerance_percent}%` : 'None'}
                             </span>
                         </div>
-                        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3.5">
-                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+                        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 sm:p-3">
+                            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
                                 {rfq.type === 'FX_SPOT' && rfq.allow_alternative_value_date 
                                     ? 'Valuation Eval Rate' 
                                     : (rfq.type === 'TBILL' && rfq.eval_rate ? 'Evaluation Rate' : 'Min Ticket Amount')}
                             </span>
-                            <span className="text-sm font-bold text-slate-900 font-mono block">
+                            <span className="text-xs sm:text-sm font-bold text-slate-900 font-mono block">
                                 {rfq.type === 'FX_SPOT' && rfq.allow_alternative_value_date 
                                     ? `${rfq.eval_rate ?? 19.75}% (CBE Mid + Margin)`
                                     : (rfq.type === 'TBILL' && rfq.eval_rate 
@@ -1875,34 +1875,27 @@ export default function ResultsView({ rfqId }) {
                                         : (rfq.min_ticket_amount ? rfq.min_ticket_amount.toLocaleString() : 'N/A'))}
                             </span>
                         </div>
-                        <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3.5">
-                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Creator</span>
-                            <span className="text-sm font-bold text-slate-900 flex items-center gap-1.5 truncate">
-                                <User size={14} className="text-slate-500 shrink-0" />
-                                <span className="truncate">{rfq.creator_name || 'End User'}</span>
-                            </span>
-                        </div>
                     </div>
 
                     {/* RFQ Governance & Execution Lifecycle Card */}
-                    <div className="bg-gradient-to-r from-slate-50 via-indigo-50/20 to-slate-50 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3 shadow-2xs">
-                        <div className="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-slate-200/70">
+                    <div className="bg-gradient-to-r from-slate-50 via-indigo-50/20 to-slate-50 border border-slate-200/90 rounded-xl p-3.5 sm:p-4 space-y-2.5 shadow-2xs">
+                        <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-200/70">
                             <div className="flex items-center gap-2">
-                                <Shield size={16} className="text-indigo-600" />
-                                <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800">Governance & Execution Audit Trail</span>
+                                <Shield size={15} className="text-indigo-600" />
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Governance & Execution Audit Trail</span>
                             </div>
-                            <span className="text-[11px] font-bold text-slate-500 bg-white border border-slate-200 px-2.5 py-0.5 rounded-full">
+                            <span className="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-full">
                                 Ref: {rfq.ref_no}
                             </span>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                             {/* Request Maker */}
-                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
-                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
-                                    <User size={13} className="text-slate-400" /> Request Maker
+                            <div className="bg-white p-2.5 sm:p-3 rounded-lg border border-slate-200/90 shadow-2xs">
+                                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
+                                    <User size={12} className="text-slate-400" /> Request Maker
                                 </span>
-                                <span className="text-sm font-bold text-slate-900 block truncate" title={rfq.creator_name || 'End User'}>
+                                <span className="text-xs sm:text-sm font-bold text-slate-900 block truncate" title={rfq.creator_name || 'End User'}>
                                     {rfq.creator_name || 'End User'}
                                 </span>
                                 <span className="text-[11px] text-slate-500 block mt-0.5">
@@ -1911,11 +1904,11 @@ export default function ResultsView({ rfqId }) {
                             </div>
 
                             {/* RFQ Approved By */}
-                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
-                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
-                                    <Shield size={13} className="text-blue-500" /> RFQ Approved By
+                            <div className="bg-white p-2.5 sm:p-3 rounded-lg border border-slate-200/90 shadow-2xs">
+                                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
+                                    <Shield size={12} className="text-blue-500" /> RFQ Approved By
                                 </span>
-                                <span className="text-sm font-bold text-slate-900 block truncate" title={rfq.approved_by_name || rfq.approved_by_email || 'Direct Corporate Release'}>
+                                <span className="text-xs sm:text-sm font-bold text-slate-900 block truncate" title={rfq.approved_by_name || rfq.approved_by_email || 'Direct Corporate Release'}>
                                     {rfq.approved_by_name || rfq.approved_by_email || (rfq.status === 'PENDING_APPROVAL' ? '⏳ Awaiting Admin Approval' : 'Direct Corporate Release')}
                                 </span>
                                 <span className="text-[11px] text-slate-500 block mt-0.5">
@@ -1926,11 +1919,11 @@ export default function ResultsView({ rfqId }) {
                             </div>
 
                             {/* Deal Accepted / Decided By */}
-                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
-                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
-                                    <CheckCircle2 size={13} className={isAccepted ? "text-emerald-500" : isDeclined ? "text-rose-500" : "text-amber-500"} /> Deal Decision By
+                            <div className="bg-white p-2.5 sm:p-3 rounded-lg border border-slate-200/90 shadow-2xs">
+                                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
+                                    <CheckCircle2 size={12} className={isAccepted ? "text-emerald-500" : isDeclined ? "text-rose-500" : "text-amber-500"} /> Deal Decision By
                                 </span>
-                                <span className="text-sm font-bold text-slate-900 block truncate" title={rfq.acceptance_resolved_by_name || '—'}>
+                                <span className="text-xs sm:text-sm font-bold text-slate-900 block truncate" title={rfq.acceptance_resolved_by_name || '—'}>
                                     {rfq.acceptance_resolved_by_name 
                                         ? `${isAccepted ? '✅ Accepted by' : '❌ Declined by'} ${rfq.acceptance_resolved_by_name}` 
                                         : (rfq.acceptance_status === 'AUTO_ACCEPTED' 
@@ -1949,11 +1942,11 @@ export default function ResultsView({ rfqId }) {
                     </div>
 
                     {/* Quotation Window Details */}
-                    <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5">
+                    <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl p-3.5 sm:p-4 space-y-2.5">
                         <div className="flex items-center justify-between flex-wrap gap-2">
                             <div className="flex items-center gap-2">
-                                <Clock size={16} className="text-blue-600" />
-                                <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700">Quotation Window Timeline</span>
+                                <Clock size={15} className="text-blue-600" />
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Quotation Window Timeline</span>
                             </div>
                             {(() => {
                                 const now = new Date();
@@ -1961,40 +1954,40 @@ export default function ResultsView({ rfqId }) {
                                 const end = rfq.window_end ? new Date(rfq.window_end) : null;
                                 if (!start || !end) return null;
                                 if (now < start) {
-                                    return <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 px-3 py-1 rounded-full uppercase tracking-wider"><span className="w-2 h-2 rounded-full bg-slate-400"></span>Scheduled</span>;
+                                    return <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 px-2.5 py-0.5 rounded-full uppercase tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Scheduled</span>;
                                 }
                                 if (now >= start && now <= end) {
-                                    return <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 px-3 py-1 rounded-full uppercase tracking-wider shadow-2xs"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>Live Bidding Open</span>;
+                                    return <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-2xs"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Live Bidding Open</span>;
                                 }
                                 const validityHrs = rfq.token_validity_hours || 24;
                                 const linkExpiry = new Date(end.getTime() + validityHrs * 60 * 60 * 1000);
                                 if (now > end && now <= linkExpiry) {
-                                    return <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-amber-50 text-amber-700 border border-amber-300 px-3 py-1 rounded-full uppercase tracking-wider"><span className="w-2 h-2 rounded-full bg-amber-500"></span>Bidding Closed — Link Active</span>;
+                                    return <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-amber-50 text-amber-700 border border-amber-300 px-2.5 py-0.5 rounded-full uppercase tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Bidding Closed — Link Active</span>;
                                 }
-                                return <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-rose-50 text-rose-600 border border-rose-300 px-3 py-1 rounded-full uppercase tracking-wider"><span className="w-2 h-2 rounded-full bg-rose-400"></span>Expired</span>;
+                                return <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-rose-50 text-rose-600 border border-rose-300 px-2.5 py-0.5 rounded-full uppercase tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>Expired</span>;
                             })()}
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
-                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
-                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Sent to Banks</span>
-                                <span className="text-sm font-bold text-slate-900 block">{rfq.admin_reviewed_at ? formatDate(rfq.admin_reviewed_at) : formatDate(rfq.created_at)}</span>
-                                <span className="text-xs font-medium text-slate-500 block mt-0.5">{new Date(rfq.admin_reviewed_at || rfq.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-0.5">
+                            <div className="bg-white p-2.5 sm:p-3 rounded-lg border border-slate-200/90 shadow-2xs">
+                                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Sent to Banks</span>
+                                <span className="text-xs sm:text-sm font-bold text-slate-900 block">{rfq.admin_reviewed_at ? formatDate(rfq.admin_reviewed_at) : formatDate(rfq.created_at)}</span>
+                                <span className="text-[11px] font-medium text-slate-500 block mt-0.5">{new Date(rfq.admin_reviewed_at || rfq.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
-                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
-                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Window Opens</span>
-                                <span className="text-sm font-bold text-slate-900 block">{rfq.window_start ? formatDate(rfq.window_start) : '—'}</span>
-                                {rfq.window_start && <span className="text-xs font-medium text-slate-500 block mt-0.5">{new Date(rfq.window_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                            <div className="bg-white p-2.5 sm:p-3 rounded-lg border border-slate-200/90 shadow-2xs">
+                                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Window Opens</span>
+                                <span className="text-xs sm:text-sm font-bold text-slate-900 block">{rfq.window_start ? formatDate(rfq.window_start) : '—'}</span>
+                                {rfq.window_start && <span className="text-[11px] font-medium text-slate-500 block mt-0.5">{new Date(rfq.window_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
                             </div>
-                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
-                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Window Closes</span>
-                                <span className="text-sm font-bold text-slate-900 block">{rfq.window_end ? formatDate(rfq.window_end) : '—'}</span>
-                                {rfq.window_end && <span className="text-xs font-medium text-slate-500 block mt-0.5">{new Date(rfq.window_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                            <div className="bg-white p-2.5 sm:p-3 rounded-lg border border-slate-200/90 shadow-2xs">
+                                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Window Closes</span>
+                                <span className="text-xs sm:text-sm font-bold text-slate-900 block">{rfq.window_end ? formatDate(rfq.window_end) : '—'}</span>
+                                {rfq.window_end && <span className="text-[11px] font-medium text-slate-500 block mt-0.5">{new Date(rfq.window_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
                             </div>
-                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Window Duration</span>
+                            <div className="bg-white p-2.5 sm:p-3 rounded-lg border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+                                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Window Duration</span>
                                 <div>
-                                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black bg-blue-50 text-blue-800 border border-blue-200">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
                                         ⏱️ {(() => {
                                             if (!rfq.window_start || !rfq.window_end) return '—';
                                             const diffMs = new Date(rfq.window_end) - new Date(rfq.window_start);
@@ -2007,20 +2000,20 @@ export default function ResultsView({ rfqId }) {
                                     </span>
                                 </div>
                             </div>
-                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
-                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Link Expires</span>
+                            <div className="bg-white p-2.5 sm:p-3 rounded-lg border border-slate-200/90 shadow-2xs">
+                                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Link Expires</span>
                                 {rfq.window_end ? (
                                     <>
-                                        <span className="text-sm font-bold text-slate-900 block">{formatDate(new Date(new Date(rfq.window_end).getTime() + (rfq.token_validity_hours || 24) * 3600000))}</span>
-                                        <span className="text-xs font-medium text-slate-500 block mt-0.5">{new Date(new Date(rfq.window_end).getTime() + (rfq.token_validity_hours || 24) * 3600000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        <span className="text-xs sm:text-sm font-bold text-slate-900 block">{formatDate(new Date(new Date(rfq.window_end).getTime() + (rfq.token_validity_hours || 24) * 3600000))}</span>
+                                        <span className="text-[11px] font-medium text-slate-500 block mt-0.5">{new Date(new Date(rfq.window_end).getTime() + (rfq.token_validity_hours || 24) * 3600000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                     </>
-                                ) : <span className="text-sm font-bold text-slate-900 block">—</span>}
+                                ) : <span className="text-xs sm:text-sm font-bold text-slate-900 block">—</span>}
                             </div>
                         </div>
                     </div>
 
                     {rfq.document_path && (
-                        <div className="pt-3 border-t border-gray-100">
+                        <div className="pt-2.5 border-t border-slate-100">
                             {(() => {
                                 let docs = [];
                                 let isWinnerOnly = Boolean(rfq.release_docs_to_winner_only);
@@ -2041,14 +2034,14 @@ export default function ResultsView({ rfqId }) {
 
                                 return (
                                     <>
-                                        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase">Attached Documents</span>
+                                        <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                                            <span className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-wider">Attached Documents</span>
                                             {isWinnerOnly ? (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                                                     <Lock size={10} className="text-amber-600" /> Released to Winning Bank(s) Only
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
                                                     🌐 Shared with All Execution Banks
                                                 </span>
                                             )}
@@ -2060,9 +2053,9 @@ export default function ResultsView({ rfqId }) {
                                                     href={d.path?.startsWith('http') ? d.path : `http://localhost:8000${d.path?.startsWith('/') ? '' : '/'}${d.path}`}
                                                     target="_blank"
                                                     rel="noreferrer"
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-xs font-medium text-blue-600 hover:bg-gray-100"
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-blue-600 hover:bg-slate-100"
                                                 >
-                                                    <FileText size={14} className="text-gray-400" />
+                                                    <FileText size={13} className="text-slate-400" />
                                                     <span>{d.name || `Document ${i+1}`}</span>
                                                     {d.pair && (
                                                         <span className="text-[10px] font-bold bg-blue-100/70 text-blue-800 px-1.5 py-0.2 rounded border border-blue-200/60">
@@ -2079,22 +2072,22 @@ export default function ResultsView({ rfqId }) {
                     )}
 
                     {rfq.internal_notes && (
-                        <div className="pt-3 border-t border-gray-100">
-                            <span className="font-sans text-[10px] font-bold text-blue-600 uppercase block mb-1.5 flex items-center gap-1.5">
+                        <div className="pt-2.5 border-t border-slate-100">
+                            <span className="font-sans text-[10px] font-bold text-blue-600 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
                                 <FileText size={12} className="text-blue-500" /> Internal Notes / Related Invoices & Payments
                             </span>
-                            <div className="p-3 bg-gray-50 border border-gray-200/80 rounded-xl text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+                            <div className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">
                                 {rfq.internal_notes}
                             </div>
                         </div>
                     )}
 
                     {rfq.comments_to_banks && (
-                        <div className="pt-3 border-t border-gray-100">
-                            <span className="font-sans text-[10px] font-bold text-emerald-700 uppercase block mb-1.5 flex items-center gap-1.5">
+                        <div className="pt-2.5 border-t border-slate-100">
+                            <span className="font-sans text-[10px] font-bold text-emerald-700 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
                                 <MessageSquare size={12} className="text-emerald-600" /> Special Instructions / Comments to Banks
                             </span>
-                            <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-xl text-xs text-emerald-950 leading-relaxed whitespace-pre-wrap font-medium">
+                            <div className="p-2.5 bg-emerald-50/60 border border-emerald-200/80 rounded-lg text-xs text-emerald-950 leading-relaxed whitespace-pre-wrap font-medium">
                                 {rfq.comments_to_banks}
                             </div>
                         </div>
