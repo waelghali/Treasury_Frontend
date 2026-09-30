@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, AlertTriangle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal, Save, MessageSquare } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, AlertTriangle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal, Save, MessageSquare, Lock } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import { safeLocalStorage } from '../../../utils/safeStorage';
 import { getCurrentUser } from '../../../utils/authUtils';
@@ -248,6 +248,8 @@ export default function QuotationRequestDashboard() {
     const [bankActivePairTab, setBankActivePairTab] = useState({});
     const [files, setFiles] = useState([]);
     const [existingDocs, setExistingDocs] = useState([]);
+    const [releaseDocsToWinnerOnly, setReleaseDocsToWinnerOnly] = useState(false);
+    const [fileLegMap, setFileLegMap] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [createdRfq, setCreatedRfq] = useState(null);
     const [copiedToken, setCopiedToken] = useState(null);
@@ -283,6 +285,8 @@ export default function QuotationRequestDashboard() {
         setSelectedBanks([]);
         setFiles([]);
         setExistingDocs([]);
+        setReleaseDocsToWinnerOnly(false);
+        setFileLegMap({});
         setCreatedRfq(null);
         setLegalAcknowledged(false);
         setCopiedToken(null);
@@ -340,6 +344,7 @@ export default function QuotationRequestDashboard() {
                     selectedBanks,
                     includeCrossEntityBanks,
                     userNotes,
+                    releaseDocsToWinnerOnly,
                     hasFilesAttached: files.length > 0
                 };
                 safeLocalStorage.setItem(getDraftStorageKey(), JSON.stringify(draftData));
@@ -350,7 +355,7 @@ export default function QuotationRequestDashboard() {
         }, 800);
 
         return () => clearTimeout(timer);
-    }, [formData, pairs, selectedBanks, includeCrossEntityBanks, userNotes, files.length, isFormDirty, revisionRfqId, retradeRfqId, createdRfq]);
+    }, [formData, pairs, selectedBanks, includeCrossEntityBanks, userNotes, releaseDocsToWinnerOnly, files.length, isFormDirty, revisionRfqId, retradeRfqId, createdRfq]);
 
     const handleManualSaveDraft = () => {
         try {
@@ -363,6 +368,7 @@ export default function QuotationRequestDashboard() {
                 selectedBanks,
                 includeCrossEntityBanks,
                 userNotes,
+                releaseDocsToWinnerOnly,
                 hasFilesAttached: files.length > 0
             };
             safeLocalStorage.setItem(getDraftStorageKey(), JSON.stringify(draftData));
@@ -401,6 +407,9 @@ export default function QuotationRequestDashboard() {
             }
             if (savedDraft.userNotes) {
                 setUserNotes(savedDraft.userNotes);
+            }
+            if (typeof savedDraft.releaseDocsToWinnerOnly === 'boolean') {
+                setReleaseDocsToWinnerOnly(savedDraft.releaseDocsToWinnerOnly);
             }
             setShowDraftBanner(false);
             if (savedDraft.hasFilesAttached) {
@@ -828,14 +837,22 @@ export default function QuotationRequestDashboard() {
                 if (rfq.document_path) {
                     try {
                         const parsed = JSON.parse(rfq.document_path);
-                        const docsArr = Array.isArray(parsed) ? parsed : [{ name: 'Attached Document', path: rfq.document_path }];
-                        setExistingDocs(docsArr);
+                        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                            setReleaseDocsToWinnerOnly(Boolean(parsed.release_to_winner_only));
+                            setExistingDocs(Array.isArray(parsed.documents) ? parsed.documents : []);
+                        } else if (Array.isArray(parsed)) {
+                            setExistingDocs(parsed);
+                            setReleaseDocsToWinnerOnly(parsed.some(d => d.release_to_winner_only));
+                        } else {
+                            setExistingDocs([{ name: 'Attached Document', path: rfq.document_path }]);
+                        }
                     } catch {
                         const docsArr = rfq.document_path.split(',').map(p => ({ name: p.trim(), path: p.trim() }));
                         setExistingDocs(docsArr);
                     }
                 } else {
                     setExistingDocs([]);
+                    setReleaseDocsToWinnerOnly(false);
                 }
             })
             .catch(err => {
@@ -1763,8 +1780,28 @@ export default function QuotationRequestDashboard() {
             });
         }
 
-        const combinedDocs = [...existingDocs, ...uploadedDocs];
-        const finalDocPath = combinedDocs.length > 0 ? JSON.stringify(combinedDocs) : null;
+        const combinedDocs = [
+            ...existingDocs.map(d => ({
+                name: d.name || d.filename || 'Document',
+                path: d.path,
+                leg_index: d.leg_index !== undefined ? d.leg_index : null,
+                pair: d.pair || null
+            })),
+            ...uploadedDocs.map((d, i) => {
+                const meta = fileLegMap[i] || {};
+                return {
+                    name: d.name,
+                    path: d.path,
+                    leg_index: meta.leg_index !== undefined ? meta.leg_index : null,
+                    pair: meta.pair || null
+                };
+            })
+        ];
+        const finalDocPayload = {
+            release_to_winner_only: Boolean(releaseDocsToWinnerOnly),
+            documents: combinedDocs
+        };
+        const finalDocPath = combinedDocs.length > 0 ? JSON.stringify(finalDocPayload) : null;
 
         if (entities.length > 1 && !formData.entityId) {
             toast.error("Please select a Legal Entity for this quotation request.");
@@ -1803,6 +1840,8 @@ export default function QuotationRequestDashboard() {
                 quotation_base: primaryPair ? primaryPair.quotationBase : (formData.quotationBase || null),
                 max_tolerance_percent: primaryPair ? primaryPair.maxTolerancePercent : (formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null),
                 document_path: finalDocPath,
+                release_docs_to_winner_only: Boolean(releaseDocsToWinnerOnly),
+                releaseDocsToWinnerOnly: Boolean(releaseDocsToWinnerOnly),
                 selected_banks: JSON.stringify(formattedBanks),
                 token_validity_hours: parseInt(formData.tokenValidityHours, 10),
                 user_notes: (userNotes || '').trim() || undefined,
@@ -1854,6 +1893,8 @@ export default function QuotationRequestDashboard() {
             quotationBase: primaryPair ? primaryPair.quotationBase : (formData.quotationBase || null),
             maxTolerancePercent: primaryPair ? primaryPair.maxTolerancePercent : (formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null),
             documentPath: finalDocPath,
+            release_docs_to_winner_only: Boolean(releaseDocsToWinnerOnly),
+            releaseDocsToWinnerOnly: Boolean(releaseDocsToWinnerOnly),
             selectedBanks: JSON.stringify(formattedBanks),
             token_validity_hours: parseInt(formData.tokenValidityHours, 10),
             parent_rfq_id: retradeRfqId || undefined,
@@ -2938,6 +2979,26 @@ export default function QuotationRequestDashboard() {
                         <h3 className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-2">
                             <FileText size={14} /> Supporting Documents
                         </h3>
+
+                        {/* Confidentiality & Release Guard */}
+                        <div className="mb-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start gap-3">
+                            <input
+                                type="checkbox"
+                                id="releaseDocsToWinnerOnly"
+                                checked={releaseDocsToWinnerOnly}
+                                onChange={e => setReleaseDocsToWinnerOnly(e.target.checked)}
+                                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                            <label htmlFor="releaseDocsToWinnerOnly" className="cursor-pointer select-none">
+                                <span className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-1.5">
+                                    <Lock size={13} className="text-indigo-600" /> Release documents only to winning bank(s) after trade completion
+                                </span>
+                                <span className="text-[11px] text-gray-500 block mt-0.5 leading-relaxed">
+                                    When enabled, attached documents remain strictly confidential and will only be released to the winning counterparty awarded the executed deal.
+                                </span>
+                            </label>
+                        </div>
+
                         <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center hover:border-black/20 hover:bg-gray-50 transition-all cursor-pointer relative overflow-hidden group">
                             <input
                                 type="file"
@@ -2958,18 +3019,40 @@ export default function QuotationRequestDashboard() {
                             <div className="mt-4 space-y-2">
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Attached Documents</span>
                                 {existingDocs.map((doc, idx) => (
-                                    <div key={`existing-${idx}`} className="flex items-center justify-between p-2.5 rounded-xl bg-blue-50/60 border border-blue-100 text-xs">
-                                        <span className="flex items-center gap-2 truncate text-blue-900 font-medium">
+                                    <div key={`existing-${idx}`} className="flex items-center justify-between p-2.5 rounded-xl bg-blue-50/60 border border-blue-100 text-xs gap-2 flex-wrap">
+                                        <div className="flex items-center gap-2 truncate text-blue-900 font-medium min-w-0 max-w-[220px] sm:max-w-[260px]">
                                             <FileText size={14} className="text-blue-500 shrink-0" />
                                             <span className="truncate">{doc.name || doc.filename || 'Document'}</span>
-                                        </span>
-                                        <button
-                                            type="button"
-                                            onClick={() => setExistingDocs(prev => prev.filter((_, i) => i !== idx))}
-                                            className="text-red-500 hover:text-red-700 p-1 rounded font-bold text-xs shrink-0 cursor-pointer"
-                                        >
-                                            Remove
-                                        </button>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            {formData.type === 'FX_SPOT' && pairs.length > 1 && (
+                                                <select
+                                                    value={doc.leg_index !== undefined && doc.leg_index !== null ? doc.leg_index : ''}
+                                                    onChange={e => {
+                                                        const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                                                        const selPair = val !== null && pairs[val] ? `${pairs[val].buyCurrency || 'BUY'}/${pairs[val].sellCurrency || 'SELL'}` : null;
+                                                        setExistingDocs(prev => prev.map((d, i) => i === idx ? { ...d, leg_index: val, pair: selPair } : d));
+                                                    }}
+                                                    className="text-[11px] font-semibold bg-white border border-blue-200 rounded-lg px-2 py-1 text-blue-900 cursor-pointer"
+                                                    title="Select which currency pair leg this document applies to"
+                                                >
+                                                    <option value="">All Pairs (Global)</option>
+                                                    {pairs.map((p, pIdx) => (
+                                                        <option key={pIdx} value={pIdx}>
+                                                            Leg {pIdx + 1}: {p.buyCurrency || 'BUY'}/{p.sellCurrency || 'SELL'}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setExistingDocs(prev => prev.filter((_, i) => i !== idx))}
+                                                className="text-red-500 hover:text-red-700 p-1 rounded font-bold text-xs shrink-0 cursor-pointer"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -2979,18 +3062,47 @@ export default function QuotationRequestDashboard() {
                             <div className="mt-4 space-y-2">
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">New Files</span>
                                 {files.map((f, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs">
-                                        <span className="flex items-center gap-2 truncate text-gray-700 font-medium">
+                                    <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs gap-2 flex-wrap">
+                                        <div className="flex items-center gap-2 truncate text-gray-700 font-medium min-w-0 max-w-[220px] sm:max-w-[260px]">
                                             <FileText size={14} className="text-gray-400 shrink-0" />
                                             <span className="truncate">{f.name}</span>
-                                        </span>
-                                        <button
-                                            type="button"
-                                            onClick={() => setFiles(files.filter((_, i) => i !== idx))}
-                                            className="text-red-500 hover:text-red-700 p-1 rounded font-bold text-xs shrink-0 cursor-pointer"
-                                        >
-                                            Remove
-                                        </button>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            {formData.type === 'FX_SPOT' && pairs.length > 1 && (
+                                                <select
+                                                    value={fileLegMap[idx]?.leg_index !== undefined && fileLegMap[idx]?.leg_index !== null ? fileLegMap[idx].leg_index : ''}
+                                                    onChange={e => {
+                                                        const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                                                        const selPair = val !== null && pairs[val] ? `${pairs[val].buyCurrency || 'BUY'}/${pairs[val].sellCurrency || 'SELL'}` : null;
+                                                        setFileLegMap(prev => ({ ...prev, [idx]: { leg_index: val, pair: selPair } }));
+                                                    }}
+                                                    className="text-[11px] font-semibold bg-white border border-gray-200 rounded-lg px-2 py-1 text-gray-700 cursor-pointer"
+                                                    title="Select which currency pair leg this document applies to"
+                                                >
+                                                    <option value="">All Pairs (Global)</option>
+                                                    {pairs.map((p, pIdx) => (
+                                                        <option key={pIdx} value={pIdx}>
+                                                            Leg {pIdx + 1}: {p.buyCurrency || 'BUY'}/{p.sellCurrency || 'SELL'}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setFiles(files.filter((_, i) => i !== idx));
+                                                    setFileLegMap(prev => {
+                                                        const copy = { ...prev };
+                                                        delete copy[idx];
+                                                        return copy;
+                                                    });
+                                                }}
+                                                className="text-red-500 hover:text-red-700 p-1 rounded font-bold text-xs shrink-0 cursor-pointer"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>

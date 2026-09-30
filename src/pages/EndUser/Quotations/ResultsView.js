@@ -2021,29 +2021,60 @@ export default function ResultsView({ rfqId }) {
 
                     {rfq.document_path && (
                         <div className="pt-3 border-t border-gray-100">
-                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase block mb-2">Attached Documents</span>
-                            <div className="flex flex-wrap gap-2">
-                                {(() => {
-                                    let docs = [];
-                                    try {
-                                        const parsed = JSON.parse(rfq.document_path);
-                                        docs = Array.isArray(parsed) ? parsed : [{ name: 'Attached Document', path: rfq.document_path }];
-                                    } catch {
-                                        docs = rfq.document_path.split(',').map(p => ({ name: p.trim(), path: p.trim() }));
+                            {(() => {
+                                let docs = [];
+                                let isWinnerOnly = Boolean(rfq.release_docs_to_winner_only);
+                                try {
+                                    const parsed = JSON.parse(rfq.document_path);
+                                    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                                        isWinnerOnly = Boolean(parsed.release_to_winner_only);
+                                        docs = Array.isArray(parsed.documents) ? parsed.documents : [];
+                                    } else if (Array.isArray(parsed)) {
+                                        docs = parsed;
+                                        isWinnerOnly = isWinnerOnly || parsed.some(d => d.release_to_winner_only);
+                                    } else {
+                                        docs = [{ name: 'Attached Document', path: rfq.document_path }];
                                     }
-                                    return docs.map((d, i) => (
-                                        <a
-                                            key={i}
-                                            href={d.path?.startsWith('http') ? d.path : `http://localhost:8000${d.path?.startsWith('/') ? '' : '/'}${d.path}`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-xs font-medium text-blue-600 hover:bg-gray-100"
-                                        >
-                                            <FileText size={14} className="text-gray-400" /> {d.name || `Document ${i+1}`}
-                                        </a>
-                                    ));
-                                })()}
-                            </div>
+                                } catch {
+                                    docs = rfq.document_path.split(',').map(p => ({ name: p.trim(), path: p.trim() }));
+                                }
+
+                                return (
+                                    <>
+                                        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                                            <span className="font-sans text-[10px] font-bold text-gray-400 uppercase">Attached Documents</span>
+                                            {isWinnerOnly ? (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                                    <Lock size={10} className="text-amber-600" /> Released to Winning Bank(s) Only
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                                    🌐 Shared with All Execution Banks
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {docs.map((d, i) => (
+                                                <a
+                                                    key={i}
+                                                    href={d.path?.startsWith('http') ? d.path : `http://localhost:8000${d.path?.startsWith('/') ? '' : '/'}${d.path}`}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-xs font-medium text-blue-600 hover:bg-gray-100"
+                                                >
+                                                    <FileText size={14} className="text-gray-400" />
+                                                    <span>{d.name || `Document ${i+1}`}</span>
+                                                    {d.pair && (
+                                                        <span className="text-[10px] font-bold bg-blue-100/70 text-blue-800 px-1.5 py-0.2 rounded border border-blue-200/60">
+                                                            {d.pair}
+                                                        </span>
+                                                    )}
+                                                </a>
+                                            ))}
+                                        </div>
+                                    </>
+                                );
+                            })()}
                         </div>
                     )}
 

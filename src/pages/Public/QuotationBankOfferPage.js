@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { 
-    Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, 
+    Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, ExternalLink,
     Mail, KeyRound, UserCheck, Eye, History, RefreshCw, MessageSquare, Shield,
     BarChart2, ShieldAlert, WifiOff, FileQuestion,
     Users, Lock, Zap, Info, Loader2, Ban, Volume2, VolumeX, Copy, Check
@@ -1984,6 +1984,44 @@ export default function QuotationBankOfferPage() {
                                                 </div>
                                             </div>
                                         )}
+
+                                        {outcomeData?.released_documents && outcomeData.released_documents.length > 0 && (
+                                            <div className="mt-3 w-full max-w-xl mx-auto p-3.5 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-950 text-left text-xs font-sans shadow-xs">
+                                                <div className="flex items-center justify-between gap-2 border-b border-blue-200/60 pb-2 mb-2">
+                                                    <div className="flex items-center gap-1.5 font-bold text-blue-900">
+                                                        <FileText size={14} className="text-blue-600" />
+                                                        <span>Trade Supporting Documents (Released for Executed Leg{outcomeData.released_documents.length > 1 ? 's' : ''})</span>
+                                                    </div>
+                                                    <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">
+                                                        {outcomeData.released_documents.length} File{outcomeData.released_documents.length > 1 ? 's' : ''}
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {outcomeData.released_documents.map((doc, idx) => (
+                                                        <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white border border-blue-100 text-xs gap-2">
+                                                            <span className="flex items-center gap-2 font-medium text-slate-800 truncate min-w-0">
+                                                                <FileText size={13} className="text-blue-500 shrink-0" />
+                                                                <span className="truncate">{doc.name}</span>
+                                                                {doc.pair && (
+                                                                    <span className="text-[10px] font-bold px-1.5 py-0.2 bg-blue-50 text-blue-700 rounded border border-blue-200 shrink-0">
+                                                                        {doc.pair}
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                            <a
+                                                                href={doc.path}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                download
+                                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded transition-colors shrink-0"
+                                                            >
+                                                                <ExternalLink size={11} /> Download
+                                                            </a>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (resultStatus === 'PARTIALLY_WON' || (resultStatus === 'WINNER' && outcomeData?.won_legs_count < outcomeData?.total_legs_count)) ? (
                                     <div className="flex flex-col items-center">
@@ -2046,6 +2084,44 @@ export default function QuotationBankOfferPage() {
                                                         <span className="text-emerald-700">Counterparty Leg Scope:</span>
                                                         <span className="text-emerald-950 font-bold">{outcomeData.receipt.scoped_legs_count} Leg(s) Won &amp; Executed</span>
                                                     </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {outcomeData?.released_documents && outcomeData.released_documents.length > 0 && (
+                                            <div className="mt-3 w-full max-w-xl mx-auto p-3.5 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-950 text-left text-xs font-sans shadow-xs">
+                                                <div className="flex items-center justify-between gap-2 border-b border-blue-200/60 pb-2 mb-2">
+                                                    <div className="flex items-center gap-1.5 font-bold text-blue-900">
+                                                        <FileText size={14} className="text-blue-600" />
+                                                        <span>Trade Supporting Documents (Released for Executed Leg{outcomeData.released_documents.length > 1 ? 's' : ''})</span>
+                                                    </div>
+                                                    <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">
+                                                        {outcomeData.released_documents.length} File{outcomeData.released_documents.length > 1 ? 's' : ''}
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {outcomeData.released_documents.map((doc, idx) => (
+                                                        <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white border border-blue-100 text-xs gap-2">
+                                                            <span className="flex items-center gap-2 font-medium text-slate-800 truncate min-w-0">
+                                                                <FileText size={13} className="text-blue-500 shrink-0" />
+                                                                <span className="truncate">{doc.name}</span>
+                                                                {doc.pair && (
+                                                                    <span className="text-[10px] font-bold px-1.5 py-0.2 bg-blue-50 text-blue-700 rounded border border-blue-200 shrink-0">
+                                                                        {doc.pair}
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                            <a
+                                                                href={doc.path}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                download
+                                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded transition-colors shrink-0"
+                                                            >
+                                                                <ExternalLink size={11} /> Download
+                                                            </a>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
                                         )}
