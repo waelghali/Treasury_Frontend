@@ -18,10 +18,19 @@ export default function QuotationCancellationModal({ rfq, isOpen, onClose, onSuc
 
     if (!isOpen || !rfq) return null;
 
-    const isPendingApproval = rfq.status === 'PENDING_APPROVAL';
+    const isDirectCancel = ['PENDING_APPROVAL', 'APPROVED_SCHEDULED'].includes(rfq.status);
+    const windowStart = rfq.window_start ? new Date(rfq.window_start).getTime() : null;
+    const now = Date.now();
+    const minutesUntilWindow = windowStart ? (windowStart - now) / 60000 : null;
+    const isCutoffExceeded = rfq.status === 'PENDING' && minutesUntilWindow !== null && minutesUntilWindow < 15;
+    const minutesRemainingUntilCutoff = minutesUntilWindow !== null ? Math.max(0, Math.floor(minutesUntilWindow - 15)) : null;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isCutoffExceeded) {
+            toast.error('Cannot cancel quotation within 15 minutes of bidding window opening.');
+            return;
+        }
         setSubmitting(true);
         try {
             const res = await apiClient.post(`/end-user/quotations/${rfq.id}/request-cancellation`, {
@@ -29,8 +38,8 @@ export default function QuotationCancellationModal({ rfq, isOpen, onClose, onSuc
                 notes: notes.trim() || undefined
             });
 
-            if (isPendingApproval) {
-                toast.success(res.data?.message || 'Draft quotation cancelled successfully.');
+            if (isDirectCancel) {
+                toast.success(res.data?.message || 'Quotation cancelled successfully.');
             } else {
                 toast.info(res.data?.message || 'Cancellation request submitted for Corporate Admin approval.');
             }
@@ -56,7 +65,11 @@ export default function QuotationCancellationModal({ rfq, isOpen, onClose, onSuc
                         </div>
                         <div>
                             <h3 className="text-base font-bold text-slate-900">
-                                {isPendingApproval ? 'Cancel Quotation Draft' : 'Request Quotation Cancellation'}
+                                {rfq.status === 'PENDING_APPROVAL'
+                                    ? 'Cancel Quotation Draft'
+                                    : rfq.status === 'APPROVED_SCHEDULED'
+                                    ? 'Cancel Scheduled Quotation'
+                                    : 'Request Quotation Cancellation'}
                             </h3>
                             <p className="text-xs font-mono font-semibold text-slate-500">{rfq.ref_no}</p>
                         </div>
@@ -107,33 +120,65 @@ export default function QuotationCancellationModal({ rfq, isOpen, onClose, onSuc
                     {/* Additional Notes */}
                     <div>
                         <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-                            Internal Treasury Notes <span className="text-slate-400 font-normal lowercase">(optional context for admin)</span>
+                            Internal Treasury Notes <span className="text-slate-400 font-normal lowercase">(optional context)</span>
                         </label>
                         <textarea
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             rows={3}
-                            placeholder="Provide any additional detail for the Corporate Admin approval desk..."
+                            placeholder="Provide any additional detail for internal treasury audit logs..."
                             className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 resize-none"
                         />
                     </div>
 
-                    {/* Counterparty Optics Protection Box */}
-                    <div className="bg-sky-50/70 border border-sky-200/80 rounded-2xl p-4 text-xs space-y-1.5 text-sky-950">
-                        <div className="flex items-center gap-2 font-bold text-sky-900">
-                            <ShieldCheck size={16} className="text-sky-600 shrink-0" />
-                            Counterparty Privacy Guarantee
+                    {/* Direct cancel vs external counterparty guidance */}
+                    {isDirectCancel ? (
+                        <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-4 text-xs space-y-1 text-amber-950">
+                            <div className="flex items-center gap-2 font-bold text-amber-900">
+                                <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                                Immediate Pre-Dispatch Cancellation
+                            </div>
+                            <p className="text-[11px] leading-relaxed text-amber-800">
+                                This quotation has not been dispatched to banks. Confirming will cancel the quotation immediately with zero external bank exposure and unschedule any automated release jobs.
+                            </p>
                         </div>
-                        <p className="text-[11px] leading-relaxed text-sky-800">
-                            Your internal cancellation reason will <strong>never</strong> be shown to participating bank desks. Banks will receive an official notification stating: <em>"This quotation request was officially withdrawn by the corporate treasury desk. No quotation is required."</em>
-                        </p>
-                    </div>
+                    ) : (
+                        <div className="bg-sky-50/70 border border-sky-200/80 rounded-2xl p-4 text-xs space-y-1.5 text-sky-950">
+                            <div className="flex items-center gap-2 font-bold text-sky-900">
+                                <ShieldCheck size={16} className="text-sky-600 shrink-0" />
+                                Counterparty Privacy Guarantee
+                            </div>
+                            <p className="text-[11px] leading-relaxed text-sky-800">
+                                Your internal cancellation reason will <strong>never</strong> be shown to participating bank desks. If approved by Corporate Admin, banks will receive an official notification stating: <em>"This quotation request was officially withdrawn by the corporate treasury desk. No quotation is required."</em>
+                            </p>
+                        </div>
+                    )}
 
-                    {!isPendingApproval && (
-                        <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                            <Clock size={14} className="text-amber-500 shrink-0" />
-                            <span>15-Minute Cutoff Policy: Auctions scheduled to open within 15 minutes cannot be cancelled.</span>
-                        </div>
+                    {/* 15-Minute Cutoff Warnings */}
+                    {!isDirectCancel && (
+                        isCutoffExceeded ? (
+                            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-xs space-y-1 text-rose-950">
+                                <div className="flex items-center gap-2 font-bold text-rose-800">
+                                    <AlertTriangle size={15} className="text-rose-600 shrink-0" />
+                                    Cancellation Locked (15-Minute Cutoff Reached)
+                                </div>
+                                <p className="text-[11px] leading-relaxed text-rose-800">
+                                    Auctions scheduled to open within 15 minutes cannot be cancelled per treasury governance rules. This RFQ is finalized and locked.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                                <Clock size={14} className="text-amber-500 shrink-0" />
+                                <span>
+                                    15-Minute Cutoff Policy: Auctions opening within 15 minutes cannot be cancelled.
+                                    {minutesRemainingUntilCutoff !== null && (
+                                        <strong className="text-slate-700 ml-1">
+                                            ({minutesRemainingUntilCutoff}m remaining until lock)
+                                        </strong>
+                                    )}
+                                </span>
+                            </div>
+                        )
                     )}
 
                     {/* Actions */}
@@ -148,10 +193,14 @@ export default function QuotationCancellationModal({ rfq, isOpen, onClose, onSuc
                         </button>
                         <button
                             type="submit"
-                            disabled={submitting}
+                            disabled={submitting || isCutoffExceeded}
                             className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-rose-200 transition-all cursor-pointer"
                         >
-                            {submitting ? 'Submitting...' : isPendingApproval ? 'Confirm Cancellation' : 'Submit Cancellation Request'}
+                            {submitting
+                                ? 'Processing...'
+                                : isDirectCancel
+                                ? 'Confirm Immediate Cancellation'
+                                : 'Submit Cancellation Request'}
                         </button>
                     </div>
                 </form>

@@ -181,7 +181,7 @@ export default function QuotationHistoryDashboard() {
 
 
     // Filter lists
-    const liveRfqs = history.filter(r => ['PENDING', 'OPEN', 'EVALUATING', 'PENDING_APPROVAL', 'NEEDS_REVISION', 'CANCEL_REQUESTED'].includes(r.status));
+    const liveRfqs = history.filter(r => ['PENDING', 'OPEN', 'EVALUATING', 'PENDING_APPROVAL', 'APPROVED_SCHEDULED', 'NEEDS_REVISION', 'CANCEL_REQUESTED'].includes(r.status));
     const archivedRfqs = history.filter(r => ['COMPLETED', 'INCONCLUSIVE', 'EXPIRED', 'REJECTED', 'CANCELLED'].includes(r.status));
     const needsRevisionRfqs = history.filter(r => r.status === 'NEEDS_REVISION');
 
@@ -1125,17 +1125,36 @@ export default function QuotationHistoryDashboard() {
                                                         <Undo2 size={13} /> Revise
                                                     </button>
                                                 )}
-                                                {['PENDING', 'PENDING_APPROVAL'].includes(rfq.status) && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setCancelModalRfq(rfq);
-                                                        }}
-                                                        className="p-1.5 text-rose-500 hover:bg-rose-50 hover:text-rose-700 rounded-lg transition-colors inline-flex cursor-pointer"
-                                                        title={rfq.status === 'PENDING_APPROVAL' ? 'Cancel Draft Quotation' : 'Request Cancellation'}
-                                                    >
-                                                        <XCircle size={15} />
-                                                    </button>
+                                                {['PENDING', 'PENDING_APPROVAL', 'APPROVED_SCHEDULED'].includes(rfq.status) && (
+                                                    (() => {
+                                                        const isDirect = ['PENDING_APPROVAL', 'APPROVED_SCHEDULED'].includes(rfq.status);
+                                                        const windowStart = rfq.window_start ? new Date(rfq.window_start).getTime() : null;
+                                                        const isCutoffLocked = rfq.status === 'PENDING' && windowStart && (windowStart - Date.now() < 15 * 60 * 1000);
+
+                                                        return (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (!isCutoffLocked) setCancelModalRfq(rfq);
+                                                                }}
+                                                                disabled={isCutoffLocked}
+                                                                className={`p-1.5 rounded-lg transition-colors inline-flex ${
+                                                                    isCutoffLocked
+                                                                        ? 'text-gray-300 cursor-not-allowed'
+                                                                        : 'text-rose-500 hover:bg-rose-50 hover:text-rose-700 cursor-pointer'
+                                                                }`}
+                                                                title={
+                                                                    isCutoffLocked
+                                                                        ? 'Cancellation locked (within 15 minutes of bidding window opening)'
+                                                                        : isDirect
+                                                                        ? (rfq.status === 'PENDING_APPROVAL' ? 'Cancel Draft Quotation' : 'Cancel Scheduled Release')
+                                                                        : 'Request Cancellation'
+                                                                }
+                                                            >
+                                                                <XCircle size={15} />
+                                                            </button>
+                                                        );
+                                                    })()
                                                 )}
                                                 <button
                                                     onClick={(e) => {

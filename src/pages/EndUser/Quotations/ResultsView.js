@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Users, UserCheck, Layers, Loader2 } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Users, UserCheck, Layers, Loader2, Lock } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import { getCurrentUserId } from '../../../utils/authUtils';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
@@ -861,14 +861,47 @@ export default function ResultsView({ rfqId }) {
                             <Mail size={14} /> {sendingResults ? 'Sending...' : 'Send Result Emails (Direct)'}
                         </button>
                     )}
-                    {!isCorporateAdmin && ['PENDING', 'PENDING_APPROVAL'].includes(rfq?.status) && !isWindowClosed && (
-                        <button
-                            onClick={() => setShowCancellationModal(true)}
-                            className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
-                            title="Withdraw or request cancellation of this quotation"
-                        >
-                            <XCircle size={13} /> {rfq?.status === 'PENDING_APPROVAL' ? 'Cancel Draft' : 'Request Cancellation'}
-                        </button>
+                    {/* Cancellation & Withdrawal Controls */}
+                    {rfq?.status === 'CANCEL_REQUESTED' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold shadow-xs">
+                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                            Cancellation Pending Admin Approval
+                        </span>
+                    )}
+                    {['PENDING', 'PENDING_APPROVAL', 'APPROVED_SCHEDULED'].includes(rfq?.status) && !isWindowClosed && (
+                        (() => {
+                            const isDirect = ['PENDING_APPROVAL', 'APPROVED_SCHEDULED'].includes(rfq?.status);
+                            const windowStart = rfq?.window_start ? new Date(rfq.window_start).getTime() : null;
+                            const isCutoffLocked = rfq?.status === 'PENDING' && windowStart && (windowStart - Date.now() < 15 * 60 * 1000);
+
+                            if (isCutoffLocked) {
+                                return (
+                                    <button
+                                        disabled
+                                        className="flex items-center gap-1.5 px-3.5 py-2 bg-gray-100 text-gray-400 border border-gray-200 rounded-xl text-xs font-bold cursor-not-allowed shadow-2xs"
+                                        title="Cancellation locked: auctions scheduled to open within 15 minutes cannot be cancelled per treasury governance rules."
+                                    >
+                                        <Lock size={13} /> Cancellation Locked (&lt;15m)
+                                    </button>
+                                );
+                            }
+
+                            return (
+                                <button
+                                    onClick={() => setShowCancellationModal(true)}
+                                    className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+                                    title={isDirect ? "Withdraw or cancel this quotation immediately" : "Request quotation cancellation (requires Corporate Admin review)"}
+                                >
+                                    <XCircle size={13} /> {
+                                        rfq?.status === 'PENDING_APPROVAL'
+                                            ? 'Cancel Draft'
+                                            : rfq?.status === 'APPROVED_SCHEDULED'
+                                            ? 'Cancel Scheduled RFQ'
+                                            : 'Request Cancellation'
+                                    }
+                                </button>
+                            );
+                        })()
                     )}
                     {isWindowClosed ? (
                         <span className="text-xs font-medium text-gray-400 italic">Quotation concluded</span>

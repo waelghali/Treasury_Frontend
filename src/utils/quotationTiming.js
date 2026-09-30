@@ -58,6 +58,16 @@ export function getRfqTimingState(rfq) {
             isScheduled: false
         };
     }
+    if (rfq.status === 'APPROVED_SCHEDULED') {
+        return {
+            badge: 'APPROVED_SCHEDULED',
+            label: 'Approved (Scheduled)',
+            counterpartyLabel: 'Release Scheduled',
+            style: 'bg-blue-100 text-blue-800 border border-blue-300',
+            isLive: false,
+            isScheduled: true
+        };
+    }
     if (rfq.status === 'NEEDS_REVISION') {
         return {
             badge: 'NEEDS_REVISION',
