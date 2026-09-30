@@ -215,6 +215,22 @@ export default function ResultsView({ rfqId }) {
     const [isDecliningDeal, setIsDecliningDeal] = useState(false);
     const [selectedLegDecisions, setSelectedLegDecisions] = useState({});
 
+    // Ensure all winning legs default to selected when legs are loaded
+    useEffect(() => {
+        if (legs && legs.length > 0) {
+            setSelectedLegDecisions(prev => {
+                const next = { ...prev };
+                legs.forEach((l, idx) => {
+                    const id = l.id || l.leg_id || idx;
+                    if (id && next[id] === undefined) {
+                        next[id] = Boolean(l.winner_bank_name && !l.is_inconclusive);
+                    }
+                });
+                return next;
+            });
+        }
+    }, [legs]);
+
     // Inline Approval & Scheduling State (Corporate Admin)
     const [showApprovalPanel, setShowApprovalPanel] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
@@ -1100,8 +1116,8 @@ export default function ResultsView({ rfqId }) {
                 </div>
             )}
 
-            {/* Corporate Admin Post-Window Deal Decision Panel */}
-            {isWindowClosed && isCorporateAdmin && !resultsMeta.isInconclusive && rfq?.status !== 'CANCELLED' && rfq?.status !== 'PENDING_APPROVAL' && (
+            {/* Post-Window Deal Decision Panel (Maker / Admin / Delegate) */}
+            {isWindowClosed && canAcceptOrDecline && !resultsMeta.isInconclusive && rfq?.status !== 'CANCELLED' && rfq?.status !== 'PENDING_APPROVAL' && (
                 <div className={`p-5 sm:p-6 rounded-2xl border-2 shadow-sm animate-fade-in-up ${
                     isDeclined
                         ? 'bg-rose-50/80 border-rose-300 text-rose-950'
@@ -1129,7 +1145,7 @@ export default function ResultsView({ rfqId }) {
                                             ? 'Quotation Deal Declined'
                                             : isAccepted
                                             ? (rfq?.acceptance_status === 'AUTO_ACCEPTED' ? 'Quotation Deal Auto-Accepted & Executed' : 'Quotation Deal Accepted & Executed')
-                                            : 'Corporate Admin Deal Acceptance Required'}
+                                            : 'Deal Acceptance Required (Action Needed)'}
                                     </span>
                                     {isAutoRejected && (
                                         <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-200 text-rose-900 px-2 py-0.5 rounded-full">
@@ -1150,7 +1166,7 @@ export default function ResultsView({ rfqId }) {
                                     ) : isAccepted ? (
                                         <span>Winning quotes have been confirmed and officially executed. Trade confirmation emails have been dispatched to counterparties.</span>
                                     ) : (
-                                        <span>The quotation window has closed. Review the winning rate(s) below. As Corporate Admin, accept to confirm trade execution and notify counterparties, or decline to cancel execution. {rfq?.acceptance_timeout_action ? `(Timeout policy: ${rfq.acceptance_timeout_action.replace('_', ' ')})` : ''}</span>
+                                        <span>The quotation window has closed. Review the winning rate(s) below. As {isCorporateAdmin ? 'Corporate Admin' : isMaker ? 'Quotation Creator' : 'Authorized Delegate'}, accept to confirm trade execution and notify counterparties, or decline to cancel execution. {rfq?.acceptance_timeout_action ? `(Timeout policy: ${rfq.acceptance_timeout_action.replace('_', ' ')})` : ''}</span>
                                     )}
                                 </p>
                             </div>
@@ -1158,27 +1174,45 @@ export default function ResultsView({ rfqId }) {
 
                         {isAwaitingAcceptance && legs && legs.length > 1 && (
                             <div className="w-full mt-4 pt-4 border-t border-amber-200/80">
-                                <div className="text-[11px] font-bold uppercase tracking-wider text-amber-950 flex items-center justify-between mb-2">
-                                    <span>Currency Pair Selection (Select which legs to execute):</span>
-                                    <span className="text-[10px] font-medium text-amber-800">
+                                <div className="text-[11px] font-bold uppercase tracking-wider text-amber-950 flex items-center justify-between mb-2.5">
+                                    <div className="flex items-center gap-2">
+                                        <span>Currency Pair Selection (Select which legs to execute):</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const allSelected = legs.every(l => selectedLegDecisions[l.id || l.leg_id] !== false);
+                                                const next = {};
+                                                legs.forEach((l, idx) => {
+                                                    const id = l.id || l.leg_id || idx;
+                                                    next[id] = !allSelected;
+                                                });
+                                                setSelectedLegDecisions(next);
+                                            }}
+                                            className="text-[10px] lowercase font-semibold text-indigo-700 hover:text-indigo-900 underline cursor-pointer"
+                                        >
+                                            {legs.every(l => selectedLegDecisions[l.id || l.leg_id] !== false) ? 'deselect all' : 'select all'}
+                                        </button>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded-full">
                                         {legs.filter(l => (selectedLegDecisions[l.id || l.leg_id] !== false) && l.winner_bank_name && !l.is_inconclusive).length} of {legs.length} legs selected
                                     </span>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {legs.map((leg, idx) => {
                                         const legId = leg.id || leg.leg_id || idx;
                                         const isChecked = selectedLegDecisions[legId] !== false;
                                         const pair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
                                         const hasWinner = Boolean(leg.winner_bank_name && !leg.is_inconclusive);
+                                        const isBuy = (leg.direction || 'BUY').toUpperCase() === 'BUY';
                                         return (
                                             <label
                                                 key={legId}
-                                                className={`flex items-start gap-3 p-3 rounded-xl border transition-all select-none ${
+                                                className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 transition-all select-none ${
                                                     !hasWinner
                                                         ? 'bg-gray-50/80 border-gray-200 opacity-60 cursor-not-allowed'
                                                         : isChecked
-                                                            ? 'bg-white border-emerald-300 shadow-xs ring-1 ring-emerald-200 cursor-pointer'
-                                                            : 'bg-rose-50/40 border-rose-200 text-rose-800 cursor-pointer'
+                                                            ? 'bg-white border-emerald-400 shadow-sm ring-2 ring-emerald-400/20 cursor-pointer'
+                                                            : 'bg-rose-50/50 border-rose-200 text-rose-900 cursor-pointer'
                                                 }`}
                                             >
                                                 <input
@@ -1191,34 +1225,45 @@ export default function ResultsView({ rfqId }) {
                                                             [legId]: e.target.checked
                                                         }));
                                                     }}
-                                                    className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                                    className="mt-1 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer h-4 w-4 shrink-0"
                                                 />
-                                                <div className="min-w-0 flex-1 text-xs">
-                                                    <div className="flex items-center gap-1.5 font-bold text-gray-900">
-                                                        <span className="uppercase text-[10px] px-1.5 py-0.5 rounded bg-slate-100 font-black">
-                                                            {leg.direction || 'BUY'}
-                                                        </span>
-                                                        <span>{pair}</span>
-                                                        <span className="text-gray-500 font-normal">
-                                                            ({Number(leg.amount || 0).toLocaleString()} {leg.buy_currency})
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className={`uppercase text-[10px] font-black px-2 py-0.5 rounded-md ${
+                                                                isBuy
+                                                                    ? 'bg-blue-100 text-blue-800'
+                                                                    : 'bg-purple-100 text-purple-800'
+                                                            }`}>
+                                                                {leg.direction || 'BUY'}
+                                                            </span>
+                                                            <span className="font-extrabold text-sm text-gray-900 tracking-tight">{pair}</span>
+                                                        </div>
+                                                        <span className="font-mono text-xs font-bold text-gray-900 bg-gray-100/90 px-2.5 py-0.5 rounded-lg border border-gray-200/80 shrink-0">
+                                                            {Number(leg.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} {leg.buy_currency || ''}
                                                         </span>
                                                     </div>
-                                                    <div className="text-[11px] text-gray-600 mt-0.5 truncate">
+
+                                                    <div className="mt-2 flex items-center justify-between text-xs gap-2">
                                                         {hasWinner ? (
-                                                            <span className="text-emerald-700 font-semibold">
-                                                                🏆 Winning Bank: {leg.winner_bank_name} @ {leg.winner_rate}
-                                                            </span>
+                                                            <div className="flex items-center gap-1 text-emerald-800 font-semibold truncate">
+                                                                <Trophy size={13} className="text-amber-500 shrink-0" />
+                                                                <span className="truncate">{leg.winner_bank_name}</span>
+                                                                <span className="font-mono font-bold text-emerald-950 bg-emerald-100/70 px-1.5 py-0.5 rounded border border-emerald-300 shrink-0">
+                                                                    @ {leg.winner_rate}
+                                                                </span>
+                                                            </div>
                                                         ) : (
-                                                            <span className="text-amber-700 italic">
+                                                            <span className="text-amber-700 italic text-[11px]">
                                                                 No winning quote / Inconclusive
                                                             </span>
                                                         )}
+                                                        {hasWinner && !isChecked && (
+                                                            <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full border border-rose-300 shrink-0">
+                                                                Dropped
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    {hasWinner && !isChecked && (
-                                                        <span className="inline-block mt-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
-                                                            Will be declined / dropped
-                                                        </span>
-                                                    )}
                                                 </div>
                                             </label>
                                         );
@@ -1411,32 +1456,54 @@ export default function ResultsView({ rfqId }) {
                     if (awardedLegs.length === 0 && !resultsMeta.savingsSummary) return null;
 
                     return (
-                        <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-900 via-teal-900 to-emerald-950 text-white shadow-xl border border-emerald-500/30 space-y-4">
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-emerald-700/50 pb-4">
+                        <div className={`p-6 rounded-3xl text-white shadow-xl border space-y-4 ${
+                            isAccepted
+                                ? 'bg-gradient-to-br from-emerald-900 via-teal-900 to-emerald-950 border-emerald-500/30'
+                                : 'bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 border-slate-700'
+                        }`}>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                                        isAccepted
+                                            ? 'bg-emerald-500/20 border border-emerald-400/30 text-emerald-300'
+                                            : 'bg-slate-700/50 border border-slate-600 text-slate-300'
+                                    }`}>
                                         <Trophy size={26} />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                                                Certified Best Execution Portfolio
+                                            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${
+                                                isAccepted
+                                                    ? 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30'
+                                                    : 'text-amber-400 bg-amber-500/20 border-amber-500/30'
+                                            }`}>
+                                                {isAccepted ? 'Certified Best Execution Portfolio' : 'Provisional Best Execution Standings'}
                                             </span>
-                                            <span className="text-xs text-emerald-200/70 font-mono">Multi-Currency Package ({legs.length} Legs)</span>
+                                            <span className="text-xs text-slate-300 font-mono">Multi-Currency Package ({legs.length} Legs)</span>
                                         </div>
                                         <h3 className="text-lg font-bold text-white mt-1">
-                                            {awardedLegs.length === legs.length 
-                                                ? `All ${legs.length} Currency Pairs Successfully Awarded` 
-                                                : `${awardedLegs.length} of ${legs.length} Pairs Awarded`}
+                                            {isAccepted ? (
+                                                awardedLegs.length === legs.length 
+                                                    ? `All ${legs.length} Currency Pairs Successfully Awarded` 
+                                                    : `${awardedLegs.length} of ${legs.length} Pairs Awarded`
+                                            ) : (
+                                                `Provisional Standings — Awaiting Acceptance (${awardedLegs.length} of ${legs.length} Pairs Quoted)`
+                                            )}
                                         </h3>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => setShowAuditPack(true)}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-emerald-950 hover:bg-emerald-50 transition-all shadow-md active:scale-95 shrink-0"
-                                >
-                                    <FileText size={14} className="text-emerald-700" /> Best Execution Audit Pack
-                                </button>
+                                {isAccepted ? (
+                                    <button
+                                        onClick={() => setShowAuditPack(true)}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-emerald-950 hover:bg-emerald-50 transition-all shadow-md active:scale-95 shrink-0"
+                                    >
+                                        <FileText size={14} className="text-emerald-700" /> Best Execution Audit Pack
+                                    </button>
+                                ) : (
+                                    <span className="text-[11px] font-medium text-amber-200/90 bg-amber-950/40 border border-amber-600/30 px-3 py-1.5 rounded-xl shrink-0">
+                                        🔒 Audit Pack unlocks after deal acceptance
+                                    </span>
+                                )}
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
@@ -1489,30 +1556,48 @@ export default function ResultsView({ rfqId }) {
                 const effectiveSavings = resultsMeta.savingsSummary || (legs && legs.length === 1 ? legs[0].savings_summary : null);
                 if (!effectiveSavings || rfq?.status === 'REJECTED' || (legs && legs[0] && (legs[0].status === 'REJECTED' || legs[0].is_inconclusive))) return null;
                 return (
-                    <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-900 via-teal-900 to-emerald-950 text-white shadow-xl border border-emerald-500/30 space-y-4">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-emerald-700/50 pb-4">
+                    <div className={`p-6 rounded-3xl text-white shadow-xl border space-y-4 ${
+                        isAccepted
+                            ? 'bg-gradient-to-br from-emerald-900 via-teal-900 to-emerald-950 border-emerald-500/30'
+                            : 'bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 border-slate-700'
+                    }`}>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                                    isAccepted
+                                        ? 'bg-emerald-500/20 border border-emerald-400/30 text-emerald-300'
+                                        : 'bg-slate-700/50 border border-slate-600 text-slate-300'
+                                }`}>
                                     <Trophy size={26} />
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                                            Certified Best Execution
+                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${
+                                            isAccepted
+                                                ? 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30'
+                                                : 'text-amber-400 bg-amber-500/20 border-amber-500/30'
+                                        }`}>
+                                            {isAccepted ? 'Certified Best Execution' : 'Provisional Best Quote'}
                                         </span>
-                                        <span className="text-xs text-emerald-200/70 font-mono">Regulatory & Governance Standard</span>
+                                        <span className="text-xs text-slate-300 font-mono">Regulatory & Governance Standard</span>
                                     </div>
                                     <h3 className="text-lg font-bold text-white mt-1">
-                                        Awarded to {effectiveSavings.winner_bank_name} @ {effectiveSavings.winner_rate}
+                                        {isAccepted ? `Awarded to ${effectiveSavings.winner_bank_name} @ ${effectiveSavings.winner_rate}` : `Leading Quote: ${effectiveSavings.winner_bank_name} @ ${effectiveSavings.winner_rate} (Pending Acceptance)`}
                                     </h3>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => setShowAuditPack(true)}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-emerald-950 hover:bg-emerald-50 transition-all shadow-md active:scale-95 shrink-0 cursor-pointer"
-                            >
-                                <FileText size={14} className="text-emerald-700" /> Best Execution Audit Pack
-                            </button>
+                            {isAccepted ? (
+                                <button
+                                    onClick={() => setShowAuditPack(true)}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-emerald-950 hover:bg-emerald-50 transition-all shadow-md active:scale-95 shrink-0 cursor-pointer"
+                                >
+                                    <FileText size={14} className="text-emerald-700" /> Best Execution Audit Pack
+                                </button>
+                            ) : (
+                                <span className="text-[11px] font-medium text-amber-200/90 bg-amber-950/40 border border-amber-600/30 px-3 py-1.5 rounded-xl shrink-0">
+                                    🔒 Audit Pack unlocks after deal acceptance
+                                </span>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
