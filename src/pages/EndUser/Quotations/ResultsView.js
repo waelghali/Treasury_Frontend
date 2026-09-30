@@ -215,21 +215,56 @@ export default function ResultsView({ rfqId }) {
     const [isDecliningDeal, setIsDecliningDeal] = useState(false);
     const [selectedLegDecisions, setSelectedLegDecisions] = useState({});
 
-    // Ensure all winning legs default to selected when legs are loaded
+    // Reset selection when switching RFQs
+    useEffect(() => {
+        setSelectedLegDecisions({});
+    }, [rfqId]);
+
+    // Ensure all winning legs default to selected when legs are loaded or updated
     useEffect(() => {
         if (legs && legs.length > 0) {
             setSelectedLegDecisions(prev => {
                 const next = { ...prev };
+                let changed = false;
                 legs.forEach((l, idx) => {
-                    const id = l.id || l.leg_id || idx;
-                    if (id && next[id] === undefined) {
-                        next[id] = Boolean(l.winner_bank_name && !l.is_inconclusive);
+                    const id = l.id !== undefined ? l.id : (l.leg_id !== undefined ? l.leg_id : idx);
+                    const isWinning = Boolean(l.winner_bank_name && !l.is_inconclusive);
+                    if (next[id] === undefined) {
+                        next[id] = isWinning;
+                        changed = true;
+                    } else if (isWinning && prev[`_manual_${id}`] !== true && next[id] === false) {
+                        next[id] = true;
+                        changed = true;
                     }
                 });
-                return next;
+                return changed ? next : prev;
             });
         }
-    }, [legs]);
+    }, [legs, rfqId]);
+
+    const toggleLegSelection = (id) => {
+        setSelectedLegDecisions(prev => ({
+            ...prev,
+            [id]: prev[id] === false ? true : false,
+            [`_manual_${id}`]: true
+        }));
+    };
+
+    const toggleAllLegsSelection = () => {
+        const eligible = (legs || []).filter(l => Boolean(l.winner_bank_name && !l.is_inconclusive));
+        const allSelected = eligible.every(l => {
+            const id = l.id !== undefined ? l.id : (l.leg_id !== undefined ? l.leg_id : l);
+            return selectedLegDecisions[id] !== false;
+        });
+        const next = {};
+        (legs || []).forEach((l, idx) => {
+            const id = l.id !== undefined ? l.id : (l.leg_id !== undefined ? l.leg_id : idx);
+            const isWinning = Boolean(l.winner_bank_name && !l.is_inconclusive);
+            next[id] = isWinning ? !allSelected : false;
+            next[`_manual_${id}`] = true;
+        });
+        setSelectedLegDecisions(next);
+    };
 
     // Inline Approval & Scheduling State (Corporate Admin)
     const [showApprovalPanel, setShowApprovalPanel] = useState(false);
@@ -301,19 +336,6 @@ export default function ResultsView({ rfqId }) {
             setResults(res.data.results || []);
             setRfq(res.data.rfq);
             setLegs(res.data.legs || []);
-
-            if (res.data.legs && res.data.legs.length > 1) {
-                setSelectedLegDecisions(prev => {
-                    const next = { ...prev };
-                    res.data.legs.forEach((l, idx) => {
-                        const lid = l.id || l.leg_id || idx;
-                        if (next[lid] === undefined) {
-                            next[lid] = Boolean(l.winner_bank_name && !l.is_inconclusive);
-                        }
-                    });
-                    return next;
-                });
-            }
 
             setResultsMeta({
                 winnerBankId: res.data.winner_bank_id,
@@ -812,33 +834,11 @@ export default function ResultsView({ rfqId }) {
                             <span className="px-3 py-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs">
                                 <CheckCircle2 size={14} className="text-emerald-600" /> {rfq?.acceptance_status === 'AUTO_ACCEPTED' ? 'Deal Auto-Accepted' : 'Deal Executed & Confirmed'}
                             </span>
-                        ) : (
-                            <div className="flex items-center gap-2">
-                                {acceptanceSecondsRemaining !== null && (
-                                    <span className="px-2.5 py-1.5 bg-amber-50 text-amber-800 border border-amber-300 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs" title={`Default action on timeout: ${rfq?.acceptance_timeout_action || 'AUTO_REJECT'}`}>
-                                        <Clock size={13} className="text-amber-600 animate-spin" /> {acceptanceSecondsRemaining}s left
-                                    </span>
-                                )}
-                                <button
-                                    type="button"
-                                    onClick={handleDeclineDeal}
-                                    disabled={isDecliningDeal || isAcceptingDeal}
-                                    className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
-                                    title="Decline and reject trade execution for this deal"
-                                >
-                                    <XCircle size={13} /> {isDecliningDeal ? 'Declining...' : 'Decline Deal'}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleAcceptDeal}
-                                    disabled={isDecliningDeal || isAcceptingDeal}
-                                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-200 cursor-pointer disabled:opacity-50"
-                                    title="Accept winning counterparty quote and finalize execution"
-                                >
-                                    <CheckCircle2 size={13} /> {isAcceptingDeal ? 'Accepting...' : (legs && legs.length > 1 && legs.filter(l => selectedLegDecisions[l.id || l.leg_id] !== false && l.winner_bank_name && !l.is_inconclusive).length < legs.length) ? `Accept Selected Legs` : 'Accept Deal (Execute)'}
-                                </button>
-                            </div>
-                        )
+                        ) : acceptanceSecondsRemaining !== null ? (
+                            <span className="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-300 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs" title={`Default action on timeout: ${rfq?.acceptance_timeout_action || 'AUTO_REJECT'}`}>
+                                <Clock size={13} className="text-amber-600 animate-spin" /> Acceptance Window ({acceptanceSecondsRemaining}s left)
+                            </span>
+                        ) : null
                     )}
                     {canDelegate && !isAccepted && !isDeclined && rfq?.status !== 'CANCELLED' && (
                         <button
@@ -1151,194 +1151,196 @@ export default function ResultsView({ rfqId }) {
 
             {/* Post-Window Deal Decision Panel (Maker / Admin / Delegate) */}
             {isWindowClosed && canAcceptOrDecline && !resultsMeta.isInconclusive && rfq?.status !== 'CANCELLED' && rfq?.status !== 'PENDING_APPROVAL' && (
-                <div className={`p-5 sm:p-6 rounded-2xl border-2 shadow-sm animate-fade-in-up ${
+                <div className={`p-5 sm:p-6 rounded-2xl border transition-all animate-fade-in-up ${
                     isDeclined
-                        ? 'bg-rose-50/80 border-rose-300 text-rose-950'
+                        ? 'bg-rose-50/90 border-rose-200 text-rose-950 shadow-sm'
                         : isAccepted
-                        ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
-                        : 'bg-gradient-to-r from-amber-50/90 via-orange-50/80 to-amber-50/90 border-amber-400 text-amber-950 shadow-md'
+                        ? 'bg-emerald-50/90 border-emerald-200 text-emerald-950 shadow-sm'
+                        : 'bg-white border-amber-300 shadow-lg ring-1 ring-amber-400/30'
                 }`}>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div className="flex items-start gap-3.5">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                    {/* Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                                 isDeclined
-                                    ? 'bg-rose-100 text-rose-700 border border-rose-300'
+                                    ? 'bg-rose-100 text-rose-700'
                                     : isAccepted
-                                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
-                                    : 'bg-amber-100 text-amber-700 border border-amber-300'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-amber-100 text-amber-800'
                             }`}>
-                                {isDeclined ? <XCircle size={22} /> : isAccepted ? <CheckCircle2 size={22} /> : <Clock size={22} className="animate-spin text-amber-600" />}
+                                {isDeclined ? <XCircle size={22} /> : isAccepted ? <CheckCircle2 size={22} /> : <Clock size={20} className="animate-spin text-amber-700" />}
                             </div>
                             <div>
-                                <h4 className="text-base font-bold flex items-center gap-2">
-                                    <span>
-                                        {isAutoRejected
-                                            ? 'Quotation Deal Auto-Rejected (Timeout)'
-                                            : isDeclined
-                                            ? 'Quotation Deal Declined'
-                                            : isAccepted
-                                            ? (rfq?.acceptance_status === 'AUTO_ACCEPTED' ? 'Quotation Deal Auto-Accepted & Executed' : 'Quotation Deal Accepted & Executed')
-                                            : 'Deal Acceptance Required (Action Needed)'}
-                                    </span>
-                                    {isAutoRejected && (
-                                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-200 text-rose-900 px-2 py-0.5 rounded-full">
-                                            Policy: Auto Reject
-                                        </span>
-                                    )}
-                                    {isAwaitingAcceptance && (
-                                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full animate-pulse flex items-center gap-1">
-                                            Action Needed {acceptanceSecondsRemaining !== null ? `(${acceptanceSecondsRemaining}s)` : ''}
-                                        </span>
-                                    )}
+                                <h4 className="text-base font-bold text-slate-900">
+                                    {isAutoRejected
+                                        ? 'Quotation Deal Auto-Rejected (Timeout)'
+                                        : isDeclined
+                                        ? 'Quotation Deal Declined'
+                                        : isAccepted
+                                        ? (rfq?.acceptance_status === 'AUTO_ACCEPTED' ? 'Quotation Deal Auto-Accepted & Executed' : 'Quotation Deal Accepted & Executed')
+                                        : 'Deal Acceptance Required'}
                                 </h4>
-                                <p className="text-xs mt-1 max-w-2xl leading-relaxed">
-                                    {isAutoRejected ? (
-                                        <span>Corporate acceptance window expired without confirmation. Quotation was automatically rejected per default policy (<span className="font-semibold text-rose-900">AUTO_REJECT</span>). No binding trade contracts were executed.</span>
-                                    ) : isDeclined ? (
-                                        <span>Deal execution was declined by Corporate Treasury{rfq?.admin_revision_notes ? `: "${rfq.admin_revision_notes}"` : '.'} No binding contracts will be executed.</span>
-                                    ) : isAccepted ? (
-                                        <span>Winning quotes have been confirmed and officially executed. Trade confirmation emails have been dispatched to counterparties.</span>
-                                    ) : (
-                                        <span>The quotation window has closed. Review the winning rate(s) below. As {isCorporateAdmin ? 'Corporate Admin' : isMaker ? 'Quotation Creator' : 'Authorized Delegate'}, accept to confirm trade execution and notify counterparties, or decline to cancel execution. {rfq?.acceptance_timeout_action ? `(Timeout policy: ${rfq.acceptance_timeout_action.replace('_', ' ')})` : ''}</span>
-                                    )}
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    {isAutoRejected
+                                        ? 'Corporate acceptance window expired without confirmation. Quotation was automatically rejected.'
+                                        : isDeclined
+                                        ? `Deal execution was declined by Corporate Treasury${rfq?.admin_revision_notes ? `: "${rfq.admin_revision_notes}"` : '.'} No binding contracts will be executed.`
+                                        : isAccepted
+                                        ? 'Winning quotes have been confirmed and officially executed. Trade confirmation emails dispatched to counterparties.'
+                                        : 'Quotation window closed. Select winning currency pair legs to execute, or decline tender.'}
                                 </p>
                             </div>
                         </div>
 
-                        {isAwaitingAcceptance && legs && legs.length > 1 && (
-                            <div className="w-full mt-4 pt-4 border-t border-amber-200/80">
-                                <div className="text-[11px] font-bold uppercase tracking-wider text-amber-950 flex items-center justify-between mb-2.5">
-                                    <div className="flex items-center gap-2">
-                                        <span>Currency Pair Selection (Select which legs to execute):</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const allSelected = legs.every(l => selectedLegDecisions[l.id || l.leg_id] !== false);
-                                                const next = {};
-                                                legs.forEach((l, idx) => {
-                                                    const id = l.id || l.leg_id || idx;
-                                                    next[id] = !allSelected;
-                                                });
-                                                setSelectedLegDecisions(next);
-                                            }}
-                                            className="text-[10px] lowercase font-semibold text-indigo-700 hover:text-indigo-900 underline cursor-pointer"
-                                        >
-                                            {legs.every(l => selectedLegDecisions[l.id || l.leg_id] !== false) ? 'deselect all' : 'select all'}
-                                        </button>
-                                    </div>
-                                    <span className="text-[10px] font-bold text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded-full">
-                                        {legs.filter(l => (selectedLegDecisions[l.id || l.leg_id] !== false) && l.winner_bank_name && !l.is_inconclusive).length} of {legs.length} legs selected
-                                    </span>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {legs.map((leg, idx) => {
-                                        const legId = leg.id || leg.leg_id || idx;
-                                        const isChecked = selectedLegDecisions[legId] !== false;
-                                        const pair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
-                                        const hasWinner = Boolean(leg.winner_bank_name && !leg.is_inconclusive);
-                                        const isBuy = (leg.direction || 'BUY').toUpperCase() === 'BUY';
-                                        return (
-                                            <label
-                                                key={legId}
-                                                className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 transition-all select-none ${
-                                                    !hasWinner
-                                                        ? 'bg-gray-50/80 border-gray-200 opacity-60 cursor-not-allowed'
-                                                        : isChecked
-                                                            ? 'bg-white border-emerald-400 shadow-sm ring-2 ring-emerald-400/20 cursor-pointer'
-                                                            : 'bg-rose-50/50 border-rose-200 text-rose-900 cursor-pointer'
-                                                }`}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    disabled={!hasWinner || isAcceptingDeal || isDecliningDeal}
-                                                    checked={isChecked && hasWinner}
-                                                    onChange={(e) => {
-                                                        setSelectedLegDecisions(prev => ({
-                                                            ...prev,
-                                                            [legId]: e.target.checked
-                                                        }));
-                                                    }}
-                                                    className="mt-1 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer h-4 w-4 shrink-0"
-                                                />
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center justify-between gap-2">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className={`uppercase text-[10px] font-black px-2 py-0.5 rounded-md ${
-                                                                isBuy
-                                                                    ? 'bg-blue-100 text-blue-800'
-                                                                    : 'bg-purple-100 text-purple-800'
-                                                            }`}>
-                                                                {leg.direction || 'BUY'}
-                                                            </span>
-                                                            <span className="font-extrabold text-sm text-gray-900 tracking-tight">{pair}</span>
-                                                        </div>
-                                                        <span className="font-mono text-xs font-bold text-gray-900 bg-gray-100/90 px-2.5 py-0.5 rounded-lg border border-gray-200/80 shrink-0">
-                                                            {Number(leg.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} {leg.buy_currency || ''}
-                                                        </span>
-                                                    </div>
+                        {isAwaitingAcceptance && acceptanceSecondsRemaining !== null && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold shrink-0 self-start sm:self-auto">
+                                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                                {acceptanceSecondsRemaining}s remaining
+                            </span>
+                        )}
+                    </div>
 
-                                                    <div className="mt-2 flex items-center justify-between text-xs gap-2">
-                                                        {hasWinner ? (
-                                                            <div className="flex items-center gap-1 text-emerald-800 font-semibold truncate">
-                                                                <Trophy size={13} className="text-amber-500 shrink-0" />
-                                                                <span className="truncate">{leg.winner_bank_name}</span>
-                                                                <span className="font-mono font-bold text-emerald-950 bg-emerald-100/70 px-1.5 py-0.5 rounded border border-emerald-300 shrink-0">
-                                                                    @ {leg.winner_rate}
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-amber-700 italic text-[11px]">
-                                                                No winning quote / Inconclusive
-                                                            </span>
-                                                        )}
-                                                        {hasWinner && !isChecked && (
-                                                            <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full border border-rose-300 shrink-0">
-                                                                Dropped
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </label>
-                                        );
-                                    })}
+                    {/* Currency Pair Leg Selection (Multi-Leg) */}
+                    {isAwaitingAcceptance && legs && legs.length > 1 && (
+                        <div className="py-4 space-y-3">
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="font-bold uppercase tracking-wider text-slate-700">
+                                    Awarded Currency Pairs:
+                                </span>
+                                <div className="flex items-center gap-3">
+                                    <span className="font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                                        {legs.filter(l => (selectedLegDecisions[l.id !== undefined ? l.id : (l.leg_id !== undefined ? l.leg_id : l)] !== false) && l.winner_bank_name && !l.is_inconclusive).length} of {legs.filter(l => Boolean(l.winner_bank_name && !l.is_inconclusive)).length} selected
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={toggleAllLegsSelection}
+                                        className="font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                                    >
+                                        {legs.filter(l => Boolean(l.winner_bank_name && !l.is_inconclusive)).every(l => selectedLegDecisions[l.id !== undefined ? l.id : (l.leg_id !== undefined ? l.leg_id : l)] !== false) ? 'Deselect All' : 'Select All'}
+                                    </button>
                                 </div>
                             </div>
-                        )}
 
-                        {isAwaitingAcceptance && (
-                            <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto justify-end pt-3 sm:pt-2 border-t sm:border-t-0 border-amber-200">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                                {legs.map((leg, idx) => {
+                                    const legId = leg.id !== undefined ? leg.id : (leg.leg_id !== undefined ? leg.leg_id : idx);
+                                    const isChecked = selectedLegDecisions[legId] !== false;
+                                    const pair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
+                                    const hasWinner = Boolean(leg.winner_bank_name && !leg.is_inconclusive);
+                                    const isBuy = (leg.direction || 'BUY').toUpperCase() === 'BUY';
+
+                                    return (
+                                        <div
+                                            key={legId}
+                                            onClick={() => hasWinner && !isAcceptingDeal && !isDecliningDeal && toggleLegSelection(legId)}
+                                            className={`p-4 rounded-xl border-2 transition-all ${
+                                                !hasWinner
+                                                    ? 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
+                                                    : isChecked
+                                                    ? 'bg-white border-emerald-500 shadow-sm ring-1 ring-emerald-500/20 cursor-pointer'
+                                                    : 'bg-slate-50 border-slate-200 hover:border-slate-300 cursor-pointer'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="flex items-center gap-2.5">
+                                                    <input
+                                                        type="checkbox"
+                                                        disabled={!hasWinner || isAcceptingDeal || isDecliningDeal}
+                                                        checked={isChecked && hasWinner}
+                                                        onChange={() => toggleLegSelection(legId)}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer h-4 w-4 shrink-0"
+                                                    />
+                                                    <span className={`uppercase text-[10px] font-black px-2 py-0.5 rounded ${
+                                                        isBuy ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                                                    }`}>
+                                                        {leg.direction || 'BUY'}
+                                                    </span>
+                                                    <span className="font-extrabold text-sm text-slate-900 tracking-tight">
+                                                        {pair}
+                                                    </span>
+                                                </div>
+                                                <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 shrink-0">
+                                                    {formatAmount(leg.amount)} {leg.buy_currency || ''}
+                                                </span>
+                                            </div>
+
+                                            <div className="mt-3 flex items-center justify-between text-xs pt-2.5 border-t border-slate-100 gap-2">
+                                                {hasWinner ? (
+                                                    <div className="flex items-center gap-1.5 text-slate-800 font-semibold truncate">
+                                                        <Trophy size={14} className="text-amber-500 shrink-0" />
+                                                        <span className="font-bold text-slate-900 truncate">{leg.winner_bank_name}</span>
+                                                        <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0 ml-1">
+                                                            @ {typeof leg.winner_rate === 'number' ? leg.winner_rate.toFixed(4) : leg.winner_rate}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-400 italic text-[11px]">
+                                                        No winning quote / Inconclusive
+                                                    </span>
+                                                )}
+
+                                                {hasWinner && !isChecked && (
+                                                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-200/80 px-2 py-0.5 rounded">
+                                                        Excluded
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Action Bar */}
+                    {isAwaitingAcceptance && (
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
+                            <span className="text-xs text-slate-400">
+                                {rfq?.acceptance_timeout_action ? `Timeout action: ${rfq.acceptance_timeout_action.replace('_', ' ')}` : 'Timeout action: Auto-Reject on expiration'}
+                            </span>
+                            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                                 <button
                                     type="button"
                                     onClick={handleDeclineDeal}
                                     disabled={isDecliningDeal || isAcceptingDeal}
-                                    className="px-4 py-2.5 bg-white text-rose-700 border border-rose-300 font-bold rounded-xl hover:bg-rose-50 transition-all text-xs cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                                    className="px-4 py-2.5 bg-white text-rose-700 hover:bg-rose-50 border border-rose-300 font-bold rounded-xl transition-all text-xs cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
                                 >
                                     <XCircle size={14} />
-                                    <span>{isDecliningDeal ? 'Declining...' : 'Decline Entire Deal'}</span>
+                                    <span>{isDecliningDeal ? 'Declining...' : 'Decline Tender'}</span>
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={handleAcceptDeal}
-                                    disabled={isDecliningDeal || isAcceptingDeal}
-                                    className="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 text-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                                >
-                                    <CheckCircle2 size={14} className="text-emerald-100" />
-                                    <span>
-                                        {isAcceptingDeal
-                                            ? 'Accepting...'
-                                            : (legs && legs.length > 1)
-                                                ? (() => {
-                                                    const sCount = legs.filter(l => selectedLegDecisions[l.id || l.leg_id] !== false && l.winner_bank_name && !l.is_inconclusive).length;
-                                                    if (sCount === legs.length) return 'Accept All Legs & Execute';
-                                                    if (sCount > 0) return `Accept (${sCount} of ${legs.length} Legs) & Execute`;
-                                                    return 'Decline All Legs';
-                                                })()
-                                                : 'Accept Deal & Execute'}
-                                    </span>
-                                </button>
+                                {(() => {
+                                    const eligibleCount = (legs || []).filter(l => Boolean(l.winner_bank_name && !l.is_inconclusive)).length;
+                                    const selectedCount = (legs || []).filter(l => (selectedLegDecisions[l.id !== undefined ? l.id : (l.leg_id !== undefined ? l.leg_id : l)] !== false) && l.winner_bank_name && !l.is_inconclusive).length;
+                                    const isZeroSelected = (legs && legs.length > 1) && selectedCount === 0;
+
+                                    return (
+                                        <button
+                                            type="button"
+                                            onClick={handleAcceptDeal}
+                                            disabled={isDecliningDeal || isAcceptingDeal || isZeroSelected}
+                                            className={`px-5 py-2.5 font-bold rounded-xl transition-all text-xs flex items-center gap-1.5 shadow-sm ${
+                                                isZeroSelected
+                                                    ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed'
+                                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 cursor-pointer'
+                                            }`}
+                                        >
+                                            <CheckCircle2 size={14} />
+                                            <span>
+                                                {isAcceptingDeal
+                                                    ? 'Accepting...'
+                                                    : isZeroSelected
+                                                    ? 'Select at least 1 leg'
+                                                    : (legs && legs.length > 1)
+                                                    ? (selectedCount === eligibleCount ? 'Accept All Legs & Execute' : `Accept Selected (${selectedCount}/${eligibleCount}) & Execute`)
+                                                    : 'Accept Deal & Execute'}
+                                            </span>
+                                        </button>
+                                    );
+                                })()}
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             )}
 
