@@ -118,16 +118,16 @@ export default function QuotationBankOfferPage() {
         const hasBoth = Boolean(outcome?.receipt && hasDocs);
 
         return (
-            <div className={`mt-2.5 w-full mx-auto text-left ${hasBoth ? 'max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-3' : 'max-w-xl'}`}>
+            <div className={`mt-2.5 w-full mx-auto text-left ${hasBoth ? 'max-w-5xl xl:max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-3.5' : 'max-w-2xl'}`}>
                 {outcome?.receipt && (
-                    <div className="p-3 rounded-xl bg-emerald-950/5 border border-emerald-500/30 text-emerald-950 text-xs font-sans shadow-xs flex flex-col justify-between">
+                    <div className="p-3.5 rounded-xl bg-emerald-950/5 border border-emerald-500/30 text-emerald-950 text-xs font-sans shadow-xs flex flex-col justify-between">
                         <div>
                             <div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 pb-1.5 mb-2">
-                                <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                                <div className="flex items-center gap-1.5 font-bold text-emerald-900 min-w-0">
                                     <Shield size={14} className="text-emerald-600 shrink-0" />
-                                    <span>Cryptographic Deal Execution Receipt</span>
+                                    <span className="truncate">Cryptographic Deal Execution Receipt</span>
                                 </div>
-                                <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold border border-emerald-300/60">
+                                <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold border border-emerald-300/60 shrink-0 whitespace-nowrap">
                                     {outcome.receipt.receipt_id}
                                 </span>
                             </div>
@@ -176,14 +176,14 @@ export default function QuotationBankOfferPage() {
                 )}
 
                 {hasDocs && (
-                    <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-950 text-xs font-sans shadow-xs flex flex-col justify-between">
+                    <div className="p-3.5 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-950 text-xs font-sans shadow-xs flex flex-col justify-between">
                         <div>
                             <div className="flex items-center justify-between gap-2 border-b border-blue-200/60 pb-1.5 mb-2">
-                                <div className="flex items-center gap-1.5 font-bold text-blue-900">
+                                <div className="flex items-center gap-1.5 font-bold text-blue-900 min-w-0">
                                     <FileText size={14} className="text-blue-600 shrink-0" />
-                                    <span>Trade Supporting Documents (Released for Executed Leg{outcome.released_documents.length > 1 ? 's' : ''})</span>
+                                    <span className="truncate">Trade Supporting Documents (Released for Executed Leg{outcome.released_documents.length > 1 ? 's' : ''})</span>
                                 </div>
-                                <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">
+                                <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold shrink-0 whitespace-nowrap">
                                     {outcome.released_documents.length} File{outcome.released_documents.length > 1 ? 's' : ''}
                                 </span>
                             </div>
