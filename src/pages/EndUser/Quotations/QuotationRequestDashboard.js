@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, AlertTriangle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal, Save } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, AlertTriangle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal, Save, MessageSquare } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import { safeLocalStorage } from '../../../utils/safeStorage';
 import { getCurrentUser } from '../../../utils/authUtils';
@@ -175,6 +175,7 @@ const getInitialFormData = (entityId = '') => {
         maxTolerancePercent: '0.05',
         tokenValidityHours: '24',
         internalNotes: '',
+        commentsToBanks: '',
     };
 };
 
@@ -319,7 +320,8 @@ export default function QuotationRequestDashboard() {
         selectedBanks.length > 0 ||
         (formData.entityId && entities.length > 1) ||
         userNotes ||
-        formData.internalNotes
+        formData.internalNotes ||
+        formData.commentsToBanks
     );
 
     // Auto-save debounced effect (800ms)
@@ -770,6 +772,7 @@ export default function QuotationRequestDashboard() {
                     maxTolerancePercent: rfq.max_tolerance_percent !== null && rfq.max_tolerance_percent !== undefined ? String(rfq.max_tolerance_percent) : '0.05',
                     tokenValidityHours: rfq.token_validity_hours ? String(rfq.token_validity_hours) : '24',
                     internalNotes: rfq.internal_notes || '',
+                    commentsToBanks: rfq.comments_to_banks || '',
                 });
 
                 // Multi-pair leg prefill
@@ -1804,6 +1807,7 @@ export default function QuotationRequestDashboard() {
                 token_validity_hours: parseInt(formData.tokenValidityHours, 10),
                 user_notes: (userNotes || '').trim() || undefined,
                 internal_notes: (formData.internalNotes || '').trim() || undefined,
+                comments_to_banks: (formData.commentsToBanks || '').trim() || undefined,
                 legal_disclaimer_accepted: hasExecutionCounterparties ? Boolean(legalAcknowledged) : false,
                 legalDisclaimerAccepted: hasExecutionCounterparties ? Boolean(legalAcknowledged) : false,
                 pairs: formattedPairs,
@@ -1855,6 +1859,8 @@ export default function QuotationRequestDashboard() {
             parent_rfq_id: retradeRfqId || undefined,
             internal_notes: (formData.internalNotes || '').trim() || undefined,
             internalNotes: (formData.internalNotes || '').trim() || undefined,
+            comments_to_banks: (formData.commentsToBanks || '').trim() || undefined,
+            commentsToBanks: (formData.commentsToBanks || '').trim() || undefined,
             legal_disclaimer_accepted: hasExecutionCounterparties ? Boolean(legalAcknowledged) : false,
             legalDisclaimerAccepted: hasExecutionCounterparties ? Boolean(legalAcknowledged) : false,
             pairs: formattedPairs,
@@ -2823,6 +2829,24 @@ export default function QuotationRequestDashboard() {
                                 />
                                 <p className="text-[10px] text-gray-400 mt-1">
                                     Visible to Corporate Admin and stored in Quotation History. Counterparties cannot see this.
+                                </p>
+                            </div>
+
+                            {/* Special Instructions / Comments to Banks */}
+                            <div className="pt-2 border-t border-gray-100">
+                                <label className="block text-[10px] font-bold text-emerald-700 uppercase mb-1 flex items-center gap-1.5">
+                                    <MessageSquare size={12} className="text-emerald-600" />
+                                    <span>Special Instructions / Comments to Banks (Optional)</span>
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    placeholder="Add instructions, preferred settlement channels, or specific requirements for participating banks..."
+                                    className="w-full bg-emerald-50/40 border border-emerald-200/70 rounded-xl px-3.5 py-2.5 text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all resize-none text-slate-800 placeholder:text-gray-400"
+                                    value={formData.commentsToBanks || ''}
+                                    onChange={e => setFormData({ ...formData, commentsToBanks: e.target.value })}
+                                />
+                                <p className="text-[10px] text-emerald-600/80 mt-1">
+                                    Visible to all invited banks in their offer portal and quotation invitation email.
                                 </p>
                             </div>
                         </div>

@@ -10,7 +10,7 @@ import {
     Bell, Check, X, BarChart3, Landmark, Building, History, ChevronRight, Clock,
     Search, Filter, AlertCircle, TrendingUp, ArrowUpRight, ArrowDownRight, FileText, Download,
     Undo2, RefreshCw, Sparkles, Trophy, AlertTriangle, Shield, ShieldAlert, Info, Loader2,
-    Calendar, CalendarClock, Zap
+    Calendar, CalendarClock, Zap, MessageSquare
 } from 'lucide-react';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -969,6 +969,12 @@ export default function AdminQuotationDashboard() {
                                                 <div className="text-[10px] text-blue-600 truncate max-w-[130px] flex items-center gap-1 mt-0.5" title={`Internal Note: ${rfq.internal_notes}`}>
                                                     <FileText size={10} className="text-blue-500 shrink-0" />
                                                     <span className="truncate">{rfq.internal_notes}</span>
+                                                </div>
+                                            )}
+                                            {rfq.comments_to_banks && (
+                                                <div className="text-[10px] text-emerald-700 truncate max-w-[130px] flex items-center gap-1 mt-0.5" title={`Comments to Banks: ${rfq.comments_to_banks}`}>
+                                                    <MessageSquare size={10} className="text-emerald-600 shrink-0" />
+                                                    <span className="truncate">{rfq.comments_to_banks}</span>
                                                 </div>
                                             )}
                                         </td>

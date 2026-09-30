@@ -1986,6 +1986,17 @@ export default function ResultsView({ rfqId }) {
                             </div>
                         </div>
                     )}
+
+                    {rfq.comments_to_banks && (
+                        <div className="pt-3 border-t border-gray-100">
+                            <span className="font-sans text-[10px] font-bold text-emerald-700 uppercase block mb-1.5 flex items-center gap-1.5">
+                                <MessageSquare size={12} className="text-emerald-600" /> Special Instructions / Comments to Banks
+                            </span>
+                            <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-xl text-xs text-emerald-950 leading-relaxed whitespace-pre-wrap font-medium">
+                                {rfq.comments_to_banks}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

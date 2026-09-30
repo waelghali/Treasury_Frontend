@@ -2316,6 +2316,18 @@ export default function QuotationBankOfferPage() {
                                             </div>
                                         </div>
                                     )}
+
+                                    {rfq.comments_to_banks && (
+                                        <div className="mt-5 pt-4 border-t border-slate-100">
+                                            <label className="block text-[10px] font-bold text-emerald-800 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                <MessageSquare size={13} className="text-emerald-600" />
+                                                Special Instructions / Comments from Client
+                                            </label>
+                                            <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-xs text-emerald-950 whitespace-pre-wrap leading-relaxed font-medium">
+                                                {rfq.comments_to_banks}
+                                            </div>
+                                        </div>
+                                    )}
                                 </section>
 
                                 {/* Bottom Card: Complete Trading Guidelines */}
