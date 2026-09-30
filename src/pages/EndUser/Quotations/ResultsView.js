@@ -1187,9 +1187,13 @@ export default function ResultsView({ rfqId }) {
                                     {isAutoRejected
                                         ? 'Corporate acceptance window expired without confirmation. Quotation was automatically rejected.'
                                         : isDeclined
-                                        ? `Deal execution was declined by Corporate Treasury${rfq?.admin_revision_notes ? `: "${rfq.admin_revision_notes}"` : '.'} No binding contracts will be executed.`
+                                        ? (rfq?.acceptance_resolved_by_name 
+                                            ? `Deal execution was declined by ${rfq.acceptance_resolved_by_name}${rfq?.admin_revision_notes ? `: "${rfq.admin_revision_notes}"` : '.'} No binding contracts will be executed.`
+                                            : `Deal execution was declined by Corporate Treasury${rfq?.admin_revision_notes ? `: "${rfq.admin_revision_notes}"` : '.'} No binding contracts will be executed.`)
                                         : isAccepted
-                                        ? 'Winning quotes have been confirmed and officially executed. Trade confirmation emails dispatched to counterparties.'
+                                        ? (rfq?.acceptance_resolved_by_name 
+                                            ? `Winning quotes have been confirmed and officially executed by ${rfq.acceptance_resolved_by_name}. Trade confirmation emails dispatched to counterparties.`
+                                            : 'Winning quotes have been confirmed and officially executed. Trade confirmation emails dispatched to counterparties.')
                                         : 'Quotation window closed. Select winning currency pair legs to execute, or decline tender.'}
                                 </p>
                             </div>
@@ -1877,6 +1881,70 @@ export default function ResultsView({ rfqId }) {
                                 <User size={14} className="text-slate-500 shrink-0" />
                                 <span className="truncate">{rfq.creator_name || 'End User'}</span>
                             </span>
+                        </div>
+                    </div>
+
+                    {/* RFQ Governance & Execution Lifecycle Card */}
+                    <div className="bg-gradient-to-r from-slate-50 via-indigo-50/20 to-slate-50 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3 shadow-2xs">
+                        <div className="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-slate-200/70">
+                            <div className="flex items-center gap-2">
+                                <Shield size={16} className="text-indigo-600" />
+                                <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800">Governance & Execution Audit Trail</span>
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-500 bg-white border border-slate-200 px-2.5 py-0.5 rounded-full">
+                                Ref: {rfq.ref_no}
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {/* Request Maker */}
+                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
+                                    <User size={13} className="text-slate-400" /> Request Maker
+                                </span>
+                                <span className="text-sm font-bold text-slate-900 block truncate" title={rfq.creator_name || 'End User'}>
+                                    {rfq.creator_name || 'End User'}
+                                </span>
+                                <span className="text-[11px] text-slate-500 block mt-0.5">
+                                    Created: {formatDate(rfq.created_at)} at {new Date(rfq.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                            </div>
+
+                            {/* RFQ Approved By */}
+                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
+                                    <Shield size={13} className="text-blue-500" /> RFQ Approved By
+                                </span>
+                                <span className="text-sm font-bold text-slate-900 block truncate" title={rfq.approved_by_name || rfq.approved_by_email || 'Direct Corporate Release'}>
+                                    {rfq.approved_by_name || rfq.approved_by_email || (rfq.status === 'PENDING_APPROVAL' ? '⏳ Awaiting Admin Approval' : 'Direct Corporate Release')}
+                                </span>
+                                <span className="text-[11px] text-slate-500 block mt-0.5">
+                                    {rfq.admin_reviewed_at 
+                                        ? `Approved: ${formatDate(rfq.admin_reviewed_at)} at ${new Date(rfq.admin_reviewed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                        : (rfq.status === 'PENDING_APPROVAL' ? 'Pending Corporate Admin review' : 'No pre-approval required')}
+                                </span>
+                            </div>
+
+                            {/* Deal Accepted / Decided By */}
+                            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
+                                    <CheckCircle2 size={13} className={isAccepted ? "text-emerald-500" : isDeclined ? "text-rose-500" : "text-amber-500"} /> Deal Decision By
+                                </span>
+                                <span className="text-sm font-bold text-slate-900 block truncate" title={rfq.acceptance_resolved_by_name || '—'}>
+                                    {rfq.acceptance_resolved_by_name 
+                                        ? `${isAccepted ? '✅ Accepted by' : '❌ Declined by'} ${rfq.acceptance_resolved_by_name}` 
+                                        : (rfq.acceptance_status === 'AUTO_ACCEPTED' 
+                                            ? '⚡ System (Auto-Accepted on Timeout)' 
+                                            : (rfq.acceptance_status === 'AUTO_REJECTED' 
+                                                ? '⏱️ System (Auto-Rejected on Timeout)' 
+                                                : (isAwaitingAcceptance ? '⏳ Pending Maker / Delegate Decision' : '—')))}
+                                </span>
+                                <span className="text-[11px] text-slate-500 block mt-0.5">
+                                    {rfq.acceptance_resolved_at 
+                                        ? `Resolved: ${formatDate(rfq.acceptance_resolved_at)} at ${new Date(rfq.acceptance_resolved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                        : (rfq.delegated_to_name ? `Delegated to: ${rfq.delegated_to_name}` : (isAwaitingAcceptance ? 'Acceptance window countdown active' : 'Outcome recorded'))}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
