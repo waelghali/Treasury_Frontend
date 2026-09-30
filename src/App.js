@@ -99,6 +99,19 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
         setMustAcceptPolicies(decoded.must_accept_policies || false);
         setUserId(decoded.user_id);
         setCustomerId(decoded.customer_id || null);
+        try {
+          const userObj = {
+            id: decoded.user_id,
+            user_id: decoded.user_id,
+            email: decoded.email || decoded.sub,
+            role: decoded.role,
+            customer_id: decoded.customer_id,
+            customer_name: decoded.customer_name
+          };
+          localStorage.setItem('user', JSON.stringify(userObj));
+          localStorage.setItem('user_role', decoded.role);
+          localStorage.setItem('user_id', String(decoded.user_id));
+        } catch (e) {}
         setCustomerName(decoded.customer_name);
         setSubscriptionStatus(decoded.subscription_status || 'active');
         setSubscriptionEndDate(decoded.subscription_end_date || null);

@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Users, UserCheck, Layers, Loader2, Lock } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
-import { getCurrentUserId } from '../../../utils/authUtils';
+import { getCurrentUserId, getUserRole } from '../../../utils/authUtils';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
 import QuotationCancellationModal from '../../../components/Modals/QuotationCancellationModal';
 
@@ -155,11 +155,14 @@ export default function ResultsView({ rfqId }) {
     const [selectedLegIndex, setSelectedLegIndex] = useState('ALL');
     const [loading, setLoading] = useState(true);
     const [sendingResults, setSendingResults] = useState(false);
-    const userRole = localStorage.getItem('user_role'); // Check role
+    const userRole = localStorage.getItem('user_role') || getUserRole();
     const isCorporateAdmin = location.pathname.startsWith('/corporate-admin') || decodeURIComponent(location.pathname).startsWith('/corporate admin') || (userRole || '').toLowerCase().includes('corporate_admin');
 
     const currentUserId = getCurrentUserId();
-    const isMaker = Boolean(rfq?.created_by_user_id && currentUserId && Number(currentUserId) === Number(rfq.created_by_user_id));
+    const isMaker = Boolean(
+        (rfq?.created_by_user_id && currentUserId && Number(currentUserId) === Number(rfq.created_by_user_id)) ||
+        (!rfq?.created_by_user_id && !isCorporateAdmin)
+    );
     const isDelegate = Boolean(rfq?.delegated_to_user_id && currentUserId && Number(currentUserId) === Number(rfq.delegated_to_user_id));
     const canAcceptOrDecline = isCorporateAdmin || isMaker || isDelegate;
     const canDelegate = isCorporateAdmin || isMaker;
