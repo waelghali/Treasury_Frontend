@@ -109,6 +109,120 @@ export default function QuotationBankOfferPage() {
         setTimeout(() => setCopiedReceiptHash(false), 2000);
     }, []);
 
+    const renderOutcomeReceiptAndDocs = (outcome) => {
+        if (!outcome?.receipt && (!outcome?.released_documents || outcome.released_documents.length === 0)) {
+            return null;
+        }
+
+        const hasDocs = Boolean(outcome?.released_documents && outcome.released_documents.length > 0);
+        const hasBoth = Boolean(outcome?.receipt && hasDocs);
+
+        return (
+            <div className={`mt-2.5 w-full mx-auto text-left ${hasBoth ? 'max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-3' : 'max-w-xl'}`}>
+                {outcome?.receipt && (
+                    <div className="p-3 rounded-xl bg-emerald-950/5 border border-emerald-500/30 text-emerald-950 text-xs font-sans shadow-xs flex flex-col justify-between">
+                        <div>
+                            <div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 pb-1.5 mb-2">
+                                <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                                    <Shield size={14} className="text-emerald-600 shrink-0" />
+                                    <span>Cryptographic Deal Execution Receipt</span>
+                                </div>
+                                <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold border border-emerald-300/60">
+                                    {outcome.receipt.receipt_id}
+                                </span>
+                            </div>
+
+                            <div className="space-y-1.5 text-xs text-emerald-900">
+                                <div>
+                                    <div className="flex items-center justify-between text-emerald-800 mb-1">
+                                        <span className="font-semibold text-xs">Digital Signature (HMAC-SHA256):</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopyReceiptHash(outcome.receipt.signature_hash)}
+                                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-950 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                                            title="Copy full cryptographic signature"
+                                        >
+                                            {copiedReceiptHash ? (
+                                                <>
+                                                    <Check size={12} className="text-emerald-700 stroke-[2.5]" />
+                                                    <span className="font-bold text-emerald-800">Copied!</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Copy size={12} />
+                                                    <span>Copy Hash</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                    <div className="font-mono text-[11px] text-emerald-950 bg-white/90 border border-emerald-500/20 rounded-lg px-2.5 py-1.5 break-all select-all leading-relaxed shadow-inner">
+                                        {outcome.receipt.signature_hash}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 mt-2 border-t border-emerald-500/15 text-xs space-y-1">
+                            <div className="flex justify-between items-center">
+                                <span className="text-emerald-700 font-medium">Execution Timestamp:</span>
+                                <span className="font-mono text-xs text-emerald-950 font-medium">{outcome.receipt.executed_at}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-emerald-700 font-medium">Counterparty Leg Scope:</span>
+                                <span className="text-emerald-950 font-bold">{outcome.receipt.scoped_legs_count} Leg(s) Won &amp; Executed</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {hasDocs && (
+                    <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-950 text-xs font-sans shadow-xs flex flex-col justify-between">
+                        <div>
+                            <div className="flex items-center justify-between gap-2 border-b border-blue-200/60 pb-1.5 mb-2">
+                                <div className="flex items-center gap-1.5 font-bold text-blue-900">
+                                    <FileText size={14} className="text-blue-600 shrink-0" />
+                                    <span>Trade Supporting Documents (Released for Executed Leg{outcome.released_documents.length > 1 ? 's' : ''})</span>
+                                </div>
+                                <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">
+                                    {outcome.released_documents.length} File{outcome.released_documents.length > 1 ? 's' : ''}
+                                </span>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                {outcome.released_documents.map((doc, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white border border-blue-100 text-xs gap-2">
+                                        <span className="flex items-center gap-2 font-medium text-slate-800 truncate min-w-0">
+                                            <FileText size={14} className="text-blue-500 shrink-0" />
+                                            <span className="truncate font-semibold">{doc.name}</span>
+                                            {doc.pair && (
+                                                <span className="text-[10px] font-bold px-1.5 py-0.2 bg-blue-50 text-blue-700 rounded border border-blue-200 shrink-0">
+                                                    {doc.pair}
+                                                </span>
+                                            )}
+                                        </span>
+                                        <a
+                                            href={doc.path}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            download
+                                            className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-md transition-colors shrink-0"
+                                        >
+                                            <ExternalLink size={12} /> Download
+                                        </a>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="pt-2 mt-2 border-t border-blue-200/40 text-[11px] text-blue-700 flex items-center justify-between">
+                            <span>Released exclusively for your executed position.</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     // Live Ranking State
     const [liveRank, setLiveRank] = useState(null);
 
@@ -1926,110 +2040,24 @@ export default function QuotationBankOfferPage() {
                                     </div>
                                 ) : (resultStatus === 'WINNER' && (!outcomeData?.total_legs_count || outcomeData?.total_legs_count <= 1 || outcomeData?.won_legs_count === outcomeData?.total_legs_count)) ? (
                                     <div className="flex flex-col items-center">
-                                        <CheckCircle2 className="mb-1 text-emerald-600" size={26} />
+                                        <CheckCircle2 className="mb-1 text-emerald-600" size={24} />
                                         <h2 className="text-base sm:text-lg font-bold">
                                             Trade Execution Confirmed{outcomeData?.total_legs_count > 1 ? ` — All ${outcomeData.total_legs_count} Pairs Won!` : '!'}
                                         </h2>
-                                        <p className="text-xs sm:text-sm mt-0.5 text-emerald-800">
+                                        <p className="text-xs sm:text-sm mt-0.5 text-emerald-800 text-center max-w-2xl">
                                             {outcomeData?.total_legs_count > 1
                                                 ? `Congratulations, your quotes won every currency pair in this package (${outcomeData?.won_pairs?.join(', ')}). Our treasury team will contact you shortly.`
                                                 : 'Congratulations, your quote was selected as the winning offer. Our treasury team will contact you shortly.'}
                                         </p>
-                                        {outcomeData?.receipt && (
-                                            <div className="mt-3 w-full max-w-xl mx-auto p-3.5 rounded-xl bg-emerald-950/5 border border-emerald-500/30 text-emerald-950 text-left text-xs font-sans shadow-xs">
-                                                <div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 pb-2 mb-2.5">
-                                                    <div className="flex items-center gap-1.5 font-bold text-emerald-900">
-                                                        <Shield size={14} className="text-emerald-600" />
-                                                        <span>Cryptographic Deal Execution Receipt</span>
-                                                    </div>
-                                                    <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold border border-emerald-300/60">
-                                                        {outcomeData.receipt.receipt_id}
-                                                    </span>
-                                                </div>
-                                                <div className="space-y-2 text-[11px] text-emerald-900">
-                                                    <div>
-                                                        <div className="flex items-center justify-between text-emerald-700 mb-1">
-                                                            <span className="font-semibold text-[11px]">Digital Signature (HMAC-SHA256):</span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleCopyReceiptHash(outcomeData.receipt.signature_hash)}
-                                                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 hover:text-emerald-950 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded transition-colors cursor-pointer"
-                                                                title="Copy full cryptographic signature"
-                                                            >
-                                                                {copiedReceiptHash ? (
-                                                                    <>
-                                                                        <Check size={11} className="text-emerald-700 stroke-[2.5]" />
-                                                                        <span className="font-bold text-emerald-800">Copied!</span>
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <Copy size={11} />
-                                                                        <span>Copy Hash</span>
-                                                                    </>
-                                                                )}
-                                                            </button>
-                                                        </div>
-                                                        <div className="font-mono text-[10px] text-emerald-950 bg-white/80 border border-emerald-500/20 rounded-md p-2 break-all select-all leading-relaxed shadow-inner">
-                                                            {outcomeData.receipt.signature_hash}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex justify-between items-center pt-1 border-t border-emerald-500/15">
-                                                        <span className="text-emerald-700">Execution Timestamp:</span>
-                                                        <span className="font-mono text-[10px] text-emerald-950 font-medium">{outcomeData.receipt.executed_at}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-emerald-700">Counterparty Leg Scope:</span>
-                                                        <span className="text-emerald-950 font-bold">{outcomeData.receipt.scoped_legs_count} Leg(s) Won &amp; Executed</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {outcomeData?.released_documents && outcomeData.released_documents.length > 0 && (
-                                            <div className="mt-3 w-full max-w-xl mx-auto p-3.5 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-950 text-left text-xs font-sans shadow-xs">
-                                                <div className="flex items-center justify-between gap-2 border-b border-blue-200/60 pb-2 mb-2">
-                                                    <div className="flex items-center gap-1.5 font-bold text-blue-900">
-                                                        <FileText size={14} className="text-blue-600" />
-                                                        <span>Trade Supporting Documents (Released for Executed Leg{outcomeData.released_documents.length > 1 ? 's' : ''})</span>
-                                                    </div>
-                                                    <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">
-                                                        {outcomeData.released_documents.length} File{outcomeData.released_documents.length > 1 ? 's' : ''}
-                                                    </span>
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    {outcomeData.released_documents.map((doc, idx) => (
-                                                        <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white border border-blue-100 text-xs gap-2">
-                                                            <span className="flex items-center gap-2 font-medium text-slate-800 truncate min-w-0">
-                                                                <FileText size={13} className="text-blue-500 shrink-0" />
-                                                                <span className="truncate">{doc.name}</span>
-                                                                {doc.pair && (
-                                                                    <span className="text-[10px] font-bold px-1.5 py-0.2 bg-blue-50 text-blue-700 rounded border border-blue-200 shrink-0">
-                                                                        {doc.pair}
-                                                                    </span>
-                                                                )}
-                                                            </span>
-                                                            <a
-                                                                href={doc.path}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                download
-                                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded transition-colors shrink-0"
-                                                            >
-                                                                <ExternalLink size={11} /> Download
-                                                            </a>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
+                                        {renderOutcomeReceiptAndDocs(outcomeData)}
                                     </div>
                                 ) : (resultStatus === 'PARTIALLY_WON' || (resultStatus === 'WINNER' && outcomeData?.won_legs_count < outcomeData?.total_legs_count)) ? (
                                     <div className="flex flex-col items-center">
-                                        <CheckCircle2 className="mb-1 text-emerald-600" size={26} />
+                                        <CheckCircle2 className="mb-1 text-emerald-600" size={24} />
                                         <h2 className="text-base sm:text-lg font-bold">
                                             Trade Execution Confirmed — Partially Won ({outcomeData?.won_legs_count || outcomeData?.won_pairs?.length || 1} of {outcomeData?.total_legs_count || 2} Pairs)!
                                         </h2>
-                                        <p className="text-xs sm:text-sm mt-0.5 text-emerald-800 text-center">
+                                        <p className="text-xs sm:text-sm mt-0.5 text-emerald-800 text-center max-w-2xl">
                                             Congratulations, your quotes won: <strong className="font-mono">{outcomeData?.won_pairs?.join(', ')}</strong>.
                                             {outcomeData?.lost_pairs?.length > 0 && (
                                                 <span> (Awarded to competing counterparties: <span className="font-mono">{outcomeData.lost_pairs.join(', ')}</span>).</span>
@@ -2038,93 +2066,7 @@ export default function QuotationBankOfferPage() {
                                                 <span> (Other pairs closed without execution / inconclusive: <span className="font-mono">{outcomeData.inconclusive_pairs.join(', ')}</span>).</span>
                                             )}
                                         </p>
-                                        {outcomeData?.receipt && (
-                                            <div className="mt-3 w-full max-w-xl mx-auto p-3.5 rounded-xl bg-emerald-950/5 border border-emerald-500/30 text-emerald-950 text-left text-xs font-sans shadow-xs">
-                                                <div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 pb-2 mb-2.5">
-                                                    <div className="flex items-center gap-1.5 font-bold text-emerald-900">
-                                                        <Shield size={14} className="text-emerald-600" />
-                                                        <span>Cryptographic Deal Execution Receipt</span>
-                                                    </div>
-                                                    <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold border border-emerald-300/60">
-                                                        {outcomeData.receipt.receipt_id}
-                                                    </span>
-                                                </div>
-                                                <div className="space-y-2 text-[11px] text-emerald-900">
-                                                    <div>
-                                                        <div className="flex items-center justify-between text-emerald-700 mb-1">
-                                                            <span className="font-semibold text-[11px]">Digital Signature (HMAC-SHA256):</span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleCopyReceiptHash(outcomeData.receipt.signature_hash)}
-                                                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 hover:text-emerald-950 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded transition-colors cursor-pointer"
-                                                                title="Copy full cryptographic signature"
-                                                            >
-                                                                {copiedReceiptHash ? (
-                                                                    <>
-                                                                        <Check size={11} className="text-emerald-700 stroke-[2.5]" />
-                                                                        <span className="font-bold text-emerald-800">Copied!</span>
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <Copy size={11} />
-                                                                        <span>Copy Hash</span>
-                                                                    </>
-                                                                )}
-                                                            </button>
-                                                        </div>
-                                                        <div className="font-mono text-[10px] text-emerald-950 bg-white/80 border border-emerald-500/20 rounded-md p-2 break-all select-all leading-relaxed shadow-inner">
-                                                            {outcomeData.receipt.signature_hash}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex justify-between items-center pt-1 border-t border-emerald-500/15">
-                                                        <span className="text-emerald-700">Execution Timestamp:</span>
-                                                        <span className="font-mono text-[10px] text-emerald-950 font-medium">{outcomeData.receipt.executed_at}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-emerald-700">Counterparty Leg Scope:</span>
-                                                        <span className="text-emerald-950 font-bold">{outcomeData.receipt.scoped_legs_count} Leg(s) Won &amp; Executed</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {outcomeData?.released_documents && outcomeData.released_documents.length > 0 && (
-                                            <div className="mt-3 w-full max-w-xl mx-auto p-3.5 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-950 text-left text-xs font-sans shadow-xs">
-                                                <div className="flex items-center justify-between gap-2 border-b border-blue-200/60 pb-2 mb-2">
-                                                    <div className="flex items-center gap-1.5 font-bold text-blue-900">
-                                                        <FileText size={14} className="text-blue-600" />
-                                                        <span>Trade Supporting Documents (Released for Executed Leg{outcomeData.released_documents.length > 1 ? 's' : ''})</span>
-                                                    </div>
-                                                    <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">
-                                                        {outcomeData.released_documents.length} File{outcomeData.released_documents.length > 1 ? 's' : ''}
-                                                    </span>
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    {outcomeData.released_documents.map((doc, idx) => (
-                                                        <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white border border-blue-100 text-xs gap-2">
-                                                            <span className="flex items-center gap-2 font-medium text-slate-800 truncate min-w-0">
-                                                                <FileText size={13} className="text-blue-500 shrink-0" />
-                                                                <span className="truncate">{doc.name}</span>
-                                                                {doc.pair && (
-                                                                    <span className="text-[10px] font-bold px-1.5 py-0.2 bg-blue-50 text-blue-700 rounded border border-blue-200 shrink-0">
-                                                                        {doc.pair}
-                                                                    </span>
-                                                                )}
-                                                            </span>
-                                                            <a
-                                                                href={doc.path}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                download
-                                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded transition-colors shrink-0"
-                                                            >
-                                                                <ExternalLink size={11} /> Download
-                                                            </a>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
+                                        {renderOutcomeReceiptAndDocs(outcomeData)}
                                     </div>
                                 ) : resultStatus === 'AWAITING_SELECTION' ? (
                                     <div className="flex flex-col items-center text-center">
