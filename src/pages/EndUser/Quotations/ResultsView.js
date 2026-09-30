@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Layers, Loader2 } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Users, UserCheck, Layers, Loader2 } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
+import { getCurrentUserId } from '../../../utils/authUtils';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
 import QuotationCancellationModal from '../../../components/Modals/QuotationCancellationModal';
 
@@ -156,6 +157,54 @@ export default function ResultsView({ rfqId }) {
     const [sendingResults, setSendingResults] = useState(false);
     const userRole = localStorage.getItem('user_role'); // Check role
     const isCorporateAdmin = location.pathname.startsWith('/corporate-admin') || decodeURIComponent(location.pathname).startsWith('/corporate admin') || (userRole || '').toLowerCase().includes('corporate_admin');
+
+    const currentUserId = getCurrentUserId();
+    const isMaker = Boolean(rfq?.created_by_user_id && currentUserId && Number(currentUserId) === Number(rfq.created_by_user_id));
+    const isDelegate = Boolean(rfq?.delegated_to_user_id && currentUserId && Number(currentUserId) === Number(rfq.delegated_to_user_id));
+    const canAcceptOrDecline = isCorporateAdmin || isMaker || isDelegate;
+    const canDelegate = isCorporateAdmin || isMaker;
+
+    // Delegation state
+    const [showDelegateModal, setShowDelegateModal] = useState(false);
+    const [colleagues, setColleagues] = useState([]);
+    const [selectedDelegateId, setSelectedDelegateId] = useState('');
+    const [delegating, setDelegating] = useState(false);
+
+    const handleOpenDelegateModal = async () => {
+        try {
+            const res = await apiClient.get('/end-user/quotations/delegation-colleagues');
+            const list = res.data || [];
+            setColleagues(list);
+            if (list.length > 0) {
+                setSelectedDelegateId(list[0].id);
+            }
+            setShowDelegateModal(true);
+        } catch (err) {
+            console.error('Fetch colleagues failed:', err);
+            toast.error('Could not load colleagues for delegation.');
+        }
+    };
+
+    const handleConfirmDelegation = async () => {
+        if (!selectedDelegateId) {
+            toast.warning('Please select a colleague to delegate to.');
+            return;
+        }
+        try {
+            setDelegating(true);
+            const res = await apiClient.patch(`/end-user/quotations/${rfqId}/delegate`, {
+                delegated_to_user_id: Number(selectedDelegateId)
+            });
+            toast.success(res.data.message || 'Deal acceptance delegated successfully.');
+            setShowDelegateModal(false);
+            fetchResults();
+        } catch (err) {
+            console.error('Delegation failed:', err);
+            toast.error(err.response?.data?.detail || err.message || 'Failed to delegate deal acceptance.');
+        } finally {
+            setDelegating(false);
+        }
+    };
 
     const [resultsMeta, setResultsMeta] = useState({});
     const [showAuditPack, setShowAuditPack] = useState(false);
@@ -420,7 +469,8 @@ export default function ResultsView({ rfqId }) {
         try {
             setIsAcceptingDeal(true);
             const payload = isMulti ? { accepted_leg_ids: acceptedIds, declined_leg_ids: declinedIds } : {};
-            const res = await apiClient.post(`/corporate-admin/quotations/${rfqId}/accept-deal`, payload);
+            const acceptUrl = isCorporateAdmin ? `/corporate-admin/quotations/${rfqId}/accept-deal` : `/end-user/quotations/${rfqId}/accept-deal`;
+            const res = await apiClient.post(acceptUrl, payload);
             toast.success(res.data?.message || "Deal accepted! Trade execution confirmed.");
             fetchResults();
         } catch (err) {
@@ -436,7 +486,8 @@ export default function ResultsView({ rfqId }) {
         if (reason === null) return;
         try {
             setIsDecliningDeal(true);
-            const res = await apiClient.post(`/corporate-admin/quotations/${rfqId}/decline-deal`, { reason });
+            const declineUrl = isCorporateAdmin ? `/corporate-admin/quotations/${rfqId}/decline-deal` : `/end-user/quotations/${rfqId}/decline-deal`;
+            const res = await apiClient.post(declineUrl, { reason });
             toast.info(res.data?.message || "Deal declined.");
             fetchResults();
         } catch (err) {
@@ -736,7 +787,7 @@ export default function ResultsView({ rfqId }) {
                             <RefreshCw size={13} /> ⚡ 1-Click Re-Tender
                         </button>
                     )}
-                    {isWindowClosed && isCorporateAdmin && !resultsMeta.isInconclusive && rfq?.status !== 'CANCELLED' && (
+                    {isWindowClosed && canAcceptOrDecline && !resultsMeta.isInconclusive && rfq?.status !== 'CANCELLED' && (
                         isDeclined ? (
                             <span className="px-3 py-1.5 bg-rose-100 text-rose-800 border border-rose-300 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs">
                                 <XCircle size={14} /> {isAutoRejected ? 'Deal Auto-Rejected (Timeout)' : 'Deal Declined'}
@@ -772,6 +823,17 @@ export default function ResultsView({ rfqId }) {
                                 </button>
                             </div>
                         )
+                    )}
+                    {canDelegate && !isAccepted && !isDeclined && rfq?.status !== 'CANCELLED' && (
+                        <button
+                            type="button"
+                            onClick={handleOpenDelegateModal}
+                            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-50 hover:bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                            title="Authorize another corporate treasury colleague to review or accept/decline this quotation on your behalf"
+                        >
+                            <Users size={13} className="text-indigo-600" />
+                            {rfq?.delegated_to_name ? `Delegated: ${rfq.delegated_to_name}` : 'Delegate Authority'}
+                        </button>
                     )}
                     {isAccepted && !resultsMeta.isInconclusive && (
                         <button
@@ -2634,6 +2696,77 @@ export default function ResultsView({ rfqId }) {
                         fetchResults();
                     }}
                 />
+            )}
+
+            {/* Delegate Acceptance Authority Modal */}
+            {showDelegateModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col">
+                        <div className="p-5 bg-gradient-to-r from-indigo-900 to-slate-900 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                                    <Users size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-white">Delegate Acceptance Authority</h3>
+                                    <p className="text-xs text-indigo-200/80 font-mono">RFQ #{rfq?.ref_no}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowDelegateModal(false)}
+                                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-xs text-slate-600 leading-relaxed">
+                                Designate a corporate treasury colleague who is authorized to review quotes, accept winning deals, or decline counterparties on your behalf for this RFQ.
+                            </p>
+                            {rfq?.delegated_to_name && (
+                                <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs text-indigo-800">
+                                    Currently delegated to: <span className="font-bold">{rfq.delegated_to_name}</span>
+                                </div>
+                            )}
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 block mb-1.5 uppercase tracking-wide">
+                                    Select Corporate Colleague
+                                </label>
+                                {colleagues.length === 0 ? (
+                                    <p className="text-xs text-gray-500 italic p-2 border border-dashed rounded-lg">No other corporate colleagues found in your organization.</p>
+                                ) : (
+                                    <select
+                                        value={selectedDelegateId}
+                                        onChange={(e) => setSelectedDelegateId(e.target.value)}
+                                        className="w-full text-xs p-3 rounded-xl border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 font-medium"
+                                    >
+                                        {colleagues.map((c) => (
+                                            <option key={c.id} value={c.id}>
+                                                {c.display_name || c.email} ({c.role})
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+                        </div>
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                            <button
+                                onClick={() => setShowDelegateModal(false)}
+                                disabled={delegating}
+                                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmDelegation}
+                                disabled={delegating || !selectedDelegateId || colleagues.length === 0}
+                                className="flex items-center gap-1.5 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-indigo-200 cursor-pointer disabled:opacity-50"
+                            >
+                                <UserCheck size={14} /> {delegating ? 'Delegating...' : 'Authorize Colleague'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
