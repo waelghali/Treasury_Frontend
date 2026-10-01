@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Trash2, Edit2, CheckCircle2, X, Building, UserCheck, Eye, Shield, Mail, User, ChevronDown, ArrowLeft } from 'lucide-react';
+import { Plus, Search, Trash2, Edit2, CheckCircle2, X, Building, UserCheck, Eye, Shield, Mail, User, ChevronDown, ArrowLeft, RefreshCw } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 
 export default function QuotationBanksModal({ onClose }) {
@@ -19,7 +19,9 @@ export default function QuotationBanksModal({ onClose }) {
         trade_type: 'BOTH',
         entity_scope: 'ALL_ENTITIES',
         entity_ids: [],
-        contacts: []
+        contacts: [],
+        authorized_contact_email: '',
+        authorized_contact_name: ''
     });
 
     const [newContact, setNewContact] = useState({
@@ -28,6 +30,8 @@ export default function QuotationBanksModal({ onClose }) {
         role: 'EXECUTION'
     });
     const [roleNotice, setRoleNotice] = useState(null);
+    const [isSendingReport, setIsSendingReport] = useState(false);
+    const [reportSentSuccess, setReportSentSuccess] = useState(null);
 
     useEffect(() => {
         fetchBanks();
@@ -191,6 +195,7 @@ export default function QuotationBanksModal({ onClose }) {
 
     const handleStartEdit = (bank) => {
         setRoleNotice(null);
+        setReportSentSuccess(null);
         let parsedContacts = bank.contacts || [];
         if (!parsedContacts.length && bank.emails) {
             parsedContacts = bank.emails.split(',').map(e => ({
@@ -204,12 +209,33 @@ export default function QuotationBanksModal({ onClose }) {
             trade_type: bank.trade_type || 'BOTH',
             entity_scope: bank.entity_scope || 'ALL_ENTITIES',
             entity_ids: bank.entity_ids || [],
-            contacts: parsedContacts
+            contacts: parsedContacts,
+            authorized_contact_email: bank.authorized_contact_email || '',
+            authorized_contact_name: bank.authorized_contact_name || ''
         });
         setBankSearchTerm('');
         setIsBankDropdownOpen(false);
         setEditingBankId(bank.id);
         setIsAdding(true);
+    };
+
+    const handleSendRosterReport = async () => {
+        if (!editingBankId) return;
+        const email = (formData.authorized_contact_email || '').trim();
+        if (!email || !email.includes('@')) {
+            alert('Please enter a valid Authorized Officer Email first and click Save Changes.');
+            return;
+        }
+        setIsSendingReport(true);
+        setReportSentSuccess(null);
+        try {
+            const res = await apiClient.post(`/end-user/quotations/banks/${editingBankId}/send-roster-report`);
+            setReportSentSuccess(res.data?.message || `Roster report successfully emailed to ${email}!`);
+        } catch (err) {
+            alert('Failed to send roster report: ' + (err.response?.data?.detail || err.message));
+        } finally {
+            setIsSendingReport(false);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -258,11 +284,14 @@ export default function QuotationBanksModal({ onClose }) {
                 trade_type: formData.trade_type,
                 entity_scope: formData.entity_scope,
                 entity_ids: formData.entity_scope === 'SPECIFIC_ENTITIES' ? formData.entity_ids : [],
-                contacts: validContacts
+                contacts: validContacts,
+                authorized_contact_email: formData.authorized_contact_email ? formData.authorized_contact_email.trim() : null,
+                authorized_contact_name: formData.authorized_contact_name ? formData.authorized_contact_name.trim() : null
             });
             setIsAdding(false);
             setEditingBankId(null);
             setRoleNotice(null);
+            setReportSentSuccess(null);
             setBankSearchTerm('');
             setIsBankDropdownOpen(false);
             setFormData({
@@ -270,7 +299,9 @@ export default function QuotationBanksModal({ onClose }) {
                 trade_type: 'BOTH',
                 entity_scope: 'ALL_ENTITIES',
                 entity_ids: [],
-                contacts: []
+                contacts: [],
+                authorized_contact_email: '',
+                authorized_contact_name: ''
             });
             fetchBanks();
         } catch (error) {
@@ -397,6 +428,12 @@ export default function QuotationBanksModal({ onClose }) {
                                                             <td className="py-3.5 px-4">
                                                                 <div className="font-bold text-gray-900 text-sm">{bank.bank?.name || `Bank #${bank.bank_id}`}</div>
                                                                 <div className="text-[11px] text-gray-400 font-mono">ID: {bank.bank_id}</div>
+                                                                {bank.authorized_contact_email && (
+                                                                    <div className="text-[10px] text-indigo-700 font-mono flex items-center gap-1 mt-1 font-semibold" title={`Authorized Governance Officer: ${bank.authorized_contact_name || bank.authorized_contact_email}`}>
+                                                                        <Shield size={11} className="text-indigo-600 shrink-0" />
+                                                                        <span className="truncate max-w-[170px]">{bank.authorized_contact_email}</span>
+                                                                    </div>
+                                                                )}
                                                             </td>
                                                             <td className="py-3.5 px-4">
                                                                 <div className="flex flex-col gap-1 items-start">
@@ -852,6 +889,78 @@ export default function QuotationBanksModal({ onClose }) {
                                             ))
                                         )}
                                     </div>
+                                </div>
+
+                                {/* Authorized Bank Governance Contact (Optional) */}
+                                <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/70 space-y-2.5">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                        <div>
+                                            <label className="text-[11px] font-bold uppercase tracking-wider text-gray-800 flex items-center gap-1.5">
+                                                <Shield className="w-3.5 h-3.5 text-indigo-600" />
+                                                Authorized Bank Governance Officer <span className="text-[10px] text-slate-500 font-normal normal-case">(Optional)</span>
+                                            </label>
+                                            <p className="text-[11px] text-gray-500 mt-0.5">
+                                                Designated bank official authorized to request dealer additions, deletions, or role amendments.
+                                            </p>
+                                        </div>
+                                        {editingBankId && formData.authorized_contact_email && (
+                                            <button
+                                                type="button"
+                                                onClick={handleSendRosterReport}
+                                                disabled={isSendingReport}
+                                                className="px-3 py-1.5 bg-white border border-indigo-200 hover:border-indigo-400 text-indigo-700 rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
+                                                title="Send current users and roles audit report to this authorized contact"
+                                            >
+                                                {isSendingReport ? (
+                                                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                                                ) : (
+                                                    <Mail className="w-3.5 h-3.5 text-indigo-600" />
+                                                )}
+                                                {isSendingReport ? 'Sending...' : '📋 Send Roster Report'}
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200">
+                                        <div>
+                                            <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">
+                                                Authorized Officer Email
+                                            </label>
+                                            <input
+                                                type="email"
+                                                placeholder={selectedSystemBank?.email_domain ? `governance@${selectedSystemBank.email_domain}` : "officer@bank.com (Official Email)"}
+                                                className="w-full text-xs rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
+                                                style={{ height: '38px', padding: '0 12px', boxSizing: 'border-box' }}
+                                                value={formData.authorized_contact_email || ''}
+                                                onChange={(e) => setFormData({ ...formData, authorized_contact_email: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">
+                                                Officer Name / Title (Optional)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g., Head of FX Operations / Desk Lead"
+                                                className="w-full text-xs rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
+                                                style={{ height: '38px', padding: '0 12px', boxSizing: 'border-box' }}
+                                                value={formData.authorized_contact_name || ''}
+                                                onChange={(e) => setFormData({ ...formData, authorized_contact_name: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {reportSentSuccess && (
+                                        <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center justify-between">
+                                            <div className="flex items-center gap-1.5 font-medium">
+                                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                                {reportSentSuccess}
+                                            </div>
+                                            <button type="button" onClick={() => setReportSentSuccess(null)} className="text-emerald-600 hover:text-emerald-800 p-0.5 cursor-pointer">
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="flex justify-end gap-2.5 pt-1">
