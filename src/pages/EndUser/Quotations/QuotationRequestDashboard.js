@@ -468,16 +468,20 @@ export default function QuotationRequestDashboard() {
         // Pre-populate bank pair configs for the new currency pair
         setSelectedBanks(prev => prev.map(b => {
             const existingConfigs = { ...(b.pairConfigs || {}) };
+            const pBase = b.is_cross_entity ? 'Indicative' : (newPair.quotationBase || b.quotationBase || formData.quotationBase || 'Execution');
             existingConfigs[newPair.id] = {
                 costMin: b.costMin ?? 0,
                 costPercent: b.costPercent ?? 0,
                 costMax: b.costMax ?? 0,
                 costFlat: b.costFlat ?? 0,
-                quotationBase: b.quotationBase || formData.quotationBase || 'Execution',
+                quotationBase: pBase,
                 valueDate: newPair.valueDate,
-                allowAlternativeValueDate: b.allowAlternativeValueDate ?? false,
-                isDocumentVisible: b.isDocumentVisible !== false,
-                _dateCustomized: false
+                allowAlternativeValueDate: newPair.allowAlternativeValueDate ?? b.allowAlternativeValueDate ?? false,
+                isDocumentVisible: !b.is_cross_entity && (pBase === 'Execution'),
+                _dateCustomized: false,
+                _baseCustomized: false,
+                _altCustomized: false,
+                _docCustomized: false
             };
             return { ...b, pairConfigs: existingConfigs };
         }));
@@ -599,30 +603,36 @@ export default function QuotationRequestDashboard() {
                 }
                 const existingConfigs = b.pairConfigs || {};
                 const updatedConfigs = { ...existingConfigs };
-                if (curPairId) {
-                    const curCfg = updatedConfigs[curPairId] || {};
+                if (curPairId && updatedConfigs[curPairId]) {
                     updatedConfigs[curPairId] = {
-                        ...curCfg,
+                        ...updatedConfigs[curPairId],
                         quotationBase: value,
-                        isDocumentVisible: value === 'Execution'
+                        isDocumentVisible: value === 'Execution',
+                        _baseCustomized: false
                     };
                 }
+                let updatedBankBase = b.quotationBase;
+                let updatedBankDoc = b.isDocumentVisible;
                 if (pairs.length <= 1 || !b.customPairTariffs) {
+                    updatedBankBase = value;
+                    updatedBankDoc = value === 'Execution';
                     pairs.forEach(p => {
-                        const pCfg = updatedConfigs[p.id] || {};
-                        updatedConfigs[p.id] = {
-                            ...pCfg,
-                            quotationBase: value,
-                            isDocumentVisible: value === 'Execution'
-                        };
+                        if (updatedConfigs[p.id]) {
+                            updatedConfigs[p.id] = {
+                                ...updatedConfigs[p.id],
+                                quotationBase: value,
+                                isDocumentVisible: value === 'Execution',
+                                _baseCustomized: false
+                            };
+                        }
                     });
                 }
                 return {
                     ...b,
-                    quotationBase: value,
-                    isDocumentVisible: value === 'Execution',
-                    pairConfigs: updatedConfigs,
-                    _baseCustomized: true
+                    quotationBase: updatedBankBase,
+                    isDocumentVisible: updatedBankDoc,
+                    _baseCustomized: (pairs.length <= 1 || !b.customPairTariffs) ? false : b._baseCustomized,
+                    pairConfigs: updatedConfigs
                 };
             }));
         }
@@ -660,24 +670,43 @@ export default function QuotationRequestDashboard() {
             if (isCustomized) {
                 pairs.forEach(p => {
                     const pDate = p.valueDate || b.valueDate || formData.valueDate || '';
+                    const pBase = b.is_cross_entity ? 'Indicative' : (p.quotationBase || b.quotationBase || formData.quotationBase || 'Execution');
+                    const pAlt = p.allowAlternativeValueDate ?? b.allowAlternativeValueDate ?? false;
                     if (!existingPairConfigs[p.id]) {
                         existingPairConfigs[p.id] = {
                             costMin: b.costMin ?? 0,
                             costPercent: b.costPercent ?? 0,
                             costMax: b.costMax ?? 0,
                             costFlat: b.costFlat ?? 0,
-                            quotationBase: b.quotationBase || formData.quotationBase || 'Execution',
+                            quotationBase: pBase,
                             valueDate: pDate,
-                            allowAlternativeValueDate: b.allowAlternativeValueDate ?? p.allowAlternativeValueDate ?? false,
-                            isDocumentVisible: b.isDocumentVisible !== false,
-                            _dateCustomized: false
+                            allowAlternativeValueDate: pAlt,
+                            isDocumentVisible: !b.is_cross_entity && (pBase === 'Execution'),
+                            _dateCustomized: false,
+                            _baseCustomized: false,
+                            _altCustomized: false,
+                            _docCustomized: false
                         };
-                    } else if (!existingPairConfigs[p.id]._dateCustomized) {
-                        // Ensure non-customized dates always mirror the current pair date
-                        existingPairConfigs[p.id] = {
-                            ...existingPairConfigs[p.id],
-                            valueDate: pDate
-                        };
+                    } else {
+                        if (!existingPairConfigs[p.id]._dateCustomized) {
+                            existingPairConfigs[p.id] = {
+                                ...existingPairConfigs[p.id],
+                                valueDate: pDate
+                            };
+                        }
+                        if (!existingPairConfigs[p.id]._baseCustomized) {
+                            existingPairConfigs[p.id] = {
+                                ...existingPairConfigs[p.id],
+                                quotationBase: pBase,
+                                isDocumentVisible: !b.is_cross_entity && (pBase === 'Execution')
+                            };
+                        }
+                        if (!existingPairConfigs[p.id]._altCustomized) {
+                            existingPairConfigs[p.id] = {
+                                ...existingPairConfigs[p.id],
+                                allowAlternativeValueDate: pAlt
+                            };
+                        }
                     }
                 });
             }
@@ -1026,17 +1055,20 @@ export default function QuotationRequestDashboard() {
         if (!banks || banks.length === 0 || isSelectingAll) return;
         setIsSelectingAll(true);
         try {
-            const base = formData.quotationBase || 'Execution';
-            const effectiveInitialDate = formData.valueDate || todayStr;
+            const curPairBase = pairs[activePairIndex]?.quotationBase || formData.quotationBase || 'Execution';
+            const curPairDate = pairs[activePairIndex]?.valueDate || formData.valueDate || todayStr;
+            const curPairAlt = pairs[activePairIndex]?.allowAlternativeValueDate ?? (formData.allowAlternativeValueDate || false);
 
             const unselectedBanks = displayedBanks.filter(b => !selectedBanks.some(sb => String(sb.id) === String(b.bank_id)));
 
             const newBankEntries = unselectedBanks.map(bank => {
                 const isCross = Boolean(bank.is_cross_entity);
-                const bankBase = isCross ? 'Indicative' : base;
+                const bankBase = isCross ? 'Indicative' : curPairBase;
                 const initialPairConfigs = {};
                 pairs.forEach(p => {
-                    const pBase = isCross ? 'Indicative' : (p.quotationBase || base);
+                    const pBase = isCross ? 'Indicative' : (p.quotationBase || curPairBase);
+                    const pDate = p.valueDate || curPairDate;
+                    const pAlt = p.allowAlternativeValueDate ?? curPairAlt;
                     initialPairConfigs[p.id] = {
                         costMin: 0,
                         costPercent: 0,
@@ -1044,8 +1076,12 @@ export default function QuotationRequestDashboard() {
                         costFlat: 0,
                         quotationBase: pBase,
                         isDocumentVisible: isCross ? false : (pBase === 'Execution'),
-                        valueDate: p.valueDate || effectiveInitialDate,
-                        allowAlternativeValueDate: p.allowAlternativeValueDate ?? (formData.allowAlternativeValueDate || false)
+                        valueDate: pDate,
+                        allowAlternativeValueDate: pAlt,
+                        _baseCustomized: false,
+                        _altCustomized: false,
+                        _dateCustomized: false,
+                        _docCustomized: false
                     };
                 });
 
@@ -1060,8 +1096,12 @@ export default function QuotationRequestDashboard() {
                     costFlat: 0,
                     quotationBase: bankBase,
                     isDocumentVisible: isCross ? false : (bankBase === 'Execution'),
-                    valueDate: effectiveInitialDate,
-                    allowAlternativeValueDate: pairs[activePairIndex]?.allowAlternativeValueDate ?? (formData.allowAlternativeValueDate || false),
+                    valueDate: curPairDate,
+                    allowAlternativeValueDate: curPairAlt,
+                    _baseCustomized: false,
+                    _altCustomized: false,
+                    _dateCustomized: false,
+                    _docCustomized: false,
                     is_cross_entity: isCross,
                     pairConfigs: initialPairConfigs
                 };
@@ -1088,11 +1128,14 @@ export default function QuotationRequestDashboard() {
             setSelectedBanks(prev => prev.filter(b => String(b.id) !== String(bankId)));
         } else {
             const isCross = Boolean(bank.is_cross_entity);
-            const base = isCross ? 'Indicative' : (pairs[activePairIndex]?.quotationBase || formData.quotationBase || 'Execution');
-            const effectiveInitialDate = formData.valueDate || todayStr;
+            const curPairBase = isCross ? 'Indicative' : (pairs[activePairIndex]?.quotationBase || formData.quotationBase || 'Execution');
+            const curPairDate = pairs[activePairIndex]?.valueDate || formData.valueDate || todayStr;
+            const curPairAlt = pairs[activePairIndex]?.allowAlternativeValueDate ?? (formData.allowAlternativeValueDate || false);
             const initialPairConfigs = {};
             pairs.forEach(p => {
-                const pBase = isCross ? 'Indicative' : (p.quotationBase || base);
+                const pBase = isCross ? 'Indicative' : (p.quotationBase || curPairBase);
+                const pDate = p.valueDate || curPairDate;
+                const pAlt = p.allowAlternativeValueDate ?? curPairAlt;
                 initialPairConfigs[p.id] = {
                     costMin: 0,
                     costPercent: 0,
@@ -1100,8 +1143,12 @@ export default function QuotationRequestDashboard() {
                     costFlat: 0,
                     quotationBase: pBase,
                     isDocumentVisible: isCross ? false : (pBase === 'Execution'),
-                    valueDate: p.valueDate || effectiveInitialDate,
-                    allowAlternativeValueDate: p.allowAlternativeValueDate ?? (formData.allowAlternativeValueDate || false)
+                    valueDate: pDate,
+                    allowAlternativeValueDate: pAlt,
+                    _baseCustomized: false,
+                    _altCustomized: false,
+                    _dateCustomized: false,
+                    _docCustomized: false
                 };
             });
 
@@ -1116,10 +1163,14 @@ export default function QuotationRequestDashboard() {
                     costPercent: 0, 
                     costMax: 0, 
                     costFlat: 0,
-                    quotationBase: base,
-                    isDocumentVisible: isCross ? false : (base === 'Execution'),
-                    valueDate: effectiveInitialDate,
-                    allowAlternativeValueDate: pairs[activePairIndex]?.allowAlternativeValueDate ?? (formData.allowAlternativeValueDate || false),
+                    quotationBase: curPairBase,
+                    isDocumentVisible: isCross ? false : (curPairBase === 'Execution'),
+                    valueDate: curPairDate,
+                    allowAlternativeValueDate: curPairAlt,
+                    _baseCustomized: false,
+                    _altCustomized: false,
+                    _dateCustomized: false,
+                    _docCustomized: false,
                     is_cross_entity: isCross,
                     pairConfigs: initialPairConfigs
                 }
@@ -1454,11 +1505,11 @@ export default function QuotationRequestDashboard() {
                 const pMasterAlt = Boolean(p.allowAlternativeValueDate ?? formData.allowAlternativeValueDate ?? false);
                 const pMasterDocVis = !bankObj.is_cross_entity && (pMasterBase === 'Execution');
 
-                const isDateDiff = Boolean(cfg.valueDate && pMasterDate && String(cfg.valueDate).split('T')[0] !== String(pMasterDate).split('T')[0]);
-                const isBaseDiff = Boolean(!bankObj.is_cross_entity && cfg.quotationBase && cfg.quotationBase !== pMasterBase);
-                const isAltDiff = Boolean(typeof cfg.allowAlternativeValueDate === 'boolean' && cfg.allowAlternativeValueDate !== pMasterAlt);
+                const isDateDiff = Boolean(cfg._dateCustomized && cfg.valueDate && pMasterDate && String(cfg.valueDate).split('T')[0] !== String(pMasterDate).split('T')[0]);
+                const isBaseDiff = Boolean(!bankObj.is_cross_entity && cfg._baseCustomized && cfg.quotationBase && cfg.quotationBase !== pMasterBase);
+                const isAltDiff = Boolean(cfg._altCustomized && typeof cfg.allowAlternativeValueDate === 'boolean' && cfg.allowAlternativeValueDate !== pMasterAlt);
                 const cfgDocVis = cfg.isDocumentVisible !== undefined ? Boolean(cfg.isDocumentVisible) : (cfg.quotationBase || pMasterBase) === 'Execution';
-                const isDocDiff = Boolean(!bankObj.is_cross_entity && cfgDocVis !== pMasterDocVis);
+                const isDocDiff = Boolean(!bankObj.is_cross_entity && cfg._docCustomized && cfgDocVis !== pMasterDocVis);
 
                 if (isDateDiff || isBaseDiff || isAltDiff || isDocDiff) {
                     anyDivergent = true;
@@ -1474,7 +1525,7 @@ export default function QuotationRequestDashboard() {
             const isBaseDiff = Boolean(!bankObj.is_cross_entity && bankObj._baseCustomized && bankObj.quotationBase && bankObj.quotationBase !== masterBaseForCur);
             const isAltDiff = Boolean(bankObj._altCustomized && typeof bankObj.allowAlternativeValueDate === 'boolean' && bankObj.allowAlternativeValueDate !== masterAltForCur);
             const bankDocVis = bankObj.isDocumentVisible !== undefined ? Boolean(bankObj.isDocumentVisible) : (bankObj.quotationBase || masterBaseForCur) === 'Execution';
-            const isDocDiff = Boolean(!bankObj.is_cross_entity && bankDocVis !== masterDocVisForCur);
+            const isDocDiff = Boolean(!bankObj.is_cross_entity && bankObj._docCustomized && bankDocVis !== masterDocVisForCur);
 
             if (isDateDiff || isBaseDiff || isAltDiff || isDocDiff) {
                 anyDivergent = true;
@@ -1828,7 +1879,11 @@ export default function QuotationRequestDashboard() {
                         costPercent: cfg?.costPercent !== undefined ? cfg.costPercent : (b.costPercent ?? 0),
                         costMax: cfg?.costMax !== undefined ? cfg.costMax : (b.costMax ?? 0),
                         costFlat: cfg?.costFlat !== undefined ? cfg.costFlat : (b.costFlat ?? 0),
-                        quotationBase: cfg?.quotationBase || b.quotationBase || p.quotationBase || formData.quotationBase || 'Execution',
+                        quotationBase: (cfg && cfg._baseCustomized && cfg.quotationBase)
+                            ? cfg.quotationBase
+                            : (b._baseCustomized && b.quotationBase
+                                ? b.quotationBase
+                                : (p.quotationBase || formData.quotationBase || 'Execution')),
                         isDocumentVisible: cfg?.isDocumentVisible !== undefined ? cfg.isDocumentVisible : (b.isDocumentVisible !== false),
                         valueDate: (cfg && cfg._dateCustomized && cfg.valueDate)
                             ? String(cfg.valueDate).split('T')[0]
@@ -3485,17 +3540,31 @@ export default function QuotationRequestDashboard() {
                                                 ? isSelected.pairConfigs[curTabId]
                                                 : null;
 
-                                            const effectiveValueDate = (rawPairCfg && rawPairCfg._dateCustomized)
-                                                ? rawPairCfg.valueDate
-                                                : (curPair.valueDate || isSelected.valueDate || formData.valueDate || '');
+                                            const effectiveValueDate = rawPairCfg
+                                                ? (rawPairCfg._dateCustomized ? rawPairCfg.valueDate : (curPair.valueDate || isSelected.valueDate || formData.valueDate || ''))
+                                                : (isSelected._dateCustomized && isSelected.valueDate ? isSelected.valueDate : (curPair.valueDate || isSelected.valueDate || formData.valueDate || ''));
 
                                             const effectiveAltDate = rawPairCfg
                                                 ? (rawPairCfg._altCustomized ? Boolean(rawPairCfg.allowAlternativeValueDate) : Boolean(curPair.allowAlternativeValueDate ?? isSelected.allowAlternativeValueDate ?? false))
                                                 : (isSelected._altCustomized ? Boolean(isSelected.allowAlternativeValueDate) : Boolean(curPair.allowAlternativeValueDate ?? isSelected.allowAlternativeValueDate ?? false));
 
+                                            const effectiveBase = isSelected.is_cross_entity
+                                                ? 'Indicative'
+                                                : (rawPairCfg
+                                                    ? (rawPairCfg._baseCustomized && rawPairCfg.quotationBase ? rawPairCfg.quotationBase : (curPair.quotationBase || isSelected.quotationBase || formData.quotationBase || 'Execution'))
+                                                    : (isSelected._baseCustomized && isSelected.quotationBase ? isSelected.quotationBase : (curPair.quotationBase || isSelected.quotationBase || formData.quotationBase || 'Execution')));
+
+                                            const effectiveDocVis = isSelected.is_cross_entity
+                                                ? false
+                                                : (rawPairCfg
+                                                    ? (rawPairCfg._docCustomized && rawPairCfg.isDocumentVisible !== undefined ? rawPairCfg.isDocumentVisible : (effectiveBase === 'Execution'))
+                                                    : (isSelected._docCustomized && isSelected.isDocumentVisible !== undefined ? isSelected.isDocumentVisible : (effectiveBase === 'Execution')));
+
                                             const activeCfg = rawPairCfg
                                                 ? {
                                                     ...rawPairCfg,
+                                                    quotationBase: effectiveBase,
+                                                    isDocumentVisible: effectiveDocVis,
                                                     valueDate: effectiveValueDate,
                                                     allowAlternativeValueDate: effectiveAltDate
                                                 }
@@ -3504,9 +3573,9 @@ export default function QuotationRequestDashboard() {
                                                     costPercent: isSelected.costPercent ?? 0,
                                                     costMax: isSelected.costMax ?? 0,
                                                     costFlat: isSelected.costFlat ?? 0,
-                                                    quotationBase: isSelected.quotationBase || formData.quotationBase || 'Execution',
-                                                    isDocumentVisible: isSelected.isDocumentVisible !== false,
-                                                    valueDate: (isSelected._dateCustomized && isSelected.valueDate) ? isSelected.valueDate : (curPair.valueDate || isSelected.valueDate || formData.valueDate || ''),
+                                                    quotationBase: effectiveBase,
+                                                    isDocumentVisible: effectiveDocVis,
+                                                    valueDate: effectiveValueDate,
                                                     allowAlternativeValueDate: effectiveAltDate
                                                 };
 
