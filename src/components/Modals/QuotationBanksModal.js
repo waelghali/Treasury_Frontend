@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Trash2, Edit2, CheckCircle2, X, Building, UserCheck, Eye, Shield, Mail, User, ChevronDown, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Plus, Search, Trash2, Edit2, CheckCircle2, X, Building, UserCheck, Eye, Shield, Mail, User, ChevronDown, ArrowLeft, RefreshCw, Clock } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 
 export default function QuotationBanksModal({ onClose }) {
@@ -32,6 +32,8 @@ export default function QuotationBanksModal({ onClose }) {
     const [roleNotice, setRoleNotice] = useState(null);
     const [isSendingReport, setIsSendingReport] = useState(false);
     const [reportSentSuccess, setReportSentSuccess] = useState(null);
+    const [pendingInvitations, setPendingInvitations] = useState([]);
+    const [isInvitingContact, setIsInvitingContact] = useState(false);
 
     useEffect(() => {
         fetchBanks();
@@ -78,7 +80,39 @@ export default function QuotationBanksModal({ onClose }) {
         }
     };
 
-    const handleAddContactToForm = () => {
+    const fetchPendingInvitations = async (bankId) => {
+        if (!bankId) {
+            setPendingInvitations([]);
+            return;
+        }
+        try {
+            const res = await apiClient.get(`/end-user/quotations/banks/${bankId}/invitations`);
+            setPendingInvitations(res.data || []);
+        } catch (err) {
+            console.error('Failed to fetch pending invitations:', err);
+        }
+    };
+
+    const handleResendInvitation = async (invitationId, email) => {
+        try {
+            await apiClient.post(`/end-user/quotations/banks/invitations/${invitationId}/resend`);
+            alert(`Invitation link successfully resent to ${email}!`);
+        } catch (err) {
+            alert('Failed to resend invitation: ' + (err.response?.data?.detail || err.message));
+        }
+    };
+
+    const handleRevokeInvitation = async (invitationId) => {
+        if (!window.confirm('Are you sure you want to cancel this pending dealer invitation?')) return;
+        try {
+            await apiClient.delete(`/end-user/quotations/banks/invitations/${invitationId}`);
+            setPendingInvitations(prev => prev.filter(inv => inv.id !== invitationId));
+        } catch (err) {
+            alert('Failed to cancel invitation: ' + (err.response?.data?.detail || err.message));
+        }
+    };
+
+    const handleAddContactToForm = async () => {
         const email = newContact.email.trim();
         if (!email || !email.includes('@')) {
             alert('Please enter a valid contact email address.');
@@ -151,6 +185,26 @@ export default function QuotationBanksModal({ onClose }) {
             }
         }
 
+        // If editing an existing bank configuration, stage and dispatch dealer invitation immediately!
+        if (editingBankId && formData.bank_id) {
+            try {
+                setIsInvitingContact(true);
+                const res = await apiClient.post(`/end-user/quotations/banks/${formData.bank_id}/invite-contact`, {
+                    email,
+                    title: newContact.name ? newContact.name.trim() : null,
+                    role: newContact.role || 'EXECUTION'
+                });
+                setPendingInvitations(prev => [res.data, ...prev]);
+                setNewContact({ email: '', name: '', role: 'EXECUTION' });
+                setRoleNotice(`Invitation successfully emailed to ${email}! They will be activated once they accept their invitation link.`);
+            } catch (err) {
+                alert('Failed to send invitation: ' + (err.response?.data?.detail || err.message));
+            } finally {
+                setIsInvitingContact(false);
+            }
+            return;
+        }
+
         setFormData({
             ...formData,
             contacts: [...formData.contacts, { ...newContact, email }]
@@ -217,6 +271,7 @@ export default function QuotationBanksModal({ onClose }) {
         setIsBankDropdownOpen(false);
         setEditingBankId(bank.id);
         setIsAdding(true);
+        fetchPendingInvitations(bank.bank_id);
     };
 
     const handleSendRosterReport = async () => {
@@ -303,6 +358,7 @@ export default function QuotationBanksModal({ onClose }) {
                 authorized_contact_email: '',
                 authorized_contact_name: ''
             });
+            setPendingInvitations([]);
             fetchBanks();
         } catch (error) {
             alert('Failed to configure bank. ' + (error.response?.data?.detail || 'It may already exist for this trade type.'));
@@ -829,12 +885,16 @@ export default function QuotationBanksModal({ onClose }) {
                                         </div>
                                     )}
 
-                                    {/* Configured Contacts List */}
-                                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                                    {/* Active Contacts Section */}
+                                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                                        <div className="text-[11px] font-bold uppercase tracking-wider text-gray-600 mb-1 flex items-center justify-between">
+                                            <span>Active Representatives ({formData.contacts.length})</span>
+                                            <span className="text-[10px] text-gray-400 font-normal">Can receive live RFQs and place quotes</span>
+                                        </div>
                                         {formData.contacts.length === 0 ? (
                                             <div className="py-2.5 px-3 rounded-xl border border-dashed border-slate-300 bg-white/70 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2">
-                                                <span className="font-semibold text-slate-700">No desk contacts added yet.</span>
-                                                <span className="text-[11px] text-slate-500">Add at least one contact with <strong>Execution (⚡)</strong> or <strong>Approver (🛡️)</strong> role above.</span>
+                                                <span className="font-semibold text-slate-700">No active desk contacts yet.</span>
+                                                <span className="text-[11px] text-slate-500">Invite a representative with <strong>Execution (⚡)</strong> or <strong>Approver (🛡️)</strong> role above.</span>
                                             </div>
                                         ) : (
                                             formData.contacts.map((c, idx) => (
@@ -851,7 +911,10 @@ export default function QuotationBanksModal({ onClose }) {
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-xs font-mono font-bold text-gray-900">{c.email}</span>
-                                                            {c.name && <span className="text-[11px] text-gray-500 font-medium">({c.name})</span>}
+                                                            {(c.name || c.title) && <span className="text-[11px] text-gray-500 font-medium">({c.name || c.title})</span>}
+                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                Active
+                                                            </span>
                                                         </div>
                                                     </div>
 
@@ -880,7 +943,7 @@ export default function QuotationBanksModal({ onClose }) {
                                                             type="button"
                                                             onClick={() => handleRemoveContactFromForm(idx)}
                                                             className="p-1 text-gray-400 hover:text-red-600 rounded-md transition-colors cursor-pointer"
-                                                            title="Remove contact"
+                                                            title="Remove active contact (Direct delete)"
                                                         >
                                                             <Trash2 size={13} />
                                                         </button>
@@ -889,18 +952,65 @@ export default function QuotationBanksModal({ onClose }) {
                                             ))
                                         )}
                                     </div>
+
+                                    {/* Pending Dealer Invitations (Staged) */}
+                                    {pendingInvitations && pendingInvitations.length > 0 && (
+                                        <div className="mt-3 pt-3 border-t border-slate-200 space-y-1.5">
+                                            <div className="text-[11px] font-bold uppercase tracking-wider text-amber-800 flex items-center justify-between">
+                                                <span className="flex items-center gap-1.5">
+                                                    <Clock size={13} className="text-amber-600" />
+                                                    Pending Dealer Invitations ({pendingInvitations.length})
+                                                </span>
+                                                <span className="text-[10px] text-amber-700 font-normal">Waiting for dealer handshake acceptance</span>
+                                            </div>
+                                            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                                                {pendingInvitations.map((inv) => (
+                                                    <div key={inv.id} className="flex items-center justify-between bg-amber-50/70 px-3 py-1.5 rounded-xl border border-amber-200 shadow-2xs">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs font-mono font-bold text-gray-900">{inv.email}</span>
+                                                            {inv.title && <span className="text-[11px] text-gray-500 font-medium">({inv.title})</span>}
+                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                                                ⏳ Awaiting Dealer Handshake
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[11px] font-bold text-gray-600">
+                                                                {inv.role === 'EXECUTION' ? '⚡ Execution' : inv.role === 'APPROVER' ? '🛡️ Approver' : '👁️ View Only'}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleResendInvitation(inv.id, inv.email)}
+                                                                className="px-2 py-0.5 text-[11px] bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 rounded font-semibold transition-colors cursor-pointer"
+                                                                title="Resend invitation email"
+                                                            >
+                                                                Resend
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRevokeInvitation(inv.id)}
+                                                                className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors cursor-pointer"
+                                                                title="Cancel pending invitation"
+                                                            >
+                                                                <Trash2 size={13} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Authorized Bank Governance Contact (Optional) */}
+                                {/* Authorized Bank Contact (Optional - For Roster Reports) */}
                                 <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/70 space-y-2.5">
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                         <div>
                                             <label className="text-[11px] font-bold uppercase tracking-wider text-gray-800 flex items-center gap-1.5">
                                                 <Shield className="w-3.5 h-3.5 text-indigo-600" />
-                                                Authorized Bank Governance Officer <span className="text-[10px] text-slate-500 font-normal normal-case">(Optional)</span>
+                                                Authorized Bank Contact <span className="text-[10px] text-slate-500 font-normal normal-case">(Optional - For Roster Reports)</span>
                                             </label>
                                             <p className="text-[11px] text-gray-500 mt-0.5">
-                                                Designated bank official authorized to request dealer additions, deletions, or role amendments.
+                                                Designated bank contact who can receive on-demand roster audit reports of currently active trading personnel.
                                             </p>
                                         </div>
                                         {editingBankId && formData.authorized_contact_email && (

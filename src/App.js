@@ -251,6 +251,8 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
           <Route path="/public/quotation/:token" element={<QuotationBankOfferPage />} />
           <Route path="/public-bank-handshake/:token" element={<PublicBankHandshakePage />} />
           <Route path="/public/bank-handshake/:token" element={<PublicBankHandshakePage />} />
+          <Route path="/public-dealer-handshake/:token" element={<PublicBankHandshakePage />} />
+          <Route path="/public/dealer-handshake/:token" element={<PublicBankHandshakePage />} />
           <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
