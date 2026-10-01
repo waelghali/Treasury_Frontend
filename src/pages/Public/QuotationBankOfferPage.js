@@ -5,7 +5,8 @@ import {
     Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, ExternalLink,
     Mail, KeyRound, UserCheck, Eye, History, RefreshCw, MessageSquare, Shield,
     BarChart2, ShieldAlert, WifiOff, FileQuestion,
-    Users, Lock, Zap, Info, Loader2, Ban, Volume2, VolumeX, Copy, Check
+    Users, Lock, Zap, Info, Loader2, Ban, Volume2, VolumeX, Copy, Check,
+    RotateCw, AlertTriangle
 } from 'lucide-react';
 import tradingAudio from '../../utils/tradingAudioEngine';
 import './quotation-animations.css';
@@ -229,6 +230,7 @@ export default function QuotationBankOfferPage() {
     // Multi-Pair Leg Quotes and Leg Live Ranks
     const [legQuotes, setLegQuotes] = useState({});
     const [legLiveRanks, setLegLiveRanks] = useState({});
+    const [highlightedLegId, setHighlightedLegId] = useState(null);
 
     // Attention cues for window opening and title
     const prevStatusRef = useRef(null);
@@ -1408,6 +1410,50 @@ export default function QuotationBankOfferPage() {
 
         // Fat-Finger / Unreasonable Rate Safeguard across all multi-currency legs
         if (rfq.type === 'FX_SPOT') {
+            // Check 0: Cross-Leg Swap Inversion Check (Synthetic Cross-Rate Triangulation)
+            if ((rfq.legs || []).length > 1) {
+                for (let i = 0; i < rfq.legs.length; i++) {
+                    for (let j = i + 1; j < rfq.legs.length; j++) {
+                        const legA = rfq.legs[i];
+                        const legB = rfq.legs[j];
+                        const qA = legQuotes[legA.id];
+                        const qB = legQuotes[legB.id];
+                        const pA = qA?.price ? parseFloat(qA.price) : NaN;
+                        const pB = qB?.price ? parseFloat(qB.price) : NaN;
+                        const bmA = parseFloat(legA.cbe_benchmark_rate || rfq.cbe_benchmark_rate);
+                        const bmB = parseFloat(legB.cbe_benchmark_rate || rfq.cbe_benchmark_rate);
+
+                        if (!isNaN(pA) && !isNaN(pB) && !isNaN(bmA) && !isNaN(bmB) && pA > 0 && pB > 0 && bmA > 0 && bmB > 0) {
+                            const isSwapped = (bmA > bmB * 1.02 && pA < pB) || (bmB > bmA * 1.02 && pB < pA);
+                            if (isSwapped) {
+                                const pairA = legA.currency_pair || `${legA.buy_currency}/${legA.sell_currency}`;
+                                const pairB = legB.currency_pair || `${legB.buy_currency}/${legB.sell_currency}`;
+                                const impliedCross = (pA / pB).toFixed(4);
+                                const benchmarkCross = (bmA / bmB).toFixed(4);
+
+                                setFatFingerModal({
+                                    isBatch: true,
+                                    type: 'CROSS_LEG_SWAP',
+                                    legA,
+                                    legB,
+                                    priceA: pA,
+                                    priceB: pB,
+                                    bmA,
+                                    bmB,
+                                    pairA,
+                                    pairB,
+                                    allQuotes: quotesToSubmit,
+                                    title: `⚠️ Possible Accidental Rate Swap: ${pairA} vs ${pairB}`,
+                                    message: `You entered ${pA} for ${pairA} and ${pB} for ${pairB}. Under current CBE benchmarks, ${pairA} (~${bmA.toFixed(4)}) trades ${bmA > bmB ? 'higher' : 'lower'} than ${pairB} (~${bmB.toFixed(4)}). Your entered quotes invert the implied cross-rate to ${impliedCross} (Expected benchmark cross: ~${benchmarkCross}). Did you accidentally swap the prices for these two legs?`
+                                });
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Individual Leg Checks: Inversion, 10x Displaced Decimal, Extreme Outlier
             for (let lIdx = 0; lIdx < (rfq.legs || []).length; lIdx++) {
                 const leg = rfq.legs[lIdx];
                 const q = legQuotes[leg.id];
@@ -1416,6 +1462,19 @@ export default function QuotationBankOfferPage() {
 
                 if (!isNaN(p) && !isNaN(bm) && p > 0 && bm > 0) {
                     const pair = leg.currency_pair || (leg.buy_currency && leg.sell_currency ? `${leg.buy_currency}/${leg.sell_currency}` : `Leg ${lIdx + 1}`);
+
+                    // Collect other quotes that are valid for Lock & Isolate
+                    const validQuotes = quotesToSubmit.filter(item => {
+                        if (item.leg_id === leg.id) return false;
+                        const otherLeg = (rfq.legs || []).find(l => l.id === item.leg_id);
+                        const otherBm = parseFloat(otherLeg?.cbe_benchmark_rate || rfq.cbe_benchmark_rate);
+                        if (!isNaN(otherBm) && otherBm > 0) {
+                            const ratio = item.price / otherBm;
+                            const diff = Math.abs(((item.price - otherBm) / otherBm) * 100);
+                            if (ratio >= 8 || ratio <= 0.12 || diff >= 25) return false;
+                        }
+                        return true;
+                    });
 
                     // Check 1: Inverted / reciprocal rate
                     const inv = 1 / p;
@@ -1428,6 +1487,9 @@ export default function QuotationBankOfferPage() {
                             benchmark: bm,
                             type: 'INVERSION',
                             suggestedRate: suggested,
+                            validQuotes: validQuotes.length > 0 ? validQuotes : null,
+                            validCount: validQuotes.length,
+                            totalCount: rfq.legs.length,
                             title: `⚠️ Leg #${lIdx + 1} (${pair}): Possible Inverted Rate Detected`,
                             message: `For ${pair}, you entered ${p}, which matches the reciprocal (inverted) quotation. Prevailing CBE market benchmark is ~${bm.toFixed(4)}. Did you mean ${suggested}?`
                         });
@@ -1445,6 +1507,9 @@ export default function QuotationBankOfferPage() {
                             benchmark: bm,
                             type: 'DECIMAL_10X_HIGH',
                             suggestedRate: suggested,
+                            validQuotes: validQuotes.length > 0 ? validQuotes : null,
+                            validCount: validQuotes.length,
+                            totalCount: rfq.legs.length,
                             title: `⚠️ Leg #${lIdx + 1} (${pair}): Displaced Decimal Point (~10x High)`,
                             message: `For ${pair}, you entered ${p}, which appears approximately 10x higher than prevailing CBE reference rate (~${bm.toFixed(4)}). Did you mean ${suggested}?`
                         });
@@ -1461,6 +1526,9 @@ export default function QuotationBankOfferPage() {
                             benchmark: bm,
                             type: 'DECIMAL_10X_LOW',
                             suggestedRate: suggested,
+                            validQuotes: validQuotes.length > 0 ? validQuotes : null,
+                            validCount: validQuotes.length,
+                            totalCount: rfq.legs.length,
                             title: `⚠️ Leg #${lIdx + 1} (${pair}): Displaced Decimal Point (~10x Low)`,
                             message: `For ${pair}, you entered ${p}, which appears approximately 10x lower than prevailing CBE reference rate (~${bm.toFixed(4)}). Did you mean ${suggested}?`
                         });
@@ -1477,6 +1545,9 @@ export default function QuotationBankOfferPage() {
                             benchmark: bm,
                             type: 'EXTREME_OUTLIER',
                             suggestedRate: null,
+                            validQuotes: validQuotes.length > 0 ? validQuotes : null,
+                            validCount: validQuotes.length,
+                            totalCount: rfq.legs.length,
                             title: `⚠️ Leg #${lIdx + 1} (${pair}): Significant Rate Deviation Warning`,
                             message: `Your quote of ${p} for ${pair} deviates by ${pctDiff > 0 ? '+' : ''}${pctDiff.toFixed(1)}% from prevailing CBE benchmark (~${bm.toFixed(4)}). Please confirm this is intentional.`
                         });
@@ -1685,6 +1756,32 @@ export default function QuotationBankOfferPage() {
     const isViewOnly = authSession?.role === 'VIEW_ONLY';
     const isReadOnlyViewer = isViewOnly || isApproverViewer;
     const isSpectator = !!(timeLeft.status === 'OPEN' && deskState && !deskState.is_active_trader && !isReadOnlyViewer && (authSession?.role === 'EXECUTION' || canApproverExecute) && deskState.active_trader_email);
+
+    // Real-time detection of cross-rate inversion / accidental price swap
+    const crossInversion = (() => {
+        if (!rfq?.legs || rfq.legs.length < 2 || rfq.type !== 'FX_SPOT') return null;
+        for (let i = 0; i < rfq.legs.length; i++) {
+            for (let j = i + 1; j < rfq.legs.length; j++) {
+                const legA = rfq.legs[i];
+                const legB = rfq.legs[j];
+                const pA = parseFloat(legQuotes[legA.id]?.price);
+                const pB = parseFloat(legQuotes[legB.id]?.price);
+                const bmA = parseFloat(legA.cbe_benchmark_rate || rfq.cbe_benchmark_rate);
+                const bmB = parseFloat(legB.cbe_benchmark_rate || rfq.cbe_benchmark_rate);
+                if (isNaN(pA) || isNaN(pB) || isNaN(bmA) || isNaN(bmB) || pA <= 0 || pB <= 0 || bmA <= 0 || bmB <= 0) {
+                    continue;
+                }
+                const pairA = legA.currency_pair || `${legA.buy_currency}/${legA.sell_currency}`;
+                const pairB = legB.currency_pair || `${legB.buy_currency}/${legB.sell_currency}`;
+
+                const isSwapped = (bmA > bmB * 1.02 && pA < pB) || (bmB > bmA * 1.02 && pB < pA);
+                if (isSwapped) {
+                    return { legA, legB, pairA, pairB, pA, pB, bmA, bmB };
+                }
+            }
+        }
+        return null;
+    })();
 
     return (
         <div className="relative min-h-screen bg-slate-100/60">
@@ -2921,12 +3018,17 @@ export default function QuotationBankOfferPage() {
                                                                             : rawRank)
                                                                         : null;
                                                                     const hasQuote = q.price && parseFloat(q.price) > 0;
+                                                                    const isHighlighted = highlightedLegId === leg.id;
+                                                                    const hasRecordedOffer = leg.offers && leg.offers.length > 0;
 
                                                                     return (
                                                                         <div 
                                                                             key={leg.id || idx}
+                                                                            id={`leg-card-${leg.id}`}
                                                                             className={`p-4 rounded-2xl border transition-all ${
-                                                                                hasQuote ? 'bg-white border-slate-300 shadow-xs' : 'bg-slate-50 border-slate-200'
+                                                                                isHighlighted
+                                                                                    ? 'bg-amber-50/70 border-amber-400 ring-2 ring-amber-400 shadow-md animate-pulse'
+                                                                                    : hasQuote ? 'bg-white border-slate-300 shadow-xs' : 'bg-slate-50 border-slate-200'
                                                                             }`}
                                                                         >
                                                                             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -3036,6 +3138,10 @@ export default function QuotationBankOfferPage() {
                                                                                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono shadow-2xs">
                                                                                                 Rank #{legRank.rank} of {legRank.total_quotes || 1}
                                                                                             </span>
+                                                                                        ) : hasRecordedOffer ? (
+                                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                                                                                                <CheckCircle2 size={12} className="text-emerald-600" /> Quote Recorded ({parseFloat(leg.offers[0].price).toFixed(4)})
+                                                                                            </span>
                                                                                         ) : hasQuote ? (
                                                                                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
                                                                                                 ✍️ Draft (Ready to Submit)
@@ -3045,6 +3151,10 @@ export default function QuotationBankOfferPage() {
                                                                                                 ⏳ Awaiting Quote
                                                                                             </span>
                                                                                         )
+                                                                                    ) : hasRecordedOffer ? (
+                                                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                                                                                            <CheckCircle2 size={12} className="text-emerald-600" /> Quote Recorded ({parseFloat(leg.offers[0].price).toFixed(4)})
+                                                                                        </span>
                                                                                     ) : hasQuote ? (
                                                                                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
                                                                                             ✍️ Draft Quote
@@ -3064,8 +3174,9 @@ export default function QuotationBankOfferPage() {
                                                                                             Rate ({leg.sell_currency} per 1 {leg.buy_currency})
                                                                                         </label>
                                                                                         {leg.cbe_benchmark_rate && (
-                                                                                            <span className="text-[10px] font-mono text-gray-400">
-                                                                                                CBE: ~{parseFloat(leg.cbe_benchmark_rate).toFixed(4)}
+                                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs" title="Central Bank of Egypt Mid Benchmark">
+                                                                                                <span className="text-[9px] uppercase tracking-wider text-blue-500 font-sans font-semibold">CBE Mid</span>
+                                                                                                <span>~{parseFloat(leg.cbe_benchmark_rate).toFixed(4)}</span>
                                                                                             </span>
                                                                                         )}
                                                                                     </div>
@@ -3077,9 +3188,14 @@ export default function QuotationBankOfferPage() {
                                                                                             disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
                                                                                             onWheel={(e) => e.currentTarget.blur()}
                                                                                             placeholder="Enter rate (e.g. 48.6500)"
-                                                                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-base font-bold font-mono focus:bg-white focus:border-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                                                                                            className={`w-full bg-slate-50 border rounded-xl px-3.5 py-2 text-base font-bold font-mono focus:bg-white outline-none disabled:bg-slate-100 disabled:text-slate-400 ${
+                                                                                                isHighlighted ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200 focus:border-slate-900'
+                                                                                            }`}
                                                                                             value={q.price}
-                                                                                            onChange={e => updateLegQuote(leg.id, 'price', e.target.value)}
+                                                                                            onChange={e => {
+                                                                                                if (highlightedLegId === leg.id) setHighlightedLegId(null);
+                                                                                                updateLegQuote(leg.id, 'price', e.target.value);
+                                                                                            }}
                                                                                         />
                                                                                         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs pointer-events-none">
                                                                                             {leg.sell_currency}
@@ -3240,8 +3356,9 @@ export default function QuotationBankOfferPage() {
                                                                                     Rate ({rfq.sell_currency} per 1 {rfq.buy_currency})
                                                                                 </label>
                                                                                 {rfq.cbe_benchmark_rate && (
-                                                                                    <span className="text-[10px] font-mono text-gray-400 font-semibold" title="Central Bank of Egypt benchmark reference">
-                                                                                        CBE Ref: ~{parseFloat(rfq.cbe_benchmark_rate).toFixed(4)}
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs" title="Central Bank of Egypt Mid Benchmark">
+                                                                                        <span className="text-[9px] uppercase tracking-wider text-blue-500 font-sans font-semibold">CBE Mid</span>
+                                                                                        <span>~{parseFloat(rfq.cbe_benchmark_rate).toFixed(4)}</span>
                                                                                     </span>
                                                                                 )}
                                                                             </div>
@@ -3308,7 +3425,34 @@ export default function QuotationBankOfferPage() {
                                                     </div>
 
                                                     {/* Form Submit Action directly below */}
-                                                    <div className="pt-1">
+                                                    <div className="pt-1 space-y-3">
+                                                        {crossInversion && timeLeft.status === 'OPEN' && !isReadOnlyViewer && (
+                                                            <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-950 animate-fade-in shadow-xs">
+                                                                <div className="flex items-start gap-2.5">
+                                                                    <div className="w-7 h-7 rounded-lg bg-amber-200/80 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
+                                                                        <AlertTriangle size={15} />
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="font-bold block text-amber-900">
+                                                                            ⚠️ Possible Accidental Rate Swap Detected
+                                                                        </span>
+                                                                        <p className="text-[11px] text-amber-800 leading-tight mt-0.5">
+                                                                            <strong>{crossInversion.pairA}</strong> ({crossInversion.pA.toFixed(4)}) is quoted {crossInversion.pA > crossInversion.pB ? 'higher' : 'lower'} than <strong>{crossInversion.pairB}</strong> ({crossInversion.pB.toFixed(4)}), inverting prevailing market benchmark levels (CBE Mid: ~{crossInversion.bmA.toFixed(4)} vs ~{crossInversion.bmB.toFixed(4)}).
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        updateLegQuote(crossInversion.legA.id, 'price', String(crossInversion.pB));
+                                                                        updateLegQuote(crossInversion.legB.id, 'price', String(crossInversion.pA));
+                                                                    }}
+                                                                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shrink-0 shadow-2xs cursor-pointer self-end sm:self-center"
+                                                                >
+                                                                    <RotateCw size={13} /> Swap Leg Rates
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                         {isReadOnlyViewer ? (
                                                             <div className="w-full py-3.5 bg-slate-100 border border-slate-200 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2">
                                                                 <Shield size={16} className={isApprover ? 'text-amber-600' : 'text-blue-600'} />
@@ -3552,61 +3696,116 @@ export default function QuotationBankOfferPage() {
                             </div>
 
                             <div className="flex flex-col gap-2 pt-2">
-                                {fatFingerModal.suggestedRate && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (fatFingerModal.isTBill && fatFingerModal.suggestedLines) {
-                                                setTbillLines(fatFingerModal.suggestedLines);
-                                                executeSubmit(null, fatFingerModal.suggestedLines);
-                                            } else if (fatFingerModal.isBatch) {
-                                                const correctedPrice = fatFingerModal.suggestedRate;
-                                                updateLegQuote(fatFingerModal.legId, 'price', correctedPrice);
-                                                const updatedQuotes = [];
-                                                for (const leg of (rfq.legs || [])) {
-                                                    const q = legQuotes[leg.id];
-                                                    const p = leg.id === fatFingerModal.legId ? parseFloat(correctedPrice) : (q?.price ? parseFloat(q.price) : NaN);
-                                                    updatedQuotes.push({
-                                                        leg_id: leg.id,
-                                                        price: p,
-                                                        offered_value_date: leg.allow_alternative_value_date ? (q?.offered_value_date || leg.value_date || undefined) : undefined,
-                                                        notes: q?.notes?.trim() || undefined
-                                                    });
+                                {fatFingerModal.type === 'CROSS_LEG_SWAP' ? (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const pA = fatFingerModal.priceA;
+                                                const pB = fatFingerModal.priceB;
+                                                updateLegQuote(fatFingerModal.legA.id, 'price', String(pB));
+                                                updateLegQuote(fatFingerModal.legB.id, 'price', String(pA));
+                                                const swappedQuotes = (fatFingerModal.allQuotes || []).map(item => {
+                                                    if (item.leg_id === fatFingerModal.legA.id) return { ...item, price: pB };
+                                                    if (item.leg_id === fatFingerModal.legB.id) return { ...item, price: pA };
+                                                    return item;
+                                                });
+                                                executeBatchSubmit(swappedQuotes);
+                                            }}
+                                            className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                                        >
+                                            <RotateCw size={14} /> 🔄 Swap Leg Rates & Submit All Quotes
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => executeBatchSubmit(fatFingerModal.allQuotes)}
+                                            className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                                        >
+                                            Confirm & Submit Rates As-Is Anyway
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFatFingerModal(null)}
+                                            className="w-full py-2 text-slate-500 hover:text-slate-800 font-semibold text-xs transition-colors cursor-pointer"
+                                        >
+                                            Cancel & Edit Quote
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        {/* Lock & Isolate Valid Legs Button */}
+                                        {fatFingerModal.validQuotes && fatFingerModal.validQuotes.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    const vQuotes = fatFingerModal.validQuotes;
+                                                    const flaggedId = fatFingerModal.legId;
+                                                    await executeBatchSubmit(vQuotes);
+                                                    setFatFingerModal(null);
+                                                    setHighlightedLegId(flaggedId);
+                                                }}
+                                                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                                            >
+                                                <Lock size={14} /> 🔒 Lock & Submit {fatFingerModal.validCount} Valid Leg(s) (Isolate Flagged Leg)
+                                            </button>
+                                        )}
+                                        {fatFingerModal.suggestedRate && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (fatFingerModal.isTBill && fatFingerModal.suggestedLines) {
+                                                        setTbillLines(fatFingerModal.suggestedLines);
+                                                        executeSubmit(null, fatFingerModal.suggestedLines);
+                                                    } else if (fatFingerModal.isBatch) {
+                                                        const correctedPrice = fatFingerModal.suggestedRate;
+                                                        updateLegQuote(fatFingerModal.legId, 'price', correctedPrice);
+                                                        const updatedQuotes = [];
+                                                        for (const leg of (rfq.legs || [])) {
+                                                            const q = legQuotes[leg.id];
+                                                            const p = leg.id === fatFingerModal.legId ? parseFloat(correctedPrice) : (q?.price ? parseFloat(q.price) : NaN);
+                                                            updatedQuotes.push({
+                                                                leg_id: leg.id,
+                                                                price: p,
+                                                                offered_value_date: leg.allow_alternative_value_date ? (q?.offered_value_date || leg.value_date || undefined) : undefined,
+                                                                notes: q?.notes?.trim() || undefined
+                                                            });
+                                                        }
+                                                        executeBatchSubmit(updatedQuotes);
+                                                    } else {
+                                                        const corrected = parseFloat(fatFingerModal.suggestedRate);
+                                                        setPrice(fatFingerModal.suggestedRate);
+                                                        executeSubmit(corrected);
+                                                    }
+                                                }}
+                                                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                                            >
+                                                <CheckCircle2 size={15} /> Apply Suggested Value ({fatFingerModal.suggestedRate}) & Submit
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (fatFingerModal.isTBill) {
+                                                    executeSubmit(null, tbillLines);
+                                                } else if (fatFingerModal.isBatch) {
+                                                    executeBatchSubmit();
+                                                } else {
+                                                    executeSubmit(fatFingerModal.enteredPrice);
                                                 }
-                                                executeBatchSubmit(updatedQuotes);
-                                            } else {
-                                                const corrected = parseFloat(fatFingerModal.suggestedRate);
-                                                setPrice(fatFingerModal.suggestedRate);
-                                                executeSubmit(corrected);
-                                            }
-                                        }}
-                                        className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
-                                    >
-                                        <CheckCircle2 size={15} /> Apply Suggested Value ({fatFingerModal.suggestedRate}) & Submit
-                                    </button>
+                                            }}
+                                            className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                                        >
+                                            Confirm & Submit {fatFingerModal.enteredPrice} Anyway
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFatFingerModal(null)}
+                                            className="w-full py-2 text-slate-500 hover:text-slate-800 font-semibold text-xs transition-colors cursor-pointer"
+                                        >
+                                            Cancel & Edit Quote
+                                        </button>
+                                    </>
                                 )}
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (fatFingerModal.isTBill) {
-                                            executeSubmit(null, tbillLines);
-                                        } else if (fatFingerModal.isBatch) {
-                                            executeBatchSubmit();
-                                        } else {
-                                            executeSubmit(fatFingerModal.enteredPrice);
-                                        }
-                                    }}
-                                    className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-all cursor-pointer"
-                                >
-                                    Confirm & Submit {fatFingerModal.enteredPrice} Anyway
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setFatFingerModal(null)}
-                                    className="w-full py-2 text-slate-500 hover:text-slate-800 font-semibold text-xs transition-colors cursor-pointer"
-                                >
-                                    Cancel & Edit Quote
-                                </button>
                             </div>
                         </div>
                     </div>
