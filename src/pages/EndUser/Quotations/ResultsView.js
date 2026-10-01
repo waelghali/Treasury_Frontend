@@ -707,37 +707,37 @@ export default function ResultsView({ rfqId }) {
                 </div>
 
                 {result.price && result.finalPrice ? (
-                    <div className="text-right flex flex-wrap items-center gap-4 sm:gap-6 w-full md:w-auto">
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bank Quote</label>
-                            <p className="text-sm font-mono text-gray-500">{result.price.toFixed(5)}</p>
+                    <div className="text-right flex flex-wrap items-center gap-3 sm:gap-5 w-full md:w-auto">
+                        <div className="bg-slate-100/90 px-3.5 py-1.5 rounded-xl border border-slate-200/90 text-right shadow-2xs">
+                            <label className="block text-[10px] font-extrabold text-slate-700 uppercase tracking-wider mb-0.5">Bank Quote</label>
+                            <p className="text-base sm:text-lg font-bold font-mono text-slate-900">{result.price.toFixed(5)}</p>
                         </div>
-                        <ArrowRight className="text-gray-300 hidden sm:block" size={16} />
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">All-In Price</label>
-                            <p className="text-sm font-mono font-semibold text-gray-700">{result.finalPrice.toFixed(5)}</p>
+                        <ArrowRight className="text-slate-400 hidden sm:block shrink-0" size={16} />
+                        <div className="text-right">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">All-In Price</label>
+                            <p className="text-sm sm:text-base font-semibold font-mono text-slate-700">{result.finalPrice.toFixed(5)}</p>
                         </div>
                         {result.is_alternative_value_date && result.normalized_price ? (
                             <>
-                                <ArrowRight className="text-gray-300 hidden sm:block" size={16} />
-                                <div>
-                                    <div className="flex items-center justify-end gap-1 mb-1">
-                                        <label className="block text-[10px] font-bold text-blue-600 uppercase">TVM Eval Price</label>
+                                <ArrowRight className="text-slate-400 hidden sm:block shrink-0" size={16} />
+                                <div className="text-right">
+                                    <div className="flex items-center justify-end gap-1 mb-0.5">
+                                        <label className="block text-[10px] font-bold text-blue-600 uppercase tracking-wider">TVM Eval Price</label>
                                         <span className="text-[9px] font-mono font-bold bg-blue-100 text-blue-800 px-1 rounded">
                                             {result.time_value_adjustment >= 0 ? '+' : ''}{result.time_value_adjustment.toFixed(4)}
                                         </span>
                                     </div>
-                                    <p className={`text-2xl font-bold font-mono ${isWinner ? 'text-emerald-600' : 'text-blue-950'}`}>
+                                    <p className={`text-2xl sm:text-3xl font-black font-mono ${isWinner ? 'text-emerald-600' : 'text-blue-950'}`}>
                                         {result.normalized_price.toFixed(5)}
                                     </p>
                                 </div>
                             </>
                         ) : (
                             <>
-                                <ArrowRight className="text-gray-300 hidden sm:block" size={16} />
-                                <div>
-                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Adjusted Price</label>
-                                    <p className={`text-2xl font-bold font-mono ${isWinner ? 'text-emerald-600' : 'text-gray-900'}`}>
+                                <ArrowRight className="text-slate-400 hidden sm:block shrink-0" size={16} />
+                                <div className="text-right">
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Adjusted Price</label>
+                                    <p className={`text-2xl sm:text-3xl font-black font-mono ${isWinner ? 'text-emerald-600' : 'text-slate-900'}`}>
                                         {result.finalPrice.toFixed(5)}
                                     </p>
                                 </div>
@@ -2788,7 +2788,7 @@ export default function ResultsView({ rfqId }) {
                                                                             <span>{res.bank_name}</span>
                                                                         </td>
                                                                         <td className="py-2.5 px-3 text-slate-500">{res.quotation_base || 'Execution'}</td>
-                                                                        <td className="py-2.5 px-3 font-mono">{res.price ? res.price.toFixed(5) : '—'}</td>
+                                                                        <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{res.price ? res.price.toFixed(5) : '—'}</td>
                                                                         <td className="py-2.5 px-3 font-mono text-emerald-700">{res.finalPrice ? res.finalPrice.toFixed(5) : '—'}</td>
                                                                         <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px]">
                                                                             {res.submitted_at ? new Date(res.submitted_at).toLocaleTimeString() : 'No Submission'}
@@ -2841,7 +2841,7 @@ export default function ResultsView({ rfqId }) {
                                                                 <span>{res.bank_name}</span>
                                                             </td>
                                                             <td className="py-2.5 px-3 text-slate-500">{res.quotation_base || 'Execution'}</td>
-                                                            <td className="py-2.5 px-3 font-mono">{res.price ? res.price.toFixed(5) : '—'}</td>
+                                                            <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{res.price ? res.price.toFixed(5) : '—'}</td>
                                                             <td className="py-2.5 px-3 font-mono text-emerald-700">{res.finalPrice ? res.finalPrice.toFixed(5) : (res.best_score ? res.best_score.toFixed(6) : '—')}</td>
                                                             <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px]">{res.submitted_at ? new Date(res.submitted_at).toLocaleTimeString() : 'No Submission'}</td>
                                                             <td className="py-2.5 px-3 text-right">
