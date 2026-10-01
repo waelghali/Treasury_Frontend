@@ -14,6 +14,7 @@ import PublicIssuancePortal from './pages/Public/PublicIssuancePortal';
 import PublicIssuanceForm from './pages/Public/PublicIssuanceForm';
 import RequestorDashboard from './pages/Public/RequestorDashboard';
 import QuotationBankOfferPage from './pages/Public/QuotationBankOfferPage';
+import PublicBankHandshakePage from './pages/Public/PublicBankHandshakePage';
 import RenewalPage from './pages/RenewalPage';
 
 import AuthWrapper from './components/AuthWrapper';
@@ -248,6 +249,8 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
           <Route path="/public-issuance/form" element={<PublicIssuanceForm />} />
           <Route path="/public-quotation/:token" element={<QuotationBankOfferPage />} />
           <Route path="/public/quotation/:token" element={<QuotationBankOfferPage />} />
+          <Route path="/public-bank-handshake/:token" element={<PublicBankHandshakePage />} />
+          <Route path="/public/bank-handshake/:token" element={<PublicBankHandshakePage />} />
           <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
