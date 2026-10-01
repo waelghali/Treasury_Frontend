@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -330,6 +330,38 @@ export default function ResultsView({ rfqId }) {
         const intervalId = setInterval(updateTimer, 1000);
         return () => clearInterval(intervalId);
     }, [isAwaitingAcceptance, rfq?.acceptance_deadline]);
+
+    const acceptancePanelRef = useRef(null);
+    const hasScrolledToAcceptanceRef = useRef(false);
+
+    // Auto-scroll up to the Acceptance Window Panel the moment Accept / Decline buttons appear
+    useEffect(() => {
+        const shouldShowAcceptance = Boolean(
+            isWindowClosed &&
+            canAcceptOrDecline &&
+            !resultsMeta.isInconclusive &&
+            rfq?.status !== 'CANCELLED' &&
+            rfq?.status !== 'PENDING_APPROVAL' &&
+            isAwaitingAcceptance
+        );
+
+        if (shouldShowAcceptance) {
+            if (!hasScrolledToAcceptanceRef.current) {
+                hasScrolledToAcceptanceRef.current = true;
+                const timer = setTimeout(() => {
+                    if (acceptancePanelRef.current) {
+                        acceptancePanelRef.current.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                }, 200);
+                return () => clearTimeout(timer);
+            }
+        } else {
+            hasScrolledToAcceptanceRef.current = false;
+        }
+    }, [isWindowClosed, canAcceptOrDecline, resultsMeta.isInconclusive, rfq?.status, isAwaitingAcceptance, rfqId]);
 
     const fetchResults = async () => {
         if (!rfqId) return null;
@@ -1154,7 +1186,10 @@ export default function ResultsView({ rfqId }) {
 
             {/* Post-Window Deal Decision Panel (Maker / Admin / Delegate) */}
             {isWindowClosed && canAcceptOrDecline && !resultsMeta.isInconclusive && rfq?.status !== 'CANCELLED' && rfq?.status !== 'PENDING_APPROVAL' && (
-                <div className={`p-5 sm:p-6 rounded-2xl border transition-all animate-fade-in-up ${
+                <div 
+                    ref={acceptancePanelRef}
+                    id="acceptanceDecisionPanel"
+                    className={`p-5 sm:p-6 rounded-2xl border transition-all animate-fade-in-up ${
                     isDeclined
                         ? 'bg-rose-50/90 border-rose-200 text-rose-950 shadow-sm'
                         : isAccepted
