@@ -2612,7 +2612,7 @@ export default function QuotationBankOfferPage() {
                                         { id: 'THE_RELIABLE_DESK', title: 'The Active Desk', current_tier: 'NONE', current_value: 0, target_value: 5, unit: 'tenders', progress_percent: 0, description: 'Consistent market liquidity provider across invited corporate tenders.' },
                                         { id: 'DEAL_CLOSER', title: 'Deal Closer', current_tier: 'NONE', current_value: 0, target_value: 3, unit: 'deals', progress_percent: 0, description: 'Successful firm tender executions completed on Grow.' },
                                         { id: 'VOLUME_TITAN', title: 'Liquidity Titan', current_tier: 'NONE', current_value: 0, target_value: 10000000, unit: 'USD', progress_percent: 0, description: 'Cumulative firm trade execution volume awarded across confirmed tenders.', is_currency: true },
-                                        { id: 'TRIPLE_CROWN', title: 'The Triple Crown Cup', current_tier: 'NONE', current_value: 0, target_value: 3, unit: 'streak', progress_percent: 0, description: 'Consecutive winning firm execution tenders across the interbank market.' },
+                                        { id: 'TRIPLE_CROWN', title: 'Unbroken Victor', current_tier: 'NONE', current_value: 0, target_value: 3, unit: 'streak', progress_percent: 0, description: 'Consecutive clean-sweep tender executions won across the interbank market.' },
                                         { id: 'CURRENCY_EXPLORER', title: 'Market Versatility', current_tier: 'NONE', current_value: 0, target_value: 2, unit: 'pairs', progress_percent: 0, description: 'Active firm execution across distinct interbank currency pairs.' },
                                         { id: 'PRECISION_SPEED', title: 'Swift Execution', current_tier: 'NONE', current_value: 0, target_value: 5, unit: 'quotes', progress_percent: 0, description: 'Rapid, firm execution quotations submitted during live market tender windows.' },
                                         { id: 'MARKET_INTELLIGENCE', title: 'Market Intelligence', current_tier: 'NONE', current_value: 0, target_value: 5, unit: 'quotes', progress_percent: 0, description: 'Indicative & benchmark market intelligence pricing provided to corporate clients.' }
@@ -2684,7 +2684,7 @@ export default function QuotationBankOfferPage() {
                                                     )}
                                                 </div>
                                                 {/* Tooltip popping downward into open space */}
-                                                <div className={`absolute top-full ${tooltipAlignCls} mt-2.5 hidden group-hover:flex flex-col w-72 p-3.5 bg-slate-950 text-white rounded-xl shadow-2xl border border-slate-800 text-left z-50 pointer-events-none`}>
+                                                <div className={`absolute top-full ${tooltipAlignCls} mt-2.5 hidden group-hover:flex flex-col w-80 p-3.5 bg-slate-950 text-white rounded-xl shadow-2xl border border-slate-800 text-left z-50 pointer-events-none`}>
                                                     <div className={`absolute -top-1.5 ${arrowAlignCls} w-3 h-3 bg-slate-950 border-t border-l border-slate-800 rotate-45`} />
                                                     <div className="flex items-center justify-between gap-2 mb-1.5 pb-1 border-b border-slate-800">
                                                         <span className="font-bold text-xs flex items-center gap-1.5 text-slate-200">
@@ -2716,26 +2716,36 @@ export default function QuotationBankOfferPage() {
                                                             }}
                                                         />
                                                     </div>
-                                                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/80">
-                                                        <span className="font-mono text-slate-300 font-medium">
-                                                            {formattedCurrent} / {formattedTarget}
+                                                    <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1.5 border-t border-slate-800/80">
+                                                        <span className="font-mono text-slate-200 font-bold">
+                                                            {trophy.unit === 'streak' ? (
+                                                                <span>Streak: <strong className={curVal > 0 ? "text-amber-400 font-black" : "text-slate-400 font-bold"}>{curVal}</strong> / {formattedTarget}</span>
+                                                            ) : (
+                                                                `${formattedCurrent} / ${formattedTarget}`
+                                                            )}
                                                         </span>
-                                                        <span className="font-mono text-slate-400">
+                                                        <span className="font-mono text-slate-400 text-[10px]">
                                                             {isEarned
                                                                 ? (trophy.next_tier !== 'MAX' ? `Next: ${trophy.next_tier}` : 'Mastered')
                                                                 : (() => {
                                                                     const remaining = Math.max(0, tgtVal - curVal);
-                                                                    if (trophy.unit === 'quotes') return `${remaining} more quote${remaining > 1 ? 's' : ''} to unlock`;
-                                                                    if (trophy.unit === 'deals') return `${remaining} more win${remaining > 1 ? 's' : ''} to unlock`;
-                                                                    if (trophy.unit === 'streak') return `${remaining} streak to unlock`;
-                                                                    if (trophy.unit === 'sessions') return `${remaining} more arrival${remaining > 1 ? 's' : ''} to unlock`;
-                                                                    if (trophy.unit === 'tenders') return `${remaining} more tender${remaining > 1 ? 's' : ''} to unlock`;
-                                                                    if (trophy.unit === 'pairs') return `${remaining} more pair${remaining > 1 ? 's' : ''} to unlock`;
+                                                                    if (trophy.unit === 'quotes') return `${remaining} more to unlock`;
+                                                                    if (trophy.unit === 'deals') return `${remaining} more to unlock`;
+                                                                    if (trophy.unit === 'streak') return `${remaining} in a row to unlock`;
+                                                                    if (trophy.unit === 'sessions') return `${remaining} more to unlock`;
+                                                                    if (trophy.unit === 'tenders') return `${remaining} more to unlock`;
+                                                                    if (trophy.unit === 'pairs') return `${remaining} more to unlock`;
                                                                     if (trophy.unit === 'USD') return `$${(remaining >= 1000000 ? `${(remaining / 1000000).toFixed(1)}M` : remaining.toLocaleString())} to unlock`;
                                                                     return `${remaining} more to unlock`;
                                                                 })()}
                                                         </span>
                                                     </div>
+                                                    {trophy.unit === 'streak' && (trophy.best_record !== undefined && trophy.best_record > 0) && (
+                                                        <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 mt-1 border-t border-slate-900 font-mono">
+                                                            <span>Personal Best Record:</span>
+                                                            <span className="text-slate-300 font-semibold">{trophy.best_record} clean sweep{trophy.best_record > 1 ? 's' : ''}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         );
