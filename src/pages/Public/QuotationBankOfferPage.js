@@ -2959,6 +2959,60 @@ export default function QuotationBankOfferPage() {
                                                         {rfq.maturity_date_end ? ` to ${formatDate(rfq.maturity_date_end)}` : ''}
                                                     </p>
                                                 </div>
+
+                                                {/* T-Bill RFQ Governance & Schedule Card */}
+                                                <div className="col-span-2 mt-2 pt-4 border-t border-slate-100">
+                                                    <div className="p-4 bg-slate-50 border border-slate-200/90 rounded-2xl space-y-3 shadow-2xs">
+                                                        <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
+                                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                                                                <FileText size={13} className="text-slate-400" />
+                                                                <span>RFQ Governance & Schedule</span>
+                                                            </span>
+                                                            <span className="text-[10px] font-bold text-slate-700 bg-white border border-slate-200 px-2 py-0.5 rounded-full font-mono">
+                                                                Treasury Bill
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Timestamps, Creator & Approver Governance Info */}
+                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                                                            <div>
+                                                                <span className="text-[10px] font-semibold text-gray-400 uppercase block mb-0.5">Created By</span>
+                                                                <p className="font-semibold text-gray-800 font-mono text-[11px] truncate" title={rfq.created_by_email || rfq.created_by_name || ''}>
+                                                                    {rfq.created_by_email || rfq.created_by_name || `${rfq.customer_name} Treasury`}
+                                                                </p>
+                                                                {rfq.created_at && (
+                                                                    <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
+                                                                        {new Date(rfq.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            <div>
+                                                                <span className="text-[10px] font-semibold text-gray-400 uppercase block mb-0.5">Approved By</span>
+                                                                <p className="font-semibold text-gray-800 font-mono text-[11px] truncate" title={rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || ''}>
+                                                                    {rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || (rfq.admin_reviewed_at ? 'Corporate Treasury Admin' : 'Direct Corporate Release')}
+                                                                </p>
+                                                                {(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at) && (
+                                                                    <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
+                                                                        {new Date(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            <div>
+                                                                <span className="text-[10px] font-semibold text-gray-400 uppercase block mb-0.5">Quotation Window</span>
+                                                                <p className="font-semibold text-gray-800 text-[11px]">
+                                                                    {rfq.window_start ? new Date(rfq.window_start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                                    {' → '}
+                                                                    {rfq.window_end ? new Date(rfq.window_end).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                                </p>
+                                                                <span className="text-[10px] text-emerald-600 font-medium block mt-0.5 font-mono">
+                                                                    {formatDate(rfq.window_start)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </>
                                         ) : (rfq.legs && rfq.legs.length > 1) ? (
                                             <div className="col-span-2 space-y-3">
@@ -3089,6 +3143,60 @@ export default function QuotationBankOfferPage() {
                                                 <div>
                                                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Quotation Base</label>
                                                     <p className="text-base sm:text-lg font-semibold text-gray-900">{rfq.quotation_base}</p>
+                                                </div>
+
+                                                {/* Single-Leg RFQ Governance & Schedule Card */}
+                                                <div className="col-span-2 mt-2 pt-4 border-t border-slate-100">
+                                                    <div className="p-4 bg-slate-50 border border-slate-200/90 rounded-2xl space-y-3 shadow-2xs">
+                                                        <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
+                                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                                                                <FileText size={13} className="text-slate-400" />
+                                                                <span>RFQ Governance & Schedule</span>
+                                                            </span>
+                                                            <span className="text-[10px] font-bold text-slate-700 bg-white border border-slate-200 px-2 py-0.5 rounded-full font-mono">
+                                                                1 Currency Leg
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Timestamps, Creator & Approver Governance Info */}
+                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                                                            <div>
+                                                                <span className="text-[10px] font-semibold text-gray-400 uppercase block mb-0.5">Created By</span>
+                                                                <p className="font-semibold text-gray-800 font-mono text-[11px] truncate" title={rfq.created_by_email || rfq.created_by_name || ''}>
+                                                                    {rfq.created_by_email || rfq.created_by_name || `${rfq.customer_name} Treasury`}
+                                                                </p>
+                                                                {rfq.created_at && (
+                                                                    <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
+                                                                        {new Date(rfq.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            <div>
+                                                                <span className="text-[10px] font-semibold text-gray-400 uppercase block mb-0.5">Approved By</span>
+                                                                <p className="font-semibold text-gray-800 font-mono text-[11px] truncate" title={rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || ''}>
+                                                                    {rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || (rfq.admin_reviewed_at ? 'Corporate Treasury Admin' : 'Direct Corporate Release')}
+                                                                </p>
+                                                                {(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at) && (
+                                                                    <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
+                                                                        {new Date(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            <div>
+                                                                <span className="text-[10px] font-semibold text-gray-400 uppercase block mb-0.5">Quotation Window</span>
+                                                                <p className="font-semibold text-gray-800 text-[11px]">
+                                                                    {rfq.window_start ? new Date(rfq.window_start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                                    {' → '}
+                                                                    {rfq.window_end ? new Date(rfq.window_end).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                                </p>
+                                                                <span className="text-[10px] text-emerald-600 font-medium block mt-0.5 font-mono">
+                                                                    {formatDate(rfq.window_start)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </>
                                         )}
