@@ -221,6 +221,7 @@ export default function QuotationRequestDashboard() {
     const isPrefillingRef = useRef(false);
 
     const [entities, setEntities] = useState([]);
+    const [entitiesLoading, setEntitiesLoading] = useState(true);
     const [banks, setBanks] = useState([]);
     const [selectedBanks, setSelectedBanks] = useState([]);
     const [includeCrossEntityBanks, setIncludeCrossEntityBanks] = useState(false);
@@ -243,6 +244,8 @@ export default function QuotationRequestDashboard() {
     const [evalRateDetails, setEvalRateDetails] = useState(null);
     const hasUserChangedEvalRateRef = useRef(false);
     const [formData, setFormData] = useState(() => getInitialFormData(''));
+    // Guard: When customer has multiple legal entities and none is selected yet, require entity selection before showing banks
+    const requiresEntitySelection = !entitiesLoading && entities.length > 1 && !formData.entityId;
     const [pairs, setPairs] = useState(() => [getInitialPair('')]);
     const [activePairIndex, setActivePairIndex] = useState(0);
     const [bankActivePairTab, setBankActivePairTab] = useState({});
@@ -757,6 +760,7 @@ export default function QuotationRequestDashboard() {
 
     // Fetch accessible customer legal entities
     useEffect(() => {
+        setEntitiesLoading(true);
         apiClient.get('/end-user/quotations/entities')
             .then(res => {
                 const list = res.data || [];
@@ -767,6 +771,9 @@ export default function QuotationRequestDashboard() {
             })
             .catch(err => {
                 console.warn("Could not fetch accessible entities:", err);
+            })
+            .finally(() => {
+                setEntitiesLoading(false);
             });
     }, []);
 
@@ -933,13 +940,26 @@ export default function QuotationRequestDashboard() {
     }, [revisionRfqId, retradeRfqId]);
 
     useEffect(() => {
+        // Wait until legal entities are loaded from the backend
+        if (entitiesLoading) return;
+
+        // If customer has multiple entities and user hasn't selected one yet, do not fetch or display banks
+        if (entities.length > 1 && !formData.entityId) {
+            setBanks([]);
+            return;
+        }
+
         // Fetch banks configured for this customer, dynamically filtering by trade type and selected legal entity
-        let url = `/end-user/quotations/banks?trade_type=${formData.type}`;
+        // Strictly exclude counterparties whose dealer contacts are all still pending handshake
+        let url = `/end-user/quotations/banks?trade_type=${formData.type}&exclude_all_pending=true`;
         if (formData.entityId) {
             url += `&entity_id=${formData.entityId}`;
         }
         apiClient.get(url)
-            .then(res => setBanks(res.data))
+            .then(res => {
+                const activeBanks = (res.data || []).filter(b => !b.all_contacts_pending && b.has_active_contacts !== false);
+                setBanks(activeBanks);
+            })
             .catch(err => console.error("Error fetching banks", err));
 
         // Clear previously selected banks only when trade type changes manually, not during prefilling
@@ -947,12 +967,18 @@ export default function QuotationRequestDashboard() {
             setSelectedBanks([]);
             prevTypeRef.current = formData.type;
         }
-    }, [formData.type, formData.entityId]);
+    }, [formData.type, formData.entityId, entitiesLoading, entities.length]);
 
     const activePair = pairs[activePairIndex] || pairs[0] || {};
 
     // Mind-Reader: Fetch counterparty recommendations based on asset type, active currency pair, ticket amount, and multi-leg package
     useEffect(() => {
+        if (entitiesLoading || (entities.length > 1 && !formData.entityId)) {
+            setRecommendations([]);
+            setBankAnalytics({});
+            return;
+        }
+
         const curAmount = activePair?.amount || formData.amount;
         const curBase = activePair?.quotationBase || formData.quotationBase || 'Execution';
         const curBuy = activePair?.buyCurrency || formData.buyCurrency;
@@ -978,7 +1004,7 @@ export default function QuotationRequestDashboard() {
             setRecommendations([]);
             setBankAnalytics({});
         });
-    }, [formData.type, formData.buyCurrency, formData.sellCurrency, activePair?.buyCurrency, activePair?.sellCurrency, activePair?.amount, activePair?.quotationBase, pairs]);
+    }, [formData.type, formData.buyCurrency, formData.sellCurrency, activePair?.buyCurrency, activePair?.sellCurrency, activePair?.amount, activePair?.quotationBase, pairs, formData.entityId, entitiesLoading, entities.length]);
 
     const todayStr = new Date().toISOString().split('T')[0];
     const nowLocalIso = toLocalISOString(new Date());
@@ -1701,6 +1727,12 @@ export default function QuotationRequestDashboard() {
         e.preventDefault();
         setIsSubmitting(true);
 
+        if (entities.length > 1 && !formData.entityId) {
+            toast.error("Please select a Legal Entity for this quotation request.");
+            setIsSubmitting(false);
+            return;
+        }
+
         if (selectedBanks.length === 1) {
             if (!window.confirm("You have only selected 1 bank. It is recommended to select multiple banks for competitive pricing. Do you want to proceed?")) {
                 setIsSubmitting(false);
@@ -2144,7 +2176,7 @@ export default function QuotationRequestDashboard() {
         );
     }
 
-    const hasExecutionBanks = selectedBanks.some(b => (b.quotationBase || formData.quotationBase) === 'Execution') || (!selectedBanks.length && formData.quotationBase === 'Execution');
+    const hasExecutionBanks = selectedBanks.length > 0 && selectedBanks.some(b => (b.quotationBase || formData.quotationBase) === 'Execution');
     const selectedEntity = entities.find(e => String(e.id) === String(formData.entityId)) || (entities.length === 1 ? entities[0] : null);
     const selectedEntityName = selectedEntity ? `${selectedEntity.code ? `[${selectedEntity.code}] ` : ''}${selectedEntity.name}` : 'Your Legal Entity';
 
@@ -2365,11 +2397,15 @@ export default function QuotationRequestDashboard() {
                                             <Building size={13} className="text-indigo-600" />
                                             Requesting Legal Entity <span className="text-rose-500">*</span>
                                         </label>
-                                        {retradeRfqId && (
+                                        {requiresEntitySelection ? (
+                                            <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full animate-pulse">
+                                                Select first to load banks
+                                            </span>
+                                        ) : retradeRfqId ? (
                                             <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
                                                 🔒 Locked
                                             </span>
-                                        )}
+                                        ) : null}
                                     </div>
                                     <select
                                         required
@@ -2380,7 +2416,11 @@ export default function QuotationRequestDashboard() {
                                             setFormData(prev => ({ ...prev, entityId: nextEntityId }));
                                             setSelectedBanks([]);
                                         }}
-                                        className={`w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all ${
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all ${
+                                            requiresEntitySelection
+                                                ? 'bg-indigo-50/40 border-2 border-indigo-400 ring-2 ring-indigo-500/15 shadow-xs'
+                                                : 'bg-slate-50 border border-slate-200'
+                                        } ${
                                             retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
                                         }`}
                                     >
@@ -3249,60 +3289,94 @@ export default function QuotationRequestDashboard() {
                                 <Landmark size={14} /> Bank Selection & Costs
                             </h3>
                             <div className="flex items-center gap-2 flex-wrap">
-                                {crossEntityBanks.length > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setIncludeCrossEntityBanks(prev => !prev)}
-                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-                                            includeCrossEntityBanks
-                                                ? 'bg-purple-100 text-purple-900 border-purple-300 shadow-2xs'
-                                                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                                        }`}
-                                        title="Show counterparties from other group entities for indicative market benchmark comparison"
-                                    >
-                                        <span>🌐</span>
-                                        <span>Group Benchmark Banks ({crossEntityBanks.length})</span>
-                                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${includeCrossEntityBanks ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                                            {includeCrossEntityBanks ? 'Active' : 'Off'}
-                                        </span>
-                                    </button>
-                                )}
-                                {displayedBanks && displayedBanks.length > 0 && (
+                                {!requiresEntitySelection && !entitiesLoading && (
                                     <>
-                                        {selectedBanks.length < displayedBanks.length && (
+                                        {crossEntityBanks.length > 0 && (
                                             <button
                                                 type="button"
-                                                onClick={handleSelectAllBanks}
-                                                disabled={isSelectingAll}
-                                                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
-                                                title="Select all available counterparty banks"
+                                                onClick={() => setIncludeCrossEntityBanks(prev => !prev)}
+                                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                                                    includeCrossEntityBanks
+                                                        ? 'bg-purple-100 text-purple-900 border-purple-300 shadow-2xs'
+                                                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                                }`}
+                                                title="Show counterparties from other group entities for indicative market benchmark comparison"
                                             >
-                                                {isSelectingAll ? (
-                                                    <RefreshCw size={12} className="animate-spin text-blue-600" />
-                                                ) : (
-                                                    <CheckSquare size={13} className="text-blue-600" />
+                                                <span>🌐</span>
+                                                <span>Group Benchmark Banks ({crossEntityBanks.length})</span>
+                                                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${includeCrossEntityBanks ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                                                    {includeCrossEntityBanks ? 'Active' : 'Off'}
+                                                </span>
+                                            </button>
+                                        )}
+                                        {displayedBanks && displayedBanks.length > 0 && (
+                                            <>
+                                                {selectedBanks.length < displayedBanks.length && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleSelectAllBanks}
+                                                        disabled={isSelectingAll}
+                                                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
+                                                        title="Select all available counterparty banks"
+                                                    >
+                                                        {isSelectingAll ? (
+                                                            <RefreshCw size={12} className="animate-spin text-blue-600" />
+                                                        ) : (
+                                                            <CheckSquare size={13} className="text-blue-600" />
+                                                        )}
+                                                        Select All
+                                                    </button>
                                                 )}
-                                                Select All
-                                            </button>
+                                                {selectedBanks.length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleDeselectAllBanks}
+                                                        disabled={isSelectingAll}
+                                                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                                        title="Deselect all counterparty banks"
+                                                    >
+                                                        <Square size={13} className="text-gray-500" /> Deselect All
+                                                    </button>
+                                                )}
+                                            </>
                                         )}
-                                        {selectedBanks.length > 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={handleDeselectAllBanks}
-                                                disabled={isSelectingAll}
-                                                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                                                title="Deselect all counterparty banks"
-                                            >
-                                                <Square size={13} className="text-gray-500" /> Deselect All
-                                            </button>
-                                        )}
+                                        <span className="text-xs font-medium bg-black text-white px-3 py-1 rounded-full shrink-0">
+                                            {selectedBanks.length} Selected
+                                        </span>
                                     </>
                                 )}
-                                <span className="text-xs font-medium bg-black text-white px-3 py-1 rounded-full shrink-0">
-                                    {selectedBanks.length} Selected
-                                </span>
+                                {requiresEntitySelection && (
+                                    <span className="text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/80 px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-2xs animate-fade-in">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                        Select Entity First
+                                    </span>
+                                )}
                             </div>
                         </div>
+
+                        {entitiesLoading ? (
+                            <div className="flex-1 flex flex-col items-center justify-center py-20 text-center text-slate-400">
+                                <RefreshCw size={24} className="animate-spin text-indigo-500 mb-3" />
+                                <span className="text-xs font-semibold text-slate-600">Loading authorized entities & banks...</span>
+                            </div>
+                        ) : requiresEntitySelection ? (
+                            <div className="flex-1 flex flex-col items-center justify-center py-16 px-6 text-center bg-slate-50/70 rounded-2xl border-2 border-dashed border-indigo-200/90 my-auto animate-fade-in">
+                                <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mb-4 shadow-sm">
+                                    <Building size={32} className="text-indigo-600" />
+                                </div>
+                                <h4 className="text-base font-bold text-slate-900 mb-1.5">
+                                    Select a Requesting Legal Entity
+                                </h4>
+                                <p className="text-xs text-slate-500 max-w-md leading-relaxed mb-5">
+                                    Quotes, bank counterparty credit limits, and dealer routing are configured specifically per requesting legal entity. Please select your entity in <strong>Trade Details</strong> on the left to reveal authorized counterparties and pricing benchmarks.
+                                </p>
+                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-indigo-200 text-indigo-700 text-xs font-bold shadow-2xs">
+                                    <span className="text-base leading-none">👈</span>
+                                    <span>Step 1: Choose Legal Entity</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
 
                         {includeCrossEntityBanks && crossEntityBanks.length > 0 && (
                             <div className="mb-5 p-3 sm:p-3.5 rounded-2xl bg-purple-50/90 border border-purple-200 text-purple-900 flex items-center justify-between gap-3 text-xs animate-fade-in shadow-2xs">
@@ -3963,6 +4037,8 @@ export default function QuotationRequestDashboard() {
                                 </div>
                             </div>
                         )}
+                            </>
+                        )}
 
                         {/* Mandatory Legal & Execution Acknowledgment Checkbox (for Execution RFQs) */}
                         {hasExecutionBanks && (
@@ -4000,6 +4076,7 @@ export default function QuotationRequestDashboard() {
                                 type="submit"
                                 disabled={
                                     isSubmitting ||
+                                    requiresEntitySelection ||
                                     selectedBanks.length === 0 ||
                                     hasDateDiscrepancy ||
                                     Boolean(bankConflict) ||

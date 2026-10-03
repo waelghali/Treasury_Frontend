@@ -141,7 +141,7 @@ export default function PublicBankHandshakePage() {
                     {data?.customer_name && (
                         <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/60 text-xs text-slate-300">
                             <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>Client: <strong className="text-white">{data.customer_name}</strong></span>
+                            <span>Corporate Group: <strong className="text-white">{data.customer_name}</strong></span>
                         </div>
                     )}
                 </div>
@@ -178,7 +178,7 @@ export default function PublicBankHandshakePage() {
                                         {data.bank_name}
                                     </h2>
                                     <p className="text-sm text-slate-300 mt-1">
-                                        Treasury Counterparty Desk for <strong className="text-white">{data.customer_name}</strong>
+                                        Treasury Counterparty Desk for <strong className="text-white">{data.customer_name} (Group)</strong>
                                     </p>
                                 </div>
 
@@ -220,6 +220,48 @@ export default function PublicBankHandshakePage() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Authorized Legal Entities Scope */}
+                            <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-3 mt-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+                                        Authorized Legal Entities In Scope
+                                    </h3>
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 w-fit">
+                                        {data.entity_scope === 'ALL_ENTITIES' ? '🌐 All Group Entities' : '🏢 Specific Group Entities'}
+                                    </span>
+                                </div>
+
+                                <p className="text-[11.5px] text-slate-400">
+                                    Your desk trading authority applies to the following legal {data.entities && data.entities.length === 1 ? 'entity' : 'entities'} within <strong>{data.customer_name}</strong>:
+                                </p>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                                    {data.entities && data.entities.length > 0 ? (
+                                        data.entities.map((ent, idx) => (
+                                            <div
+                                                key={ent.id || idx}
+                                                className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800/90 text-xs hover:border-slate-700 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                                                    <span className="font-semibold text-white truncate">{ent.name || ent.entity_name}</span>
+                                                </div>
+                                                {ent.code && (
+                                                    <span className="font-mono text-[10px] text-slate-400 bg-slate-800/80 px-1.5 py-0.5 rounded ml-2 shrink-0 border border-slate-700/50">
+                                                        {ent.code}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="p-3 bg-slate-950/50 border border-slate-800 rounded-lg text-xs text-slate-400">
+                                            All legal entities under {data.customer_name}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
 
                         {/* Action Card */}
@@ -239,7 +281,7 @@ export default function PublicBankHandshakePage() {
                                     <div>
                                         <h4 className="text-lg font-bold text-white">Accept Invitation &amp; Activate Trading Access</h4>
                                         <p className="text-xs text-slate-300 max-w-lg mx-auto mt-1 leading-relaxed">
-                                            By clicking accept, you confirm your contact details and agree to represent {data.bank_name} for transactions on {data.customer_name}'s treasury platform.
+                                            By clicking accept, you confirm your contact details and agree to represent {data.bank_name} for transactions across {data.entities && data.entities.length > 1 ? `all ${data.entities.length} authorized legal entities within ` : ''}{data.customer_name}'s treasury platform.
                                         </p>
                                     </div>
 

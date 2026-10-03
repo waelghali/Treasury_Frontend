@@ -6,7 +6,7 @@ import {
   Shield, Zap, Globe, ArrowRight, CheckCircle, 
   FileCheck, Bell, BarChart3, Layers, Lock, 
   Send, Building2, Briefcase, ChevronRight,
-  Clock, Users, BookOpen
+  Clock, Users, BookOpen, TrendingUp, FileSpreadsheet
 } from 'lucide-react';
 
 function LandingPage() {
@@ -164,14 +164,14 @@ function LandingPage() {
           <div className="max-w-3xl">
             <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium mb-6" style={{ backgroundColor: 'rgba(96,165,250,0.15)', color: '#93bbfc' }}>
               <Layers className="w-3 h-3 mr-1.5" />
-              LG Custody · LG Issuance · Modular Platform
+              LG Custody · LG Issuance · FX Quotations · Bank Reconciliation
             </div>
             <h1 className="text-4xl lg:text-5xl xl:text-6xl font-extrabold text-white leading-[1.1] mb-5 tracking-tight">
-              The LG Platform That<br />
+              The Treasury Platform That<br />
               <span style={{ color: '#60a5fa' }}>Works Like Your Smartest Team Member</span>
             </h1>
             <p className="text-lg text-gray-400 max-w-2xl mb-8 leading-relaxed">
-              Never miss an expiry. Never lose a reply. Track custody, automate issuance, and always stay in control — all on one unified platform.
+              Never miss an expiry. Never lose a reply. Track custody, automate issuance, run competitive FX bidding, and reconcile bank statements — all on one unified platform.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
@@ -218,10 +218,10 @@ function LandingPage() {
           <div className="text-center mb-14">
             <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">Modular by Design</p>
             <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">Choose Only What You Need</h2>
-            <p className="text-gray-500 mt-3 max-w-xl mx-auto">Two powerful modules that work independently or together. Start with one, expand when you're ready.</p>
+            <p className="text-gray-500 mt-3 max-w-xl mx-auto">Four powerful modules that work independently or together. Start with one, expand when you're ready.</p>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="grid md:grid-cols-2 gap-8">
             {/* Module 1: LG Custody */}
             <div className="rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-shadow duration-300 group">
               <div className="flex items-center space-x-3 mb-6">
@@ -266,7 +266,7 @@ function LandingPage() {
               <ul className="space-y-3 mb-6">
                 {[
                   '3-step issuance wizard with smart form auto-filling',
-                  'Multi-bank RFQ with side-by-side comparison',
+                  'Multi-bank facility limit tracking and allocation',
                   'Built-in maker-checker approval workflows',
                   'AI-powered bank form analysis and filling',
                   'Full issuance lifecycle from request to delivery',
@@ -279,6 +279,66 @@ function LandingPage() {
               </ul>
               <Link to="/free-trial-register?module=issuance" className="inline-flex items-center text-sm font-semibold text-purple-600 hover:text-purple-800 transition-colors group-hover:translate-x-1 duration-200">
                 Try LG Issuance <ChevronRight className="w-4 h-4 ml-1" />
+              </Link>
+            </div>
+
+            {/* Module 3: FX & T-Bill Quotations */}
+            <div className="rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-shadow duration-300 group">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">FX & T-Bill Quotations</h3>
+                  <p className="text-xs text-gray-500">For competitive multi-bank price discovery and bidding</p>
+                </div>
+              </div>
+              <ul className="space-y-3 mb-6">
+                {[
+                  'Competitive FX spot and T-bill electronic bidding requests',
+                  'Central Bank corridor benchmark rate tracking',
+                  'Real-time rate checks for inversions and dealer typos',
+                  'Side-by-side bank ranking and ticket splitting',
+                  'Maker-checker approval workflow for deal execution',
+                ].map((item, i) => (
+                  <li key={i} className="flex items-start text-sm text-gray-600">
+                    <CheckCircle className="w-4 h-4 text-emerald-500 mr-2 mt-0.5 flex-shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Link to="/free-trial-register?module=quotations" className="inline-flex items-center text-sm font-semibold text-emerald-600 hover:text-emerald-800 transition-colors group-hover:translate-x-1 duration-200">
+                Try FX Quotations <ChevronRight className="w-4 h-4 ml-1" />
+              </Link>
+            </div>
+
+            {/* Module 4: Bank Auto-Reconciliation */}
+            <div className="rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-shadow duration-300 group">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                  <FileSpreadsheet className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Bank Auto-Reconciliation</h3>
+                  <p className="text-xs text-gray-500">For finance teams reconciling bank statements with ledgers</p>
+                </div>
+              </div>
+              <ul className="space-y-3 mb-6">
+                {[
+                  'Multi-bank statement import for Excel, CSV, and MT940',
+                  'Automatic fee, tax, and interest classification',
+                  'Internal sweep and liquidity transfer pairing',
+                  'Dual-pane matching against internal ERP & ledger records',
+                  'Exception reporting and audit-ready reconciliation logs',
+                ].map((item, i) => (
+                  <li key={i} className="flex items-start text-sm text-gray-600">
+                    <CheckCircle className="w-4 h-4 text-amber-500 mr-2 mt-0.5 flex-shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Link to="/free-trial-register?module=reconciliation" className="inline-flex items-center text-sm font-semibold text-amber-600 hover:text-amber-800 transition-colors group-hover:translate-x-1 duration-200">
+                Try Auto-Reconciliation <ChevronRight className="w-4 h-4 ml-1" />
               </Link>
             </div>
           </div>

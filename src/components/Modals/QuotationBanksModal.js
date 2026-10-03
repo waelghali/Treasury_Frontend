@@ -34,6 +34,10 @@ export default function QuotationBanksModal({ onClose }) {
     const [reportSentSuccess, setReportSentSuccess] = useState(null);
     const [pendingInvitations, setPendingInvitations] = useState([]);
     const [isInvitingContact, setIsInvitingContact] = useState(false);
+    const [rosterSearch, setRosterSearch] = useState('');
+    const [rosterEntityFilter, setRosterEntityFilter] = useState('ALL');
+    const [rosterTradeTypeFilter, setRosterTradeTypeFilter] = useState('ALL');
+    const [rosterRoleFilter, setRosterRoleFilter] = useState('ALL');
 
     useEffect(() => {
         fetchBanks();
@@ -335,6 +339,7 @@ export default function QuotationBanksModal({ onClose }) {
 
         try {
             await apiClient.post('/end-user/quotations/banks', {
+                id: editingBankId || undefined,
                 bank_id: parseInt(formData.bank_id),
                 trade_type: formData.trade_type,
                 entity_scope: formData.entity_scope,
@@ -402,9 +407,65 @@ export default function QuotationBanksModal({ onClose }) {
                (b.code && b.code.toLowerCase().includes(term));
     });
 
+    const filteredBanks = banks.filter(bank => {
+        // Search term (bank name, bank ID, authorized contact email, contact emails, contact names)
+        if (rosterSearch.trim()) {
+            const term = rosterSearch.trim().toLowerCase();
+            const bankName = (bank.bank?.name || '').toLowerCase();
+            const bankId = String(bank.bank_id);
+            const authEmail = (bank.authorized_contact_email || '').toLowerCase();
+            const authName = (bank.authorized_contact_name || '').toLowerCase();
+            const contactEmails = (bank.contacts || []).map(c => (c.email || '').toLowerCase()).join(' ');
+            const contactNames = (bank.contacts || []).map(c => (c.name || '').toLowerCase()).join(' ');
+            const rawEmails = (bank.emails || '').toLowerCase();
+            const matchesSearch = bankName.includes(term) || bankId.includes(term) || authEmail.includes(term) || authName.includes(term) || contactEmails.includes(term) || contactNames.includes(term) || rawEmails.includes(term);
+            if (!matchesSearch) return false;
+        }
+
+        // Legal Entity filter
+        if (rosterEntityFilter !== 'ALL') {
+            const targetEid = parseInt(rosterEntityFilter);
+            const isAllScope = bank.entity_scope === 'ALL_ENTITIES';
+            const hasSpecific = (bank.entity_ids || []).includes(targetEid);
+            if (!isAllScope && !hasSpecific) return false;
+        }
+
+        // Trade Type filter
+        if (rosterTradeTypeFilter !== 'ALL') {
+            if (bank.trade_type !== rosterTradeTypeFilter && bank.trade_type !== 'BOTH') return false;
+        }
+
+        // Contact Role filter
+        if (rosterRoleFilter !== 'ALL') {
+            const contactsList = (bank.contacts && bank.contacts.length > 0)
+                ? bank.contacts
+                : (bank.emails ? bank.emails.split(',').map(e => ({ email: e.trim(), name: '', role: 'EXECUTION' })) : []);
+            if (rosterRoleFilter === 'PENDING') {
+                const hasPending = contactsList.some(c => c.is_pending || c.invitation_status === 'PENDING');
+                if (!hasPending) return false;
+            } else {
+                const hasRole = contactsList.some(c => c.role === rosterRoleFilter);
+                if (!hasRole) return false;
+            }
+        }
+
+        return true;
+    });
+
+    const hasActiveFilters = Boolean(
+        rosterSearch.trim() || rosterEntityFilter !== 'ALL' || rosterTradeTypeFilter !== 'ALL' || rosterRoleFilter !== 'ALL'
+    );
+
+    const resetFilters = () => {
+        setRosterSearch('');
+        setRosterEntityFilter('ALL');
+        setRosterTradeTypeFilter('ALL');
+        setRosterRoleFilter('ALL');
+    };
+
     return (
         <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col border border-gray-100 overflow-hidden">
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-[94vw] 2xl:max-w-7xl w-full max-h-[92vh] flex flex-col border border-gray-100 overflow-hidden">
 
                 {/* Header Ribbon */}
                 <div className="bg-gradient-to-r from-gray-950 via-slate-900 to-gray-900 text-white px-6 py-3.5 sm:py-4 flex justify-between items-center shrink-0 border-b border-gray-800">
@@ -426,30 +487,124 @@ export default function QuotationBanksModal({ onClose }) {
                     {!isAdding ? (
                         /* ==================== VIEW 1: ROSTER TABLE ==================== */
                         <>
-                            <div className="flex justify-between items-center shrink-0">
-                                <div className="text-xs text-gray-500 font-medium">
-                                    {banks.length} Counterparty {banks.length === 1 ? 'Bank' : 'Banks'} Configured
+                            <div className="flex flex-col gap-3 shrink-0">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                    <div>
+                                        <div className="text-sm font-bold text-gray-900">
+                                            Counterparty Directory
+                                        </div>
+                                        <div className="text-xs text-gray-500 font-medium">
+                                            {banks.length} Counterparty {banks.length === 1 ? 'Bank' : 'Banks'} Configured
+                                            {hasActiveFilters && (
+                                                <span className="text-blue-600 font-semibold ml-1.5">
+                                                    • {filteredBanks.length} matching filters
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setEditingBankId(null);
+                                            setRoleNotice(null);
+                                            setBankSearchTerm('');
+                                            setIsBankDropdownOpen(false);
+                                            setFormData({
+                                                bank_id: '',
+                                                trade_type: 'BOTH',
+                                                entity_scope: 'ALL_ENTITIES',
+                                                entity_ids: [],
+                                                contacts: [],
+                                                authorized_contact_email: '',
+                                                authorized_contact_name: ''
+                                            });
+                                            setIsAdding(true);
+                                        }}
+                                        className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 text-white text-xs font-semibold rounded-xl shadow-xs hover:bg-blue-700 transition-all cursor-pointer whitespace-nowrap"
+                                    >
+                                        <Plus size={15} />
+                                        Add Counterparty Bank
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => {
-                                        setEditingBankId(null);
-                                        setRoleNotice(null);
-                                        setBankSearchTerm('');
-                                        setIsBankDropdownOpen(false);
-                                        setFormData({
-                                            bank_id: '',
-                                            trade_type: 'BOTH',
-                                            entity_scope: 'ALL_ENTITIES',
-                                            entity_ids: [],
-                                            contacts: []
-                                        });
-                                        setIsAdding(true);
-                                    }}
-                                    className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 text-white text-xs font-semibold rounded-xl shadow-sm hover:bg-blue-700 transition-all cursor-pointer"
-                                >
-                                    <Plus size={15} />
-                                    Add Counterparty Bank
-                                </button>
+
+                                {/* Search & Filtering Controls Toolbar */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs items-center">
+                                    {/* Search Input */}
+                                    <div className="relative flex items-center">
+                                        <Search size={14} className="absolute text-slate-400 pointer-events-none" style={{ left: '12px' }} />
+                                        <input
+                                            type="text"
+                                            value={rosterSearch}
+                                            onChange={(e) => setRosterSearch(e.target.value)}
+                                            placeholder="Search bank or contact email..."
+                                            style={{ paddingLeft: '34px', paddingRight: rosterSearch ? '28px' : '12px', height: '36px', boxSizing: 'border-box' }}
+                                            className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors text-slate-800 placeholder-slate-400 outline-none"
+                                        />
+                                        {rosterSearch && (
+                                            <button
+                                                onClick={() => setRosterSearch('')}
+                                                className="absolute right-2.5 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Legal Entity Filter */}
+                                    <div className="flex items-center">
+                                        <select
+                                            value={rosterEntityFilter}
+                                            onChange={(e) => setRosterEntityFilter(e.target.value)}
+                                            style={{ height: '36px', boxSizing: 'border-box' }}
+                                            className="w-full px-2.5 text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors text-slate-700 cursor-pointer outline-none"
+                                        >
+                                            <option value="ALL">🏢 All Legal Entities</option>
+                                            {entities.map(ent => (
+                                                <option key={ent.id} value={ent.id}>{ent.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Trade Type Filter */}
+                                    <div className="flex items-center">
+                                        <select
+                                            value={rosterTradeTypeFilter}
+                                            onChange={(e) => setRosterTradeTypeFilter(e.target.value)}
+                                            style={{ height: '36px', boxSizing: 'border-box' }}
+                                            className="w-full px-2.5 text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors text-slate-700 cursor-pointer outline-none"
+                                        >
+                                            <option value="ALL">📊 All Trade Types</option>
+                                            <option value="BOTH">FX & T-Bills (Both)</option>
+                                            <option value="FX_SPOT">FX Spot Only</option>
+                                            <option value="TBILL">T-Bills Only</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Role Filter & Reset */}
+                                    <div className="flex items-center gap-1.5">
+                                        <select
+                                            value={rosterRoleFilter}
+                                            onChange={(e) => setRosterRoleFilter(e.target.value)}
+                                            style={{ height: '36px', boxSizing: 'border-box' }}
+                                            className="flex-1 min-w-0 px-2.5 text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors text-slate-700 cursor-pointer outline-none"
+                                        >
+                                            <option value="ALL">👥 All Desk Roles</option>
+                                            <option value="EXECUTION">⚡ Execution Dealers</option>
+                                            <option value="APPROVER">🛡️ Approvers</option>
+                                            <option value="VIEW_ONLY">👁️ View-Only</option>
+                                            <option value="PENDING">⏳ Pending Handshake</option>
+                                        </select>
+                                        {hasActiveFilters && (
+                                            <button
+                                                onClick={resetFilters}
+                                                style={{ height: '36px', boxSizing: 'border-box' }}
+                                                className="px-3 flex items-center justify-center text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors cursor-pointer shrink-0"
+                                                title="Reset all filters"
+                                            >
+                                                Reset
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Main Table */}
@@ -460,17 +615,34 @@ export default function QuotationBanksModal({ onClose }) {
                                             <tr className="bg-slate-50 border-b border-slate-200 text-slate-600">
                                                 <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider bg-slate-50">Bank Partner</th>
                                                 <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider bg-slate-50">Trade Types</th>
+                                                <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider bg-slate-50">Entity Scope</th>
                                                 <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider bg-slate-50">Desk Contacts & Permissions</th>
                                                 <th className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-right bg-slate-50">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {isLoading ? (
-                                                <tr><td colSpan="4" className="p-12 text-center text-slate-400 text-sm font-medium">Loading bank counterparties...</td></tr>
+                                                <tr><td colSpan="5" className="p-12 text-center text-slate-400 text-sm font-medium">Loading bank counterparties...</td></tr>
                                             ) : banks.length === 0 ? (
-                                                <tr><td colSpan="4" className="p-12 text-center text-slate-400 text-sm font-medium">No quotation counterparties configured yet. Click "Add Counterparty Bank" to begin.</td></tr>
+                                                <tr><td colSpan="5" className="p-12 text-center text-slate-400 text-sm font-medium">No quotation counterparties configured yet. Click "Add Counterparty Bank" to begin.</td></tr>
+                                            ) : filteredBanks.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan="5" className="p-10 text-center">
+                                                        <div className="flex flex-col items-center justify-center gap-2">
+                                                            <Search className="w-8 h-8 text-slate-300" />
+                                                            <div className="text-sm font-semibold text-slate-700">No counterparties match your filters</div>
+                                                            <div className="text-xs text-slate-400">Try changing your search terms, legal entity, or trade type filter.</div>
+                                                            <button
+                                                                onClick={resetFilters}
+                                                                className="mt-1 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer"
+                                                            >
+                                                                Clear All Filters
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
                                             ) : (
-                                                banks.map(bank => {
+                                                filteredBanks.map(bank => {
                                                     const contactsList = (bank.contacts && bank.contacts.length > 0)
                                                         ? bank.contacts
                                                         : (bank.emails ? bank.emails.split(',').map(e => ({ email: e.trim(), name: '', role: 'EXECUTION' })) : []);
@@ -481,60 +653,107 @@ export default function QuotationBanksModal({ onClose }) {
 
                                                     return (
                                                         <tr key={bank.id} className="hover:bg-slate-50/70 transition-colors">
-                                                            <td className="py-3.5 px-4">
+                                                            {/* Column 1: Bank Partner */}
+                                                            <td className="py-3.5 px-4 align-top">
                                                                 <div className="font-bold text-gray-900 text-sm">{bank.bank?.name || `Bank #${bank.bank_id}`}</div>
                                                                 <div className="text-[11px] text-gray-400 font-mono">ID: {bank.bank_id}</div>
                                                                 {bank.authorized_contact_email && (
-                                                                    <div className="text-[10px] text-indigo-700 font-mono flex items-center gap-1 mt-1 font-semibold" title={`Authorized Governance Officer: ${bank.authorized_contact_name || bank.authorized_contact_email}`}>
+                                                                    <div className="text-[10px] text-indigo-700 font-mono flex items-center gap-1 mt-1.5 font-semibold" title={`Authorized Governance Officer: ${bank.authorized_contact_name || bank.authorized_contact_email}`}>
                                                                         <Shield size={11} className="text-indigo-600 shrink-0" />
                                                                         <span className="truncate max-w-[170px]">{bank.authorized_contact_email}</span>
                                                                     </div>
                                                                 )}
                                                             </td>
-                                                            <td className="py-3.5 px-4">
-                                                                <div className="flex flex-col gap-1 items-start">
-                                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${getTradeTypeBadgeColor(bank.trade_type)}`}>
-                                                                        {getTradeTypeLabel(bank.trade_type)}
-                                                                    </span>
-                                                                    {entities.length > 1 && (
-                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                                                                            {bank.entity_scope === 'SPECIFIC_ENTITIES'
-                                                                                ? `🏢 ${bank.entity_ids?.length || 0} Specific ${bank.entity_ids?.length === 1 ? 'Entity' : 'Entities'}`
-                                                                                : '🌐 All Entities'}
+
+                                                            {/* Column 2: Trade Types */}
+                                                            <td className="py-3.5 px-4 align-top whitespace-nowrap">
+                                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${getTradeTypeBadgeColor(bank.trade_type)}`}>
+                                                                    {getTradeTypeLabel(bank.trade_type)}
+                                                                </span>
+                                                            </td>
+
+                                                            {/* Column 3: Entity Scope */}
+                                                            <td className="py-3.5 px-4 align-top">
+                                                                {(() => {
+                                                                    if (bank.entity_scope === 'ALL_ENTITIES') {
+                                                                        return (
+                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
+                                                                                🌐 All Entities
+                                                                            </span>
+                                                                        );
+                                                                    }
+                                                                    const assignedNames = (bank.entity_ids || [])
+                                                                        .map(id => entities.find(e => e.id === id)?.name)
+                                                                        .filter(Boolean);
+                                                                    const label = assignedNames.length === 1
+                                                                        ? assignedNames[0]
+                                                                        : (assignedNames.length > 1 ? `${assignedNames.length} Entities: ${assignedNames.join(', ')}` : 'Specific Entity');
+
+                                                                    return (
+                                                                        <span
+                                                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 max-w-[180px]"
+                                                                            title={assignedNames.join(', ') || 'Specific Legal Entity'}
+                                                                        >
+                                                                            🏢 <span className="truncate">{label}</span>
+                                                                        </span>
+                                                                    );
+                                                                })()}
+                                                            </td>
+
+                                                            {/* Column 4: Desk Contacts & Permissions */}
+                                                            <td className="py-3.5 px-4 align-top">
+                                                                <div className="flex flex-wrap gap-1.5 max-w-xl">
+                                                                    {contactsList.map((c, i) => {
+                                                                        const isPending = Boolean(c.is_pending || c.invitation_status === 'PENDING');
+                                                                        return (
+                                                                            <span
+                                                                                key={i}
+                                                                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-medium border transition-all ${
+                                                                                    isPending
+                                                                                        ? 'bg-amber-50/90 text-amber-900 border-amber-300 ring-1 ring-amber-400/20'
+                                                                                        : c.role === 'EXECUTION'
+                                                                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                                                                        : c.role === 'APPROVER'
+                                                                                        ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                                                                        : 'bg-slate-100 text-slate-700 border-slate-200'
+                                                                                }`}
+                                                                            >
+                                                                                {c.role === 'EXECUTION' ? (
+                                                                                    <span className="text-[10px] font-sans font-bold bg-emerald-200 text-emerald-900 px-1 rounded">EXEC</span>
+                                                                                ) : c.role === 'APPROVER' ? (
+                                                                                    <span className="text-[10px] font-sans font-bold bg-amber-200 text-amber-900 px-1 rounded">APPROVER</span>
+                                                                                ) : (
+                                                                                    <span className="text-[10px] font-sans font-bold bg-slate-200 text-slate-800 px-1 rounded">VIEW</span>
+                                                                                )}
+                                                                                <span>{c.email}</span>
+                                                                                {c.name && <span className="text-gray-400 font-sans text-[10px]">({c.name})</span>}
+                                                                                {isPending ? (
+                                                                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-sans font-extrabold bg-amber-200 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded-full uppercase tracking-wider" title="Dealer invitation emailed; awaiting handshake confirmation">
+                                                                                        <Clock size={10} className="text-amber-700 animate-pulse" />
+                                                                                        Pending
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-sans font-bold bg-emerald-100 text-emerald-800 px-1 rounded" title="Active trading contact">
+                                                                                        Active
+                                                                                    </span>
+                                                                                )}
+                                                                            </span>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                                <div className="text-[11px] text-slate-400 mt-1.5 font-medium flex flex-wrap items-center gap-2">
+                                                                    <span>{execCount} Execution &bull; {viewCount} View-Only{approverCount > 0 ? ` \u2022 ${approverCount} Approver` : ''}</span>
+                                                                    {bank.all_contacts_pending && (
+                                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                                                            <Clock size={11} className="text-amber-600" />
+                                                                            All contacts pending handshake (Bank inactive in Quotation Builder)
                                                                         </span>
                                                                     )}
                                                                 </div>
                                                             </td>
-                                                            <td className="py-3.5 px-4">
-                                                                <div className="flex flex-wrap gap-1.5 max-w-xl">
-                                                                    {contactsList.map((c, i) => (
-                                                                        <span
-                                                                            key={i}
-                                                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-medium border ${
-                                                                                c.role === 'EXECUTION'
-                                                                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                                                                    : c.role === 'APPROVER'
-                                                                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                                                                    : 'bg-slate-100 text-slate-700 border-slate-200'
-                                                                            }`}
-                                                                        >
-                                                                            {c.role === 'EXECUTION' ? (
-                                                                                <span className="text-[10px] font-sans font-bold bg-emerald-200 text-emerald-900 px-1 rounded">EXEC</span>
-                                                                            ) : c.role === 'APPROVER' ? (
-                                                                                <span className="text-[10px] font-sans font-bold bg-amber-200 text-amber-900 px-1 rounded">APPROVER</span>
-                                                                            ) : (
-                                                                                <span className="text-[10px] font-sans font-bold bg-slate-200 text-slate-800 px-1 rounded">VIEW</span>
-                                                                            )}
-                                                                            <span>{c.email}</span>
-                                                                            {c.name && <span className="text-gray-400 font-sans text-[10px]">({c.name})</span>}
-                                                                        </span>
-                                                                    ))}
-                                                                </div>
-                                                                <div className="text-[11px] text-slate-400 mt-1 font-medium">
-                                                                    {execCount} Execution &bull; {viewCount} View-Only{approverCount > 0 ? ` \u2022 ${approverCount} Approver` : ''}
-                                                                </div>
-                                                            </td>
-                                                            <td className="py-3.5 px-4 text-right">
+
+                                                            {/* Column 5: Actions */}
+                                                            <td className="py-3.5 px-4 text-right align-top">
                                                                 <div className="flex items-center justify-end gap-1">
                                                                     <button
                                                                         onClick={() => handleStartEdit(bank)}

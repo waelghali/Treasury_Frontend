@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import { 
+import {
     Clock, Landmark, AlertCircle, CheckCircle2, TrendingUp, FileText, ExternalLink,
     Mail, KeyRound, UserCheck, Eye, History, RefreshCw, MessageSquare, Shield,
     BarChart2, ShieldAlert, WifiOff, FileQuestion,
     Users, Lock, Zap, Info, Loader2, Ban, Volume2, VolumeX, Copy, Check,
-    RotateCw, AlertTriangle
+    RotateCw, AlertTriangle, Trophy, Crown, Sparkles, Hourglass, Download
 } from 'lucide-react';
 import tradingAudio from '../../utils/tradingAudioEngine';
+import TradeExecutionConfetti from '../../components/Quotations/TradeExecutionConfetti';
+import TradeAccoladePromotionToast from '../../components/Quotations/TradeAccoladePromotionToast';
 import './quotation-animations.css';
 
 const DIRECT_BACKEND_URL = 'https://api.growbusinessdevelopment.com';
@@ -265,9 +267,18 @@ export default function QuotationBankOfferPage() {
     const [inputEmail, setInputEmail] = useState(searchParams.get('email') || '');
     const [otpCode, setOtpCode] = useState('');
     const [otpSent, setOtpSent] = useState(false);
+    const [otpError, setOtpError] = useState('');
     const [isRequestingOtp, setIsRequestingOtp] = useState(false);
     const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-    const [otpError, setOtpError] = useState('');
+    const [dealerAchievements, setDealerAchievements] = useState(null);
+    const [showConfetti, setShowConfetti] = useState(false);
+    const [targetTrophyId, setTargetTrophyId] = useState(null);
+    const [unlockedTier, setUnlockedTier] = useState(null);
+    const [animateMedals, setAnimateMedals] = useState(false);
+    const [promotionAlert, setPromotionAlert] = useState(null);
+    const prevAchievementsRef = useRef(null);
+    const prevAuthEmailRef = useRef(null);
+    const hasTriggeredCelebrationRef = useRef(false);
 
     useEffect(() => {
         const ep = searchParams.get('email');
@@ -351,21 +362,21 @@ export default function QuotationBankOfferPage() {
             const detailStr = typeof detail === 'string' ? detail : (detail ? JSON.stringify(detail) : '');
             const rawMessage = detailStr || err.message || 'Failed to load quotation details';
 
-            const isCancelled = detailStr.toLowerCase().includes('withdrawn') || 
-                                detailStr.toLowerCase().includes('cancelled') || 
-                                detailStr.toLowerCase().includes('canceled');
+            const isCancelled = detailStr.toLowerCase().includes('withdrawn') ||
+                detailStr.toLowerCase().includes('cancelled') ||
+                detailStr.toLowerCase().includes('canceled');
 
             const isExpired = !isCancelled && (
-                status === 410 || 
-                detailStr.toLowerCase().includes('expired') || 
+                status === 410 ||
+                detailStr.toLowerCase().includes('expired') ||
                 detailStr.toLowerCase().includes('validity of this link')
             );
-            
-            const isPendingApproval = status === 403 && 
-                                      detailStr.toLowerCase().includes('awaiting internal corporate approval');
 
-            const isInvalidToken = status === 404 || 
-                                   detailStr.toLowerCase().includes('invalid token');
+            const isPendingApproval = status === 403 &&
+                detailStr.toLowerCase().includes('awaiting internal corporate approval');
+
+            const isInvalidToken = status === 404 ||
+                detailStr.toLowerCase().includes('invalid token');
 
             const isNetworkError = !err.response || err.message === 'Network Error' || err.code === 'ERR_NETWORK';
 
@@ -483,6 +494,14 @@ export default function QuotationBankOfferPage() {
                     const session = res.data;
                     setAuthSession(session);
                     sessionStorage.setItem(storageKey, JSON.stringify(session));
+                    prevAuthEmailRef.current = session.email;
+                    try {
+                        const achRes = await quotationApi.get(`/api/v1/public-quotation/${token}/dealer-achievements?email=${encodeURIComponent(session.email)}`);
+                        if (achRes.data) {
+                            setDealerAchievements(achRes.data);
+                            prevAchievementsRef.current = achRes.data;
+                        }
+                    } catch (e) {}
                 } catch (err) {
                     setOtpError('The magic link has expired or is invalid. Please request a new code.');
                 } finally {
@@ -672,6 +691,31 @@ export default function QuotationBankOfferPage() {
         return () => clearInterval(statusPoll);
     }, [authSession, error?.isCancelled, timeLeft.status, fetchRfq]);
 
+    // 4e. Fetch Cross-Corporate Dealer Accolades & Multi-Metal Achievements
+    const fetchAchievements = useCallback(async () => {
+        if (!token) return null;
+        try {
+            const emailQuery = authSession?.email ? `?email=${encodeURIComponent(authSession.email)}` : '';
+            const res = await quotationApi.get(`/api/v1/public-quotation/${token}/dealer-achievements${emailQuery}`);
+            if (res.data) {
+                setDealerAchievements(res.data);
+                // When logging in or switching authenticated dealer, update baseline so past achievements don't trigger false celebration
+                if (!prevAchievementsRef.current || (authSession?.email && prevAuthEmailRef.current !== authSession.email)) {
+                    prevAuthEmailRef.current = authSession?.email || null;
+                    prevAchievementsRef.current = res.data;
+                }
+                return res.data;
+            }
+        } catch (err) {
+            // Non-blocking background enhancement
+        }
+        return null;
+    }, [token, authSession?.email]);
+
+    useEffect(() => {
+        fetchAchievements();
+    }, [fetchAchievements]);
+
     // 5. Live Countdown Timer with Dynamic Browser Titles & Urgency Tracking
     useEffect(() => {
         if (!rfq || !rfq.window_start || !rfq.window_end) return;
@@ -703,15 +747,15 @@ export default function QuotationBankOfferPage() {
                     labelText = `Starts in ${mins}:${secs.toString().padStart(2, '0')}`;
                 }
 
-                setTimeLeft({ 
-                    label: labelText, 
-                    status: 'PRE', 
+                setTimeLeft({
+                    label: labelText,
+                    status: 'PRE',
                     secondsRemaining: diff,
                     acceptanceSecondsRemaining: acceptanceTimeoutSeconds,
                     days,
                     hours,
                     mins,
-                    secs 
+                    secs
                 });
 
                 if (typeof document !== 'undefined') {
@@ -737,17 +781,17 @@ export default function QuotationBankOfferPage() {
                     labelText = `Window Closes in ${mins}:${secs.toString().padStart(2, '0')}`;
                 }
 
-                setTimeLeft({ 
-                    label: labelText, 
-                    status: 'OPEN', 
+                setTimeLeft({
+                    label: labelText,
+                    status: 'OPEN',
                     secondsRemaining: diff,
                     acceptanceSecondsRemaining: acceptanceTimeoutSeconds,
                     days: 0,
                     hours,
                     mins,
-                    secs 
+                    secs
                 });
-                
+
                 if (typeof document !== 'undefined') {
                     if (diff <= 5) {
                         document.title = `⚠️ [${diff}s] CLOSING SOON | Grow Treasury`;
@@ -761,15 +805,15 @@ export default function QuotationBankOfferPage() {
                 const currentResult = resultStatusRef.current || resultStatus;
                 const terminalStatuses = ['WINNER', 'PARTIALLY_WON', 'NOT_SELECTED', 'UNEXECUTED', 'INCONCLUSIVE', 'INDICATIVE_ONLY', 'COMPLETED'];
                 if (terminalStatuses.includes(currentResult)) {
-                    setTimeLeft({ 
-                        label: (currentResult === 'WINNER' || currentResult === 'PARTIALLY_WON') ? 'Trade Execution Confirmed' : 'Quotation Concluded', 
-                        status: 'CLOSED', 
-                        secondsRemaining: 0, 
-                        acceptanceSecondsRemaining: 0, 
-                        days: 0, 
-                        hours: 0, 
-                        mins: 0, 
-                        secs: 0 
+                    setTimeLeft({
+                        label: (currentResult === 'WINNER' || currentResult === 'PARTIALLY_WON') ? 'Trade Execution Confirmed' : 'Quotation Concluded',
+                        status: 'CLOSED',
+                        secondsRemaining: 0,
+                        acceptanceSecondsRemaining: 0,
+                        days: 0,
+                        hours: 0,
+                        mins: 0,
+                        secs: 0
                     });
                     if (typeof document !== 'undefined') {
                         if (currentResult === 'WINNER' || currentResult === 'PARTIALLY_WON') {
@@ -786,15 +830,15 @@ export default function QuotationBankOfferPage() {
 
                 const isBankAllIndicative = Boolean(rfq?.is_all_indicative || (!rfq?.has_execution_legs) || (rfq?.quotation_base || '').toLowerCase() === 'indicative');
                 if (isBankAllIndicative) {
-                    setTimeLeft({ 
-                        label: 'Quotation Closed', 
-                        status: 'CLOSED', 
-                        secondsRemaining: 0, 
-                        acceptanceSecondsRemaining: 0, 
-                        days: 0, 
-                        hours: 0, 
-                        mins: 0, 
-                        secs: 0 
+                    setTimeLeft({
+                        label: 'Quotation Closed',
+                        status: 'CLOSED',
+                        secondsRemaining: 0,
+                        acceptanceSecondsRemaining: 0,
+                        days: 0,
+                        hours: 0,
+                        mins: 0,
+                        secs: 0
                     });
                     if (typeof document !== 'undefined') {
                         document.title = 'Quotation Closed — Thank You | Grow Treasury';
@@ -804,15 +848,15 @@ export default function QuotationBankOfferPage() {
                     return;
                 }
                 const acceptDiff = Math.max(0, Math.floor(((end.getTime() + (acceptanceTimeoutSeconds * 1000)) - now.getTime()) / 1000));
-                setTimeLeft({ 
-                    label: `Window Closed • Corporate Acceptance Window (${acceptDiff}s)`, 
-                    status: 'CLOSED', 
-                    secondsRemaining: 0, 
-                    acceptanceSecondsRemaining: acceptDiff, 
-                    days: 0, 
-                    hours: 0, 
-                    mins: 0, 
-                    secs: 0 
+                setTimeLeft({
+                    label: `Window Closed • Corporate Acceptance Window (${acceptDiff}s)`,
+                    status: 'CLOSED',
+                    secondsRemaining: 0,
+                    acceptanceSecondsRemaining: acceptDiff,
+                    days: 0,
+                    hours: 0,
+                    mins: 0,
+                    secs: 0
                 });
                 if (typeof document !== 'undefined') {
                     document.title = `Acceptance Window (${acceptDiff}s) | Grow Treasury`;
@@ -894,13 +938,111 @@ export default function QuotationBankOfferPage() {
         }
     }, [timeLeft.status, timeLeft.secondsRemaining]);
 
-    // 5e. Result Resolution Audio Cue
+    const initialStatusRef = useRef(null);
     useEffect(() => {
-        if (resultStatus && !hasPlayedResultSoundRef.current && timeLeft.status === 'CLOSED') {
+        if (!initialStatusRef.current && timeLeft.status) {
+            initialStatusRef.current = timeLeft.status;
+        }
+    }, [timeLeft.status]);
+
+    // 5e. Result Resolution Audio Cue & Trade Celebration (Only when authenticated and resolved live)
+    useEffect(() => {
+        if (!authSession || !resultStatus || timeLeft.status !== 'CLOSED') return;
+
+        // If the RFQ was already closed when the page was first loaded, do not fire live celebration
+        if (initialStatusRef.current === 'CLOSED') return;
+
+        if (!hasPlayedResultSoundRef.current) {
             hasPlayedResultSoundRef.current = true;
             tradingAudio.playResultOut(resultStatus);
         }
-    }, [resultStatus, timeLeft.status]);
+
+        // Check for genuine achievement unlock upon winning live
+        if ((resultStatus === 'WINNER' || resultStatus === 'PARTIALLY_WON') && !hasTriggeredCelebrationRef.current) {
+            hasTriggeredCelebrationRef.current = true;
+
+            // Fetch post-win achievements and detect if THIS dealer unlocked an accolade or tier promotion
+            const evaluatePromotion = async () => {
+                const oldData = prevAchievementsRef.current || dealerAchievements;
+                const updated = await fetchAchievements();
+                if (!updated) return;
+
+                const oldTrophies = oldData?.trophies || [];
+                const updatedTrophies = updated.trophies || [];
+
+                let unlockedTrophy = null;
+                for (const t of updatedTrophies) {
+                    const prevT = oldTrophies.find(o => o.id === t.id);
+                    if (prevT && prevT.current_tier !== t.current_tier && t.current_tier !== 'NONE') {
+                        unlockedTrophy = t;
+                        break;
+                    }
+                }
+
+                const isTierUpgraded = oldData?.dealer_tier && updated.dealer_tier && oldData.dealer_tier !== updated.dealer_tier;
+
+                // Immediately re-render the trophy medal color and tooltip progress numbers
+                setDealerAchievements(updated);
+                prevAchievementsRef.current = updated;
+
+                // ONLY trigger fanfare & confetti if a genuine achievement was unlocked for THIS dealer
+                if (unlockedTrophy) {
+                    setTargetTrophyId(unlockedTrophy.id);
+                    setUnlockedTier(unlockedTrophy.current_tier);
+                    setShowConfetti(true);
+                    setAnimateMedals(true);
+                    setPromotionAlert({
+                        icon: unlockedTrophy.icon || 'Trophy',
+                        badgeText: 'Accolade Unlocked',
+                        tier: `${unlockedTrophy.current_tier} Tier`,
+                        unlockedTier: unlockedTrophy.current_tier,
+                        title: unlockedTrophy.title,
+                        description: unlockedTrophy.description || 'Verified to your personal dealer record.'
+                    });
+                    setTimeout(() => {
+                        setPromotionAlert(null);
+                    }, 2450);
+                    setTimeout(() => {
+                        setShowConfetti(false);
+                        setAnimateMedals(false);
+                        setTargetTrophyId(null);
+                        setUnlockedTier(null);
+                    }, 2500);
+                } else if (isTierUpgraded) {
+                    const tierUpper = (updated.dealer_tier || '').toUpperCase();
+                    const detectedTier = tierUpper.includes('DIAMOND') || tierUpper.includes('PLATINUM') ? 'PLATINUM'
+                        : tierUpper.includes('GOLD') ? 'GOLD'
+                        : tierUpper.includes('SILVER') ? 'SILVER'
+                        : 'BRONZE';
+
+                    setTargetTrophyId('dealer-tier-pill');
+                    setUnlockedTier(detectedTier);
+                    setShowConfetti(true);
+                    setAnimateMedals(true);
+                    setPromotionAlert({
+                        icon: 'Sparkles',
+                        badgeText: 'Desk Promotion',
+                        tier: updated.dealer_tier,
+                        unlockedTier: detectedTier,
+                        title: 'Dealer Tier Promoted!',
+                        description: `Your verified track record has advanced to ${updated.dealer_tier}.`
+                    });
+                    setTimeout(() => {
+                        setPromotionAlert(null);
+                    }, 2450);
+                    setTimeout(() => {
+                        setShowConfetti(false);
+                        setAnimateMedals(false);
+                        setTargetTrophyId(null);
+                        setUnlockedTier(null);
+                    }, 2500);
+                }
+                // If no new accolade is unlocked, baseline achievements are cleanly updated without fanfare
+            };
+
+            evaluatePromotion();
+        }
+    }, [resultStatus, timeLeft.status, dealerAchievements, fetchAchievements, authSession]);
 
     // 6. Pre-fill existing offers
     useEffect(() => {
@@ -1009,6 +1151,80 @@ export default function QuotationBankOfferPage() {
         }
     };
 
+    const handleExportHistory = () => {
+        if (!historyData || historyData.length === 0) return;
+
+        const headers = [
+            'RFQ Reference',
+            'Requesting Entity',
+            'Product',
+            'Direction',
+            'Quotation Base',
+            'Currency Pair / Instrument',
+            'Deal Amount',
+            'Value Date',
+            'Submitted Rate / Price',
+            'Submitted By',
+            'Submission Date & Time',
+            'Desk Outcome',
+            'Trader Notes'
+        ];
+
+        const rows = [];
+        historyData.forEach(h => {
+            if (h.is_multi_leg && h.legs && h.legs.length > 0) {
+                h.legs.forEach((leg, lIdx) => {
+                    rows.push([
+                        `"${(h.ref_no || '')} (Leg ${lIdx + 1})"`,
+                        `"${(h.entity_name || rfq?.entity_name || rfq?.customer_name || '').replace(/"/g, '""')}"`,
+                        `"${(h.type || 'FX_SPOT')}"`,
+                        `"${(leg.direction || h.direction || 'BUY')}"`,
+                        `"${(h.quotation_base || 'Execution')}"`,
+                        `"${(leg.pair || h.currency_pair || '')}"`,
+                        leg.amount || 0,
+                        `"${(leg.value_date ? new Date(leg.value_date).toLocaleDateString() : '')}"`,
+                        leg.submitted_price !== null && leg.submitted_price !== undefined ? leg.submitted_price : '',
+                        `"${(h.submitted_by || '').replace(/"/g, '""')}"`,
+                        `"${(h.submitted_at ? new Date(h.submitted_at).toLocaleString() : '')}"`,
+                        `"${(leg.is_winner ? 'WON' : (leg.outcome || h.outcome || ''))}"`,
+                        `"${(h.notes || '').replace(/"/g, '""')}"`
+                    ]);
+                });
+            } else {
+                rows.push([
+                    `"${(h.ref_no || '')}"`,
+                    `"${(h.entity_name || rfq?.entity_name || rfq?.customer_name || '').replace(/"/g, '""')}"`,
+                    `"${(h.type || 'FX_SPOT')}"`,
+                    `"${(h.direction || '')}"`,
+                    `"${(h.quotation_base || 'Execution')}"`,
+                    `"${(h.currency_pair || `${rfq?.buy_currency || ''}/${rfq?.sell_currency || ''}`)}"`,
+                    h.amount || 0,
+                    `"${(h.value_date ? new Date(h.value_date).toLocaleDateString() : '')}"`,
+                    h.best_quote !== null && h.best_quote !== undefined ? h.best_quote : '',
+                    `"${(h.submitted_by || '').replace(/"/g, '""')}"`,
+                    `"${(h.submitted_at ? new Date(h.submitted_at).toLocaleString() : '')}"`,
+                    `"${(h.outcome || '')}"`,
+                    `"${(h.notes || '').replace(/"/g, '""')}"`
+                ]);
+            }
+        });
+
+        // Prepend UTF-8 BOM (\uFEFF) so Excel opens UTF-8 text and names flawlessly
+        const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const safeBankName = ((rfq?.bank_name || 'Desk').replace(/[^a-zA-Z0-9_-]/g, '_'));
+        const safeEntity = ((rfq?.entity_name || rfq?.customer_name || 'Client').replace(/[^a-zA-Z0-9_-]/g, '_'));
+        const today = new Date().toISOString().slice(0, 10);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${safeBankName}_Quotation_History_${safeEntity}_${today}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     const handleTabSwitch = (tab) => {
         setActiveTab(tab);
         if (tab === 'HISTORY' && historyData.length === 0) {
@@ -1059,6 +1275,14 @@ export default function QuotationBankOfferPage() {
             const session = res.data;
             setAuthSession(session);
             sessionStorage.setItem(storageKey, JSON.stringify(session));
+            prevAuthEmailRef.current = session.email;
+            try {
+                const achRes = await quotationApi.get(`/api/v1/public-quotation/${token}/dealer-achievements?email=${encodeURIComponent(session.email)}`);
+                if (achRes.data) {
+                    setDealerAchievements(achRes.data);
+                    prevAchievementsRef.current = achRes.data;
+                }
+            } catch (e) {}
         } catch (err) {
             setOtpError(err.response?.data?.detail || 'Invalid or expired code.');
         } finally {
@@ -1073,6 +1297,9 @@ export default function QuotationBankOfferPage() {
         }
         sessionStorage.removeItem(`quotation_auth_${token}`);
         setAuthSession(null);
+        prevAchievementsRef.current = null;
+        prevAuthEmailRef.current = null;
+        hasTriggeredCelebrationRef.current = false;
         setOtpSent(false);
         setOtpCode('');
         setInputEmail('');
@@ -1149,15 +1376,15 @@ export default function QuotationBankOfferPage() {
             const linesToUse = customTbillLines || tbillLines;
 
             const body = isTBill
-                ? { 
-                    token, 
+                ? {
+                    token,
                     lines: linesToUse.map(l => ({ ...l, discountRate: parseFloat(l.discountRate), maxAmount: parseFloat(l.maxAmount) })),
                     notes: traderNotes.trim() || undefined,
                     session_token: getEffectiveSessionToken(),
                     email: authSession.email
                 }
-                : { 
-                    token, 
+                : {
+                    token,
                     price: priceToSubmit !== undefined && priceToSubmit !== null ? priceToSubmit : parseFloat(price),
                     offered_value_date: rfq.allow_alternative_value_date ? (offeredValueDate || rfq.value_date || undefined) : undefined,
                     notes: traderNotes.trim() || undefined,
@@ -1170,7 +1397,7 @@ export default function QuotationBankOfferPage() {
             setFatFingerModal(null);
             try {
                 sessionStorage.removeItem(`tbill_draft_${token}`);
-            } catch (e) {}
+            } catch (e) { }
             setDraftRestored(false);
 
             if (rfq?.is_live_ranking_enabled && res.data?.live_rank) {
@@ -1704,7 +1931,7 @@ export default function QuotationBankOfferPage() {
                     </div>
                     <h2 className="text-xl sm:text-2xl font-bold mb-3 text-slate-900">{title}</h2>
                     <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-6">{description}</p>
-                    
+
                     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-500 text-left mb-6 space-y-1">
                         <div className="font-semibold text-slate-700 flex items-center gap-1.5">
                             <Landmark size={14} className="text-slate-500" />
@@ -1713,9 +1940,9 @@ export default function QuotationBankOfferPage() {
                         <p>
                             {isCancelled
                                 ? "This RFQ was officially withdrawn and cancelled by the corporate client. No further quotation submissions or actions are required."
-                                : isExpired 
-                                ? "If you are an authorized bank partner and require an extended or refreshed quotation window, please contact the issuing corporate treasury officer directly."
-                                : "For questions regarding this quotation, please contact the issuing corporate treasury desk."}
+                                : isExpired
+                                    ? "If you are an authorized bank partner and require an extended or refreshed quotation window, please contact the issuing corporate treasury officer directly."
+                                    : "For questions regarding this quotation, please contact the issuing corporate treasury desk."}
                         </p>
                     </div>
 
@@ -1798,6 +2025,28 @@ export default function QuotationBankOfferPage() {
                                 <Landmark size={13} className="text-blue-400" />
                                 {rfq.bank_name} • Treasury Desk
                             </div>
+
+                            {/* Bank Desk Verified Milestone Tier Badge */}
+                            {dealerAchievements?.dealer_tier && (
+                                <div className="flex items-center justify-center gap-2 mb-3">
+                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-xs ${dealerAchievements.dealer_tier.includes('Diamond')
+                                            ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/40 shadow-cyan-900/30'
+                                            : dealerAchievements.dealer_tier.includes('Gold')
+                                                ? 'bg-amber-950/80 text-amber-300 border-amber-500/40 shadow-amber-900/30'
+                                                : dealerAchievements.dealer_tier.includes('Silver')
+                                                    ? 'bg-slate-800/90 text-slate-200 border-slate-600 shadow-slate-900/30'
+                                                    : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
+                                        }`}>
+                                        <Shield size={13} className={
+                                            dealerAchievements.dealer_tier.includes('Diamond') ? 'text-cyan-400' :
+                                                dealerAchievements.dealer_tier.includes('Gold') ? 'text-amber-400' :
+                                                    dealerAchievements.dealer_tier.includes('Silver') ? 'text-slate-300' : 'text-emerald-400'
+                                        } />
+                                        <span>{dealerAchievements.dealer_tier}</span>
+                                        <span className="text-[10px] opacity-75 font-normal">• {dealerAchievements.dealer_perk}</span>
+                                    </div>
+                                </div>
+                            )}
 
                             <h3 className="text-lg sm:text-xl font-bold tracking-tight mb-2 text-white">
                                 Trader Identity Verification
@@ -1917,11 +2166,28 @@ export default function QuotationBankOfferPage() {
                 </div>
             )}
 
+            {/* Accolade Promotion Notification Toast & Confetti (Only when authenticated) */}
+            {authSession && (
+                <>
+                    <TradeAccoladePromotionToast
+                        alert={promotionAlert}
+                        targetTrophyId={targetTrophyId}
+                        onClose={() => setPromotionAlert(null)}
+                    />
+                    {showConfetti && (
+                        <TradeExecutionConfetti 
+                            durationMs={2500} 
+                            targetTrophyId={targetTrophyId} 
+                            targetTier={unlockedTier || promotionAlert?.unlockedTier} 
+                        />
+                    )}
+                </>
+            )}
+
             {/* 2. Main Portal Workspace (Blurred & locked until verified) */}
-            <div className={`w-full max-w-[1400px] mx-auto p-4 sm:p-6 font-sans transition-all duration-500 ${
-                !authSession ? 'filter blur-2xl opacity-10 pointer-events-none select-none overflow-hidden max-h-[85vh]' : ''
-            }`}>
-                
+            <div className={`w-full max-w-[1400px] mx-auto p-4 sm:p-6 font-sans transition-all duration-500 ${!authSession ? 'filter blur-2xl opacity-10 pointer-events-none select-none overflow-hidden max-h-[85vh]' : ''
+                }`}>
+
                 {/* Top Navigation & Brand Header */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
                     <div className="flex items-center gap-3.5">
@@ -1929,11 +2195,85 @@ export default function QuotationBankOfferPage() {
                             <Landmark size={24} />
                         </div>
                         <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2.5 flex-wrap">
                                 <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">{rfq.bank_name}</h1>
-                                <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full border border-slate-200">
-                                    Treasury Desk
-                                </span>
+
+                                {/* Institutional Bank Desk Standing Badge (Always visible, before & after login) */}
+                                {(dealerAchievements?.bank_desk?.desk_tier || (!authSession && dealerAchievements?.dealer_tier)) && (() => {
+                                    const deskTier = dealerAchievements?.bank_desk?.desk_tier || dealerAchievements?.dealer_tier;
+                                    const deskPerk = dealerAchievements?.bank_desk?.desk_perk || dealerAchievements?.dealer_perk;
+                                    const deskWon = dealerAchievements?.bank_desk?.personal_bests?.total_deals_won ?? dealerAchievements?.personal_bests?.total_deals_won ?? 0;
+                                    const deskVolume = dealerAchievements?.bank_desk?.personal_bests?.total_volume_won_usd ?? dealerAchievements?.personal_bests?.total_volume_won_usd ?? 0;
+                                    const deskTrophies = dealerAchievements?.bank_desk?.trophies || (!authSession ? dealerAchievements?.trophies : []) || [];
+                                    const earnedDeskBadges = deskTrophies.filter(t => t.current_tier && t.current_tier !== 'NONE');
+
+                                    const tierColorCls = deskTier.includes('Diamond')
+                                        ? 'bg-gradient-to-r from-cyan-100 via-white to-cyan-200 text-cyan-950 border-cyan-400/80 shadow-2xs'
+                                        : deskTier.includes('Gold')
+                                            ? 'bg-gradient-to-r from-amber-100 via-yellow-100 to-amber-200 text-amber-950 border-amber-400/90 shadow-2xs shadow-amber-300/30 ring-1 ring-yellow-200/50'
+                                            : deskTier.includes('Silver')
+                                                ? 'bg-gradient-to-r from-slate-100 via-white to-slate-200 text-slate-800 border-slate-400/80 shadow-2xs'
+                                                : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+
+                                    return (
+                                        <div id="bank-desk-header-badge" className="relative group cursor-pointer">
+                                            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide border shadow-2xs transition-all hover:scale-105 ${tierColorCls}`}>
+                                                <Shield size={13} className={
+                                                    deskTier.includes('Diamond') ? 'text-cyan-600 fill-cyan-400/30' :
+                                                        deskTier.includes('Gold') ? 'text-amber-600 fill-amber-400/40' :
+                                                            deskTier.includes('Silver') ? 'text-slate-600' : 'text-emerald-500'
+                                                } />
+                                                <span>{deskTier}</span>
+                                            </div>
+
+                                            {/* Tooltip popping downward */}
+                                            <div className="absolute top-full left-0 mt-2 hidden group-hover:flex flex-col w-72 p-3.5 bg-slate-950 text-white rounded-xl shadow-2xl border border-slate-800 text-left z-50 pointer-events-none">
+                                                <div className="absolute -top-1.5 left-4 w-3 h-3 bg-slate-950 border-t border-l border-slate-800 rotate-45" />
+                                                <div className="flex items-center justify-between pb-1 border-b border-slate-800 mb-1.5">
+                                                    <span className="font-bold text-xs text-slate-200 flex items-center gap-1.5">
+                                                        <Landmark size={13} className="text-amber-400" />
+                                                        <span>{rfq.bank_name} Standing</span>
+                                                    </span>
+                                                    <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1 rounded border border-emerald-500/20">VERIFIED</span>
+                                                </div>
+                                                <div className="text-[11px] text-slate-300 mb-2">
+                                                    {deskPerk || 'Official institutional counterparty tier based on verified interbank activity.'}
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-800/80 text-[10px] text-slate-400">
+                                                    <div>
+                                                        <span className="text-slate-500 block">Deals Won:</span>
+                                                        <span className="font-mono text-slate-200 font-bold">{deskWon} firm executions</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-slate-500 block">Total Volume:</span>
+                                                        <span className="font-mono text-slate-200 font-bold">${Number(deskVolume).toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                                {earnedDeskBadges.length > 0 && (
+                                                    <div className="mt-2 pt-2 border-t border-slate-800/80">
+                                                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Earned Desk Badges:</span>
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            {earnedDeskBadges.map(b => {
+                                                                const tierBadgeStyle = b.current_tier === 'PLATINUM'
+                                                                    ? 'text-cyan-300 border-cyan-500/40 bg-cyan-950/60'
+                                                                    : b.current_tier === 'GOLD'
+                                                                        ? 'text-amber-300 border-amber-500/50 bg-amber-950/70 font-semibold shadow-xs shadow-amber-500/10'
+                                                                        : b.current_tier === 'SILVER'
+                                                                            ? 'text-slate-200 border-slate-500/50 bg-slate-800'
+                                                                            : 'text-amber-400/80 border-amber-700/40 bg-amber-950/40';
+                                                                return (
+                                                                    <span key={b.id} className={`text-[9px] px-1.5 py-0.5 rounded border font-mono ${tierBadgeStyle}`}>
+                                                                        {b.title} ({b.current_tier})
+                                                                    </span>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                             <p className="text-gray-400 text-xs mt-0.5">Counterparty Quotation Bidding & Execution System</p>
                         </div>
@@ -1941,18 +2281,30 @@ export default function QuotationBankOfferPage() {
 
                     {/* View Tabs & Countdown */}
                     <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
-                        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+                        <div className="flex items-center gap-3 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200 text-xs font-bold shadow-2xs">
                             <button
+                                type="button"
                                 onClick={() => handleTabSwitch('LIVE')}
-                                className={`px-3.5 py-1.5 rounded-lg transition-all ${activeTab === 'LIVE' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap outline-none focus:outline-none focus:ring-0 ${activeTab === 'LIVE'
+                                        ? 'bg-white text-gray-900 shadow-xs border border-slate-200/80 font-black'
+                                        : 'text-gray-500 hover:text-gray-900 hover:bg-slate-200/50 font-semibold'
+                                    }`}
+                                style={{ outline: 'none' }}
                             >
-                                ⚡ Live RFQ
+                                <Zap size={14} className={activeTab === 'LIVE' ? 'text-amber-500 fill-amber-500' : 'text-slate-400'} />
+                                <span>Live RFQ</span>
                             </button>
                             <button
+                                type="button"
                                 onClick={() => handleTabSwitch('HISTORY')}
-                                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${activeTab === 'HISTORY' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap outline-none focus:outline-none focus:ring-0 ${activeTab === 'HISTORY'
+                                        ? 'bg-white text-gray-900 shadow-xs border border-slate-200/80 font-black'
+                                        : 'text-gray-500 hover:text-gray-900 hover:bg-slate-200/50 font-semibold'
+                                    }`}
+                                style={{ outline: 'none' }}
                             >
-                                <History size={14} /> Desk History
+                                <History size={14} className={activeTab === 'HISTORY' ? 'text-blue-600' : 'text-slate-400'} />
+                                <span>Desk History</span>
                             </button>
                         </div>
 
@@ -1960,11 +2312,10 @@ export default function QuotationBankOfferPage() {
                         <button
                             type="button"
                             onClick={handleToggleSound}
-                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0 ${
-                                soundEnabled 
-                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100' 
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0 ${soundEnabled
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
                                     : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'
-                            }`}
+                                }`}
                             title={soundEnabled ? "Audio cues active: Trading Desk Chimes (Click to mute)" : "Audio cues muted (Click to enable)"}
                         >
                             {soundEnabled ? <Volume2 size={13} className="text-emerald-600" /> : <VolumeX size={13} className="text-slate-400" />}
@@ -2063,57 +2414,346 @@ export default function QuotationBankOfferPage() {
                 </div>
 
                 {/* Authenticated User Status Bar */}
-                {authSession && (
-                    <div className="mb-4 p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
-                        <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-xl ${
-                                authSession.role === 'EXECUTION' 
-                                    ? 'bg-emerald-50 text-emerald-600' 
-                                    : authSession.role === 'APPROVER'
-                                    ? 'bg-amber-50 text-amber-600'
-                                    : 'bg-blue-50 text-blue-600'
-                            }`}>
-                                {authSession.role === 'EXECUTION' ? <UserCheck size={18} /> : authSession.role === 'APPROVER' ? <Shield size={18} /> : <Eye size={18} />}
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-gray-900 font-mono">{authSession.email}</span>
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide border ${
-                                        authSession.role === 'EXECUTION' 
-                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                {authSession && (() => {
+                    const activeSeason = dealerAchievements?.active_seasons?.[0];
+
+                    const renderSantaHat = () => (
+                        <svg className="absolute -top-3.5 -right-2 w-6 h-6 pointer-events-none drop-shadow-md z-30 transform rotate-12" viewBox="0 0 32 32" fill="none">
+                            <path d="M6 24 C10 14 18 7 24 5 C25 11 26 18 24 24 Z" fill="#DC2626" />
+                            <path d="M19 8 C23 13 24 19 24 24 C21 24 19 22 17 19 Z" fill="#991B1B" opacity="0.6" />
+                            <rect x="4" y="22" width="22" height="6" rx="3" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="0.75" />
+                            <circle cx="25" cy="5" r="3.5" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="0.75" />
+                        </svg>
+                    );
+
+                    const renderEasterBunny = () => (
+                        <svg className="absolute -top-4 -right-2.5 w-7 h-7 pointer-events-none drop-shadow-md z-30 animate-bunny-ear" viewBox="0 0 32 32" fill="none">
+                            {/* Painted Easter Egg at base */}
+                            <ellipse cx="23" cy="22" rx="4.5" ry="5.5" fill="#FEF08A" stroke="#CA8A04" strokeWidth="0.75" transform="rotate(18 23 22)" />
+                            <path d="M19 21 Q23 19 27 21" stroke="#EC4899" strokeWidth="0.8" fill="none" />
+                            <path d="M19 24 Q23 22 27 24" stroke="#38BDF8" strokeWidth="0.8" fill="none" />
+                            {/* Bunny Head */}
+                            <circle cx="12" cy="18" r="6" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="0.75" />
+                            <path d="M9 13 C7 7 7 2 9 1 C11 1 12 6 11 13 Z" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="0.75" />
+                            <path d="M9 11 C8 7 8 4 9 3 C10 3 11 7 10 11 Z" fill="#F472B6" />
+                            <path d="M14 13 C14 7 16 2 18 2 C20 3 18 8 16 13 Z" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="0.75" />
+                            <path d="M15 11 C15 7 16 4 18 4 C19 5 18 8 16 11 Z" fill="#F472B6" />
+                            <circle cx="10" cy="17" r="0.8" fill="#1E293B" />
+                            <circle cx="14" cy="17" r="0.8" fill="#1E293B" />
+                            <circle cx="12" cy="19" r="0.7" fill="#F472B6" />
+                            <line x1="7" y1="18" x2="5" y2="17.5" stroke="#CBD5E1" strokeWidth="0.5" />
+                            <line x1="7" y1="19.5" x2="5" y2="20" stroke="#CBD5E1" strokeWidth="0.5" />
+                            <line x1="17" y1="18" x2="19" y2="17.5" stroke="#CBD5E1" strokeWidth="0.5" />
+                            <line x1="17" y1="19.5" x2="19" y2="20" stroke="#CBD5E1" strokeWidth="0.5" />
+                        </svg>
+                    );
+
+                    const renderEidCrescent = () => (
+                        <svg className="absolute -top-3.5 -right-2.5 w-7 h-7 pointer-events-none drop-shadow-md z-30" viewBox="0 0 32 32" fill="none">
+                            <path d="M21 5 C13 7 9 15 13 24 C10 21 9 15 13 10 C15 7 18 5 21 5 Z" fill="#F59E0B" stroke="#D97706" strokeWidth="0.75" />
+                            <path d="M21 11 L22 14 L25 14 L22.5 16 L23.5 19 L21 17 L18.5 19 L19.5 16 L17 14 L20 14 Z" fill="#FDE047" stroke="#D97706" strokeWidth="0.5" />
+                            <circle cx="9" cy="8" r="1" fill="#F59E0B" />
+                            <circle cx="26" cy="18" r="1.2" fill="#F59E0B" />
+                        </svg>
+                    );
+
+                    const renderRamadanFanous = () => (
+                        <div className="absolute -top-2 left-6 pointer-events-none z-30 animate-lantern-swing">
+                            <svg className="w-6 h-12 drop-shadow-md" viewBox="0 0 24 48" fill="none">
+                                <line x1="12" y1="0" x2="12" y2="12" stroke="#F59E0B" strokeWidth="1" strokeDasharray="1.5 1.5" />
+                                <circle cx="12" cy="13" r="2" stroke="#D97706" strokeWidth="1.5" fill="none" />
+                                <path d="M7 18 L12 15 L17 18 L19 21 L5 21 Z" fill="#F59E0B" stroke="#B45309" strokeWidth="0.75" />
+                                <path d="M5 21 L8 34 L16 34 L19 21 Z" fill="#FEF3C7" stroke="#D97706" strokeWidth="0.75" opacity="0.92" />
+                                <circle cx="12" cy="27" r="3" fill="#F59E0B" />
+                                <circle cx="12" cy="27" r="1.5" fill="#EF4444" />
+                                <path d="M7 34 L5 38 L19 38 L17 34 Z" fill="#F59E0B" stroke="#B45309" strokeWidth="0.75" />
+                                <rect x="8" y="38" width="8" height="2" rx="1" fill="#D97706" />
+                            </svg>
+                        </div>
+                    );
+
+                    const renderSnowfall = () => (
+                        <div className="absolute inset-x-0 top-0 h-10 overflow-hidden pointer-events-none z-10">
+                            <span className="absolute top-0 left-[8%] text-sky-400/80 text-xs animate-snow-1">❄</span>
+                            <span className="absolute top-0 left-[24%] text-sky-300/90 text-[10px] animate-snow-2">❅</span>
+                            <span className="absolute top-0 left-[48%] text-sky-400/75 text-sm animate-snow-3">❄</span>
+                            <span className="absolute top-0 left-[72%] text-sky-300/85 text-[11px] animate-snow-4">❅</span>
+                            <span className="absolute top-0 left-[90%] text-sky-400/80 text-xs animate-snow-5">❄</span>
+                        </div>
+                    );
+
+                    return (
+                        <div className="relative z-30 mb-4 p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 animate-fade-in">
+                            {/* Festive Seasonal Ornaments (Clean, natural, zero artificial border lines) */}
+                            {activeSeason?.season_id === 'YEAR_END_HOLIDAYS' && renderSnowfall()}
+                            {activeSeason?.season_id === 'RAMADAN_TWILIGHT' && renderRamadanFanous()}
+
+                            {/* Left Side: Dealer Identity, Role & Desk Status */}
+                            <div className="flex items-center gap-3">
+                                <div className="relative">
+                                    <div className={`p-2 rounded-xl ${authSession.role === 'EXECUTION'
+                                            ? 'bg-emerald-50 text-emerald-600'
                                             : authSession.role === 'APPROVER'
-                                            ? (canApproverExecute ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200')
-                                            : 'bg-blue-50 text-blue-700 border-blue-200'
-                                    }`}>
-                                        {authSession.role === 'EXECUTION' 
-                                            ? '⚡ AUTHORIZED EXECUTION DEALER' 
-                                            : authSession.role === 'APPROVER'
-                                            ? (canApproverExecute ? '⚡ AUTHORIZED DEALER' : '🛡️ AUTHORIZED BANK APPROVER')
-                                            : '👁️ VIEW-ONLY OBSERVER'}
-                                    </span>
+                                                ? 'bg-amber-50 text-amber-600'
+                                                : 'bg-blue-50 text-blue-600'
+                                        }`}>
+                                        {authSession.role === 'EXECUTION' ? <UserCheck size={18} /> : authSession.role === 'APPROVER' ? <Shield size={18} /> : <Eye size={18} />}
+                                    </div>
+                                    {/* Festive Avatar Headgear & Ornaments */}
+                                    {activeSeason?.season_id === 'YEAR_END_HOLIDAYS' && renderSantaHat()}
+                                    {activeSeason?.season_id === 'EASTER_SHAM_EL_NESSIM' && renderEasterBunny()}
+                                    {(activeSeason?.season_id === 'EID_AL_FITR' || activeSeason?.season_id === 'EID_AL_ADHA') && renderEidCrescent()}
                                 </div>
-                                <p className="text-[11px] text-gray-400">
-                                    {authSession.role === 'EXECUTION' 
-                                        ? 'Your quote submissions are binding and logged with your verified identity.' 
-                                        : authSession.role === 'APPROVER'
-                                        ? (!hasExecutionDealers
-                                            ? 'Solo bank contact: You are authorized to submit binding quotes directly.'
-                                            : (rfq.approval_status === 'PENDING' && rfq.requires_bank_approval !== false && !isIndicative)
-                                                ? 'Action Required: Review deal specifications and authorize bank participation.'
-                                                : 'Bank participation authorized. You are observing live desk activity in Approver Monitoring Mode.')
-                                        : 'You are viewing this RFQ in read-only mode.'}
-                                </p>
+                                <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-xs font-bold text-gray-900 font-mono">{authSession.email}</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide border ${authSession.role === 'EXECUTION'
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                : authSession.role === 'APPROVER'
+                                                    ? (canApproverExecute ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200')
+                                                    : 'bg-blue-50 text-blue-700 border-blue-200'
+                                            }`}>
+                                            {authSession.role === 'EXECUTION'
+                                                ? '⚡ AUTHORIZED EXECUTION DEALER'
+                                                : authSession.role === 'APPROVER'
+                                                    ? (canApproverExecute ? '⚡ AUTHORIZED DEALER' : '🛡️ AUTHORIZED BANK APPROVER')
+                                                    : '👁️ VIEW-ONLY OBSERVER'}
+                                        </span>
+
+                                        {/* Bank Desk Milestone Tier Pill */}
+                                        {dealerAchievements?.dealer_tier && (
+                                            <div id="trophy-badge-dealer-tier-pill" className="relative group cursor-pointer ml-1">
+                                                <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide border shadow-2xs transition-all hover:scale-105 ${dealerAchievements.dealer_tier.includes('Diamond')
+                                                        ? 'bg-gradient-to-r from-cyan-100 via-white to-cyan-200 text-cyan-950 border-cyan-400/80 shadow-2xs'
+                                                        : dealerAchievements.dealer_tier.includes('Gold')
+                                                            ? 'bg-gradient-to-r from-amber-100 via-yellow-100 to-amber-200 text-amber-950 border-amber-400/90 shadow-2xs shadow-amber-300/30 ring-1 ring-yellow-200/50'
+                                                            : dealerAchievements.dealer_tier.includes('Silver')
+                                                                ? 'bg-gradient-to-r from-slate-100 via-white to-slate-200 text-slate-800 border-slate-400/80 shadow-2xs'
+                                                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                    }`}>
+                                                    <Shield size={11} className={
+                                                        dealerAchievements.dealer_tier.includes('Diamond') ? 'text-cyan-600 fill-cyan-400/30' :
+                                                            dealerAchievements.dealer_tier.includes('Gold') ? 'text-amber-600 fill-amber-400/40' :
+                                                                dealerAchievements.dealer_tier.includes('Silver') ? 'text-slate-600' : 'text-emerald-500'
+                                                    } />
+                                                    <span>{dealerAchievements.dealer_tier}</span>
+                                                </div>
+                                                {/* Tooltip popping downward into open space */}
+                                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2.5 hidden group-hover:flex flex-col w-64 p-3 bg-slate-950 text-white rounded-xl shadow-2xl border border-slate-800 text-left z-50 pointer-events-none">
+                                                    <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-950 border-t border-l border-slate-800 rotate-45" />
+                                                    <div className="flex items-center justify-between pb-1 border-b border-slate-800 mb-1.5">
+                                                        <span className="font-bold text-xs text-slate-200">{dealerAchievements.dealer_tier}</span>
+                                                        <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1 rounded border border-emerald-500/20">VERIFIED</span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                                                        {dealerAchievements.dealer_perk || 'Desk performance rating based on verified interbank activity.'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Dynamic Festive / Seasonal Badge (Auto-calculated, Zero maintenance forever) */}
+                                        {activeSeason && (
+                                            <div id="seasonal-event-pill" className="relative group cursor-pointer ml-1">
+                                                <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide border shadow-2xs transition-all hover:scale-105 ${activeSeason.color === 'amber'
+                                                        ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                                        : activeSeason.color === 'emerald'
+                                                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                                            : activeSeason.color === 'teal'
+                                                                ? 'bg-teal-50 text-teal-800 border-teal-300'
+                                                                : activeSeason.color === 'sky'
+                                                                    ? 'bg-sky-50 text-sky-800 border-sky-300'
+                                                                    : 'bg-indigo-50 text-indigo-800 border-indigo-300'
+                                                    }`}>
+                                                    {activeSeason.icon === 'Moon' ? <span className="text-[12px] leading-none">🌙</span> :
+                                                        activeSeason.icon === 'Snowflake' ? <span className="text-[12px] leading-none">❄️</span> :
+                                                            activeSeason.icon === 'Sun' ? <span className="text-[12px] leading-none">🐰</span> :
+                                                                <span className="text-[12px] leading-none">✨</span>}
+                                                    <span>{activeSeason.badge}</span>
+                                                    {activeSeason.season_id === 'EASTER_SHAM_EL_NESSIM' && <span className="text-[11px] leading-none">🌸</span>}
+                                                    {activeSeason.season_id === 'YEAR_END_HOLIDAYS' && <span className="text-[11px] leading-none">🎄</span>}
+                                                    {activeSeason.season_id === 'RAMADAN_TWILIGHT' && <span className="text-[11px] leading-none">🏮</span>}
+                                                    {(activeSeason.season_id === 'EID_AL_FITR' || activeSeason.season_id === 'EID_AL_ADHA') && <span className="text-[11px] leading-none">🐑</span>}
+                                                </div>
+                                                {/* Tooltip */}
+                                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2.5 hidden group-hover:flex flex-col w-64 p-3 bg-slate-950 text-white rounded-xl shadow-2xl border border-slate-800 text-left z-50 pointer-events-none">
+                                                    <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-950 border-t border-l border-slate-800 rotate-45" />
+                                                    <div className="flex items-center justify-between pb-1 border-b border-slate-800 mb-1.5">
+                                                        <span className="font-bold text-xs text-slate-200">{activeSeason.name}</span>
+                                                        <span className="text-[9px] font-mono text-amber-400 bg-amber-500/10 px-1 rounded border border-amber-500/20">SEASONAL</span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                                                        {activeSeason.description}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="text-[11px] text-gray-400">
+                                        {authSession.role === 'EXECUTION'
+                                            ? 'Your quote submissions are binding and logged with your verified identity.'
+                                            : authSession.role === 'APPROVER'
+                                                ? (!hasExecutionDealers
+                                                    ? 'Solo bank contact: You are authorized to submit binding quotes directly.'
+                                                    : (rfq.approval_status === 'PENDING' && rfq.requires_bank_approval !== false && !isIndicative)
+                                                        ? 'Action Required: Review deal specifications and authorize bank participation.'
+                                                        : 'Bank participation authorized. You are observing live desk activity in Approver Monitoring Mode.')
+                                                : 'You are viewing this RFQ in read-only mode.'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Right Side: Accolade Showcase, Test Fanfare & Session Controls */}
+                            <div className="flex items-center gap-2 self-end lg:self-center flex-wrap justify-end relative z-40">
+                                {/* Discreet Dealer Accolade Badges */}
+                                <div className="flex items-center gap-1.5">
+                                    {(dealerAchievements?.trophies || [
+                                        { id: 'READY_AT_THE_BELL', title: 'Ready at the Bell', current_tier: 'NONE', current_value: 0, target_value: 3, unit: 'sessions', progress_percent: 0, description: 'Terminal arrival authenticated as quotation window opens.' },
+                                        { id: 'THE_RELIABLE_DESK', title: 'The Active Desk', current_tier: 'NONE', current_value: 0, target_value: 5, unit: 'tenders', progress_percent: 0, description: 'Consistent market liquidity provider across invited corporate tenders.' },
+                                        { id: 'DEAL_CLOSER', title: 'Deal Closer', current_tier: 'NONE', current_value: 0, target_value: 3, unit: 'deals', progress_percent: 0, description: 'Successful firm tender executions completed on Grow.' },
+                                        { id: 'VOLUME_TITAN', title: 'Liquidity Titan', current_tier: 'NONE', current_value: 0, target_value: 10000000, unit: 'USD', progress_percent: 0, description: 'Cumulative firm trade execution volume awarded across confirmed tenders.', is_currency: true },
+                                        { id: 'TRIPLE_CROWN', title: 'The Triple Crown Cup', current_tier: 'NONE', current_value: 0, target_value: 3, unit: 'streak', progress_percent: 0, description: 'Consecutive winning firm execution tenders across the interbank market.' },
+                                        { id: 'CURRENCY_EXPLORER', title: 'Market Versatility', current_tier: 'NONE', current_value: 0, target_value: 2, unit: 'pairs', progress_percent: 0, description: 'Active firm execution across distinct interbank currency pairs.' },
+                                        { id: 'PRECISION_SPEED', title: 'Swift Execution', current_tier: 'NONE', current_value: 0, target_value: 5, unit: 'quotes', progress_percent: 0, description: 'Rapid, firm execution quotations submitted during live market tender windows.' },
+                                        { id: 'MARKET_INTELLIGENCE', title: 'Market Intelligence', current_tier: 'NONE', current_value: 0, target_value: 5, unit: 'quotes', progress_percent: 0, description: 'Indicative & benchmark market intelligence pricing provided to corporate clients.' }
+                                    ]).map((trophy, idx) => {
+                                        const isEarned = trophy.current_tier && trophy.current_tier !== 'NONE';
+
+                                        // Color configuration based on tier
+                                        let containerCls = 'opacity-40 grayscale bg-slate-100/90 border-dashed border-slate-300 text-slate-400 hover:opacity-100 hover:grayscale-0 hover:border-slate-400';
+                                        let iconCls = 'text-slate-400';
+                                        let badgeCls = 'text-slate-400 bg-slate-800 border-slate-700';
+                                        if (trophy.current_tier === 'PLATINUM') {
+                                            containerCls = 'bg-gradient-to-b from-cyan-100 via-sky-200 to-cyan-300 border-cyan-400 text-cyan-950 shadow-xs shadow-cyan-400/40 ring-1 ring-white/90 hover:scale-110 hover:border-cyan-500 hover:shadow-cyan-400/70';
+                                            iconCls = 'text-cyan-950 drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)]';
+                                            badgeCls = 'text-cyan-950 bg-gradient-to-r from-cyan-200 via-white to-cyan-300 border-cyan-400 font-black shadow-xs';
+                                        } else if (trophy.current_tier === 'GOLD') {
+                                            containerCls = 'bg-gradient-to-b from-amber-200 via-yellow-300 to-amber-400 border-amber-500/90 text-amber-950 shadow-xs shadow-amber-500/40 ring-1 ring-yellow-100/90 hover:scale-110 hover:border-amber-600 hover:shadow-amber-500/70';
+                                            iconCls = 'text-amber-950 drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)]';
+                                            badgeCls = 'text-amber-950 bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-300 border-amber-400 font-black shadow-xs';
+                                        } else if (trophy.current_tier === 'SILVER') {
+                                            containerCls = 'bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300/90 border-slate-400 text-slate-800 shadow-xs shadow-slate-400/40 ring-1 ring-white/80 hover:scale-110 hover:border-slate-500 hover:shadow-slate-400/60';
+                                            iconCls = 'text-slate-800';
+                                            badgeCls = 'text-slate-100 bg-slate-700 border-slate-500';
+                                        } else if (trophy.current_tier === 'BRONZE') {
+                                            containerCls = 'bg-gradient-to-b from-amber-100/90 via-amber-200/50 to-amber-800/20 border-amber-700/60 text-amber-900 shadow-xs ring-1 ring-amber-600/20 hover:scale-110 hover:border-amber-700/80';
+                                            iconCls = 'text-amber-900';
+                                            badgeCls = 'text-amber-200 bg-amber-900/60 border-amber-700/60 font-bold';
+                                        }
+
+                                        const renderIcon = (id) => {
+                                            switch (id) {
+                                                case 'READY_AT_THE_BELL': return <Hourglass size={15} />;
+                                                case 'THE_RELIABLE_DESK': return <Shield size={15} />;
+                                                case 'DEAL_CLOSER': return <Trophy size={15} />;
+                                                case 'VOLUME_TITAN': return <Landmark size={15} />;
+                                                case 'TRIPLE_CROWN': return <Crown size={15} />;
+                                                case 'CURRENCY_EXPLORER': return <Sparkles size={15} />;
+                                                case 'PRECISION_SPEED': return <Zap size={15} />;
+                                                case 'MARKET_INTELLIGENCE': return <Eye size={15} />;
+                                                default: return <Trophy size={15} />;
+                                            }
+                                        };
+
+                                        // Tooltip alignment safe against window right edge
+                                        const totalCount = dealerAchievements?.trophies?.length || 8;
+                                        const tooltipAlignCls = idx >= totalCount - 3 ? 'right-0' : (idx <= 1 ? 'left-0' : 'left-1/2 -translate-x-1/2');
+                                        const arrowAlignCls = idx >= totalCount - 3 ? 'right-3.5' : (idx <= 1 ? 'left-3.5' : 'left-1/2 -translate-x-1/2');
+
+                                        const curVal = Number(trophy.current_value || 0);
+                                        const tgtVal = Number(trophy.target_value || 0);
+                                        const dynamicPct = (trophy.current_tier === 'PLATINUM' || trophy.next_tier === 'MAX')
+                                            ? 100
+                                            : (tgtVal > 0 ? Math.min(100, Math.max(0, (curVal / tgtVal) * 100)) : 0);
+
+                                        const formattedCurrent = trophy.is_currency || trophy.unit === 'USD'
+                                            ? `$${curVal.toLocaleString()}`
+                                            : `${curVal.toLocaleString()}`;
+                                        const formattedTarget = trophy.is_currency || trophy.unit === 'USD'
+                                            ? `$${tgtVal.toLocaleString()}`
+                                            : `${tgtVal.toLocaleString()} ${trophy.unit}`;
+
+                                        return (
+                                            <div key={trophy.id || idx} id={`trophy-badge-${trophy.id}`} data-tier={trophy.current_tier} className="relative group cursor-pointer rounded-xl">
+                                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center border transition-all duration-300 relative ${containerCls}`}>
+                                                    {renderIcon(trophy.id)}
+                                                    {!isEarned && (
+                                                        <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-slate-800 text-white rounded-full flex items-center justify-center shadow-xs border border-slate-700">
+                                                            <Lock size={8} />
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {/* Tooltip popping downward into open space */}
+                                                <div className={`absolute top-full ${tooltipAlignCls} mt-2.5 hidden group-hover:flex flex-col w-72 p-3.5 bg-slate-950 text-white rounded-xl shadow-2xl border border-slate-800 text-left z-50 pointer-events-none`}>
+                                                    <div className={`absolute -top-1.5 ${arrowAlignCls} w-3 h-3 bg-slate-950 border-t border-l border-slate-800 rotate-45`} />
+                                                    <div className="flex items-center justify-between gap-2 mb-1.5 pb-1 border-b border-slate-800">
+                                                        <span className="font-bold text-xs flex items-center gap-1.5 text-slate-200">
+                                                            <span className={iconCls}>{renderIcon(trophy.id)}</span>
+                                                            <span>{trophy.title}</span>
+                                                        </span>
+                                                        <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border ${badgeCls}`}>
+                                                            {isEarned ? `${trophy.current_tier}` : 'IN PROGRESS'}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-300 leading-relaxed mb-2">
+                                                        {trophy.description}
+                                                    </p>
+                                                    {/* Progress bar with gradual thermal heat: stays all-light when early (e.g. 1/5) and transitions to dark heat as it fills (e.g. 4/5) */}
+                                                    <div className="w-full bg-slate-800/90 h-1.5 rounded-full overflow-hidden mb-1.5 p-[0.5px]">
+                                                        <div
+                                                            className="h-full rounded-full transition-all duration-500 ease-out"
+                                                            style={{
+                                                                width: `${dynamicPct}%`,
+                                                                background: 'linear-gradient(90deg, #fef08a 0%, #fde047 25%, #f59e0b 55%, #ea580c 80%, #b91c1c 100%)',
+                                                                backgroundSize: `${dynamicPct > 0 ? (100 / dynamicPct) * 100 : 100}% 100%`,
+                                                                backgroundPosition: 'left center',
+                                                                backgroundRepeat: 'no-repeat',
+                                                                boxShadow: dynamicPct >= 75
+                                                                    ? '0 0 8px rgba(234, 88, 12, 0.6)'
+                                                                    : dynamicPct >= 40
+                                                                        ? '0 0 6px rgba(245, 158, 11, 0.4)'
+                                                                        : '0 0 4px rgba(254, 240, 138, 0.25)'
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/80">
+                                                        <span className="font-mono text-slate-300 font-medium">
+                                                            {formattedCurrent} / {formattedTarget}
+                                                        </span>
+                                                        <span className="font-mono text-slate-400">
+                                                            {isEarned
+                                                                ? (trophy.next_tier !== 'MAX' ? `Next: ${trophy.next_tier}` : 'Mastered')
+                                                                : (() => {
+                                                                    const remaining = Math.max(0, tgtVal - curVal);
+                                                                    if (trophy.unit === 'quotes') return `${remaining} more quote${remaining > 1 ? 's' : ''} to unlock`;
+                                                                    if (trophy.unit === 'deals') return `${remaining} more win${remaining > 1 ? 's' : ''} to unlock`;
+                                                                    if (trophy.unit === 'streak') return `${remaining} streak to unlock`;
+                                                                    if (trophy.unit === 'sessions') return `${remaining} more arrival${remaining > 1 ? 's' : ''} to unlock`;
+                                                                    if (trophy.unit === 'tenders') return `${remaining} more tender${remaining > 1 ? 's' : ''} to unlock`;
+                                                                    if (trophy.unit === 'pairs') return `${remaining} more pair${remaining > 1 ? 's' : ''} to unlock`;
+                                                                    if (trophy.unit === 'USD') return `$${(remaining >= 1000000 ? `${(remaining / 1000000).toFixed(1)}M` : remaining.toLocaleString())} to unlock`;
+                                                                    return `${remaining} more to unlock`;
+                                                                })()}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className="h-4 w-px bg-slate-200 hidden sm:block mx-1" />
+
+                                <button
+                                    onClick={handleLogout}
+                                    className="text-xs text-gray-400 hover:text-red-600 transition-colors font-medium cursor-pointer"
+                                >
+                                    Sign Out
+                                </button>
                             </div>
                         </div>
-
-                        <button
-                            onClick={handleLogout}
-                            className="text-xs text-gray-400 hover:text-red-600 transition-colors font-medium self-end sm:self-center cursor-pointer"
-                        >
-                            Switch Identity / Sign Out
-                        </button>
-                    </div>
-                )}
+                    );
+                })()}
 
                 {/* TAB 1: LIVE RFQ VIEW */}
                 {activeTab === 'LIVE' && (
@@ -2121,13 +2761,12 @@ export default function QuotationBankOfferPage() {
                         {/* Trade Execution / Outcome Result Banner */}
                         {timeLeft.status === 'CLOSED' && (resultStatus || isIndicative) && rfq?.approval_status !== 'DECLINED' && (
                             <div
-                                className={`mb-3.5 p-3.5 sm:p-4 rounded-2xl border text-center animate-fade-in-up ${
-                                    resultStatus === 'WINNER' ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs' :
-                                    resultStatus === 'PARTIALLY_WON' ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs' :
-                                    (isIndicative || resultStatus === 'INDICATIVE_ONLY') ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950 shadow-2xs' :
-                                    resultStatus === 'AWAITING_SELECTION' ? 'bg-blue-50/70 border-blue-200 text-blue-900' :
-                                    'bg-slate-50 border-slate-200 text-slate-700'
-                                }`}
+                                className={`mb-3.5 p-3.5 sm:p-4 rounded-2xl border text-center animate-fade-in-up ${resultStatus === 'WINNER' ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs' :
+                                        resultStatus === 'PARTIALLY_WON' ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs' :
+                                            (isIndicative || resultStatus === 'INDICATIVE_ONLY') ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950 shadow-2xs' :
+                                                resultStatus === 'AWAITING_SELECTION' ? 'bg-blue-50/70 border-blue-200 text-blue-900' :
+                                                    'bg-slate-50 border-slate-200 text-slate-700'
+                                    }`}
                             >
                                 {(isIndicative || resultStatus === 'INDICATIVE_ONLY') ? (
                                     <div className="flex flex-col items-center">
@@ -2170,11 +2809,10 @@ export default function QuotationBankOfferPage() {
                                         <div className="flex items-center gap-2 mb-1.5">
                                             <Clock className="text-blue-500 animate-spin-slow" size={24} />
                                             {acceptanceSecondsRemaining !== null && (
-                                                <span className={`font-mono text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${
-                                                    acceptanceSecondsRemaining > 0 
-                                                        ? 'bg-blue-100/80 text-blue-800 border-blue-200' 
+                                                <span className={`font-mono text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${acceptanceSecondsRemaining > 0
+                                                        ? 'bg-blue-100/80 text-blue-800 border-blue-200'
                                                         : 'bg-amber-100/80 text-amber-800 border-amber-200 animate-pulse'
-                                                }`}>
+                                                    }`}>
                                                     {acceptanceSecondsRemaining > 0 ? `⏱ ${acceptanceSecondsRemaining}s remaining` : 'Finalizing Decision...'}
                                                 </span>
                                             )}
@@ -2229,7 +2867,7 @@ export default function QuotationBankOfferPage() {
 
                         {/* Clean Symmetrical 2-Column Desktop Grid */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
-                            
+
                             {/* COLUMN 1: Left Side Specifications & Guidelines */}
                             <div className="flex flex-col gap-5">
                                 {/* Top Card: Corporate Client & Trade Specifications */}
@@ -2273,13 +2911,12 @@ export default function QuotationBankOfferPage() {
                                                 <span className="text-xs font-mono font-bold text-black bg-slate-50 px-3 py-1 rounded-lg border border-slate-200">
                                                     {rfq.ref_no}
                                                 </span>
-                                                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider ${
-                                                    isMixed
+                                                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider ${isMixed
                                                         ? 'bg-purple-900 text-purple-100 border border-purple-700 shadow-2xs'
                                                         : (rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
                                                             ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                                             : 'bg-black text-white'
-                                                }`}>
+                                                    }`}>
                                                     {isMixed ? '⚡📊 MIXED (EXECUTION / INDICATIVE)' : (rfq.quotation_base || 'Execution')}
                                                 </span>
                                             </div>
@@ -2315,56 +2952,85 @@ export default function QuotationBankOfferPage() {
                                             </>
                                         ) : (rfq.legs && rfq.legs.length > 1) ? (
                                             <div className="col-span-2 space-y-3">
-                                                <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                                        Multi-Currency Package ({rfq.legs.length} Pairs)
-                                                    </span>
-                                                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                                                        Multi-Pair RFQ
-                                                    </span>
-                                                </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                    {rfq.legs.map((leg, idx) => (
-                                                        <div key={leg.id || idx} className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl flex flex-col justify-between gap-2 shadow-2xs">
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="w-5 h-5 rounded-md bg-slate-800 text-white text-[10px] font-black flex items-center justify-center font-mono">
-                                                                        {idx + 1}
-                                                                    </span>
-                                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase text-white ${
-                                                                        (leg.direction || 'BUY').toUpperCase() === 'BUY' ? 'bg-emerald-600' : 'bg-blue-600'
-                                                                    }`}>
-                                                                        {leg.direction || 'BUY'}
-                                                                    </span>
-                                                                    <span className="font-mono font-bold text-sm text-slate-900">
-                                                                        {leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`}
-                                                                    </span>
-                                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded tracking-wide ${
-                                                                        (leg.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
-                                                                            ? 'bg-sky-100 text-sky-800 border border-sky-300'
-                                                                            : 'bg-black text-white'
-                                                                    }`}>
-                                                                        {(leg.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative' ? '📊 INDIC' : '⚡ EXEC'}
-                                                                    </span>
-                                                                </div>
-                                                                <span className="font-mono font-bold text-xs text-slate-900">
-                                                                    {new Intl.NumberFormat().format(leg.amount || 0)} <span className="text-[10px] text-slate-500 font-normal">{leg.buy_currency}</span>
+                                                {/* RFQ Governance, Schedule & Smart Parameters (Replaces duplicate leg list) */}
+                                                <div className="p-4 bg-slate-50 border border-slate-200/90 rounded-2xl space-y-3 shadow-2xs">
+                                                    <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
+                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                                                            <FileText size={13} className="text-slate-400" />
+                                                            <span>RFQ Governance & Schedule</span>
+                                                        </span>
+                                                        <span className="text-[10px] font-bold text-slate-700 bg-white border border-slate-200 px-2 py-0.5 rounded-full font-mono">
+                                                            {rfq.legs.length} Currency Legs
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Timestamps & Creator Info */}
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                                        <div>
+                                                            <span className="text-[10px] font-semibold text-gray-400 uppercase block mb-0.5">Created By</span>
+                                                            <p className="font-semibold text-gray-800 font-mono text-[11px] truncate">
+                                                                {rfq.created_by_email || rfq.created_by_name || `${rfq.customer_name} Treasury`}
+                                                            </p>
+                                                            {rfq.created_at && (
+                                                                <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
+                                                                    {new Date(rfq.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
                                                                 </span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-200/60">
-                                                                <span>Value: <strong className="text-slate-700 font-semibold">{formatDate(leg.value_date)}</strong></span>
-                                                                {leg.allow_alternative_value_date ? (
-                                                                    <span className="text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
-                                                                        Alt Date Allowed
+                                                            )}
+                                                        </div>
+
+                                                        <div>
+                                                            <span className="text-[10px] font-semibold text-gray-400 uppercase block mb-0.5">Quotation Window</span>
+                                                            <p className="font-semibold text-gray-800 text-[11px]">
+                                                                {rfq.window_start ? new Date(rfq.window_start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                                {' → '}
+                                                                {rfq.window_end ? new Date(rfq.window_end).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                            </p>
+                                                            <span className="text-[10px] text-emerald-600 font-medium block mt-0.5">
+                                                                {formatDate(rfq.window_start)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Contextual Smart Hints (Non-distracting, renders ONLY when triggered) */}
+                                                    {(() => {
+                                                        const legDates = rfq.legs.map(l => l.value_date).filter(Boolean);
+                                                        const hasMultipleValueDates = new Set(legDates).size > 1;
+                                                        const totalUSD = rfq.legs.reduce((acc, l) => {
+                                                            const amt = Number(l.amount || 0);
+                                                            const pair = (l.currency_pair || `${l.buy_currency}/${l.sell_currency}`).toUpperCase();
+                                                            if (pair.includes('USD')) return acc + amt;
+                                                            if (pair.includes('EUR')) return acc + (amt * 1.08);
+                                                            if (pair.includes('GBP')) return acc + (amt * 1.30);
+                                                            return acc + (amt / 50.0);
+                                                        }, 0);
+                                                        const isHighNotional = totalUSD >= 500000;
+                                                        const hasAltDatesAllowed = rfq.legs.some(l => l.allow_alternative_value_date);
+
+                                                        if (!hasMultipleValueDates && !isHighNotional && !hasAltDatesAllowed) return null;
+
+                                                        return (
+                                                            <div className="pt-2 border-t border-slate-200/80 flex flex-wrap gap-1.5">
+                                                                {hasMultipleValueDates && (
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
+                                                                        <span>⚠️</span>
+                                                                        <span>Split Value Dates Across Legs</span>
                                                                     </span>
-                                                                ) : (
-                                                                    <span className="text-[9px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                                                                        Fixed Date
+                                                                )}
+                                                                {isHighNotional && (
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-200 shadow-2xs">
+                                                                        <span>⚡</span>
+                                                                        <span>High-Notional Package (~${Math.round(totalUSD).toLocaleString()} USD Eqv)</span>
+                                                                    </span>
+                                                                )}
+                                                                {hasAltDatesAllowed && (
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
+                                                                        <span>📅</span>
+                                                                        <span>Alternative Value Date Allowed</span>
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
                                         ) : (
@@ -2372,9 +3038,8 @@ export default function QuotationBankOfferPage() {
                                                 <div>
                                                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Currency Pair</label>
                                                     <p className="text-xl sm:text-2xl font-bold text-emerald-900 bg-emerald-50 px-3 py-1 rounded-xl inline-flex items-center gap-2 border border-emerald-200">
-                                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase text-white ${
-                                                            (rfq.direction || 'BUY').toUpperCase() === 'BUY' ? 'bg-emerald-600' : 'bg-blue-600'
-                                                        }`}>
+                                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase text-white ${(rfq.direction || 'BUY').toUpperCase() === 'BUY' ? 'bg-emerald-600' : 'bg-blue-600'
+                                                            }`}>
                                                             {rfq.direction || 'BUY'}
                                                         </span>
                                                         <span>{rfq.buy_currency} / {rfq.sell_currency}</span>
@@ -2553,11 +3218,10 @@ export default function QuotationBankOfferPage() {
                                                                     {rfq.legs.map((l, i) => (
                                                                         <li key={l.id || i} className="pl-2 text-[11px] text-gray-600 flex items-center gap-1.5 flex-wrap">
                                                                             <span>&bull; Leg {i + 1}: <strong className="text-gray-900 font-mono">{l.currency_pair || `${l.buy_currency}/${l.sell_currency}`}</strong></span>
-                                                                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded tracking-wide ${
-                                                                                (l.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
+                                                                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded tracking-wide ${(l.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
                                                                                     ? 'bg-sky-100 text-sky-800 border border-sky-300'
                                                                                     : 'bg-black text-white'
-                                                                            }`}>
+                                                                                }`}>
                                                                                 {(l.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative' ? '📊 INDICATIVE' : '⚡ EXECUTION'}
                                                                             </span>
                                                                             <span>&bull; {new Intl.NumberFormat().format(l.amount || 0)} {l.buy_currency} &bull; Val: {formatDate(l.value_date)}</span>
@@ -2568,11 +3232,10 @@ export default function QuotationBankOfferPage() {
                                                                 <>
                                                                     <li className="flex items-center gap-1.5">
                                                                         <span>&bull; Pair: <span className="font-bold text-gray-900">{rfq.buy_currency}/{rfq.sell_currency}</span></span>
-                                                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded tracking-wide ${
-                                                                            (rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
+                                                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded tracking-wide ${(rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
                                                                                 ? 'bg-sky-100 text-sky-800 border border-sky-300'
                                                                                 : 'bg-black text-white'
-                                                                        }`}>
+                                                                            }`}>
                                                                             {(rfq.quotation_base || 'Execution').toLowerCase() === 'indicative' ? '📊 INDICATIVE' : '⚡ EXECUTION'}
                                                                         </span>
                                                                     </li>
@@ -2662,13 +3325,12 @@ export default function QuotationBankOfferPage() {
                                         {/* Main Bidding Console Card */}
                                         <section
                                             id="bidding-quote-card"
-                                            className={`p-5 sm:p-6 rounded-3xl shadow-xs border transition-all flex-1 flex flex-col ${
-                                                isReadOnlyViewer
+                                            className={`p-5 sm:p-6 rounded-3xl shadow-xs border transition-all flex-1 flex flex-col ${isReadOnlyViewer
                                                     ? 'bg-white border-slate-200'
-                                                    : timeLeft.status === 'OPEN' 
-                                                        ? 'bg-white border-2 border-slate-950 shadow-md' 
+                                                    : timeLeft.status === 'OPEN'
+                                                        ? 'bg-white border-2 border-slate-950 shadow-md'
                                                         : 'bg-white border-slate-200'
-                                            }`}
+                                                }`}
                                         >
                                             {/* Bidding Header */}
                                             <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
@@ -2680,7 +3342,7 @@ export default function QuotationBankOfferPage() {
                                                         {timeLeft.status === 'OPEN' ? 'Enter your binding rate for this quotation request.' : 'Quotation window is currently closed.'}
                                                     </p>
                                                 </div>
-                                                
+
                                                 {submitted ? (
                                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                                                         <CheckCircle2 size={13} className="text-slate-500" /> {timeLeft.status === 'OPEN' ? 'Active Quote' : 'Quote Submitted'}
@@ -2721,7 +3383,7 @@ export default function QuotationBankOfferPage() {
 
                                             {/* Live Ranking HUD Widget */}
                                             {rfq?.is_live_ranking_enabled && timeLeft.status === 'OPEN' && (
-                                                <div 
+                                                <div
                                                     className="mb-4 overflow-hidden rounded-2xl border transition-all duration-300 shadow-xs"
                                                     style={{
                                                         background: liveRank?.rank === 1
@@ -2738,13 +3400,12 @@ export default function QuotationBankOfferPage() {
                                                 >
                                                     <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3">
                                                         <div className="flex items-center gap-3">
-                                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-base shadow-xs ${
-                                                                liveRank?.rank === 1
+                                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-base shadow-xs ${liveRank?.rank === 1
                                                                     ? 'bg-emerald-600 text-white shadow-emerald-500/20'
                                                                     : liveRank?.rank
                                                                         ? 'bg-blue-600 text-white shadow-blue-500/20'
                                                                         : 'bg-slate-200 text-slate-600'
-                                                            }`}>
+                                                                }`}>
                                                                 {liveRank?.rank ? `#${liveRank.rank}` : <BarChart2 size={18} />}
                                                             </div>
                                                             <div>
@@ -2792,9 +3453,8 @@ export default function QuotationBankOfferPage() {
                                             <form id="quote-form" onSubmit={(rfq?.legs && rfq.legs.length > 1) ? handleBatchSubmit : handleSubmit} className="space-y-4">
                                                 {/* Viewer / Monitoring Mode Banner */}
                                                 {isReadOnlyViewer && (
-                                                    <div className={`p-4 rounded-2xl text-xs leading-relaxed border ${
-                                                        isApprover ? 'bg-amber-50/70 border-amber-200 text-amber-900' : 'bg-blue-50/70 border-blue-200 text-blue-900'
-                                                    }`}>
+                                                    <div className={`p-4 rounded-2xl text-xs leading-relaxed border ${isApprover ? 'bg-amber-50/70 border-amber-200 text-amber-900' : 'bg-blue-50/70 border-blue-200 text-blue-900'
+                                                        }`}>
                                                         <div className="flex items-center gap-2 font-bold mb-1">
                                                             <Shield size={15} className={isApprover ? 'text-amber-600' : 'text-blue-600'} />
                                                             <span>{isApprover ? 'Approver Monitoring Mode' : 'View-Only Observer Mode'}</span>
@@ -2844,701 +3504,692 @@ export default function QuotationBankOfferPage() {
                                                     </div>
                                                 )}
 
-                                                    {deskState?.is_active_trader && (authSession?.role === 'EXECUTION' || canApproverExecute) && (
-                                                        <div className={`p-2.5 px-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs ${
-                                                            timeLeft.status === 'OPEN'
-                                                                ? 'bg-slate-100/90 border border-slate-200 text-slate-800'
-                                                                : 'bg-slate-50 border border-slate-200 text-slate-700'
+                                                {deskState?.is_active_trader && (authSession?.role === 'EXECUTION' || canApproverExecute) && (
+                                                    <div className={`p-2.5 px-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs ${timeLeft.status === 'OPEN'
+                                                            ? 'bg-slate-100/90 border border-slate-200 text-slate-800'
+                                                            : 'bg-slate-50 border border-slate-200 text-slate-700'
                                                         }`}>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className={`w-2 h-2 rounded-full ${timeLeft.status === 'OPEN' ? 'bg-sky-500 animate-pulse' : 'bg-slate-400'}`} />
-                                                                <span className="font-semibold text-slate-900">Active Quoting Desk:</span>
-                                                                <span className="text-slate-700 font-mono">You ({authSession?.email})</span>
-                                                            </div>
-                                                            {deskState.execution_colleagues_count > 0 ? (
-                                                                <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-800 bg-amber-100/70 border border-amber-300 px-2.5 py-0.5 rounded-lg">
-                                                                    <Users size={12} className="text-amber-700" />
-                                                                    <span>{deskState.execution_colleagues_count} Colleague Dealer{deskState.execution_colleagues_count > 1 ? 's' : ''} Online (Spectating)</span>
-                                                                </div>
-                                                            ) : (rfq?.total_execution_dealers > 1) ? (
-                                                                <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 bg-slate-200/60 px-2.5 py-0.5 rounded-lg">
-                                                                    <Users size={12} />
-                                                                    <span>Multi-Dealer Desk ({rfq.total_execution_dealers} Execution Contacts Configured &bull; Colleague Offline)</span>
-                                                                </div>
-                                                            ) : (
-                                                                <span className="text-[11px] text-slate-500 font-medium">Solo Execution Desk</span>
-                                                            )}
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`w-2 h-2 rounded-full ${timeLeft.status === 'OPEN' ? 'bg-sky-500 animate-pulse' : 'bg-slate-400'}`} />
+                                                            <span className="font-semibold text-slate-900">Active Quoting Desk:</span>
+                                                            <span className="text-slate-700 font-mono">You ({authSession?.email})</span>
                                                         </div>
-                                                    )}
+                                                        {deskState.execution_colleagues_count > 0 ? (
+                                                            <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-800 bg-amber-100/70 border border-amber-300 px-2.5 py-0.5 rounded-lg">
+                                                                <Users size={12} className="text-amber-700" />
+                                                                <span>{deskState.execution_colleagues_count} Colleague Dealer{deskState.execution_colleagues_count > 1 ? 's' : ''} Online (Spectating)</span>
+                                                            </div>
+                                                        ) : (rfq?.total_execution_dealers > 1) ? (
+                                                            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 bg-slate-200/60 px-2.5 py-0.5 rounded-lg">
+                                                                <Users size={12} />
+                                                                <span>Multi-Dealer Desk ({rfq.total_execution_dealers} Execution Contacts Configured &bull; Colleague Offline)</span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-[11px] text-slate-500 font-medium">Solo Execution Desk</span>
+                                                        )}
+                                                    </div>
+                                                )}
 
-                                                    {rfq.type === 'TBILL' ? (
-                                                        <div className="space-y-3.5">
-                                                            {draftRestored && !submitted && (
-                                                                <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-2xl flex items-center justify-between text-xs text-amber-900 animate-fadeIn">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <RefreshCw size={14} className="text-amber-600 shrink-0" />
-                                                                        <span><strong>Draft Restored:</strong> Your previously uncommitted tranche inputs were recovered from this browser session.</span>
-                                                                    </div>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            try {
-                                                                                sessionStorage.removeItem(`tbill_draft_${token}`);
-                                                                            } catch (e) {}
-                                                                            setDraftRestored(false);
-                                                                            const isSettlementFixed = rfq.settlement_date_start && (!rfq.settlement_date_end || rfq.settlement_date_start === rfq.settlement_date_end);
-                                                                            const isMaturityFixed = rfq.maturity_date_start && (!rfq.maturity_date_end || rfq.maturity_date_start === rfq.maturity_date_end);
-                                                                            setTbillLines([{
-                                                                                settlementDate: isSettlementFixed ? rfq.settlement_date_start : '',
-                                                                                maturityDate: isMaturityFixed ? rfq.maturity_date_start : '',
-                                                                                discountRate: '',
-                                                                                maxAmount: ''
-                                                                            }]);
-                                                                            setTraderNotes('');
-                                                                        }}
-                                                                        className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 underline ml-3 shrink-0 cursor-pointer"
-                                                                    >
-                                                                        Discard Draft
-                                                                    </button>
+                                                {rfq.type === 'TBILL' ? (
+                                                    <div className="space-y-3.5">
+                                                        {draftRestored && !submitted && (
+                                                            <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-2xl flex items-center justify-between text-xs text-amber-900 animate-fadeIn">
+                                                                <div className="flex items-center gap-2">
+                                                                    <RefreshCw size={14} className="text-amber-600 shrink-0" />
+                                                                    <span><strong>Draft Restored:</strong> Your previously uncommitted tranche inputs were recovered from this browser session.</span>
                                                                 </div>
-                                                            )}
-                                                            {tbillLines.map((line, index) => (
-                                                                <div key={index} className="p-3.5 sm:p-4 bg-slate-50 rounded-2xl border border-slate-200 relative group">
-                                                                    {tbillLines.length > 1 && timeLeft.status === 'OPEN' && !isSpectator && !isReadOnlyViewer && (
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => removeTbillLine(index)}
-                                                                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-sm cursor-pointer"
-                                                                        >
-                                                                            ×
-                                                                        </button>
-                                                                    )}
-                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                                        <div>
-                                                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Settlement Date</label>
-                                                                            <input
-                                                                                type="date"
-                                                                                required
-                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
-                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
-                                                                                value={line.settlementDate}
-                                                                                onChange={e => updateTbillLine(index, 'settlementDate', e.target.value)}
-                                                                            />
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Maturity Date</label>
-                                                                            <input
-                                                                                type="date"
-                                                                                required
-                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
-                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
-                                                                                value={line.maturityDate}
-                                                                                onChange={e => updateTbillLine(index, 'maturityDate', e.target.value)}
-                                                                            />
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Discount Rate (%)</label>
-                                                                            <input
-                                                                                type="number"
-                                                                                step="0.0001"
-                                                                                required
-                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
-                                                                                onWheel={(e) => e.currentTarget.blur()}
-                                                                                placeholder="e.g. 18.50"
-                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
-                                                                                value={line.discountRate}
-                                                                                onChange={e => updateTbillLine(index, 'discountRate', e.target.value)}
-                                                                            />
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Max Amount</label>
-                                                                            <input
-                                                                                type="number"
-                                                                                required
-                                                                                disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
-                                                                                onWheel={(e) => e.currentTarget.blur()}
-                                                                                placeholder="e.g. 10000000"
-                                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
-                                                                                value={line.maxAmount}
-                                                                                onChange={e => updateTbillLine(index, 'maxAmount', e.target.value)}
-                                                                            />
-                                                                        </div>
-                                                                    </div>
-                                                                    {line.discountRate && line.maxAmount && (
-                                                                        <div className="mt-2 text-right">
-                                                                            <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 font-bold">
-                                                                                Rate: {line.discountRate}% &bull; Cap: {new Intl.NumberFormat().format(line.maxAmount)}
-                                                                            </span>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            ))}
-
-                                                            {timeLeft.status === 'OPEN' && !isSpectator && !isReadOnlyViewer && (
                                                                 <button
                                                                     type="button"
-                                                                    onClick={addTbillLine}
-                                                                    className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 px-3.5 py-2 rounded-xl transition-all cursor-pointer"
+                                                                    onClick={() => {
+                                                                        try {
+                                                                            sessionStorage.removeItem(`tbill_draft_${token}`);
+                                                                        } catch (e) { }
+                                                                        setDraftRestored(false);
+                                                                        const isSettlementFixed = rfq.settlement_date_start && (!rfq.settlement_date_end || rfq.settlement_date_start === rfq.settlement_date_end);
+                                                                        const isMaturityFixed = rfq.maturity_date_start && (!rfq.maturity_date_end || rfq.maturity_date_start === rfq.maturity_date_end);
+                                                                        setTbillLines([{
+                                                                            settlementDate: isSettlementFixed ? rfq.settlement_date_start : '',
+                                                                            maturityDate: isMaturityFixed ? rfq.maturity_date_start : '',
+                                                                            discountRate: '',
+                                                                            maxAmount: ''
+                                                                        }]);
+                                                                        setTraderNotes('');
+                                                                    }}
+                                                                    className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 underline ml-3 shrink-0 cursor-pointer"
                                                                 >
-                                                                    + Add Line Item
+                                                                    Discard Draft
                                                                 </button>
-                                                            )}
-                                                        </div>
-                                                    ) : (rfq.legs && rfq.legs.length > 1) ? (
-                                                        <div className="space-y-4">
-                                                            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                                                                <div>
-                                                                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                                                                        <TrendingUp size={14} className="text-emerald-600" /> Multi-Pair Quoting Console
-                                                                    </h4>
-                                                                    <p className="text-[11px] text-slate-500 mt-0.5">
-                                                                        Enter your firm quotes for all {rfq.legs.length} currency pair legs.
-                                                                    </p>
-                                                                </div>
-                                                                <span className="text-[10px] font-bold font-mono px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                                                    {Object.values(legQuotes).filter(q => q?.price && parseFloat(q.price) > 0).length} / {rfq.legs.length} Quoted
-                                                                </span>
                                                             </div>
+                                                        )}
+                                                        {tbillLines.map((line, index) => (
+                                                            <div key={index} className="p-3.5 sm:p-4 bg-slate-50 rounded-2xl border border-slate-200 relative group">
+                                                                {tbillLines.length > 1 && timeLeft.status === 'OPEN' && !isSpectator && !isReadOnlyViewer && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => removeTbillLine(index)}
+                                                                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-sm cursor-pointer"
+                                                                    >
+                                                                        ×
+                                                                    </button>
+                                                                )}
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                    <div>
+                                                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Settlement Date</label>
+                                                                        <input
+                                                                            type="date"
+                                                                            required
+                                                                            disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
+                                                                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
+                                                                            value={line.settlementDate}
+                                                                            onChange={e => updateTbillLine(index, 'settlementDate', e.target.value)}
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Maturity Date</label>
+                                                                        <input
+                                                                            type="date"
+                                                                            required
+                                                                            disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
+                                                                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
+                                                                            value={line.maturityDate}
+                                                                            onChange={e => updateTbillLine(index, 'maturityDate', e.target.value)}
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Discount Rate (%)</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            step="0.0001"
+                                                                            required
+                                                                            disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
+                                                                            onWheel={(e) => e.currentTarget.blur()}
+                                                                            placeholder="e.g. 18.50"
+                                                                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
+                                                                            value={line.discountRate}
+                                                                            onChange={e => updateTbillLine(index, 'discountRate', e.target.value)}
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Max Amount</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            required
+                                                                            disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
+                                                                            onWheel={(e) => e.currentTarget.blur()}
+                                                                            placeholder="e.g. 10000000"
+                                                                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
+                                                                            value={line.maxAmount}
+                                                                            onChange={e => updateTbillLine(index, 'maxAmount', e.target.value)}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                {line.discountRate && line.maxAmount && (
+                                                                    <div className="mt-2 text-right">
+                                                                        <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 font-bold">
+                                                                            Rate: {line.discountRate}% &bull; Cap: {new Intl.NumberFormat().format(line.maxAmount)}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
 
-                                                            <div className="space-y-3.5">
-                                                                {rfq.legs.map((leg, idx) => {
-                                                                    const q = legQuotes[leg.id] || { price: '', offered_value_date: leg.value_date || '', notes: '' };
-                                                                    const legPairName = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
-                                                                    const rawRank = rfq?.is_live_ranking_enabled ? (
-                                                                        legLiveRanks[leg.id]
-                                                                        || legLiveRanks[String(leg.id)]
-                                                                        || legLiveRanks[idx]
-                                                                        || legLiveRanks[String(idx)]
-                                                                        || legLiveRanks[legPairName]
-                                                                        || leg.live_rank
-                                                                    ) : null;
-                                                                    const legRank = (rfq?.is_live_ranking_enabled && rawRank)
-                                                                        ? (typeof rawRank === 'number'
-                                                                            ? { rank: rawRank, total_quotes: liveRank?.total_quotes || 1, is_leading: rawRank === 1 }
-                                                                            : rawRank)
-                                                                        : null;
-                                                                    const hasQuote = q.price && parseFloat(q.price) > 0;
-                                                                    const isHighlighted = highlightedLegId === leg.id;
-                                                                    const hasRecordedOffer = leg.offers && leg.offers.length > 0;
+                                                        {timeLeft.status === 'OPEN' && !isSpectator && !isReadOnlyViewer && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={addTbillLine}
+                                                                className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 px-3.5 py-2 rounded-xl transition-all cursor-pointer"
+                                                            >
+                                                                + Add Line Item
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ) : (rfq.legs && rfq.legs.length > 1) ? (
+                                                    <div className="space-y-4">
+                                                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                                            <div>
+                                                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                                                                    <TrendingUp size={14} className="text-emerald-600" /> Multi-Pair Quoting Console
+                                                                </h4>
+                                                                <p className="text-[11px] text-slate-500 mt-0.5">
+                                                                    Enter your firm quotes for all {rfq.legs.length} currency pair legs.
+                                                                </p>
+                                                            </div>
+                                                            <span className="text-[10px] font-bold font-mono px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                                {Object.values(legQuotes).filter(q => q?.price && parseFloat(q.price) > 0).length} / {rfq.legs.length} Quoted
+                                                            </span>
+                                                        </div>
 
-                                                                    return (
-                                                                        <div 
-                                                                            key={leg.id || idx}
-                                                                            id={`leg-card-${leg.id}`}
-                                                                            className={`p-4 rounded-2xl border transition-all ${
-                                                                                isHighlighted
-                                                                                    ? 'bg-amber-50/70 border-amber-400 ring-2 ring-amber-400 shadow-md animate-pulse'
-                                                                                    : hasQuote ? 'bg-white border-slate-300 shadow-xs' : 'bg-slate-50 border-slate-200'
+                                                        <div className="space-y-3.5">
+                                                            {rfq.legs.map((leg, idx) => {
+                                                                const q = legQuotes[leg.id] || { price: '', offered_value_date: leg.value_date || '', notes: '' };
+                                                                const legPairName = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
+                                                                const rawRank = rfq?.is_live_ranking_enabled ? (
+                                                                    legLiveRanks[leg.id]
+                                                                    || legLiveRanks[String(leg.id)]
+                                                                    || legLiveRanks[idx]
+                                                                    || legLiveRanks[String(idx)]
+                                                                    || legLiveRanks[legPairName]
+                                                                    || leg.live_rank
+                                                                ) : null;
+                                                                const legRank = (rfq?.is_live_ranking_enabled && rawRank)
+                                                                    ? (typeof rawRank === 'number'
+                                                                        ? { rank: rawRank, total_quotes: liveRank?.total_quotes || 1, is_leading: rawRank === 1 }
+                                                                        : rawRank)
+                                                                    : null;
+                                                                const hasQuote = q.price && parseFloat(q.price) > 0;
+                                                                const isHighlighted = highlightedLegId === leg.id;
+                                                                const hasRecordedOffer = leg.offers && leg.offers.length > 0;
+
+                                                                return (
+                                                                    <div
+                                                                        key={leg.id || idx}
+                                                                        id={`leg-card-${leg.id}`}
+                                                                        className={`p-4 rounded-2xl border transition-all ${isHighlighted
+                                                                                ? 'bg-amber-50/70 border-amber-400 ring-2 ring-amber-400 shadow-md animate-pulse'
+                                                                                : hasQuote ? 'bg-white border-slate-300 shadow-xs' : 'bg-slate-50 border-slate-200'
                                                                             }`}
-                                                                        >
-                                                                            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <span className="w-6 h-6 rounded-lg bg-slate-900 text-white text-xs font-black flex items-center justify-center font-mono">
-                                                                                        {idx + 1}
-                                                                                    </span>
-                                                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase text-white ${
-                                                                                        (leg.direction || 'BUY').toUpperCase() === 'BUY' ? 'bg-emerald-600' : 'bg-blue-600'
+                                                                    >
+                                                                        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="w-6 h-6 rounded-lg bg-slate-900 text-white text-xs font-black flex items-center justify-center font-mono">
+                                                                                    {idx + 1}
+                                                                                </span>
+                                                                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase text-white ${(leg.direction || 'BUY').toUpperCase() === 'BUY' ? 'bg-emerald-600' : 'bg-blue-600'
                                                                                     }`}>
-                                                                                        {leg.direction || 'BUY'}
-                                                                                    </span>
-                                                                                    <span className="font-mono font-black text-sm text-slate-900">
-                                                                                        {leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`}
-                                                                                    </span>
-                                                                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded tracking-wide uppercase ${
-                                                                                        (leg.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
-                                                                                            ? 'bg-sky-100 text-sky-800 border border-sky-300'
-                                                                                            : 'bg-black text-white'
+                                                                                    {leg.direction || 'BUY'}
+                                                                                </span>
+                                                                                <span className="font-mono font-black text-sm text-slate-900">
+                                                                                    {leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`}
+                                                                                </span>
+                                                                                <span className={`text-[9px] font-black px-2 py-0.5 rounded tracking-wide uppercase ${(leg.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
+                                                                                        ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                                                                                        : 'bg-black text-white'
                                                                                     }`}>
-                                                                                        {(leg.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative' ? '📊 INDICATIVE' : '⚡ EXECUTION'}
-                                                                                    </span>
-                                                                                    <span className="text-xs text-slate-500 font-semibold">
-                                                                                        ({new Intl.NumberFormat().format(leg.amount || 0)} {leg.buy_currency})
-                                                                                    </span>
-                                                                                </div>
+                                                                                    {(leg.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative' ? '📊 INDICATIVE' : '⚡ EXECUTION'}
+                                                                                </span>
+                                                                                <span className="text-xs text-slate-500 font-semibold">
+                                                                                    ({new Intl.NumberFormat().format(leg.amount || 0)} {leg.buy_currency})
+                                                                                </span>
+                                                                            </div>
 
-                                                                                {/* Status / Live Ranking / Awarding Outcome Stamp */}
-                                                                                <div>
-                                                                                    {timeLeft.status === 'CLOSED' ? (
-                                                                                        (() => {
-                                                                                            const isSinglePair = !rfq.legs || rfq.legs.length <= 1;
-                                                                                            const legOutcome = outcomeData?.legs_breakdown?.[leg.id]
-                                                                                                || outcomeData?.legs_breakdown?.[String(leg.id)]
-                                                                                                || outcomeData?.legs_breakdown?.[idx]
-                                                                                                || outcomeData?.legs_breakdown?.[String(idx)]
-                                                                                                || outcomeData?.legs_breakdown?.[legPairName]
-                                                                                                || (outcomeData?.won_pairs?.includes(legPairName) ? { is_winner: true, status: 'WINNER' } : null)
-                                                                                                || (outcomeData?.lost_pairs?.includes(legPairName) ? { is_winner: false, status: 'NOT_SELECTED' } : null)
-                                                                                                || (outcomeData?.inconclusive_pairs?.includes(legPairName) ? { is_winner: false, status: 'INCONCLUSIVE' } : null);
+                                                                            {/* Status / Live Ranking / Awarding Outcome Stamp */}
+                                                                            <div>
+                                                                                {timeLeft.status === 'CLOSED' ? (
+                                                                                    (() => {
+                                                                                        const isSinglePair = !rfq.legs || rfq.legs.length <= 1;
+                                                                                        const legOutcome = outcomeData?.legs_breakdown?.[leg.id]
+                                                                                            || outcomeData?.legs_breakdown?.[String(leg.id)]
+                                                                                            || outcomeData?.legs_breakdown?.[idx]
+                                                                                            || outcomeData?.legs_breakdown?.[String(idx)]
+                                                                                            || outcomeData?.legs_breakdown?.[legPairName]
+                                                                                            || (outcomeData?.won_pairs?.includes(legPairName) ? { is_winner: true, status: 'WINNER' } : null)
+                                                                                            || (outcomeData?.lost_pairs?.includes(legPairName) ? { is_winner: false, status: 'NOT_SELECTED' } : null)
+                                                                                            || (outcomeData?.inconclusive_pairs?.includes(legPairName) ? { is_winner: false, status: 'INCONCLUSIVE' } : null);
 
-                                                                                            const isLegWon = Boolean(
-                                                                                                legOutcome?.status === 'WINNER' || 
-                                                                                                legOutcome?.status === 'WON' || 
-                                                                                                legOutcome?.is_winner || 
-                                                                                                legOutcome?.won || 
-                                                                                                outcomeData?.won_pairs?.includes(legPairName) ||
-                                                                                                (isSinglePair && resultStatus === 'WINNER')
-                                                                                            );
-                                                                                            const isLegNotSelected = Boolean(
-                                                                                                legOutcome?.status === 'NOT_SELECTED' || 
-                                                                                                legOutcome?.status === 'LOST' || 
-                                                                                                outcomeData?.lost_pairs?.includes(legPairName) ||
-                                                                                                (isSinglePair && resultStatus === 'NOT_SELECTED')
-                                                                                            );
-                                                                                            const isLegInconclusive = Boolean(
-                                                                                                legOutcome?.status === 'INCONCLUSIVE' || 
-                                                                                                legOutcome?.raw_status === 'INCONCLUSIVE' || 
-                                                                                                outcomeData?.inconclusive_pairs?.includes(legPairName) ||
-                                                                                                (isSinglePair && resultStatus === 'INCONCLUSIVE')
-                                                                                            );
-                                                                                            const isLegIndicative = Boolean(
-                                                                                                legOutcome?.status === 'INDICATIVE' || 
-                                                                                                legOutcome?.status === 'INDICATIVE_ONLY' || 
-                                                                                                (resultStatus === 'INDICATIVE_ONLY') || 
-                                                                                                (leg.quotation_base || '').toLowerCase() === 'indicative'
-                                                                                            );
+                                                                                        const isLegWon = Boolean(
+                                                                                            legOutcome?.status === 'WINNER' ||
+                                                                                            legOutcome?.status === 'WON' ||
+                                                                                            legOutcome?.is_winner ||
+                                                                                            legOutcome?.won ||
+                                                                                            outcomeData?.won_pairs?.includes(legPairName) ||
+                                                                                            (isSinglePair && resultStatus === 'WINNER')
+                                                                                        );
+                                                                                        const isLegNotSelected = Boolean(
+                                                                                            legOutcome?.status === 'NOT_SELECTED' ||
+                                                                                            legOutcome?.status === 'LOST' ||
+                                                                                            outcomeData?.lost_pairs?.includes(legPairName) ||
+                                                                                            (isSinglePair && resultStatus === 'NOT_SELECTED')
+                                                                                        );
+                                                                                        const isLegInconclusive = Boolean(
+                                                                                            legOutcome?.status === 'INCONCLUSIVE' ||
+                                                                                            legOutcome?.raw_status === 'INCONCLUSIVE' ||
+                                                                                            outcomeData?.inconclusive_pairs?.includes(legPairName) ||
+                                                                                            (isSinglePair && resultStatus === 'INCONCLUSIVE')
+                                                                                        );
+                                                                                        const isLegIndicative = Boolean(
+                                                                                            legOutcome?.status === 'INDICATIVE' ||
+                                                                                            legOutcome?.status === 'INDICATIVE_ONLY' ||
+                                                                                            (resultStatus === 'INDICATIVE_ONLY') ||
+                                                                                            (leg.quotation_base || '').toLowerCase() === 'indicative'
+                                                                                        );
 
-                                                                                            if (isLegWon) {
-                                                                                                return (
-                                                                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-600 text-white shadow-2xs">
-                                                                                                        🏆 WON (AWARDED)
-                                                                                                    </span>
-                                                                                                );
-                                                                                            } else if (isLegNotSelected) {
-                                                                                                return (
-                                                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs">
-                                                                                                        ❌ NOT SELECTED
-                                                                                                    </span>
-                                                                                                );
-                                                                                            } else if (isLegIndicative) {
-                                                                                                return (
-                                                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-300">
-                                                                                                        📊 INDICATIVE RECORDED
-                                                                                                    </span>
-                                                                                                );
-                                                                                            } else if (isLegInconclusive) {
-                                                                                                return (
-                                                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                                                                                                        ⚠️ NO WINNER
-                                                                                                    </span>
-                                                                                                );
-                                                                                            } else {
-                                                                                                return (
-                                                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700">
-                                                                                                        Quotation Closed
-                                                                                                    </span>
-                                                                                                );
-                                                                                            }
-                                                                                        })()
-                                                                                    ) : rfq.is_live_ranking_enabled ? (
-                                                                                        legRank?.rank === 1 ? (
-                                                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-xs animate-pulse">
-                                                                                                🏆 #1 Leading Quote
-                                                                                            </span>
-                                                                                        ) : legRank?.rank ? (
-                                                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono shadow-2xs">
-                                                                                                Rank #{legRank.rank} of {legRank.total_quotes || 1}
-                                                                                            </span>
-                                                                                        ) : hasRecordedOffer ? (
-                                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
-                                                                                                <CheckCircle2 size={12} className="text-emerald-600" /> Quote Recorded ({parseFloat(leg.offers[0].price).toFixed(4)})
-                                                                                            </span>
-                                                                                        ) : hasQuote ? (
-                                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                                                                                                ✍️ Draft (Ready to Submit)
-                                                                                            </span>
-                                                                                        ) : (
-                                                                                            <span className="text-[11px] text-slate-400 font-semibold bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
-                                                                                                ⏳ Awaiting Quote
-                                                                                            </span>
-                                                                                        )
+                                                                                        if (isLegWon) {
+                                                                                            return (
+                                                                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-600 text-white shadow-2xs">
+                                                                                                    🏆 WON (AWARDED)
+                                                                                                </span>
+                                                                                            );
+                                                                                        } else if (isLegNotSelected) {
+                                                                                            return (
+                                                                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs">
+                                                                                                    ❌ NOT SELECTED
+                                                                                                </span>
+                                                                                            );
+                                                                                        } else if (isLegIndicative) {
+                                                                                            return (
+                                                                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-300">
+                                                                                                    📊 INDICATIVE RECORDED
+                                                                                                </span>
+                                                                                            );
+                                                                                        } else if (isLegInconclusive) {
+                                                                                            return (
+                                                                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                                                                                    ⚠️ NO WINNER
+                                                                                                </span>
+                                                                                            );
+                                                                                        } else {
+                                                                                            return (
+                                                                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700">
+                                                                                                    Quotation Closed
+                                                                                                </span>
+                                                                                            );
+                                                                                        }
+                                                                                    })()
+                                                                                ) : rfq.is_live_ranking_enabled ? (
+                                                                                    legRank?.rank === 1 ? (
+                                                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-xs animate-pulse">
+                                                                                            🏆 #1 Leading Quote
+                                                                                        </span>
+                                                                                    ) : legRank?.rank ? (
+                                                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono shadow-2xs">
+                                                                                            Rank #{legRank.rank} of {legRank.total_quotes || 1}
+                                                                                        </span>
                                                                                     ) : hasRecordedOffer ? (
                                                                                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
                                                                                             <CheckCircle2 size={12} className="text-emerald-600" /> Quote Recorded ({parseFloat(leg.offers[0].price).toFixed(4)})
                                                                                         </span>
                                                                                     ) : hasQuote ? (
                                                                                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                                                                                            ✍️ Draft Quote
+                                                                                            ✍️ Draft (Ready to Submit)
                                                                                         </span>
                                                                                     ) : (
                                                                                         <span className="text-[11px] text-slate-400 font-semibold bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
                                                                                             ⏳ Awaiting Quote
                                                                                         </span>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-
-                                                                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                                                                                <div className={leg.allow_alternative_value_date ? "sm:col-span-7" : "sm:col-span-8"}>
-                                                                                    <div className="flex items-center justify-between mb-1">
-                                                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">
-                                                                                            Rate ({leg.sell_currency} per 1 {leg.buy_currency})
-                                                                                        </label>
-                                                                                        {leg.cbe_benchmark_rate && (
-                                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs" title="Central Bank of Egypt Mid Benchmark">
-                                                                                                <span className="text-[9px] uppercase tracking-wider text-blue-500 font-sans font-semibold">CBE Mid</span>
-                                                                                                <span>~{parseFloat(leg.cbe_benchmark_rate).toFixed(4)}</span>
-                                                                                            </span>
-                                                                                        )}
-                                                                                    </div>
-                                                                                    <div className="relative">
-                                                                                        <input
-                                                                                            type="number"
-                                                                                            step="0.0001"
-                                                                                            required
-                                                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
-                                                                                            onWheel={(e) => e.currentTarget.blur()}
-                                                                                            placeholder="Enter rate (e.g. 48.6500)"
-                                                                                            className={`w-full bg-slate-50 border rounded-xl px-3.5 py-2 text-base font-bold font-mono focus:bg-white outline-none disabled:bg-slate-100 disabled:text-slate-400 ${
-                                                                                                isHighlighted ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200 focus:border-slate-900'
-                                                                                            }`}
-                                                                                            value={q.price}
-                                                                                            onChange={e => {
-                                                                                                if (highlightedLegId === leg.id) setHighlightedLegId(null);
-                                                                                                updateLegQuote(leg.id, 'price', e.target.value);
-                                                                                            }}
-                                                                                        />
-                                                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs pointer-events-none">
-                                                                                            {leg.sell_currency}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </div>
-
-                                                                                {leg.allow_alternative_value_date ? (
-                                                                                    <div className="sm:col-span-5">
-                                                                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                                                                                            Proposed Value Date
-                                                                                        </label>
-                                                                                        <input
-                                                                                            type="date"
-                                                                                            min={rfq?.window_start ? rfq.window_start.split('T')[0] : new Date().toISOString().split('T')[0]}
-                                                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
-                                                                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 focus:bg-white focus:border-slate-900 outline-none disabled:bg-slate-100"
-                                                                                            value={q.offered_value_date || leg.value_date || ''}
-                                                                                            onChange={e => updateLegQuote(leg.id, 'offered_value_date', e.target.value)}
-                                                                                        />
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <div className="sm:col-span-4 flex flex-col justify-end">
-                                                                                        <span className="text-[10px] text-slate-400 block mb-1">Value Date</span>
-                                                                                        <span className="text-xs font-semibold text-slate-800 py-1.5">
-                                                                                            {formatDate(leg.value_date)}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="space-y-4">
-                                                            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                                                                <div>
-                                                                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                                                                        <TrendingUp size={14} className="text-emerald-600" /> Spot FX Quoting Console
-                                                                    </h4>
-                                                                    <p className="text-[11px] text-slate-500 mt-0.5">
-                                                                        {timeLeft.status === 'OPEN' ? 'Enter your firm quote for this currency pair.' : 'Quotation window is currently closed.'}
-                                                                    </p>
-                                                                </div>
-                                                                <span className="text-[10px] font-bold font-mono px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                                                    {(price && parseFloat(price) > 0) ? '1 / 1 Quoted' : '0 / 1 Quoted'}
-                                                                </span>
-                                                            </div>
-
-                                                            <div className="space-y-3.5">
-                                                                <div 
-                                                                    className={`p-4 rounded-2xl border transition-all ${
-                                                                        (price && parseFloat(price) > 0) ? 'bg-white border-slate-300 shadow-xs' : 'bg-slate-50 border-slate-200'
-                                                                    }`}
-                                                                >
-                                                                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="w-6 h-6 rounded-lg bg-slate-900 text-white text-xs font-black flex items-center justify-center font-mono">
-                                                                                1
-                                                                            </span>
-                                                                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase text-white ${
-                                                                                (rfq.direction || 'BUY').toUpperCase() === 'BUY' ? 'bg-emerald-600' : 'bg-blue-600'
-                                                                            }`}>
-                                                                                {rfq.direction || 'BUY'}
-                                                                            </span>
-                                                                            <span className="font-mono font-black text-sm text-slate-900">
-                                                                                {rfq.buy_currency}/{rfq.sell_currency}
-                                                                            </span>
-                                                                            <span className={`text-[9px] font-black px-2 py-0.5 rounded tracking-wide uppercase ${
-                                                                                (rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
-                                                                                    ? 'bg-sky-100 text-sky-800 border border-sky-300'
-                                                                                    : 'bg-black text-white'
-                                                                            }`}>
-                                                                                {(rfq.quotation_base || 'Execution').toLowerCase() === 'indicative' ? '📊 INDICATIVE' : '⚡ EXECUTION'}
-                                                                            </span>
-                                                                            <span className="text-xs text-slate-500 font-semibold">
-                                                                                ({new Intl.NumberFormat().format(rfq.amount || 0)} {rfq.buy_currency})
-                                                                            </span>
-                                                                        </div>
-
-                                                                        {/* Status / Live Ranking / Awarding Outcome Stamp */}
-                                                                        <div>
-                                                                            {timeLeft.status === 'CLOSED' ? (
-                                                                                (() => {
-                                                                                    const isWon = resultStatus === 'WINNER';
-                                                                                    const isNotSelected = resultStatus === 'NOT_SELECTED';
-                                                                                    const isIndicativeClosed = (resultStatus === 'INDICATIVE_ONLY') || (rfq.quotation_base || '').toLowerCase() === 'indicative';
-                                                                                    const isInconclusive = resultStatus === 'INCONCLUSIVE';
-
-                                                                                    if (isWon) {
-                                                                                        return (
-                                                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-600 text-white shadow-2xs">
-                                                                                                🏆 WON (AWARDED)
-                                                                                            </span>
-                                                                                        );
-                                                                                    } else if (isNotSelected) {
-                                                                                        return (
-                                                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs">
-                                                                                                ❌ NOT SELECTED
-                                                                                            </span>
-                                                                                        );
-                                                                                    } else if (isIndicativeClosed) {
-                                                                                        return (
-                                                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-300">
-                                                                                                📊 INDICATIVE RECORDED
-                                                                                            </span>
-                                                                                        );
-                                                                                    } else if (isInconclusive) {
-                                                                                        return (
-                                                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                                                                                                ⚠️ NO WINNER
-                                                                                            </span>
-                                                                                        );
-                                                                                    } else {
-                                                                                        return (
-                                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700">
-                                                                                                Quotation Closed
-                                                                                            </span>
-                                                                                        );
-                                                                                    }
-                                                                                })()
-                                                                            ) : rfq.is_live_ranking_enabled ? (
-                                                                                liveRank?.rank === 1 ? (
-                                                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-xs animate-pulse">
-                                                                                        🏆 #1 Leading Quote
+                                                                                    )
+                                                                                ) : hasRecordedOffer ? (
+                                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                                                                                        <CheckCircle2 size={12} className="text-emerald-600" /> Quote Recorded ({parseFloat(leg.offers[0].price).toFixed(4)})
                                                                                     </span>
-                                                                                ) : liveRank?.rank ? (
-                                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono shadow-2xs">
-                                                                                        Rank #{liveRank.rank} of {liveRank.total_quotes || 1}
-                                                                                    </span>
-                                                                                ) : (price && parseFloat(price) > 0) ? (
+                                                                                ) : hasQuote ? (
                                                                                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                                                                                        ✍️ Draft (Ready to Submit)
+                                                                                        ✍️ Draft Quote
                                                                                     </span>
                                                                                 ) : (
                                                                                     <span className="text-[11px] text-slate-400 font-semibold bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
                                                                                         ⏳ Awaiting Quote
                                                                                     </span>
-                                                                                )
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                                                                            <div className={leg.allow_alternative_value_date ? "sm:col-span-7" : "sm:col-span-8"}>
+                                                                                <div className="flex items-center justify-between mb-1">
+                                                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">
+                                                                                        Rate ({leg.sell_currency} per 1 {leg.buy_currency})
+                                                                                    </label>
+                                                                                    {leg.cbe_benchmark_rate && (
+                                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs" title="Central Bank of Egypt Mid Benchmark">
+                                                                                            <span className="text-[9px] uppercase tracking-wider text-blue-500 font-sans font-semibold">CBE Mid</span>
+                                                                                            <span>~{parseFloat(leg.cbe_benchmark_rate).toFixed(4)}</span>
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                                <div className="relative">
+                                                                                    <input
+                                                                                        type="number"
+                                                                                        step="0.0001"
+                                                                                        required
+                                                                                        disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
+                                                                                        onWheel={(e) => e.currentTarget.blur()}
+                                                                                        placeholder="Enter rate (e.g. 48.6500)"
+                                                                                        className={`w-full bg-slate-50 border rounded-xl px-3.5 py-2 text-base font-bold font-mono focus:bg-white outline-none disabled:bg-slate-100 disabled:text-slate-400 ${isHighlighted ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200 focus:border-slate-900'
+                                                                                            }`}
+                                                                                        value={q.price}
+                                                                                        onChange={e => {
+                                                                                            if (highlightedLegId === leg.id) setHighlightedLegId(null);
+                                                                                            updateLegQuote(leg.id, 'price', e.target.value);
+                                                                                        }}
+                                                                                    />
+                                                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs pointer-events-none">
+                                                                                        {leg.sell_currency}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {leg.allow_alternative_value_date ? (
+                                                                                <div className="sm:col-span-5">
+                                                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                                                                                        Proposed Value Date
+                                                                                    </label>
+                                                                                    <input
+                                                                                        type="date"
+                                                                                        min={rfq?.window_start ? rfq.window_start.split('T')[0] : new Date().toISOString().split('T')[0]}
+                                                                                        disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
+                                                                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 focus:bg-white focus:border-slate-900 outline-none disabled:bg-slate-100"
+                                                                                        value={q.offered_value_date || leg.value_date || ''}
+                                                                                        onChange={e => updateLegQuote(leg.id, 'offered_value_date', e.target.value)}
+                                                                                    />
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className="sm:col-span-4 flex flex-col justify-end">
+                                                                                    <span className="text-[10px] text-slate-400 block mb-1">Value Date</span>
+                                                                                    <span className="text-xs font-semibold text-slate-800 py-1.5">
+                                                                                        {formatDate(leg.value_date)}
+                                                                                    </span>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-4">
+                                                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                                            <div>
+                                                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                                                                    <TrendingUp size={14} className="text-emerald-600" /> Spot FX Quoting Console
+                                                                </h4>
+                                                                <p className="text-[11px] text-slate-500 mt-0.5">
+                                                                    {timeLeft.status === 'OPEN' ? 'Enter your firm quote for this currency pair.' : 'Quotation window is currently closed.'}
+                                                                </p>
+                                                            </div>
+                                                            <span className="text-[10px] font-bold font-mono px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                                {(price && parseFloat(price) > 0) ? '1 / 1 Quoted' : '0 / 1 Quoted'}
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="space-y-3.5">
+                                                            <div
+                                                                className={`p-4 rounded-2xl border transition-all ${(price && parseFloat(price) > 0) ? 'bg-white border-slate-300 shadow-xs' : 'bg-slate-50 border-slate-200'
+                                                                    }`}
+                                                            >
+                                                                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="w-6 h-6 rounded-lg bg-slate-900 text-white text-xs font-black flex items-center justify-center font-mono">
+                                                                            1
+                                                                        </span>
+                                                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase text-white ${(rfq.direction || 'BUY').toUpperCase() === 'BUY' ? 'bg-emerald-600' : 'bg-blue-600'
+                                                                            }`}>
+                                                                            {rfq.direction || 'BUY'}
+                                                                        </span>
+                                                                        <span className="font-mono font-black text-sm text-slate-900">
+                                                                            {rfq.buy_currency}/{rfq.sell_currency}
+                                                                        </span>
+                                                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded tracking-wide uppercase ${(rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
+                                                                                ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                                                                                : 'bg-black text-white'
+                                                                            }`}>
+                                                                            {(rfq.quotation_base || 'Execution').toLowerCase() === 'indicative' ? '📊 INDICATIVE' : '⚡ EXECUTION'}
+                                                                        </span>
+                                                                        <span className="text-xs text-slate-500 font-semibold">
+                                                                            ({new Intl.NumberFormat().format(rfq.amount || 0)} {rfq.buy_currency})
+                                                                        </span>
+                                                                    </div>
+
+                                                                    {/* Status / Live Ranking / Awarding Outcome Stamp */}
+                                                                    <div>
+                                                                        {timeLeft.status === 'CLOSED' ? (
+                                                                            (() => {
+                                                                                const isWon = resultStatus === 'WINNER';
+                                                                                const isNotSelected = resultStatus === 'NOT_SELECTED';
+                                                                                const isIndicativeClosed = (resultStatus === 'INDICATIVE_ONLY') || (rfq.quotation_base || '').toLowerCase() === 'indicative';
+                                                                                const isInconclusive = resultStatus === 'INCONCLUSIVE';
+
+                                                                                if (isWon) {
+                                                                                    return (
+                                                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-600 text-white shadow-2xs">
+                                                                                            🏆 WON (AWARDED)
+                                                                                        </span>
+                                                                                    );
+                                                                                } else if (isNotSelected) {
+                                                                                    return (
+                                                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs">
+                                                                                            ❌ NOT SELECTED
+                                                                                        </span>
+                                                                                    );
+                                                                                } else if (isIndicativeClosed) {
+                                                                                    return (
+                                                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-300">
+                                                                                            📊 INDICATIVE RECORDED
+                                                                                        </span>
+                                                                                    );
+                                                                                } else if (isInconclusive) {
+                                                                                    return (
+                                                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                                                                            ⚠️ NO WINNER
+                                                                                        </span>
+                                                                                    );
+                                                                                } else {
+                                                                                    return (
+                                                                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700">
+                                                                                            Quotation Closed
+                                                                                        </span>
+                                                                                    );
+                                                                                }
+                                                                            })()
+                                                                        ) : rfq.is_live_ranking_enabled ? (
+                                                                            liveRank?.rank === 1 ? (
+                                                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-xs animate-pulse">
+                                                                                    🏆 #1 Leading Quote
+                                                                                </span>
+                                                                            ) : liveRank?.rank ? (
+                                                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono shadow-2xs">
+                                                                                    Rank #{liveRank.rank} of {liveRank.total_quotes || 1}
+                                                                                </span>
                                                                             ) : (price && parseFloat(price) > 0) ? (
                                                                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                                                                                    ✍️ Draft Quote
+                                                                                    ✍️ Draft (Ready to Submit)
                                                                                 </span>
                                                                             ) : (
                                                                                 <span className="text-[11px] text-slate-400 font-semibold bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
                                                                                     ⏳ Awaiting Quote
                                                                                 </span>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                                                                        <div className={rfq.allow_alternative_value_date ? "sm:col-span-7" : "sm:col-span-8"}>
-                                                                            <div className="flex items-center justify-between mb-1">
-                                                                                <label className="text-[10px] font-bold text-gray-500 uppercase">
-                                                                                    Rate ({rfq.sell_currency} per 1 {rfq.buy_currency})
-                                                                                </label>
-                                                                                {rfq.cbe_benchmark_rate && (
-                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs" title="Central Bank of Egypt Mid Benchmark">
-                                                                                        <span className="text-[9px] uppercase tracking-wider text-blue-500 font-sans font-semibold">CBE Mid</span>
-                                                                                        <span>~{parseFloat(rfq.cbe_benchmark_rate).toFixed(4)}</span>
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
-                                                                            <div className="relative">
-                                                                                <input
-                                                                                    type="number"
-                                                                                    step="0.0001"
-                                                                                    required
-                                                                                    disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
-                                                                                    onWheel={(e) => e.currentTarget.blur()}
-                                                                                    placeholder="Enter spot rate (e.g. 48.6500)"
-                                                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-base font-bold font-mono focus:bg-white focus:border-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                                                                                    value={price}
-                                                                                    onChange={e => setPrice(e.target.value)}
-                                                                                />
-                                                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs pointer-events-none">
-                                                                                    {rfq.sell_currency}
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-
-                                                                        {rfq.allow_alternative_value_date ? (
-                                                                            <div className="sm:col-span-5">
-                                                                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                                                                                    Proposed Value Date
-                                                                                </label>
-                                                                                <input
-                                                                                    type="date"
-                                                                                    min={rfq?.window_start ? rfq.window_start.split('T')[0] : new Date().toISOString().split('T')[0]}
-                                                                                    disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
-                                                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 focus:bg-white focus:border-slate-900 outline-none disabled:bg-slate-100"
-                                                                                    value={offeredValueDate || rfq.value_date || ''}
-                                                                                    onChange={e => setOfferedValueDate(e.target.value)}
-                                                                                />
-                                                                            </div>
+                                                                            )
+                                                                        ) : (price && parseFloat(price) > 0) ? (
+                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                                                                ✍️ Draft Quote
+                                                                            </span>
                                                                         ) : (
-                                                                            <div className="sm:col-span-4 flex flex-col justify-end">
-                                                                                <span className="text-[10px] text-slate-400 block mb-1">Value Date</span>
-                                                                                <span className="text-xs font-semibold text-slate-800 py-1.5">
-                                                                                    {formatDate(rfq.value_date)}
-                                                                                </span>
-                                                                            </div>
+                                                                            <span className="text-[11px] text-slate-400 font-semibold bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+                                                                                ⏳ Awaiting Quote
+                                                                            </span>
                                                                         )}
                                                                     </div>
                                                                 </div>
+
+                                                                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                                                                    <div className={rfq.allow_alternative_value_date ? "sm:col-span-7" : "sm:col-span-8"}>
+                                                                        <div className="flex items-center justify-between mb-1">
+                                                                            <label className="text-[10px] font-bold text-gray-500 uppercase">
+                                                                                Rate ({rfq.sell_currency} per 1 {rfq.buy_currency})
+                                                                            </label>
+                                                                            {rfq.cbe_benchmark_rate && (
+                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs" title="Central Bank of Egypt Mid Benchmark">
+                                                                                    <span className="text-[9px] uppercase tracking-wider text-blue-500 font-sans font-semibold">CBE Mid</span>
+                                                                                    <span>~{parseFloat(rfq.cbe_benchmark_rate).toFixed(4)}</span>
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="relative">
+                                                                            <input
+                                                                                type="number"
+                                                                                step="0.0001"
+                                                                                required
+                                                                                disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
+                                                                                onWheel={(e) => e.currentTarget.blur()}
+                                                                                placeholder="Enter spot rate (e.g. 48.6500)"
+                                                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-base font-bold font-mono focus:bg-white focus:border-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                                                                                value={price}
+                                                                                onChange={e => setPrice(e.target.value)}
+                                                                            />
+                                                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs pointer-events-none">
+                                                                                {rfq.sell_currency}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {rfq.allow_alternative_value_date ? (
+                                                                        <div className="sm:col-span-5">
+                                                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                                                                                Proposed Value Date
+                                                                            </label>
+                                                                            <input
+                                                                                type="date"
+                                                                                min={rfq?.window_start ? rfq.window_start.split('T')[0] : new Date().toISOString().split('T')[0]}
+                                                                                disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
+                                                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 focus:bg-white focus:border-slate-900 outline-none disabled:bg-slate-100"
+                                                                                value={offeredValueDate || rfq.value_date || ''}
+                                                                                onChange={e => setOfferedValueDate(e.target.value)}
+                                                                            />
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="sm:col-span-4 flex flex-col justify-end">
+                                                                            <span className="text-[10px] text-slate-400 block mb-1">Value Date</span>
+                                                                            <span className="text-xs font-semibold text-slate-800 py-1.5">
+                                                                                {formatDate(rfq.value_date)}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    )}
-
-                                                    {/* Trader Comments / Notes */}
-                                                    <div>
-                                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1.5">
-                                                            <MessageSquare size={13} className="text-gray-400" />
-                                                            Trader Comments / Execution Notes (Optional)
-                                                        </label>
-                                                        <textarea
-                                                            rows={2}
-                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
-                                                            placeholder="Add any settlement notes, execution remarks, or comments for the treasury desk..."
-                                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-gray-800 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none resize-none disabled:bg-slate-100 disabled:text-slate-400"
-                                                            value={traderNotes}
-                                                            onChange={(e) => setTraderNotes(e.target.value)}
-                                                        />
                                                     </div>
+                                                )}
 
-                                                    {/* Form Submit Action directly below */}
-                                                    <div className="pt-1 space-y-3">
-                                                        {crossInversion && timeLeft.status === 'OPEN' && !isReadOnlyViewer && (
-                                                            <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-950 animate-fade-in shadow-xs">
-                                                                <div className="flex items-start gap-2.5">
-                                                                    <div className="w-7 h-7 rounded-lg bg-amber-200/80 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
-                                                                        <AlertTriangle size={15} />
-                                                                    </div>
-                                                                    <div>
-                                                                        <span className="font-bold block text-amber-900">
-                                                                            ⚠️ Possible Accidental Rate Swap Detected
-                                                                        </span>
-                                                                        <p className="text-[11px] text-amber-800 leading-tight mt-0.5">
-                                                                            <strong>{crossInversion.pairA}</strong> ({crossInversion.pA.toFixed(4)}) is quoted {crossInversion.pA > crossInversion.pB ? 'higher' : 'lower'} than <strong>{crossInversion.pairB}</strong> ({crossInversion.pB.toFixed(4)}), inverting prevailing market benchmark levels (CBE Mid: ~{crossInversion.bmA.toFixed(4)} vs ~{crossInversion.bmB.toFixed(4)}).
-                                                                        </p>
-                                                                    </div>
+                                                {/* Trader Comments / Notes */}
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1.5">
+                                                        <MessageSquare size={13} className="text-gray-400" />
+                                                        Trader Comments / Execution Notes (Optional)
+                                                    </label>
+                                                    <textarea
+                                                        rows={2}
+                                                        disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
+                                                        placeholder="Add any settlement notes, execution remarks, or comments for the treasury desk..."
+                                                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-gray-800 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none resize-none disabled:bg-slate-100 disabled:text-slate-400"
+                                                        value={traderNotes}
+                                                        onChange={(e) => setTraderNotes(e.target.value)}
+                                                    />
+                                                </div>
+
+                                                {/* Form Submit Action directly below */}
+                                                <div className="pt-1 space-y-3">
+                                                    {crossInversion && timeLeft.status === 'OPEN' && !isReadOnlyViewer && (
+                                                        <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-950 animate-fade-in shadow-xs">
+                                                            <div className="flex items-start gap-2.5">
+                                                                <div className="w-7 h-7 rounded-lg bg-amber-200/80 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
+                                                                    <AlertTriangle size={15} />
                                                                 </div>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        updateLegQuote(crossInversion.legA.id, 'price', String(crossInversion.pB));
-                                                                        updateLegQuote(crossInversion.legB.id, 'price', String(crossInversion.pA));
-                                                                    }}
-                                                                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shrink-0 shadow-2xs cursor-pointer self-end sm:self-center"
-                                                                >
-                                                                    <RotateCw size={13} /> Swap Leg Rates
-                                                                </button>
+                                                                <div>
+                                                                    <span className="font-bold block text-amber-900">
+                                                                        ⚠️ Possible Accidental Rate Swap Detected
+                                                                    </span>
+                                                                    <p className="text-[11px] text-amber-800 leading-tight mt-0.5">
+                                                                        <strong>{crossInversion.pairA}</strong> ({crossInversion.pA.toFixed(4)}) is quoted {crossInversion.pA > crossInversion.pB ? 'higher' : 'lower'} than <strong>{crossInversion.pairB}</strong> ({crossInversion.pB.toFixed(4)}), inverting prevailing market benchmark levels (CBE Mid: ~{crossInversion.bmA.toFixed(4)} vs ~{crossInversion.bmB.toFixed(4)}).
+                                                                    </p>
+                                                                </div>
                                                             </div>
-                                                        )}
-                                                        {isReadOnlyViewer ? (
-                                                            <div className="w-full py-3.5 bg-slate-100 border border-slate-200 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2">
-                                                                <Shield size={16} className={isApprover ? 'text-amber-600' : 'text-blue-600'} />
-                                                                <span>
-                                                                    {isApprover
-                                                                        ? '🛡️ Approver Monitoring Mode • Submissions are managed by your execution desk'
-                                                                        : '👁️ View-Only Observer Mode • Rates entered by execution dealers are mirrored above'}
-                                                                </span>
-                                                            </div>
-                                                        ) : isSpectator ? (
                                                             <button
                                                                 type="button"
-                                                                onClick={handleTakeoverDesk}
-                                                                disabled={timeLeft.status === 'CLOSED' || isTakingOver}
-                                                                className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-2xl font-bold text-base transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                                                onClick={() => {
+                                                                    updateLegQuote(crossInversion.legA.id, 'price', String(crossInversion.pB));
+                                                                    updateLegQuote(crossInversion.legB.id, 'price', String(crossInversion.pA));
+                                                                }}
+                                                                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shrink-0 shadow-2xs cursor-pointer self-end sm:self-center"
                                                             >
-                                                                <Zap size={16} className={isTakingOver ? "animate-spin" : ""} />
-                                                                {isTakingOver ? 'Transferring Desk Control...' : '⚡ Take Over Desk to Submit Quote'}
+                                                                <RotateCw size={13} /> Swap Leg Rates
                                                             </button>
-                                                        ) : (
-                                                            <button
-                                                                type="submit"
-                                                                disabled={timeLeft.status !== 'OPEN' || isSubmitting || !authSession || (
-                                                                    rfq.type === 'TBILL' 
-                                                                        ? tbillLines.some(l => !l.discountRate || !l.maxAmount) 
-                                                                        : (rfq.legs && rfq.legs.length > 1)
+                                                        </div>
+                                                    )}
+                                                    {isReadOnlyViewer ? (
+                                                        <div className="w-full py-3.5 bg-slate-100 border border-slate-200 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2">
+                                                            <Shield size={16} className={isApprover ? 'text-amber-600' : 'text-blue-600'} />
+                                                            <span>
+                                                                {isApprover
+                                                                    ? '🛡️ Approver Monitoring Mode • Submissions are managed by your execution desk'
+                                                                    : '👁️ View-Only Observer Mode • Rates entered by execution dealers are mirrored above'}
+                                                            </span>
+                                                        </div>
+                                                    ) : isSpectator ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleTakeoverDesk}
+                                                            disabled={timeLeft.status === 'CLOSED' || isTakingOver}
+                                                            className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-2xl font-bold text-base transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                                        >
+                                                            <Zap size={16} className={isTakingOver ? "animate-spin" : ""} />
+                                                            {isTakingOver ? 'Transferring Desk Control...' : '⚡ Take Over Desk to Submit Quote'}
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            type="submit"
+                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || !authSession || (
+                                                                rfq.type === 'TBILL'
+                                                                    ? tbillLines.some(l => !l.discountRate || !l.maxAmount)
+                                                                    : (rfq.legs && rfq.legs.length > 1)
                                                                         ? rfq.legs.some(l => !legQuotes[l.id]?.price || parseFloat(legQuotes[l.id].price) <= 0)
                                                                         : !price
-                                                                )}
-                                                                className={`w-full py-3.5 rounded-2xl font-bold text-base transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${
-                                                                    timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10
-                                                                        ? 'bg-gradient-to-r from-amber-600 via-rose-600 to-red-600 hover:from-amber-700 hover:to-red-700 text-white animate-pulse shadow-red-500/25 ring-2 ring-red-400/50'
-                                                                        : 'bg-slate-950 text-white hover:bg-slate-800'
+                                                            )}
+                                                            className={`w-full py-3.5 rounded-2xl font-bold text-base transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10
+                                                                    ? 'bg-gradient-to-r from-amber-600 via-rose-600 to-red-600 hover:from-amber-700 hover:to-red-700 text-white animate-pulse shadow-red-500/25 ring-2 ring-red-400/50'
+                                                                    : 'bg-slate-950 text-white hover:bg-slate-800'
                                                                 }`}
-                                                            >
-                                                                {isSubmitting ? (
-                                                                    <>
-                                                                        <Loader2 size={18} className="animate-spin text-white" />
-                                                                        <span>Transmitting In-Flight Quote...</span>
-                                                                    </>
-                                                                ) : timeLeft.status === 'PRE' ? (
-                                                                    'Waiting for Window to Open'
-                                                                ) : timeLeft.status === 'CLOSED' ? (
-                                                                    'Window Closed'
-                                                                ) : timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10 ? (
-                                                                    <>
-                                                                        <Zap size={18} className="animate-bounce text-amber-200" />
-                                                                        <span>⚡ {
-                                                                            (rfq.legs && rfq.legs.length > 1)
-                                                                                ? (submitted ? `Update All Quotes (${rfq.legs.length} Pairs)` : `Submit All Quotes (${rfq.legs.length} Pairs)`)
-                                                                                : submitted ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote') : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')
-                                                                        } • {String(timeLeft.secondsRemaining).padStart(2, '0')}s Left!</span>
-                                                                    </>
-                                                                ) : (
-                                                                    (rfq.legs && rfq.legs.length > 1)
-                                                                        ? (submitted ? `Update All Quotes (${rfq.legs.length} Pairs)` : `Submit All Quotes (${rfq.legs.length} Pairs)`)
-                                                                        : submitted 
-                                                                        ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote') 
+                                                        >
+                                                            {isSubmitting ? (
+                                                                <>
+                                                                    <Loader2 size={18} className="animate-spin text-white" />
+                                                                    <span>Transmitting In-Flight Quote...</span>
+                                                                </>
+                                                            ) : timeLeft.status === 'PRE' ? (
+                                                                'Waiting for Window to Open'
+                                                            ) : timeLeft.status === 'CLOSED' ? (
+                                                                'Window Closed'
+                                                            ) : timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10 ? (
+                                                                <>
+                                                                    <Zap size={18} className="animate-bounce text-amber-200" />
+                                                                    <span>⚡ {
+                                                                        (rfq.legs && rfq.legs.length > 1)
+                                                                            ? (submitted ? `Update All Quotes (${rfq.legs.length} Pairs)` : `Submit All Quotes (${rfq.legs.length} Pairs)`)
+                                                                            : submitted ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote') : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')
+                                                                    } • {String(timeLeft.secondsRemaining).padStart(2, '0')}s Left!</span>
+                                                                </>
+                                                            ) : (
+                                                                (rfq.legs && rfq.legs.length > 1)
+                                                                    ? (submitted ? `Update All Quotes (${rfq.legs.length} Pairs)` : `Submit All Quotes (${rfq.legs.length} Pairs)`)
+                                                                    : submitted
+                                                                        ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote')
                                                                         : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')
-                                                                )}
-                                                            </button>
-                                                        )}
-                                                        <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400 mt-2">
-                                                            <Shield size={12} className="text-emerald-600" />
-                                                            <span>Institutional End-to-End Encryption & Audit Logging Active</span>
-                                                        </div>
+                                                            )}
+                                                        </button>
+                                                    )}
+                                                    <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400 mt-2">
+                                                        <Shield size={12} className="text-emerald-600" />
+                                                        <span>Institutional End-to-End Encryption & Audit Logging Active</span>
+                                                    </div>
 
-                                                        {/* Transmission Latency & Legal Liability Limitation Advisory */}
-                                                        <div className="mt-3.5 p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl text-[10.5px] leading-relaxed text-slate-500 space-y-2">
-                                                            <div className="flex items-start gap-2">
-                                                                <Info size={14} className="text-slate-400 shrink-0 mt-0.5" />
-                                                                <div>
-                                                                    <strong className="text-slate-700 font-semibold">Transmission & Telemetry Advisory:</strong>{' '}
-                                                                    Quotations, desk concurrency, and live rankings are synchronized via high-frequency telemetry. Delivery timing is subject to local internet connectivity, ISP routing, and public internet conditions. The platform and client organization assume no liability for transmission latency, clock discrepancies, or submissions received after window expiry. Dealers are advised to transmit quotes well in advance of the cutoff time.
-                                                                </div>
+                                                    {/* Transmission Latency & Legal Liability Limitation Advisory */}
+                                                    <div className="mt-3.5 p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl text-[10.5px] leading-relaxed text-slate-500 space-y-2">
+                                                        <div className="flex items-start gap-2">
+                                                            <Info size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                                                            <div>
+                                                                <strong className="text-slate-700 font-semibold">Transmission & Telemetry Advisory:</strong>{' '}
+                                                                Quotations, desk concurrency, and live rankings are synchronized via high-frequency telemetry. Delivery timing is subject to local internet connectivity, ISP routing, and public internet conditions. The platform and client organization assume no liability for transmission latency, clock discrepancies, or submissions received after window expiry. Dealers are advised to transmit quotes well in advance of the cutoff time.
                                                             </div>
-                                                            <div className="flex items-start gap-2 pt-2 border-t border-slate-200/60 text-slate-500">
-                                                                <Shield size={14} className="text-slate-400 shrink-0 mt-0.5" />
-                                                                <div>
-                                                                    <strong className="text-slate-700 font-semibold">Platform Role & Liability Limitation:</strong>{' '}
-                                                                    Grow Treasury Platform operates solely as an independent communications and workflow routing technology (&ldquo;AS IS&rdquo;). Grow Treasury is not a principal, broker, or clearing party to this transaction and assumes zero transaction, credit, market, or settlement liability. All commercial terms, rate commitments, and trade execution obligations exist strictly and bilaterally between {rfq.entity_name || rfq.customer_name || 'the corporate legal entity'} and {rfq.bank_name || 'the participating bank'}.
-                                                                </div>
+                                                        </div>
+                                                        <div className="flex items-start gap-2 pt-2 border-t border-slate-200/60 text-slate-500">
+                                                            <Shield size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                                                            <div>
+                                                                <strong className="text-slate-700 font-semibold">Platform Role & Liability Limitation:</strong>{' '}
+                                                                Grow Treasury Platform operates solely as an independent communications and workflow routing technology (&ldquo;AS IS&rdquo;). Grow Treasury is not a principal, broker, or clearing party to this transaction and assumes zero transaction, credit, market, or settlement liability. All commercial terms, rate commitments, and trade execution obligations exist strictly and bilaterally between {rfq.entity_name || rfq.customer_name || 'the corporate legal entity'} and {rfq.bank_name || 'the participating bank'}.
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </form>
+                                                </div>
+                                            </form>
                                         </section>
                                     </>
                                 )}
@@ -3550,7 +4201,7 @@ export default function QuotationBankOfferPage() {
                 {/* TAB 2: COUNTERPARTY QUOTATION HISTORY */}
                 {activeTab === 'HISTORY' && (
                     <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-xs border border-slate-200 animate-fade-in-up">
-                        <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
+                        <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4 flex-wrap gap-3">
                             <div>
                                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                                     <History className="text-blue-600" size={20} />
@@ -3558,13 +4209,24 @@ export default function QuotationBankOfferPage() {
                                 </h2>
                                 <p className="text-xs text-gray-400 mt-0.5">Past request submissions, win rates, and execution status records for {rfq.bank_name}.</p>
                             </div>
-                            <button
-                                onClick={fetchHistory}
-                                disabled={isLoadingHistory}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-                            >
-                                <RefreshCw size={14} className={isLoadingHistory ? 'animate-spin' : ''} /> Refresh
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={handleExportHistory}
+                                    disabled={isLoadingHistory || historyData.length === 0}
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs"
+                                    title="Export full desk quotation history to Excel-compatible CSV"
+                                >
+                                    <Download size={14} className="text-emerald-600" /> Export CSV
+                                </button>
+                                <button
+                                    onClick={fetchHistory}
+                                    disabled={isLoadingHistory}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                                >
+                                    <RefreshCw size={14} className={isLoadingHistory ? 'animate-spin' : ''} /> Refresh
+                                </button>
+                            </div>
                         </div>
 
                         {isLoadingHistory ? (
@@ -3643,25 +4305,24 @@ export default function QuotationBankOfferPage() {
                                                     )}
                                                 </td>
                                                 <td className="py-3.5 px-4 text-right">
-                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                                                        h.outcome === 'WON' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
-                                                        h.outcome === 'PARTIALLY_WON' ? 'bg-teal-50 text-teal-800 border-teal-300' :
-                                                        h.outcome === 'NOT_SELECTED' ? 'bg-slate-100 text-slate-600 border-slate-200' :
-                                                        h.outcome === 'SUBMITTED' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                                        h.outcome === 'PARTICIPATION_DECLINED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                                        h.outcome === 'EXPIRED' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                                        h.outcome === 'REJECTED' ? 'bg-slate-100 text-slate-500 border-slate-200' :
-                                                        'bg-gray-100 text-gray-600 border-gray-200'
-                                                    }`}>
-                                                        {h.outcome === 'WON' 
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${h.outcome === 'WON' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
+                                                            h.outcome === 'PARTIALLY_WON' ? 'bg-teal-50 text-teal-800 border-teal-300' :
+                                                                h.outcome === 'NOT_SELECTED' ? 'bg-slate-100 text-slate-600 border-slate-200' :
+                                                                    h.outcome === 'SUBMITTED' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                                        h.outcome === 'PARTICIPATION_DECLINED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                                            h.outcome === 'EXPIRED' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                                                h.outcome === 'REJECTED' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                                                                                    'bg-gray-100 text-gray-600 border-gray-200'
+                                                        }`}>
+                                                        {h.outcome === 'WON'
                                                             ? (h.is_multi_leg ? `🏆 Won (${h.won_legs_count || h.legs_count}/${h.legs_count} Pairs)` : '🏆 Won (Awarded)') :
-                                                         h.outcome === 'PARTIALLY_WON' 
-                                                            ? `⚡ Won ${h.won_legs_count} of ${h.legs_count} Pairs` :
-                                                         h.outcome === 'NOT_SELECTED' ? 'Not Selected' :
-                                                         h.outcome === 'SUBMITTED' ? '⏳ Submitted' :
-                                                         h.outcome === 'PARTICIPATION_DECLINED' ? '🚫 Declined' :
-                                                         h.outcome === 'EXPIRED' ? '⏰ Expired' :
-                                                         h.outcome === 'REJECTED' ? 'Unexecuted' : h.outcome}
+                                                            h.outcome === 'PARTIALLY_WON'
+                                                                ? `⚡ Won ${h.won_legs_count} of ${h.legs_count} Pairs` :
+                                                                h.outcome === 'NOT_SELECTED' ? 'Not Selected' :
+                                                                    h.outcome === 'SUBMITTED' ? '⏳ Submitted' :
+                                                                        h.outcome === 'PARTICIPATION_DECLINED' ? '🚫 Declined' :
+                                                                            h.outcome === 'EXPIRED' ? '⏰ Expired' :
+                                                                                h.outcome === 'REJECTED' ? 'Unexecuted' : h.outcome}
                                                     </span>
                                                 </td>
                                             </tr>

@@ -6,7 +6,7 @@ import {
   ArrowRight, CheckCircle, Shield, Zap, Globe, Bell, FileCheck,
   Lock, BarChart3, Users, Layers, ChevronRight,
   Upload, Eye, Settings, Send, ClipboardCheck, Building2,
-  RefreshCw, FileText, Workflow
+  RefreshCw, FileText, Workflow, TrendingUp, FileSpreadsheet
 } from 'lucide-react';
 
 function KnowMorePage() {
@@ -119,7 +119,7 @@ function KnowMorePage() {
             <span style={{ color: '#60a5fa' }}>Designed for Growth</span>
           </h1>
           <p className="text-lg text-gray-400 max-w-2xl mx-auto mb-8 leading-relaxed">
-            A modular LG management platform covering custody, issuance, and everything in between — crafted to prevent risks, simplify operations, and help businesses grow.
+            A modular treasury platform covering custody, issuance, FX quotations, and bank reconciliation — crafted to prevent risks, simplify operations, and help businesses grow.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Link to="/free-trial-register" className="inline-flex items-center px-6 py-3 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/25">
@@ -138,19 +138,19 @@ function KnowMorePage() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">What We Do</p>
-              <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">One Platform. Two Powerful Modules.</h2>
+              <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">One Platform. Four Powerful Modules.</h2>
               <p className="text-gray-500 leading-relaxed mb-6">
-                We provide a specialized treasury system covering the full lifecycle of Letters of Guarantee — from receiving and tracking (Custody) to requesting and issuing (Issuance). Nothing slips through the cracks.
+                We provide a specialized treasury system covering Letters of Guarantee (Custody & Issuance), competitive multi-bank FX quotations, and bank statement auto-reconciliation.
               </p>
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { icon: Shield, label: 'LG Custody', color: 'blue' },
-                  { icon: Send, label: 'LG Issuance', color: 'purple' },
-                  { icon: Zap, label: 'AI Extraction', color: 'amber' },
-                  { icon: Lock, label: 'Maker-Checker', color: 'green' },
+                  { icon: Shield, label: 'LG Custody' },
+                  { icon: Send, label: 'LG Issuance' },
+                  { icon: TrendingUp, label: 'FX Quotations' },
+                  { icon: FileSpreadsheet, label: 'Bank Reconciliation' },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center space-x-2 text-sm text-gray-700">
-                    <item.icon className={`w-4 h-4 text-${item.color}-500`} />
+                    <item.icon className="w-4 h-4 text-blue-600" />
                     <span className="font-medium">{item.label}</span>
                   </div>
                 ))}

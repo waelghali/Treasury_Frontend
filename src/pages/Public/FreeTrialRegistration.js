@@ -7,9 +7,9 @@ import { Helmet } from 'react-helmet-async';
 import { Loader2, Shield, Zap, Globe, Building2, UserCircle, Package, AlertCircle, ArrowRight, Upload } from 'lucide-react';
 
 const benefits = [
-  { icon: Shield, title: "Bank-Grade Security", description: "ISO 27001 certified vault for all your sensitive guarantee documents." },
-  { icon: Zap, title: "Instant Digitization", description: "AI-powered OCR extracts data from paper instruments in seconds." },
-  { icon: Globe, title: "Global Scale", description: "Automate multi-currency issuances across 140+ correspondent banks." },
+  { icon: Shield, title: "Audit-Ready Controls", description: "Complete immutable audit trails and role-based maker-checker approvals." },
+  { icon: Zap, title: "Automated Operations", description: "Fast document parsing, auto-filling, and proactive schedule alerts." },
+  { icon: Globe, title: "Multi-Bank Connectivity", description: "Standardized multi-bank formats, statements, and electronic bidding." },
 ];
 
 function FreeTrialRegistration() {
@@ -26,8 +26,10 @@ function FreeTrialRegistration() {
     contact_phone: '',
     admin_email: '',
     entities_count: 'One',
-    modules_custody: preselectedModule === 'issuance' ? false : true,
-    modules_issuance: preselectedModule === 'issuance' ? true : false,
+    modules_custody: (!preselectedModule || preselectedModule === 'custody'),
+    modules_issuance: preselectedModule === 'issuance',
+    modules_quotation: preselectedModule === 'quotations',
+    modules_reconciliation: preselectedModule === 'reconciliation',
     commercial_register_document: null,
     accepted_terms: false,
   });
@@ -73,7 +75,7 @@ function FreeTrialRegistration() {
       return;
     }
 
-    if (!formData.modules_custody && !formData.modules_issuance) {
+    if (!formData.modules_custody && !formData.modules_issuance && !formData.modules_quotation && !formData.modules_reconciliation) {
       setError('You must select at least one module.');
       toast.error('You must select at least one module.');
       setIsSaving(false);
@@ -97,6 +99,8 @@ function FreeTrialRegistration() {
     const modules = [];
     if (formData.modules_custody) modules.push('custody');
     if (formData.modules_issuance) modules.push('issuance');
+    if (formData.modules_quotation) modules.push('quotations');
+    if (formData.modules_reconciliation) modules.push('reconciliation');
     data.append('requested_modules', modules.join(','));
     data.append('commercial_register_document', formData.commercial_register_document);
     data.append('accepted_terms', String(formData.accepted_terms));
@@ -331,6 +335,44 @@ function FreeTrialRegistration() {
                     <div className="ml-3">
                       <span className="text-sm font-semibold text-gray-900">LG Issuance</span>
                       <p className="text-xs text-gray-500 mt-0.5">Request and manage LG issuance from banks.</p>
+                    </div>
+                  </label>
+                  <label 
+                    className={`flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                      formData.modules_quotation 
+                        ? 'border-blue-500 bg-blue-50/60 shadow-sm' 
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="modules_quotation"
+                      checked={formData.modules_quotation}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5"
+                    />
+                    <div className="ml-3">
+                      <span className="text-sm font-semibold text-gray-900">FX & T-Bill Quotations</span>
+                      <p className="text-xs text-gray-500 mt-0.5">Competitive multi-bank FX and T-Bill electronic bidding.</p>
+                    </div>
+                  </label>
+                  <label 
+                    className={`flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                      formData.modules_reconciliation 
+                        ? 'border-blue-500 bg-blue-50/60 shadow-sm' 
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="modules_reconciliation"
+                      checked={formData.modules_reconciliation}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5"
+                    />
+                    <div className="ml-3">
+                      <span className="text-sm font-semibold text-gray-900">Bank Auto-Reconciliation</span>
+                      <p className="text-xs text-gray-500 mt-0.5">Reconcile bank statements and ledgers with auto-matching.</p>
                     </div>
                   </label>
                 </div>
