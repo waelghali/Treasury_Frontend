@@ -2974,16 +2974,28 @@ export default function QuotationBankOfferPage() {
                                                         </span>
                                                     </div>
 
-                                                    {/* Timestamps & Creator Info */}
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                                    {/* Timestamps, Creator & Approver Governance Info */}
+                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                                                         <div>
                                                             <span className="text-[10px] font-semibold text-gray-400 uppercase block mb-0.5">Created By</span>
-                                                            <p className="font-semibold text-gray-800 font-mono text-[11px] truncate">
+                                                            <p className="font-semibold text-gray-800 font-mono text-[11px] truncate" title={rfq.created_by_email || rfq.created_by_name || ''}>
                                                                 {rfq.created_by_email || rfq.created_by_name || `${rfq.customer_name} Treasury`}
                                                             </p>
                                                             {rfq.created_at && (
                                                                 <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
                                                                     {new Date(rfq.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        <div>
+                                                            <span className="text-[10px] font-semibold text-gray-400 uppercase block mb-0.5">Approved By</span>
+                                                            <p className="font-semibold text-gray-800 font-mono text-[11px] truncate" title={rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || ''}>
+                                                                {rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || (rfq.admin_reviewed_at ? 'Corporate Treasury Admin' : 'Direct Corporate Release')}
+                                                            </p>
+                                                            {(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at) && (
+                                                                <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
+                                                                    {new Date(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -2995,7 +3007,7 @@ export default function QuotationBankOfferPage() {
                                                                 {' → '}
                                                                 {rfq.window_end ? new Date(rfq.window_end).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '—'}
                                                             </p>
-                                                            <span className="text-[10px] text-emerald-600 font-medium block mt-0.5">
+                                                            <span className="text-[10px] text-emerald-600 font-medium block mt-0.5 font-mono">
                                                                 {formatDate(rfq.window_start)}
                                                             </span>
                                                         </div>
