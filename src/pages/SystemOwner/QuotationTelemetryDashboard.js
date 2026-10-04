@@ -5,7 +5,7 @@ import {
     AlertCircle, BarChart3, Layers, RefreshCw,
     Trophy, Crown, Zap, Eye, Globe, Hourglass,
     Award, X, Building2, Flame, ArrowLeft,
-    Search, Filter, ChevronRight
+    Search, Filter, ChevronRight, MessageSquare, Star
 } from 'lucide-react';
 
 export default function QuotationTelemetryDashboard() {
@@ -24,6 +24,18 @@ export default function QuotationTelemetryDashboard() {
     const [searchQuery, setSearchQuery] = useState('');
     const [sortField, setSortField] = useState('vol_usd');
     const [sortDir, setSortDir] = useState('desc');
+
+    // Phase 7.3: Dealer Voice & Feedback Stream State
+    const [dealerFeedbacks, setDealerFeedbacks] = useState([]);
+    const [dealerFeedbackMeta, setDealerFeedbackMeta] = useState(null);
+    const [feedbackLoading, setFeedbackLoading] = useState(false);
+    const [feedbackStatusFilter, setFeedbackStatusFilter] = useState('ALL');
+    const [feedbackRatingFilter, setFeedbackRatingFilter] = useState('ALL');
+    const [feedbackCategoryFilter, setFeedbackCategoryFilter] = useState('ALL');
+    const [feedbackSearch, setFeedbackSearch] = useState('');
+    const [updatingFeedbackId, setUpdatingFeedbackId] = useState(null);
+    const [editingNotesId, setEditingNotesId] = useState(null);
+    const [editingNotesValue, setEditingNotesValue] = useState('');
 
     const fetchTelemetry = async () => {
         try {
@@ -57,9 +69,53 @@ export default function QuotationTelemetryDashboard() {
         }
     };
 
+    const fetchDealerFeedbacks = async () => {
+        setFeedbackLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (feedbackStatusFilter !== 'ALL') params.append('status', feedbackStatusFilter);
+            if (feedbackRatingFilter !== 'ALL') params.append('star_rating', feedbackRatingFilter);
+            if (feedbackCategoryFilter !== 'ALL') params.append('category', feedbackCategoryFilter);
+            if (feedbackBankFilter !== 'ALL') params.append('bank_id', feedbackBankFilter);
+            if (feedbackSearch.trim()) params.append('search', feedbackSearch.trim());
+
+            let url = '/system-owner/dealer-feedback';
+            if (params.toString()) url += `?${params.toString()}`;
+
+            const res = await apiClient.get(url);
+            setDealerFeedbacks(res.data?.feedbacks || []);
+            setDealerFeedbackMeta(res.data || null);
+        } catch (err) {
+            console.error('Failed to fetch dealer feedbacks:', err);
+        } finally {
+            setFeedbackLoading(false);
+        }
+    };
+
+    const handleUpdateFeedbackStatus = async (feedbackId, newStatus, notes = null) => {
+        setUpdatingFeedbackId(feedbackId);
+        try {
+            const payload = {};
+            if (newStatus) payload.status = newStatus;
+            if (notes !== null) payload.admin_notes = notes;
+
+            const res = await apiClient.patch(`/system-owner/dealer-feedback/${feedbackId}`, payload);
+            setDealerFeedbacks(prev => prev.map(f => f.id === feedbackId ? res.data : f));
+            if (editingNotesId === feedbackId) {
+                setEditingNotesId(null);
+            }
+        } catch (err) {
+            console.error('Failed to update feedback:', err);
+            alert('Failed to update feedback status.');
+        } finally {
+            setUpdatingFeedbackId(null);
+        }
+    };
+
     useEffect(() => {
         fetchTelemetry();
         fetchTrophies();
+        fetchDealerFeedbacks();
     }, []);
 
     const handleBankChange = (newBankId) => {
@@ -232,6 +288,24 @@ export default function QuotationTelemetryDashboard() {
                     }`}
                 >
                     <Trophy size={15} /> Bank Desk &amp; Dealer 8-Trophy Diagnostics
+                </button>
+                <button
+                    onClick={() => {
+                        setActiveTab('feedback');
+                        fetchDealerFeedbacks();
+                    }}
+                    className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${
+                        activeTab === 'feedback'
+                            ? 'bg-amber-600 text-white shadow-xs'
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                    }`}
+                >
+                    <MessageSquare size={15} /> Dealer Voice &amp; Satisfaction Stream
+                    {dealerFeedbackMeta?.macro_csat?.status_counts?.NEW > 0 && (
+                        <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-white text-amber-700">
+                            {dealerFeedbackMeta.macro_csat.status_counts.NEW} new
+                        </span>
+                    )}
                 </button>
             </div>
 
@@ -1027,6 +1101,305 @@ export default function QuotationTelemetryDashboard() {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* TAB 3: DEALER VOICE & SATISFACTION STREAM */}
+            {activeTab === 'feedback' && (
+                <div className="space-y-6 animate-fadeIn">
+                    {/* Top CSAT Macro Overview Banner */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div className="bg-white p-5 rounded-3xl shadow-sm border border-black/5 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Platform CSAT</span>
+                                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                                    <Star size={16} className="fill-amber-400" />
+                                </div>
+                            </div>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-2xl sm:text-3xl font-bold text-gray-900 font-mono">
+                                    {dealerFeedbackMeta?.macro_csat?.avg_rating || '5.0'}
+                                </span>
+                                <span className="text-xs font-semibold text-slate-400">/ 5.0</span>
+                            </div>
+                            <p className="text-xs text-slate-500">
+                                Institutional quotation satisfaction
+                            </p>
+                        </div>
+
+                        <div className="bg-white p-5 rounded-3xl shadow-sm border border-black/5 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Submissions</span>
+                                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                                    <MessageSquare size={16} />
+                                </div>
+                            </div>
+                            <p className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                {dealerFeedbackMeta?.macro_csat?.total_count || 0}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                                Trader feedback entries logged
+                            </p>
+                        </div>
+
+                        <div className="bg-white p-5 rounded-3xl shadow-sm border border-black/5 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Pending Triage</span>
+                                <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                                    <AlertCircle size={16} />
+                                </div>
+                            </div>
+                            <p className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                {dealerFeedbackMeta?.macro_csat?.status_counts?.NEW || 0}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                                Unreviewed dealer notes
+                            </p>
+                        </div>
+
+                        <div className="bg-white p-5 rounded-3xl shadow-sm border border-black/5 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Addressed / Resolved</span>
+                                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                    <CheckCircle2 size={16} />
+                                </div>
+                            </div>
+                            <p className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                {dealerFeedbackMeta?.macro_csat?.status_counts?.RESOLVED || 0}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                                Issues or suggestions resolved
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Filter and Search Controls */}
+                    <div className="bg-white p-4 rounded-3xl shadow-sm border border-black/5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                        <div className="relative flex-1 max-w-sm">
+                            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Search comments, dealer email, or bank..."
+                                value={feedbackSearch}
+                                onChange={(e) => setFeedbackSearch(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && fetchDealerFeedbacks()}
+                                className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-gray-900 placeholder-slate-400 focus:bg-white focus:border-indigo-600 outline-none transition-all"
+                            />
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                            {/* Status Filter */}
+                            <select
+                                value={feedbackStatusFilter}
+                                onChange={(e) => {
+                                    setFeedbackStatusFilter(e.target.value);
+                                }}
+                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 outline-none focus:bg-white"
+                            >
+                                <option value="ALL">All Statuses</option>
+                                <option value="NEW">New / Unreviewed</option>
+                                <option value="IN_REVIEW">Under Review</option>
+                                <option value="RESOLVED">Resolved</option>
+                            </select>
+
+                            {/* Rating Filter */}
+                            <select
+                                value={feedbackRatingFilter}
+                                onChange={(e) => {
+                                    setFeedbackRatingFilter(e.target.value);
+                                }}
+                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 outline-none focus:bg-white"
+                            >
+                                <option value="ALL">All Star Ratings</option>
+                                <option value="5">5 Stars (Outstanding)</option>
+                                <option value="4">4 Stars (Good)</option>
+                                <option value="3">3 Stars (Average)</option>
+                                <option value="2">2 Stars (Poor)</option>
+                                <option value="1">1 Star (Critical)</option>
+                            </select>
+
+                            {/* Category Filter */}
+                            <select
+                                value={feedbackCategoryFilter}
+                                onChange={(e) => {
+                                    setFeedbackCategoryFilter(e.target.value);
+                                }}
+                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 outline-none focus:bg-white"
+                            >
+                                <option value="ALL">All Categories</option>
+                                <option value="RATE_TRIANGULATION">Rate References</option>
+                                <option value="SPEED_LATENCY">Speed &amp; Latency</option>
+                                <option value="UI_USABILITY">Terminal Usability</option>
+                                <option value="FEATURE_REQUEST">Feature Request</option>
+                                <option value="OTHER">General Feedback</option>
+                            </select>
+
+                            <button
+                                onClick={fetchDealerFeedbacks}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                            >
+                                <RefreshCw size={13} className={feedbackLoading ? 'animate-spin' : ''} />
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Feedback Stream Cards */}
+                    <div className="space-y-4">
+                        {dealerFeedbacks.map((fb) => {
+                            const isResolved = fb.status === 'RESOLVED';
+                            const isInReview = fb.status === 'IN_REVIEW';
+                            const isEditingNotes = editingNotesId === fb.id;
+
+                            return (
+                                <div
+                                    key={fb.id}
+                                    className="bg-white rounded-3xl p-5 border border-black/5 shadow-sm space-y-4 transition-all hover:border-slate-300"
+                                >
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-sm shrink-0">
+                                                <Building2 size={18} />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="font-bold text-gray-900 text-sm">{fb.bank_name}</span>
+                                                    <span className="text-xs text-slate-400 font-mono">
+                                                        {fb.is_anonymous ? '👤 Anonymous Trader' : `👤 ${fb.dealer_email || fb.dealer_name}`}
+                                                    </span>
+                                                    {fb.rfq_ref_no && (
+                                                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                                                            {fb.rfq_ref_no}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-[11px] text-slate-400 mt-0.5">
+                                                    Submitted: {fb.created_at ? new Date(fb.created_at).toLocaleString() : 'Recent'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 self-end sm:self-center">
+                                            {/* Status Badge */}
+                                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                                                isResolved ? 'bg-emerald-50 text-emerald-700 border-emerald-300' :
+                                                isInReview ? 'bg-blue-50 text-blue-700 border-blue-300' :
+                                                'bg-amber-50 text-amber-800 border-amber-300'
+                                            }`}>
+                                                {fb.status}
+                                            </span>
+
+                                            {/* Quick Status Updater */}
+                                            <select
+                                                value={fb.status}
+                                                disabled={updatingFeedbackId === fb.id}
+                                                onChange={(e) => handleUpdateFeedbackStatus(fb.id, e.target.value)}
+                                                className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 text-[11px] font-bold text-slate-700 outline-none cursor-pointer"
+                                            >
+                                                <option value="NEW">Mark as New</option>
+                                                <option value="IN_REVIEW">Mark Under Review</option>
+                                                <option value="RESOLVED">Mark Resolved</option>
+                                                <option value="ARCHIVED">Archive</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Star Rating & Category Pill */}
+                                    <div className="flex items-center gap-3 flex-wrap pt-1 border-t border-slate-100">
+                                        <div className="flex items-center gap-0.5">
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                <Star
+                                                    key={star}
+                                                    size={15}
+                                                    className={star <= fb.star_rating ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}
+                                                />
+                                            ))}
+                                            <span className="text-xs font-bold text-gray-700 ml-1.5 font-mono">
+                                                {fb.star_rating} / 5
+                                            </span>
+                                        </div>
+
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                            {fb.category === 'RATE_TRIANGULATION' ? '⚡ Rate References & Triangulation' :
+                                             fb.category === 'SPEED_LATENCY' ? '🚀 Execution Speed & Latency' :
+                                             fb.category === 'UI_USABILITY' ? '🖥️ Terminal UI & Usability' :
+                                             fb.category === 'FEATURE_REQUEST' ? '💡 Feature Request' : '📝 General Feedback'}
+                                        </span>
+                                    </div>
+
+                                    {/* Comment Text */}
+                                    {fb.comment ? (
+                                        <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-xs text-gray-800 font-medium italic">
+                                            &ldquo;{fb.comment}&rdquo;
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-slate-400 italic">No additional written comment attached.</p>
+                                    )}
+
+                                    {/* Admin Notes Section */}
+                                    <div className="pt-2 border-t border-slate-100 text-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                                        {isEditingNotes ? (
+                                            <div className="flex-1 flex items-center gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={editingNotesValue}
+                                                    onChange={(e) => setEditingNotesValue(e.target.value)}
+                                                    placeholder="Add internal ops note (e.g. Discussed with FX Desk Head)..."
+                                                    className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-indigo-600"
+                                                />
+                                                <button
+                                                    onClick={() => handleUpdateFeedbackStatus(fb.id, null, editingNotesValue)}
+                                                    className="px-3 py-1.5 bg-indigo-600 text-white font-bold rounded-xl text-xs cursor-pointer"
+                                                >
+                                                    Save
+                                                </button>
+                                                <button
+                                                    onClick={() => setEditingNotesId(null)}
+                                                    className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="font-semibold text-slate-400 text-[11px]">Ops Note:</span>
+                                                <span className="text-slate-700 text-xs font-medium">
+                                                    {fb.admin_notes || 'No review notes yet.'}
+                                                </span>
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingNotesId(fb.id);
+                                                        setEditingNotesValue(fb.admin_notes || '');
+                                                    }}
+                                                    className="text-indigo-600 text-[11px] font-bold hover:underline cursor-pointer"
+                                                >
+                                                    {fb.admin_notes ? 'Edit Note' : '+ Add Note'}
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {fb.resolved_at && (
+                                            <span className="text-[10px] text-emerald-600 font-medium">
+                                                ✓ Resolved {new Date(fb.resolved_at).toLocaleDateString()} {fb.resolved_by && `by ${fb.resolved_by}`}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {dealerFeedbacks.length === 0 && (
+                            <div className="bg-white rounded-3xl p-12 text-center border border-black/5 space-y-3">
+                                <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                                    <MessageSquare size={24} />
+                                </div>
+                                <h4 className="text-sm font-bold text-gray-900">No Dealer Feedback Recorded</h4>
+                                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                                    Feedback submitted by bank dealers via their quotation terminals will stream here in real-time.
+                                </p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
