@@ -337,13 +337,24 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                     </div>
                 </div>
 
-                {/* 3. OPTIONAL SOLE-SOURCE ADVISORY CALLOUT (Compact Single Line) */}
+                {/* 3. SOLE-SOURCE GOVERNANCE ADVISORY CALLOUT */}
                 {(deal.is_uncontested || deal.legs?.some(l => l.is_uncontested)) && (
-                    <div className="px-5 py-2 bg-amber-50 border-b border-amber-200 flex items-center gap-2 text-xs text-amber-950 font-semibold shrink-0">
-                        <AlertTriangle size={15} className="text-amber-600 shrink-0" />
-                        <span className="font-bold text-amber-900">Sole-Source Advisory:</span>
-                        <span className="truncate text-amber-800">
-                            {deal.uncontested_reason || "Single quote received. No competing counterparty offers were received to establish competitive spread."}
+                    <div className="px-5 py-2.5 bg-gradient-to-r from-amber-100/95 via-amber-50 to-amber-100/80 border-b-2 border-amber-400 flex items-center justify-between gap-3 shrink-0 shadow-2xs">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-6 h-6 rounded-lg bg-amber-500 text-amber-950 flex items-center justify-center shrink-0 shadow-xs">
+                                <AlertTriangle size={15} className="text-amber-950 font-bold" />
+                            </div>
+                            <div className="flex items-baseline gap-2 min-w-0">
+                                <span className="text-xs font-black text-amber-950 tracking-wide uppercase">
+                                    Sole-Source Governance Warning:
+                                </span>
+                                <span className="text-xs font-semibold text-amber-900 truncate">
+                                    {deal.uncontested_reason || "Single quote received — no competing counterparty offers were received to establish market spread."}
+                                </span>
+                            </div>
+                        </div>
+                        <span className="text-[11px] font-black uppercase tracking-wider text-amber-950 bg-amber-300/90 border border-amber-500 px-2.5 py-0.5 rounded-md shrink-0 shadow-2xs">
+                            Uncontested Rate
                         </span>
                     </div>
                 )}
@@ -406,9 +417,16 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                     {isMultiLeg ? `${deal.legs?.length || 0} Individual Best Rates` : (deal.avg_rate ? `Desk Avg: ${formatNum(deal.avg_rate, 4, 4)}` : 'Market Competitive')}
                                 </span>
                             </div>
-                            <span className="text-[10px] text-slate-500 mt-1 block">
-                                {deal.is_uncontested ? '⚠️ Sole-Source Bid' : 'Competitive Best'}
-                            </span>
+                            {deal.is_uncontested || deal.legs?.some(l => l.is_uncontested) ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-black text-amber-950 bg-amber-100 border border-amber-400 px-2 py-0.5 rounded-md mt-1 shadow-2xs">
+                                    <AlertTriangle size={12} className="text-amber-700 shrink-0" />
+                                    Sole-Source Awarded
+                                </span>
+                            ) : (
+                                <span className="text-[10px] text-slate-500 mt-1 block">
+                                    Competitive Best
+                                </span>
+                            )}
                         </div>
 
                         {/* Box 4: Total Commercial Savings */}
@@ -490,8 +508,9 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                                                 {leg.direction || 'BUY'} {formatNum(leg.amount, 0, 2)}
                                                             </span>
                                                             {leg.is_uncontested && (
-                                                                <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
-                                                                    Sole-Source Quote
+                                                                <span className="inline-flex items-center gap-1.5 text-xs font-black text-amber-950 bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 border-2 border-amber-500 px-2.5 py-1 rounded-lg shadow-xs ring-2 ring-amber-400/30">
+                                                                    <AlertTriangle size={14} className="text-amber-800 shrink-0 animate-pulse" />
+                                                                    <span>Sole-Source Quote (Uncontested)</span>
                                                                 </span>
                                                             )}
                                                         </div>
@@ -633,6 +652,12 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                                         {offer.is_winner && (
                                                             <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-300">
                                                                 Best Execution (Awarded)
+                                                            </span>
+                                                        )}
+                                                        {offer.is_winner && deal.is_uncontested && (
+                                                            <span className="inline-flex items-center gap-1 text-[11px] font-black text-amber-950 bg-amber-200 border border-amber-400 px-2 py-0.5 rounded-md shadow-2xs">
+                                                                <AlertTriangle size={12} className="text-amber-700 shrink-0 animate-pulse" />
+                                                                Sole-Source (Uncontested)
                                                             </span>
                                                         )}
                                                     </div>
