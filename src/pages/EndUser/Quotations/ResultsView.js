@@ -2478,8 +2478,12 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                                         Market Benchmark:
                                                     </span>
                                                     <span className="inline-flex items-center gap-1 font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                        Live Mid: {parseFloat(leg.market_benchmark.live_mid).toFixed(4)}
+                                                        {leg.market_benchmark.is_frozen_snapshot ? (
+                                                            <span className="text-[10px]" title="Rate locked at execution">🔒</span>
+                                                        ) : (
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                        )}
+                                                        {leg.market_benchmark.is_frozen_snapshot ? 'Locked Mid:' : 'Live Mid:'} {parseFloat(leg.market_benchmark.live_mid).toFixed(4)}
                                                     </span>
                                                     {leg.market_benchmark.cbe_gap_bps !== null && leg.market_benchmark.cbe_gap_bps !== undefined && (
                                                         <span className="text-slate-500 font-semibold" title={`Intraday Drift vs CBE: ${leg.market_benchmark.cbe_gap} EGP`}>
@@ -2610,8 +2614,12 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                         Market Benchmark:
                                     </span>
                                     <span className="inline-flex items-center gap-1 font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                        Live Mid: {parseFloat(resultsMeta.marketBenchmark.live_mid).toFixed(4)}
+                                        {resultsMeta.marketBenchmark.is_frozen_snapshot ? (
+                                            <span className="text-[10px]" title="Rate locked at execution">🔒</span>
+                                        ) : (
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        )}
+                                        {resultsMeta.marketBenchmark.is_frozen_snapshot ? 'Locked Mid:' : 'Live Mid:'} {parseFloat(resultsMeta.marketBenchmark.live_mid).toFixed(4)}
                                     </span>
                                     {resultsMeta.marketBenchmark.cbe_gap_bps !== null && resultsMeta.marketBenchmark.cbe_gap_bps !== undefined && (
                                         <span className="text-slate-500 font-semibold" title={`Intraday Drift vs CBE: ${resultsMeta.marketBenchmark.cbe_gap} EGP`}>

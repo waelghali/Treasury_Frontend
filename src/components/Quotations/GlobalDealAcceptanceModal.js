@@ -442,6 +442,11 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                         Ref: {formatNum(deal.market_benchmark.suggested_reference_rate, 4, 4)}
                                     </span>
                                 )}
+                                {deal.market_benchmark?.is_frozen_snapshot && (
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-300" title="Market benchmark frozen at time of deal acceptance">
+                                        🔒 Locked at Acceptance
+                                    </span>
+                                )}
                             </div>
                         </div>
 
@@ -542,7 +547,11 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                                                 <>
                                                                     <span>&bull;</span>
                                                                     <span className="inline-flex items-center gap-1 font-mono font-bold text-blue-800 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
-                                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                        {leg.market_benchmark.is_frozen_snapshot ? (
+                                                                            <span className="text-[10px]" title="Rate frozen at time of trade execution">🔒</span>
+                                                                        ) : (
+                                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                        )}
                                                                         Mid: {formatNum(leg.market_benchmark.live_mid, 4, 4)}
                                                                     </span>
                                                                     {leg.market_benchmark.is_empirical_active && (
