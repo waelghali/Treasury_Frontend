@@ -2,13 +2,69 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Users, UserCheck, Layers, Loader2, Lock } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Users, UserCheck, Layers, Loader2, Lock, BarChart2 } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import { getCurrentUserId, getUserRole } from '../../../utils/authUtils';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
 import QuotationCancellationModal from '../../../components/Modals/QuotationCancellationModal';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * Evaluates quoted winning rate directly against the market reference rate.
+ * Returns direct expected rate, exact difference, and explicit status/color (Green = Better, Red = Worse).
+ */
+const getRateReferenceAssessment = (winnerRate, benchmark, direction = 'BUY') => {
+    if (!winnerRate || !benchmark) return null;
+    
+    const expectedRate = benchmark.suggested_reference_rate || benchmark.live_mid || benchmark.cbe_official_mid;
+    if (!expectedRate) return null;
+
+    const numWinner = Number(winnerRate);
+    const numExpected = Number(expectedRate);
+    const diff = numWinner - numExpected;
+    const absDiff = Math.abs(diff);
+    const isBuy = (direction || 'BUY').toUpperCase() === 'BUY';
+    
+    const isBetter = isBuy ? diff < -0.0001 : diff > 0.0001;
+    const isWorse = isBuy ? diff > 0.0001 : diff < -0.0001;
+    const isTight = absDiff <= 0.0001 || (benchmark.quote_evaluation?.variance_vs_ref_bps !== undefined && Math.abs(benchmark.quote_evaluation.variance_vs_ref_bps) <= 5.0);
+
+    let status = 'within';
+    let label = 'Within expected rate';
+    let colorClass = 'text-emerald-800 bg-emerald-50 border-emerald-300';
+    let icon = '🟢';
+
+    if (isTight) {
+        status = 'within';
+        label = 'Within expected rate';
+        colorClass = 'text-emerald-800 bg-emerald-50/80 border-emerald-300 font-semibold';
+        icon = '🟢';
+    } else if (isBetter) {
+        status = 'better';
+        label = `${absDiff.toFixed(4)} better than expected`;
+        colorClass = 'text-emerald-800 bg-emerald-100 border-emerald-400 font-bold';
+        icon = '🟢';
+    } else if (isWorse) {
+        status = 'worse';
+        const directionWord = isBuy ? 'higher' : 'lower';
+        label = `+${absDiff.toFixed(4)} ${directionWord} than expected`;
+        colorClass = 'text-rose-800 bg-rose-50 border-rose-300 font-bold';
+        icon = '🔴';
+    }
+
+    return {
+        expectedRate: numExpected,
+        quotedRate: numWinner,
+        diff,
+        absDiff,
+        status,
+        label,
+        colorClass,
+        icon,
+        isFrozen: Boolean(benchmark.is_frozen_snapshot)
+    };
+};
 const formatDate = (d) => {
     if (!d) return '—';
     try {
@@ -2191,7 +2247,151 @@ export default function ResultsView({ rfqId: propRfqId }) {
                 </div>
             )}
 
+            {/* Phase 6.6 & 7: Market Reference & Rate Benchmark Audit (Kept permanently for historical review) */}
+            {(() => {
+                const rootBm = resultsMeta.marketBenchmark || rfq?.market_benchmark_snapshot;
+                const hasLegBm = legs && legs.some(l => l.market_benchmark || l.market_benchmark_snapshot);
+                if (!rootBm && !hasLegBm) return null;
 
+                const isFrozen = Boolean(rootBm?.is_frozen_snapshot || legs?.some(l => (l.market_benchmark || l.market_benchmark_snapshot)?.is_frozen_snapshot));
+                const frozenAt = rootBm?.frozen_at || legs?.find(l => (l.market_benchmark || l.market_benchmark_snapshot)?.frozen_at)?.market_benchmark?.frozen_at || legs?.find(l => l.market_benchmark_snapshot?.frozen_at)?.market_benchmark_snapshot?.frozen_at;
+
+                return (
+                    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-blue-200/90 shadow-xs space-y-3.5 mb-5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 shrink-0">
+                                    <BarChart2 size={16} />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                                            Market Reference &amp; Regulatory Rate Audit
+                                        </h4>
+                                        {isFrozen ? (
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full" title={`Rate benchmark snapshot frozen at time of deal acceptance: ${frozenAt || ''}`}>
+                                                <span>🔒</span> Immutable Execution Snapshot
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-300 px-2 py-0.5 rounded-full">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> Live Benchmark Feed
+                                            </span>
+                                        )}
+                                    </div>
+                                    <span className="text-[11px] text-slate-500">
+                                        Central Bank of Egypt (CBE) fixing, live market mid, and calculated expectation recorded at tender execution
+                                    </span>
+                                </div>
+                            </div>
+
+                            {frozenAt && (
+                                <span className="text-[11px] font-mono text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 shrink-0">
+                                    Snapshot: {new Date(frozenAt).toLocaleString()}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Display audit breakdown by Leg or Single Tender */}
+                        <div className="space-y-3">
+                            {(legs && legs.length > 0 ? legs : [{ currency_pair: `${rfq?.buy_currency}/${rfq?.sell_currency}`, direction: rfq?.direction, winner_rate: rfq?.winner_rate, winner_bank_name: rfq?.winner_bank_name, market_benchmark: rootBm }]).map((legItem, idx) => {
+                                const bm = legItem.market_benchmark || legItem.market_benchmark_snapshot || rootBm;
+                                if (!bm) return null;
+                                const pairName = legItem.currency_pair || `${legItem.buy_currency}/${legItem.sell_currency}` || 'FX Spot';
+                                const cbeMid = bm.cbe_official_mid;
+                                const liveMid = bm.live_mid;
+                                const expectedRef = bm.suggested_reference_rate || liveMid || cbeMid;
+                                const quotedRate = legItem.winner_rate || legItem.price || rfq?.winner_rate;
+                                const direction = legItem.direction || rfq?.direction || 'BUY';
+
+                                const refEval = getRateReferenceAssessment(quotedRate, bm, direction);
+
+                                return (
+                                    <div key={idx} className="p-3.5 bg-slate-50/70 rounded-xl border border-slate-200 text-xs space-y-2.5">
+                                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono font-bold text-sm text-slate-900">{pairName}</span>
+                                                <span className={`text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded ${
+                                                    (direction || 'BUY').toUpperCase() === 'BUY' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
+                                                }`}>
+                                                    {direction || 'BUY'}
+                                                </span>
+                                                {bm.source && (
+                                                    <span className="text-[10px] text-slate-500 font-medium bg-white px-2 py-0.5 rounded border border-slate-200">
+                                                        Source: {bm.source}
+                                                    </span>
+                                                )}
+                                                {bm.cbe_gap_bps !== null && bm.cbe_gap_bps !== undefined && (
+                                                    <span className="text-[10px] text-slate-500 font-mono bg-white px-2 py-0.5 rounded border border-slate-200">
+                                                        Drift vs CBE: {bm.cbe_gap_bps > 0 ? '+' : ''}{bm.cbe_gap_bps} bps
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {refEval && (
+                                                <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-0.8 rounded-lg border shadow-2xs font-semibold ${refEval.colorClass}`}>
+                                                    <span>{refEval.icon}</span>
+                                                    <span>{refEval.label}</span>
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* 4 Pillars of Regulatory & Market Verification */}
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                                            {/* Pillar 1: CBE Official Fixing */}
+                                            <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
+                                                    CBE Official Fixing
+                                                </span>
+                                                <span className="font-mono font-bold text-slate-800 text-sm block">
+                                                    {cbeMid ? Number(cbeMid).toFixed(4) : '—'}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400 block mt-0.5">Central Bank Mid</span>
+                                            </div>
+
+                                            {/* Pillar 2: Live Market Mid */}
+                                            <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs">
+                                                <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider block mb-0.5">
+                                                    Live Market Mid
+                                                </span>
+                                                <span className="font-mono font-bold text-blue-900 text-sm block">
+                                                    {liveMid ? Number(liveMid).toFixed(4) : '—'}
+                                                </span>
+                                                <span className="text-[10px] text-blue-600/70 block mt-0.5">Interbank Snapshot</span>
+                                            </div>
+
+                                            {/* Pillar 3: Calculated Reference Expectation */}
+                                            <div className="bg-white p-2.5 rounded-lg border border-indigo-200 shadow-2xs">
+                                                <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider block mb-0.5">
+                                                    Calculated Expectation
+                                                </span>
+                                                <span className="font-mono font-bold text-indigo-900 text-sm block">
+                                                    {expectedRef ? Number(expectedRef).toFixed(4) : '—'}
+                                                </span>
+                                                <span className="text-[10px] text-indigo-600/70 block mt-0.5">
+                                                    {bm.is_empirical_active ? `Historical Model (${bm.sample_size || 0} RFQs)` : 'Market Benchmark'}
+                                                </span>
+                                            </div>
+
+                                            {/* Pillar 4: Quoted / Executed Rate */}
+                                            <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
+                                                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block mb-0.5">
+                                                    Executed Quoted Rate
+                                                </span>
+                                                <span className="font-mono font-bold text-emerald-900 text-sm block">
+                                                    {quotedRate ? (typeof quotedRate === 'number' ? quotedRate.toFixed(4) : quotedRate) : '—'}
+                                                </span>
+                                                <span className="text-[10px] text-emerald-700/70 font-semibold block mt-0.5 truncate" title={legItem.winner_bank_name || rfq?.winner_bank_name || ''}>
+                                                    {legItem.winner_bank_name || rfq?.winner_bank_name || 'Winning Bank'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })()}
 
             {rfq?.status === 'REJECTED' && (
                 <div className="p-5 mb-6 bg-red-50/90 rounded-2xl border border-red-200 flex items-start gap-3.5">
@@ -2471,41 +2671,37 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                                 )}
                                             </div>
 
-                                            {/* Phase 6.5: Live Market Benchmark & Empirical Reference */}
-                                            {leg.market_benchmark && (
-                                                <div className="flex items-center gap-2 flex-wrap text-xs font-mono bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                                                    <span className="font-sans font-bold text-slate-500 uppercase text-[10px] tracking-wider">
-                                                        Market Benchmark:
-                                                    </span>
-                                                    <span className="inline-flex items-center gap-1 font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                                                        {leg.market_benchmark.is_frozen_snapshot ? (
-                                                            <span className="text-[10px]" title="Rate locked at execution">🔒</span>
-                                                        ) : (
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                            {/* Phase 6.5 & 7: Market Reference & Expected Rate */}
+                                            {(() => {
+                                                const legEval = getRateReferenceAssessment(leg.winner_rate, leg.market_benchmark, leg.direction);
+                                                if (!legEval) return null;
+                                                return (
+                                                    <div className="flex items-center gap-2.5 flex-wrap text-xs font-mono bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                                                        <span className="font-sans font-bold text-slate-500 uppercase text-[10px] tracking-wider">
+                                                            Reference Check:
+                                                        </span>
+                                                        <div className="flex items-center gap-1.5 text-xs font-mono bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-200">
+                                                            <span className="text-slate-500 text-[11px] font-sans">Expected:</span>
+                                                            <strong className="text-slate-700">{Number(legEval.expectedRate).toFixed(4)}</strong>
+                                                            {legEval.isFrozen && (
+                                                                <span className="text-[10px]" title="Rate frozen at trade execution">🔒</span>
+                                                            )}
+                                                            <span className="text-slate-400">→</span>
+                                                            <span className="text-slate-500 text-[11px] font-sans">Quoted:</span>
+                                                            <strong className="text-slate-900">{Number(legEval.quotedRate).toFixed(4)}</strong>
+                                                        </div>
+                                                        <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-lg border shadow-2xs font-semibold ${legEval.colorClass}`}>
+                                                            <span>{legEval.icon}</span>
+                                                            <span>{legEval.label}</span>
+                                                        </span>
+                                                        {leg.market_benchmark?.cbe_official_mid && (
+                                                            <span className="text-[11px] text-slate-400 font-sans ml-auto">
+                                                                CBE Fixing: {Number(leg.market_benchmark.cbe_official_mid).toFixed(4)}
+                                                            </span>
                                                         )}
-                                                        {leg.market_benchmark.is_frozen_snapshot ? 'Locked Mid:' : 'Live Mid:'} {parseFloat(leg.market_benchmark.live_mid).toFixed(4)}
-                                                    </span>
-                                                    {leg.market_benchmark.cbe_gap_bps !== null && leg.market_benchmark.cbe_gap_bps !== undefined && (
-                                                        <span className="text-slate-500 font-semibold" title={`Intraday Drift vs CBE: ${leg.market_benchmark.cbe_gap} EGP`}>
-                                                            CBE Drift: {leg.market_benchmark.cbe_gap_bps > 0 ? '+' : ''}{leg.market_benchmark.cbe_gap_bps} bps
-                                                        </span>
-                                                    )}
-                                                    {leg.market_benchmark.is_empirical_active && (
-                                                        <span className="text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-semibold" title={`Empirical Suggested Reference based on ${leg.market_benchmark.sample_size} historical tenders`}>
-                                                            Suggested Ref: <strong>{parseFloat(leg.market_benchmark.suggested_reference_rate).toFixed(4)}</strong>
-                                                        </span>
-                                                    )}
-                                                    {leg.market_benchmark.quote_evaluation?.assessment_label && (
-                                                        <span className={`font-sans text-[11px] font-bold px-2 py-0.5 rounded ${
-                                                            leg.market_benchmark.quote_evaluation.is_favorable
-                                                                ? 'text-emerald-800 bg-emerald-100 border border-emerald-300'
-                                                                : 'text-amber-800 bg-amber-100 border border-amber-300'
-                                                        }`}>
-                                                            {leg.market_benchmark.quote_evaluation.assessment_label}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            )}
+                                                    </div>
+                                                );
+                                            })()}
 
                                             {/* Counterparty Rows for this leg */}
                                             <div className="space-y-3">
@@ -2608,40 +2804,37 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                     </div>
                                 </div>
                             )}
-                            {resultsMeta?.marketBenchmark && (
-                                <div className="flex items-center gap-2 flex-wrap text-xs font-mono bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-                                    <span className="font-sans font-bold text-slate-500 uppercase text-[10px] tracking-wider">
-                                        Market Benchmark:
-                                    </span>
-                                    <span className="inline-flex items-center gap-1 font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                                        {resultsMeta.marketBenchmark.is_frozen_snapshot ? (
-                                            <span className="text-[10px]" title="Rate locked at execution">🔒</span>
-                                        ) : (
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            {/* Phase 6.5 & 7: Market Reference & Direct Expected Rate */}
+                            {(() => {
+                                const singleEval = getRateReferenceAssessment(rfq.winner_rate, resultsMeta?.marketBenchmark, rfq.direction);
+                                if (!singleEval) return null;
+                                return (
+                                    <div className="flex items-center gap-2.5 flex-wrap text-xs font-mono bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                                        <span className="font-sans font-bold text-slate-500 uppercase text-[10px] tracking-wider">
+                                            Reference Check:
+                                        </span>
+                                        <div className="flex items-center gap-1.5 text-xs font-mono bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-200">
+                                            <span className="text-slate-500 text-[11px] font-sans">Expected:</span>
+                                            <strong className="text-slate-700">{Number(singleEval.expectedRate).toFixed(4)}</strong>
+                                            {singleEval.isFrozen && (
+                                                <span className="text-[10px]" title="Rate frozen at trade execution">🔒</span>
+                                            )}
+                                            <span className="text-slate-400">→</span>
+                                            <span className="text-slate-500 text-[11px] font-sans">Quoted:</span>
+                                            <strong className="text-slate-900">{Number(singleEval.quotedRate).toFixed(4)}</strong>
+                                        </div>
+                                        <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-lg border shadow-2xs font-semibold ${singleEval.colorClass}`}>
+                                            <span>{singleEval.icon}</span>
+                                            <span>{singleEval.label}</span>
+                                        </span>
+                                        {resultsMeta.marketBenchmark?.cbe_official_mid && (
+                                            <span className="text-[11px] text-slate-400 font-sans ml-auto">
+                                                CBE Fixing: {Number(resultsMeta.marketBenchmark.cbe_official_mid).toFixed(4)}
+                                            </span>
                                         )}
-                                        {resultsMeta.marketBenchmark.is_frozen_snapshot ? 'Locked Mid:' : 'Live Mid:'} {parseFloat(resultsMeta.marketBenchmark.live_mid).toFixed(4)}
-                                    </span>
-                                    {resultsMeta.marketBenchmark.cbe_gap_bps !== null && resultsMeta.marketBenchmark.cbe_gap_bps !== undefined && (
-                                        <span className="text-slate-500 font-semibold" title={`Intraday Drift vs CBE: ${resultsMeta.marketBenchmark.cbe_gap} EGP`}>
-                                            CBE Drift: {resultsMeta.marketBenchmark.cbe_gap_bps > 0 ? '+' : ''}{resultsMeta.marketBenchmark.cbe_gap_bps} bps
-                                        </span>
-                                    )}
-                                    {resultsMeta.marketBenchmark.is_empirical_active && (
-                                        <span className="text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-semibold" title={`Empirical Suggested Reference based on ${resultsMeta.marketBenchmark.sample_size} historical tenders`}>
-                                            Suggested Ref: <strong>{parseFloat(resultsMeta.marketBenchmark.suggested_reference_rate).toFixed(4)}</strong>
-                                        </span>
-                                    )}
-                                    {resultsMeta.marketBenchmark.quote_evaluation?.assessment_label && (
-                                        <span className={`font-sans text-[11px] font-bold px-2 py-0.5 rounded ${
-                                            resultsMeta.marketBenchmark.quote_evaluation.is_favorable
-                                                ? 'text-emerald-800 bg-emerald-100 border border-emerald-300'
-                                                : 'text-amber-800 bg-amber-100 border border-amber-300'
-                                        }`}>
-                                            {resultsMeta.marketBenchmark.quote_evaluation.assessment_label}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
+                                    </div>
+                                );
+                            })()}
                             {results.map((result, index) => renderFxCounterpartyCard(result, index))}
                         </div>
                     )}
