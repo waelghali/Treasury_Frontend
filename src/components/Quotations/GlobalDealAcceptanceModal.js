@@ -35,14 +35,74 @@ const formatNum = (num, minDec = 2, maxDec = 4) => {
     });
 };
 
+/**
+ * Evaluates quoted winning rate directly against the market reference rate.
+ * Returns direct expected rate, exact difference, and explicit status/color (Green = Better, Red = Worse).
+ */
+const getRateReferenceAssessment = (winnerRate, benchmark, direction = 'BUY') => {
+    if (!winnerRate || !benchmark) return null;
+    
+    // Direct expected reference rate from empirical model, CBE fixing, or live mid
+    const expectedRate = benchmark.suggested_reference_rate || benchmark.live_mid || benchmark.cbe_official_mid;
+    if (!expectedRate) return null;
+
+    const numWinner = Number(winnerRate);
+    const numExpected = Number(expectedRate);
+    const diff = numWinner - numExpected;
+    const absDiff = Math.abs(diff);
+    const isBuy = (direction || 'BUY').toUpperCase() === 'BUY';
+    
+    // For BUY: paying less is better (diff < 0), paying more is worse (diff > 0)
+    // For SELL: receiving more is better (diff > 0), receiving less is worse (diff < 0)
+    const isBetter = isBuy ? diff < -0.0001 : diff > 0.0001;
+    const isWorse = isBuy ? diff > 0.0001 : diff < -0.0001;
+    const isTight = absDiff <= 0.0001 || (benchmark.quote_evaluation?.variance_vs_ref_bps !== undefined && Math.abs(benchmark.quote_evaluation.variance_vs_ref_bps) <= 5.0);
+
+    let status = 'within';
+    let label = 'Within expected rate';
+    let colorClass = 'text-emerald-800 bg-emerald-50 border-emerald-300';
+    let icon = '🟢';
+
+    if (isTight) {
+        status = 'within';
+        label = 'Within expected rate';
+        colorClass = 'text-emerald-800 bg-emerald-50/80 border-emerald-300 font-semibold';
+        icon = '🟢';
+    } else if (isBetter) {
+        status = 'better';
+        label = `${absDiff.toFixed(4)} better than expected`;
+        colorClass = 'text-emerald-800 bg-emerald-100 border-emerald-400 font-bold';
+        icon = '🟢';
+    } else if (isWorse) {
+        status = 'worse';
+        const directionWord = isBuy ? 'higher' : 'lower';
+        label = `+${absDiff.toFixed(4)} ${directionWord} than expected`;
+        colorClass = 'text-rose-800 bg-rose-50 border-rose-300 font-bold';
+        icon = '🔴';
+    }
+
+    return {
+        expectedRate: numExpected,
+        quotedRate: numWinner,
+        diff,
+        absDiff,
+        status,
+        label,
+        colorClass,
+        icon,
+        isFrozen: Boolean(benchmark.is_frozen_snapshot)
+    };
+};
+
 export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, userRole }) {
     const navigate = useNavigate();
     const [secondsLeft, setSecondsLeft] = useState(deal?.seconds_remaining ?? 30);
     const [isMinimized, setIsMinimized] = useState(false);
     const [isAccepting, setIsAccepting] = useState(false);
     const [isDeclining, setIsDeclining] = useState(false);
-    const [showDeclineForm, setShowDeclineForm] = useState(false);
-    const [declineReason, setDeclineReason] = useState('Price exceeded internal limit / market shift');
+    const [isDeclined, setIsDeclined] = useState(false);
+    const [savedReason, setSavedReason] = useState(null);
+    const [isUpdatingReason, setIsUpdatingReason] = useState(false);
     const [soundMuted, setSoundMuted] = useState(false);
 
     // Multi-leg selection state
@@ -70,9 +130,9 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
         }
     }, [deal?.rfq_id, soundMuted]);
 
-    // Live countdown timer
+    // Live countdown timer (halts if deal already declined)
     useEffect(() => {
-        if (!deal?.acceptance_deadline) return;
+        if (!deal?.acceptance_deadline || isDeclined) return;
 
         const syncTimer = () => {
             const now = new Date().getTime();
@@ -93,7 +153,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
         syncTimer();
         const intervalId = setInterval(syncTimer, 1000);
         return () => clearInterval(intervalId);
-    }, [deal?.acceptance_deadline, deal?.rfq_id, onResolve, soundMuted]);
+    }, [deal?.acceptance_deadline, deal?.rfq_id, onResolve, soundMuted, isDeclined]);
 
     if (!deal) return null;
 
@@ -119,7 +179,10 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
             } : {};
 
             const res = await apiClient.post(acceptEndpoint, payload);
-            tradingAudio.playResultOut('WINNER');
+            try {
+                tradingAudio.playResultOut('WINNER');
+            } catch (e) {}
+
             toast.success(res.data?.message || "Trade deal accepted & binding execution confirmed!");
             
             window.dispatchEvent(new CustomEvent('quotation-deal-resolved', {
@@ -140,14 +203,23 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
         }
     };
 
-    const handleDecline = async () => {
+    /**
+     * Requirement 1: Immediate decline on customer action.
+     * Rejects tender right away on backend, then smoothly presents optional reason collection.
+     */
+    const handleImmediateDecline = async () => {
         const declineEndpoint = isCorporateAdmin
             ? `/corporate-admin/quotations/${deal.rfq_id}/decline-deal`
             : `/end-user/quotations/${deal.rfq_id}/decline-deal`;
 
         try {
             setIsDeclining(true);
-            const res = await apiClient.post(declineEndpoint, { reason: declineReason });
+            const res = await apiClient.post(declineEndpoint, { reason: "Declined by corporate treasury desk" });
+            
+            try {
+                tradingAudio.playResultOut('REJECTED');
+            } catch (e) {}
+
             toast.info(res.data?.message || "Tender outcome declined.");
 
             window.dispatchEvent(new CustomEvent('quotation-deal-resolved', {
@@ -156,17 +228,38 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
 
             if (onResolve) onResolve();
 
-            const targetUrl = isCorporateAdmin
-                ? `/corporate-admin/quotations/results/${deal.rfq_id}`
-                : `/end-user/quotations/results/${deal.rfq_id}`;
-            navigate(targetUrl);
+            // Immediately switch to post-decline reason collection
+            setIsDeclined(true);
         } catch (err) {
             console.error("Deal decline error:", err);
             toast.error(err.response?.data?.detail || "Failed to decline deal.");
         } finally {
             setIsDeclining(false);
-            setShowDeclineForm(false);
         }
+    };
+
+    const handleSelectDeclineReason = async (reasonOption) => {
+        setSavedReason(reasonOption);
+        const declineEndpoint = isCorporateAdmin
+            ? `/corporate-admin/quotations/${deal.rfq_id}/decline-deal`
+            : `/end-user/quotations/${deal.rfq_id}/decline-deal`;
+
+        try {
+            setIsUpdatingReason(true);
+            await apiClient.post(declineEndpoint, { reason: reasonOption });
+            toast.success("Decline reason recorded.");
+        } catch (err) {
+            console.warn("Could not update decline reason:", err);
+        } finally {
+            setIsUpdatingReason(false);
+        }
+    };
+
+    const handleFinishDeclinedClose = () => {
+        const targetUrl = isCorporateAdmin
+            ? `/corporate-admin/quotations/results/${deal.rfq_id}`
+            : `/end-user/quotations/results/${deal.rfq_id}`;
+        navigate(targetUrl);
     };
 
     const handleInspectOrderBook = () => {
@@ -192,6 +285,72 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
             setSelectedLegIds(validLegs.map(l => String(l.leg_id)));
         }
     };
+
+    // --- POST-DECLINE COLLECTION SCREEN (Stress-free, deal is already safely declined) ---
+    if (isDeclined) {
+        return (
+            <div 
+                className="fixed inset-0 z-[9990] flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs transition-all duration-300 animate-fade-in"
+                role="dialog"
+                aria-modal="true"
+            >
+                <div className="relative w-full max-w-lg bg-white border border-slate-300 rounded-3xl shadow-2xl p-6 flex flex-col items-center text-center animate-fade-in">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mb-3 shadow-inner">
+                        <XCircle size={28} />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900">
+                        Tender {deal.ref_no} Has Been Declined
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm">
+                        The quotation outcome was rejected immediately. Counterparties have been notified.
+                    </p>
+
+                    <div className="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-200 w-full text-left">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block mb-2">
+                            Help us improve: Reason for declining (Optional):
+                        </span>
+                        <div className="grid grid-cols-2 gap-2">
+                            {[
+                                'Price exceeded limit',
+                                'Market shifted / delayed internal approval',
+                                'Internal liquidity shift',
+                                'Re-tendering requested'
+                            ].map((r) => (
+                                <button
+                                    key={r}
+                                    type="button"
+                                    onClick={() => handleSelectDeclineReason(r)}
+                                    disabled={isUpdatingReason}
+                                    className={`px-3 py-2 text-xs font-semibold rounded-xl border text-left transition-colors cursor-pointer ${
+                                        savedReason === r 
+                                            ? 'bg-rose-600 text-white border-rose-600 shadow-xs' 
+                                            : 'bg-white border-slate-200 hover:border-rose-400 hover:bg-rose-50/50 text-slate-700'
+                                    }`}
+                                >
+                                    {r}
+                                </button>
+                            ))}
+                        </div>
+                        {savedReason && (
+                            <p className="text-[11px] text-emerald-600 font-semibold mt-2.5 flex items-center gap-1">
+                                <CheckCircle2 size={13} /> Reason recorded: {savedReason}
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="mt-5 w-full flex items-center justify-center gap-3">
+                        <button
+                            type="button"
+                            onClick={handleFinishDeclinedClose}
+                            className="w-full py-2.5 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer"
+                        >
+                            Done & View Results
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     // --- MINIMIZED FLOATING BADGE (Non-obstructive bottom right) ---
     if (isMinimized) {
@@ -238,19 +397,22 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
         );
     }
 
-    // --- FULL SCREEN INTERCEPTING ZERO-SCROLL COCKPIT ---
+    // Single-leg reference evaluation (if single-leg deal)
+    const singleRefEval = !isMultiLeg ? getRateReferenceAssessment(deal.winner_rate, deal.market_benchmark, deal.direction) : null;
+
+    // --- FULL SCREEN ZERO-SCROLL COCKPIT (Optimized to fit up to 4 pairs seamlessly) ---
     return (
         <div 
-            className="fixed inset-0 z-[9990] flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs transition-all duration-300 animate-fade-in"
+            className="fixed inset-0 z-[9990] flex items-center justify-center p-2 sm:p-3 bg-slate-950/70 backdrop-blur-xs transition-all duration-300 animate-fade-in"
             role="dialog"
             aria-modal="true"
         >
-            <div className={`relative w-full max-w-5xl xl:max-w-6xl max-h-[94vh] bg-white border rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 flex flex-col ${
+            <div className={`relative w-full max-w-5xl xl:max-w-6xl max-h-[96vh] bg-white border rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 flex flex-col ${
                 isUrgent ? 'border-rose-400 ring-4 ring-rose-400/20' : 'border-slate-300 ring-2 ring-slate-400/10'
             }`}>
                 
                 {/* 1. TOP PROGRESS STRIP */}
-                <div className="w-full h-1.5 bg-slate-100 relative overflow-hidden shrink-0">
+                <div className="w-full h-1 bg-slate-100 relative overflow-hidden shrink-0">
                     <div 
                         className={`h-full transition-all duration-1000 ease-linear ${
                             isUrgent 
@@ -261,226 +423,156 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                     />
                 </div>
 
-                {/* 2. HEADER & CLOCK HUD */}
-                <div className="px-5 py-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between gap-3 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                {/* 2. HEADER & CLOCK HUD (Compact Height ~42px) */}
+                <div className="px-4 py-2 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between gap-3 shrink-0">
+                    <div className="flex items-center gap-2.5">
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                             isUrgent ? 'bg-rose-500/20 text-rose-400 ring-1 ring-rose-400' : 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-400'
                         }`}>
-                            {isUrgent ? <AlertTriangle size={18} className="animate-pulse" /> : <Clock size={18} />}
+                            {isUrgent ? <AlertTriangle size={15} className="animate-pulse" /> : <Clock size={15} />}
                         </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-mono font-bold tracking-wider text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/30">
-                                    {deal.ref_no}
-                                </span>
-                                <span className="text-xs font-bold text-slate-200">
-                                    {deal.type === 'TBILL' ? 'Treasury Bill Auction' : (deal.is_multi_leg ? `Multi-Currency Basket (${deal.legs?.length} Legs)` : 'FX Spot Tender')}
-                                </span>
-                                <span className={`text-[10px] font-extrabold uppercase px-2 py-0.2 rounded-full ${
-                                    (deal.direction || 'BUY').toUpperCase() === 'BUY' 
-                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
-                                        : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                                }`}>
-                                    {deal.direction || 'BUY'}
-                                </span>
-                            </div>
-                            <span className="text-[11px] text-slate-400">
-                                Tender window closed &bull; Binding execution awaiting corporate sign-off
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono font-bold tracking-wider text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/30">
+                                {deal.ref_no}
+                            </span>
+                            <span className="text-xs font-bold text-slate-200">
+                                {deal.type === 'TBILL' ? 'T-Bill Auction' : (deal.is_multi_leg ? `Multi-Currency Basket (${deal.legs?.length} Legs)` : 'FX Spot Tender')}
+                            </span>
+                            <span className={`text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded ${
+                                (deal.direction || 'BUY').toUpperCase() === 'BUY' 
+                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                                    : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                            }`}>
+                                {deal.direction || 'BUY'}
                             </span>
                         </div>
                     </div>
 
-                    {/* Prominent Countdown & Expiry HUD */}
+                    {/* Clock & Action HUD */}
                     <div className="flex items-center gap-3">
-                        <div className="text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                                <span className={`text-2xl font-bold font-mono tracking-tight ${
-                                    isUrgent ? 'text-rose-400 animate-pulse' : 'text-emerald-400'
-                                }`}>
-                                    00:{String(secondsLeft).padStart(2, '0')}s
-                                </span>
-                            </div>
-                            <div className="flex items-center justify-end gap-1 text-[10px] font-bold">
-                                {deal.is_auto_accept_halted ? (
-                                    <span className="text-amber-400 flex items-center gap-1 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/30">
-                                        <ShieldAlert size={10} /> Auto-Accept Halted
-                                    </span>
-                                ) : deal.timeout_action === 'AUTO_ACCEPT' ? (
-                                    <span className="text-emerald-300 flex items-center gap-1">
-                                        <CheckCircle2 size={10} /> Auto-Accepts on Timeout
-                                    </span>
-                                ) : (
-                                    <span className="text-rose-300 flex items-center gap-1">
-                                        <XCircle size={10} /> Auto-Rejects on Timeout
-                                    </span>
-                                )}
-                            </div>
+                        <div className="flex items-center gap-2 text-right">
+                            <span className={`text-xl font-bold font-mono tracking-tight ${
+                                isUrgent ? 'text-rose-400 animate-pulse' : 'text-emerald-400'
+                            }`}>
+                                00:{String(secondsLeft).padStart(2, '0')}s
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-400">
+                                {deal.timeout_action === 'AUTO_ACCEPT' ? '• Auto-Accepts' : '• Auto-Rejects'}
+                            </span>
                         </div>
 
-                        {/* Top Utility Controls */}
                         <div className="flex items-center gap-1 pl-2 border-l border-slate-700">
                             <button
                                 onClick={() => setSoundMuted(!soundMuted)}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
+                                className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
                                 title={soundMuted ? "Unmute chimes" : "Mute chimes"}
                             >
-                                {soundMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                                {soundMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
                             </button>
                             <button
                                 onClick={() => setIsMinimized(true)}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
+                                className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
                                 title="Minimize to ticker badge"
                             >
-                                <Minimize2 size={15} />
+                                <Minimize2 size={14} />
                             </button>
                         </div>
                     </div>
                 </div>
 
-                {/* 3. SOLE-SOURCE GOVERNANCE ADVISORY CALLOUT */}
+                {/* 3. SOLE-SOURCE GOVERNANCE ADVISORY (Compact 1-Line Height ~26px) */}
                 {(deal.is_uncontested || deal.legs?.some(l => l.is_uncontested)) && (
-                    <div className="px-5 py-2.5 bg-gradient-to-r from-amber-100/95 via-amber-50 to-amber-100/80 border-b-2 border-amber-400 flex items-center justify-between gap-3 shrink-0 shadow-2xs">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-6 h-6 rounded-lg bg-amber-500 text-amber-950 flex items-center justify-center shrink-0 shadow-xs">
-                                <AlertTriangle size={15} className="text-amber-950 font-bold" />
-                            </div>
-                            <div className="flex items-baseline gap-2 min-w-0">
-                                <span className="text-xs font-black text-amber-950 tracking-wide uppercase">
-                                    Sole-Source Governance Warning:
-                                </span>
-                                <span className="text-xs font-semibold text-amber-900 truncate">
-                                    {deal.uncontested_reason || "Single quote received — no competing counterparty offers were received to establish market spread."}
-                                </span>
-                            </div>
+                    <div className="px-4 py-1.5 bg-amber-50 border-b border-amber-300 flex items-center justify-between gap-3 shrink-0">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <AlertTriangle size={14} className="text-amber-700 font-bold shrink-0" />
+                            <span className="text-xs font-bold text-amber-950 uppercase tracking-wide">
+                                Sole-Source Tender:
+                            </span>
+                            <span className="text-xs text-amber-900 truncate font-medium">
+                                {deal.uncontested_reason || "Single quote received — benchmarked against expected market reference rate."}
+                            </span>
                         </div>
-                        <span className="text-[11px] font-black uppercase tracking-wider text-amber-950 bg-amber-300/90 border border-amber-500 px-2.5 py-0.5 rounded-md shrink-0 shadow-2xs">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-950 bg-amber-200 border border-amber-400 px-2 py-0.2 rounded shrink-0">
                             Uncontested Rate
                         </span>
                     </div>
                 )}
 
-                {/* 4. EXECUTIVE DECISION HUD (4-COLUMN HIGH DENSITY GRID) */}
-                <div className="p-4 bg-slate-50/70 border-b border-slate-200 shrink-0">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                        
-                        {/* Box 1: Trade Package Volume */}
-                        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                                Trade Volume
-                            </span>
-                            <div className="mt-1">
-                                <span className="text-base font-bold font-mono text-slate-900 block truncate">
-                                    {isMultiLeg ? `${deal.legs?.length || 0} Currency Pairs` : formatNum(deal.amount, 0, 2)}
+                {/* 4. EXECUTIVE DECISION HUD (Ultra-Compact Single-Row Bar ~50px) */}
+                <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 shrink-0">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {/* Stat 1: Volume */}
+                        <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+                            <div>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                    Trade Volume
                                 </span>
-                                <span className="text-xs font-bold text-blue-700 block truncate">
-                                    {isMultiLeg ? (deal.currency_pair || 'Multi-Currency Basket') : (deal.buy_currency || deal.currency_pair)}
+                                <span className="text-xs font-bold font-mono text-slate-900 truncate block">
+                                    {isMultiLeg ? `${deal.legs?.length || 0} Pairs Basket` : `${formatNum(deal.amount, 0, 2)} ${deal.buy_currency || deal.currency_pair}`}
                                 </span>
                             </div>
-                            <span className="text-[10px] text-slate-500 mt-1 block truncate">
-                                Value: {deal.value_date ? String(deal.value_date) : 'Spot (T+2)'}
+                            <span className="text-[10px] text-slate-500 font-semibold bg-slate-100 px-1.5 py-0.5 rounded">
+                                {deal.value_date ? String(deal.value_date) : 'Spot (T+2)'}
                             </span>
                         </div>
 
-                        {/* Box 2: Winning Counterparties */}
-                        <div className="bg-white p-3 rounded-2xl border border-emerald-200 shadow-2xs flex flex-col justify-between">
-                            <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block truncate">
-                                    {isMultiLeg ? 'Awarded Counterparties' : 'Winning Counterparty'}
+                        {/* Stat 2: Awarded Counterparties */}
+                        <div className="bg-white px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs flex items-center justify-between">
+                            <div className="min-w-0 pr-1">
+                                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
+                                    {isMultiLeg ? 'Awarded Banks' : 'Winning Bank'}
                                 </span>
-                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-mono shrink-0">
-                                    {isMultiLeg ? `${winningBanks.length} Banks` : '#1 Rank'}
-                                </span>
-                            </div>
-                            <div className="mt-1">
-                                <span className="text-sm font-bold text-slate-900 block truncate" title={winningBanks.join(', ') || deal.winner_bank_name}>
+                                <span className="text-xs font-bold text-slate-900 truncate block" title={winningBanks.join(', ') || deal.winner_bank_name}>
                                     {winningBanks.join(', ') || deal.winner_bank_name || 'Winning Bank'}
                                 </span>
-                                <span className="text-[11px] text-slate-500 block truncate">
-                                    {isMultiLeg ? 'Best executable quote per leg' : (deal.total_quotes ? `${deal.total_quotes} quotes evaluated` : 'Best executable quote')}
-                                </span>
                             </div>
-                            <span className="text-[10px] text-emerald-700 font-semibold mt-1 block">
-                                Counterparty Confirmed
+                            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded shrink-0">
+                                {isMultiLeg ? `${winningBanks.length} Banks` : '#1 Rank'}
                             </span>
                         </div>
 
-                        {/* Box 3: Best Execution Rate */}
-                        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                                {isMultiLeg ? 'Execution Pricing' : 'Execution Rate'}
-                            </span>
-                            <div className="mt-1">
-                                <span className={`font-mono text-emerald-700 block tracking-tight ${isMultiLeg ? 'text-base font-bold' : 'text-lg font-bold'}`}>
-                                    {isMultiLeg ? 'Multi-Pair Awarded' : (deal.winner_rate !== null && deal.winner_rate !== undefined ? formatNum(deal.winner_rate, 4, 4) : '—')}
+                        {/* Stat 3: Execution Pricing */}
+                        <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+                            <div className="min-w-0 pr-1">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                    {isMultiLeg ? 'Pricing Mode' : 'Execution Rate'}
                                 </span>
-                                <span className="text-[11px] font-mono text-slate-500 block truncate">
-                                    {isMultiLeg ? (
-                                        deal.market_benchmark?.live_mid ? (
-                                            <span className="text-blue-700 font-semibold">Live Mid: {formatNum(deal.market_benchmark.live_mid, 4, 4)}</span>
-                                        ) : `${deal.legs?.length || 0} Individual Best Rates`
-                                    ) : (
-                                        deal.market_benchmark?.live_mid ? (
-                                            <span>Live Mid: <strong className="text-blue-700">{formatNum(deal.market_benchmark.live_mid, 4, 4)}</strong></span>
-                                        ) : deal.avg_rate ? `Desk Avg: ${formatNum(deal.avg_rate, 4, 4)}` : 'Market Competitive'
-                                    )}
+                                <span className="text-xs font-bold font-mono text-emerald-700 truncate block">
+                                    {isMultiLeg ? 'Multi-Pair Rates' : formatNum(deal.winner_rate, 4, 4)}
                                 </span>
                             </div>
-                            <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                                {deal.is_uncontested || deal.legs?.some(l => l.is_uncontested) ? (
-                                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-amber-950 bg-amber-100 border border-amber-400 px-2 py-0.5 rounded-md shadow-2xs">
-                                        <AlertTriangle size={12} className="text-amber-700 shrink-0" />
-                                        Sole-Source Awarded
-                                    </span>
-                                ) : (
-                                    <span className="text-[10px] text-slate-500 block">
-                                        Competitive Best
-                                    </span>
-                                )}
-                                {deal.market_benchmark?.is_empirical_active && (
-                                    <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title={`Historical empirical suggested reference based on ${deal.market_benchmark.sample_size} tenders`}>
-                                        Ref: {formatNum(deal.market_benchmark.suggested_reference_rate, 4, 4)}
-                                    </span>
-                                )}
-                                {deal.market_benchmark?.is_frozen_snapshot && (
-                                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-300" title="Market benchmark frozen at time of deal acceptance">
-                                        🔒 Locked at Acceptance
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Box 4: Total Commercial Savings */}
-                        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 p-3 rounded-2xl border border-emerald-300 shadow-2xs flex flex-col justify-between">
-                            <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
-                                    Commercial Savings
-                                </span>
-                                <ArrowUpRight size={14} className="text-emerald-700" />
-                            </div>
-                            <div className="mt-1">
-                                <span className="text-lg font-bold font-mono text-emerald-800 block tracking-tight">
-                                    {deal.saved_vs_avg ? `+${formatNum(deal.saved_vs_avg, 2, 2)}` : 'Best in Market'}
-                                </span>
-                                <span className="text-[11px] font-semibold text-emerald-700 block">
-                                    EGP vs Market Mean
-                                </span>
-                            </div>
-                            <span className="text-[10px] text-emerald-800/80 font-medium mt-1 block">
-                                Direct Treasury Benefit
+                            <span className="text-[10px] text-slate-500 font-semibold bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
+                                {isMultiLeg ? 'Per-Leg Benchmarks' : (deal.market_benchmark?.live_mid ? `Mid: ${formatNum(deal.market_benchmark.live_mid, 4, 4)}` : 'Best Quote')}
                             </span>
                         </div>
 
+                        {/* Stat 4: Commercial Value */}
+                        <div className="bg-white px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs flex items-center justify-between">
+                            <div className="min-w-0 pr-1">
+                                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
+                                    Commercial Value
+                                </span>
+                                <span className="text-xs font-bold font-mono text-emerald-800 truncate block">
+                                    {deal.is_uncontested || !deal.saved_vs_avg || deal.saved_vs_avg <= 0
+                                        ? 'Sole-Source Benchmarked'
+                                        : `+${formatNum(deal.saved_vs_avg, 2, 2)} EGP Savings`}
+                                </span>
+                            </div>
+                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded shrink-0">
+                                {deal.is_uncontested ? 'Audit Active' : 'vs Desk Mean'}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
-                {/* 5. MULTI-LEG MATRIX WITH DIRECT INLINE OFFERS (ZERO-SCROLL, ZERO-CLICK) */}
-                <div className="p-4 sm:p-5 bg-white flex-1 overflow-y-auto custom-scrollbar">
+                {/* 5. MULTI-LEG MATRIX / SINGLE-LEG DIRECT LADDER (Fits 4 pairs without scrolling) */}
+                <div className="px-4 py-2 bg-white flex-1 overflow-y-auto custom-scrollbar">
                     {isMultiLeg ? (
-                        <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-                            <div className="bg-slate-100/90 px-4 py-2.5 flex items-center justify-between border-b border-slate-200 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                                <div className="flex items-center gap-2">
-                                    <Layers size={14} className="text-slate-600" />
+                        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                            {/* Table Header */}
+                            <div className="bg-slate-100/90 px-3 py-1.5 flex items-center justify-between border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider shrink-0">
+                                <div className="flex items-center gap-1.5">
+                                    <Layers size={13} className="text-slate-500" />
                                     <span>Awarded Currency Pairs ({selectedLegIds.length} of {deal.legs?.length} Selected)</span>
                                 </div>
                                 <button
@@ -492,158 +584,131 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                 </button>
                             </div>
 
+                            {/* Legs List - Designed for 4 items to fit perfectly */}
                             <div className="divide-y divide-slate-100">
                                 {deal.legs.map((leg, idx) => {
                                     const legIdStr = String(leg.leg_id);
                                     const isSelected = selectedLegIds.includes(legIdStr);
                                     const isInconclusive = Boolean(leg.is_inconclusive);
                                     const offers = leg.counterparty_offers || [];
+                                    const refEval = getRateReferenceAssessment(leg.winner_rate, leg.market_benchmark, leg.direction);
 
                                     return (
                                         <div 
                                             key={legIdStr || idx}
-                                            className={`p-3.5 sm:p-4 transition-colors ${
+                                            className={`px-3 py-2 transition-colors ${
                                                 isInconclusive 
                                                     ? 'bg-slate-50/70 text-slate-400'
                                                     : isSelected
-                                                    ? 'bg-emerald-50/30 hover:bg-emerald-50/50 text-slate-900'
+                                                    ? 'bg-emerald-50/20 hover:bg-emerald-50/40 text-slate-900'
                                                     : 'bg-white hover:bg-slate-50 text-slate-600'
                                             }`}
                                         >
-                                            {/* Top Row: Checkbox, Pair Details, Best Rate & Savings */}
-                                            <div className="flex items-center justify-between gap-4">
-                                                <div className="flex items-center gap-3">
+                                            {/* Main Row */}
+                                            <div className="flex items-center justify-between gap-3">
+                                                {/* Left: Checkbox + Pair Details */}
+                                                <div className="flex items-center gap-2 min-w-0">
                                                     <input
                                                         type="checkbox"
                                                         checked={isSelected}
                                                         disabled={isInconclusive}
                                                         onChange={() => !isInconclusive && toggleLeg(legIdStr)}
-                                                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                                                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer shrink-0"
                                                     />
-                                                    <div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-bold font-mono text-sm text-slate-900">
-                                                                {leg.currency_pair}
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <span className="font-bold font-mono text-sm text-slate-900">
+                                                            {leg.currency_pair}
+                                                        </span>
+                                                        <span className="text-xs font-semibold text-slate-600 uppercase bg-slate-100 px-1.5 py-0.2 rounded">
+                                                            {leg.direction || 'BUY'} {formatNum(leg.amount, 0, 2)}
+                                                        </span>
+                                                        {leg.is_uncontested && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.2 rounded shrink-0">
+                                                                <AlertTriangle size={11} className="text-amber-700" />
+                                                                Sole-Source
                                                             </span>
-                                                            <span className="text-xs font-bold text-slate-500 uppercase">
-                                                                {leg.direction || 'BUY'} {formatNum(leg.amount, 0, 2)}
-                                                            </span>
-                                                            {leg.is_uncontested && (
-                                                                <span className="inline-flex items-center gap-1.5 text-xs font-black text-amber-950 bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 border-2 border-amber-500 px-2.5 py-1 rounded-lg shadow-xs ring-2 ring-amber-400/30">
-                                                                    <AlertTriangle size={14} className="text-amber-800 shrink-0 animate-pulse" />
-                                                                    <span>Sole-Source Quote (Uncontested)</span>
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-[11px] text-slate-500 flex items-center flex-wrap gap-2 mt-0.5">
-                                                            <span>Value: {leg.value_date ? String(leg.value_date) : 'Spot (T+2)'}</span>
-                                                            {leg.avg_rate && (
-                                                                <>
-                                                                    <span>&bull;</span>
-                                                                    <span>Desk Mean: <strong className="font-mono text-slate-700">{formatNum(leg.avg_rate, 4, 4)}</strong></span>
-                                                                </>
-                                                            )}
-                                                            {leg.market_benchmark && (
-                                                                <>
-                                                                    <span>&bull;</span>
-                                                                    <span className="inline-flex items-center gap-1 font-mono font-bold text-blue-800 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
-                                                                        {leg.market_benchmark.is_frozen_snapshot ? (
-                                                                            <span className="text-[10px]" title="Rate frozen at time of trade execution">🔒</span>
-                                                                        ) : (
-                                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                                        )}
-                                                                        Mid: {formatNum(leg.market_benchmark.live_mid, 4, 4)}
-                                                                    </span>
-                                                                    {leg.market_benchmark.is_empirical_active && (
-                                                                        <span className="font-mono text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 text-[10px]" title={`Suggested reference based on ${leg.market_benchmark.sample_size} historical tenders`}>
-                                                                            Hist. Ref: <strong className="text-slate-800">{formatNum(leg.market_benchmark.suggested_reference_rate, 4, 4)}</strong>
-                                                                        </span>
-                                                                    )}
-                                                                    {leg.market_benchmark.cbe_gap_bps !== null && leg.market_benchmark.cbe_gap_bps !== undefined && (
-                                                                        <span className="text-[10px] text-slate-500 font-mono" title={`Intraday Drift vs CBE Fixing: ${leg.market_benchmark.cbe_gap} EGP`}>
-                                                                            CBE Drift: {leg.market_benchmark.cbe_gap_bps > 0 ? '+' : ''}{leg.market_benchmark.cbe_gap_bps} bps
-                                                                        </span>
-                                                                    )}
-                                                                    {leg.market_benchmark.quote_evaluation?.assessment_label && (
-                                                                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                                                                            leg.market_benchmark.quote_evaluation.is_favorable
-                                                                                ? 'text-emerald-800 bg-emerald-100 border border-emerald-300'
-                                                                                : 'text-amber-800 bg-amber-100 border border-amber-300'
-                                                                        }`}>
-                                                                            {leg.market_benchmark.quote_evaluation.assessment_label}
-                                                                        </span>
-                                                                    )}
-                                                                </>
-                                                            )}
-                                                        </div>
+                                                        )}
+                                                        <span className="text-[11px] text-slate-400 hidden sm:inline">
+                                                            {leg.value_date ? String(leg.value_date) : 'Spot (T+2)'}
+                                                        </span>
                                                     </div>
                                                 </div>
 
+                                                {/* Center: Direct Rate Expectation Assessment */}
+                                                {refEval ? (
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        <div className="flex items-center gap-1.5 text-xs font-mono bg-slate-50 px-2 py-0.8 rounded-lg border border-slate-200">
+                                                            <span className="text-slate-500 text-[11px] font-sans">Expected:</span>
+                                                            <strong className="text-slate-700">{formatNum(refEval.expectedRate, 4, 4)}</strong>
+                                                            {refEval.isFrozen && (
+                                                                <span className="text-[10px]" title="Rate frozen at trade execution">🔒</span>
+                                                            )}
+                                                            <span className="text-slate-400">→</span>
+                                                            <span className="text-slate-500 text-[11px] font-sans">Quoted:</span>
+                                                            <strong className="text-slate-900">{formatNum(refEval.quotedRate, 4, 4)}</strong>
+                                                        </div>
+                                                        <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg border shadow-2xs ${refEval.colorClass}`}>
+                                                            <span>{refEval.icon}</span>
+                                                            <span>{refEval.label}</span>
+                                                        </span>
+                                                    </div>
+                                                ) : leg.avg_rate && leg.total_quotes >= 2 ? (
+                                                    <div className="text-xs text-slate-500 font-mono">
+                                                        Desk Mean: <strong className="text-slate-700">{formatNum(leg.avg_rate, 4, 4)}</strong>
+                                                    </div>
+                                                ) : null}
+
+                                                {/* Right: Best Executable Rate */}
                                                 <div className="text-right shrink-0">
                                                     {!isInconclusive ? (
-                                                        <>
-                                                            <div className="flex items-center justify-end gap-1.5">
-                                                                <span className="text-xs font-semibold text-slate-500">Best:</span>
-                                                                <span className="font-mono font-bold text-emerald-700 text-base sm:text-lg">
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <div className="text-right">
+                                                                <div className="text-xs font-bold text-slate-800 leading-tight">
+                                                                    {leg.winner_bank_name || 'Awarded Bank'}
+                                                                </div>
+                                                                <div className="font-mono font-bold text-emerald-700 text-sm sm:text-base leading-tight">
                                                                     {formatNum(leg.winner_rate, 4, 4)}
-                                                                </span>
+                                                                </div>
                                                             </div>
-                                                            {leg.saved_vs_avg && (
-                                                                <span className="text-[11px] font-mono text-emerald-800 font-semibold block">
-                                                                    +{formatNum(leg.saved_vs_avg, 2, 2)} EGP Savings
-                                                                </span>
-                                                            )}
-                                                        </>
+                                                            <span className="text-[10px] uppercase font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-300">
+                                                                Best
+                                                            </span>
+                                                        </div>
                                                     ) : (
-                                                        <span className="text-slate-400 font-semibold text-xs bg-slate-100 px-2 py-1 rounded">Excluded / No Executable Quote</span>
+                                                        <span className="text-slate-400 font-semibold text-xs bg-slate-100 px-2 py-0.5 rounded">
+                                                            No Quote
+                                                        </span>
                                                     )}
                                                 </div>
                                             </div>
 
-                                            {/* Direct Counterparty Bids Strip (NO CLICK REQUIRED - ALWAYS VISIBLE) */}
+                                            {/* Micro Bids Strip */}
                                             {offers.length > 0 && !isInconclusive && (
-                                                <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                                                <div className="mt-1 pt-1 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
                                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
-                                                        Received Bids ({offers.length}):
+                                                        Bids ({offers.length}):
                                                     </span>
                                                     {offers.map((offer, oIdx) => (
                                                         <div
                                                             key={offer.bank_id || oIdx}
-                                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs transition-all ${
+                                                            className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[11px] transition-all ${
                                                                 offer.is_winner
-                                                                    ? 'bg-emerald-100/90 text-emerald-950 font-bold border border-emerald-300 shadow-2xs'
+                                                                    ? 'bg-emerald-100/90 text-emerald-950 font-bold border border-emerald-300'
                                                                     : offer.is_passed
                                                                     ? 'bg-slate-100 text-slate-400 border border-slate-200'
-                                                                    : 'bg-slate-100/80 text-slate-700 border border-slate-200'
+                                                                    : 'bg-slate-50 text-slate-700 border border-slate-200'
                                                             }`}
                                                         >
-                                                            <span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center shrink-0 ${
-                                                                offer.is_winner ? 'bg-emerald-600 text-white' : offer.rank ? 'bg-slate-200 text-slate-700' : 'bg-slate-200 text-slate-400'
-                                                            }`}>
-                                                                {offer.rank || '—'}
-                                                            </span>
-                                                            <span className="font-semibold text-[11px]">{offer.bank_name}</span>
+                                                            <span className="font-medium">{offer.bank_name}</span>
                                                             {offer.has_quote ? (
-                                                                <>
-                                                                    <span className={`font-mono ${offer.is_winner ? 'text-emerald-800 font-bold' : 'text-slate-800'}`}>
-                                                                        {formatNum(offer.rate, 4, 4)}
-                                                                    </span>
-                                                                    {offer.is_winner ? (
-                                                                        <span className="text-[9px] uppercase px-1.5 py-0.2 bg-emerald-200 text-emerald-900 rounded-sm font-bold">
-                                                                            Awarded
-                                                                        </span>
-                                                                    ) : offer.spread_bps !== null && offer.spread_bps !== undefined ? (
-                                                                        <span className="text-[10px] text-slate-500 font-mono">
-                                                                            +{offer.spread_bps} bps
-                                                                        </span>
-                                                                    ) : null}
-                                                                </>
-                                                            ) : offer.is_passed ? (
-                                                                <span className="text-slate-500 font-semibold text-[10px] bg-slate-200/80 px-1.5 py-0.2 rounded-sm">
-                                                                    Passed
+                                                                <span className={`font-mono ${offer.is_winner ? 'text-emerald-900 font-bold' : 'text-slate-700'}`}>
+                                                                    {formatNum(offer.rate, 4, 4)}
+                                                                    {offer.is_winner && ' ★'}
                                                                 </span>
+                                                            ) : offer.is_passed ? (
+                                                                <span className="text-slate-400 text-[10px]">(Passed)</span>
                                                             ) : (
-                                                                <span className="text-slate-400 text-[10px] italic">No Quote</span>
+                                                                <span className="text-slate-400 text-[10px]">(No Quote)</span>
                                                             )}
                                                         </div>
                                                     ))}
@@ -655,23 +720,24 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                             </div>
                         </div>
                     ) : (
-                        /* Single-Leg Direct Price Ladder */
-                        <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs flex flex-col bg-white">
-                            <div className="bg-slate-100/90 px-4 py-2.5 flex items-center justify-between border-b border-slate-200 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                        /* Single-Leg Price Ladder with Direct Reference */
+                        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs flex flex-col bg-white">
+                            <div className="bg-slate-100/90 px-3 py-1.5 flex items-center justify-between border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                                 <div className="flex items-center gap-2">
-                                    <BarChart2 size={14} className="text-slate-600" />
+                                    <BarChart2 size={13} className="text-slate-500" />
                                     <span>
                                         Competitive Counterparty Ladder ({deal.counterparty_offers?.length || deal.total_quotes || 0} Banks Quoted)
                                     </span>
                                 </div>
-                                <div className="flex items-center gap-3 text-[11px] normal-case text-slate-500 font-semibold">
-                                    {deal.avg_rate && (
-                                        <span>Market Mean: <span className="font-bold text-slate-700 font-mono">{formatNum(deal.avg_rate, 4, 4)}</span></span>
-                                    )}
-                                    {deal.worst_rate && (
-                                        <span>Worst Bid: <span className="font-bold text-rose-600 font-mono">{formatNum(deal.worst_rate, 4, 4)}</span></span>
-                                    )}
-                                </div>
+                                {singleRefEval && (
+                                    <div className="flex items-center gap-2 font-mono text-xs">
+                                        <span className="text-slate-500 font-sans">Expected Rate:</span>
+                                        <strong>{formatNum(singleRefEval.expectedRate, 4, 4)}</strong>
+                                        <span className={`px-2 py-0.5 rounded text-[11px] ${singleRefEval.colorClass}`}>
+                                            {singleRefEval.icon} {singleRefEval.label}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
 
                             {deal.counterparty_offers && deal.counterparty_offers.length > 0 ? (
@@ -679,7 +745,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                     {deal.counterparty_offers.map((offer, idx) => (
                                         <div
                                             key={offer.bank_id || idx}
-                                            className={`px-4 py-3 flex items-center justify-between text-xs transition-colors ${
+                                            className={`px-3 py-2 flex items-center justify-between text-xs transition-colors ${
                                                 offer.is_winner
                                                     ? 'bg-emerald-50/70'
                                                     : offer.is_passed
@@ -687,8 +753,8 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                                     : 'bg-white hover:bg-slate-50/80'
                                             }`}
                                         >
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <span className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <span className={`w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${
                                                     offer.is_winner
                                                         ? 'bg-emerald-600 text-white shadow-2xs'
                                                         : offer.rank
@@ -697,55 +763,30 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                                 }`}>
                                                     {offer.rank || '—'}
                                                 </span>
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`text-sm ${offer.is_winner ? 'font-bold text-emerald-950' : 'font-semibold text-slate-800'}`}>
-                                                            {offer.bank_name}
-                                                        </span>
-                                                        {offer.is_winner && (
-                                                            <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-300">
-                                                                Best Execution (Awarded)
-                                                            </span>
-                                                        )}
-                                                        {offer.is_winner && deal.is_uncontested && (
-                                                            <span className="inline-flex items-center gap-1 text-[11px] font-black text-amber-950 bg-amber-200 border border-amber-400 px-2 py-0.5 rounded-md shadow-2xs">
-                                                                <AlertTriangle size={12} className="text-amber-700 shrink-0 animate-pulse" />
-                                                                Sole-Source (Uncontested)
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <span className="text-[11px] text-slate-400 block mt-0.5">
-                                                        {offer.is_winner 
-                                                            ? 'Recommended for binding trade execution' 
-                                                            : offer.has_quote 
-                                                            ? `Runner-up bid • Rank #${offer.rank}` 
-                                                            : offer.is_passed 
-                                                            ? 'Formal pass submitted by bank desk' 
-                                                            : 'No quote submitted'}
+                                                <span className={`text-xs ${offer.is_winner ? 'font-bold text-emerald-950' : 'font-semibold text-slate-800'}`}>
+                                                    {offer.bank_name}
+                                                </span>
+                                                {offer.is_winner && (
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded border border-emerald-300">
+                                                        Awarded
                                                     </span>
-                                                </div>
+                                                )}
+                                                {offer.is_winner && deal.is_uncontested && (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-black text-amber-950 bg-amber-200 border border-amber-400 px-1.5 py-0.2 rounded">
+                                                        Sole-Source
+                                                    </span>
+                                                )}
                                             </div>
 
-                                            <div className="text-right shrink-0 pl-4">
+                                            <div className="text-right shrink-0">
                                                 {offer.has_quote ? (
-                                                    <div className="flex items-center gap-2.5 justify-end">
-                                                        <span className={`font-mono text-base font-bold ${offer.is_winner ? 'text-emerald-700 text-lg' : 'text-slate-800'}`}>
-                                                            {formatNum(offer.rate, 4, 4)}
-                                                        </span>
-                                                        {offer.spread_bps !== null && offer.spread_bps !== undefined && !offer.is_winner && (
-                                                            <span className="text-xs font-mono font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                                                                +{offer.spread_bps} bps
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                    <span className={`font-mono text-sm font-bold ${offer.is_winner ? 'text-emerald-700' : 'text-slate-800'}`}>
+                                                        {formatNum(offer.rate, 4, 4)}
+                                                    </span>
                                                 ) : offer.is_passed ? (
-                                                    <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-md">
-                                                        Passed
-                                                    </span>
+                                                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">Passed</span>
                                                 ) : (
-                                                    <span className="text-xs text-slate-400 italic">
-                                                        No Quote
-                                                    </span>
+                                                    <span className="text-xs text-slate-400 italic">No Quote</span>
                                                 )}
                                             </div>
                                         </div>
@@ -756,66 +797,16 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                     )}
                 </div>
 
-                {/* 6. INLINE DECLINE PROMPT (ZERO LAYOUT SHIFT) */}
-                {showDeclineForm && (
-                    <div className="px-5 py-3 bg-rose-50 border-t border-rose-200 flex flex-wrap items-center justify-between gap-3 shrink-0 animate-fade-in">
-                        <div className="flex-1 min-w-[280px]">
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-rose-900 block mb-1">
-                                Select Reason for Declining Tender
-                            </label>
-                            <div className="flex flex-wrap gap-1.5">
-                                {[
-                                    'Price exceeded limit',
-                                    'Market shifted / delayed internal approval',
-                                    'Internal liquidity shift',
-                                    'Re-tendering requested'
-                                ].map((reasonOption) => (
-                                    <button
-                                        key={reasonOption}
-                                        type="button"
-                                        onClick={() => setDeclineReason(reasonOption)}
-                                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                            declineReason === reasonOption
-                                                ? 'bg-rose-600 text-white shadow-2xs'
-                                                : 'bg-white text-slate-700 border border-slate-300 hover:border-rose-300'
-                                        }`}
-                                    >
-                                        {reasonOption}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 ml-auto">
-                            <button
-                                type="button"
-                                onClick={() => setShowDeclineForm(false)}
-                                className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-800 rounded-xl hover:bg-white transition-colors cursor-pointer"
-                            >
-                                Back
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleDecline}
-                                disabled={isDeclining}
-                                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
-                            >
-                                {isDeclining ? 'Declining...' : 'Confirm Decline'}
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Phase 6.5: Historical Empirical Model Governance Disclaimer */}
-                <div className="px-5 py-2 bg-slate-50/90 border-t border-slate-200 text-[10px] text-slate-500 flex items-center gap-2 shrink-0">
-                    <Info size={13} className="text-slate-400 shrink-0" />
+                {/* 6. MICRO DISCLAIMER FOOTNOTE (~18px) */}
+                <div className="px-4 py-1 bg-slate-50 border-t border-slate-200 text-[10px] text-slate-400 flex items-center gap-1.5 shrink-0">
+                    <Info size={12} className="text-slate-400 shrink-0" />
                     <span className="truncate">
-                        Empirical benchmarks & suggested reference rates are derived mathematically from live feeds & historical platform executions. Indicative only — does not replace customer verification or internal compliance policies.
+                        Expected market reference rates are derived mathematically from live feeds & historical CBE official fixings. Indicative guidance only.
                     </span>
                 </div>
 
-                {/* 7. HIGH-VISIBILITY ACTION FOOTER */}
-                <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+                {/* 7. HIGH-VISIBILITY ACTION FOOTER (~48px) */}
+                <div className="px-4 py-2 bg-white border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
                     <button
                         type="button"
                         onClick={handleInspectOrderBook}
@@ -825,23 +816,32 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                         <span>Inspect Full Order Book</span>
                     </button>
 
-                    <div className="flex items-center gap-3">
-                        {!showDeclineForm && (
-                            <button
-                                type="button"
-                                onClick={() => setShowDeclineForm(true)}
-                                disabled={isAccepting || isDeclining}
-                                className="px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 rounded-xl border border-rose-200 hover:border-rose-300 transition-colors cursor-pointer disabled:opacity-50"
-                            >
-                                Decline Tender
-                            </button>
-                        )}
+                    <div className="flex items-center gap-2.5">
+                        {/* Requirement 1: Instant Decline Button */}
+                        <button
+                            type="button"
+                            onClick={handleImmediateDecline}
+                            disabled={isAccepting || isDeclining}
+                            className="px-4 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl border border-rose-300 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                            {isDeclining ? (
+                                <>
+                                    <div className="w-3.5 h-3.5 border-2 border-rose-600 border-t-transparent rounded-full animate-spin" />
+                                    <span>Declining...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <XCircle size={14} />
+                                    <span>Decline Tender</span>
+                                </>
+                            )}
+                        </button>
 
                         <button
                             type="button"
                             onClick={handleAccept}
                             disabled={isAccepting || isDeclining || secondsLeft <= 0}
-                            className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-200 transition-all flex items-center gap-2 cursor-pointer active:scale-98"
+                            className="px-6 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-200 transition-all flex items-center gap-2 cursor-pointer active:scale-98"
                         >
                             {isAccepting ? (
                                 <>
@@ -850,7 +850,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                 </>
                             ) : (
                                 <>
-                                    <CheckCircle2 size={16} />
+                                    <CheckCircle2 size={15} />
                                     <span>Accept & Execute Trade</span>
                                 </>
                             )}
