@@ -395,7 +395,8 @@ export default function ResultsView({ rfqId: propRfqId }) {
                 deviationPercent: res.data.deviation_percent,
                 hasExecutionBanks: res.data.has_execution_banks,
                 liveTelemetry: res.data.live_telemetry,
-                savingsSummary: res.data.savings_summary
+                savingsSummary: res.data.savings_summary,
+                marketBenchmark: res.data.market_benchmark
             });
             return res.data.rfq?.status;
         } catch (err) {
@@ -2470,6 +2471,38 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                                 )}
                                             </div>
 
+                                            {/* Phase 6.5: Live Market Benchmark & Empirical Reference */}
+                                            {leg.market_benchmark && (
+                                                <div className="flex items-center gap-2 flex-wrap text-xs font-mono bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                                                    <span className="font-sans font-bold text-slate-500 uppercase text-[10px] tracking-wider">
+                                                        Market Benchmark:
+                                                    </span>
+                                                    <span className="inline-flex items-center gap-1 font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                        Live Mid: {parseFloat(leg.market_benchmark.live_mid).toFixed(4)}
+                                                    </span>
+                                                    {leg.market_benchmark.cbe_gap_bps !== null && leg.market_benchmark.cbe_gap_bps !== undefined && (
+                                                        <span className="text-slate-500 font-semibold" title={`Intraday Drift vs CBE: ${leg.market_benchmark.cbe_gap} EGP`}>
+                                                            CBE Drift: {leg.market_benchmark.cbe_gap_bps > 0 ? '+' : ''}{leg.market_benchmark.cbe_gap_bps} bps
+                                                        </span>
+                                                    )}
+                                                    {leg.market_benchmark.is_empirical_active && (
+                                                        <span className="text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-semibold" title={`Empirical Suggested Reference based on ${leg.market_benchmark.sample_size} historical tenders`}>
+                                                            Suggested Ref: <strong>{parseFloat(leg.market_benchmark.suggested_reference_rate).toFixed(4)}</strong>
+                                                        </span>
+                                                    )}
+                                                    {leg.market_benchmark.quote_evaluation?.assessment_label && (
+                                                        <span className={`font-sans text-[11px] font-bold px-2 py-0.5 rounded ${
+                                                            leg.market_benchmark.quote_evaluation.is_favorable
+                                                                ? 'text-emerald-800 bg-emerald-100 border border-emerald-300'
+                                                                : 'text-amber-800 bg-amber-100 border border-amber-300'
+                                                        }`}>
+                                                            {leg.market_benchmark.quote_evaluation.assessment_label}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+
                                             {/* Counterparty Rows for this leg */}
                                             <div className="space-y-3">
                                                 {leg.is_uncontested && (
@@ -2571,11 +2604,49 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                     </div>
                                 </div>
                             )}
+                            {resultsMeta?.marketBenchmark && (
+                                <div className="flex items-center gap-2 flex-wrap text-xs font-mono bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                                    <span className="font-sans font-bold text-slate-500 uppercase text-[10px] tracking-wider">
+                                        Market Benchmark:
+                                    </span>
+                                    <span className="inline-flex items-center gap-1 font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        Live Mid: {parseFloat(resultsMeta.marketBenchmark.live_mid).toFixed(4)}
+                                    </span>
+                                    {resultsMeta.marketBenchmark.cbe_gap_bps !== null && resultsMeta.marketBenchmark.cbe_gap_bps !== undefined && (
+                                        <span className="text-slate-500 font-semibold" title={`Intraday Drift vs CBE: ${resultsMeta.marketBenchmark.cbe_gap} EGP`}>
+                                            CBE Drift: {resultsMeta.marketBenchmark.cbe_gap_bps > 0 ? '+' : ''}{resultsMeta.marketBenchmark.cbe_gap_bps} bps
+                                        </span>
+                                    )}
+                                    {resultsMeta.marketBenchmark.is_empirical_active && (
+                                        <span className="text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-semibold" title={`Empirical Suggested Reference based on ${resultsMeta.marketBenchmark.sample_size} historical tenders`}>
+                                            Suggested Ref: <strong>{parseFloat(resultsMeta.marketBenchmark.suggested_reference_rate).toFixed(4)}</strong>
+                                        </span>
+                                    )}
+                                    {resultsMeta.marketBenchmark.quote_evaluation?.assessment_label && (
+                                        <span className={`font-sans text-[11px] font-bold px-2 py-0.5 rounded ${
+                                            resultsMeta.marketBenchmark.quote_evaluation.is_favorable
+                                                ? 'text-emerald-800 bg-emerald-100 border border-emerald-300'
+                                                : 'text-amber-800 bg-amber-100 border border-amber-300'
+                                        }`}>
+                                            {resultsMeta.marketBenchmark.quote_evaluation.assessment_label}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                             {results.map((result, index) => renderFxCounterpartyCard(result, index))}
                         </div>
                     )}
                 </div>
             )}
+
+            {/* Phase 6.5: Historical Empirical Model Governance Disclaimer */}
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-start gap-2.5 text-xs text-slate-500">
+                <Info className="text-slate-400 mt-0.5 shrink-0" size={15} />
+                <p className="leading-relaxed">
+                    <strong>Governance Disclaimer:</strong> Live Market Benchmarks & Suggested Reference Rates are derived mathematically from real-time interbank feeds and historical platform executions. Provided strictly for indicative reference and does not replace customer rate revision, verification, or internal compliance policies.
+                </p>
+            </div>
 
             {results.length > 0 && rfq?.type !== 'TBILL' && (
                 <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">

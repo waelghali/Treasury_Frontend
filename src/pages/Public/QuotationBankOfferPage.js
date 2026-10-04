@@ -4058,16 +4058,34 @@ export default function QuotationBankOfferPage() {
 
                                                                         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                                                                             <div className={leg.allow_alternative_value_date ? "sm:col-span-7" : "sm:col-span-8"}>
-                                                                                <div className="flex items-center justify-between mb-1">
+                                                                                <div className="flex items-center justify-between mb-1 flex-wrap gap-1">
                                                                                     <label className="text-[10px] font-bold text-gray-500 uppercase">
                                                                                         Rate ({leg.sell_currency} per 1 {leg.buy_currency})
                                                                                     </label>
-                                                                                    {leg.cbe_benchmark_rate && (
-                                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs" title="Central Bank of Egypt Mid Benchmark">
-                                                                                            <span className="text-[9px] uppercase tracking-wider text-blue-500 font-sans font-semibold">CBE Mid</span>
-                                                                                            <span>~{parseFloat(leg.cbe_benchmark_rate).toFixed(4)}</span>
-                                                                                        </span>
-                                                                                    )}
+                                                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                                                        {leg.market_benchmark?.live_mid ? (
+                                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs" title={`Real-time Interbank Mid (Source: ${leg.market_benchmark.source})`}>
+                                                                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                                                <span className="text-[9px] uppercase tracking-wider text-blue-500 font-sans font-semibold">Live Mid</span>
+                                                                                                <span>{parseFloat(leg.market_benchmark.live_mid).toFixed(4)}</span>
+                                                                                            </span>
+                                                                                        ) : leg.cbe_benchmark_rate ? (
+                                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs" title="Central Bank of Egypt Mid Benchmark">
+                                                                                                <span className="text-[9px] uppercase tracking-wider text-blue-500 font-sans font-semibold">CBE Mid</span>
+                                                                                                <span>~{parseFloat(leg.cbe_benchmark_rate).toFixed(4)}</span>
+                                                                                            </span>
+                                                                                        ) : null}
+                                                                                        {leg.market_benchmark?.cbe_gap_bps !== null && leg.market_benchmark?.cbe_gap_bps !== undefined && (
+                                                                                            <span className="text-[10px] font-mono text-slate-500" title={`Intraday Drift vs CBE: ${leg.market_benchmark.cbe_gap} EGP`}>
+                                                                                                CBE Drift: {leg.market_benchmark.cbe_gap_bps > 0 ? '+' : ''}{leg.market_benchmark.cbe_gap_bps} bps
+                                                                                            </span>
+                                                                                        )}
+                                                                                        {leg.market_benchmark?.is_empirical_active && (
+                                                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-600 bg-slate-100 border border-slate-200" title={`Empirical Suggested Reference based on ${leg.market_benchmark.sample_size} historical platform tenders`}>
+                                                                                                Ref: {parseFloat(leg.market_benchmark.suggested_reference_rate).toFixed(4)}
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
                                                                                 </div>
                                                                                 <div className="relative">
                                                                                     <input
@@ -4093,6 +4111,22 @@ export default function QuotationBankOfferPage() {
                                                                                         {leg.sell_currency}
                                                                                     </div>
                                                                                 </div>
+                                                                                {/* Live Spread Delta Tracker */}
+                                                                                {!isPassed && q.price && parseFloat(q.price) > 0 && leg.market_benchmark?.live_mid && (
+                                                                                    <div className="mt-1 flex items-center justify-between text-[11px] font-mono">
+                                                                                        <span className="text-slate-500">
+                                                                                            Spread vs Mid:{' '}
+                                                                                            <strong className={parseFloat(q.price) >= leg.market_benchmark.live_mid ? 'text-blue-700' : 'text-emerald-700'}>
+                                                                                                {((parseFloat(q.price) - leg.market_benchmark.live_mid) * 10000).toFixed(1)} pips ({(((parseFloat(q.price) - leg.market_benchmark.live_mid) / leg.market_benchmark.live_mid) * 10000).toFixed(1)} bps)
+                                                                                            </strong>
+                                                                                        </span>
+                                                                                        {leg.market_benchmark.is_empirical_active && (
+                                                                                            <span className="text-[10px] text-slate-400">
+                                                                                                vs Ref: {(((parseFloat(q.price) - leg.market_benchmark.suggested_reference_rate) / leg.market_benchmark.live_mid) * 10000).toFixed(1)} bps
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
 
                                                                             {leg.allow_alternative_value_date ? (
@@ -4240,16 +4274,34 @@ export default function QuotationBankOfferPage() {
 
                                                                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                                                                     <div className={rfq.allow_alternative_value_date ? "sm:col-span-7" : "sm:col-span-8"}>
-                                                                        <div className="flex items-center justify-between mb-1">
+                                                                        <div className="flex items-center justify-between mb-1 flex-wrap gap-1">
                                                                             <label className="text-[10px] font-bold text-gray-500 uppercase">
                                                                                 Rate ({rfq.sell_currency} per 1 {rfq.buy_currency})
                                                                             </label>
-                                                                            {rfq.cbe_benchmark_rate && (
-                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs" title="Central Bank of Egypt Mid Benchmark">
-                                                                                    <span className="text-[9px] uppercase tracking-wider text-blue-500 font-sans font-semibold">CBE Mid</span>
-                                                                                    <span>~{parseFloat(rfq.cbe_benchmark_rate).toFixed(4)}</span>
-                                                                                </span>
-                                                                            )}
+                                                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                                                {rfq.market_benchmark?.live_mid ? (
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs" title={`Real-time Interbank Mid (Source: ${rfq.market_benchmark.source})`}>
+                                                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                                        <span className="text-[9px] uppercase tracking-wider text-blue-500 font-sans font-semibold">Live Mid</span>
+                                                                                        <span>{parseFloat(rfq.market_benchmark.live_mid).toFixed(4)}</span>
+                                                                                    </span>
+                                                                                ) : rfq.cbe_benchmark_rate ? (
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs" title="Central Bank of Egypt Mid Benchmark">
+                                                                                        <span className="text-[9px] uppercase tracking-wider text-blue-500 font-sans font-semibold">CBE Mid</span>
+                                                                                        <span>~{parseFloat(rfq.cbe_benchmark_rate).toFixed(4)}</span>
+                                                                                    </span>
+                                                                                ) : null}
+                                                                                {rfq.market_benchmark?.cbe_gap_bps !== null && rfq.market_benchmark?.cbe_gap_bps !== undefined && (
+                                                                                    <span className="text-[10px] font-mono text-slate-500" title={`Intraday Drift vs CBE: ${rfq.market_benchmark.cbe_gap} EGP`}>
+                                                                                        CBE Drift: {rfq.market_benchmark.cbe_gap_bps > 0 ? '+' : ''}{rfq.market_benchmark.cbe_gap_bps} bps
+                                                                                    </span>
+                                                                                )}
+                                                                                {rfq.market_benchmark?.is_empirical_active && (
+                                                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-600 bg-slate-100 border border-slate-200" title={`Empirical Suggested Reference based on ${rfq.market_benchmark.sample_size} historical platform tenders`}>
+                                                                                        Ref: {parseFloat(rfq.market_benchmark.suggested_reference_rate).toFixed(4)}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
                                                                         </div>
                                                                         <div className="relative">
                                                                             <input
@@ -4267,6 +4319,22 @@ export default function QuotationBankOfferPage() {
                                                                                 {rfq.sell_currency}
                                                                             </div>
                                                                         </div>
+                                                                        {/* Live Spread Delta Tracker */}
+                                                                        {price && parseFloat(price) > 0 && rfq.market_benchmark?.live_mid && (
+                                                                            <div className="mt-1 flex items-center justify-between text-[11px] font-mono">
+                                                                                <span className="text-slate-500">
+                                                                                    Spread vs Mid:{' '}
+                                                                                    <strong className={parseFloat(price) >= rfq.market_benchmark.live_mid ? 'text-blue-700' : 'text-emerald-700'}>
+                                                                                        {((parseFloat(price) - rfq.market_benchmark.live_mid) * 10000).toFixed(1)} pips ({(((parseFloat(price) - rfq.market_benchmark.live_mid) / rfq.market_benchmark.live_mid) * 10000).toFixed(1)} bps)
+                                                                                    </strong>
+                                                                                </span>
+                                                                                {rfq.market_benchmark.is_empirical_active && (
+                                                                                    <span className="text-[10px] text-slate-400">
+                                                                                        vs Ref: {(((parseFloat(price) - rfq.market_benchmark.suggested_reference_rate) / rfq.market_benchmark.live_mid) * 10000).toFixed(1)} bps
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
                                                                     </div>
 
                                                                     {rfq.allow_alternative_value_date ? (

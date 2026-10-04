@@ -20,7 +20,8 @@ import {
     ChevronDown,
     ChevronUp,
     BarChart2,
-    XCircle
+    XCircle,
+    Info
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import apiClient from '../../services/apiClient';
@@ -414,19 +415,34 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                     {isMultiLeg ? 'Multi-Pair Awarded' : (deal.winner_rate !== null && deal.winner_rate !== undefined ? formatNum(deal.winner_rate, 4, 4) : '—')}
                                 </span>
                                 <span className="text-[11px] font-mono text-slate-500 block truncate">
-                                    {isMultiLeg ? `${deal.legs?.length || 0} Individual Best Rates` : (deal.avg_rate ? `Desk Avg: ${formatNum(deal.avg_rate, 4, 4)}` : 'Market Competitive')}
+                                    {isMultiLeg ? (
+                                        deal.market_benchmark?.live_mid ? (
+                                            <span className="text-blue-700 font-semibold">Live Mid: {formatNum(deal.market_benchmark.live_mid, 4, 4)}</span>
+                                        ) : `${deal.legs?.length || 0} Individual Best Rates`
+                                    ) : (
+                                        deal.market_benchmark?.live_mid ? (
+                                            <span>Live Mid: <strong className="text-blue-700">{formatNum(deal.market_benchmark.live_mid, 4, 4)}</strong></span>
+                                        ) : deal.avg_rate ? `Desk Avg: ${formatNum(deal.avg_rate, 4, 4)}` : 'Market Competitive'
+                                    )}
                                 </span>
                             </div>
-                            {deal.is_uncontested || deal.legs?.some(l => l.is_uncontested) ? (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-black text-amber-950 bg-amber-100 border border-amber-400 px-2 py-0.5 rounded-md mt-1 shadow-2xs">
-                                    <AlertTriangle size={12} className="text-amber-700 shrink-0" />
-                                    Sole-Source Awarded
-                                </span>
-                            ) : (
-                                <span className="text-[10px] text-slate-500 mt-1 block">
-                                    Competitive Best
-                                </span>
-                            )}
+                            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                {deal.is_uncontested || deal.legs?.some(l => l.is_uncontested) ? (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-amber-950 bg-amber-100 border border-amber-400 px-2 py-0.5 rounded-md shadow-2xs">
+                                        <AlertTriangle size={12} className="text-amber-700 shrink-0" />
+                                        Sole-Source Awarded
+                                    </span>
+                                ) : (
+                                    <span className="text-[10px] text-slate-500 block">
+                                        Competitive Best
+                                    </span>
+                                )}
+                                {deal.market_benchmark?.is_empirical_active && (
+                                    <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title={`Historical empirical suggested reference based on ${deal.market_benchmark.sample_size} tenders`}>
+                                        Ref: {formatNum(deal.market_benchmark.suggested_reference_rate, 4, 4)}
+                                    </span>
+                                )}
+                            </div>
                         </div>
 
                         {/* Box 4: Total Commercial Savings */}
@@ -514,12 +530,40 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                                                        <div className="text-[11px] text-slate-500 flex items-center flex-wrap gap-2 mt-0.5">
                                                             <span>Value: {leg.value_date ? String(leg.value_date) : 'Spot (T+2)'}</span>
                                                             {leg.avg_rate && (
                                                                 <>
                                                                     <span>&bull;</span>
                                                                     <span>Desk Mean: <strong className="font-mono text-slate-700">{formatNum(leg.avg_rate, 4, 4)}</strong></span>
+                                                                </>
+                                                            )}
+                                                            {leg.market_benchmark && (
+                                                                <>
+                                                                    <span>&bull;</span>
+                                                                    <span className="inline-flex items-center gap-1 font-mono font-bold text-blue-800 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                        Mid: {formatNum(leg.market_benchmark.live_mid, 4, 4)}
+                                                                    </span>
+                                                                    {leg.market_benchmark.is_empirical_active && (
+                                                                        <span className="font-mono text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 text-[10px]" title={`Suggested reference based on ${leg.market_benchmark.sample_size} historical tenders`}>
+                                                                            Hist. Ref: <strong className="text-slate-800">{formatNum(leg.market_benchmark.suggested_reference_rate, 4, 4)}</strong>
+                                                                        </span>
+                                                                    )}
+                                                                    {leg.market_benchmark.cbe_gap_bps !== null && leg.market_benchmark.cbe_gap_bps !== undefined && (
+                                                                        <span className="text-[10px] text-slate-500 font-mono" title={`Intraday Drift vs CBE Fixing: ${leg.market_benchmark.cbe_gap} EGP`}>
+                                                                            CBE Drift: {leg.market_benchmark.cbe_gap_bps > 0 ? '+' : ''}{leg.market_benchmark.cbe_gap_bps} bps
+                                                                        </span>
+                                                                    )}
+                                                                    {leg.market_benchmark.quote_evaluation?.assessment_label && (
+                                                                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                                                            leg.market_benchmark.quote_evaluation.is_favorable
+                                                                                ? 'text-emerald-800 bg-emerald-100 border border-emerald-300'
+                                                                                : 'text-amber-800 bg-amber-100 border border-amber-300'
+                                                                        }`}>
+                                                                            {leg.market_benchmark.quote_evaluation.assessment_label}
+                                                                        </span>
+                                                                    )}
                                                                 </>
                                                             )}
                                                         </div>
@@ -752,6 +796,14 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                         </div>
                     </div>
                 )}
+
+                {/* Phase 6.5: Historical Empirical Model Governance Disclaimer */}
+                <div className="px-5 py-2 bg-slate-50/90 border-t border-slate-200 text-[10px] text-slate-500 flex items-center gap-2 shrink-0">
+                    <Info size={13} className="text-slate-400 shrink-0" />
+                    <span className="truncate">
+                        Empirical benchmarks & suggested reference rates are derived mathematically from live feeds & historical platform executions. Indicative only — does not replace customer verification or internal compliance policies.
+                    </span>
+                </div>
 
                 {/* 7. HIGH-VISIBILITY ACTION FOOTER */}
                 <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
