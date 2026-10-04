@@ -142,7 +142,8 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
 
   // --- Global Deal Acceptance Alert Poller ---
   useEffect(() => {
-    const eligibleRoles = ['corporate_admin', 'end_user', 'checker', 'system_owner'];
+    // Super Admin / Platform Owner never accepts corporate deals, only tenant roles do
+    const eligibleRoles = ['corporate_admin', 'end_user', 'checker', 'approver'];
     if (!hasQuotationModule || !eligibleRoles.includes(userRole)) {
       setPendingDeal(null);
       return;
@@ -153,26 +154,42 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
       : '/corporate-admin/quotations/active-acceptance-alert';
 
     let isMounted = true;
+    let timerId = null;
 
     const pollActiveDeal = async () => {
-      if (typeof document !== 'undefined' && document.hidden) return;
+      if (!isMounted) return;
+      if (typeof document !== 'undefined' && document.hidden) {
+        // Tab is hidden, schedule next check in 10s
+        timerId = setTimeout(pollActiveDeal, 10000);
+        return;
+      }
       try {
         const res = await apiClient.get(alertEndpoint);
         if (!isMounted) return;
         if (res.data?.has_pending_deal && res.data?.deal) {
           setPendingDeal(res.data.deal);
+          // If a deal is awaiting acceptance, check every 2.5s to keep countdown sync
+          timerId = setTimeout(pollActiveDeal, 2500);
         } else {
           setPendingDeal(null);
+          // Idle: no pending deal awaiting acceptance, check every 8 seconds
+          timerId = setTimeout(pollActiveDeal, 8000);
         }
       } catch (err) {
-        // Silent background polling
+        if (!isMounted) return;
+        // If 401 or 403 (unauthorized/forbidden), halt polling permanently to prevent spam
+        if (err.response && (err.response.status === 403 || err.response.status === 401)) {
+          return;
+        }
+        // General error backoff
+        timerId = setTimeout(pollActiveDeal, 15000);
       }
     };
 
     pollActiveDeal();
-    const intervalId = setInterval(pollActiveDeal, 1500);
 
     const handleImmediateCheck = () => {
+      if (timerId) clearTimeout(timerId);
       pollActiveDeal();
     };
 
@@ -181,7 +198,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
 
     return () => {
       isMounted = false;
-      clearInterval(intervalId);
+      if (timerId) clearTimeout(timerId);
       window.removeEventListener('check-deal-acceptance', handleImmediateCheck);
       window.removeEventListener('quotation-deal-resolved', handleImmediateCheck);
     };
