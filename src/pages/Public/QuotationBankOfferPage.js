@@ -4968,17 +4968,22 @@ export default function QuotationBankOfferPage() {
                                         </div>
 
                                         {/* Privacy Toggle */}
-                                        <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer select-none bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                                            <input
-                                                type="checkbox"
-                                                checked={feedbackIsAnonymous}
-                                                onChange={(e) => setFeedbackIsAnonymous(e.target.checked)}
-                                                className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                                            />
-                                            <span className="text-[11px] font-medium">
-                                                Submit anonymously (omit my dealer email and name)
-                                            </span>
-                                        </label>
+                                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1">
+                                            <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={feedbackIsAnonymous}
+                                                    onChange={(e) => setFeedbackIsAnonymous(e.target.checked)}
+                                                    className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300 cursor-pointer"
+                                                />
+                                                <span className="text-xs font-bold text-gray-800">
+                                                    Submit 100% Anonymously
+                                                </span>
+                                            </label>
+                                            <p className="text-[10px] text-slate-500 pl-5 leading-normal">
+                                                🔒 <strong className="text-slate-600">Complete Privacy:</strong> Your name, email, bank institution, and tender ID are completely unlinked and displayed strictly as <span className="font-semibold text-indigo-600">"Verified Bank Partner"</span>.
+                                            </p>
+                                        </div>
 
                                         {/* Actions */}
                                         <div className="flex items-center gap-2 pt-2">

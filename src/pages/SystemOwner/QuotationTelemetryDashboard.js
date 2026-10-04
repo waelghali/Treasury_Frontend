@@ -1257,16 +1257,26 @@ export default function QuotationTelemetryDashboard() {
                                 >
                                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-sm shrink-0">
-                                                <Building2 size={18} />
+                                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-sm shrink-0 ${
+                                                fb.is_anonymous ? 'bg-slate-100 text-slate-600' : 'bg-indigo-50 text-indigo-700'
+                                            }`}>
+                                                {fb.is_anonymous ? <Shield size={18} /> : <Building2 size={18} />}
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <span className="font-bold text-gray-900 text-sm">{fb.bank_name}</span>
-                                                    <span className="text-xs text-slate-400 font-mono">
-                                                        {fb.is_anonymous ? '👤 Anonymous Trader' : `👤 ${fb.dealer_email || fb.dealer_name}`}
+                                                    <span className={`font-bold text-sm ${fb.is_anonymous ? 'text-slate-700' : 'text-gray-900'}`}>
+                                                        {fb.bank_name}
                                                     </span>
-                                                    {fb.rfq_ref_no && (
+                                                    {fb.is_anonymous ? (
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                                                            🔒 100% Anonymized Trader
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-400 font-mono">
+                                                            👤 {fb.dealer_email || fb.dealer_name}
+                                                        </span>
+                                                    )}
+                                                    {!fb.is_anonymous && fb.rfq_ref_no && (
                                                         <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
                                                             {fb.rfq_ref_no}
                                                         </span>
