@@ -684,6 +684,10 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                         </span>
                                     )}
                                 </p>
+                            ) : result.is_passed ? (
+                                <p className="text-xs text-slate-500 font-medium">
+                                    Passed by Dealer &bull; Declined to quote this pair
+                                </p>
                             ) : isWindowClosed ? (
                                 <p className="text-xs text-slate-400 font-medium">Window closed &bull; No quote submitted</p>
                             ) : (
@@ -828,7 +832,15 @@ export default function ResultsView({ rfqId: propRfqId }) {
                     </div>
                 ) : (
                     <div className="text-right w-full md:w-auto">
-                        {result.approval_status === 'DECLINED' ? (
+                        {result.is_passed ? (
+                            <div className="flex flex-col items-end gap-1">
+                                <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-300 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 shadow-2xs">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                                    Passed on this leg
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-medium">Declined to quote by dealer</span>
+                            </div>
+                        ) : result.approval_status === 'DECLINED' ? (
                             <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg inline-block">
                                 Declined by Bank
                             </span>
