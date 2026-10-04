@@ -109,7 +109,19 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
             const res = await apiClient.post(acceptEndpoint, payload);
             tradingAudio.playResultOut('WINNER');
             toast.success(res.data?.message || "Trade deal accepted & binding execution confirmed!");
+            
+            // Dispatch event to live components (ResultsView, QuotationRequestDashboard)
+            window.dispatchEvent(new CustomEvent('quotation-deal-resolved', {
+                detail: { rfqId: deal.rfq_id, status: 'ACCEPTED' }
+            }));
+
             if (onResolve) onResolve();
+
+            // Smoothly navigate to the confirmed deal standings
+            const targetUrl = isCorporateAdmin
+                ? `/corporate-admin/quotations/results/${deal.rfq_id}`
+                : `/end-user/quotations/results/${deal.rfq_id}`;
+            navigate(targetUrl);
         } catch (err) {
             console.error("Deal acceptance error:", err);
             toast.error(err.response?.data?.detail || "Failed to execute deal acceptance.");
@@ -127,7 +139,18 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
             setIsDeclining(true);
             const res = await apiClient.post(declineEndpoint, { reason: declineReason });
             toast.info(res.data?.message || "Tender outcome declined.");
+
+            // Dispatch event to live components
+            window.dispatchEvent(new CustomEvent('quotation-deal-resolved', {
+                detail: { rfqId: deal.rfq_id, status: 'REJECTED' }
+            }));
+
             if (onResolve) onResolve();
+
+            const targetUrl = isCorporateAdmin
+                ? `/corporate-admin/quotations/results/${deal.rfq_id}`
+                : `/end-user/quotations/results/${deal.rfq_id}`;
+            navigate(targetUrl);
         } catch (err) {
             console.error("Deal decline error:", err);
             toast.error(err.response?.data?.detail || "Failed to decline deal.");

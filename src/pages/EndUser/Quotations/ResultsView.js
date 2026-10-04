@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Users, UserCheck, Layers, Loader2, Lock } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
@@ -146,7 +146,9 @@ const renderApprovalBadge = (result) => {
     return null;
 };
 
-export default function ResultsView({ rfqId }) {
+export default function ResultsView({ rfqId: propRfqId }) {
+    const params = useParams();
+    const rfqId = propRfqId || params.id || params.rfqId;
     const navigate = useNavigate();
     const location = useLocation();
     const [results, setResults] = useState([]);
@@ -364,7 +366,10 @@ export default function ResultsView({ rfqId }) {
     }, [isWindowClosed, canAcceptOrDecline, resultsMeta.isInconclusive, rfq?.status, isAwaitingAcceptance, rfqId]);
 
     const fetchResults = async () => {
-        if (!rfqId) return null;
+        if (!rfqId) {
+            setLoading(false);
+            return null;
+        }
         try {
             const res = await apiClient.get(`/end-user/quotations/${rfqId}/results`);
             // Axios auto-parses JSON into res.data
@@ -422,6 +427,17 @@ export default function ResultsView({ rfqId }) {
         };
     }, [rfqId]);
 
+    // Live refresh when global deal acceptance or decline executes
+    useEffect(() => {
+        const handleDealResolved = (e) => {
+            if (!e.detail?.rfqId || String(e.detail.rfqId) === String(rfqId)) {
+                fetchResults();
+            }
+        };
+        window.addEventListener('quotation-deal-resolved', handleDealResolved);
+        return () => window.removeEventListener('quotation-deal-resolved', handleDealResolved);
+    }, [rfqId]);
+
 
     const handleResendInvite = async (qBankId, bankName) => {
         try {
@@ -433,7 +449,14 @@ export default function ResultsView({ rfqId }) {
         }
     };
 
-    if (loading) return <div className="p-8 text-center">Calculating results...</div>;
+    if (loading && !rfq) {
+        return (
+            <div className="p-12 text-center flex flex-col items-center justify-center gap-3">
+                <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                <p className="text-sm font-semibold text-slate-600">Retrieving quotation standings & results...</p>
+            </div>
+        );
+    }
 
 
 

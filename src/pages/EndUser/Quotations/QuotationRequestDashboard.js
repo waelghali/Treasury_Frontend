@@ -296,6 +296,17 @@ export default function QuotationRequestDashboard() {
         toast.info('Quotation form reset to original state.');
     };
 
+    // Auto-transition when created RFQ deal is resolved via global popup or external action
+    useEffect(() => {
+        const handleDealResolved = (e) => {
+            if (createdRfq && (!e.detail?.rfqId || String(e.detail.rfqId) === String(createdRfq.rfq_id))) {
+                navigate(`/end-user/quotations/results/${createdRfq.rfq_id}`);
+            }
+        };
+        window.addEventListener('quotation-deal-resolved', handleDealResolved);
+        return () => window.removeEventListener('quotation-deal-resolved', handleDealResolved);
+    }, [createdRfq, navigate]);
+
     // Check for existing saved draft on initial page mount
     useEffect(() => {
         if (revisionRfqId || retradeRfqId) return;

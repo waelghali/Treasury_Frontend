@@ -33,6 +33,7 @@ import RuleManagement from '../pages/CorporateAdmin/BankReconciliation/RuleManag
 import AccountingExport from '../pages/CorporateAdmin/BankReconciliation/AccountingExport';
 // NEW: Import Admin Quotation Dashboard
 import AdminQuotationDashboard from '../pages/CorporateAdmin/AdminQuotationDashboard';
+import ResultsView from '../pages/EndUser/Quotations/ResultsView';
 import InboxPage from '../pages/EndUser/InboxPage';
 import InboxScheduleConfigPage from '../pages/CorporateAdmin/InboxScheduleConfigPage';
 
@@ -111,6 +112,7 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIss
       <Route path="quotations" element={<AdminQuotationDashboard />} />
       <Route path="quotations/dashboard" element={<AdminQuotationDashboard />} />
       <Route path="quotations/approvals" element={<AdminQuotationDashboard />} />
+      <Route path="quotations/results/:id" element={<ResultsView />} />
 
       {/* Smart Inbox Routes */}
       <Route path="inbox" element={<InboxPage />} />
