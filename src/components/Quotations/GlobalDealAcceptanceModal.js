@@ -322,6 +322,19 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
 
                 {/* Deal Body Content */}
                 <div className="p-6 space-y-4 max-h-[58vh] overflow-y-auto custom-scrollbar">
+                    {/* Uncontested / Sole-Source Advisory Banner */}
+                    {(deal.is_uncontested || deal.legs?.some(l => l.is_uncontested)) && (
+                        <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900">
+                            <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                                <span className="font-bold">Sole-Source Advisory (Single Quote):</span>{' '}
+                                <span className="text-amber-800">
+                                    {deal.uncontested_reason || "One or more legs received only 1 quote. No competing offers were received to establish market spread."}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Primary Deal Parameter Card */}
                     <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3">
                         <div className="flex items-center justify-between">
@@ -357,6 +370,12 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                     <div className="text-xs font-mono font-bold text-emerald-800">
                                         Rate: {deal.winner_rate !== null && deal.winner_rate !== undefined ? formatNum(deal.winner_rate, 4, 4) : 'Ready'}
                                     </div>
+                                    {deal.is_uncontested && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300 shrink-0 mt-1">
+                                            <AlertTriangle size={11} className="text-amber-600 shrink-0" />
+                                            Single Quote Received
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
@@ -440,6 +459,12 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                                         <span className="text-[11px] text-slate-500 font-mono">
                                                             {formatNum(leg.amount, 0, 2)}
                                                         </span>
+                                                        {leg.is_uncontested && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300 shrink-0" title={leg.uncontested_reason || "Single quote received"}>
+                                                                <AlertTriangle size={11} className="text-amber-600 shrink-0" />
+                                                                Single Quote
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div className="text-[11px] text-slate-500">
                                                         {isInconclusive ? (

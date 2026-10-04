@@ -381,6 +381,8 @@ export default function ResultsView({ rfqId: propRfqId }) {
                 winnerBankId: res.data.winner_bank_id,
                 isInconclusive: res.data.is_inconclusive,
                 inconclusiveReason: res.data.inconclusive_reason,
+                isUncontested: res.data.is_uncontested,
+                uncontestedReason: res.data.uncontested_reason,
                 bestIndicativeRate: res.data.best_indicative_rate,
                 bestExecutionRate: res.data.best_execution_rate,
                 deviationPercent: res.data.deviation_percent,
@@ -1277,6 +1279,16 @@ export default function ResultsView({ rfqId: propRfqId }) {
                         )}
                     </div>
 
+                    {/* Uncontested Advisory for Acceptance */}
+                    {isAwaitingAcceptance && (resultsMeta?.isUncontested || legs?.some(l => l.is_uncontested)) && (
+                        <div className="mt-3 p-3 bg-amber-50/90 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900">
+                            <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                                <span className="font-bold">Sole-Source Advisory:</span> One or more awarded legs received only a single quote. No competing offers were received to establish market spread. Please review pricing carefully before final corporate acceptance.
+                            </div>
+                        </div>
+                    )}
+
                     {/* Currency Pair Leg Selection (Multi-Leg) */}
                     {isAwaitingAcceptance && legs && legs.length > 1 && (
                         <div className="py-4 space-y-3">
@@ -1350,6 +1362,12 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                                         <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0 ml-1">
                                                             @ {typeof leg.winner_rate === 'number' ? leg.winner_rate.toFixed(4) : leg.winner_rate}
                                                         </span>
+                                                        {leg.is_uncontested && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300 shrink-0 ml-1" title={leg.uncontested_reason || "Single-quote monopoly"}>
+                                                                <AlertTriangle size={11} className="text-amber-600 shrink-0" />
+                                                                Single Quote
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 ) : (
                                                     <span className="text-slate-400 italic text-[11px]">
@@ -2447,6 +2465,15 @@ export default function ResultsView({ rfqId: propRfqId }) {
 
                                             {/* Counterparty Rows for this leg */}
                                             <div className="space-y-3">
+                                                {leg.is_uncontested && (
+                                                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+                                                        <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                                                        <div>
+                                                            <span className="font-bold">Sole-Source Advisory (Single Quote Received):</span>{' '}
+                                                            <span className="text-amber-800">{leg.uncontested_reason || "Only 1 bank counterparty provided a quote on this currency pair. No competing offers were received to establish market spread."}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 {(leg.results || []).map((res, rIdx) => renderFxCounterpartyCard(res, rIdx, leg))}
                                                 {(!leg.results || leg.results.length === 0) && (
                                                     <div className="p-8 text-center text-slate-400 italic bg-white rounded-2xl border border-dashed border-slate-200">
@@ -2506,6 +2533,15 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                         </div>
 
                                         <div className="space-y-3">
+                                            {currentLeg.is_uncontested && (
+                                                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+                                                    <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <span className="font-bold">Sole-Source Advisory (Single Quote Received):</span>{' '}
+                                                        <span className="text-amber-800">{currentLeg.uncontested_reason || "Only 1 bank counterparty provided a quote on this currency pair. No competing offers were received to establish market spread."}</span>
+                                                    </div>
+                                                </div>
+                                            )}
                                             {(currentLeg.results || []).map((res, rIdx) => renderFxCounterpartyCard(res, rIdx, currentLeg))}
                                             {(!currentLeg.results || currentLeg.results.length === 0) && (
                                                 <div className="p-8 text-center text-slate-400 italic bg-white rounded-2xl border border-dashed border-slate-200">
@@ -2519,6 +2555,15 @@ export default function ResultsView({ rfqId: propRfqId }) {
                         )
                     ) : (
                         <div className="space-y-4">
+                            {resultsMeta?.isUncontested && (
+                                <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+                                    <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <span className="font-bold">Sole-Source Advisory (Single Quote Received):</span>{' '}
+                                        <span className="text-amber-800">{resultsMeta?.uncontestedReason || "Only 1 bank counterparty provided a quote on this tender. No competing offers were received to establish market spread."}</span>
+                                    </div>
+                                </div>
+                            )}
                             {results.map((result, index) => renderFxCounterpartyCard(result, index))}
                         </div>
                     )}
