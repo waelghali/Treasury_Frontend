@@ -12,6 +12,8 @@ import ViewerLayout from './Layout/ViewerLayout';
 
 // Service Imports
 import { fetchActiveSystemNotifications } from '../services/notificationService';
+import apiClient from '../services/apiClient';
+import GlobalDealAcceptanceModal from './Quotations/GlobalDealAcceptanceModal';
 
 function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, customerId, subscriptionStatus, subscriptionEndDate, hasCustodyModule, hasIssuanceModule, hasQuotationModule, hasReconciliationModule }) {
   const location = useLocation();
@@ -19,6 +21,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
   const [headerTitle, setHeaderTitle] = useState('');
   const [systemNotifications, setSystemNotifications] = useState([]);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [pendingDeal, setPendingDeal] = useState(null);
 
 
   // --- 1. LOGIC TO DETERMINE ACTIVE MENU ITEM & TITLE ---
@@ -137,6 +140,44 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
     });
   };
 
+  // --- Global Deal Acceptance Alert Poller ---
+  useEffect(() => {
+    const eligibleRoles = ['corporate_admin', 'end_user', 'checker', 'system_owner'];
+    if (!hasQuotationModule || !eligibleRoles.includes(userRole)) {
+      setPendingDeal(null);
+      return;
+    }
+
+    const alertEndpoint = (userRole === 'end_user')
+      ? '/end-user/quotations/active-acceptance-alert'
+      : '/corporate-admin/quotations/active-acceptance-alert';
+
+    let isMounted = true;
+
+    const pollActiveDeal = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      try {
+        const res = await apiClient.get(alertEndpoint);
+        if (!isMounted) return;
+        if (res.data?.has_pending_deal && res.data?.deal) {
+          setPendingDeal(res.data.deal);
+        } else {
+          setPendingDeal(null);
+        }
+      } catch (err) {
+        // Silent background polling
+      }
+    };
+
+    pollActiveDeal();
+    const intervalId = setInterval(pollActiveDeal, 4000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [hasQuotationModule, userRole]);
+
   // Helper to wrap layout with AI Assistant trigger & modal
   const renderWithAiAssistant = (layoutComponent) => (
     <>
@@ -193,6 +234,15 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
         onClose={() => setIsAiModalOpen(false)}
         userRole={userRole}
       />
+
+      {pendingDeal && (
+        <GlobalDealAcceptanceModal
+          deal={pendingDeal}
+          userRole={userRole}
+          onClose={() => setPendingDeal(null)}
+          onResolve={() => setPendingDeal(null)}
+        />
+      )}
     </>
   );
 
