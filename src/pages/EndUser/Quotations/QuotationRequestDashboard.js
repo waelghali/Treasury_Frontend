@@ -170,7 +170,7 @@ const getInitialFormData = (entityId = '') => {
         maturityDateEnd: '',
         evalRate: '',
         windowStart: freshStart,
-        windowDuration: '60',
+        windowDuration: '120',
         quotationBase: 'Execution',
         maxTolerancePercent: '0.05',
         tokenValidityHours: '24',
@@ -822,7 +822,7 @@ export default function QuotationRequestDashboard() {
                     }
                 }
 
-                let durationSecs = '60';
+                let durationSecs = '120';
                 if (rfq.window_start && rfq.window_end) {
                     const diff = Math.round((new Date(rfq.window_end) - new Date(rfq.window_start)) / 1000);
                     if (diff > 0) durationSecs = String(diff);
