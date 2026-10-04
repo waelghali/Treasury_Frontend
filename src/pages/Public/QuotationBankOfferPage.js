@@ -1656,9 +1656,15 @@ export default function QuotationBankOfferPage() {
             });
         }
 
-        // Guardrail: In multi-leg tenders, at least 1 leg must be quoted
+        // Check if dealer is submitting an explicit pass on all legs
         if (quotesToSubmit.length === 0) {
-            alert('To decline quoting all legs, please use the "Decline Participation" button above.');
+            const confirmed = window.confirm(
+                `Confirm Full Pass:\n\nYou have marked all ${(rfq.legs || []).length} currency pair(s) as Passed.\n\nDo you want to transmit this full pass to the corporate treasury desk? No rates will be submitted for this tender.`
+            );
+            if (!confirmed) {
+                return;
+            }
+            await executeBatchSubmit([], passedLegIds);
             return;
         }
 
@@ -4351,16 +4357,16 @@ export default function QuotationBankOfferPage() {
                                                                     ? tbillLines.some(l => !l.discountRate || !l.maxAmount)
                                                                     : (rfq.legs && rfq.legs.length > 1)
                                                                         ? (
-                                                                            // Every leg must be either quoted or explicitly passed
+                                                                            // Every leg must be either actively quoted or explicitly passed
                                                                             rfq.legs.some(l => !passedLegs[l.id] && (!legQuotes[l.id]?.price || parseFloat(legQuotes[l.id].price) <= 0))
-                                                                            // And at least one leg must be actively quoted
-                                                                            || rfq.legs.every(l => passedLegs[l.id])
                                                                         )
                                                                         : !price
                                                             )}
                                                             className={`w-full py-3.5 rounded-2xl font-bold text-base transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10
                                                                     ? 'bg-gradient-to-r from-amber-600 via-rose-600 to-red-600 hover:from-amber-700 hover:to-red-700 text-white animate-pulse shadow-red-500/25 ring-2 ring-red-400/50'
-                                                                    : 'bg-slate-950 text-white hover:bg-slate-800'
+                                                                    : (rfq.legs && rfq.legs.length > 1 && rfq.legs.every(l => passedLegs[l.id]))
+                                                                        ? 'bg-slate-700 hover:bg-slate-800 text-white border border-slate-600'
+                                                                        : 'bg-slate-950 text-white hover:bg-slate-800'
                                                                 }`}
                                                         >
                                                             {isSubmitting ? (
@@ -4378,6 +4384,12 @@ export default function QuotationBankOfferPage() {
                                                                     <span>⚡ {
                                                                         (rfq.legs && rfq.legs.length > 1)
                                                                             ? (() => {
+                                                                                const isAllPassed = rfq.legs.every(l => passedLegs[l.id]);
+                                                                                if (isAllPassed) {
+                                                                                    return submitted
+                                                                                        ? `Update Pass on All Legs`
+                                                                                        : `Submit Pass on All Legs`;
+                                                                                }
                                                                                 const quotedCount = rfq.legs.filter(l => !passedLegs[l.id] && legQuotes[l.id]?.price && parseFloat(legQuotes[l.id].price) > 0).length;
                                                                                 return submitted
                                                                                     ? `Update Quotes (${quotedCount} of ${rfq.legs.length} Pairs)`
@@ -4389,6 +4401,12 @@ export default function QuotationBankOfferPage() {
                                                             ) : (
                                                                 (rfq.legs && rfq.legs.length > 1)
                                                                     ? (() => {
+                                                                        const isAllPassed = rfq.legs.every(l => passedLegs[l.id]);
+                                                                        if (isAllPassed) {
+                                                                            return submitted
+                                                                                ? '✕ Update Pass on All Legs'
+                                                                                : '✕ Submit Pass on All Legs';
+                                                                        }
                                                                         const quotedCount = rfq.legs.filter(l => !passedLegs[l.id] && legQuotes[l.id]?.price && parseFloat(legQuotes[l.id].price) > 0).length;
                                                                         return submitted
                                                                             ? `Update Quotes (${quotedCount} of ${rfq.legs.length} Pairs)`
