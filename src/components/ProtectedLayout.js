@@ -170,11 +170,20 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
     };
 
     pollActiveDeal();
-    const intervalId = setInterval(pollActiveDeal, 4000);
+    const intervalId = setInterval(pollActiveDeal, 1500);
+
+    const handleImmediateCheck = () => {
+      pollActiveDeal();
+    };
+
+    window.addEventListener('check-deal-acceptance', handleImmediateCheck);
+    window.addEventListener('quotation-deal-resolved', handleImmediateCheck);
 
     return () => {
       isMounted = false;
       clearInterval(intervalId);
+      window.removeEventListener('check-deal-acceptance', handleImmediateCheck);
+      window.removeEventListener('quotation-deal-resolved', handleImmediateCheck);
     };
   }, [hasQuotationModule, userRole]);
 

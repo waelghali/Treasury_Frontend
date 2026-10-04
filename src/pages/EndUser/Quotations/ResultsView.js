@@ -313,6 +313,13 @@ export default function ResultsView({ rfqId: propRfqId }) {
         (rfq?.acceptance_status === 'PENDING' || rfq?.status === 'EVALUATING' || (isWindowClosed && !rfq?.acceptance_status && rfq?.status !== 'COMPLETED'))
     );
 
+    // Prompt global acceptance modal immediately when deal enters acceptance window
+    useEffect(() => {
+        if (isAwaitingAcceptance && !resultsMeta.isInconclusive) {
+            window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
+        }
+    }, [isAwaitingAcceptance, resultsMeta.isInconclusive]);
+
     const [acceptanceSecondsRemaining, setAcceptanceSecondsRemaining] = useState(null);
 
     useEffect(() => {
