@@ -76,7 +76,6 @@ export default function QuotationTelemetryDashboard() {
             if (feedbackStatusFilter !== 'ALL') params.append('status', feedbackStatusFilter);
             if (feedbackRatingFilter !== 'ALL') params.append('star_rating', feedbackRatingFilter);
             if (feedbackCategoryFilter !== 'ALL') params.append('category', feedbackCategoryFilter);
-            if (feedbackBankFilter !== 'ALL') params.append('bank_id', feedbackBankFilter);
             if (feedbackSearch.trim()) params.append('search', feedbackSearch.trim());
 
             let url = '/system-owner/dealer-feedback';
