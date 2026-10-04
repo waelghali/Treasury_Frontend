@@ -684,16 +684,28 @@ export default function QuotationBankOfferPage() {
             }
         };
 
-        syncDeskSession();
-        const interval = setInterval(() => {
-            if (!checkEligibility()) {
-                clearInterval(interval);
-                return;
-            }
-            syncDeskSession();
-        }, 2000);
+        let timeoutId = null;
+        let isCancelled = false;
 
-        return () => clearInterval(interval);
+        const scheduleNextSync = () => {
+            if (isCancelled || !checkEligibility()) return;
+            const now = Date.now() + timeOffset;
+            const isFinalStretch = timeLeft.status === 'OPEN' && !isNaN(endTime) && (endTime - now <= 5000) && (endTime - now >= 0);
+            const delay = isFinalStretch ? 500 : 1500; // 0.5s during final 5-second countdown, 1.5s otherwise
+
+            timeoutId = setTimeout(async () => {
+                if (isCancelled) return;
+                await syncDeskSession();
+                scheduleNextSync();
+            }, delay);
+        };
+
+        syncDeskSession().then(scheduleNextSync);
+
+        return () => {
+            isCancelled = true;
+            if (timeoutId) clearTimeout(timeoutId);
+        };
     }, [authSession, token, timeLeft.status, rfq?.window_start, rfq?.window_end, rfq?.status, rfq?.acceptance_timeout_seconds, error?.isCancelled, timeOffset, getEffectiveSessionToken]);
 
     // 4d. Real-Time Cancellation & Status Polling for Unauthenticated View
