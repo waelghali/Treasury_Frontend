@@ -229,8 +229,9 @@ export default function QuotationBankOfferPage() {
     // Live Ranking State
     const [liveRank, setLiveRank] = useState(null);
 
-    // Multi-Pair Leg Quotes and Leg Live Ranks
+    // Multi-Pair Leg Quotes, Passed Legs, and Leg Live Ranks
     const [legQuotes, setLegQuotes] = useState({});
+    const [passedLegs, setPassedLegs] = useState({}); // { [legId]: boolean }
     const [legLiveRanks, setLegLiveRanks] = useState({});
     const [highlightedLegId, setHighlightedLegId] = useState(null);
 
@@ -355,6 +356,19 @@ export default function QuotationBankOfferPage() {
             } else {
                 setLiveRank(null);
                 setLegLiveRanks({});
+            }
+
+            // Hydrate passed legs state if dealer already passed legs in a previous submission
+            if (data.legs && Array.isArray(data.legs)) {
+                setPassedLegs(prev => {
+                    const updated = { ...prev };
+                    data.legs.forEach(l => {
+                        if (l.is_passed && updated[l.id] === undefined) {
+                            updated[l.id] = true;
+                        }
+                    });
+                    return updated;
+                });
             }
         } catch (err) {
             const status = err.response?.status;
@@ -1611,11 +1625,18 @@ export default function QuotationBankOfferPage() {
         }
 
         const quotesToSubmit = [];
+        const passedLegIds = [];
+
         for (const leg of (rfq.legs || [])) {
+            if (passedLegs[leg.id]) {
+                passedLegIds.push(leg.id);
+                continue;
+            }
+
             const q = legQuotes[leg.id];
             const p = q?.price ? parseFloat(q.price) : NaN;
             if (isNaN(p) || p <= 0) {
-                alert(`Please enter a valid rate for leg ${leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`}.`);
+                alert(`Please enter a valid rate or click "Pass Leg" for ${leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`}.`);
                 return;
             }
 
@@ -1635,18 +1656,26 @@ export default function QuotationBankOfferPage() {
             });
         }
 
+        // Guardrail: In multi-leg tenders, at least 1 leg must be quoted
+        if (quotesToSubmit.length === 0) {
+            alert('To decline quoting all legs, please use the "Decline Participation" button above.');
+            return;
+        }
+
         // Fat-Finger / Unreasonable Rate Safeguard across all multi-currency legs
         if (rfq.type === 'FX_SPOT') {
             // Check 0: Cross-Leg Swap Inversion Check (Synthetic Cross-Rate Triangulation)
-            if ((rfq.legs || []).length > 1) {
-                for (let i = 0; i < rfq.legs.length; i++) {
-                    for (let j = i + 1; j < rfq.legs.length; j++) {
-                        const legA = rfq.legs[i];
-                        const legB = rfq.legs[j];
-                        const qA = legQuotes[legA.id];
-                        const qB = legQuotes[legB.id];
-                        const pA = qA?.price ? parseFloat(qA.price) : NaN;
-                        const pB = qB?.price ? parseFloat(qB.price) : NaN;
+            if (quotesToSubmit.length > 1) {
+                for (let i = 0; i < quotesToSubmit.length; i++) {
+                    for (let j = i + 1; j < quotesToSubmit.length; j++) {
+                        const itemA = quotesToSubmit[i];
+                        const itemB = quotesToSubmit[j];
+                        const legA = (rfq.legs || []).find(l => l.id === itemA.leg_id);
+                        const legB = (rfq.legs || []).find(l => l.id === itemB.leg_id);
+                        if (!legA || !legB) continue;
+
+                        const pA = itemA.price;
+                        const pB = itemB.price;
                         const bmA = parseFloat(legA.cbe_benchmark_rate || rfq.cbe_benchmark_rate);
                         const bmB = parseFloat(legB.cbe_benchmark_rate || rfq.cbe_benchmark_rate);
 
@@ -1670,6 +1699,7 @@ export default function QuotationBankOfferPage() {
                                     pairA,
                                     pairB,
                                     allQuotes: quotesToSubmit,
+                                    passedLegs: passedLegIds,
                                     title: `⚠️ Possible Accidental Rate Swap: ${pairA} vs ${pairB}`,
                                     message: `You entered ${pA} for ${pairA} and ${pB} for ${pairB}. Under current CBE benchmarks, ${pairA} (~${bmA.toFixed(4)}) trades ${bmA > bmB ? 'higher' : 'lower'} than ${pairB} (~${bmB.toFixed(4)}). Your entered quotes invert the implied cross-rate to ${impliedCross} (Expected benchmark cross: ~${benchmarkCross}). Did you accidentally swap the prices for these two legs?`
                                 });
@@ -1683,6 +1713,8 @@ export default function QuotationBankOfferPage() {
             // Individual Leg Checks: Inversion, 10x Displaced Decimal, Extreme Outlier
             for (let lIdx = 0; lIdx < (rfq.legs || []).length; lIdx++) {
                 const leg = rfq.legs[lIdx];
+                if (passedLegs[leg.id]) continue; // Skip passed legs in fat-finger checks
+
                 const q = legQuotes[leg.id];
                 const p = q?.price ? parseFloat(q.price) : NaN;
                 const bm = parseFloat(leg.cbe_benchmark_rate || rfq.cbe_benchmark_rate);
@@ -1717,6 +1749,7 @@ export default function QuotationBankOfferPage() {
                             validQuotes: validQuotes.length > 0 ? validQuotes : null,
                             validCount: validQuotes.length,
                             totalCount: rfq.legs.length,
+                            passedLegs: passedLegIds,
                             title: `⚠️ Leg #${lIdx + 1} (${pair}): Possible Inverted Rate Detected`,
                             message: `For ${pair}, you entered ${p}, which matches the reciprocal (inverted) quotation. Prevailing CBE market benchmark is ~${bm.toFixed(4)}. Did you mean ${suggested}?`
                         });
@@ -1737,6 +1770,7 @@ export default function QuotationBankOfferPage() {
                             validQuotes: validQuotes.length > 0 ? validQuotes : null,
                             validCount: validQuotes.length,
                             totalCount: rfq.legs.length,
+                            passedLegs: passedLegIds,
                             title: `⚠️ Leg #${lIdx + 1} (${pair}): Displaced Decimal Point (~10x High)`,
                             message: `For ${pair}, you entered ${p}, which appears approximately 10x higher than prevailing CBE reference rate (~${bm.toFixed(4)}). Did you mean ${suggested}?`
                         });
@@ -1756,6 +1790,7 @@ export default function QuotationBankOfferPage() {
                             validQuotes: validQuotes.length > 0 ? validQuotes : null,
                             validCount: validQuotes.length,
                             totalCount: rfq.legs.length,
+                            passedLegs: passedLegIds,
                             title: `⚠️ Leg #${lIdx + 1} (${pair}): Displaced Decimal Point (~10x Low)`,
                             message: `For ${pair}, you entered ${p}, which appears approximately 10x lower than prevailing CBE reference rate (~${bm.toFixed(4)}). Did you mean ${suggested}?`
                         });
@@ -1775,6 +1810,7 @@ export default function QuotationBankOfferPage() {
                             validQuotes: validQuotes.length > 0 ? validQuotes : null,
                             validCount: validQuotes.length,
                             totalCount: rfq.legs.length,
+                            passedLegs: passedLegIds,
                             title: `⚠️ Leg #${lIdx + 1} (${pair}): Significant Rate Deviation Warning`,
                             message: `Your quote of ${p} for ${pair} deviates by ${pctDiff > 0 ? '+' : ''}${pctDiff.toFixed(1)}% from prevailing CBE benchmark (~${bm.toFixed(4)}). Please confirm this is intentional.`
                         });
@@ -1784,22 +1820,27 @@ export default function QuotationBankOfferPage() {
             }
         }
 
-        await executeBatchSubmit(quotesToSubmit);
+        await executeBatchSubmit(quotesToSubmit, passedLegIds);
     };
 
-    const executeBatchSubmit = async (overrideQuotes = null) => {
+    const executeBatchSubmit = async (overrideQuotes = null, overridePassedLegs = null) => {
         let quotesToSubmit = overrideQuotes;
+        let passedLegIds = overridePassedLegs !== null ? overridePassedLegs : Object.keys(passedLegs).filter(k => passedLegs[k]);
+
         if (!quotesToSubmit) {
             quotesToSubmit = [];
             for (const leg of (rfq.legs || [])) {
+                if (passedLegs[leg.id]) continue;
                 const q = legQuotes[leg.id];
                 const p = q?.price ? parseFloat(q.price) : NaN;
-                quotesToSubmit.push({
-                    leg_id: leg.id,
-                    price: p,
-                    offered_value_date: leg.allow_alternative_value_date ? (q?.offered_value_date || leg.value_date || undefined) : undefined,
-                    notes: q?.notes?.trim() || undefined
-                });
+                if (!isNaN(p) && p > 0) {
+                    quotesToSubmit.push({
+                        leg_id: leg.id,
+                        price: p,
+                        offered_value_date: leg.allow_alternative_value_date ? (q?.offered_value_date || leg.value_date || undefined) : undefined,
+                        notes: q?.notes?.trim() || undefined
+                    });
+                }
             }
         }
 
@@ -1809,6 +1850,7 @@ export default function QuotationBankOfferPage() {
             const res = await quotationApi.post('/api/v1/public-quotation/offers-batch', {
                 token,
                 quotes: quotesToSubmit,
+                passed_legs: passedLegIds,
                 session_token: getEffectiveSessionToken(),
                 email: authSession.email,
                 notes: traderNotes.trim() || undefined
@@ -3781,17 +3823,25 @@ export default function QuotationBankOfferPage() {
                                                                     <TrendingUp size={14} className="text-emerald-600" /> Multi-Pair Quoting Console
                                                                 </h4>
                                                                 <p className="text-[11px] text-slate-500 mt-0.5">
-                                                                    Enter your firm quotes for all {rfq.legs.length} currency pair legs.
+                                                                    Enter your firm quotes or pass on specific currency pair legs.
                                                                 </p>
                                                             </div>
-                                                            <span className="text-[10px] font-bold font-mono px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                                                {Object.values(legQuotes).filter(q => q?.price && parseFloat(q.price) > 0).length} / {rfq.legs.length} Quoted
-                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                {Object.values(passedLegs).filter(Boolean).length > 0 && (
+                                                                    <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 border border-slate-200">
+                                                                        {Object.values(passedLegs).filter(Boolean).length} Passed
+                                                                    </span>
+                                                                )}
+                                                                <span className="text-[10px] font-bold font-mono px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                                    {rfq.legs.filter(l => !passedLegs[l.id] && legQuotes[l.id]?.price && parseFloat(legQuotes[l.id].price) > 0).length} / {rfq.legs.length} Quoted
+                                                                </span>
+                                                            </div>
                                                         </div>
 
                                                         <div className="space-y-3.5">
                                                             {rfq.legs.map((leg, idx) => {
                                                                 const q = legQuotes[leg.id] || { price: '', offered_value_date: leg.value_date || '', notes: '' };
+                                                                const isPassed = Boolean(passedLegs[leg.id]);
                                                                 const legPairName = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
                                                                 const rawRank = rfq?.is_live_ranking_enabled ? (
                                                                     legLiveRanks[leg.id]
@@ -3806,7 +3856,7 @@ export default function QuotationBankOfferPage() {
                                                                         ? { rank: rawRank, total_quotes: liveRank?.total_quotes || 1, is_leading: rawRank === 1 }
                                                                         : rawRank)
                                                                     : null;
-                                                                const hasQuote = q.price && parseFloat(q.price) > 0;
+                                                                const hasQuote = !isPassed && q.price && parseFloat(q.price) > 0;
                                                                 const isHighlighted = highlightedLegId === leg.id;
                                                                 const hasRecordedOffer = leg.offers && leg.offers.length > 0;
 
@@ -3814,21 +3864,23 @@ export default function QuotationBankOfferPage() {
                                                                     <div
                                                                         key={leg.id || idx}
                                                                         id={`leg-card-${leg.id}`}
-                                                                        className={`p-4 rounded-2xl border transition-all ${isHighlighted
-                                                                                ? 'bg-amber-50/70 border-amber-400 ring-2 ring-amber-400 shadow-md animate-pulse'
-                                                                                : hasQuote ? 'bg-white border-slate-300 shadow-xs' : 'bg-slate-50 border-slate-200'
+                                                                        className={`p-4 rounded-2xl border transition-all ${isPassed
+                                                                                ? 'bg-slate-100/70 border-slate-200/80 opacity-90'
+                                                                                : isHighlighted
+                                                                                    ? 'bg-amber-50/70 border-amber-400 ring-2 ring-amber-400 shadow-md animate-pulse'
+                                                                                    : hasQuote ? 'bg-white border-slate-300 shadow-xs' : 'bg-slate-50 border-slate-200'
                                                                             }`}
                                                                     >
                                                                         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                                                                             <div className="flex items-center gap-2">
-                                                                                <span className="w-6 h-6 rounded-lg bg-slate-900 text-white text-xs font-black flex items-center justify-center font-mono">
+                                                                                <span className={`w-6 h-6 rounded-lg text-white text-xs font-black flex items-center justify-center font-mono ${isPassed ? 'bg-slate-400' : 'bg-slate-900'}`}>
                                                                                     {idx + 1}
                                                                                 </span>
-                                                                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase text-white ${(leg.direction || 'BUY').toUpperCase() === 'BUY' ? 'bg-emerald-600' : 'bg-blue-600'
+                                                                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase text-white ${isPassed ? 'bg-slate-400' : (leg.direction || 'BUY').toUpperCase() === 'BUY' ? 'bg-emerald-600' : 'bg-blue-600'
                                                                                     }`}>
                                                                                     {leg.direction || 'BUY'}
                                                                                 </span>
-                                                                                <span className="font-mono font-black text-sm text-slate-900">
+                                                                                <span className={`font-mono font-black text-sm ${isPassed ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
                                                                                     {leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`}
                                                                                 </span>
                                                                                 <span className={`text-[9px] font-black px-2 py-0.5 rounded tracking-wide uppercase ${(leg.quotation_base || rfq.quotation_base || 'Execution').toLowerCase() === 'indicative'
@@ -3842,9 +3894,42 @@ export default function QuotationBankOfferPage() {
                                                                                 </span>
                                                                             </div>
 
-                                                                            {/* Status / Live Ranking / Awarding Outcome Stamp */}
-                                                                            <div>
-                                                                                {timeLeft.status === 'CLOSED' ? (
+                                                                            {/* Actions & Status / Live Ranking / Awarding Outcome Stamp */}
+                                                                            <div className="flex items-center gap-2">
+                                                                                {/* [ Pass Leg ] / [ Quote this Leg ] Toggle for Active Trading */}
+                                                                                {timeLeft.status === 'OPEN' && !isSpectator && !isReadOnlyViewer && (
+                                                                                    isPassed ? (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => {
+                                                                                                setPassedLegs(prev => ({ ...prev, [leg.id]: false }));
+                                                                                            }}
+                                                                                            className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
+                                                                                            title="Re-open quoting for this leg"
+                                                                                        >
+                                                                                            <RotateCw size={12} className="text-slate-500" />
+                                                                                            <span>↩ Quote this Leg</span>
+                                                                                        </button>
+                                                                                    ) : (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => {
+                                                                                                setPassedLegs(prev => ({ ...prev, [leg.id]: true }));
+                                                                                                updateLegQuote(leg.id, 'price', '');
+                                                                                            }}
+                                                                                            className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 text-slate-500 hover:text-red-700 hover:border-red-200 hover:bg-red-50 transition-all flex items-center gap-1 cursor-pointer"
+                                                                                            title="Decline/pass quoting on this specific leg"
+                                                                                        >
+                                                                                            <span>Pass Leg ✕</span>
+                                                                                        </button>
+                                                                                    )
+                                                                                )}
+
+                                                                                {isPassed ? (
+                                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300">
+                                                                                        Passed (Declined to Quote)
+                                                                                    </span>
+                                                                                ) : timeLeft.status === 'CLOSED' ? (
                                                                                     (() => {
                                                                                         const isSinglePair = !rfq.legs || rfq.legs.length <= 1;
                                                                                         const legOutcome = outcomeData?.legs_breakdown?.[leg.id]
@@ -3970,13 +4055,17 @@ export default function QuotationBankOfferPage() {
                                                                                     <input
                                                                                         type="number"
                                                                                         step="0.0001"
-                                                                                        required
-                                                                                        disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
+                                                                                        required={!isPassed}
+                                                                                        disabled={isPassed || timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
                                                                                         onWheel={(e) => e.currentTarget.blur()}
-                                                                                        placeholder="Enter rate (e.g. 48.6500)"
-                                                                                        className={`w-full bg-slate-50 border rounded-xl px-3.5 py-2 text-base font-bold font-mono focus:bg-white outline-none disabled:bg-slate-100 disabled:text-slate-400 ${isHighlighted ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200 focus:border-slate-900'
+                                                                                        placeholder={isPassed ? "Leg Passed — No Quote" : "Enter rate (e.g. 48.6500)"}
+                                                                                        className={`w-full bg-slate-50 border rounded-xl px-3.5 py-2 text-base font-bold font-mono focus:bg-white outline-none disabled:bg-slate-100 disabled:text-slate-400 ${isPassed
+                                                                                                ? 'border-slate-200 bg-slate-100/80 text-slate-400 cursor-not-allowed italic'
+                                                                                                : isHighlighted
+                                                                                                    ? 'border-amber-400 bg-amber-50/30'
+                                                                                                    : 'border-slate-200 focus:border-slate-900'
                                                                                             }`}
-                                                                                        value={q.price}
+                                                                                        value={isPassed ? '' : q.price}
                                                                                         onChange={e => {
                                                                                             if (highlightedLegId === leg.id) setHighlightedLegId(null);
                                                                                             updateLegQuote(leg.id, 'price', e.target.value);
@@ -4261,7 +4350,12 @@ export default function QuotationBankOfferPage() {
                                                                 rfq.type === 'TBILL'
                                                                     ? tbillLines.some(l => !l.discountRate || !l.maxAmount)
                                                                     : (rfq.legs && rfq.legs.length > 1)
-                                                                        ? rfq.legs.some(l => !legQuotes[l.id]?.price || parseFloat(legQuotes[l.id].price) <= 0)
+                                                                        ? (
+                                                                            // Every leg must be either quoted or explicitly passed
+                                                                            rfq.legs.some(l => !passedLegs[l.id] && (!legQuotes[l.id]?.price || parseFloat(legQuotes[l.id].price) <= 0))
+                                                                            // And at least one leg must be actively quoted
+                                                                            || rfq.legs.every(l => passedLegs[l.id])
+                                                                        )
                                                                         : !price
                                                             )}
                                                             className={`w-full py-3.5 rounded-2xl font-bold text-base transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10
@@ -4283,13 +4377,23 @@ export default function QuotationBankOfferPage() {
                                                                     <Zap size={18} className="animate-bounce text-amber-200" />
                                                                     <span>⚡ {
                                                                         (rfq.legs && rfq.legs.length > 1)
-                                                                            ? (submitted ? `Update All Quotes (${rfq.legs.length} Pairs)` : `Submit All Quotes (${rfq.legs.length} Pairs)`)
+                                                                            ? (() => {
+                                                                                const quotedCount = rfq.legs.filter(l => !passedLegs[l.id] && legQuotes[l.id]?.price && parseFloat(legQuotes[l.id].price) > 0).length;
+                                                                                return submitted
+                                                                                    ? `Update Quotes (${quotedCount} of ${rfq.legs.length} Pairs)`
+                                                                                    : `Submit Quotes (${quotedCount} of ${rfq.legs.length} Pairs)`;
+                                                                            })()
                                                                             : submitted ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote') : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')
                                                                     } • {String(timeLeft.secondsRemaining).padStart(2, '0')}s Left!</span>
                                                                 </>
                                                             ) : (
                                                                 (rfq.legs && rfq.legs.length > 1)
-                                                                    ? (submitted ? `Update All Quotes (${rfq.legs.length} Pairs)` : `Submit All Quotes (${rfq.legs.length} Pairs)`)
+                                                                    ? (() => {
+                                                                        const quotedCount = rfq.legs.filter(l => !passedLegs[l.id] && legQuotes[l.id]?.price && parseFloat(legQuotes[l.id].price) > 0).length;
+                                                                        return submitted
+                                                                            ? `Update Quotes (${quotedCount} of ${rfq.legs.length} Pairs)`
+                                                                            : `Submit Quotes (${quotedCount} of ${rfq.legs.length} Pairs)`;
+                                                                    })()
                                                                     : submitted
                                                                         ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote')
                                                                         : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')
