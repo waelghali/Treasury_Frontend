@@ -309,7 +309,13 @@ export default function QuotationBankOfferPage() {
     const [feedbackComment, setFeedbackComment] = useState('');
     const [feedbackIsAnonymous, setFeedbackIsAnonymous] = useState(false);
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
-    const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+    const [feedbackSubmitted, setFeedbackSubmitted] = useState(() => {
+        try {
+            return localStorage.getItem(`quotation_feedback_submitted_${token}`) === 'true';
+        } catch (_) {
+            return false;
+        }
+    });
 
     useEffect(() => {
         if (showFeedbackToast) {
@@ -320,14 +326,31 @@ export default function QuotationBankOfferPage() {
         }
     }, [showFeedbackToast]);
 
+    // Proactive feedback prompt: ONLY ONCE per tender, and ONLY after the quotation is 100% finished & concluded with zero trading heat
     useEffect(() => {
-        if (timeLeft.status === 'CLOSED' && !feedbackSubmitted && authSession) {
+        try {
+            const alreadyPrompted = localStorage.getItem(`quotation_feedback_prompted_${token}`);
+            const alreadySubmitted = localStorage.getItem(`quotation_feedback_submitted_${token}`);
+            if (alreadyPrompted || alreadySubmitted || feedbackSubmitted) return;
+        } catch (_) {
+            return;
+        }
+
+        const terminalStatuses = ['WINNER', 'PARTIALLY_WON', 'NOT_SELECTED', 'UNEXECUTED', 'INCONCLUSIVE', 'INDICATIVE_ONLY', 'COMPLETED'];
+        const isDealFinalized = terminalStatuses.includes(resultStatus) || ['COMPLETED', 'REJECTED', 'CANCELLED'].includes(rfq?.status);
+        const isAcceptanceFinished = (timeLeft.acceptanceSecondsRemaining === 0 || timeLeft.acceptanceSecondsRemaining === null);
+        const isWindowClosed = timeLeft.status === 'CLOSED';
+
+        if (isWindowClosed && isDealFinalized && isAcceptanceFinished && authSession) {
             const t = setTimeout(() => {
                 setShowFeedbackToast(true);
-            }, 3000);
+                try {
+                    localStorage.setItem(`quotation_feedback_prompted_${token}`, 'true');
+                } catch (_) {}
+            }, 4000);
             return () => clearTimeout(t);
         }
-    }, [timeLeft.status, feedbackSubmitted, authSession]);
+    }, [timeLeft.status, timeLeft.acceptanceSecondsRemaining, resultStatus, rfq?.status, feedbackSubmitted, authSession, token]);
 
     const handleSendFeedback = async () => {
         if (isSubmittingFeedback) return;
@@ -342,6 +365,10 @@ export default function QuotationBankOfferPage() {
                 dealer_email: authSession?.email || undefined
             });
             setFeedbackSubmitted(true);
+            try {
+                localStorage.setItem(`quotation_feedback_submitted_${token}`, 'true');
+                localStorage.setItem(`quotation_feedback_prompted_${token}`, 'true');
+            } catch (_) {}
             setShowFeedbackToast(false);
             setTimeout(() => {
                 setIsFeedbackModalOpen(false);
@@ -1493,9 +1520,6 @@ export default function QuotationBankOfferPage() {
                 setLegLiveRanks(res.data.ranks_by_leg);
             }
             await fetchRfq();
-            if (!feedbackSubmitted) {
-                setShowFeedbackToast(true);
-            }
         } catch (err) {
             console.error(err);
             alert(err.response?.data?.detail || "Submission failed. Please try again.");
@@ -4837,8 +4861,14 @@ export default function QuotationBankOfferPage() {
                             </div>
                             <button
                                 type="button"
-                                onClick={() => setShowFeedbackToast(false)}
-                                className="text-slate-400 hover:text-white p-1 ml-1 rounded-lg hover:bg-slate-800 transition-colors"
+                                onClick={() => {
+                                    setShowFeedbackToast(false);
+                                    try {
+                                        localStorage.setItem(`quotation_feedback_prompted_${token}`, 'true');
+                                    } catch (_) {}
+                                }}
+                                className="text-slate-400 hover:text-white p-1 ml-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                                title="Dismiss feedback prompt"
                             >
                                 <X size={15} />
                             </button>
