@@ -4,6 +4,7 @@ import { apiRequest } from 'services/apiService.js';
 import { Edit, Save, AlertCircle, AlertTriangle, Mail, Trash2, Globe, Plus, Filter, ChevronDown, ChevronUp, Loader2, Activity, Calendar, User, FileText, CheckCircle, XCircle, X, Shield, ShieldCheck, Layers, Cpu, HardDrive, Settings, Clock, Server, Lock, MessageSquare, FileCheck, Building, LayoutTemplate, Sparkles, Sliders, KeyRound, Check, History, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import QuotationBanksModal from '../../components/Modals/QuotationBanksModal';
+import QuotationAutoAcceptConsentModal from '../../components/Modals/QuotationAutoAcceptConsentModal';
 import RangeBarController from '../../components/RangeBarController';
 
 // Email Provider Preset Auto-Detector
@@ -263,6 +264,10 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
   const [isSaving, setIsSaving] = useState(false);
   const [savingKey, setSavingKey] = useState(null);
   const [saveError, setSaveError] = useState('');
+
+  // --- Phase 6.4: Quotation Auto-Accept Legal Consent Modal State ---
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [pendingConsentConfig, setPendingConsentConfig] = useState(null);
 
   // --- CBE Rate History Modal State ---
   const [showCbeHistoryModal, setShowCbeHistoryModal] = useState(false);
@@ -596,6 +601,15 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
         toast.success(msg);
       }
 
+      // Cascade optimistic reset: if setting Default Action to AUTO_REJECT, reset AUTO_ACCEPT_SINGLE_QUOTE
+      if (config.global_config_key === 'QUOTATION_ACCEPTANCE_DEFAULT_ACTION' && valueToSave === 'AUTO_REJECT') {
+        setConfigurations(prev => prev.map(c => 
+          c.global_config_key === 'AUTO_ACCEPT_SINGLE_QUOTE' 
+            ? { ...c, effective_value: 'false', configured_value: 'false' } 
+            : c
+        ));
+      }
+
       setEditingConfigId(null);
       setEditValue('');
       setEditEmailList([]);
@@ -609,6 +623,59 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
       setIsSaving(false);
       setSavingKey(null);
     }
+  };
+
+  // --- Phase 6.4: Quotation Governance Toggle Handlers ---
+  const handleToggleClick = (config, newChecked) => {
+    const isAcceptanceAction = config.global_config_key === 'QUOTATION_ACCEPTANCE_DEFAULT_ACTION';
+    const isSingleQuoteAction = config.global_config_key === 'AUTO_ACCEPT_SINGLE_QUOTE';
+
+    if (isAcceptanceAction) {
+      if (newChecked) {
+        // Turning ON Auto-Accept -> Prompt High-Importance Legal Consent Modal
+        setPendingConsentConfig({ config, directValue: true, targetValue: 'AUTO_ACCEPT', key: config.global_config_key });
+        setShowConsentModal(true);
+        return;
+      } else {
+        // Turning OFF (switching to Auto-Reject) -> Immediate save
+        handleSave(config, false);
+        return;
+      }
+    }
+
+    if (isSingleQuoteAction) {
+      const defActCfg = configurations.find(c => c.global_config_key === 'QUOTATION_ACCEPTANCE_DEFAULT_ACTION');
+      const isDefActionAutoAccept = ['auto_accept', 'true', 'accept'].includes(
+        String(defActCfg?.effective_value ?? defActCfg?.global_value_default ?? '').toLowerCase()
+      );
+
+      if (!isDefActionAutoAccept) {
+        toast.warn("AUTO_ACCEPT_SINGLE_QUOTE cannot be enabled when Quotation Acceptance Default Action is set to Auto-Reject.");
+        return;
+      }
+
+      if (newChecked) {
+        // Turning ON Auto-Accept for Single Quotes -> Prompt High-Importance Legal Consent Modal
+        setPendingConsentConfig({ config, directValue: true, targetValue: 'true', key: config.global_config_key });
+        setShowConsentModal(true);
+        return;
+      } else {
+        // Turning OFF -> Immediate save
+        handleSave(config, false);
+        return;
+      }
+    }
+
+    // Default boolean toggle
+    handleSave(config, newChecked);
+  };
+
+  const handleConsentConfirm = () => {
+    if (pendingConsentConfig) {
+      handleSave(pendingConsentConfig.config, pendingConsentConfig.directValue);
+      setPendingConsentConfig(null);
+    }
+    setShowConsentModal(false);
   };
 
   const handleEmailSettingsChange = (e) => {
@@ -1445,10 +1512,21 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                             {tableConfigs.map((config) => {
                               // Determine if this config is a boolean and check its state
                               const isAcceptanceAction = config.global_config_key === 'QUOTATION_ACCEPTANCE_DEFAULT_ACTION';
+                              const isSingleQuoteAction = config.global_config_key === 'AUTO_ACCEPT_SINGLE_QUOTE';
                               const isBoolean = config.global_unit === 'boolean' || isAcceptanceAction;
+
+                              // Look up default action to enforce AUTO_ACCEPT_SINGLE_QUOTE invariant
+                              const defActCfg = configurations.find(c => c.global_config_key === 'QUOTATION_ACCEPTANCE_DEFAULT_ACTION');
+                              const isDefActionAutoAccept = ['auto_accept', 'true', 'accept'].includes(
+                                String(defActCfg?.effective_value ?? defActCfg?.global_value_default ?? '').toLowerCase()
+                              );
+                              const isSingleQuoteLocked = isSingleQuoteAction && !isDefActionAutoAccept;
+
                               const isChecked = isAcceptanceAction
                                 ? ['auto_accept', 'true', 'accept'].includes(String(config.effective_value ?? config.global_value_default ?? '').toLowerCase())
-                                : String(config.effective_value).toLowerCase() === 'true';
+                                : isSingleQuoteLocked
+                                ? false
+                                : String(config.effective_value ?? config.global_value_default ?? '').toLowerCase() === 'true';
 
                               return (
                                 <tr key={config.global_config_id} className="hover:bg-gray-50">
@@ -1530,6 +1608,18 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                                           }`}>
                                             {isChecked ? '✓ Auto Accept' : '✕ Auto Reject'}
                                           </span>
+                                        ) : isSingleQuoteAction ? (
+                                          isSingleQuoteLocked ? (
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                                              Disabled (Auto-Reject Active)
+                                            </span>
+                                          ) : (
+                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+                                              isChecked ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                            }`}>
+                                              {isChecked ? '⚠️ Single Quote Auto-Accept' : 'Halted (Manual Approval)'}
+                                            </span>
+                                          )
                                         ) : (
                                           <span className={`font-semibold ${isBoolean ? (isChecked ? 'text-green-600' : 'text-red-600') : ''}`}>
                                             {getEffectiveValue(config)}
@@ -1582,17 +1672,30 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                                       /* TOGGLE SWITCH - For Boolean types (Replaces Edit Button) */
                                       <div className="flex flex-col items-center justify-center">
                                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                          <div title={isAcceptanceAction ? (isChecked ? 'Current: Auto Accept (Click to switch to Auto Reject)' : 'Current: Auto Reject (Click to switch to Auto Accept)') : (isChecked ? 'Click to disable' : 'Click to enable')}>
+                                          <div title={
+                                            isSingleQuoteLocked
+                                              ? 'Locked: Cannot be enabled when Quotation Acceptance Default Action is set to Auto-Reject'
+                                              : isAcceptanceAction 
+                                              ? (isChecked ? 'Current: Auto Accept (Click to switch to Auto Reject)' : 'Current: Auto Reject (Click to switch to Auto Accept)') 
+                                              : (isChecked ? 'Click to disable' : 'Click to enable')
+                                          }>
                                             <ToggleSwitch
                                               checked={isChecked}
-                                              onChange={() => handleSave(config, !isChecked)}
-                                              disabled={isGracePeriod || savingKey === config.global_config_key}
+                                              onChange={() => handleToggleClick(config, !isChecked)}
+                                              disabled={isGracePeriod || savingKey === config.global_config_key || isSingleQuoteLocked}
                                             />
                                           </div>
                                         </GracePeriodTooltip>
                                         {isAcceptanceAction && (
                                           <span className={`text-[10px] font-semibold mt-0.5 ${isChecked ? 'text-emerald-600' : 'text-rose-600'}`}>
                                             {isChecked ? 'Accept' : 'Reject'}
+                                          </span>
+                                        )}
+                                        {isSingleQuoteAction && (
+                                          <span className={`text-[10px] font-semibold mt-0.5 ${
+                                            isSingleQuoteLocked ? 'text-slate-400' : isChecked ? 'text-amber-600 font-bold' : 'text-slate-500'
+                                          }`}>
+                                            {isSingleQuoteLocked ? 'Locked' : isChecked ? 'Enabled' : 'Halted'}
                                           </span>
                                         )}
                                       </div>
@@ -3224,6 +3327,18 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
           </div>
         </div>
       )}
+
+      {/* Phase 6.4: Quotation Auto-Accept Institutional Legal Consent Modal */}
+      <QuotationAutoAcceptConsentModal
+        isOpen={showConsentModal}
+        configKey={pendingConsentConfig?.key}
+        companyName={subscriptionData?.customer?.name || 'Corporate Treasury'}
+        onConfirm={handleConsentConfirm}
+        onClose={() => {
+          setShowConsentModal(false);
+          setPendingConsentConfig(null);
+        }}
+      />
     </div >
   );
 }

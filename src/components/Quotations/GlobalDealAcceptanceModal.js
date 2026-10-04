@@ -311,11 +311,17 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                             Expiry Policy Action
                         </span>
                         <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-lg border ${
-                            deal.timeout_action === 'AUTO_ACCEPT'
+                            deal.is_auto_accept_halted
+                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                : deal.timeout_action === 'AUTO_ACCEPT'
                                 ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                 : 'bg-rose-50 text-rose-800 border-rose-200'
                         }`}>
-                            {deal.timeout_action === 'AUTO_ACCEPT' ? 'Auto-Accept on Expiry' : 'Auto-Reject on Expiry'}
+                            {deal.is_auto_accept_halted
+                                ? 'Auto-Accept Halted (Manual Sign-Off Required)'
+                                : deal.timeout_action === 'AUTO_ACCEPT'
+                                ? 'Auto-Accept on Expiry'
+                                : 'Auto-Reject on Expiry'}
                         </span>
                     </div>
                 </div>
