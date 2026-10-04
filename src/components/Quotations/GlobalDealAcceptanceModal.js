@@ -17,6 +17,9 @@ import {
     Coins,
     Calendar,
     ChevronRight,
+    ChevronDown,
+    ChevronUp,
+    BarChart2,
     XCircle
 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -41,8 +44,9 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
     const [declineReason, setDeclineReason] = useState('Price exceeded internal limit / market shift');
     const [soundMuted, setSoundMuted] = useState(false);
 
-    // Multi-leg selection state
+    // Multi-leg selection & expand state
     const isMultiLeg = Boolean(deal?.is_multi_leg && deal?.legs && deal.legs.length > 1);
+    const [expandedLegId, setExpandedLegId] = useState(null);
     const [selectedLegIds, setSelectedLegIds] = useState(() => {
         if (!deal?.legs) return [];
         return deal.legs.filter(l => !l.is_inconclusive).map(l => String(l.leg_id));
@@ -429,7 +433,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                     </div>
                 </div>
 
-                {/* 5. MULTI-LEG MATRIX OR SINGLE-LEG MARKET DEPTH (COMPACT ZERO-SCROLL) */}
+                {/* 5. MULTI-LEG MATRIX OR SINGLE-LEG COUNTERPARTY OFFERS LADDER (COMPACT ZERO-SCROLL) */}
                 <div className="p-4 bg-white flex-1 overflow-hidden">
                     {isMultiLeg ? (
                         <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
@@ -447,117 +451,270 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                 </button>
                             </div>
 
-                            <div className="divide-y divide-slate-100 max-h-[160px] overflow-y-auto custom-scrollbar">
+                            <div className="divide-y divide-slate-100 max-h-[175px] overflow-y-auto custom-scrollbar">
                                 {deal.legs.map((leg, idx) => {
                                     const legIdStr = String(leg.leg_id);
                                     const isSelected = selectedLegIds.includes(legIdStr);
                                     const isInconclusive = Boolean(leg.is_inconclusive);
+                                    const isExpanded = expandedLegId === legIdStr;
+                                    const offers = leg.counterparty_offers || [];
 
                                     return (
-                                        <div
-                                            key={legIdStr || idx}
-                                            onClick={() => !isInconclusive && toggleLeg(legIdStr)}
-                                            className={`px-3.5 py-2.5 flex items-center justify-between text-xs cursor-pointer transition-colors ${
-                                                isInconclusive 
-                                                    ? 'bg-slate-50 text-slate-400 cursor-not-allowed'
-                                                    : isSelected
-                                                    ? 'bg-emerald-50/60 hover:bg-emerald-50 text-slate-900'
-                                                    : 'bg-white hover:bg-slate-50 text-slate-600'
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isSelected}
-                                                    disabled={isInconclusive}
-                                                    onChange={() => {}}
-                                                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
-                                                />
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-bold font-mono text-slate-900">
-                                                            {leg.currency_pair}
-                                                        </span>
-                                                        <span className="text-[11px] font-bold text-slate-500 uppercase">
-                                                            {leg.direction || 'BUY'} {formatNum(leg.amount, 0, 2)}
-                                                        </span>
-                                                        {leg.is_uncontested && (
-                                                            <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded border border-amber-300">
-                                                                Single Quote
+                                        <div key={legIdStr || idx} className="divide-y divide-slate-50">
+                                            <div
+                                                className={`px-3.5 py-2.5 flex items-center justify-between text-xs transition-colors ${
+                                                    isInconclusive 
+                                                        ? 'bg-slate-50 text-slate-400'
+                                                        : isSelected
+                                                        ? 'bg-emerald-50/50 hover:bg-emerald-50 text-slate-900'
+                                                        : 'bg-white hover:bg-slate-50 text-slate-600'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        disabled={isInconclusive}
+                                                        onChange={() => !isInconclusive && toggleLeg(legIdStr)}
+                                                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                                                    />
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold font-mono text-slate-900">
+                                                                {leg.currency_pair}
                                                             </span>
-                                                        )}
+                                                            <span className="text-[11px] font-bold text-slate-500 uppercase">
+                                                                {leg.direction || 'BUY'} {formatNum(leg.amount, 0, 2)}
+                                                            </span>
+                                                            {leg.is_uncontested && (
+                                                                <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded border border-amber-300">
+                                                                    Single Quote
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <span className="text-[11px] text-slate-600 font-medium">
+                                                                {isInconclusive ? 'No executable quote' : `${leg.winner_bank_name} (Winning)`}
+                                                            </span>
+                                                            {offers.length > 0 && !isInconclusive && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setExpandedLegId(isExpanded ? null : legIdStr);
+                                                                    }}
+                                                                    className="inline-flex items-center gap-0.5 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                                                                >
+                                                                    <span>{offers.length} {offers.length === 1 ? 'quote' : 'offers'}</span>
+                                                                    {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    <span className="text-[11px] text-slate-500 block mt-0.5">
-                                                        {isInconclusive ? 'No executable quote' : `${leg.winner_bank_name} &bull; ${leg.total_quotes || 1} bids received`}
-                                                    </span>
+                                                </div>
+
+                                                <div className="text-right">
+                                                    {!isInconclusive ? (
+                                                        <>
+                                                            <span className="font-mono font-bold text-emerald-700 block text-sm">
+                                                                {formatNum(leg.winner_rate, 4, 4)}
+                                                            </span>
+                                                            {leg.saved_vs_avg && (
+                                                                <span className="text-[11px] font-mono text-emerald-800 font-semibold block">
+                                                                    +{formatNum(leg.saved_vs_avg, 2, 2)} EGP
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-slate-400 font-semibold text-xs">Excluded</span>
+                                                    )}
                                                 </div>
                                             </div>
 
-                                            <div className="text-right">
-                                                {!isInconclusive ? (
-                                                    <>
-                                                        <span className="font-mono font-bold text-emerald-700 block text-sm">
-                                                            {formatNum(leg.winner_rate, 4, 4)}
-                                                        </span>
-                                                        {leg.saved_vs_avg && (
-                                                            <span className="text-[11px] font-mono text-emerald-800 font-semibold block">
-                                                                +{formatNum(leg.saved_vs_avg, 2, 2)} EGP
-                                                            </span>
+                                            {/* Multi-Leg Expanded Counterparty Ladder Drawer */}
+                                            {isExpanded && offers.length > 0 && (
+                                                <div className="bg-slate-50/90 px-8 py-2 border-t border-slate-100 animate-fade-in text-[11px]">
+                                                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
+                                                        <span>Counterparty Quotes Received for {leg.currency_pair}</span>
+                                                        {leg.avg_rate && (
+                                                            <span className="font-mono normal-case">Leg Mean: <span className="font-bold text-slate-700">{formatNum(leg.avg_rate, 4, 4)}</span></span>
                                                         )}
-                                                    </>
-                                                ) : (
-                                                    <span className="text-slate-400 font-semibold text-xs">Excluded</span>
-                                                )}
-                                            </div>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        {offers.map((offer, oIdx) => (
+                                                            <div 
+                                                                key={offer.bank_id || oIdx}
+                                                                className={`px-2.5 py-1 rounded-lg flex items-center justify-between ${
+                                                                    offer.is_winner 
+                                                                        ? 'bg-emerald-100/70 text-emerald-950 font-bold border border-emerald-200' 
+                                                                        : offer.is_passed
+                                                                        ? 'bg-slate-100/50 text-slate-400'
+                                                                        : 'bg-white text-slate-700 border border-slate-100'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center ${
+                                                                        offer.is_winner ? 'bg-emerald-600 text-white' : offer.rank ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-400'
+                                                                    }`}>
+                                                                        {offer.rank || '—'}
+                                                                    </span>
+                                                                    <span>{offer.bank_name}</span>
+                                                                    {offer.is_winner && (
+                                                                        <span className="text-[9px] uppercase px-1 bg-emerald-200 text-emerald-900 rounded font-bold">Awarded</span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex items-center gap-2 font-mono">
+                                                                    {offer.has_quote ? (
+                                                                        <>
+                                                                            <span className={offer.is_winner ? 'text-emerald-800 font-bold' : 'text-slate-700 font-medium'}>
+                                                                                {formatNum(offer.rate, 4, 4)}
+                                                                            </span>
+                                                                            {offer.spread_bps !== null && offer.spread_bps !== undefined && !offer.is_winner && (
+                                                                                <span className="text-[10px] text-slate-400">+{offer.spread_bps} bps</span>
+                                                                            )}
+                                                                        </>
+                                                                    ) : offer.is_passed ? (
+                                                                        <span className="text-slate-400 text-[10px] font-medium">Passed</span>
+                                                                    ) : (
+                                                                        <span className="text-slate-400 text-[10px] italic">No Quote</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}
                             </div>
                         </div>
                     ) : (
-                        /* Single-Leg Market Spread Visualizer */
-                        <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-3.5 flex flex-col justify-between">
-                            <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-2">
-                                <span className="flex items-center gap-1.5 text-slate-800">
-                                    <TrendingUp size={14} className="text-emerald-600" />
-                                    <span>Market Execution Benchmark Spread</span>
-                                </span>
-                                <span className="text-slate-500 text-[11px]">
-                                    {deal.total_quotes ? `${deal.total_quotes} Valid Counterparty Quotes` : 'Competitive Tender'}
-                                </span>
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-2 text-center">
-                                <div className="bg-white p-2.5 rounded-xl border border-emerald-300 shadow-2xs">
-                                    <span className="text-[10px] font-bold text-emerald-700 uppercase block">1st Rank (Winning)</span>
-                                    <span className="text-sm font-bold font-mono text-emerald-800 block mt-0.5">
-                                        {deal.winner_rate ? formatNum(deal.winner_rate, 4, 4) : '—'}
-                                    </span>
-                                    <span className="text-[10px] font-semibold text-slate-600 truncate block mt-0.5">
-                                        {deal.winner_bank_name}
+                        /* Single-Leg Counterparty Offers Ladder & Benchmark Cockpit */
+                        <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs flex flex-col bg-white">
+                            <div className="bg-slate-100/90 px-3.5 py-2 flex items-center justify-between border-b border-slate-200 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                <div className="flex items-center gap-2">
+                                    <BarChart2 size={13} className="text-slate-600" />
+                                    <span>
+                                        Counterparty Offers Ladder ({deal.counterparty_offers?.length || deal.total_quotes || 0} Banks Invited)
                                     </span>
                                 </div>
-
-                                <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Market Desk Average</span>
-                                    <span className="text-sm font-bold font-mono text-slate-800 block mt-0.5">
-                                        {deal.avg_rate ? formatNum(deal.avg_rate, 4, 4) : 'Market Mean'}
-                                    </span>
-                                    <span className="text-[10px] text-slate-400 block mt-0.5">
-                                        Baseline
-                                    </span>
-                                </div>
-
-                                <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Worst Competitor Bid</span>
-                                    <span className="text-sm font-bold font-mono text-slate-700 block mt-0.5">
-                                        {deal.worst_rate ? formatNum(deal.worst_rate, 4, 4) : '—'}
-                                    </span>
-                                    <span className="text-[10px] text-rose-600 font-semibold block mt-0.5">
-                                        Avoided Spread
-                                    </span>
+                                <div className="flex items-center gap-3 text-[11px] normal-case text-slate-500 font-semibold">
+                                    {deal.avg_rate && (
+                                        <span>Market Mean: <span className="font-bold text-slate-700 font-mono">{formatNum(deal.avg_rate, 4, 4)}</span></span>
+                                    )}
+                                    {deal.worst_rate && (
+                                        <span>Worst: <span className="font-bold text-rose-600 font-mono">{formatNum(deal.worst_rate, 4, 4)}</span></span>
+                                    )}
                                 </div>
                             </div>
+
+                            {/* Scrollable list of participating banks */}
+                            {deal.counterparty_offers && deal.counterparty_offers.length > 0 ? (
+                                <div className="divide-y divide-slate-100 max-h-[175px] overflow-y-auto custom-scrollbar">
+                                    {deal.counterparty_offers.map((offer, idx) => (
+                                        <div
+                                            key={offer.bank_id || idx}
+                                            className={`px-3.5 py-2.5 flex items-center justify-between text-xs transition-colors ${
+                                                offer.is_winner
+                                                    ? 'bg-emerald-50/70'
+                                                    : offer.is_passed
+                                                    ? 'bg-slate-50/50 opacity-60'
+                                                    : 'bg-white hover:bg-slate-50/80'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${
+                                                    offer.is_winner
+                                                        ? 'bg-emerald-600 text-white shadow-2xs'
+                                                        : offer.rank
+                                                        ? 'bg-slate-200 text-slate-700'
+                                                        : 'bg-slate-100 text-slate-400'
+                                                }`}>
+                                                    {offer.rank || '—'}
+                                                </span>
+                                                <div className="truncate">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className={`truncate text-xs ${offer.is_winner ? 'font-bold text-emerald-950' : 'font-semibold text-slate-800'}`}>
+                                                            {offer.bank_name}
+                                                        </span>
+                                                        {offer.is_winner && (
+                                                            <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded border border-emerald-300">
+                                                                Best Execution
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-[10px] text-slate-400 block">
+                                                        {offer.is_winner 
+                                                            ? 'Selected for binding deal acceptance' 
+                                                            : offer.has_quote 
+                                                            ? `Competing bid • Rank #${offer.rank}` 
+                                                            : offer.is_passed 
+                                                            ? 'Bank submitted formal pass' 
+                                                            : 'No quote submitted'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="text-right shrink-0 pl-3">
+                                                {offer.has_quote ? (
+                                                    <div className="flex items-center gap-2 justify-end">
+                                                        <span className={`font-mono text-sm font-bold ${offer.is_winner ? 'text-emerald-700 text-base' : 'text-slate-800'}`}>
+                                                            {formatNum(offer.rate, 4, 4)}
+                                                        </span>
+                                                        {offer.spread_bps !== null && offer.spread_bps !== undefined && !offer.is_winner && (
+                                                            <span className="text-[10px] font-mono font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                                                +{offer.spread_bps} bps
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : offer.is_passed ? (
+                                                    <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                                                        Passed
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[11px] text-slate-400 italic">
+                                                        No Quote
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                /* Fallback 3-column benchmark cards if offers array not populated */
+                                <div className="p-3.5 grid grid-cols-3 gap-2 text-center bg-slate-50/50">
+                                    <div className="bg-white p-2.5 rounded-xl border border-emerald-300 shadow-2xs">
+                                        <span className="text-[10px] font-bold text-emerald-700 uppercase block">1st Rank (Winning)</span>
+                                        <span className="text-sm font-bold font-mono text-emerald-800 block mt-0.5">
+                                            {deal.winner_rate ? formatNum(deal.winner_rate, 4, 4) : '—'}
+                                        </span>
+                                        <span className="text-[10px] font-semibold text-slate-600 truncate block mt-0.5">
+                                            {deal.winner_bank_name}
+                                        </span>
+                                    </div>
+
+                                    <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase block">Market Desk Average</span>
+                                        <span className="text-sm font-bold font-mono text-slate-800 block mt-0.5">
+                                            {deal.avg_rate ? formatNum(deal.avg_rate, 4, 4) : 'Market Mean'}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                                            Baseline
+                                        </span>
+                                    </div>
+
+                                    <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase block">Worst Competitor Bid</span>
+                                        <span className="text-sm font-bold font-mono text-slate-700 block mt-0.5">
+                                            {deal.worst_rate ? formatNum(deal.worst_rate, 4, 4) : '—'}
+                                        </span>
+                                        <span className="text-[10px] text-rose-600 font-semibold block mt-0.5">
+                                            Avoided Spread
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
