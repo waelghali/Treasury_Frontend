@@ -4,7 +4,6 @@ import {
     Clock, 
     AlertTriangle, 
     CheckCircle2, 
-    X, 
     ExternalLink, 
     TrendingUp, 
     Building2, 
@@ -13,7 +12,12 @@ import {
     Maximize2, 
     Volume2, 
     VolumeX,
-    ShieldCheck
+    ShieldAlert,
+    ArrowUpRight,
+    Coins,
+    Calendar,
+    ChevronRight,
+    XCircle
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import apiClient from '../../services/apiClient';
@@ -33,7 +37,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
     const [isMinimized, setIsMinimized] = useState(false);
     const [isAccepting, setIsAccepting] = useState(false);
     const [isDeclining, setIsDeclining] = useState(false);
-    const [showDeclineInput, setShowDeclineInput] = useState(false);
+    const [showDeclineForm, setShowDeclineForm] = useState(false);
     const [declineReason, setDeclineReason] = useState('Price exceeded internal limit / market shift');
     const [soundMuted, setSoundMuted] = useState(false);
 
@@ -47,7 +51,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
     const isCorporateAdmin = userRole === 'corporate_admin' || userRole === 'checker' || userRole === 'system_owner';
     const playedEntranceChimeRef = useRef(false);
 
-    // Initial entrance chime
+    // Entrance sound effect
     useEffect(() => {
         if (!playedEntranceChimeRef.current && !soundMuted) {
             playedEntranceChimeRef.current = true;
@@ -87,7 +91,8 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
     if (!deal) return null;
 
     const isUrgent = secondsLeft <= 10;
-    const progressPercent = Math.min(100, Math.max(0, (secondsLeft / (deal.type === 'TBILL' ? 120 : 30)) * 100));
+    const initialDuration = deal.type === 'TBILL' ? 120 : (deal.acceptance_timeout_seconds || 30);
+    const progressPercent = Math.min(100, Math.max(0, (secondsLeft / initialDuration) * 100));
 
     const handleAccept = async () => {
         if (isMultiLeg && selectedLegIds.length === 0) {
@@ -110,14 +115,12 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
             tradingAudio.playResultOut('WINNER');
             toast.success(res.data?.message || "Trade deal accepted & binding execution confirmed!");
             
-            // Dispatch event to live components (ResultsView, QuotationRequestDashboard)
             window.dispatchEvent(new CustomEvent('quotation-deal-resolved', {
                 detail: { rfqId: deal.rfq_id, status: 'ACCEPTED' }
             }));
 
             if (onResolve) onResolve();
 
-            // Smoothly navigate to the confirmed deal standings
             const targetUrl = isCorporateAdmin
                 ? `/corporate-admin/quotations/results/${deal.rfq_id}`
                 : `/end-user/quotations/results/${deal.rfq_id}`;
@@ -140,7 +143,6 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
             const res = await apiClient.post(declineEndpoint, { reason: declineReason });
             toast.info(res.data?.message || "Tender outcome declined.");
 
-            // Dispatch event to live components
             window.dispatchEvent(new CustomEvent('quotation-deal-resolved', {
                 detail: { rfqId: deal.rfq_id, status: 'REJECTED' }
             }));
@@ -156,7 +158,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
             toast.error(err.response?.data?.detail || "Failed to decline deal.");
         } finally {
             setIsDeclining(false);
-            setShowDeclineInput(false);
+            setShowDeclineForm(false);
         }
     };
 
@@ -175,278 +177,292 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
         );
     };
 
-    // --- MINIMIZED FLOATING BADGE (Bottom-Right Urgent Ticker) ---
+    const toggleAllLegs = () => {
+        const validLegs = (deal.legs || []).filter(l => !l.is_inconclusive);
+        if (selectedLegIds.length === validLegs.length) {
+            setSelectedLegIds([]);
+        } else {
+            setSelectedLegIds(validLegs.map(l => String(l.leg_id)));
+        }
+    };
+
+    // --- MINIMIZED FLOATING BADGE (Non-obstructive bottom right) ---
     if (isMinimized) {
         return (
             <div 
                 className="fixed bottom-5 right-5 z-[9995] animate-bounce-subtle"
                 style={{ filter: 'drop-shadow(0 10px 25px rgba(0, 0, 0, 0.15))' }}
             >
-                <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border backdrop-blur-md transition-all duration-300 ${
+                <div className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl border backdrop-blur-md transition-all duration-300 ${
                     isUrgent 
                         ? 'bg-rose-50/95 border-rose-300 text-rose-950 shadow-lg shadow-rose-200' 
                         : 'bg-white/95 border-amber-300 text-slate-900 shadow-lg shadow-amber-100'
                 }`}>
                     <div className="relative flex items-center justify-center">
                         <span className={`w-3 h-3 rounded-full animate-ping absolute ${isUrgent ? 'bg-rose-500' : 'bg-amber-500'}`} />
-                        <Clock className={`w-5 h-5 ${isUrgent ? 'text-rose-600' : 'text-amber-600'}`} />
+                        <Clock className={`w-4 h-4 ${isUrgent ? 'text-rose-600' : 'text-amber-600'}`} />
                     </div>
 
                     <div>
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                                Deal Acceptance Awaiting Decision
+                                Deal Decision Required
                             </span>
-                            <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                            <span className={`text-[11px] font-mono font-bold px-2 py-0.2 rounded-full ${
                                 isUrgent ? 'bg-rose-600 text-white animate-pulse' : 'bg-amber-100 text-amber-800 border border-amber-200'
                             }`}>
                                 {secondsLeft}s
                             </span>
                         </div>
-                        <div className="text-[11px] text-slate-500 font-semibold truncate max-w-[220px]">
+                        <div className="text-[11px] text-slate-500 font-semibold truncate max-w-[240px]">
                             {deal.ref_no} &bull; {deal.winner_bank_name || 'Winning Bank'} @ {formatNum(deal.winner_rate, 2, 4)}
                         </div>
                     </div>
 
                     <button
                         onClick={() => setIsMinimized(false)}
-                        className="ml-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition-transform active:scale-95 flex items-center gap-1 shadow-sm cursor-pointer"
+                        className="ml-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition-transform active:scale-95 flex items-center gap-1 shadow-xs cursor-pointer"
                     >
                         <Maximize2 size={13} />
-                        Review Deal
+                        Review
                     </button>
                 </div>
             </div>
         );
     }
 
-    // --- FULL SCREEN INTERCEPTING MODAL ---
+    // --- FULL SCREEN INTERCEPTING ZERO-SCROLL COCKPIT ---
     return (
         <div 
-            className="fixed inset-0 z-[9990] flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs transition-all duration-300 animate-fade-in"
+            className="fixed inset-0 z-[9990] flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs transition-all duration-300 animate-fade-in"
             role="dialog"
             aria-modal="true"
         >
-            <div className={`relative w-full max-w-2xl bg-white border rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ${
-                isUrgent ? 'border-rose-300 ring-2 ring-rose-400/30' : 'border-amber-300 ring-1 ring-amber-400/20'
+            <div className={`relative w-full max-w-4xl bg-white border rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 flex flex-col ${
+                isUrgent ? 'border-rose-400 ring-4 ring-rose-400/20' : 'border-slate-300 ring-2 ring-slate-400/10'
             }`}>
-                {/* Top Urgency Progress Strip */}
-                <div className="w-full h-1.5 bg-slate-100 relative overflow-hidden">
+                
+                {/* 1. TOP PROGRESS STRIP */}
+                <div className="w-full h-1.5 bg-slate-100 relative overflow-hidden shrink-0">
                     <div 
                         className={`h-full transition-all duration-1000 ease-linear ${
                             isUrgent 
                                 ? 'bg-rose-500 animate-pulse' 
-                                : 'bg-gradient-to-r from-amber-400 to-amber-500'
+                                : 'bg-gradient-to-r from-emerald-500 via-amber-400 to-amber-500'
                         }`}
                         style={{ width: `${progressPercent}%` }}
                     />
                 </div>
 
-                {/* Header (Aligned with Platform Modal Header Standards) */}
-                <div className={`px-6 py-4 flex items-center justify-between border-b transition-colors ${
-                    isUrgent ? 'bg-gradient-to-r from-rose-50 to-orange-50 border-rose-100' : 'bg-gradient-to-r from-amber-50/80 via-orange-50/40 to-slate-50 border-amber-100'
-                }`}>
+                {/* 2. HEADER & CLOCK HUD */}
+                <div className="px-5 py-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between gap-3 shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
-                            isUrgent ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-700'
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                            isUrgent ? 'bg-rose-500/20 text-rose-400 ring-1 ring-rose-400' : 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-400'
                         }`}>
-                            {isUrgent ? <AlertTriangle size={20} className="animate-pulse" /> : <Clock size={20} />}
+                            {isUrgent ? <AlertTriangle size={18} className="animate-pulse" /> : <Clock size={18} />}
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h3 className="text-base font-bold text-slate-900">
-                                    Deal Acceptance Required
-                                </h3>
-                                <span className="bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                    Bidding Closed
+                                <span className="text-xs font-mono font-bold tracking-wider text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/30">
+                                    {deal.ref_no}
+                                </span>
+                                <span className="text-xs font-bold text-slate-200">
+                                    {deal.type === 'TBILL' ? 'Treasury Bill Auction' : (deal.is_multi_leg ? `Multi-Currency Basket (${deal.legs?.length} Legs)` : 'FX Spot Tender')}
+                                </span>
+                                <span className={`text-[10px] font-extrabold uppercase px-2 py-0.2 rounded-full ${
+                                    (deal.direction || 'BUY').toUpperCase() === 'BUY' 
+                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                                        : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                }`}>
+                                    {deal.direction || 'BUY'}
                                 </span>
                             </div>
-                            <p className="text-xs text-slate-500">
-                                Tender window concluded. Confirm trade binding execution with winning counterparty.
-                            </p>
+                            <span className="text-[11px] text-slate-400">
+                                Tender window closed &bull; Binding execution awaiting corporate sign-off
+                            </span>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-1">
-                        <button
-                            onClick={() => setSoundMuted(!soundMuted)}
-                            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-white/80 transition-colors cursor-pointer"
-                            title={soundMuted ? "Unmute desk alert chimes" : "Mute desk alert chimes"}
-                        >
-                            {soundMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
-                        </button>
-                        <button
-                            onClick={() => setIsMinimized(true)}
-                            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-white/80 transition-colors cursor-pointer"
-                            title="Minimize to floating ticker badge"
-                        >
-                            <Minimize2 size={17} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Live Countdown & Expiry Policy Banner */}
-                <div className={`px-6 py-3 flex flex-wrap items-center justify-between gap-3 border-b ${
-                    isUrgent ? 'bg-rose-50/70 border-rose-200 text-rose-950' : 'bg-amber-50/50 border-amber-100 text-amber-950'
-                }`}>
-                    <div className="flex items-center gap-2.5">
-                        <Clock className={`w-4 h-4 ${isUrgent ? 'text-rose-600 animate-pulse' : 'text-amber-600'}`} />
-                        <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                                Decision Time Window
-                            </span>
-                            <div className="flex items-baseline gap-1.5">
-                                <span className={`text-xl font-bold font-mono ${
-                                    isUrgent ? 'text-rose-600 animate-pulse' : 'text-amber-800'
+                    {/* Prominent Countdown & Expiry HUD */}
+                    <div className="flex items-center gap-3">
+                        <div className="text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                                <span className={`text-2xl font-bold font-mono tracking-tight ${
+                                    isUrgent ? 'text-rose-400 animate-pulse' : 'text-emerald-400'
                                 }`}>
                                     00:{String(secondsLeft).padStart(2, '0')}s
                                 </span>
-                                <span className="text-xs text-slate-500">remaining</span>
+                            </div>
+                            <div className="flex items-center justify-end gap-1 text-[10px] font-bold">
+                                {deal.is_auto_accept_halted ? (
+                                    <span className="text-amber-400 flex items-center gap-1 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/30">
+                                        <ShieldAlert size={10} /> Auto-Accept Halted
+                                    </span>
+                                ) : deal.timeout_action === 'AUTO_ACCEPT' ? (
+                                    <span className="text-emerald-300 flex items-center gap-1">
+                                        <CheckCircle2 size={10} /> Auto-Accepts on Timeout
+                                    </span>
+                                ) : (
+                                    <span className="text-rose-300 flex items-center gap-1">
+                                        <XCircle size={10} /> Auto-Rejects on Timeout
+                                    </span>
+                                )}
                             </div>
                         </div>
-                    </div>
 
-                    <div className="text-right">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                            Expiry Policy Action
-                        </span>
-                        <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-lg border ${
-                            deal.is_auto_accept_halted
-                                ? 'bg-amber-100 text-amber-900 border-amber-300'
-                                : deal.timeout_action === 'AUTO_ACCEPT'
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                : 'bg-rose-50 text-rose-800 border-rose-200'
-                        }`}>
-                            {deal.is_auto_accept_halted
-                                ? 'Auto-Accept Halted (Manual Sign-Off Required)'
-                                : deal.timeout_action === 'AUTO_ACCEPT'
-                                ? 'Auto-Accept on Expiry'
-                                : 'Auto-Reject on Expiry'}
-                        </span>
+                        {/* Top Utility Controls */}
+                        <div className="flex items-center gap-1 pl-2 border-l border-slate-700">
+                            <button
+                                onClick={() => setSoundMuted(!soundMuted)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
+                                title={soundMuted ? "Unmute chimes" : "Mute chimes"}
+                            >
+                                {soundMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                            </button>
+                            <button
+                                onClick={() => setIsMinimized(true)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
+                                title="Minimize to ticker badge"
+                            >
+                                <Minimize2 size={15} />
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                {/* Deal Body Content */}
-                <div className="p-6 space-y-4 max-h-[58vh] overflow-y-auto custom-scrollbar">
-                    {/* Uncontested / Sole-Source Advisory Banner */}
-                    {(deal.is_uncontested || deal.legs?.some(l => l.is_uncontested)) && (
-                        <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900">
-                            <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
-                            <div>
-                                <span className="font-bold">Sole-Source Advisory (Single Quote):</span>{' '}
-                                <span className="text-amber-800">
-                                    {deal.uncontested_reason || "One or more legs received only 1 quote. No competing offers were received to establish market spread."}
-                                </span>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Primary Deal Parameter Card */}
-                    <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className="font-mono text-xs font-bold text-slate-800 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
-                                    {deal.ref_no}
-                                </span>
-                                <span className="text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                                    {deal.type === 'TBILL' ? 'T-Bill Auction' : (deal.is_multi_leg ? 'Multi-Currency Basket' : 'FX Spot Execution')}
-                                </span>
-                            </div>
-
-                            <div className="text-xs font-bold text-slate-700">
-                                <span className="uppercase text-slate-500 font-semibold">{deal.direction || 'BUY'}</span>{' '}
-                                <span className="text-slate-900 font-mono">{formatNum(deal.amount, 0, 2)}</span>{' '}
-                                <span className="text-blue-700 font-bold">{deal.buy_currency || deal.currency_pair}</span>
-                            </div>
-                        </div>
-
-                        {/* Counterparty Standings Highlight */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                            <div className="p-3.5 rounded-xl bg-white border border-emerald-200 flex items-center gap-3 shadow-2xs">
-                                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
-                                    <Building2 size={20} />
-                                </div>
-                                <div className="min-w-0">
-                                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block truncate">
-                                        Best Counterparty Rate
-                                    </span>
-                                    <p className="text-sm font-bold text-slate-900 truncate">
-                                        {deal.winner_bank_name || 'Winning Counterparty'}
-                                    </p>
-                                    <div className="text-xs font-mono font-bold text-emerald-800">
-                                        Rate: {deal.winner_rate !== null && deal.winner_rate !== undefined ? formatNum(deal.winner_rate, 4, 4) : 'Ready'}
-                                    </div>
-                                    {deal.is_uncontested && (
-                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300 shrink-0 mt-1">
-                                            <AlertTriangle size={11} className="text-amber-600 shrink-0" />
-                                            Single Quote Received
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="p-3.5 rounded-xl bg-white border border-slate-200 flex items-center gap-3 shadow-2xs">
-                                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 shrink-0">
-                                    <TrendingUp size={20} />
-                                </div>
-                                <div>
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                                        Estimated Desk Savings
-                                    </span>
-                                    <p className="text-sm font-bold text-slate-900 font-mono">
-                                        {deal.saved_vs_avg ? `+ ${formatNum(deal.saved_vs_avg, 2, 2)} EGP` : 'Best in Market'}
-                                    </p>
-                                    <span className="text-[11px] text-slate-500">vs market desk average</span>
-                                </div>
-                            </div>
-                        </div>
+                {/* 3. OPTIONAL SOLE-SOURCE ADVISORY CALLOUT (Compact Single Line) */}
+                {(deal.is_uncontested || deal.legs?.some(l => l.is_uncontested)) && (
+                    <div className="px-5 py-2 bg-amber-50 border-b border-amber-200 flex items-center gap-2 text-xs text-amber-950 font-semibold shrink-0">
+                        <AlertTriangle size={15} className="text-amber-600 shrink-0" />
+                        <span className="font-bold text-amber-900">Sole-Source Advisory:</span>
+                        <span className="truncate text-amber-800">
+                            {deal.uncontested_reason || "Single quote received. No competing counterparty offers were received to establish competitive spread."}
+                        </span>
                     </div>
+                )}
 
-                    {/* Multi-Leg Basket Legs Checklist (if multi-leg) */}
-                    {isMultiLeg && (
-                        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2.5">
+                {/* 4. EXECUTIVE DECISION HUD (4-COLUMN HIGH DENSITY GRID) */}
+                <div className="p-4 bg-slate-50/70 border-b border-slate-200 shrink-0">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                        
+                        {/* Box 1: Trade Package Volume */}
+                        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                Trade Volume
+                            </span>
+                            <div className="mt-1">
+                                <span className="text-base font-bold font-mono text-slate-900 block truncate">
+                                    {formatNum(deal.amount, 0, 2)}
+                                </span>
+                                <span className="text-xs font-bold text-blue-700 block truncate">
+                                    {deal.buy_currency || deal.currency_pair}
+                                </span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 mt-1 block truncate">
+                                Value: {deal.value_date ? String(deal.value_date) : 'Spot (T+2)'}
+                            </span>
+                        </div>
+
+                        {/* Box 2: Winning Counterparty */}
+                        <div className="bg-white p-3 rounded-2xl border border-emerald-200 shadow-2xs flex flex-col justify-between">
                             <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
+                                    Winning Counterparty
+                                </span>
+                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-mono">
+                                    #1 Rank
+                                </span>
+                            </div>
+                            <div className="mt-1">
+                                <span className="text-sm font-bold text-slate-900 block truncate" title={deal.winner_bank_name}>
+                                    {deal.winner_bank_name || 'Winning Bank'}
+                                </span>
+                                <span className="text-[11px] text-slate-500 block truncate">
+                                    {deal.total_quotes ? `${deal.total_quotes} counterparty quotes evaluated` : 'Best executable quote'}
+                                </span>
+                            </div>
+                            <span className="text-[10px] text-emerald-700 font-semibold mt-1 block">
+                                Counterparty Confirmed
+                            </span>
+                        </div>
+
+                        {/* Box 3: Best Execution Rate */}
+                        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                Execution Rate
+                            </span>
+                            <div className="mt-1">
+                                <span className="text-lg font-bold font-mono text-emerald-700 block tracking-tight">
+                                    {deal.winner_rate !== null && deal.winner_rate !== undefined ? formatNum(deal.winner_rate, 4, 4) : '—'}
+                                </span>
+                                <span className="text-[11px] font-mono text-slate-500 block truncate">
+                                    {deal.avg_rate ? `Desk Avg: ${formatNum(deal.avg_rate, 4, 4)}` : 'Market Competitive'}
+                                </span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 mt-1 block">
+                                {deal.is_uncontested ? '⚠️ Uncontested Bid' : 'Competitive Best'}
+                            </span>
+                        </div>
+
+                        {/* Box 4: Total Commercial Savings */}
+                        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 p-3 rounded-2xl border border-emerald-300 shadow-2xs flex flex-col justify-between">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                                    Commercial Savings
+                                </span>
+                                <ArrowUpRight size={14} className="text-emerald-700" />
+                            </div>
+                            <div className="mt-1">
+                                <span className="text-lg font-bold font-mono text-emerald-800 block tracking-tight">
+                                    {deal.saved_vs_avg ? `+${formatNum(deal.saved_vs_avg, 2, 2)}` : 'Best in Market'}
+                                </span>
+                                <span className="text-[11px] font-semibold text-emerald-700 block">
+                                    EGP vs Market Mean
+                                </span>
+                            </div>
+                            <span className="text-[10px] text-emerald-800/80 font-medium mt-1 block">
+                                Direct Treasury Benefit
+                            </span>
+                        </div>
+
+                    </div>
+                </div>
+
+                {/* 5. MULTI-LEG MATRIX OR SINGLE-LEG MARKET DEPTH (COMPACT ZERO-SCROLL) */}
+                <div className="p-4 bg-white flex-1 overflow-hidden">
+                    {isMultiLeg ? (
+                        <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                            <div className="bg-slate-100/90 px-3.5 py-2 flex items-center justify-between border-b border-slate-200 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                                 <div className="flex items-center gap-2">
-                                    <Layers className="w-4 h-4 text-slate-700" />
-                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                                        Awarded Currency Pairs ({selectedLegIds.length}/{deal.legs.length} selected)
-                                    </span>
+                                    <Layers size={13} className="text-slate-600" />
+                                    <span>Awarded Currency Pairs ({selectedLegIds.length} of {deal.legs?.length} Selected)</span>
                                 </div>
-                                <div className="flex gap-2 text-xs font-bold">
-                                    <button 
-                                        type="button"
-                                        onClick={() => setSelectedLegIds(deal.legs.filter(l => !l.is_inconclusive).map(l => String(l.leg_id)))}
-                                        className="text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
-                                    >
-                                        Select All
-                                    </button>
-                                    <span className="text-slate-300">|</span>
-                                    <button 
-                                        type="button"
-                                        onClick={() => setSelectedLegIds([])}
-                                        className="text-slate-500 hover:text-slate-700 hover:underline cursor-pointer"
-                                    >
-                                        Deselect
-                                    </button>
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={toggleAllLegs}
+                                    className="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold lowercase first-letter:uppercase hover:underline cursor-pointer"
+                                >
+                                    {selectedLegIds.length === deal.legs?.length ? 'Deselect All' : 'Select All'}
+                                </button>
                             </div>
 
-                            <div className="space-y-2">
+                            <div className="divide-y divide-slate-100 max-h-[160px] overflow-y-auto custom-scrollbar">
                                 {deal.legs.map((leg, idx) => {
                                     const legIdStr = String(leg.leg_id);
                                     const isSelected = selectedLegIds.includes(legIdStr);
                                     const isInconclusive = Boolean(leg.is_inconclusive);
 
                                     return (
-                                        <div 
+                                        <div
                                             key={legIdStr || idx}
                                             onClick={() => !isInconclusive && toggleLeg(legIdStr)}
-                                            className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                                                isInconclusive
-                                                    ? 'bg-slate-100 border-slate-200 opacity-60 cursor-not-allowed'
+                                            className={`px-3.5 py-2.5 flex items-center justify-between text-xs cursor-pointer transition-colors ${
+                                                isInconclusive 
+                                                    ? 'bg-slate-50 text-slate-400 cursor-not-allowed'
                                                     : isSelected
-                                                        ? 'bg-emerald-50/80 border-emerald-300 text-slate-900 shadow-2xs'
-                                                        : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
+                                                    ? 'bg-emerald-50/60 hover:bg-emerald-50 text-slate-900'
+                                                    : 'bg-white hover:bg-slate-50 text-slate-600'
                                             }`}
                                         >
                                             <div className="flex items-center gap-3">
@@ -455,99 +471,165 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                                     checked={isSelected}
                                                     disabled={isInconclusive}
                                                     onChange={() => {}}
-                                                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+                                                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
                                                 />
                                                 <div>
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-xs font-bold text-slate-900 font-mono">
+                                                        <span className="font-bold font-mono text-slate-900">
                                                             {leg.currency_pair}
                                                         </span>
-                                                        <span className="text-[11px] text-slate-500 font-mono">
-                                                            {formatNum(leg.amount, 0, 2)}
+                                                        <span className="text-[11px] font-bold text-slate-500 uppercase">
+                                                            {leg.direction || 'BUY'} {formatNum(leg.amount, 0, 2)}
                                                         </span>
                                                         {leg.is_uncontested && (
-                                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300 shrink-0" title={leg.uncontested_reason || "Single quote received"}>
-                                                                <AlertTriangle size={11} className="text-amber-600 shrink-0" />
+                                                            <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded border border-amber-300">
                                                                 Single Quote
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div className="text-[11px] text-slate-500">
-                                                        {isInconclusive ? (
-                                                            <span className="text-amber-700 font-semibold">No quotes received</span>
-                                                        ) : (
-                                                            <span>Winner: <strong className="text-slate-900 font-bold">{leg.winner_bank_name}</strong> @ <span className="font-mono text-emerald-700 font-bold">{formatNum(leg.winner_rate, 4, 4)}</span></span>
-                                                        )}
-                                                    </div>
+                                                    <span className="text-[11px] text-slate-500 block mt-0.5">
+                                                        {isInconclusive ? 'No executable quote' : `${leg.winner_bank_name} &bull; ${leg.total_quotes || 1} bids received`}
+                                                    </span>
                                                 </div>
                                             </div>
 
                                             <div className="text-right">
-                                                {leg.saved_vs_avg && !isInconclusive ? (
-                                                    <span className="text-xs font-mono text-emerald-700 font-bold">
-                                                        +{formatNum(leg.saved_vs_avg, 2, 2)} EGP
-                                                    </span>
-                                                ) : null}
+                                                {!isInconclusive ? (
+                                                    <>
+                                                        <span className="font-mono font-bold text-emerald-700 block text-sm">
+                                                            {formatNum(leg.winner_rate, 4, 4)}
+                                                        </span>
+                                                        {leg.saved_vs_avg && (
+                                                            <span className="text-[11px] font-mono text-emerald-800 font-semibold block">
+                                                                +{formatNum(leg.saved_vs_avg, 2, 2)} EGP
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span className="text-slate-400 font-semibold text-xs">Excluded</span>
+                                                )}
                                             </div>
                                         </div>
                                     );
                                 })}
                             </div>
                         </div>
-                    )}
+                    ) : (
+                        /* Single-Leg Market Spread Visualizer */
+                        <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-3.5 flex flex-col justify-between">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-2">
+                                <span className="flex items-center gap-1.5 text-slate-800">
+                                    <TrendingUp size={14} className="text-emerald-600" />
+                                    <span>Market Execution Benchmark Spread</span>
+                                </span>
+                                <span className="text-slate-500 text-[11px]">
+                                    {deal.total_quotes ? `${deal.total_quotes} Valid Counterparty Quotes` : 'Competitive Tender'}
+                                </span>
+                            </div>
 
-                    {/* Inline Decline Reason Form */}
-                    {showDeclineInput && (
-                        <div className="bg-rose-50/70 border border-rose-200 rounded-2xl p-4 space-y-2.5 animate-fade-in">
-                            <label className="block text-xs font-bold text-rose-900 uppercase tracking-wider">
-                                Reason for Declining Tender
-                            </label>
-                            <input
-                                type="text"
-                                value={declineReason}
-                                onChange={(e) => setDeclineReason(e.target.value)}
-                                placeholder="E.g., Price exceeded limit / delayed internal approval"
-                                className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                            />
-                            <div className="flex justify-end gap-2 pt-1">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowDeclineInput(false)}
-                                    className="px-3.5 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleDecline}
-                                    disabled={isDeclining}
-                                    className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
-                                >
-                                    {isDeclining ? 'Confirming Decline...' : 'Confirm Decline & Notify Banks'}
-                                </button>
+                            <div className="grid grid-cols-3 gap-2 text-center">
+                                <div className="bg-white p-2.5 rounded-xl border border-emerald-300 shadow-2xs">
+                                    <span className="text-[10px] font-bold text-emerald-700 uppercase block">1st Rank (Winning)</span>
+                                    <span className="text-sm font-bold font-mono text-emerald-800 block mt-0.5">
+                                        {deal.winner_rate ? formatNum(deal.winner_rate, 4, 4) : '—'}
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-slate-600 truncate block mt-0.5">
+                                        {deal.winner_bank_name}
+                                    </span>
+                                </div>
+
+                                <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Market Desk Average</span>
+                                    <span className="text-sm font-bold font-mono text-slate-800 block mt-0.5">
+                                        {deal.avg_rate ? formatNum(deal.avg_rate, 4, 4) : 'Market Mean'}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                                        Baseline
+                                    </span>
+                                </div>
+
+                                <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Worst Competitor Bid</span>
+                                    <span className="text-sm font-bold font-mono text-slate-700 block mt-0.5">
+                                        {deal.worst_rate ? formatNum(deal.worst_rate, 4, 4) : '—'}
+                                    </span>
+                                    <span className="text-[10px] text-rose-600 font-semibold block mt-0.5">
+                                        Avoided Spread
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     )}
                 </div>
 
-                {/* Footer Actions (Matching Platform Standards) */}
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+                {/* 6. INLINE DECLINE PROMPT (ZERO LAYOUT SHIFT) */}
+                {showDeclineForm && (
+                    <div className="px-5 py-3 bg-rose-50 border-t border-rose-200 flex flex-wrap items-center justify-between gap-3 shrink-0 animate-fade-in">
+                        <div className="flex-1 min-w-[280px]">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-rose-900 block mb-1">
+                                Select Reason for Declining Tender
+                            </label>
+                            <div className="flex flex-wrap gap-1.5">
+                                {[
+                                    'Price exceeded limit',
+                                    'Market shifted / delayed internal approval',
+                                    'Internal liquidity shift',
+                                    'Re-tendering requested'
+                                ].map((reasonOption) => (
+                                    <button
+                                        key={reasonOption}
+                                        type="button"
+                                        onClick={() => setDeclineReason(reasonOption)}
+                                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                            declineReason === reasonOption
+                                                ? 'bg-rose-600 text-white shadow-2xs'
+                                                : 'bg-white text-slate-700 border border-slate-300 hover:border-rose-300'
+                                        }`}
+                                    >
+                                        {reasonOption}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 ml-auto">
+                            <button
+                                type="button"
+                                onClick={() => setShowDeclineForm(false)}
+                                className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-800 rounded-xl hover:bg-white transition-colors cursor-pointer"
+                            >
+                                Back
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDecline}
+                                disabled={isDeclining}
+                                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+                            >
+                                {isDeclining ? 'Declining...' : 'Confirm Decline'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* 7. HIGH-VISIBILITY ACTION FOOTER */}
+                <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
                     <button
                         type="button"
                         onClick={handleInspectOrderBook}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer"
                     >
-                        <ExternalLink size={14} />
-                        Inspect Order Book & Standings &rarr;
+                        <ExternalLink size={13} />
+                        <span>Inspect Full Order Book</span>
                     </button>
 
-                    <div className="flex items-center gap-3 ml-auto">
-                        {!showDeclineInput && (
+                    <div className="flex items-center gap-3">
+                        {!showDeclineForm && (
                             <button
                                 type="button"
-                                onClick={() => setShowDeclineInput(true)}
+                                onClick={() => setShowDeclineForm(true)}
                                 disabled={isAccepting || isDeclining}
-                                className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl border border-slate-200 hover:border-rose-200 transition-colors cursor-pointer disabled:opacity-50"
+                                className="px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 rounded-xl border border-rose-200 hover:border-rose-300 transition-colors cursor-pointer disabled:opacity-50"
                             >
                                 Decline Tender
                             </button>
@@ -557,22 +639,23 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                             type="button"
                             onClick={handleAccept}
                             disabled={isAccepting || isDeclining || secondsLeft <= 0}
-                            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-200 transition-all flex items-center gap-2 cursor-pointer"
+                            className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-200 transition-all flex items-center gap-2 cursor-pointer active:scale-98"
                         >
                             {isAccepting ? (
                                 <>
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                     <span>Executing Trade...</span>
                                 </>
                             ) : (
                                 <>
                                     <CheckCircle2 size={16} />
-                                    <span>Accept Deal & Execute</span>
+                                    <span>Accept & Execute Trade</span>
                                 </>
                             )}
                         </button>
                     </div>
                 </div>
+
             </div>
         </div>
     );
