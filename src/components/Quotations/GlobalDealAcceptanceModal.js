@@ -4,8 +4,7 @@ import {
     Clock, 
     AlertTriangle, 
     CheckCircle2, 
-    XCircle, 
-    ArrowUpRight, 
+    X, 
     ExternalLink, 
     TrendingUp, 
     Building2, 
@@ -14,7 +13,7 @@ import {
     Maximize2, 
     Volume2, 
     VolumeX,
-    ShieldAlert
+    ShieldCheck
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import apiClient from '../../services/apiClient';
@@ -35,7 +34,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
     const [isAccepting, setIsAccepting] = useState(false);
     const [isDeclining, setIsDeclining] = useState(false);
     const [showDeclineInput, setShowDeclineInput] = useState(false);
-    const [declineReason, setDeclineReason] = useState('Corporate treasury desk price review / market shift');
+    const [declineReason, setDeclineReason] = useState('Price exceeded internal limit / market shift');
     const [soundMuted, setSoundMuted] = useState(false);
 
     // Multi-leg selection state
@@ -76,7 +75,6 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
             }
 
             if (diff === 0) {
-                // Window expired
                 if (onResolve) onResolve();
             }
         };
@@ -159,37 +157,37 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
         return (
             <div 
                 className="fixed bottom-5 right-5 z-[9995] animate-bounce-subtle"
-                style={{ filter: 'drop-shadow(0 10px 25px rgba(0, 0, 0, 0.45))' }}
+                style={{ filter: 'drop-shadow(0 10px 25px rgba(0, 0, 0, 0.15))' }}
             >
-                <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border backdrop-blur-xl transition-all duration-300 ${
+                <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border backdrop-blur-md transition-all duration-300 ${
                     isUrgent 
-                        ? 'bg-rose-950/95 border-rose-500/80 text-white shadow-rose-900/50' 
-                        : 'bg-slate-900/95 border-amber-500/80 text-white shadow-amber-900/40'
+                        ? 'bg-rose-50/95 border-rose-300 text-rose-950 shadow-lg shadow-rose-200' 
+                        : 'bg-white/95 border-amber-300 text-slate-900 shadow-lg shadow-amber-100'
                 }`}>
                     <div className="relative flex items-center justify-center">
-                        <span className={`w-3 h-3 rounded-full animate-ping absolute ${isUrgent ? 'bg-rose-400' : 'bg-amber-400'}`} />
-                        <Clock className={`w-5 h-5 ${isUrgent ? 'text-rose-400' : 'text-amber-400'}`} />
+                        <span className={`w-3 h-3 rounded-full animate-ping absolute ${isUrgent ? 'bg-rose-500' : 'bg-amber-500'}`} />
+                        <Clock className={`w-5 h-5 ${isUrgent ? 'text-rose-600' : 'text-amber-600'}`} />
                     </div>
 
                     <div>
                         <div className="flex items-center gap-2">
-                            <span className="text-xs font-black tracking-wide uppercase text-amber-300">
+                            <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
                                 Deal Acceptance Awaiting Decision
                             </span>
-                            <span className={`text-[11px] font-mono font-black px-1.5 py-0.5 rounded-full ${
-                                isUrgent ? 'bg-rose-500 text-white animate-pulse' : 'bg-amber-500/20 text-amber-300'
+                            <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                                isUrgent ? 'bg-rose-600 text-white animate-pulse' : 'bg-amber-100 text-amber-800 border border-amber-200'
                             }`}>
                                 {secondsLeft}s
                             </span>
                         </div>
-                        <div className="text-[11px] text-slate-300 font-medium truncate max-w-[200px]">
-                            {deal.ref_no} • {deal.winner_bank_name || 'Winning Bank'} @ {formatNum(deal.winner_rate, 2, 4)}
+                        <div className="text-[11px] text-slate-500 font-semibold truncate max-w-[220px]">
+                            {deal.ref_no} &bull; {deal.winner_bank_name || 'Winning Bank'} @ {formatNum(deal.winner_rate, 2, 4)}
                         </div>
                     </div>
 
                     <button
                         onClick={() => setIsMinimized(false)}
-                        className="ml-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-lg transition-transform active:scale-95 flex items-center gap-1 shadow-md shadow-amber-500/20"
+                        className="ml-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition-transform active:scale-95 flex items-center gap-1 shadow-sm cursor-pointer"
                     >
                         <Maximize2 size={13} />
                         Review Deal
@@ -202,59 +200,61 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
     // --- FULL SCREEN INTERCEPTING MODAL ---
     return (
         <div 
-            className="fixed inset-0 z-[9990] flex items-center justify-center p-3 sm:p-5 bg-slate-950/85 backdrop-blur-md transition-all duration-300"
+            className="fixed inset-0 z-[9990] flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs transition-all duration-300 animate-fade-in"
             role="dialog"
             aria-modal="true"
         >
-            <div className={`relative w-full max-w-2xl bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ${
-                isUrgent ? 'border-rose-500/80 shadow-rose-900/30' : 'border-amber-500/70 shadow-amber-900/20'
+            <div className={`relative w-full max-w-2xl bg-white border rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ${
+                isUrgent ? 'border-rose-300 ring-2 ring-rose-400/30' : 'border-amber-300 ring-1 ring-amber-400/20'
             }`}>
                 {/* Top Urgency Progress Strip */}
-                <div className="w-full h-2 bg-slate-800 relative overflow-hidden">
+                <div className="w-full h-1.5 bg-slate-100 relative overflow-hidden">
                     <div 
                         className={`h-full transition-all duration-1000 ease-linear ${
-                            isUrgent ? 'bg-gradient-to-r from-rose-600 via-red-500 to-amber-500 animate-pulse' : 'bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400'
+                            isUrgent 
+                                ? 'bg-rose-500 animate-pulse' 
+                                : 'bg-gradient-to-r from-amber-400 to-amber-500'
                         }`}
                         style={{ width: `${progressPercent}%` }}
                     />
                 </div>
 
-                {/* Header Header Controls */}
-                <div className="px-6 pt-5 pb-4 flex items-center justify-between border-b border-slate-800/80">
+                {/* Header (Aligned with Platform Modal Header Standards) */}
+                <div className={`px-6 py-4 flex items-center justify-between border-b transition-colors ${
+                    isUrgent ? 'bg-gradient-to-r from-rose-50 to-orange-50 border-rose-100' : 'bg-gradient-to-r from-amber-50/80 via-orange-50/40 to-slate-50 border-amber-100'
+                }`}>
                     <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border shadow-inner ${
-                            isUrgent 
-                                ? 'bg-rose-500/20 border-rose-500/40 text-rose-400 animate-pulse' 
-                                : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                            isUrgent ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-700'
                         }`}>
-                            <ShieldAlert className="w-5 h-5" />
+                            {isUrgent ? <AlertTriangle size={20} className="animate-pulse" /> : <Clock size={20} />}
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h3 className="text-base font-black text-white tracking-wide">
-                                    Binding Deal Acceptance Required
+                                <h3 className="text-base font-bold text-slate-900">
+                                    Deal Acceptance Required
                                 </h3>
-                                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                    Live Bidding Closed
+                                <span className="bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                    Bidding Closed
                                 </span>
                             </div>
-                            <p className="text-xs text-slate-400 font-medium">
-                                Tender window closed. Review counterparty quotes and execute trade binding confirmation.
+                            <p className="text-xs text-slate-500">
+                                Tender window concluded. Confirm trade binding execution with winning counterparty.
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1">
                         <button
                             onClick={() => setSoundMuted(!soundMuted)}
-                            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-white/80 transition-colors cursor-pointer"
                             title={soundMuted ? "Unmute desk alert chimes" : "Mute desk alert chimes"}
                         >
                             {soundMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
                         </button>
                         <button
                             onClick={() => setIsMinimized(true)}
-                            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-white/80 transition-colors cursor-pointer"
                             title="Minimize to floating ticker badge"
                         >
                             <Minimize2 size={17} />
@@ -262,35 +262,35 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                     </div>
                 </div>
 
-                {/* Live Countdown & Policy Strip */}
-                <div className={`px-6 py-3.5 flex flex-wrap items-center justify-between gap-3 border-b ${
-                    isUrgent ? 'bg-rose-950/40 border-rose-800/50' : 'bg-slate-800/40 border-slate-800'
+                {/* Live Countdown & Expiry Policy Banner */}
+                <div className={`px-6 py-3 flex flex-wrap items-center justify-between gap-3 border-b ${
+                    isUrgent ? 'bg-rose-50/70 border-rose-200 text-rose-950' : 'bg-amber-50/50 border-amber-100 text-amber-950'
                 }`}>
                     <div className="flex items-center gap-2.5">
-                        <Clock className={`w-5 h-5 ${isUrgent ? 'text-rose-400 animate-pulse' : 'text-amber-400'}`} />
+                        <Clock className={`w-4 h-4 ${isUrgent ? 'text-rose-600 animate-pulse' : 'text-amber-600'}`} />
                         <div>
-                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                                Decision Countdown Window
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                                Decision Time Window
                             </span>
-                            <div className="flex items-baseline gap-2">
-                                <span className={`text-2xl font-black font-mono tracking-tight ${
-                                    isUrgent ? 'text-rose-400 animate-pulse' : 'text-amber-300'
+                            <div className="flex items-baseline gap-1.5">
+                                <span className={`text-xl font-bold font-mono ${
+                                    isUrgent ? 'text-rose-600 animate-pulse' : 'text-amber-800'
                                 }`}>
                                     00:{String(secondsLeft).padStart(2, '0')}s
                                 </span>
-                                <span className="text-[11px] text-slate-400">remaining</span>
+                                <span className="text-xs text-slate-500">remaining</span>
                             </div>
                         </div>
                     </div>
 
                     <div className="text-right">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
                             Expiry Policy Action
                         </span>
-                        <span className={`inline-flex items-center gap-1 text-xs font-black uppercase px-2 py-0.5 rounded-md ${
+                        <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-lg border ${
                             deal.timeout_action === 'AUTO_ACCEPT'
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                : 'bg-rose-50 text-rose-800 border-rose-200'
                         }`}>
                             {deal.timeout_action === 'AUTO_ACCEPT' ? 'Auto-Accept on Expiry' : 'Auto-Reject on Expiry'}
                         </span>
@@ -299,56 +299,56 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
 
                 {/* Deal Body Content */}
                 <div className="p-6 space-y-4 max-h-[58vh] overflow-y-auto custom-scrollbar">
-                    {/* Primary Deal Card */}
-                    <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-3">
+                    {/* Primary Deal Parameter Card */}
+                    <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <span className="font-mono text-xs font-bold text-slate-300 bg-slate-900/90 px-2 py-1 rounded-lg border border-slate-700">
+                                <span className="font-mono text-xs font-bold text-slate-800 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
                                     {deal.ref_no}
                                 </span>
-                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                <span className="text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                                     {deal.type === 'TBILL' ? 'T-Bill Auction' : (deal.is_multi_leg ? 'Multi-Currency Basket' : 'FX Spot Execution')}
                                 </span>
                             </div>
 
-                            <div className="text-xs font-bold text-slate-300">
-                                <span className="uppercase text-slate-400 font-semibold">{deal.direction || 'BUY'}</span>{' '}
-                                <span className="text-white font-mono">{formatNum(deal.amount, 0, 2)}</span>{' '}
-                                <span className="text-amber-400 font-bold">{deal.buy_currency || deal.currency_pair}</span>
+                            <div className="text-xs font-bold text-slate-700">
+                                <span className="uppercase text-slate-500 font-semibold">{deal.direction || 'BUY'}</span>{' '}
+                                <span className="text-slate-900 font-mono">{formatNum(deal.amount, 0, 2)}</span>{' '}
+                                <span className="text-blue-700 font-bold">{deal.buy_currency || deal.currency_pair}</span>
                             </div>
                         </div>
 
                         {/* Counterparty Standings Highlight */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                            <div className="p-3 rounded-xl bg-slate-900/90 border border-emerald-500/40 flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 flex-shrink-0">
+                            <div className="p-3.5 rounded-xl bg-white border border-emerald-200 flex items-center gap-3 shadow-2xs">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
                                     <Building2 size={20} />
                                 </div>
                                 <div className="min-w-0">
-                                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block truncate">
+                                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block truncate">
                                         Best Counterparty Rate
                                     </span>
-                                    <p className="text-sm font-black text-white truncate">
+                                    <p className="text-sm font-bold text-slate-900 truncate">
                                         {deal.winner_bank_name || 'Winning Counterparty'}
                                     </p>
-                                    <div className="text-xs font-mono font-black text-emerald-300">
-                                        Rate: {deal.winner_rate !== null && deal.winner_rate !== undefined ? formatNum(deal.winner_rate, 4, 4) : 'Ready for acceptance'}
+                                    <div className="text-xs font-mono font-bold text-emerald-800">
+                                        Rate: {deal.winner_rate !== null && deal.winner_rate !== undefined ? formatNum(deal.winner_rate, 4, 4) : 'Ready'}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-700 flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 flex-shrink-0">
+                            <div className="p-3.5 rounded-xl bg-white border border-slate-200 flex items-center gap-3 shadow-2xs">
+                                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 shrink-0">
                                     <TrendingUp size={20} />
                                 </div>
                                 <div>
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                                         Estimated Desk Savings
                                     </span>
-                                    <p className="text-sm font-black text-white font-mono">
-                                        {deal.saved_vs_avg ? `+ ${formatNum(deal.saved_vs_avg, 2, 2)} EGP` : 'Best In Market'}
+                                    <p className="text-sm font-bold text-slate-900 font-mono">
+                                        {deal.saved_vs_avg ? `+ ${formatNum(deal.saved_vs_avg, 2, 2)} EGP` : 'Best in Market'}
                                     </p>
-                                    <span className="text-[11px] text-slate-400">vs market desk average</span>
+                                    <span className="text-[11px] text-slate-500">vs market desk average</span>
                                 </div>
                             </div>
                         </div>
@@ -356,27 +356,27 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
 
                     {/* Multi-Leg Basket Legs Checklist (if multi-leg) */}
                     {isMultiLeg && (
-                        <div className="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/60 space-y-2.5">
+                        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2.5">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <Layers className="w-4 h-4 text-amber-400" />
-                                    <span className="text-xs font-black uppercase tracking-wider text-slate-200">
-                                        Multi-Leg Basket Allocation ({selectedLegIds.length}/{deal.legs.length} selected)
+                                    <Layers className="w-4 h-4 text-slate-700" />
+                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                                        Awarded Currency Pairs ({selectedLegIds.length}/{deal.legs.length} selected)
                                     </span>
                                 </div>
-                                <div className="flex gap-2 text-[10px] font-bold">
+                                <div className="flex gap-2 text-xs font-bold">
                                     <button 
                                         type="button"
                                         onClick={() => setSelectedLegIds(deal.legs.filter(l => !l.is_inconclusive).map(l => String(l.leg_id)))}
-                                        className="text-amber-400 hover:underline"
+                                        className="text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
                                     >
                                         Select All
                                     </button>
-                                    <span className="text-slate-600">|</span>
+                                    <span className="text-slate-300">|</span>
                                     <button 
                                         type="button"
                                         onClick={() => setSelectedLegIds([])}
-                                        className="text-slate-400 hover:underline"
+                                        className="text-slate-500 hover:text-slate-700 hover:underline cursor-pointer"
                                     >
                                         Deselect
                                     </button>
@@ -395,10 +395,10 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                             onClick={() => !isInconclusive && toggleLeg(legIdStr)}
                                             className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                                                 isInconclusive
-                                                    ? 'bg-slate-900/50 border-slate-800 opacity-60 cursor-not-allowed'
+                                                    ? 'bg-slate-100 border-slate-200 opacity-60 cursor-not-allowed'
                                                     : isSelected
-                                                        ? 'bg-emerald-950/30 border-emerald-500/60 shadow-sm'
-                                                        : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                                                        ? 'bg-emerald-50/80 border-emerald-300 text-slate-900 shadow-2xs'
+                                                        : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
                                             }`}
                                         >
                                             <div className="flex items-center gap-3">
@@ -407,22 +407,22 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                                     checked={isSelected}
                                                     disabled={isInconclusive}
                                                     onChange={() => {}}
-                                                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-slate-800 border-slate-700"
+                                                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
                                                 />
                                                 <div>
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-xs font-black text-white font-mono">
+                                                        <span className="text-xs font-bold text-slate-900 font-mono">
                                                             {leg.currency_pair}
                                                         </span>
-                                                        <span className="text-[10px] text-slate-400 font-mono">
+                                                        <span className="text-[11px] text-slate-500 font-mono">
                                                             {formatNum(leg.amount, 0, 2)}
                                                         </span>
                                                     </div>
-                                                    <div className="text-[11px] text-slate-400">
+                                                    <div className="text-[11px] text-slate-500">
                                                         {isInconclusive ? (
-                                                            <span className="text-amber-400">No quotes received</span>
+                                                            <span className="text-amber-700 font-semibold">No quotes received</span>
                                                         ) : (
-                                                            <span>Winner: <strong className="text-emerald-400">{leg.winner_bank_name}</strong> @ {formatNum(leg.winner_rate, 4, 4)}</span>
+                                                            <span>Winner: <strong className="text-slate-900 font-bold">{leg.winner_bank_name}</strong> @ <span className="font-mono text-emerald-700 font-bold">{formatNum(leg.winner_rate, 4, 4)}</span></span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -430,7 +430,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
 
                                             <div className="text-right">
                                                 {leg.saved_vs_avg && !isInconclusive ? (
-                                                    <span className="text-xs font-mono text-emerald-400 font-bold">
+                                                    <span className="text-xs font-mono text-emerald-700 font-bold">
                                                         +{formatNum(leg.saved_vs_avg, 2, 2)} EGP
                                                     </span>
                                                 ) : null}
@@ -442,24 +442,24 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                         </div>
                     )}
 
-                    {/* Inline Decline Reason Accordion */}
+                    {/* Inline Decline Reason Form */}
                     {showDeclineInput && (
-                        <div className="p-4 rounded-2xl bg-rose-950/30 border border-rose-800/60 space-y-2 animate-fadeIn">
-                            <label className="block text-xs font-bold text-rose-300 uppercase tracking-wider">
+                        <div className="bg-rose-50/70 border border-rose-200 rounded-2xl p-4 space-y-2.5 animate-fade-in">
+                            <label className="block text-xs font-bold text-rose-900 uppercase tracking-wider">
                                 Reason for Declining Tender
                             </label>
                             <input
                                 type="text"
                                 value={declineReason}
                                 onChange={(e) => setDeclineReason(e.target.value)}
-                                placeholder="E.g., Rate exceeds limit / market volatility / delayed internal approval"
-                                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                                placeholder="E.g., Price exceeded limit / delayed internal approval"
+                                className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                             />
                             <div className="flex justify-end gap-2 pt-1">
                                 <button
                                     type="button"
                                     onClick={() => setShowDeclineInput(false)}
-                                    className="px-3 py-1.5 text-xs text-slate-400 hover:text-white"
+                                    className="px-3.5 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
                                 >
                                     Cancel
                                 </button>
@@ -467,7 +467,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                     type="button"
                                     onClick={handleDecline}
                                     disabled={isDeclining}
-                                    className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                                    className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
                                 >
                                     {isDeclining ? 'Confirming Decline...' : 'Confirm Decline & Notify Banks'}
                                 </button>
@@ -476,24 +476,24 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                     )}
                 </div>
 
-                {/* Footer Controls & Direct Action Buttons */}
-                <div className="px-6 py-4 bg-slate-950/80 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+                {/* Footer Actions (Matching Platform Standards) */}
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
                     <button
                         type="button"
                         onClick={handleInspectOrderBook}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-amber-400 transition-colors py-2"
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
                     >
                         <ExternalLink size={14} />
-                        Inspect Order Book & Standings →
+                        Inspect Order Book & Standings &rarr;
                     </button>
 
-                    <div className="flex items-center gap-2.5 ml-auto">
+                    <div className="flex items-center gap-3 ml-auto">
                         {!showDeclineInput && (
                             <button
                                 type="button"
                                 onClick={() => setShowDeclineInput(true)}
                                 disabled={isAccepting || isDeclining}
-                                className="px-4 py-2.5 rounded-xl border border-slate-700 hover:border-rose-500/80 text-slate-300 hover:text-rose-400 text-xs font-bold transition-all hover:bg-rose-950/20 active:scale-95 disabled:opacity-50"
+                                className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl border border-slate-200 hover:border-rose-200 transition-colors cursor-pointer disabled:opacity-50"
                             >
                                 Decline Tender
                             </button>
@@ -503,7 +503,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                             type="button"
                             onClick={handleAccept}
                             disabled={isAccepting || isDeclining || secondsLeft <= 0}
-                            className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white text-xs sm:text-sm font-black rounded-xl shadow-lg shadow-emerald-900/40 hover:shadow-emerald-900/60 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+                            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-200 transition-all flex items-center gap-2 cursor-pointer"
                         >
                             {isAccepting ? (
                                 <>
