@@ -795,7 +795,6 @@ export default function QuotationRequestDashboard() {
 
             return {
                 ...b,
-                customPairTariffs: true,
                 pairConfigs: existingPairConfigs
             };
         }));
@@ -1891,8 +1890,8 @@ export default function QuotationRequestDashboard() {
             for (let i = 0; i < pairs.length; i++) {
                 const p = pairs[i];
                 const invitedCount = selectedBanks.filter(b => {
-                    const cfg = (b.customPairTariffs && b.pairConfigs && b.pairConfigs[p.id]) ? b.pairConfigs[p.id] : null;
-                    return cfg ? (cfg.isInvited !== false) : true;
+                    const pCfg = b.pairConfigs?.[p.id];
+                    return pCfg ? (pCfg.isInvited !== false) : true;
                 }).length;
 
                 if (invitedCount === 0) {
@@ -1904,17 +1903,15 @@ export default function QuotationRequestDashboard() {
 
             // Guardrail 2: No Ghost Banks (Every bank must have >= 1 visible leg)
             for (const b of selectedBanks) {
-                if (b.customPairTariffs && b.pairConfigs) {
-                    const visibleLegCount = pairs.filter(p => {
-                        const cfg = b.pairConfigs[p.id];
-                        return cfg ? (cfg.isInvited !== false) : true;
-                    }).length;
+                const visibleLegCount = pairs.filter(p => {
+                    const pCfg = b.pairConfigs?.[p.id];
+                    return pCfg ? (pCfg.isInvited !== false) : true;
+                }).length;
 
-                    if (visibleLegCount === 0) {
-                        toast.error(`Bank "${b.name || 'Selected Bank'}" is excluded from all currency legs. Please include this bank in at least 1 leg or deselect it.`);
-                        setIsSubmitting(false);
-                        return;
-                    }
+                if (visibleLegCount === 0) {
+                    toast.error(`Bank "${b.name || 'Selected Bank'}" is excluded from all currency legs. Please include this bank in at least 1 leg or deselect it.`);
+                    setIsSubmitting(false);
+                    return;
                 }
             }
         }
@@ -1981,10 +1978,12 @@ export default function QuotationRequestDashboard() {
         if (formData.type === 'FX_SPOT' && pairs.length > 0) {
             formattedPairs = pairs.map((p, idx) => {
                 const legBanks = selectedBanks.map(b => {
-                    const cfg = (b.customPairTariffs && b.pairConfigs && b.pairConfigs[p.id]) ? b.pairConfigs[p.id] : null;
+                    const pCfg = b.pairConfigs?.[p.id];
+                    const isInvited = pCfg ? (pCfg.isInvited !== false) : true;
+                    const cfg = (b.customPairTariffs && pCfg) ? pCfg : null;
                     return {
                         id: b.id,
-                        isInvited: cfg?.isInvited !== false,
+                        isInvited: isInvited,
                         costMin: cfg?.costMin !== undefined ? cfg.costMin : (b.costMin ?? 0),
                         costPercent: cfg?.costPercent !== undefined ? cfg.costPercent : (b.costPercent ?? 0),
                         costMax: cfg?.costMax !== undefined ? cfg.costMax : (b.costMax ?? 0),
@@ -2201,6 +2200,25 @@ export default function QuotationRequestDashboard() {
                                     <div key={a.token} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                                         <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
                                             <span className="font-medium text-sm text-gray-800">{bank?.name || `Bank ${a.bankId}`}</span>
+                                            {formData.type === 'FX_SPOT' && pairs.length > 1 && (() => {
+                                                const pConfigs = bank?.pairConfigs || {};
+                                                const visibleLegs = pairs.filter(p => pConfigs[p.id]?.isInvited !== false);
+                                                const hiddenLegs = pairs.filter(p => pConfigs[p.id]?.isInvited === false);
+                                                return (
+                                                    <div className="flex items-center gap-1 flex-wrap">
+                                                        {hiddenLegs.length > 0 && (
+                                                            <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded flex items-center gap-0.5" title={`Excluded from: ${hiddenLegs.map(l => `${l.buyCurrency}/${l.sellCurrency}`).join(', ')}`}>
+                                                                <EyeOff size={10} />
+                                                                {hiddenLegs.length} Excluded
+                                                            </span>
+                                                        )}
+                                                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded flex items-center gap-0.5" title={`Invited to: ${visibleLegs.map(l => `${l.buyCurrency}/${l.sellCurrency}`).join(', ')}`}>
+                                                            <Eye size={10} />
+                                                            {visibleLegs.length}/{pairs.length} Active
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <input
@@ -2826,6 +2844,29 @@ export default function QuotationRequestDashboard() {
                                                                     <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">VD:</span> {formatDate(p.valueDate || formData.valueDate)}
                                                                 </span>
                                                             )}
+                                                            {selectedBanks.length > 0 && (() => {
+                                                                const excludedCount = selectedBanks.filter(b => b.pairConfigs?.[p.id]?.isInvited === false).length;
+                                                                const invitedCount = selectedBanks.length - excludedCount;
+                                                                return (
+                                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                                                                        excludedCount > 0 
+                                                                            ? (isActive ? 'bg-rose-500/20 text-rose-200 border border-rose-400/30' : 'bg-rose-50 text-rose-700 border border-rose-200')
+                                                                            : (isActive ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600')
+                                                                    }`} title={`${invitedCount} of ${selectedBanks.length} banks invited to quote on this leg`}>
+                                                                        {excludedCount > 0 ? (
+                                                                            <>
+                                                                                <EyeOff size={10} className={isActive ? "text-rose-300" : "text-rose-500"} />
+                                                                                <span>{invitedCount}/{selectedBanks.length} Banks</span>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Eye size={10} className="text-emerald-500" />
+                                                                                <span>{invitedCount} Banks</span>
+                                                                            </>
+                                                                        )}
+                                                                    </span>
+                                                                );
+                                                            })()}
                                                             {!retradeRfqId && pairs.length > 1 && (
                                                                 <button
                                                                     type="button"
@@ -3654,6 +3695,20 @@ export default function QuotationRequestDashboard() {
                                                             </span>
                                                         </div>
                                                     ) : null}
+
+                                                    {isSelected && formData.type === 'FX_SPOT' && pairs.length > 1 && (() => {
+                                                        const pConfigs = isSelected.pairConfigs || {};
+                                                        const excludedLegs = pairs.filter(p => pConfigs[p.id]?.isInvited === false);
+                                                        if (excludedLegs.length === 0) return null;
+                                                        return (
+                                                            <div className="mt-1.5">
+                                                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-300 px-2 py-0.5 rounded-full shadow-2xs" title={`Excluded from: ${excludedLegs.map(l => `${l.buyCurrency}/${l.sellCurrency}`).join(', ')}`}>
+                                                                    <EyeOff size={10} className="text-rose-600" />
+                                                                    {excludedLegs.length} Leg{excludedLegs.length > 1 ? 's' : ''} Excluded
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1.5 shrink-0">
@@ -3688,31 +3743,30 @@ export default function QuotationRequestDashboard() {
                                             const isMultiPairMode = formData.type === 'FX_SPOT' && pairs.length > 1;
                                             const curTabId = bankActivePairTab[bank.bank_id] || pairs[activePairIndex]?.id || pairs[0]?.id;
                                             const curPair = pairs.find(p => p.id === curTabId) || pairs[activePairIndex] || pairs[0] || {};
-                                            const rawPairCfg = (isSelected.customPairTariffs && isSelected.pairConfigs && isSelected.pairConfigs[curTabId])
-                                                ? isSelected.pairConfigs[curTabId]
-                                                : null;
+                                            const rawPairCfg = isSelected.pairConfigs?.[curTabId] || null;
+                                            const curLegInvited = rawPairCfg ? (rawPairCfg.isInvited !== false) : true;
 
-                                            const effectiveValueDate = rawPairCfg
+                                            const effectiveValueDate = (isSelected.customPairTariffs && rawPairCfg)
                                                 ? (rawPairCfg._dateCustomized ? rawPairCfg.valueDate : (curPair.valueDate || isSelected.valueDate || formData.valueDate || ''))
                                                 : (isSelected._dateCustomized && isSelected.valueDate ? isSelected.valueDate : (curPair.valueDate || isSelected.valueDate || formData.valueDate || ''));
 
-                                            const effectiveAltDate = rawPairCfg
+                                            const effectiveAltDate = (isSelected.customPairTariffs && rawPairCfg)
                                                 ? (rawPairCfg._altCustomized ? Boolean(rawPairCfg.allowAlternativeValueDate) : Boolean(curPair.allowAlternativeValueDate ?? isSelected.allowAlternativeValueDate ?? false))
                                                 : (isSelected._altCustomized ? Boolean(isSelected.allowAlternativeValueDate) : Boolean(curPair.allowAlternativeValueDate ?? isSelected.allowAlternativeValueDate ?? false));
 
                                             const effectiveBase = isSelected.is_cross_entity
                                                 ? 'Indicative'
-                                                : (rawPairCfg
+                                                : ((isSelected.customPairTariffs && rawPairCfg)
                                                     ? (rawPairCfg._baseCustomized && rawPairCfg.quotationBase ? rawPairCfg.quotationBase : (curPair.quotationBase || isSelected.quotationBase || formData.quotationBase || 'Execution'))
                                                     : (isSelected._baseCustomized && isSelected.quotationBase ? isSelected.quotationBase : (curPair.quotationBase || isSelected.quotationBase || formData.quotationBase || 'Execution')));
 
                                             const effectiveDocVis = isSelected.is_cross_entity
                                                 ? false
-                                                : (rawPairCfg
+                                                : ((isSelected.customPairTariffs && rawPairCfg)
                                                     ? (rawPairCfg._docCustomized && rawPairCfg.isDocumentVisible !== undefined ? rawPairCfg.isDocumentVisible : (effectiveBase === 'Execution'))
                                                     : (isSelected._docCustomized && isSelected.isDocumentVisible !== undefined ? isSelected.isDocumentVisible : (effectiveBase === 'Execution')));
 
-                                            const activeCfg = rawPairCfg
+                                            const activeCfg = (isSelected.customPairTariffs && rawPairCfg)
                                                 ? {
                                                     ...rawPairCfg,
                                                     quotationBase: effectiveBase,
@@ -3747,38 +3801,25 @@ export default function QuotationRequestDashboard() {
                                                         </div>
                                                     )}
 
-                                                    {/* Multi-Pair Scope Switcher */}
-                                                    {isMultiPairMode && (
-                                                        <div className="space-y-2">
-                                                            <div className="flex items-center justify-between p-2 rounded-xl bg-slate-100/90 border border-slate-200 text-xs">
-                                                                <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                                                                    <SlidersHorizontal size={12} className="text-blue-600" />
-                                                                    Tariffs Scope:
-                                                                </span>
-                                                                <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => toggleBankPairCustomization(bank.bank_id, false)}
-                                                                        className={`px-2.5 py-0.5 rounded text-[10px] font-semibold transition-all ${
-                                                                            !isSelected.customPairTariffs ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-                                                                        }`}
-                                                                    >
-                                                                        Same for All
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => toggleBankPairCustomization(bank.bank_id, true)}
-                                                                        className={`px-2.5 py-0.5 rounded text-[10px] font-semibold transition-all ${
-                                                                            isSelected.customPairTariffs ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-                                                                        }`}
-                                                                    >
-                                                                        Customize per Pair
-                                                                    </button>
-                                                                </div>
-                                                            </div>
+                                                    {/* Multi-Pair Leg Participation & Visibility (Selective Counterparty Exclusion) */}
+                                                    {isMultiPairMode && (() => {
+                                                        const divergence = getBankDivergence(isSelected);
+                                                        const pConfigs = isSelected.pairConfigs || {};
+                                                        const invitedLegCount = pairs.filter(p => pConfigs[p.id]?.isInvited !== false).length;
 
-                                                            {/* Bank Pair Tabs */}
-                                                            {isSelected.customPairTariffs && (
+                                                        return (
+                                                            <div className="space-y-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/90 animate-fade-in">
+                                                                <div className="flex items-center justify-between text-xs pb-0.5">
+                                                                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                                                                        <Eye size={12} className="text-emerald-600" />
+                                                                        Leg Participation &amp; Visibility:
+                                                                    </span>
+                                                                    <span className="text-[10px] font-semibold text-slate-500">
+                                                                        {invitedLegCount} of {pairs.length} Legs Invited
+                                                                    </span>
+                                                                </div>
+
+                                                                {/* Bank Pair Tabs */}
                                                                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
                                                                     {pairs.map((p, pIdx) => {
                                                                         const isTabActive = curTabId === p.id;
@@ -3789,7 +3830,7 @@ export default function QuotationRequestDashboard() {
                                                                                 key={p.id}
                                                                                 type="button"
                                                                                 onClick={() => setBankActivePairTab(prev => ({ ...prev, [bank.bank_id]: p.id }))}
-                                                                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shrink-0 flex items-center gap-1.5 ${
+                                                                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shrink-0 flex items-center gap-1.5 cursor-pointer ${
                                                                                     isTabActive 
                                                                                         ? (isLegInvited ? 'bg-slate-900 text-white border-slate-900 shadow-2xs' : 'bg-rose-950 text-rose-100 border-rose-900 shadow-2xs')
                                                                                         : (isLegInvited ? 'bg-white text-slate-600 border-slate-200 hover:border-slate-300' : 'bg-rose-50 text-rose-600 border-rose-200 hover:border-rose-300 opacity-80')
@@ -3812,83 +3853,108 @@ export default function QuotationRequestDashboard() {
                                                                         );
                                                                     })}
                                                                 </div>
-                                                            )}
 
-                                                            {isSelected.customPairTariffs && (() => {
-                                                                const curLegInvited = rawPairCfg?.isInvited !== false;
-                                                                const divergence = getBankDivergence(isSelected);
-                                                                return (
-                                                                    <div className="space-y-2">
-                                                                        <div className={`flex items-center justify-between text-[10px] font-semibold px-2.5 py-1.5 rounded-lg border flex-wrap gap-2 ${
-                                                                            curLegInvited 
-                                                                                ? 'text-blue-700 bg-blue-50/70 border-blue-200/60' 
-                                                                                : 'text-rose-800 bg-rose-50 border-rose-200'
-                                                                        }`}>
-                                                                            <div className="flex items-center gap-1.5">
+                                                                {/* Active Leg Visibility Banner & Exclude Button */}
+                                                                <div className="space-y-2 pt-0.5">
+                                                                    <div className={`flex items-center justify-between text-[11px] font-semibold px-3 py-2 rounded-xl border flex-wrap gap-2 ${
+                                                                        curLegInvited 
+                                                                            ? 'text-emerald-800 bg-emerald-50/80 border-emerald-200' 
+                                                                            : 'text-rose-800 bg-rose-50 border-rose-200'
+                                                                    }`}>
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            {curLegInvited ? (
+                                                                                <>
+                                                                                    <Eye size={13} className="text-emerald-600 shrink-0" />
+                                                                                    <span><span className="font-bold">{curPair.buyCurrency}/{curPair.sellCurrency}</span> &bull; <span className="text-emerald-700 font-bold">Visible &amp; Invited</span></span>
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <EyeOff size={13} className="text-rose-600 shrink-0" />
+                                                                                    <span><span className="font-bold">{curPair.buyCurrency}/{curPair.sellCurrency}</span> is <span className="text-rose-700 font-black uppercase">Hidden / Excluded</span> from this bank</span>
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            {divergence.curTabDivergent && curLegInvited && isSelected.customPairTariffs && (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleResyncBankLeg(bank.bank_id, curTabId)}
+                                                                                    title={`Re-sync ${curPair.buyCurrency}/${curPair.sellCurrency} for this bank with main quote`}
+                                                                                    className="text-[10px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                                                                                >
+                                                                                    <RotateCcw size={10} className="text-amber-700" />
+                                                                                    Re-Sync
+                                                                                </button>
+                                                                            )}
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleToggleLegVisibility(bank.bank_id, curTabId)}
+                                                                                className={`text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${
+                                                                                    curLegInvited
+                                                                                        ? 'bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 hover:border-rose-400'
+                                                                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700 shadow-xs'
+                                                                                }`}
+                                                                                title={curLegInvited ? `Exclude/hide ${curPair.buyCurrency}/${curPair.sellCurrency} from ${bank.name}` : `Include ${curPair.buyCurrency}/${curPair.sellCurrency} for ${bank.name}`}
+                                                                            >
                                                                                 {curLegInvited ? (
                                                                                     <>
-                                                                                        <Eye size={12} className="text-blue-600 shrink-0" />
-                                                                                        <span>Configuring <span className="font-bold">{curPair.buyCurrency}/{curPair.sellCurrency}</span> &bull; <span className="text-emerald-700 font-bold">Visible to Bank</span></span>
+                                                                                        <EyeOff size={12} className="text-rose-600" />
+                                                                                        Exclude Leg
                                                                                     </>
                                                                                 ) : (
                                                                                     <>
-                                                                                        <EyeOff size={12} className="text-rose-600 shrink-0" />
-                                                                                        <span><span className="font-bold">{curPair.buyCurrency}/{curPair.sellCurrency}</span> is <span className="text-rose-700 font-black uppercase">Hidden / Excluded</span> from this bank</span>
+                                                                                        <Eye size={12} className="text-white" />
+                                                                                        Include Leg
                                                                                     </>
                                                                                 )}
-                                                                            </div>
-                                                                            <div className="flex items-center gap-1.5">
-                                                                                {divergence.curTabDivergent && curLegInvited && (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => handleResyncBankLeg(bank.bank_id, curTabId)}
-                                                                                        title={`Re-sync ${curPair.buyCurrency}/${curPair.sellCurrency} for this bank with main quote`}
-                                                                                        className="text-[10px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
-                                                                                    >
-                                                                                        <RotateCcw size={10} className="text-amber-700" />
-                                                                                        Re-Sync
-                                                                                    </button>
-                                                                                )}
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => handleToggleLegVisibility(bank.bank_id, curTabId)}
-                                                                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 transition-all shadow-2xs cursor-pointer ${
-                                                                                        curLegInvited
-                                                                                            ? 'bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 hover:border-rose-400'
-                                                                                            : 'bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700'
-                                                                                    }`}
-                                                                                    title={curLegInvited ? "Exclude this currency pair from this bank" : "Include this currency pair for this bank"}
-                                                                                >
-                                                                                    {curLegInvited ? (
-                                                                                        <>
-                                                                                            <EyeOff size={10} className="text-rose-600" />
-                                                                                            Exclude Leg
-                                                                                        </>
-                                                                                    ) : (
-                                                                                        <>
-                                                                                            <Eye size={10} className="text-white" />
-                                                                                            Include Leg
-                                                                                        </>
-                                                                                    )}
-                                                                                </button>
-                                                                            </div>
+                                                                            </button>
                                                                         </div>
-                                                                        {!curLegInvited && (
-                                                                            <div className="p-2.5 bg-rose-50/70 border border-rose-200 rounded-xl text-[11px] text-rose-700 flex items-start gap-2 animate-fade-in">
-                                                                                <AlertTriangle size={13} className="text-rose-500 shrink-0 mt-0.5" />
-                                                                                <span>
-                                                                                    <strong>Leg Excluded:</strong> <strong>{bank.name}</strong> will not be invited to quote or see <strong>{curPair.buyCurrency}/{curPair.sellCurrency}</strong>. Other visible legs remain fully active.
-                                                                                </span>
-                                                                            </div>
-                                                                        )}
                                                                     </div>
-                                                                );
-                                                            })()}
-                                                        </div>
-                                                    )}
+                                                                    {!curLegInvited && (
+                                                                        <div className="p-2.5 bg-rose-50/70 border border-rose-200 rounded-xl text-[11px] text-rose-700 flex items-start gap-2 animate-fade-in">
+                                                                            <AlertTriangle size={13} className="text-rose-500 shrink-0 mt-0.5" />
+                                                                            <span>
+                                                                                <strong>Leg Excluded:</strong> <strong>{bank.name}</strong> will not be invited to quote or see <strong>{curPair.buyCurrency}/{curPair.sellCurrency}</strong>. Other visible legs remain fully active.
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Tariffs Scope Switcher (Only relevant when this leg is invited) */}
+                                                                {curLegInvited && (
+                                                                    <div className="flex items-center justify-between p-2 rounded-xl bg-slate-100/90 border border-slate-200 text-xs">
+                                                                        <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                                                                            <SlidersHorizontal size={12} className="text-blue-600" />
+                                                                            Tariffs Scope:
+                                                                        </span>
+                                                                        <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => toggleBankPairCustomization(bank.bank_id, false)}
+                                                                                className={`px-2.5 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                                                                    !isSelected.customPairTariffs ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                                                                                }`}
+                                                                            >
+                                                                                Same for All
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => toggleBankPairCustomization(bank.bank_id, true)}
+                                                                                className={`px-2.5 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                                                                    isSelected.customPairTariffs ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                                                                                }`}
+                                                                            >
+                                                                                Customize per Pair
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
 
                                                     {/* Bank Tariff Fees & Configuration (Hidden if leg is excluded) */}
-                                                    {(!isSelected.customPairTariffs || rawPairCfg?.isInvited !== false) && (
+                                                    {curLegInvited && (
                                                         <>
                                                             {/* Bank Tariff Fees Box */}
                                                             {(() => {
