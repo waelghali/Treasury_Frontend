@@ -39,11 +39,14 @@ const formatAmount = (val) => {
     });
 };
 
+let cachedDashboardHistory = null;
+let cachedDashboardStats = null;
+
 export default function QuotationHistoryDashboard() {
-    const [history, setHistory] = useState([]);
-    const [stats, setStats] = useState([]);
+    const [history, setHistory] = useState(cachedDashboardHistory || []);
+    const [stats, setStats] = useState(cachedDashboardStats || []);
     const [pendingApprovals, setPendingApprovals] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!cachedDashboardHistory);
     const [selectedRfqId, setSelectedRfqId] = useState(null);
     const [userRole, setUserRole] = useState(null);
     const [activeTab, setActiveTab] = useState('ALL'); // 'ALL' | 'LIVE' | 'ARCHIVE'
@@ -60,23 +63,6 @@ export default function QuotationHistoryDashboard() {
 
     const fetchData = async () => {
         try {
-            // Detect Role
-            const token = localStorage.getItem('jwt_token');
-            if (token) {
-                const decoded = jwtDecode(token);
-                setUserRole(decoded.role);
-
-                // If admin, fetch pending approvals
-                if (decoded.role === 'corporate_admin') {
-                    const pendingRes = await apiClient.get('/corporate-admin/quotations/pending-approvals').catch(() => ({ data: [] }));
-                    setPendingApprovals(pendingRes.data);
-                }
-            }
-
-            // Fetch history
-            const historyRes = await apiClient.get('/end-user/quotations/').catch(() => ({ data: [] }));
-            setHistory(historyRes.data);
-
             // Check for rfq_id in URL for deep-linking
             const searchParams = new URLSearchParams(location.search);
             const rfqIdFromUrl = searchParams.get('rfq_id');
@@ -84,10 +70,36 @@ export default function QuotationHistoryDashboard() {
                 setSelectedRfqId(rfqIdFromUrl);
             }
 
-            // Fetch Stats for FX Spot
-            const statsRes = await apiClient.get('/end-user/quotations/stats?trade_type=FX_SPOT').catch(() => ({ data: [] }));
-            setStats(statsRes.data);
+            const reqs = [
+                apiClient.get('/end-user/quotations/').catch(() => ({ data: [] })),
+                apiClient.get('/end-user/quotations/stats?trade_type=FX_SPOT').catch(() => ({ data: [] }))
+            ];
 
+            let isAdmin = false;
+            const token = localStorage.getItem('jwt_token');
+            if (token) {
+                try {
+                    const decoded = jwtDecode(token);
+                    setUserRole(decoded.role);
+                    if (decoded.role === 'corporate_admin') {
+                        isAdmin = true;
+                        reqs.push(apiClient.get('/corporate-admin/quotations/pending-approvals').catch(() => ({ data: [] })));
+                    }
+                } catch {}
+            }
+
+            const responses = await Promise.all(reqs);
+            const historyData = responses[0]?.data || [];
+            const statsData = responses[1]?.data || [];
+
+            cachedDashboardHistory = historyData;
+            cachedDashboardStats = statsData;
+
+            setHistory(historyData);
+            setStats(statsData);
+            if (isAdmin && responses[2]) {
+                setPendingApprovals(responses[2]?.data || []);
+            }
         } catch (err) {
             console.error('Failed to fetch dashboard data:', err);
         } finally {

@@ -159,8 +159,8 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
     const pollActiveDeal = async () => {
       if (!isMounted) return;
       if (typeof document !== 'undefined' && document.hidden) {
-        // Tab is hidden, schedule next check in 10s
-        timerId = setTimeout(pollActiveDeal, 10000);
+        // Tab is hidden, check again after 60s
+        timerId = setTimeout(pollActiveDeal, 60000);
         return;
       }
       try {
@@ -168,12 +168,12 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
         if (!isMounted) return;
         if (res.data?.has_pending_deal && res.data?.deal) {
           setPendingDeal(res.data.deal);
-          // If a deal is awaiting acceptance, check every 2.5s to keep countdown sync
-          timerId = setTimeout(pollActiveDeal, 2500);
+          // If a deal is awaiting acceptance, check every 3s to keep countdown sync
+          timerId = setTimeout(pollActiveDeal, 3000);
         } else {
           setPendingDeal(null);
-          // Idle: no pending deal awaiting acceptance, check every 8 seconds
-          timerId = setTimeout(pollActiveDeal, 8000);
+          // Idle: no pending deal awaiting acceptance, check every 45s on need-basis
+          timerId = setTimeout(pollActiveDeal, 45000);
         }
       } catch (err) {
         if (!isMounted) return;
@@ -182,7 +182,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
           return;
         }
         // General error backoff
-        timerId = setTimeout(pollActiveDeal, 15000);
+        timerId = setTimeout(pollActiveDeal, 30000);
       }
     };
 

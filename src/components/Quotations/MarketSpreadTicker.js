@@ -2,14 +2,22 @@ import React, { useState, useEffect } from 'react';
 import apiClient from '../../services/apiClient';
 import { Shield, TrendingUp, Clock, Zap, Sparkles, BarChart2, Info } from 'lucide-react';
 
+const tickerCache = new Map();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 export default function MarketSpreadTicker({ currencyPair = 'USD/EGP', tradeType = 'FX_SPOT' }) {
-    const [benchmarks, setBenchmarks] = useState(null);
-    const [timing, setTiming] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const cacheKey = `${currencyPair}_${tradeType}`;
+    const cachedEntry = tickerCache.get(cacheKey);
+    const hasValidCache = cachedEntry && (Date.now() - cachedEntry.timestamp < CACHE_TTL_MS);
+
+    const [benchmarks, setBenchmarks] = useState(hasValidCache ? cachedEntry.benchmarks : null);
+    const [timing, setTiming] = useState(hasValidCache ? cachedEntry.timing : null);
+    const [loading, setLoading] = useState(!hasValidCache);
 
     useEffect(() => {
         let isMounted = true;
         const fetchBenchmarkData = async () => {
+            if (hasValidCache) return;
             try {
                 const [benchRes, timeRes] = await Promise.all([
                     apiClient.get(`/end-user/quotations/market-benchmarks?currency_pair=${currencyPair}&trade_type=${tradeType}`).catch(() => ({ data: null })),
@@ -18,6 +26,11 @@ export default function MarketSpreadTicker({ currencyPair = 'USD/EGP', tradeType
                 if (isMounted) {
                     setBenchmarks(benchRes.data);
                     setTiming(timeRes.data);
+                    tickerCache.set(cacheKey, {
+                        benchmarks: benchRes.data,
+                        timing: timeRes.data,
+                        timestamp: Date.now()
+                    });
                 }
             } catch (err) {
                 console.warn('Market benchmarks currently unavailable:', err);
@@ -28,7 +41,7 @@ export default function MarketSpreadTicker({ currencyPair = 'USD/EGP', tradeType
 
         fetchBenchmarkData();
         return () => { isMounted = false; };
-    }, [currencyPair, tradeType]);
+    }, [currencyPair, tradeType, cacheKey, hasValidCache]);
 
     if (loading) return null;
 
