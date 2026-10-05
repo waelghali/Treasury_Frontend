@@ -454,7 +454,13 @@ export default function ResultsView({ rfqId: propRfqId }) {
                 savingsSummary: res.data.savings_summary,
                 marketBenchmark: res.data.market_benchmark
             });
-            return res.data.rfq?.status;
+            const rfqData = res.data.rfq;
+            const isTerminal = Boolean(
+                res.data.is_inconclusive ||
+                ['COMPLETED', 'CANCELLED', 'REJECTED', 'INCONCLUSIVE', 'EXPIRED'].includes(rfqData?.status) ||
+                ['ACCEPTED', 'AUTO_ACCEPTED', 'REJECTED', 'AUTO_REJECTED', 'INDICATIVE_COMPLETED'].includes(rfqData?.acceptance_status)
+            );
+            return { status: rfqData?.status, isTerminal };
         } catch (err) {
             console.error(err);
             return null;
@@ -468,21 +474,19 @@ export default function ResultsView({ rfqId: propRfqId }) {
         let isMounted = true;
 
         const initFetch = async () => {
-            const currentStatus = await fetchResults();
-            if (!isMounted) return;
-
-            if (currentStatus && ['COMPLETED', 'CANCELLED', 'REJECTED'].includes(currentStatus)) {
-                return; // Terminal state reached, do not poll
+            const result = await fetchResults();
+            if (!isMounted || !result || result.isTerminal) {
+                return; // Terminal state reached or concluded: do not poll
             }
 
-            // High-efficiency 1.5s live polling during active bidding window
+            // Conservative 3s polling strictly during active live window / open customer acceptance
             interval = setInterval(async () => {
                 if (typeof document !== 'undefined' && document.hidden) return; // Conserve resources when tab is unfocused
-                const updatedStatus = await fetchResults();
-                if (updatedStatus && ['COMPLETED', 'CANCELLED', 'REJECTED'].includes(updatedStatus)) {
+                const updated = await fetchResults();
+                if (!updated || updated.isTerminal) {
                     if (interval) clearInterval(interval);
                 }
-            }, 1500);
+            }, 3000);
         };
 
         initFetch();

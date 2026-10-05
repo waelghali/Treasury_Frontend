@@ -70,39 +70,39 @@ export default function QuotationHistoryDashboard() {
                 setSelectedRfqId(rfqIdFromUrl);
             }
 
-            const reqs = [
-                apiClient.get('/end-user/quotations/').catch(() => ({ data: [] })),
-                apiClient.get('/end-user/quotations/stats?trade_type=FX_SPOT').catch(() => ({ data: [] }))
-            ];
-
             let isAdmin = false;
             const token = localStorage.getItem('jwt_token');
             if (token) {
                 try {
                     const decoded = jwtDecode(token);
                     setUserRole(decoded.role);
-                    if (decoded.role === 'corporate_admin') {
-                        isAdmin = true;
-                        reqs.push(apiClient.get('/corporate-admin/quotations/pending-approvals').catch(() => ({ data: [] })));
-                    }
+                    isAdmin = (decoded.role === 'corporate_admin');
                 } catch {}
             }
 
-            const responses = await Promise.all(reqs);
-            const historyData = responses[0]?.data || [];
-            const statsData = responses[1]?.data || [];
-
+            // 1. Fetch Primary Quotation History immediately (Fast path, renders table right away)
+            const historyRes = await apiClient.get('/end-user/quotations/').catch(() => ({ data: [] }));
+            const historyData = historyRes.data || [];
             cachedDashboardHistory = historyData;
-            cachedDashboardStats = statsData;
-
             setHistory(historyData);
-            setStats(statsData);
-            if (isAdmin && responses[2]) {
-                setPendingApprovals(responses[2]?.data || []);
+            setLoading(false); // Render history table immediately
+
+            // 2. Fetch Pending Approvals & Performance Stats asynchronously in background
+            if (isAdmin) {
+                apiClient.get('/corporate-admin/quotations/pending-approvals')
+                    .then(res => setPendingApprovals(res.data || []))
+                    .catch(() => {});
             }
+
+            apiClient.get('/end-user/quotations/stats?trade_type=FX_SPOT')
+                .then(res => {
+                    const statsData = res.data || [];
+                    cachedDashboardStats = statsData;
+                    setStats(statsData);
+                })
+                .catch(() => {});
         } catch (err) {
             console.error('Failed to fetch dashboard data:', err);
-        } finally {
             setLoading(false);
         }
     };
@@ -341,8 +341,10 @@ export default function QuotationHistoryDashboard() {
                 </div>
             </header>
 
-            {/* Zero-Knowledge Collaborative Market Intelligence */}
-            <MarketSpreadTicker currencyPair="USD/EGP" tradeType="FX_SPOT" />
+            {/* Zero-Knowledge Collaborative Market Intelligence (Only active when live tenders are running) */}
+            {liveRfqs.some(r => ['PENDING', 'OPEN', 'EVALUATING'].includes(r.status)) && (
+                <MarketSpreadTicker currencyPair="USD/EGP" tradeType="FX_SPOT" />
+            )}
 
             {/* NEEDS_REVISION Attention Banner */}
             {needsRevisionRfqs.length > 0 && (
