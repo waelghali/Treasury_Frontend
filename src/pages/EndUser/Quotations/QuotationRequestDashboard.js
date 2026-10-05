@@ -255,6 +255,115 @@ const BaseTypeDropdown = ({ value, onChange, allowInvisible }) => {
     );
 };
 
+const LegalEntityDropdown = ({ entities, value, onChange, disabled, requiresSelection }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setIsOpen(false);
+            }
+        };
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') setIsOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []);
+
+    const selected = entities.find(e => String(e.id) === String(value));
+
+    return (
+        <div className="relative w-full" ref={dropdownRef}>
+            <button
+                type="button"
+                disabled={disabled}
+                onClick={() => !disabled && setIsOpen(prev => !prev)}
+                className={`w-full rounded-xl px-3.5 py-2.5 text-xs font-semibold text-gray-900 outline-none transition-all flex items-center justify-between gap-2 shadow-2xs select-none ${
+                    disabled
+                        ? 'opacity-70 bg-gray-100 cursor-not-allowed border border-gray-200'
+                        : isOpen
+                            ? 'bg-white border-2 border-indigo-600 ring-2 ring-indigo-500/20 shadow-xs cursor-pointer'
+                            : requiresSelection
+                                ? 'bg-indigo-50/40 border-2 border-indigo-400 ring-2 ring-indigo-500/15 shadow-xs hover:border-indigo-500 cursor-pointer'
+                                : 'bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 cursor-pointer'
+                }`}
+            >
+                <div className="flex items-center gap-2 truncate">
+                    <Building size={14} className={selected ? 'text-indigo-600 shrink-0' : 'text-gray-400 shrink-0'} />
+                    {selected ? (
+                        <div className="flex items-center gap-1.5 truncate">
+                            <span className="font-bold text-gray-900 truncate">
+                                {selected.entity_name || selected.name || selected.code}
+                            </span>
+                            {selected.code && (
+                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-semibold shrink-0">
+                                    {selected.code}
+                                </span>
+                            )}
+                        </div>
+                    ) : (
+                        <span className="text-gray-400 font-normal">-- Select Legal Entity --</span>
+                    )}
+                </div>
+                {!disabled && (
+                    <ChevronDown size={14} className={`text-gray-400 shrink-0 transition-transform duration-150 ${isOpen ? 'rotate-180 text-indigo-600' : ''}`} />
+                )}
+            </button>
+
+            {isOpen && (
+                <div className="absolute left-0 top-full mt-1.5 w-full bg-white border border-gray-200 rounded-xl shadow-xl py-1.5 z-50 animate-fade-in text-xs max-h-60 overflow-y-auto">
+                    <div className="px-3 py-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 mb-1 flex items-center justify-between">
+                        <span>Select Requesting Entity</span>
+                        <span>{entities.length} Available</span>
+                    </div>
+                    {entities.map(ent => {
+                        const isChosen = String(ent.id) === String(value);
+                        const entityName = ent.entity_name || ent.name || ent.code;
+                        return (
+                            <button
+                                key={ent.id}
+                                type="button"
+                                onClick={() => {
+                                    onChange(String(ent.id));
+                                    setIsOpen(false);
+                                }}
+                                className={`w-full px-3 py-2 flex items-center justify-between text-left transition-colors cursor-pointer ${
+                                    isChosen
+                                        ? 'bg-indigo-50/80 text-indigo-950 font-bold'
+                                        : 'hover:bg-slate-50 text-gray-700 font-medium'
+                                }`}
+                            >
+                                <div className="flex items-center gap-2 truncate">
+                                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+                                        isChosen ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
+                                    }`}>
+                                        <Building size={12} />
+                                    </div>
+                                    <div className="truncate">
+                                        <div className="truncate">{entityName}</div>
+                                        {ent.code && ent.code !== entityName && (
+                                            <div className="text-[10px] text-gray-400 font-mono">{ent.code}</div>
+                                        )}
+                                    </div>
+                                </div>
+                                {isChosen && (
+                                    <Check size={14} className="text-indigo-600 shrink-0 ml-2" />
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const toLocalISOString = (d) => {
     if (!d) return '';
     const date = new Date(d);
@@ -2564,36 +2673,16 @@ export default function QuotationRequestDashboard() {
                                             </span>
                                         ) : null}
                                     </div>
-                                    <select
-                                        required
-                                        disabled={Boolean(retradeRfqId)}
+                                    <LegalEntityDropdown
+                                        entities={entities}
                                         value={formData.entityId || ''}
-                                        onChange={(e) => {
-                                            const nextEntityId = e.target.value;
+                                        disabled={Boolean(retradeRfqId)}
+                                        requiresSelection={requiresEntitySelection}
+                                        onChange={(nextEntityId) => {
                                             setFormData(prev => ({ ...prev, entityId: nextEntityId }));
                                             setSelectedBanks([]);
                                         }}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all ${
-                                            requiresEntitySelection
-                                                ? 'bg-indigo-50/40 border-2 border-indigo-400 ring-2 ring-indigo-500/15 shadow-xs'
-                                                : 'bg-slate-50 border border-slate-200'
-                                        } ${
-                                            retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
-                                        }`}
-                                    >
-                                        <option value="">-- Select Legal Entity --</option>
-                                        {entities.map(ent => {
-                                            const entityName = ent.entity_name || ent.name || ent.code;
-                                            const label = ent.code && ent.code !== entityName
-                                                ? `${entityName} (${ent.code})`
-                                                : entityName;
-                                            return (
-                                                <option key={ent.id} value={ent.id}>
-                                                    {label}
-                                                </option>
-                                            );
-                                        })}
-                                    </select>
+                                    />
                                     <p className="text-[10px] text-gray-400 mt-1">
                                         Quotes and bank counterparty routing will be specific to this legal entity.
                                     </p>
