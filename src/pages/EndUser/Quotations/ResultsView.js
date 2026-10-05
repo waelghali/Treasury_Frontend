@@ -695,18 +695,23 @@ export default function ResultsView({ rfqId: propRfqId }) {
             <div
                 key={result.bank_name || result.bank_id || index}
                 className={`p-6 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-all duration-300 transform translate-x-0 opacity-100 ${
-                    isWinner && result.price ? 'bg-emerald-50 border-emerald-200 ring-2 ring-emerald-500/20' : 'bg-white border-gray-100'
+                    result.is_excluded ? 'bg-slate-50/70 border-slate-200/80 opacity-80' : (isWinner && result.price ? 'bg-emerald-50 border-emerald-200 ring-2 ring-emerald-500/20' : 'bg-white border-gray-100')
                 }`}
             >
                 <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${
-                        isWinner && result.price ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'
+                        result.is_excluded ? 'bg-slate-100 text-slate-400' : (isWinner && result.price ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400')
                     }`}>
                         {isWinner && result.price ? <Trophy size={20} /> : <Landmark size={20} />}
                     </div>
                     <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-bold text-lg">{result.bank_name}</h4>
+                            <h4 className={`font-bold text-lg ${result.is_excluded ? 'text-slate-600' : ''}`}>{result.bank_name}</h4>
+                            {result.is_excluded && (
+                                <span className="text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-300/80 px-2 py-0.5 rounded uppercase tracking-wider inline-flex items-center gap-1 shadow-2xs">
+                                    <span>🚫</span> Excluded
+                                </span>
+                            )}
                             {isWinner && (
                                 <span className="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded uppercase tracking-wider">Winner</span>
                             )}
@@ -715,12 +720,12 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                     🌐 Group Benchmark
                                 </span>
                             )}
-                            {result.quotation_base && (
+                            {!result.is_excluded && result.quotation_base && (
                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${result.quotation_base === 'Execution' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700'}`}>
                                     {result.quotation_base}
                                 </span>
                             )}
-                            {renderApprovalBadge(result)}
+                            {!result.is_excluded && renderApprovalBadge(result)}
                             {effectiveValueDate && (
                                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
                                     isDiffValueDate 
@@ -750,6 +755,10 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                         </span>
                                     )}
                                 </p>
+                            ) : result.is_excluded ? (
+                                <p className="text-xs text-slate-400 font-medium">
+                                    Excluded &bull; Leg hidden from this counterparty
+                                </p>
                             ) : result.is_passed ? (
                                 <p className="text-xs text-slate-500 font-medium">
                                     Passed by Dealer &bull; Declined to quote this pair
@@ -759,13 +768,13 @@ export default function ResultsView({ rfqId: propRfqId }) {
                             ) : (
                                 <p className="text-xs text-amber-500 font-medium">No quote submitted</p>
                             )}
-                            {result.token && (
+                            {!result.is_excluded && result.token && (
                                 <button
                                     onClick={() => handleCopyBiddingLink(result.token)}
                                     className={`text-[10px] flex items-center gap-1 font-medium transition-colors cursor-pointer ${
                                         copiedToken === result.token 
                                             ? 'text-emerald-700 font-bold' 
-                                            : 'text-blue-600 hover:underline'
+                                             : 'text-blue-600 hover:underline'
                                     }`}
                                     title={copiedToken === result.token ? "Copied!" : "Copy bidding link"}
                                 >
@@ -773,7 +782,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                     {copiedToken === result.token ? 'Copied!' : 'Link'}
                                 </button>
                             )}
-                            {result.quotation_bank_id && (
+                            {!result.is_excluded && result.quotation_bank_id && (
                                 <button
                                     onClick={() => handleResendInvite(result.quotation_bank_id, result.bank_name)}
                                     className="text-[10px] text-emerald-600 hover:underline flex items-center gap-1 font-medium"
@@ -898,7 +907,15 @@ export default function ResultsView({ rfqId: propRfqId }) {
                     </div>
                 ) : (
                     <div className="text-right w-full md:w-auto">
-                        {result.is_passed ? (
+                        {result.is_excluded ? (
+                            <div className="flex flex-col items-end gap-1">
+                                <span className="text-xs font-bold text-slate-600 bg-slate-100 border border-slate-300 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 shadow-2xs">
+                                    <span className="text-slate-400">🚫</span>
+                                    Excluded
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-medium">Leg hidden from bank</span>
+                            </div>
+                        ) : result.is_passed ? (
                             <div className="flex flex-col items-end gap-1">
                                 <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-300 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 shadow-2xs">
                                     <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
