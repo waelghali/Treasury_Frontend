@@ -769,7 +769,7 @@ export default function QuotationRequestDashboard() {
         }));
     };
 
-    const handleToggleLegVisibility = (bankId, pairId) => {
+    const handleToggleLegVisibility = (bankId, pairId, forceState) => {
         setSelectedBanks(prev => prev.map(b => {
             if (String(b.id) !== String(bankId) && String(b.bank_id) !== String(bankId)) return b;
             const existingPairConfigs = { ...(b.pairConfigs || {}) };
@@ -786,11 +786,16 @@ export default function QuotationRequestDashboard() {
             };
 
             const currentInvited = currentPairConfig.isInvited !== false;
-            const nextInvited = !currentInvited;
+            const nextInvited = forceState !== undefined ? Boolean(forceState) : !currentInvited;
+            const nextBase = !nextInvited 
+                ? 'Invisible' 
+                : (currentPairConfig.quotationBase === 'Invisible' ? (b.quotationBase || 'Execution') : (currentPairConfig.quotationBase || 'Execution'));
 
             existingPairConfigs[pairId] = {
                 ...currentPairConfig,
-                isInvited: nextInvited
+                isInvited: nextInvited,
+                quotationBase: nextBase,
+                _baseCustomized: true
             };
 
             return {
@@ -3953,11 +3958,9 @@ export default function QuotationRequestDashboard() {
                                                         );
                                                     })()}
 
-                                                    {/* Bank Tariff Fees & Configuration (Hidden if leg is excluded) */}
-                                                    {curLegInvited && (
-                                                        <>
-                                                            {/* Bank Tariff Fees Box */}
-                                                            {(() => {
+                                                    {/* Bank Tariff Fees Box */}
+                                                    {curLegInvited ? (
+                                                        (() => {
                                                         const costKey = isSelected.customPairTariffs ? `${bank.bank_id}_${curTabId}` : String(bank.bank_id);
                                                         const hasConfiguredCost = Boolean(
                                                             (activeCfg.costMin && activeCfg.costMin > 0) ||
@@ -4085,7 +4088,22 @@ export default function QuotationRequestDashboard() {
                                                                 </div>
                                                             </div>
                                                         );
-                                                    })()}
+                                                    })()
+                                                    ) : (
+                                                        <div className="py-2.5 px-3 rounded-xl bg-rose-50/50 border border-dashed border-rose-200 text-xs text-rose-700 flex items-center justify-between">
+                                                            <span className="text-[10px] font-semibold flex items-center gap-1.5">
+                                                                <EyeOff size={11} className="text-rose-500 shrink-0" />
+                                                                Tariff Fees Inactive (Leg is Invisible / Excluded from {bank.name})
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleToggleLegVisibility(bank.bank_id, curTabId, true)}
+                                                                className="text-[10px] font-bold text-emerald-700 bg-white hover:bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded shadow-2xs cursor-pointer transition-colors"
+                                                            >
+                                                                Include Leg
+                                                            </button>
+                                                        </div>
+                                                    )}
 
                                                     {/* Symmetric Parameters Grid (Matches the 4 columns of the Tariff Fees above) */}
                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 pt-2 border-t border-slate-100">
@@ -4097,24 +4115,34 @@ export default function QuotationRequestDashboard() {
                                                                 </div>
                                                             ) : (
                                                                 <select
-                                                                    className="w-full h-8 bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black font-semibold text-gray-900 shadow-2xs cursor-pointer"
-                                                                    value={activeCfg.quotationBase || formData.quotationBase || 'Execution'}
+                                                                    className={`w-full h-8 border rounded-lg px-2 py-1 text-xs outline-none focus:border-black font-semibold shadow-2xs cursor-pointer transition-all ${
+                                                                        !curLegInvited 
+                                                                            ? 'bg-rose-50 border-rose-300 text-rose-800' 
+                                                                            : 'bg-white border-gray-200 text-gray-900'
+                                                                    }`}
+                                                                    value={!curLegInvited ? 'Invisible' : (activeCfg.quotationBase || formData.quotationBase || 'Execution')}
                                                                     onChange={e => {
                                                                         const val = e.target.value;
-                                                                        if (isSelected.customPairTariffs) {
-                                                                            updateBankPairConfig(bank.bank_id, curTabId, 'quotationBase', val);
+                                                                        if (val === 'Invisible' || val === 'Skipped') {
+                                                                            handleToggleLegVisibility(bank.bank_id, curTabId, false);
                                                                         } else {
-                                                                            updateBankCost(bank.bank_id, 'quotationBase', val);
+                                                                            handleToggleLegVisibility(bank.bank_id, curTabId, true);
+                                                                            if (isSelected.customPairTariffs) {
+                                                                                updateBankPairConfig(bank.bank_id, curTabId, 'quotationBase', val);
+                                                                            } else {
+                                                                                updateBankCost(bank.bank_id, 'quotationBase', val);
+                                                                            }
                                                                         }
                                                                     }}
                                                                 >
-                                                                    <option value="Execution">Execution</option>
-                                                                    <option value="Indicative">Indicative</option>
+                                                                    <option value="Execution">⚡ Execution</option>
+                                                                    <option value="Indicative">📊 Indicative</option>
+                                                                    <option value="Invisible">🚫 Invisible (Skipped / Excluded)</option>
                                                                 </select>
                                                             )}
                                                         </div>
 
-                                                        <div>
+                                                        <div className={!curLegInvited ? 'opacity-40 pointer-events-none' : ''}>
                                                             <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1 h-3.5 truncate">Documents</label>
                                                             {bank.is_cross_entity ? (
                                                                 <div className="h-8 flex items-center px-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] text-gray-400 italic">
@@ -4142,7 +4170,7 @@ export default function QuotationRequestDashboard() {
 
                                                         {formData.type === 'FX_SPOT' ? (
                                                             <>
-                                                                <div>
+                                                                <div className={!curLegInvited ? 'opacity-40 pointer-events-none' : ''}>
                                                                     <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1 h-3.5 truncate">
                                                                         Value Date{isSelected.customPairTariffs ? ` (${curPair.buyCurrency}/${curPair.sellCurrency})` : ''}
                                                                     </label>
@@ -4171,7 +4199,7 @@ export default function QuotationRequestDashboard() {
                                                                     />
                                                                 </div>
 
-                                                                <div>
+                                                                <div className={!curLegInvited ? 'opacity-40 pointer-events-none' : ''}>
                                                                     <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1 h-3.5 truncate">Settlement Alt</label>
                                                                     <label className="flex items-center gap-1.5 h-8 px-2.5 py-1 rounded-lg border border-gray-200 bg-white hover:border-blue-300 cursor-pointer text-[11px] font-medium shadow-2xs select-none transition-colors">
                                                                         <input
@@ -4194,6 +4222,13 @@ export default function QuotationRequestDashboard() {
                                                                 </div>
                                                             </>
                                                         ) : null}
+
+                                                        {!curLegInvited && (
+                                                            <div className="col-span-2 md:col-span-4 text-[10px] text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2 flex items-center gap-1.5 font-medium animate-fade-in mt-1">
+                                                                <EyeOff size={12} className="text-rose-500 shrink-0" />
+                                                                <span>This leg is set to <strong>Invisible (Skipped / Excluded)</strong>. It is completely hidden from {bank.name}. Select <strong>Execution</strong> or <strong>Indicative</strong> in Base Type above to re-include.</span>
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     {bank.is_cross_entity && (
@@ -4209,8 +4244,6 @@ export default function QuotationRequestDashboard() {
                                                         <div className="w-full text-[10px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
                                                             <AlertCircle size={11} /> Value Date ({formatDate(activeCfg.valueDate)}) cannot precede Offer Window ({formatDate(windowStartDate)})
                                                         </div>
-                                                    )}
-                                                        </>
                                                     )}
                                                 </div>
                                             );
