@@ -960,22 +960,22 @@ export default function ResultsView({ rfqId: propRfqId }) {
                     {rfq && <p className="text-sm font-mono font-bold text-gray-600">{rfq.ref_no}</p>}
                 </div>
                 <div className="flex items-center gap-3 mt-2 sm:mt-0 flex-wrap">
-                    {!isCorporateAdmin && rfq?.status === 'NEEDS_REVISION' && (
+                    {!isCorporateAdmin && (rfq?.status === 'NEEDS_REVISION' || rfq?.status === 'PENDING_APPROVAL') && (
                         <button
                             onClick={() => navigate(`/end-user/quotations/active?revision_rfq_id=${rfq.id}`)}
                             className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-amber-200 cursor-pointer"
-                            title="Open quotation in builder to revise parameters and resubmit"
+                            title="Open quotation in builder to edit parameters"
                         >
-                            <Undo2 size={13} /> Revise & Resubmit
+                            <Undo2 size={13} /> {rfq?.status === 'PENDING_APPROVAL' ? 'Edit Quotation' : 'Revise & Resubmit'}
                         </button>
                     )}
-                    {isWindowClosed && !isCorporateAdmin && (
+                    {isWindowClosed && !isCorporateAdmin && !resultsMeta.isInconclusive && rfq?.status !== 'CANCELLED' && (
                         <button
                             onClick={() => navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`)}
                             className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 cursor-pointer"
-                            title="Clone deal parameters into quotation builder with a fresh bidding window"
+                            title="Clone quotation parameters into quotation builder"
                         >
-                            <RefreshCw size={13} /> ⚡ 1-Click Re-Tender
+                            <RefreshCw size={13} /> ⚡ Clone Quotation
                         </button>
                     )}
                     {isWindowClosed && canAcceptOrDecline && !resultsMeta.isInconclusive && rfq?.status !== 'CANCELLED' && (
@@ -1582,7 +1582,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
                             onClick={() => navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`)}
                             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 shrink-0 cursor-pointer"
                         >
-                            <RefreshCw size={14} /> ⚡ 1-Click Re-Tender
+                            <RefreshCw size={14} /> ⚡ Clone as New Quotation
                         </button>
                     )}
                 </div>

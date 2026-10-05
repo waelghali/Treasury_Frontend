@@ -2624,7 +2624,7 @@ export default function QuotationRequestDashboard() {
                         <button
                             key={type}
                             type="button"
-                            disabled={Boolean(retradeRfqId || revisionRfqId)}
+                            disabled={Boolean(revisionRfqId)}
                             onClick={() => {
                                 setFormData(prev => ({
                                     ...prev,
@@ -2638,7 +2638,7 @@ export default function QuotationRequestDashboard() {
                                 formData.type === type
                                     ? 'bg-black border-black text-white'
                                     : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
-                            } ${(retradeRfqId || revisionRfqId) ? 'cursor-not-allowed opacity-80' : ''}`}
+                            } ${revisionRfqId ? 'cursor-not-allowed opacity-80' : ''}`}
                         >
                             {type === 'FX_SPOT' ? 'FX Spot' : 'Treasury Bills (T-Bills)'}
                         </button>
@@ -2667,20 +2667,16 @@ export default function QuotationRequestDashboard() {
                                             <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full animate-pulse">
                                                 Select first to load banks
                                             </span>
-                                        ) : retradeRfqId ? (
-                                            <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-                                                🔒 Locked
-                                            </span>
                                         ) : null}
                                     </div>
                                     <LegalEntityDropdown
                                         entities={entities}
                                         value={formData.entityId || ''}
-                                        disabled={Boolean(retradeRfqId)}
+                                        disabled={false}
                                         requiresSelection={requiresEntitySelection}
                                         onChange={(nextEntityId) => {
-                                            setFormData(prev => ({ ...prev, entityId: nextEntityId }));
-                                            setSelectedBanks([]);
+                                             setFormData(prev => ({ ...prev, entityId: nextEntityId }));
+                                             setSelectedBanks([]);
                                         }}
                                     />
                                     <p className="text-[10px] text-gray-400 mt-1">
@@ -2718,12 +2714,12 @@ export default function QuotationRequestDashboard() {
                                                 <button
                                                     key={dir}
                                                     type="button"
-                                                    disabled={Boolean(retradeRfqId)}
+                                                    disabled={false}
                                                     onClick={() => setFormData({ ...formData, direction: dir })}
                                                     className={`flex-1 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${formData.direction === dir
                                                         ? 'bg-black text-white'
                                                         : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                                        } ${retradeRfqId ? 'cursor-not-allowed opacity-80' : ''}`}
+                                                        }`}
                                                 >
                                                     {dir}
                                                 </button>
@@ -2735,30 +2731,23 @@ export default function QuotationRequestDashboard() {
                                         <div>
                                             <div className="flex items-center justify-between mb-1">
                                                 <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Amount</label>
-                                                {retradeRfqId && (
-                                                    <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-                                                        🔒 Locked
-                                                    </span>
-                                                )}
                                             </div>
                                             <div className={`flex items-center bg-gray-50 border rounded-xl overflow-hidden focus-within:bg-white focus-within:ring-2 transition-all ${
                                                 formData.amount !== '' && formData.amount !== undefined && parseFloat(formData.amount) <= 0
                                                     ? 'border-rose-300 focus-within:border-rose-500 focus-within:ring-rose-500/20'
                                                     : 'border-gray-200 focus-within:ring-black/5 focus-within:border-gray-400'
-                                            } ${
-                                                retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
                                             }`}>
                                                 <input
                                                     type="number"
                                                     min="0.01"
                                                     step="any"
                                                     required
-                                                    disabled={Boolean(retradeRfqId)}
+                                                    disabled={false}
                                                     placeholder="0.00"
                                                     className="w-full bg-transparent px-3.5 py-2.5 sm:py-3 text-base font-semibold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                     value={formData.amount}
                                                     onChange={e => setFormData({ ...formData, amount: e.target.value })}
-                                                    onWheel={(e) => e.target.blur()}
+                                                />                onWheel={(e) => e.target.blur()}
                                                 />
                                                 <span className="shrink-0 mr-3 px-2 py-0.5 bg-gray-200/80 rounded-md text-xs font-bold text-gray-600 uppercase select-none">
                                                     EGP
@@ -2921,7 +2910,7 @@ export default function QuotationRequestDashboard() {
                                                     {pairs.length} / {MAX_PAIRS}
                                                 </span>
                                             </div>
-                                            {!retradeRfqId && pairs.length < MAX_PAIRS && (
+                                            {pairs.length < MAX_PAIRS && (
                                                 <button
                                                     type="button"
                                                     onClick={handleAddPair}
@@ -2994,7 +2983,7 @@ export default function QuotationRequestDashboard() {
                                                                     <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">VD:</span> {formatDate(p.valueDate || formData.valueDate)}
                                                                 </span>
                                                             )}
-                                                            {!retradeRfqId && pairs.length > 1 && (
+                                                            {pairs.length > 1 && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={(e) => {
@@ -3043,7 +3032,7 @@ export default function QuotationRequestDashboard() {
                                                         <button
                                                             key={dir}
                                                             type="button"
-                                                            disabled={Boolean(retradeRfqId)}
+                                                            disabled={false}
                                                             onClick={() => updateActivePair('direction', dir)}
                                                             className={`py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                                                                 isCurDir
@@ -3051,7 +3040,7 @@ export default function QuotationRequestDashboard() {
                                                                         ? 'bg-emerald-600 text-white shadow-xs'
                                                                         : 'bg-rose-600 text-white shadow-xs')
                                                                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                                                            } ${retradeRfqId ? 'cursor-not-allowed opacity-80' : ''}`}
+                                                            }`}
                                                         >
                                                             <span>{dir === 'Buy' ? 'Buy' : 'Sell'}</span>
                                                         </button>
@@ -3067,10 +3056,8 @@ export default function QuotationRequestDashboard() {
                                                     {activePair.direction === 'Sell' ? 'Currency to Sell' : 'Currency to Buy'}
                                                 </label>
                                                 <select
-                                                    disabled={Boolean(retradeRfqId)}
-                                                    className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
-                                                        retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
-                                                    }`}
+                                                    disabled={false}
+                                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                                                     value={activePair.buyCurrency || 'USD'}
                                                     onChange={e => updateActivePair('buyCurrency', e.target.value)}
                                                 >
@@ -3085,10 +3072,8 @@ export default function QuotationRequestDashboard() {
                                                     {activePair.direction === 'Sell' ? 'Against (Receive)' : 'Against (Pay with)'}
                                                 </label>
                                                 <select
-                                                    disabled={Boolean(retradeRfqId)}
-                                                    className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
-                                                        retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
-                                                    }`}
+                                                    disabled={false}
+                                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                                                     value={activePair.sellCurrency || 'EGP'}
                                                     onChange={e => updateActivePair('sellCurrency', e.target.value)}
                                                 >
@@ -3105,25 +3090,18 @@ export default function QuotationRequestDashboard() {
                                                 <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                                                     {activePair.direction === 'Sell' ? 'Amount to Sell' : 'Amount to Buy'} ({activePair.buyCurrency || 'USD'})
                                                 </label>
-                                                {retradeRfqId && (
-                                                    <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
-                                                        🔒 Locked
-                                                    </span>
-                                                )}
                                             </div>
                                             <div className={`flex items-center bg-white border rounded-xl overflow-hidden focus-within:ring-2 transition-all ${
                                                 activePair.amount !== '' && activePair.amount !== undefined && parseFloat(activePair.amount) <= 0
                                                     ? 'border-rose-300 focus-within:border-rose-500 focus-within:ring-rose-500/20 bg-rose-50/10'
                                                     : 'border-slate-200 focus-within:ring-blue-500/20 focus-within:border-blue-500'
-                                            } ${
-                                                retradeRfqId ? 'opacity-70 bg-gray-100 cursor-not-allowed' : ''
                                             }`}>
                                                 <input
                                                     type="number"
                                                     min="0.01"
                                                     step="any"
                                                     required
-                                                    disabled={Boolean(retradeRfqId)}
+                                                    disabled={false}
                                                     placeholder="0.00"
                                                     className="w-full bg-transparent px-3 py-2 text-xs font-semibold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                     value={activePair.amount || ''}
