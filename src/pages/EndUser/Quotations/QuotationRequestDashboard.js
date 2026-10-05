@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, AlertTriangle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal, Save, MessageSquare, Lock } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, AlertTriangle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal, Save, MessageSquare, Lock, ChevronDown, Zap, BarChart2, EyeOff } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import { safeLocalStorage } from '../../../utils/safeStorage';
 import { getCurrentUser } from '../../../utils/authUtils';
@@ -144,6 +144,115 @@ const findBankLegConflict = (selectedBanksList, pairsList, formData) => {
         }
     }
     return null;
+};
+
+const BaseTypeDropdown = ({ value, onChange, allowInvisible }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setIsOpen(false);
+            }
+        };
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') setIsOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []);
+
+    const options = [
+        {
+            value: 'Execution',
+            label: 'Execution',
+            badge: 'Binding',
+            badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+            dotClass: 'bg-emerald-500',
+            icon: Zap,
+            iconClass: 'text-emerald-600'
+        },
+        {
+            value: 'Indicative',
+            label: 'Indicative',
+            badge: 'Benchmark',
+            badgeClass: 'bg-blue-100 text-blue-800 border-blue-200',
+            dotClass: 'bg-blue-500',
+            icon: BarChart2,
+            iconClass: 'text-blue-600'
+        },
+        ...(allowInvisible ? [{
+            value: 'Invisible',
+            label: 'Invisible',
+            badge: 'Excluded',
+            badgeClass: 'bg-rose-100 text-rose-800 border-rose-200',
+            dotClass: 'bg-rose-500',
+            icon: EyeOff,
+            iconClass: 'text-rose-500'
+        }] : [])
+    ];
+
+    const current = options.find(o => o.value === value) || options[0];
+
+    return (
+        <div className="relative w-full" ref={dropdownRef}>
+            <button
+                type="button"
+                onClick={() => setIsOpen(prev => !prev)}
+                className={`w-full h-8 bg-white border rounded-lg px-2 py-1 text-xs outline-none transition-all flex items-center justify-between gap-1 shadow-2xs cursor-pointer select-none ${
+                    isOpen 
+                        ? 'border-black ring-1 ring-black/10' 
+                        : 'border-gray-200 hover:border-gray-300'
+                }`}
+            >
+                <span className="flex items-center gap-1.5 truncate">
+                    <span className={`w-2 h-2 rounded-full ${current.dotClass} shrink-0`} />
+                    <span className="font-semibold text-gray-900 truncate">{current.label}</span>
+                </span>
+                <ChevronDown size={13} className={`text-gray-400 shrink-0 transition-transform duration-150 ${isOpen ? 'rotate-180 text-gray-700' : ''}`} />
+            </button>
+
+            {isOpen && (
+                <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-xl py-1 z-50 animate-fade-in text-xs overflow-hidden">
+                    <div className="px-2.5 py-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                        Counterparty Base
+                    </div>
+                    {options.map(opt => {
+                        const isSelected = opt.value === value;
+                        const OptIcon = opt.icon;
+                        return (
+                            <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => {
+                                    onChange(opt.value);
+                                    setIsOpen(false);
+                                }}
+                                className={`w-full px-2.5 py-1.5 flex items-center justify-between text-left transition-colors cursor-pointer ${
+                                    isSelected 
+                                        ? 'bg-slate-100/90 font-bold text-gray-900' 
+                                        : 'hover:bg-slate-50 text-gray-700 font-medium'
+                                }`}
+                            >
+                                <span className="flex items-center gap-2 truncate">
+                                    <OptIcon size={13} className={`${opt.iconClass} shrink-0`} />
+                                    <span className="truncate">{opt.label}</span>
+                                </span>
+                                <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${opt.badgeClass}`}>
+                                    {opt.badge}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
 };
 
 const toLocalISOString = (d) => {
@@ -3960,24 +4069,17 @@ export default function QuotationRequestDashboard() {
                                                                     🌐 Indicative
                                                                 </div>
                                                             ) : (
-                                                                <select
-                                                                    className="w-full h-8 bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black font-semibold text-gray-900 shadow-2xs cursor-pointer"
+                                                                <BaseTypeDropdown
                                                                     value={activeCfg.quotationBase || formData.quotationBase || 'Execution'}
-                                                                    onChange={e => {
-                                                                        const val = e.target.value;
+                                                                    allowInvisible={Boolean(isSelected.customPairTariffs)}
+                                                                    onChange={val => {
                                                                         if (isSelected.customPairTariffs) {
                                                                             updateBankPairConfig(bank.bank_id, curTabId, 'quotationBase', val);
                                                                         } else {
                                                                             updateBankCost(bank.bank_id, 'quotationBase', val);
                                                                         }
                                                                     }}
-                                                                >
-                                                                    <option value="Execution">Execution</option>
-                                                                    <option value="Indicative">Indicative</option>
-                                                                    {isSelected.customPairTariffs && (
-                                                                        <option value="Invisible">Invisible</option>
-                                                                    )}
-                                                                </select>
+                                                                />
                                                             )}
                                                         </div>
 
