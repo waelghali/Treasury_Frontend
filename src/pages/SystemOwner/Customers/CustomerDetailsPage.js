@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { Edit, PlusCircle, Trash, RotateCcw, ToggleLeft, ToggleRight, Loader2, RefreshCw, Calendar, User, FileText, X, Globe, Mail } from 'lucide-react';
+import { Edit, PlusCircle, Trash, RotateCcw, ToggleLeft, ToggleRight, Loader2, RefreshCw, Calendar, User, FileText, X, Globe, Mail, ShieldCheck, KeyRound, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 // ... [Keep existing UserForm component exactly as it is] ...
@@ -22,6 +22,7 @@ const UserForm = ({ customerId, userToEdit, onUserSaved, onCancel, customerEntit
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showPasswordFields, setShowPasswordFields] = useState(false);
+  const [useManualPassword, setUseManualPassword] = useState(false);
 
   useEffect(() => {
     if (userToEdit) {
@@ -43,7 +44,8 @@ const UserForm = ({ customerId, userToEdit, onUserSaved, onCancel, customerEntit
         entity_ids: [],
         must_change_password: true,
       });
-      setShowPasswordFields(true);
+      setShowPasswordFields(false);
+      setUseManualPassword(false);
     }
   }, [userToEdit]);
 
@@ -84,7 +86,20 @@ const UserForm = ({ customerId, userToEdit, onUserSaved, onCancel, customerEntit
       }
       
       // Password validation for both new and edited users
-      if (showPasswordFields) {
+      if (isNewUser) {
+        if (useManualPassword) {
+          if (!formData.password || formData.password.length < 8) {
+            setError('Manual password must be at least 8 characters long.');
+            setIsSaving(false);
+            return;
+          }
+          if (formData.password !== confirmPassword) {
+            setError('Passwords do not match.');
+            setIsSaving(false);
+            return;
+          }
+        }
+      } else if (showPasswordFields) {
         if (!formData.password) {
           setError('Password is required.');
           setIsSaving(false);
@@ -109,7 +124,7 @@ const UserForm = ({ customerId, userToEdit, onUserSaved, onCancel, customerEntit
       }
 
       const payload = { ...formData };
-      if (!showPasswordFields || !formData.password) {
+      if ((isNewUser && !useManualPassword) || (!isNewUser && !showPasswordFields) || !formData.password) {
         delete payload.password;
       }
       if (payload.has_all_entity_access) {
@@ -118,7 +133,7 @@ const UserForm = ({ customerId, userToEdit, onUserSaved, onCancel, customerEntit
       
       if (isNewUser) {
         await apiRequest(`/system-owner/customers/${customerId}/users/`, 'POST', payload);
-        toast.success('User created successfully!');
+        toast.success(useManualPassword ? 'User created successfully!' : 'User created and private activation link dispatched!');
       } else {
         await apiRequest(`/system-owner/users/${userToEdit.id}`, 'PUT', payload);
         toast.success('User updated successfully!');
@@ -155,38 +170,108 @@ const UserForm = ({ customerId, userToEdit, onUserSaved, onCancel, customerEntit
         </div>
       </div>
       
-      {/* Password fields for both new and edited users */}
+      {/* Password section with Zero-Touch invitation support */}
       <div className="border-t border-gray-200 pt-4 mt-4">
-        <div className="flex justify-between items-center mb-2">
-            <h4 className="text-md font-semibold text-gray-700">Password</h4>
-            {userToEdit && (
-                <button type="button" onClick={() => setShowPasswordFields(!showPasswordFields)} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                    {showPasswordFields ? 'Hide Password Fields' : 'Change Password'}
-                </button>
-            )}
-        </div>
-
-        {(userToEdit && !showPasswordFields) ? (
-            <p className="text-sm text-gray-500">Password is not being changed.</p>
-        ) : (
-            <>
+        {userToEdit ? (
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="text-md font-semibold text-gray-700">Password</h4>
+              <button type="button" onClick={() => setShowPasswordFields(!showPasswordFields)} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                {showPasswordFields ? 'Hide Password Fields' : 'Change Password'}
+              </button>
+            </div>
+            {!showPasswordFields ? (
+              <p className="text-sm text-gray-500">Password is not being changed.</p>
+            ) : (
+              <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                        <label htmlFor="user-password" className="block text-sm font-medium text-gray-700">Password</label>
-                        <input type="password" name="password" id="user-password" value={formData.password} onChange={handleChange} required={showPasswordFields} className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" />
-                    </div>
-                    <div>
-                        <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">Confirm Password</label>
-                        <input type="password" name="confirm-password" id="confirm-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required={showPasswordFields} className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" />
-                    </div>
+                  <div>
+                    <label htmlFor="user-password" className="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" name="password" id="user-password" value={formData.password} onChange={handleChange} required className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" />
+                  </div>
+                  <div>
+                    <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                    <input type="password" name="confirm-password" id="confirm-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" />
+                  </div>
                 </div>
                 <div className="flex items-center mt-3">
-                    <input id="must-change-password" name="must_change_password" type="checkbox" checked={formData.must_change_password} onChange={handleChange} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
-                    <label htmlFor="must-change-password" className="ml-2 block text-sm text-gray-900">
-                        Require password change on next login
-                    </label>
+                  <input id="must-change-password" name="must_change_password" type="checkbox" checked={formData.must_change_password} onChange={handleChange} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                  <label htmlFor="must-change-password" className="ml-2 block text-sm text-gray-900">
+                    Require password change on next login
+                  </label>
                 </div>
-            </>
+              </>
+            )}
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-md font-semibold text-gray-700">Account Access & Authentication</h4>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                🛡️ Zero-Touch Active
+              </span>
+            </div>
+
+            {!useManualPassword ? (
+              <div className="bg-white border border-emerald-200 rounded-lg p-3.5 shadow-sm">
+                <div className="flex items-start space-x-2.5">
+                  <Mail className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h5 className="text-xs font-bold text-emerald-900 uppercase tracking-wide">Automated Zero-Touch Invitation</h5>
+                    <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                      A private, single-use 24-hour activation link will be automatically dispatched to this user with 'SendOnly' privacy (never saved to Sent Items). The user will set their confidential password in their browser.
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-1 italic">
+                      ⚡ As System Owner, you will never see or know their password.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-2.5 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setUseManualPassword(true)}
+                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center space-x-1"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 mr-1" />
+                    <span>⚙️ Set Initial Password Manually (Testing Only)</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-amber-50 border border-amber-300 rounded-lg p-3.5">
+                <div className="flex items-center space-x-1.5 text-amber-800 text-xs font-bold mb-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                  <span>Manual Password Entry (Testing / Diagnostic Mode)</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="user-password" className="block text-sm font-medium text-gray-700">Initial Password <span className="text-red-500">*</span></label>
+                    <input type="password" name="password" id="user-password" value={formData.password} onChange={handleChange} required minLength="8" placeholder="Minimum 8 characters" className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" />
+                  </div>
+                  <div>
+                    <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">Confirm Initial Password <span className="text-red-500">*</span></label>
+                    <input type="password" name="confirm-password" id="confirm-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength="8" placeholder="Re-enter password" className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" />
+                  </div>
+                </div>
+                <div className="mt-2 flex justify-between items-center">
+                  <p className="text-[11px] text-amber-700">
+                    ⚠️ Manual entry bypasses Zero-Touch. The user will still be required to change password on first login.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUseManualPassword(false);
+                      setFormData(prev => ({ ...prev, password: '' }));
+                      setConfirmPassword('');
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    ← Return to Zero-Touch
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
