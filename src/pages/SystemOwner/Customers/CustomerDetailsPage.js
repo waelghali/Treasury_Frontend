@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { Edit, PlusCircle, Trash, RotateCcw, ToggleLeft, ToggleRight, Loader2, RefreshCw, Calendar, User, FileText, X, Globe } from 'lucide-react';
+import { Edit, PlusCircle, Trash, RotateCcw, ToggleLeft, ToggleRight, Loader2, RefreshCw, Calendar, User, FileText, X, Globe, Mail } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 // ... [Keep existing UserForm component exactly as it is] ...
@@ -569,6 +569,14 @@ function CustomerDetailsPage({ onLogout }) {
           console.error('Failed to restore user:', err);
           setError(`Failed to restore user: ${err.message || ''}`);
         }
+      }
+    } else if (action === 'resend-invitation') {
+      try {
+        const res = await apiRequest(`/system-owner/users/${userId}/resend-invitation`, 'POST');
+        toast.success(res?.message || `Private activation invitation resent to "${userEmail}" successfully.`);
+      } catch (err) {
+        console.error('Failed to resend invitation:', err);
+        toast.error(`Failed to resend invitation: ${err.message || 'Error occurred'}`);
       }
     }
   };
@@ -1209,6 +1217,13 @@ function CustomerDetailsPage({ onLogout }) {
                         </button>
                       ) : (
                         <>
+                          <button 
+                            onClick={() => handleUserAction('resend-invitation', user.id, user.email)} 
+                            className="text-blue-600 hover:text-blue-900 mr-3 p-1 rounded-md hover:bg-blue-50" 
+                            title="Resend Activation Invitation Email (SendOnly)"
+                          >
+                            <Mail className="h-5 w-5" />
+                          </button>
                           <button onClick={() => handleEditUser(user)} className="text-indigo-600 hover:text-indigo-900 mr-3 p-1 rounded-md hover:bg-gray-100" title="Edit User">
                             <Edit className="h-5 w-5" />
                           </button>

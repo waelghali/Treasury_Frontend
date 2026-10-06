@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { PlusCircle, MinusCircle } from 'lucide-react';
+import { PlusCircle, MinusCircle, ShieldCheck, Mail, KeyRound, AlertTriangle } from 'lucide-react';
 
 // Common input field styling classes
 const inputClassNames = "mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200";
@@ -57,6 +57,7 @@ function CustomerOnboardingForm({ onLogout }) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [selectedPlanCanMultiEntity, setSelectedPlanCanMultiEntity] = useState(false);
+  const [useManualPassword, setUseManualPassword] = useState(false);
 
   // Fetch subscription plans on component mount
   useEffect(() => {
@@ -211,11 +212,18 @@ function CustomerOnboardingForm({ onLogout }) {
           return cleanedEntity;
       });
 
+      if (useManualPassword && (!customerData.initial_corporate_admin.password || customerData.initial_corporate_admin.password.length < 8)) {
+        setError("Manual initial password must be at least 8 characters.");
+        setIsSaving(false);
+        return;
+      }
+
       const payload = {
           ...customerData,
           // Ensure all required nested fields are explicitly set
           initial_corporate_admin: {
               ...customerData.initial_corporate_admin,
+              password: useManualPassword ? customerData.initial_corporate_admin.password : '',
               // These fields are required by the backend schema
               has_all_entity_access: true, 
               entity_ids: [],
@@ -298,20 +306,97 @@ function CustomerOnboardingForm({ onLogout }) {
             </div>
           </div>
 
-          {/* Initial Corporate Admin Section */}
-          <div className="border border-gray-200 rounded-md p-4 mb-6">
-            <h3 className="text-lg font-medium text-gray-800 mb-3">Initial Corporate Admin User</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="mb-2">
-                <label htmlFor="admin_email" className={labelClassNames}>Admin Email {requiredSpan}</label>
-                <input type="email" name="email" id="admin_email" value={customerData.initial_corporate_admin.email} onChange={handleAdminChange} required className={inputClassNames} />
+          {/* Initial Corporate Admin Section with Zero-Touch Onboarding */}
+          <div className="border border-blue-200 bg-blue-50/40 rounded-lg p-5 mb-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Initial Corporate Admin User</h3>
+                  <p className="text-xs text-gray-500">Primary administrator account for this organization</p>
+                </div>
               </div>
-              <div className="mb-2">
-                <label htmlFor="admin_password" className={labelClassNames}>Admin Password {requiredSpan}</label>
-                <input type="password" name="password" id="admin_password" value={customerData.initial_corporate_admin.password} onChange={handleAdminChange} required minLength="8" className={inputClassNames} />
-              </div>
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 self-start sm:self-auto">
+                🛡️ Zero-Knowledge Protected
+              </span>
             </div>
-            <p className="mt-2 text-sm text-gray-500">Note: This user will be created with the 'Corporate Admin' role.</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+              <div>
+                <label htmlFor="admin_email" className={labelClassNames}>Admin Corporate Email {requiredSpan}</label>
+                <input 
+                  type="email" 
+                  name="email" 
+                  id="admin_email" 
+                  value={customerData.initial_corporate_admin.email} 
+                  onChange={handleAdminChange} 
+                  required 
+                  placeholder="admin@organization.com"
+                  className={inputClassNames} 
+                />
+              </div>
+
+              {!useManualPassword ? (
+                <div className="bg-white border border-emerald-200 rounded-lg p-3.5 shadow-sm">
+                  <div className="flex items-start space-x-2.5">
+                    <Mail className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-xs font-bold text-emerald-900 uppercase tracking-wide">Automated Zero-Touch Invitation</h4>
+                      <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                        A private, single-use 24-hour activation link will be automatically emailed to this address. The Corporate Admin sets their confidential password directly in their browser.
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-1 italic">
+                        ⚡ SendOnly mode: never saved to Sent Items. As System Owner, you will never see or know their password.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-amber-50 border border-amber-300 rounded-lg p-3.5">
+                  <div className="flex items-center space-x-1.5 text-amber-800 text-xs font-bold mb-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    <span>Manual Password Entry (Testing / Diagnostic Mode)</span>
+                  </div>
+                  <label htmlFor="admin_password" className={labelClassNames}>Set Initial Password {requiredSpan}</label>
+                  <input 
+                    type="password" 
+                    name="password" 
+                    id="admin_password" 
+                    value={customerData.initial_corporate_admin.password} 
+                    onChange={handleAdminChange} 
+                    required 
+                    minLength="8" 
+                    placeholder="Minimum 8 characters"
+                    className={inputClassNames} 
+                  />
+                  <p className="text-[11px] text-amber-700 mt-1">
+                    ⚠️ Manual entry bypasses Zero-Touch. The user will still be required to change password on first login.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Toggle for manual password */}
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setUseManualPassword(!useManualPassword);
+                  if (useManualPassword) {
+                    setCustomerData(prev => ({
+                      ...prev,
+                      initial_corporate_admin: { ...prev.initial_corporate_admin, password: '' }
+                    }));
+                  }
+                }}
+                className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center space-x-1"
+              >
+                <KeyRound className="w-3.5 h-3.5 mr-1" />
+                <span>{useManualPassword ? '← Return to Zero-Touch Automated Invitation (Recommended)' : '⚙️ Set Initial Password Manually (Testing Only)'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Initial Entities Section */}

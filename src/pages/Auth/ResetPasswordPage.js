@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { API_BASE_URL } from 'services/apiService';
-import { Lock, Loader2, ArrowLeft, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Lock, Loader2, ArrowLeft, CheckCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { toast } from 'react-toastify';
 
@@ -10,6 +10,7 @@ function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [token, setToken] = useState(null);
+  const [isActivation, setIsActivation] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -20,10 +21,14 @@ function ResetPasswordPage() {
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const tokenFromUrl = queryParams.get('token');
+    const mode = queryParams.get('mode');
+    if (mode === 'activation') {
+      setIsActivation(true);
+    }
     if (tokenFromUrl) {
       setToken(tokenFromUrl);
     } else {
-      setError('Password reset token is missing from the URL.');
+      setError(mode === 'activation' ? 'Activation token is missing from the link.' : 'Password reset token is missing from the URL.');
     }
   }, [location]);
 
@@ -50,11 +55,11 @@ function ResetPasswordPage() {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success('Password reset successfully!', { autoClose: 5000 });
-        setMessage('Your password has been reset. Redirecting to login...');
+        toast.success(isActivation ? 'Account activated successfully!' : 'Password reset successfully!', { autoClose: 5000 });
+        setMessage(isActivation ? 'Your account has been activated and confidential password saved. Redirecting to login...' : 'Your password has been reset. Redirecting to login...');
         setTimeout(() => navigate('/login'), 3000);
       } else {
-        setError(data.detail || 'Reset failed. The token might be invalid or expired.');
+        setError(data.detail || (isActivation ? 'Activation failed. The link might be invalid or expired.' : 'Reset failed. The token might be invalid or expired.'));
       }
     } catch (err) {
       setError(err.message || 'An unexpected error occurred.');
@@ -68,8 +73,8 @@ function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif", backgroundColor: '#1e2a4a' }}>
       <Helmet>
-        <title>Reset Password — Grow LG Management Platform</title>
-        <meta name="description" content="Set a new password for your Grow account." />
+        <title>{isActivation ? 'Activate Corporate Account' : 'Reset Password'} — Grow Treasury</title>
+        <meta name="description" content="Set your confidential password for Grow Treasury." />
       </Helmet>
 
       {/* Decorative circles */}
@@ -81,18 +86,20 @@ function ResetPasswordPage() {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-2 mb-6">
             <span className="text-xl font-bold text-white tracking-tight">Grow</span>
-            <span className="text-xs text-blue-400 font-medium">Business Development</span>
+            <span className="text-xs text-blue-400 font-medium">Treasury</span>
           </div>
         </div>
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8 space-y-6">
           <div className="text-center">
-            <div className="mx-auto w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center mb-4">
-              <Lock className="w-5 h-5 text-blue-600" />
+            <div className={`mx-auto w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isActivation ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+              {isActivation ? <ShieldCheck className="w-6 h-6" /> : <Lock className="w-5 h-5" />}
             </div>
-            <h2 className="text-xl font-bold text-gray-900">Reset Password</h2>
-            <p className="text-sm text-gray-500 mt-1">Choose a strong new password for your account.</p>
+            <h2 className="text-xl font-bold text-gray-900">{isActivation ? 'Activate Your Corporate Account' : 'Reset Password'}</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              {isActivation ? 'Welcome to Grow Treasury. Set your confidential account password.' : 'Choose a strong new password for your account.'}
+            </p>
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
@@ -164,13 +171,13 @@ function ResetPasswordPage() {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center py-3 px-4 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50"
+              className={`w-full flex items-center justify-center py-3 px-4 text-sm font-semibold text-white rounded-lg transition-colors shadow-md disabled:opacity-50 ${isActivation ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'}`}
               disabled={isLoading || !token}
             >
               {isLoading ? (
-                <><Loader2 className="animate-spin h-4 w-4 mr-2" /> Resetting...</>
+                <><Loader2 className="animate-spin h-4 w-4 mr-2" /> {isActivation ? 'Activating Account...' : 'Resetting...'}</>
               ) : (
-                <><Lock className="h-4 w-4 mr-2" /> Reset Password</>
+                <>{isActivation ? <ShieldCheck className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />} {isActivation ? 'Activate Account & Sign In' : 'Reset Password'}</>
               )}
             </button>
           </form>
