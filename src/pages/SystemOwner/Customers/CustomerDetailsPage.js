@@ -21,7 +21,7 @@ const UserForm = ({ customerId, userToEdit, onUserSaved, onCancel, customerEntit
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [showPasswordFields, setShowPasswordFields] = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
   const [useManualPassword, setUseManualPassword] = useState(false);
 
   useEffect(() => {
@@ -34,7 +34,6 @@ const UserForm = ({ customerId, userToEdit, onUserSaved, onCancel, customerEntit
         must_change_password: userToEdit.must_change_password,
         password: '',
       });
-      setShowPasswordFields(false);
     } else {
       setFormData({
         email: '',
@@ -44,7 +43,6 @@ const UserForm = ({ customerId, userToEdit, onUserSaved, onCancel, customerEntit
         entity_ids: [],
         must_change_password: true,
       });
-      setShowPasswordFields(false);
       setUseManualPassword(false);
     }
   }, [userToEdit]);
@@ -85,28 +83,10 @@ const UserForm = ({ customerId, userToEdit, onUserSaved, onCancel, customerEntit
         return;
       }
       
-      // Password validation for both new and edited users
-      if (isNewUser) {
-        if (useManualPassword) {
-          if (!formData.password || formData.password.length < 8) {
-            setError('Manual password must be at least 8 characters long.');
-            setIsSaving(false);
-            return;
-          }
-          if (formData.password !== confirmPassword) {
-            setError('Passwords do not match.');
-            setIsSaving(false);
-            return;
-          }
-        }
-      } else if (showPasswordFields) {
-        if (!formData.password) {
-          setError('Password is required.');
-          setIsSaving(false);
-          return;
-        }
-        if (formData.password.length < 8) {
-          setError('Password must be at least 8 characters long.');
+      // Password validation only for new users with manual password enabled
+      if (isNewUser && useManualPassword) {
+        if (!formData.password || formData.password.length < 8) {
+          setError('Manual password must be at least 8 characters long.');
           setIsSaving(false);
           return;
         }
@@ -124,7 +104,8 @@ const UserForm = ({ customerId, userToEdit, onUserSaved, onCancel, customerEntit
       }
 
       const payload = { ...formData };
-      if ((isNewUser && !useManualPassword) || (!isNewUser && !showPasswordFields) || !formData.password) {
+      // NEVER allow password in payload when updating an existing customer user (Host-Blind Protection)
+      if (!isNewUser || !useManualPassword || !formData.password) {
         delete payload.password;
       }
       if (payload.has_all_entity_access) {
@@ -170,38 +151,49 @@ const UserForm = ({ customerId, userToEdit, onUserSaved, onCancel, customerEntit
         </div>
       </div>
       
-      {/* Password section with Zero-Touch invitation support */}
+      {/* Password section: Host-Blind Protection */}
       <div className="border-t border-gray-200 pt-4 mt-4">
         {userToEdit ? (
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="text-md font-semibold text-gray-700">Password</h4>
-              <button type="button" onClick={() => setShowPasswordFields(!showPasswordFields)} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                {showPasswordFields ? 'Hide Password Fields' : 'Change Password'}
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center space-x-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wide">Password & Credentials</h4>
+              </div>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                🔒 Host-Blind Protected
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              Customer user passwords are encrypted end-to-end and strictly inaccessible to the System Owner. To protect tenant confidentiality, passwords cannot be viewed or manually altered here.
+            </p>
+            <div className="mt-3 pt-2.5 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-[11px] text-gray-500">Need to help this user reset their credentials?</span>
+              <button
+                type="button"
+                disabled={isSendingReset}
+                onClick={async () => {
+                  setIsSendingReset(true);
+                  try {
+                    const res = await apiRequest(`/system-owner/users/${userToEdit.id}/resend-invitation`, 'POST');
+                    toast.success(res?.message || `Private activation / reset link dispatched to "${userToEdit.email}"!`);
+                  } catch (err) {
+                    console.error('Failed to send reset link:', err);
+                    toast.error(`Failed to send link: ${err.message || 'Error occurred'}`);
+                  } finally {
+                    setIsSendingReset(false);
+                  }
+                }}
+                className="inline-flex items-center space-x-1 text-xs font-medium text-emerald-700 hover:text-emerald-800 bg-white hover:bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded shadow-sm transition-colors"
+              >
+                {isSendingReset ? (
+                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin text-emerald-600" />
+                ) : (
+                  <Mail className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                )}
+                <span>Dispatch Private Reset Link</span>
               </button>
             </div>
-            {!showPasswordFields ? (
-              <p className="text-sm text-gray-500">Password is not being changed.</p>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="user-password" className="block text-sm font-medium text-gray-700">Password</label>
-                    <input type="password" name="password" id="user-password" value={formData.password} onChange={handleChange} required className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" />
-                  </div>
-                  <div>
-                    <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">Confirm Password</label>
-                    <input type="password" name="confirm-password" id="confirm-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" />
-                  </div>
-                </div>
-                <div className="flex items-center mt-3">
-                  <input id="must-change-password" name="must_change_password" type="checkbox" checked={formData.must_change_password} onChange={handleChange} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
-                  <label htmlFor="must-change-password" className="ml-2 block text-sm text-gray-900">
-                    Require password change on next login
-                  </label>
-                </div>
-              </>
-            )}
           </div>
         ) : (
           <div>
