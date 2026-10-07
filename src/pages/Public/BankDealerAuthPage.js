@@ -244,6 +244,19 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
 
             {/* Main Auth Card */}
             <div className="w-full max-w-md bg-[#0f172a] border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8 backdrop-blur-xl relative overflow-hidden">
+                {/* Prevent browser autofill from turning inputs bright white/light blue in dark mode */}
+                <style>{`
+                    input:-webkit-autofill,
+                    input:-webkit-autofill:hover, 
+                    input:-webkit-autofill:focus, 
+                    input:-webkit-autofill:active {
+                        -webkit-box-shadow: 0 0 0 1000px #090e17 inset !important;
+                        -webkit-text-fill-color: #f8fafc !important;
+                        caret-color: #34d399 !important;
+                        transition: background-color 5000s ease-in-out 0s;
+                    }
+                `}</style>
+
                 {/* Glow Accent */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500" />
 
@@ -296,15 +309,15 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                             <label className="block text-xs font-medium text-slate-300 mb-1.5">
                                 Official Bank Corporate Email
                             </label>
-                            <div className="relative">
-                                <Mail className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
+                            <div className="flex items-center bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-all">
+                                <Mail className="w-4 h-4 text-emerald-400/70 mr-3 shrink-0" />
                                 <input
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="dealer@bank.com"
                                     required
-                                    className="w-full pl-9 pr-3 py-2.5 bg-slate-900/90 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                                    className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
                                 />
                             </div>
                         </div>
@@ -313,15 +326,15 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                             <label className="block text-xs font-medium text-slate-300 mb-1.5">
                                 Permanent Password
                             </label>
-                            <div className="relative">
-                                <Lock className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
+                            <div className="flex items-center bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-all">
+                                <Lock className="w-4 h-4 text-emerald-400/70 mr-3 shrink-0" />
                                 <input
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="••••••••••••"
                                     required
-                                    className="w-full pl-9 pr-3 py-2.5 bg-slate-900/90 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                                    className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
                                 />
                             </div>
                         </div>
@@ -333,8 +346,8 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                                 </label>
                                 <span className="text-[10px] text-emerald-400 font-mono">RFC 6238 TOTP</span>
                             </div>
-                            <div className="relative">
-                                <Smartphone className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
+                            <div className="flex items-center bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-all">
+                                <Smartphone className="w-4 h-4 text-emerald-400/70 mr-3 shrink-0" />
                                 <input
                                     type="text"
                                     maxLength={6}
@@ -342,7 +355,7 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                                     onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
                                     placeholder="123456"
                                     required
-                                    className="w-full pl-9 pr-3 py-2.5 bg-slate-900/90 border border-slate-700/80 rounded-xl text-base tracking-widest font-mono font-bold text-emerald-400 placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                                    className="w-full bg-transparent text-base tracking-widest font-mono font-bold text-emerald-400 placeholder-slate-600 focus:outline-none"
                                 />
                             </div>
                             <p className="text-[11px] text-slate-500 mt-1">
@@ -410,15 +423,15 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                                     <label className="block text-xs font-medium text-slate-300 mb-1.5">
                                         Corporate Bank Email
                                     </label>
-                                    <div className="relative">
-                                        <Mail className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
+                                    <div className="flex items-center bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-all">
+                                        <Mail className="w-4 h-4 text-emerald-400/70 mr-3 shrink-0" />
                                         <input
                                             type="email"
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
                                             placeholder="karim.fathy@cibeg.com"
                                             required
-                                            className="w-full pl-9 pr-3 py-2.5 bg-slate-900/90 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                                            className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
                                         />
                                     </div>
                                     <p className="text-[11px] text-slate-500 mt-1">
@@ -430,15 +443,15 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                                     <label className="block text-xs font-medium text-slate-300 mb-1.5">
                                         Full Name
                                     </label>
-                                    <div className="relative">
-                                        <User className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
+                                    <div className="flex items-center bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-all">
+                                        <User className="w-4 h-4 text-emerald-400/70 mr-3 shrink-0" />
                                         <input
                                             type="text"
                                             value={fullName}
                                             onChange={(e) => setFullName(e.target.value)}
                                             placeholder="Karim Fathy"
                                             required
-                                            className="w-full pl-9 pr-3 py-2.5 bg-slate-900/90 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                                            className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
                                         />
                                     </div>
                                 </div>
@@ -447,13 +460,16 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                                     <label className="block text-xs font-medium text-slate-300 mb-1.5">
                                         Trading Desk Title (Optional)
                                     </label>
-                                    <input
-                                        type="text"
-                                        value={title}
-                                        onChange={(e) => setTitle(e.target.value)}
-                                        placeholder="Senior FX Dealer / Treasury Sales"
-                                        className="w-full px-3 py-2.5 bg-slate-900/90 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
-                                    />
+                                    <div className="flex items-center bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-all">
+                                        <Building2 className="w-4 h-4 text-slate-500 mr-3 shrink-0" />
+                                        <input
+                                            type="text"
+                                            value={title}
+                                            onChange={(e) => setTitle(e.target.value)}
+                                            placeholder="Senior FX Dealer / Treasury Sales"
+                                            className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
+                                        />
+                                    </div>
                                 </div>
 
                                 <button
@@ -569,15 +585,18 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                                     <label className="block text-xs font-medium text-slate-300 mb-1.5">
                                         6-Digit Rolling Code from Phone
                                     </label>
-                                    <input
-                                        type="text"
-                                        maxLength={6}
-                                        value={totpCode}
-                                        onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
-                                        placeholder="123456"
-                                        required
-                                        className="w-full text-center py-2 bg-slate-900 border border-slate-700 rounded-xl text-lg font-mono tracking-widest font-extrabold text-emerald-400 focus:outline-none focus:border-emerald-500"
-                                    />
+                                    <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-all">
+                                        <Smartphone className="w-4 h-4 text-emerald-400/80 mr-3 shrink-0" />
+                                        <input
+                                            type="text"
+                                            maxLength={6}
+                                            value={totpCode}
+                                            onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+                                            placeholder="123456"
+                                            required
+                                            className="w-full bg-transparent text-center text-lg font-mono tracking-widest font-extrabold text-emerald-400 placeholder-slate-600 focus:outline-none"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-2">
@@ -585,27 +604,33 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                                         <label className="block text-[11px] font-medium text-slate-300 mb-1">
                                             Create Password
                                         </label>
-                                        <input
-                                            type="password"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            placeholder="Min 8 chars"
-                                            required
-                                            className="w-full px-2.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
-                                        />
+                                        <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500">
+                                            <Lock className="w-3.5 h-3.5 text-slate-500 mr-2 shrink-0" />
+                                            <input
+                                                type="password"
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                                placeholder="Min 8 chars"
+                                                required
+                                                className="w-full bg-transparent text-xs text-white focus:outline-none"
+                                            />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-[11px] font-medium text-slate-300 mb-1">
                                             Confirm Password
                                         </label>
-                                        <input
-                                            type="password"
-                                            value={confirmPassword}
-                                            onChange={(e) => setConfirmPassword(e.target.value)}
-                                            placeholder="Confirm"
-                                            required
-                                            className="w-full px-2.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
-                                        />
+                                        <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500">
+                                            <Lock className="w-3.5 h-3.5 text-slate-500 mr-2 shrink-0" />
+                                            <input
+                                                type="password"
+                                                value={confirmPassword}
+                                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                                placeholder="Confirm"
+                                                required
+                                                className="w-full bg-transparent text-xs text-white focus:outline-none"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
