@@ -172,8 +172,11 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
           timerId = setTimeout(pollActiveDeal, 3000);
         } else {
           setPendingDeal(null);
-          // Idle: no pending deal awaiting acceptance, check every 45s on need-basis
-          timerId = setTimeout(pollActiveDeal, 45000);
+          // When on quotation routes, poll frequently (3s) to trigger acceptance popup immediately on window closure.
+          // Otherwise check every 15s.
+          const isQuotationRoute = location.pathname.includes('/quotations');
+          const idleDelay = isQuotationRoute ? 3000 : 15000;
+          timerId = setTimeout(pollActiveDeal, idleDelay);
         }
       } catch (err) {
         if (!isMounted) return;

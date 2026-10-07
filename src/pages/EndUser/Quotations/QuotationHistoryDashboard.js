@@ -9,7 +9,7 @@ import { toast } from 'react-toastify';
 import {
     Check, X, Bell, Download, BarChart3, Landmark, Building, History, ChevronRight,
     RefreshCw, AlertCircle, Radio, Clock, Undo2, ArrowUpRight, CheckCircle2, Trophy, XCircle, FileText,
-    Search, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Filter, Edit3
+    Search, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Filter, Edit3, Copy
 } from 'lucide-react';
 import QuotationCancellationModal from '../../../components/Modals/QuotationCancellationModal';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -1188,9 +1188,19 @@ export default function QuotationHistoryDashboard() {
                                                         navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`);
                                                     }}
                                                     className="p-1.5 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800 rounded-lg transition-colors inline-flex cursor-pointer"
-                                                    title="Clone as New Quotation"
+                                                    title="Re-Trade (Locked Specs & Linked Reference)"
                                                 >
                                                     <RefreshCw size={15} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/end-user/quotations/active?clone_rfq_id=${rfq.id}`);
+                                                    }}
+                                                    className="p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors inline-flex cursor-pointer"
+                                                    title="Clone as New Quotation (Unlocked Draft)"
+                                                >
+                                                    <Copy size={15} />
                                                 </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setSelectedRfqId(rfq.id); }}

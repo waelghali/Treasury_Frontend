@@ -148,7 +148,21 @@ const findBankLegConflict = (selectedBanksList, pairsList, formData) => {
 
 const BaseTypeDropdown = ({ value, onChange, allowInvisible }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [openUpwards, setOpenUpwards] = useState(false);
     const dropdownRef = useRef(null);
+
+    const toggleOpen = () => {
+        if (!isOpen && dropdownRef.current) {
+            const rect = dropdownRef.current.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            if (spaceBelow < 180) {
+                setOpenUpwards(true);
+            } else {
+                setOpenUpwards(false);
+            }
+        }
+        setIsOpen(prev => !prev);
+    };
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -200,10 +214,10 @@ const BaseTypeDropdown = ({ value, onChange, allowInvisible }) => {
     const current = options.find(o => o.value === value) || options[0];
 
     return (
-        <div className="relative w-full" ref={dropdownRef}>
+        <div className={`relative w-full ${isOpen ? 'z-50' : 'z-10'}`} ref={dropdownRef}>
             <button
                 type="button"
-                onClick={() => setIsOpen(prev => !prev)}
+                onClick={toggleOpen}
                 className={`w-full h-8 bg-white border rounded-lg px-2 py-1 text-xs outline-none transition-all flex items-center justify-between gap-1 shadow-2xs cursor-pointer select-none ${
                     isOpen 
                         ? 'border-black ring-1 ring-black/10' 
@@ -218,7 +232,7 @@ const BaseTypeDropdown = ({ value, onChange, allowInvisible }) => {
             </button>
 
             {isOpen && (
-                <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-xl py-1 z-50 animate-fade-in text-xs overflow-hidden">
+                <div className={`absolute left-0 ${openUpwards ? 'bottom-full mb-1' : 'top-full mt-1'} w-48 bg-white border border-gray-200 rounded-xl shadow-2xl py-1 z-[100] animate-fade-in text-xs overflow-hidden`}>
                     <div className="px-2.5 py-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
                         Counterparty Base
                     </div>
@@ -434,7 +448,10 @@ export default function QuotationRequestDashboard() {
     const navigate = useNavigate();
     const queryParams = new URLSearchParams(location.search);
     const revisionRfqId = queryParams.get('revision_rfq_id') || queryParams.get('edit_rfq_id');
-    const retradeRfqId = queryParams.get('retrade_rfq_id') || queryParams.get('clone_rfq_id');
+    const retradeRfqId = queryParams.get('retrade_rfq_id');
+    const cloneRfqId = queryParams.get('clone_rfq_id');
+    const isRetrade = Boolean(retradeRfqId);
+    const isClone = Boolean(cloneRfqId);
 
     const [sourceRfq, setSourceRfq] = useState(null);
     const [loadingSource, setLoadingSource] = useState(false);
@@ -733,6 +750,34 @@ export default function QuotationRequestDashboard() {
         const removed = pairs[indexToRemove];
         setPairs(prev => prev.filter((_, idx) => idx !== indexToRemove));
         setActivePairIndex(prev => (prev >= indexToRemove && prev > 0 ? prev - 1 : 0));
+
+        // Update document-to-leg attachments for existingDocs and fileLegMap
+        setExistingDocs(prev => prev.map(d => {
+            if (d.leg_index === indexToRemove) {
+                return { ...d, leg_index: null, pair: null };
+            }
+            if (d.leg_index > indexToRemove) {
+                return { ...d, leg_index: d.leg_index - 1 };
+            }
+            return d;
+        }));
+
+        setFileLegMap(prev => {
+            const nextMap = {};
+            Object.entries(prev).forEach(([key, meta]) => {
+                if (!meta || meta.leg_index === null || meta.leg_index === undefined) {
+                    nextMap[key] = meta;
+                } else if (meta.leg_index === indexToRemove) {
+                    nextMap[key] = { leg_index: null, pair: null };
+                } else if (meta.leg_index > indexToRemove) {
+                    nextMap[key] = { ...meta, leg_index: meta.leg_index - 1 };
+                } else {
+                    nextMap[key] = meta;
+                }
+            });
+            return nextMap;
+        });
+
         toast.info(`Removed ${removed.buyCurrency}/${removed.sellCurrency}`);
     };
 
@@ -743,6 +788,23 @@ export default function QuotationRequestDashboard() {
             next[activePairIndex] = { ...next[activePairIndex], [field]: value };
             return next;
         });
+
+        if (field === 'buyCurrency' || field === 'sellCurrency') {
+            const newBuy = field === 'buyCurrency' ? value : pairs[activePairIndex]?.buyCurrency;
+            const newSell = field === 'sellCurrency' ? value : pairs[activePairIndex]?.sellCurrency;
+            const newPairStr = `${newBuy || 'BUY'}/${newSell || 'SELL'}`;
+
+            setExistingDocs(prev => prev.map(d => d.leg_index === activePairIndex ? { ...d, pair: newPairStr } : d));
+            setFileLegMap(prev => {
+                const nextMap = { ...prev };
+                Object.keys(nextMap).forEach(k => {
+                    if (nextMap[k]?.leg_index === activePairIndex) {
+                        nextMap[k] = { ...nextMap[k], pair: newPairStr };
+                    }
+                });
+                return nextMap;
+            });
+        }
 
         if (activePairIndex === 0) {
             setFormData(prev => ({
@@ -798,6 +860,7 @@ export default function QuotationRequestDashboard() {
         if (field === 'allowAlternativeValueDate') {
             const curPairId = pairs[activePairIndex]?.id;
             setSelectedBanks(prev => prev.map(b => {
+                if (b.customPairTariffs) return b;
                 const existingConfigs = b.pairConfigs || {};
                 const updatedConfigs = { ...existingConfigs };
                 if (curPairId && updatedConfigs[curPairId]) {
@@ -807,23 +870,20 @@ export default function QuotationRequestDashboard() {
                         _altCustomized: false
                     };
                 }
-                let updatedBankAlt = b.allowAlternativeValueDate;
-                if (pairs.length <= 1 || !b.customPairTariffs) {
-                    updatedBankAlt = value;
-                    pairs.forEach(p => {
-                        if (updatedConfigs[p.id]) {
-                            updatedConfigs[p.id] = {
-                                ...updatedConfigs[p.id],
-                                allowAlternativeValueDate: value,
-                                _altCustomized: false
-                            };
-                        }
-                    });
-                }
+                let updatedBankAlt = value;
+                pairs.forEach(p => {
+                    if (updatedConfigs[p.id]) {
+                        updatedConfigs[p.id] = {
+                            ...updatedConfigs[p.id],
+                            allowAlternativeValueDate: value,
+                            _altCustomized: false
+                        };
+                    }
+                });
                 return {
                     ...b,
                     allowAlternativeValueDate: updatedBankAlt,
-                    _altCustomized: (pairs.length <= 1 || !b.customPairTariffs) ? false : b._altCustomized,
+                    _altCustomized: false,
                     pairConfigs: updatedConfigs
                 };
             }));
@@ -834,8 +894,8 @@ export default function QuotationRequestDashboard() {
         if (field === 'quotationBase') {
             const curPairId = pairs[activePairIndex]?.id;
             setSelectedBanks(prev => prev.map(b => {
-                if (b.is_cross_entity) {
-                    return b; // Cross-entity banks are strictly locked to Indicative benchmark
+                if (b.is_cross_entity || b.customPairTariffs) {
+                    return b; // Cross-entity banks are strictly locked to Indicative benchmark, and customized banks retain their custom settings
                 }
                 const existingConfigs = b.pairConfigs || {};
                 const updatedConfigs = { ...existingConfigs };
@@ -847,27 +907,23 @@ export default function QuotationRequestDashboard() {
                         _baseCustomized: false
                     };
                 }
-                let updatedBankBase = b.quotationBase;
-                let updatedBankDoc = b.isDocumentVisible;
-                if (pairs.length <= 1 || !b.customPairTariffs) {
-                    updatedBankBase = value;
-                    updatedBankDoc = value === 'Execution';
-                    pairs.forEach(p => {
-                        if (updatedConfigs[p.id]) {
-                            updatedConfigs[p.id] = {
-                                ...updatedConfigs[p.id],
-                                quotationBase: value,
-                                isDocumentVisible: value === 'Execution',
-                                _baseCustomized: false
-                            };
-                        }
-                    });
-                }
+                let updatedBankBase = value;
+                let updatedBankDoc = value === 'Execution';
+                pairs.forEach(p => {
+                    if (updatedConfigs[p.id]) {
+                        updatedConfigs[p.id] = {
+                            ...updatedConfigs[p.id],
+                            quotationBase: value,
+                            isDocumentVisible: value === 'Execution',
+                            _baseCustomized: false
+                        };
+                    }
+                });
                 return {
                     ...b,
                     quotationBase: updatedBankBase,
                     isDocumentVisible: updatedBankDoc,
-                    _baseCustomized: (pairs.length <= 1 || !b.customPairTariffs) ? false : b._baseCustomized,
+                    _baseCustomized: false,
                     pairConfigs: updatedConfigs
                 };
             }));
@@ -1016,7 +1072,7 @@ export default function QuotationRequestDashboard() {
             .then(res => {
                 if (res.data) {
                     setEvalRateDetails(res.data);
-                    if (!revisionRfqId && !retradeRfqId) {
+                    if (!revisionRfqId && !retradeRfqId && !cloneRfqId) {
                         setFormData(prev => {
                             if (prev.evalRate || hasUserChangedEvalRateRef.current) return prev;
                             return { ...prev, evalRate: String(res.data.eval_rate) };
@@ -1027,11 +1083,11 @@ export default function QuotationRequestDashboard() {
             .catch(err => {
                 console.warn("Could not fetch quotation evaluation rate info:", err);
             });
-    }, [revisionRfqId, retradeRfqId]);
+    }, [revisionRfqId, retradeRfqId, cloneRfqId]);
 
-    // Pre-fill state when opening in Revision Mode or Re-Trade Mode
+    // Pre-fill state when opening in Revision Mode, Re-Trade Mode, or Clone Mode
     useEffect(() => {
-        const targetRfqId = revisionRfqId || retradeRfqId;
+        const targetRfqId = revisionRfqId || retradeRfqId || cloneRfqId;
         if (!targetRfqId) return;
 
         setLoadingSource(true);
@@ -1123,38 +1179,120 @@ export default function QuotationRequestDashboard() {
                 setActivePairIndex(0);
 
                 if (results && results.length > 0) {
-                    const prefilledBanks = results.map(r => ({
-                        id: r.bank_id,
-                        name: r.bank_name || `Bank ${r.bank_id}`,
-                        costMin: r.cost_min ?? 0,
-                        costPercent: r.cost_percent ?? 0,
-                        costMax: r.cost_max ?? 0,
-                        costFlat: r.cost_flat ?? 0,
-                        quotationBase: r.quotation_base || rfq.quotation_base || 'Execution',
-                        isDocumentVisible: r.is_document_visible !== false,
-                        valueDate: cleanD(r.assigned_value_date) || cleanD(rfq.value_date) || '',
-                        allowAlternativeValueDate: r.allow_alternative_value_date ?? rfq.allow_alternative_value_date ?? false,
-                        _baseCustomized: Boolean(r.quotation_base && r.quotation_base !== rfq.quotation_base),
-                        _dateCustomized: Boolean(r.assigned_value_date && cleanD(r.assigned_value_date) !== cleanD(rfq.value_date)),
-                        _altCustomized: r.allow_alternative_value_date !== undefined && r.allow_alternative_value_date !== null && r.allow_alternative_value_date !== rfq.allow_alternative_value_date
-                    }));
+                    const prefilledBanks = results.map(r => {
+                        const bId = r.bank_id;
+                        const pairConfigs = {};
+                        let isBankCustomized = false;
+                        const bankBase = r.quotation_base || rfq.quotation_base || 'Execution';
+                        const bankDoc = r.is_document_visible !== false;
+                        const bankDate = cleanD(r.assigned_value_date) || cleanD(rfq.value_date) || '';
+                        const bankAlt = r.allow_alternative_value_date ?? rfq.allow_alternative_value_date ?? false;
+
+                        if (rfqLegs && rfqLegs.length > 0) {
+                            rfqLegs.forEach((leg, lIdx) => {
+                                const legId = leg.id || `pair-${lIdx + 1}`;
+                                const legRes = (leg.results || []).find(lr => String(lr.bank_id) === String(bId));
+                                if (legRes) {
+                                    const legBase = (legRes.is_invited === false || legRes.is_excluded)
+                                        ? 'Invisible'
+                                        : (legRes.quotation_base || leg.quotation_base || bankBase);
+                                    const legValDate = cleanD(legRes.assigned_value_date) || cleanD(leg.value_date) || bankDate;
+                                    const legAlt = legRes.allow_alternative_value_date !== undefined && legRes.allow_alternative_value_date !== null
+                                        ? Boolean(legRes.allow_alternative_value_date)
+                                        : Boolean(leg.allow_alternative_value_date ?? bankAlt);
+                                    const legDoc = legRes.is_document_visible !== false;
+                                    pairConfigs[legId] = {
+                                        costMin: legRes.cost_min ?? r.cost_min ?? 0,
+                                        costPercent: legRes.cost_percent ?? r.cost_percent ?? 0,
+                                        costMax: legRes.cost_max ?? r.cost_max ?? 0,
+                                        costFlat: legRes.cost_flat ?? r.cost_flat ?? 0,
+                                        quotationBase: legBase,
+                                        valueDate: legValDate,
+                                        allowAlternativeValueDate: legAlt,
+                                        isDocumentVisible: legDoc,
+                                        _baseCustomized: Boolean(legBase !== (leg.quotation_base || rfq.quotation_base || 'Execution')),
+                                        _dateCustomized: Boolean(legValDate && legValDate !== (cleanD(leg.value_date) || cleanD(rfq.value_date))),
+                                        _altCustomized: Boolean(legAlt !== Boolean(leg.allow_alternative_value_date ?? rfq.allow_alternative_value_date)),
+                                        _docCustomized: Boolean(legDoc !== (legBase === 'Execution'))
+                                    };
+                                    if (legBase === 'Invisible' || legBase !== bankBase || legAlt !== bankAlt) {
+                                        isBankCustomized = true;
+                                    }
+                                } else {
+                                    pairConfigs[legId] = {
+                                        costMin: r.cost_min ?? 0,
+                                        costPercent: r.cost_percent ?? 0,
+                                        costMax: r.cost_max ?? 0,
+                                        costFlat: r.cost_flat ?? 0,
+                                        quotationBase: bankBase,
+                                        valueDate: bankDate,
+                                        allowAlternativeValueDate: bankAlt,
+                                        isDocumentVisible: bankDoc,
+                                        _baseCustomized: false,
+                                        _dateCustomized: false,
+                                        _altCustomized: false,
+                                        _docCustomized: false
+                                    };
+                                }
+                            });
+                        }
+
+                        return {
+                            id: r.bank_id,
+                            name: r.bank_name || `Bank ${r.bank_id}`,
+                            costMin: r.cost_min ?? 0,
+                            costPercent: r.cost_percent ?? 0,
+                            costMax: r.cost_max ?? 0,
+                            costFlat: r.cost_flat ?? 0,
+                            quotationBase: bankBase,
+                            isDocumentVisible: bankDoc,
+                            valueDate: bankDate,
+                            allowAlternativeValueDate: bankAlt,
+                            customPairTariffs: isBankCustomized,
+                            pairConfigs: Object.keys(pairConfigs).length > 0 ? pairConfigs : undefined,
+                            _baseCustomized: Boolean(r.quotation_base && r.quotation_base !== rfq.quotation_base),
+                            _dateCustomized: Boolean(r.assigned_value_date && cleanD(r.assigned_value_date) !== cleanD(rfq.value_date)),
+                            _altCustomized: r.allow_alternative_value_date !== undefined && r.allow_alternative_value_date !== null && r.allow_alternative_value_date !== rfq.allow_alternative_value_date
+                        };
+                    });
                     setSelectedBanks(prefilledBanks);
                 }
 
                 if (rfq.document_path) {
                     try {
                         const parsed = JSON.parse(rfq.document_path);
+                        const rawDocs = (parsed && typeof parsed === 'object' && !Array.isArray(parsed))
+                            ? (Array.isArray(parsed.documents) ? parsed.documents : [])
+                            : (Array.isArray(parsed) ? parsed : [{ name: 'Attached Document', path: rfq.document_path }]);
+
                         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
                             setReleaseDocsToWinnerOnly(Boolean(parsed.release_to_winner_only));
-                            setExistingDocs(Array.isArray(parsed.documents) ? parsed.documents : []);
                         } else if (Array.isArray(parsed)) {
-                            setExistingDocs(parsed);
                             setReleaseDocsToWinnerOnly(parsed.some(d => d.release_to_winner_only));
-                        } else {
-                            setExistingDocs([{ name: 'Attached Document', path: rfq.document_path }]);
                         }
+
+                        const loadedDocs = rawDocs.map(d => {
+                            let legIdx = d.leg_index;
+                            let legPair = d.pair;
+                            if (rfqLegs && rfqLegs.length > 0) {
+                                if (legPair) {
+                                    const matchIdx = rfqLegs.findIndex(l => `${l.buy_currency || 'BUY'}/${l.sell_currency || 'SELL'}`.toUpperCase() === legPair.toUpperCase());
+                                    if (matchIdx !== -1) {
+                                        legIdx = matchIdx;
+                                    }
+                                } else if (legIdx !== null && legIdx !== undefined && rfqLegs[legIdx]) {
+                                    legPair = `${rfqLegs[legIdx].buy_currency || 'BUY'}/${rfqLegs[legIdx].sell_currency || 'SELL'}`;
+                                }
+                            }
+                            return {
+                                ...d,
+                                leg_index: legIdx !== undefined ? legIdx : null,
+                                pair: legPair || null
+                            };
+                        });
+                        setExistingDocs(loadedDocs);
                     } catch {
-                        const docsArr = rfq.document_path.split(',').map(p => ({ name: p.trim(), path: p.trim() }));
+                        const docsArr = rfq.document_path.split(',').map(p => ({ name: p.trim(), path: p.trim(), leg_index: null, pair: null }));
                         setExistingDocs(docsArr);
                     }
                 } else {
@@ -1170,7 +1308,7 @@ export default function QuotationRequestDashboard() {
                 setLoadingSource(false);
                 setTimeout(() => { isPrefillingRef.current = false; }, 300);
             });
-    }, [revisionRfqId, retradeRfqId]);
+    }, [revisionRfqId, retradeRfqId, cloneRfqId]);
 
     useEffect(() => {
         // Wait until legal entities are loaded from the backend
@@ -2142,11 +2280,22 @@ export default function QuotationRequestDashboard() {
             formattedPairs = pairs.map((p, idx) => {
                 const legBanks = selectedBanks.map(b => {
                     const cfg = (b.customPairTariffs && b.pairConfigs && b.pairConfigs[p.id]) ? b.pairConfigs[p.id] : null;
-                    const qBase = (cfg && cfg._baseCustomized && cfg.quotationBase)
+                    const qBase = (b.customPairTariffs && cfg && cfg.quotationBase)
                         ? cfg.quotationBase
                         : (b._baseCustomized && b.quotationBase
                             ? b.quotationBase
                             : (p.quotationBase || formData.quotationBase || 'Execution'));
+                    const allowAlt = (b.customPairTariffs && cfg)
+                        ? Boolean(cfg.allowAlternativeValueDate)
+                        : (b._altCustomized && b.allowAlternativeValueDate !== undefined
+                            ? Boolean(b.allowAlternativeValueDate)
+                            : Boolean(p.allowAlternativeValueDate ?? b.allowAlternativeValueDate ?? false));
+                    const valDate = (b.customPairTariffs && cfg && cfg.valueDate)
+                        ? String(cfg.valueDate).split('T')[0]
+                        : (p.valueDate ? String(p.valueDate).split('T')[0] : (b.valueDate && b._dateCustomized ? String(b.valueDate).split('T')[0] : (formData.valueDate ? String(formData.valueDate).split('T')[0] : null)));
+                    const docVis = (b.customPairTariffs && cfg && cfg.isDocumentVisible !== undefined)
+                        ? Boolean(cfg.isDocumentVisible)
+                        : (b.isDocumentVisible !== false);
                     return {
                         id: b.id,
                         costMin: cfg?.costMin !== undefined ? cfg.costMin : (b.costMin ?? 0),
@@ -2155,15 +2304,9 @@ export default function QuotationRequestDashboard() {
                         costFlat: cfg?.costFlat !== undefined ? cfg.costFlat : (b.costFlat ?? 0),
                         quotationBase: qBase,
                         isInvited: qBase !== 'Invisible',
-                        isDocumentVisible: cfg?.isDocumentVisible !== undefined ? cfg.isDocumentVisible : (b.isDocumentVisible !== false),
-                        valueDate: (cfg && cfg._dateCustomized && cfg.valueDate)
-                            ? String(cfg.valueDate).split('T')[0]
-                            : (p.valueDate ? String(p.valueDate).split('T')[0] : (b.valueDate && b._dateCustomized ? String(b.valueDate).split('T')[0] : (formData.valueDate ? String(formData.valueDate).split('T')[0] : null))),
-                        allowAlternativeValueDate: (cfg && cfg._altCustomized && cfg.allowAlternativeValueDate !== undefined)
-                            ? cfg.allowAlternativeValueDate
-                            : (b._altCustomized && b.allowAlternativeValueDate !== undefined
-                                ? b.allowAlternativeValueDate
-                                : (p.allowAlternativeValueDate ?? b.allowAlternativeValueDate ?? false))
+                        isDocumentVisible: docVis,
+                        valueDate: valDate,
+                        allowAlternativeValueDate: allowAlt
                     };
                 });
 
@@ -2182,20 +2325,54 @@ export default function QuotationRequestDashboard() {
             });
         }
 
+        const computedOverallBase = (() => {
+            if (formattedPairs && formattedPairs.length > 0) {
+                const allLegBases = [];
+                formattedPairs.forEach(fp => {
+                    if (fp.quotationBase) allLegBases.push(fp.quotationBase.toLowerCase());
+                    (fp.selectedBanks || []).forEach(sb => {
+                        if (sb.isInvited !== false && sb.quotationBase && sb.quotationBase.toLowerCase() !== 'invisible') {
+                            allLegBases.push(sb.quotationBase.toLowerCase());
+                        }
+                    });
+                });
+                const hasExec = allLegBases.includes('execution');
+                const hasIndic = allLegBases.includes('indicative');
+                if (hasExec && hasIndic) return 'Mixed';
+                if (hasIndic) return 'Indicative';
+                if (hasExec) return 'Execution';
+            }
+            return (pairs && pairs[0] ? pairs[0].quotationBase : (formData.quotationBase || 'Execution'));
+        })();
+
         const combinedDocs = [
-            ...existingDocs.map(d => ({
-                name: d.name || d.filename || 'Document',
-                path: d.path,
-                leg_index: d.leg_index !== undefined ? d.leg_index : null,
-                pair: d.pair || null
-            })),
+            ...existingDocs.map(d => {
+                let legIdx = d.leg_index !== undefined ? d.leg_index : null;
+                let legPair = d.pair || null;
+                if (legIdx !== null && pairs[legIdx]) {
+                    legPair = `${pairs[legIdx].buyCurrency || 'BUY'}/${pairs[legIdx].sellCurrency || 'SELL'}`;
+                }
+                return {
+                    name: d.name || d.filename || 'Document',
+                    path: d.path,
+                    leg_index: legIdx,
+                    pair: legPair
+                };
+            }),
             ...uploadedDocs.map((d, i) => {
-                const meta = fileLegMap[i] || {};
+                const fObj = files[i];
+                const fileKey = fObj?._uid || i;
+                const meta = fileLegMap[fileKey] || fileLegMap[i] || {};
+                let legIdx = meta.leg_index !== undefined ? meta.leg_index : null;
+                let legPair = meta.pair || null;
+                if (legIdx !== null && pairs[legIdx]) {
+                    legPair = `${pairs[legIdx].buyCurrency || 'BUY'}/${pairs[legIdx].sellCurrency || 'SELL'}`;
+                }
                 return {
                     name: d.name,
                     path: d.path,
-                    leg_index: meta.leg_index !== undefined ? meta.leg_index : null,
-                    pair: meta.pair || null
+                    leg_index: legIdx,
+                    pair: legPair
                 };
             })
         ];
@@ -2266,7 +2443,7 @@ export default function QuotationRequestDashboard() {
                 eval_rate: formData.evalRate ? parseFloat(formData.evalRate) : null,
                 window_start: windowStart.toISOString(),
                 window_end: windowEnd.toISOString(),
-                quotation_base: primaryPair ? primaryPair.quotationBase : (formData.quotationBase || null),
+                quotation_base: computedOverallBase,
                 max_tolerance_percent: primaryPair ? primaryPair.maxTolerancePercent : (formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null),
                 document_path: finalDocPath,
                 release_docs_to_winner_only: Boolean(releaseDocsToWinnerOnly),
@@ -2319,7 +2496,7 @@ export default function QuotationRequestDashboard() {
             evalRate: formData.evalRate ? parseFloat(formData.evalRate) : null,
             windowStart: windowStart.toISOString(),
             windowEnd: windowEnd.toISOString(),
-            quotationBase: primaryPair ? primaryPair.quotationBase : (formData.quotationBase || null),
+            quotationBase: computedOverallBase,
             maxTolerancePercent: primaryPair ? primaryPair.maxTolerancePercent : (formData.maxTolerancePercent ? parseFloat(formData.maxTolerancePercent) : null),
             documentPath: finalDocPath,
             release_docs_to_winner_only: Boolean(releaseDocsToWinnerOnly),
@@ -2347,6 +2524,8 @@ export default function QuotationRequestDashboard() {
             setLastSavedTime(null);
             if (retradeRfqId) {
                 toast.success(`Re-trade RFQ ${res.data.ref_no} launched successfully!`);
+            } else if (cloneRfqId) {
+                toast.success(`Cloned RFQ ${res.data.ref_no} launched successfully!`);
             } else {
                 toast.success(`RFQ ${res.data.ref_no} created successfully!`);
             }
@@ -2505,12 +2684,17 @@ export default function QuotationRequestDashboard() {
                             <RefreshCw size={20} />
                         </div>
                         <div>
-                            <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider">Re-Trade / Re-Tender Order</span>
-                            <h3 className="text-base font-bold text-indigo-950">
-                                Pre-filled from <span className="font-mono">{sourceRfq?.ref_no || retradeRfqId}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider">Re-Trade / Re-Tender Order</span>
+                                <span className="text-[10px] font-bold bg-indigo-200 text-indigo-900 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    <Lock size={10} /> Core Specs Locked
+                                </span>
+                            </div>
+                            <h3 className="text-base font-bold text-indigo-950 mt-0.5">
+                                Re-Trading Quotation <span className="font-mono">{sourceRfq?.ref_no || retradeRfqId}</span>
                             </h3>
                             <p className="text-xs text-indigo-800 mt-0.5">
-                                Original parameters and counterparties have been cloned. Tweak any values below and launch your new quotation.
+                                Core trade specifications (Legal Entity, Trade Type, Direction, Currencies & Amounts) are locked to maintain tender integrity. You can adjust the quotation timing window, counterparty banks, and tolerances.
                             </p>
                         </div>
                     </div>
@@ -2525,8 +2709,40 @@ export default function QuotationRequestDashboard() {
                 </div>
             )}
 
+            {cloneRfqId && (
+                <div className="mb-6 p-5 sm:p-6 rounded-3xl bg-slate-50 border border-slate-300 text-slate-900 shadow-sm animate-fade-in flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-slate-200 text-slate-800 flex items-center justify-center shrink-0">
+                            <Copy size={20} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Cloned Draft Quotation</span>
+                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                                    Fully Unlocked
+                                </span>
+                            </div>
+                            <h3 className="text-base font-bold text-slate-950 mt-0.5">
+                                Cloned from Quotation <span className="font-mono">{sourceRfq?.ref_no || cloneRfqId}</span>
+                            </h3>
+                            <p className="text-xs text-slate-600 mt-0.5">
+                                All parameters and counterparties have been cloned into a new unlocked draft. You can freely modify any field before launching.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handleReset}
+                        className="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white border border-slate-300 hover:bg-slate-50 px-3.5 py-2 rounded-xl transition-colors shrink-0 cursor-pointer flex items-center gap-1.5"
+                    >
+                        <RotateCcw size={13} />
+                        Clear & Start Blank
+                    </button>
+                </div>
+            )}
+
             {/* Unsaved Draft Notification Banner */}
-            {showDraftBanner && savedDraft && !revisionRfqId && !retradeRfqId && (
+            {showDraftBanner && savedDraft && !revisionRfqId && !retradeRfqId && !cloneRfqId && (
                 <div className="mb-6 p-4 sm:p-5 rounded-3xl bg-slate-900 text-white shadow-lg animate-fade-in flex flex-col md:flex-row md:items-center justify-between gap-4 border border-slate-800">
                     <div className="flex items-center gap-3.5">
                         <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
@@ -2585,6 +2801,8 @@ export default function QuotationRequestDashboard() {
                                 ? `Revise Quotation Request`
                                 : retradeRfqId
                                 ? `Re-Trade Quotation Request`
+                                : cloneRfqId
+                                ? `Clone Quotation Request`
                                 : `New Quotation Request`}
                         </h1>
                         <p className="text-xs text-gray-500 mt-1">
@@ -2592,12 +2810,12 @@ export default function QuotationRequestDashboard() {
                         </p>
                     </div>
                     <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
-                        {lastSavedTime && !revisionRfqId && !retradeRfqId && (
+                        {lastSavedTime && !revisionRfqId && !retradeRfqId && !cloneRfqId && (
                             <span className="text-[11px] text-gray-400 flex items-center gap-1 font-medium bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-100">
                                 <Check size={12} className="text-emerald-500" /> Draft saved ({lastSavedTime})
                             </span>
                         )}
-                        {!revisionRfqId && !retradeRfqId && (
+                        {!revisionRfqId && !retradeRfqId && !cloneRfqId && (
                             <button
                                 type="button"
                                 onClick={handleManualSaveDraft}
@@ -2619,12 +2837,12 @@ export default function QuotationRequestDashboard() {
                         </button>
                     </div>
                 </div>
-                <div className="flex flex-wrap gap-2 sm:gap-4 mt-6">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-6">
                     {['FX_SPOT', 'TBILL'].map(type => (
                         <button
                             key={type}
                             type="button"
-                            disabled={Boolean(revisionRfqId)}
+                            disabled={Boolean(revisionRfqId || isRetrade)}
                             onClick={() => {
                                 setFormData(prev => ({
                                     ...prev,
@@ -2638,11 +2856,17 @@ export default function QuotationRequestDashboard() {
                                 formData.type === type
                                     ? 'bg-black border-black text-white'
                                     : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
-                            } ${revisionRfqId ? 'cursor-not-allowed opacity-80' : ''}`}
+                            } ${revisionRfqId || isRetrade ? 'cursor-not-allowed opacity-80' : ''}`}
+                            title={isRetrade ? "Trade type is locked to match original tender" : ""}
                         >
                             {type === 'FX_SPOT' ? 'FX Spot' : 'Treasury Bills (T-Bills)'}
                         </button>
                     ))}
+                    {isRetrade && (
+                        <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2.5 py-1 rounded-xl flex items-center gap-1.5 self-center">
+                            <Lock size={12} className="text-indigo-600" /> Structure Locked
+                        </span>
+                    )}
                 </div>
             </header>
 
@@ -2662,8 +2886,13 @@ export default function QuotationRequestDashboard() {
                                         <label className="block text-[10px] font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
                                             <Building size={13} className="text-indigo-600" />
                                             Requesting Legal Entity <span className="text-rose-500">*</span>
+                                            {isRetrade && <Lock size={11} className="text-indigo-600" title="Locked for Re-Trade" />}
                                         </label>
-                                        {requiresEntitySelection ? (
+                                        {isRetrade ? (
+                                            <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                <Lock size={10} /> Locked for Re-Trade
+                                            </span>
+                                        ) : requiresEntitySelection ? (
                                             <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full animate-pulse">
                                                 Select first to load banks
                                             </span>
@@ -2672,7 +2901,7 @@ export default function QuotationRequestDashboard() {
                                     <LegalEntityDropdown
                                         entities={entities}
                                         value={formData.entityId || ''}
-                                        disabled={false}
+                                        disabled={isRetrade}
                                         requiresSelection={requiresEntitySelection}
                                         onChange={(nextEntityId) => {
                                              setFormData(prev => ({ ...prev, entityId: nextEntityId }));
@@ -2714,9 +2943,11 @@ export default function QuotationRequestDashboard() {
                                                 <button
                                                     key={dir}
                                                     type="button"
-                                                    disabled={false}
+                                                    disabled={isRetrade}
                                                     onClick={() => setFormData({ ...formData, direction: dir })}
-                                                    className={`flex-1 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${formData.direction === dir
+                                                    className={`flex-1 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+                                                        isRetrade ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                                                    } ${formData.direction === dir
                                                         ? 'bg-black text-white'
                                                         : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                                                         }`}
@@ -2742,12 +2973,14 @@ export default function QuotationRequestDashboard() {
                                                     min="0.01"
                                                     step="any"
                                                     required
-                                                    disabled={false}
+                                                    disabled={isRetrade}
                                                     placeholder="0.00"
-                                                    className="w-full bg-transparent px-3.5 py-2.5 sm:py-3 text-base font-semibold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                    className={`w-full bg-transparent px-3.5 py-2.5 sm:py-3 text-base font-semibold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                                        isRetrade ? 'cursor-not-allowed opacity-70' : ''
+                                                    }`}
                                                     value={formData.amount}
                                                     onChange={e => setFormData({ ...formData, amount: e.target.value })}
-                                                />                onWheel={(e) => e.target.blur()}
+                                                    onWheel={(e) => e.target.blur()}
                                                 />
                                                 <span className="shrink-0 mr-3 px-2 py-0.5 bg-gray-200/80 rounded-md text-xs font-bold text-gray-600 uppercase select-none">
                                                     EGP
@@ -2765,8 +2998,11 @@ export default function QuotationRequestDashboard() {
                                                 <input
                                                     type="number"
                                                     required
+                                                    disabled={isRetrade}
                                                     placeholder="0.00"
-                                                    className="w-full bg-transparent px-3.5 py-2.5 sm:py-3 text-base font-semibold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                    className={`w-full bg-transparent px-3.5 py-2.5 sm:py-3 text-base font-semibold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                                        isRetrade ? 'cursor-not-allowed opacity-70' : ''
+                                                    }`}
                                                     value={formData.minTicketAmount}
                                                     onChange={e => setFormData({ ...formData, minTicketAmount: e.target.value })}
                                                     onWheel={(e) => e.target.blur()}
@@ -2910,7 +3146,7 @@ export default function QuotationRequestDashboard() {
                                                     {pairs.length} / {MAX_PAIRS}
                                                 </span>
                                             </div>
-                                            {pairs.length < MAX_PAIRS && (
+                                            {pairs.length < MAX_PAIRS && !isRetrade && (
                                                 <button
                                                     type="button"
                                                     onClick={handleAddPair}
@@ -2983,7 +3219,7 @@ export default function QuotationRequestDashboard() {
                                                                     <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">VD:</span> {formatDate(p.valueDate || formData.valueDate)}
                                                                 </span>
                                                             )}
-                                                            {pairs.length > 1 && (
+                                                            {pairs.length > 1 && !isRetrade && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={(e) => {
@@ -3032,9 +3268,11 @@ export default function QuotationRequestDashboard() {
                                                         <button
                                                             key={dir}
                                                             type="button"
-                                                            disabled={false}
+                                                            disabled={isRetrade}
                                                             onClick={() => updateActivePair('direction', dir)}
-                                                            className={`py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                                                            className={`py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                                                                isRetrade ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                                                            } ${
                                                                 isCurDir
                                                                     ? (dir === 'Buy'
                                                                         ? 'bg-emerald-600 text-white shadow-xs'
@@ -3056,8 +3294,10 @@ export default function QuotationRequestDashboard() {
                                                     {activePair.direction === 'Sell' ? 'Currency to Sell' : 'Currency to Buy'}
                                                 </label>
                                                 <select
-                                                    disabled={false}
-                                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                                                    disabled={isRetrade}
+                                                    className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
+                                                        isRetrade ? 'cursor-not-allowed bg-slate-100 opacity-70' : ''
+                                                    }`}
                                                     value={activePair.buyCurrency || 'USD'}
                                                     onChange={e => updateActivePair('buyCurrency', e.target.value)}
                                                 >
@@ -3072,8 +3312,10 @@ export default function QuotationRequestDashboard() {
                                                     {activePair.direction === 'Sell' ? 'Against (Receive)' : 'Against (Pay with)'}
                                                 </label>
                                                 <select
-                                                    disabled={false}
-                                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                                                    disabled={isRetrade}
+                                                    className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all ${
+                                                        isRetrade ? 'cursor-not-allowed bg-slate-100 opacity-70' : ''
+                                                    }`}
                                                     value={activePair.sellCurrency || 'EGP'}
                                                     onChange={e => updateActivePair('sellCurrency', e.target.value)}
                                                 >
@@ -3101,9 +3343,11 @@ export default function QuotationRequestDashboard() {
                                                     min="0.01"
                                                     step="any"
                                                     required
-                                                    disabled={false}
+                                                    disabled={isRetrade}
                                                     placeholder="0.00"
-                                                    className="w-full bg-transparent px-3 py-2 text-xs font-semibold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                    className={`w-full bg-transparent px-3 py-2 text-xs font-semibold text-gray-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                                        isRetrade ? 'cursor-not-allowed opacity-70' : ''
+                                                    }`}
                                                     value={activePair.amount || ''}
                                                     onChange={e => updateActivePair('amount', e.target.value)}
                                                     onWheel={(e) => e.target.blur()}
@@ -3371,9 +3615,12 @@ export default function QuotationRequestDashboard() {
 
                     {/* Documents Section */}
                     <section className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100">
-                        <h3 className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-4 flex items-center gap-2">
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-1 flex items-center gap-2">
                             <FileText size={14} /> Supporting Documents
                         </h3>
+                        <p className="text-[11px] text-gray-500 mb-4 leading-relaxed">
+                            Upload commercial invoices, purchase orders, or trade contracts. In multi-pair tenders, each file can be scoped to a specific currency pair leg so uninvited or non-visible counterparties never receive it.
+                        </p>
 
                         {/* Confidentiality & Release Guard */}
                         <div className="mb-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start gap-3">
@@ -3401,7 +3648,13 @@ export default function QuotationRequestDashboard() {
                                 className="absolute inset-0 opacity-0 cursor-pointer h-full w-full z-10"
                                 onChange={e => {
                                     if (e.target.files && e.target.files.length > 0) {
-                                        setFiles(prev => [...prev, ...Array.from(e.target.files)]);
+                                        const newFiles = Array.from(e.target.files).map(f => {
+                                            if (!f._uid) {
+                                                f._uid = `${f.name}_${f.size}_${f.lastModified}_${Math.random().toString(36).substring(2, 9)}`;
+                                            }
+                                            return f;
+                                        });
+                                        setFiles(prev => [...prev, ...newFiles]);
                                     }
                                 }}
                             />
@@ -3422,23 +3675,25 @@ export default function QuotationRequestDashboard() {
 
                                         <div className="flex items-center gap-2 shrink-0">
                                             {formData.type === 'FX_SPOT' && pairs.length > 1 && (
-                                                <select
-                                                    value={doc.leg_index !== undefined && doc.leg_index !== null ? doc.leg_index : ''}
-                                                    onChange={e => {
-                                                        const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
-                                                        const selPair = val !== null && pairs[val] ? `${pairs[val].buyCurrency || 'BUY'}/${pairs[val].sellCurrency || 'SELL'}` : null;
-                                                        setExistingDocs(prev => prev.map((d, i) => i === idx ? { ...d, leg_index: val, pair: selPair } : d));
-                                                    }}
-                                                    className="text-[11px] font-semibold bg-white border border-blue-200 rounded-lg px-2 py-1 text-blue-900 cursor-pointer"
-                                                    title="Select which currency pair leg this document applies to"
-                                                >
-                                                    <option value="">All Pairs (Global)</option>
-                                                    {pairs.map((p, pIdx) => (
-                                                        <option key={pIdx} value={pIdx}>
-                                                            Leg {pIdx + 1}: {p.buyCurrency || 'BUY'}/{p.sellCurrency || 'SELL'}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                <div className="flex items-center gap-1.5 bg-blue-100/60 border border-blue-200 rounded-lg px-2 py-0.5" title="Link document to a specific currency pair leg. Counterparties where that leg is invisible or disabled will never see this document.">
+                                                    <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Applies To:</span>
+                                                    <select
+                                                        value={doc.leg_index !== undefined && doc.leg_index !== null ? doc.leg_index : ''}
+                                                        onChange={e => {
+                                                            const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                                                            const selPair = val !== null && pairs[val] ? `${pairs[val].buyCurrency || 'BUY'}/${pairs[val].sellCurrency || 'SELL'}` : null;
+                                                            setExistingDocs(prev => prev.map((d, i) => i === idx ? { ...d, leg_index: val, pair: selPair } : d));
+                                                        }}
+                                                        className="text-[11px] font-semibold bg-white border border-blue-300 rounded px-1.5 py-0.5 text-blue-900 cursor-pointer outline-none"
+                                                    >
+                                                        <option value="">🌐 All Pairs (Global)</option>
+                                                        {pairs.map((p, pIdx) => (
+                                                             <option key={pIdx} value={pIdx}>
+                                                                Leg {pIdx + 1}: {p.buyCurrency || 'BUY'}/{p.sellCurrency || 'SELL'}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
                                             )}
                                             <button
                                                 type="button"
@@ -3456,50 +3711,63 @@ export default function QuotationRequestDashboard() {
                         {files.length > 0 && (
                             <div className="mt-4 space-y-2">
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">New Files</span>
-                                {files.map((f, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs gap-2 flex-wrap">
-                                        <div className="flex items-center gap-2 truncate text-gray-700 font-medium min-w-0 max-w-[220px] sm:max-w-[260px]">
-                                            <FileText size={14} className="text-gray-400 shrink-0" />
-                                            <span className="truncate">{f.name}</span>
-                                        </div>
+                                {files.map((f, idx) => {
+                                    const fileKey = f._uid || `file-${idx}`;
+                                    const assignedLegIdx = fileLegMap[fileKey]?.leg_index !== undefined && fileLegMap[fileKey]?.leg_index !== null 
+                                        ? fileLegMap[fileKey].leg_index 
+                                        : (fileLegMap[idx]?.leg_index !== undefined && fileLegMap[idx]?.leg_index !== null ? fileLegMap[idx].leg_index : '');
+                                    return (
+                                        <div key={fileKey} className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs gap-2 flex-wrap">
+                                            <div className="flex items-center gap-2 truncate text-gray-700 font-medium min-w-0 max-w-[220px] sm:max-w-[260px]">
+                                                <FileText size={14} className="text-gray-400 shrink-0" />
+                                                <span className="truncate">{f.name}</span>
+                                            </div>
 
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            {formData.type === 'FX_SPOT' && pairs.length > 1 && (
-                                                <select
-                                                    value={fileLegMap[idx]?.leg_index !== undefined && fileLegMap[idx]?.leg_index !== null ? fileLegMap[idx].leg_index : ''}
-                                                    onChange={e => {
-                                                        const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
-                                                        const selPair = val !== null && pairs[val] ? `${pairs[val].buyCurrency || 'BUY'}/${pairs[val].sellCurrency || 'SELL'}` : null;
-                                                        setFileLegMap(prev => ({ ...prev, [idx]: { leg_index: val, pair: selPair } }));
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                {formData.type === 'FX_SPOT' && pairs.length > 1 && (
+                                                    <div className="flex items-center gap-1.5 bg-gray-100 border border-gray-200 rounded-lg px-2 py-0.5" title="Link document to a specific currency pair leg. Counterparties where that leg is invisible or disabled will never see this document.">
+                                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Applies To:</span>
+                                                        <select
+                                                            value={assignedLegIdx}
+                                                            onChange={e => {
+                                                                const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                                                                const selPair = val !== null && pairs[val] ? `${pairs[val].buyCurrency || 'BUY'}/${pairs[val].sellCurrency || 'SELL'}` : null;
+                                                                setFileLegMap(prev => ({ 
+                                                                    ...prev, 
+                                                                    [fileKey]: { leg_index: val, pair: selPair },
+                                                                    [idx]: { leg_index: val, pair: selPair }
+                                                                }));
+                                                            }}
+                                                            className="text-[11px] font-semibold bg-white border border-gray-300 rounded px-1.5 py-0.5 text-gray-800 cursor-pointer outline-none"
+                                                        >
+                                                            <option value="">🌐 All Pairs (Global)</option>
+                                                            {pairs.map((p, pIdx) => (
+                                                                <option key={pIdx} value={pIdx}>
+                                                                    Leg {pIdx + 1}: {p.buyCurrency || 'BUY'}/{p.sellCurrency || 'SELL'}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFiles(prev => prev.filter(item => (item._uid ? item._uid !== f._uid : item !== f)));
+                                                        setFileLegMap(prev => {
+                                                            const copy = { ...prev };
+                                                            delete copy[fileKey];
+                                                            delete copy[idx];
+                                                            return copy;
+                                                        });
                                                     }}
-                                                    className="text-[11px] font-semibold bg-white border border-gray-200 rounded-lg px-2 py-1 text-gray-700 cursor-pointer"
-                                                    title="Select which currency pair leg this document applies to"
+                                                    className="text-red-500 hover:text-red-700 p-1 rounded font-bold text-xs shrink-0 cursor-pointer"
                                                 >
-                                                    <option value="">All Pairs (Global)</option>
-                                                    {pairs.map((p, pIdx) => (
-                                                        <option key={pIdx} value={pIdx}>
-                                                            Leg {pIdx + 1}: {p.buyCurrency || 'BUY'}/{p.sellCurrency || 'SELL'}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            )}
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setFiles(files.filter((_, i) => i !== idx));
-                                                    setFileLegMap(prev => {
-                                                        const copy = { ...prev };
-                                                        delete copy[idx];
-                                                        return copy;
-                                                    });
-                                                }}
-                                                className="text-red-500 hover:text-red-700 p-1 rounded font-bold text-xs shrink-0 cursor-pointer"
-                                            >
-                                                Remove
-                                            </button>
+                                                    Remove
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </section>
@@ -4333,13 +4601,15 @@ export default function QuotationRequestDashboard() {
                                         ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20'
                                         : retradeRfqId
                                         ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20'
+                                        : cloneRfqId
+                                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
                                         : 'bg-black hover:bg-gray-800 text-white shadow-black/10'
                                 }`}
                             >
-                                {revisionRfqId ? <Undo2 size={18} /> : retradeRfqId ? <RefreshCw size={18} /> : <Send size={18} />}
+                                {revisionRfqId ? <Undo2 size={18} /> : retradeRfqId ? <RefreshCw size={18} /> : cloneRfqId ? <Copy size={18} /> : <Send size={18} />}
                                 {isSubmitting
-                                    ? (revisionRfqId ? 'Resubmitting for Approval...' : retradeRfqId ? 'Launching Re-Trade...' : 'Processing...')
-                                    : (revisionRfqId ? 'Resubmit Quotation for Approval' : retradeRfqId ? 'Launch Re-Trade Quotation' : 'Submit Request for Quotation')}
+                                    ? (revisionRfqId ? 'Resubmitting for Approval...' : retradeRfqId ? 'Launching Re-Trade...' : cloneRfqId ? 'Launching Cloned RFQ...' : 'Processing...')
+                                    : (revisionRfqId ? 'Resubmit Quotation for Approval' : retradeRfqId ? 'Launch Re-Trade Quotation' : cloneRfqId ? 'Launch Cloned Quotation' : 'Submit Request for Quotation')}
                             </button>
                         </div>
                     </section>

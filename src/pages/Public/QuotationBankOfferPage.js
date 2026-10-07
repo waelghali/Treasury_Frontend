@@ -236,6 +236,17 @@ export default function QuotationBankOfferPage() {
     const [legLiveRanks, setLegLiveRanks] = useState({});
     const [highlightedLegId, setHighlightedLegId] = useState(null);
 
+    // Single-Leg Convenience Helpers
+    const singleLeg = (rfq?.legs && rfq.legs.length > 0) ? rfq.legs[0] : null;
+    const singleLegId = singleLeg?.id || rfq?.id;
+    const isSinglePassed = Boolean(
+        singleLegId && (
+            passedLegs[singleLegId] ||
+            (singleLeg && passedLegs[singleLeg.id]) ||
+            (rfq?.id && passedLegs[rfq.id])
+        )
+    );
+
     // Attention cues for window opening and title
     const prevStatusRef = useRef(null);
     const [showWindowOpenedAlert, setShowWindowOpenedAlert] = useState(false);
@@ -391,6 +402,8 @@ export default function QuotationBankOfferPage() {
         tabSessionIdRef.current = 'tab_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
     }
 
+    const lastDeskSyncTimeRef = useRef(0);
+
     const getEffectiveSessionToken = useCallback(() => {
         if (!authSession?.session_token) return undefined;
         return `${authSession.session_token}_tab_${tabSessionIdRef.current}`;
@@ -452,6 +465,13 @@ export default function QuotationBankOfferPage() {
                     return updated;
                 });
             }
+            if (data.is_passed) {
+                setPassedLegs(prev => ({
+                    ...prev,
+                    [data.id]: true,
+                    ...(data.legs && data.legs[0] ? { [data.legs[0].id]: true } : {})
+                }));
+            }
         } catch (err) {
             const status = err.response?.status;
             const detail = err.response?.data?.detail;
@@ -489,15 +509,27 @@ export default function QuotationBankOfferPage() {
     }, [token]);
 
     // 2. Fetch Result
-    const checkResult = useCallback(async () => {
+    const lastResultCheckTimeRef = useRef(0);
+    const isCheckingResultRef = useRef(false);
+
+    const checkResult = useCallback(async (force = false) => {
         if (!rfq || timeLeft.status !== 'CLOSED' || rfq.approval_status === 'DECLINED') {
             setResultStatus(null);
             return null;
         }
+        const now = Date.now();
+        if (!force && (now - lastResultCheckTimeRef.current < 2000 || isCheckingResultRef.current)) {
+            return resultStatusRef.current;
+        }
+        isCheckingResultRef.current = true;
+        lastResultCheckTimeRef.current = now;
         try {
             const res = await quotationApi.get(`/api/v1/public-quotation/${token}/result`);
             const data = res.data;
-            setOutcomeData(data);
+            setOutcomeData(prev => {
+                if (prev && data && JSON.stringify(prev) === JSON.stringify(data)) return prev;
+                return data;
+            });
             const status = data?.status;
 
             // If window has not closed or bank declined participation, never evaluate or display selection/outcome banners
@@ -506,26 +538,27 @@ export default function QuotationBankOfferPage() {
                 return null;
             }
 
+            let nextStatus = 'NOT_SELECTED';
             if (status === 'WINNER') {
-                setResultStatus('WINNER');
+                nextStatus = 'WINNER';
             } else if (status === 'PARTIALLY_WON') {
-                setResultStatus('PARTIALLY_WON');
+                nextStatus = 'PARTIALLY_WON';
             } else if (status === 'INCONCLUSIVE') {
-                setResultStatus('INCONCLUSIVE');
+                nextStatus = 'INCONCLUSIVE';
             } else if (status === 'AWAITING_MANUAL_SELECTION' || status === 'PENDING') {
-                setResultStatus('AWAITING_SELECTION');
+                nextStatus = 'AWAITING_SELECTION';
             } else if (status === 'NOT_SELECTED' || status === 'UNEXECUTED') {
-                setResultStatus('NOT_SELECTED');
+                nextStatus = 'NOT_SELECTED';
             } else if (status === 'INDICATIVE_ONLY' || status === 'COMPLETED') {
-                setResultStatus(status);
-            } else if (status) {
-                // Safety fallback: any unhandled terminal status should clear AWAITING_SELECTION
-                setResultStatus('NOT_SELECTED');
+                nextStatus = status;
             }
-            return status;
+            setResultStatus(nextStatus);
+            return nextStatus;
         } catch (err) {
-            console.error(err);
+            console.error('Failed to fetch quotation result:', err);
             return null;
+        } finally {
+            isCheckingResultRef.current = false;
         }
     }, [rfq, token, timeLeft.status]);
 
@@ -614,27 +647,31 @@ export default function QuotationBankOfferPage() {
 
     // 4. Polling for results when closed
     useEffect(() => {
-        let interval = null;
-        const terminalStatuses = ['WINNER', 'PARTIALLY_WON', 'NOT_SELECTED', 'UNEXECUTED', 'INCONCLUSIVE', 'INDICATIVE_ONLY', 'COMPLETED'];
-        const isTerminal = terminalStatuses.includes(resultStatus);
+        if (timeLeft.status !== 'CLOSED' || !token) return;
 
-        if (timeLeft.status === 'CLOSED' && !isTerminal) {
-            const startPolling = async () => {
-                const initialStatus = await checkResult();
-                if (initialStatus && terminalStatuses.includes(initialStatus)) return;
-                interval = setInterval(async () => {
-                    const status = await checkResult();
-                    if (status && terminalStatuses.includes(status)) {
-                        if (interval) clearInterval(interval);
-                    }
-                }, 3000);
-            };
-            startPolling();
-        }
+        const terminalStatuses = ['WINNER', 'PARTIALLY_WON', 'NOT_SELECTED', 'UNEXECUTED', 'INCONCLUSIVE', 'INDICATIVE_ONLY', 'COMPLETED'];
+        if (terminalStatuses.includes(resultStatusRef.current)) return;
+
+        let interval = null;
+        let isMounted = true;
+
+        const poll = async () => {
+            if (!isMounted) return;
+            if (typeof document !== 'undefined' && document.hidden) return; // conserve resources when tab is backgrounded
+            const status = await checkResult();
+            if (status && terminalStatuses.includes(status)) {
+                if (interval) clearInterval(interval);
+            }
+        };
+
+        poll();
+        interval = setInterval(poll, 3000);
+
         return () => {
+            isMounted = false;
             if (interval) clearInterval(interval);
         };
-    }, [timeLeft.status, resultStatus, checkResult]);
+    }, [timeLeft.status, token, checkResult]);
 
     // 4b. Live Ranking Polling (Every 1.5s while window open)
     useEffect(() => {
@@ -694,6 +731,9 @@ export default function QuotationBankOfferPage() {
         }
 
         const syncDeskSession = async () => {
+            const nowTime = Date.now();
+            if (nowTime - lastDeskSyncTimeRef.current < 1000) return;
+            lastDeskSyncTimeRef.current = nowTime;
             try {
                 const res = await quotationApi.post(`/api/v1/public-quotation/${token}/desk-heartbeat`, {
                     session_token: getEffectiveSessionToken(),
@@ -747,6 +787,15 @@ export default function QuotationBankOfferPage() {
                             return updated;
                         });
                     }
+                    if (data.mirrored_quote.passed_legs && Array.isArray(data.mirrored_quote.passed_legs)) {
+                        setPassedLegs(prev => {
+                            const updated = { ...prev };
+                            data.mirrored_quote.passed_legs.forEach(pId => {
+                                updated[pId] = true;
+                            });
+                            return updated;
+                        });
+                    }
                 }
             } catch (err) {
                 const status = err.response?.status;
@@ -788,7 +837,7 @@ export default function QuotationBankOfferPage() {
             isCancelled = true;
             if (timeoutId) clearTimeout(timeoutId);
         };
-    }, [authSession, token, timeLeft.status, rfq?.window_start, rfq?.window_end, rfq?.status, rfq?.acceptance_timeout_seconds, error?.isCancelled, timeOffset, getEffectiveSessionToken]);
+    }, [authSession?.email, authSession?.session_token, token, timeLeft.status, rfq?.window_start, rfq?.window_end, rfq?.status, rfq?.acceptance_timeout_seconds, error?.isCancelled, timeOffset, getEffectiveSessionToken]);
 
     // 4d. Real-Time Cancellation & Status Polling for Unauthenticated View
     useEffect(() => {
@@ -1493,6 +1542,7 @@ export default function QuotationBankOfferPage() {
                 }
                 : {
                     token,
+                    leg_id: (rfq.legs && rfq.legs.length > 0) ? rfq.legs[0]?.id : undefined,
                     price: priceToSubmit !== undefined && priceToSubmit !== null ? priceToSubmit : parseFloat(price),
                     offered_value_date: rfq.allow_alternative_value_date ? (offeredValueDate || rfq.value_date || undefined) : undefined,
                     notes: traderNotes.trim() || undefined,
@@ -1553,6 +1603,27 @@ export default function QuotationBankOfferPage() {
         }
 
         if (rfq.type === 'FX_SPOT') {
+            if (isSinglePassed) {
+                const pairLabel = rfq.currency_pair || `${rfq.buy_currency || 'BUY'}/${rfq.sell_currency || 'SELL'}`;
+                const confirmed = window.confirm(
+                    `Confirm Pass:\n\nYou have marked this currency pair (${pairLabel}) as Passed.\n\nDo you want to transmit this pass to the corporate treasury desk? No rate will be submitted for this tender.`
+                );
+                if (!confirmed) return;
+                await executeBatchSubmit([], [singleLegId]);
+                return;
+            }
+
+            // Clear any prior pass flag in state if dealer is actively submitting a price quote
+            if (passedLegs[singleLegId] || (singleLeg && passedLegs[singleLeg.id]) || (rfq?.id && passedLegs[rfq.id])) {
+                setPassedLegs(prev => {
+                    const copy = { ...prev };
+                    delete copy[singleLegId];
+                    if (singleLeg) delete copy[singleLeg.id];
+                    if (rfq?.id) delete copy[rfq.id];
+                    return copy;
+                });
+            }
+
             const val = parseFloat(price);
             const bm = parseFloat(rfq?.cbe_benchmark_rate);
 
@@ -3372,6 +3443,11 @@ export default function QuotationBankOfferPage() {
                                                         <span className="flex items-center gap-2 truncate">
                                                             <FileText size={16} className="text-slate-500 shrink-0" />
                                                             <span className="truncate">{doc.name || `Document ${idx + 1}`}</span>
+                                                            {doc.pair && (
+                                                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0 ${doc.pair === 'All Pairs' ? 'bg-slate-100 text-slate-700 border border-slate-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                                                                    {doc.pair}
+                                                                </span>
+                                                            )}
                                                         </span>
                                                         <span className="text-[10px] font-bold bg-white text-slate-800 border border-slate-200 px-3 py-1 rounded-lg uppercase tracking-wider shrink-0 hover:bg-black hover:text-white transition-colors">
                                                             Download
@@ -3954,8 +4030,24 @@ export default function QuotationBankOfferPage() {
                                                         <div className="space-y-3.5">
                                                             {rfq.legs.map((leg, idx) => {
                                                                 const q = legQuotes[leg.id] || { price: '', offered_value_date: leg.value_date || '', notes: '' };
-                                                                const isPassed = Boolean(passedLegs[leg.id]);
                                                                 const legPairName = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
+                                                                const legOutcome = outcomeData?.legs_breakdown?.[leg.id]
+                                                                    || outcomeData?.legs_breakdown?.[String(leg.id)]
+                                                                    || outcomeData?.legs_breakdown?.[idx]
+                                                                    || outcomeData?.legs_breakdown?.[String(idx)]
+                                                                    || outcomeData?.legs_breakdown?.[legPairName]
+                                                                    || (outcomeData?.won_pairs?.includes(legPairName) ? { is_winner: true, status: 'WINNER' } : null)
+                                                                    || (outcomeData?.passed_pairs?.includes(legPairName) ? { is_passed: true, status: 'PASSED' } : null)
+                                                                    || (outcomeData?.lost_pairs?.includes(legPairName) ? { is_winner: false, status: 'NOT_SELECTED' } : null)
+                                                                    || (outcomeData?.inconclusive_pairs?.includes(legPairName) ? { is_winner: false, status: 'INCONCLUSIVE' } : null);
+
+                                                                const isPassed = Boolean(
+                                                                    passedLegs[leg.id] ||
+                                                                    legOutcome?.is_passed ||
+                                                                    legOutcome?.status === 'PASSED' ||
+                                                                    legOutcome?.raw_status === 'PASSED' ||
+                                                                    outcomeData?.passed_pairs?.includes(legPairName)
+                                                                );
                                                                 const rawRank = rfq?.is_live_ranking_enabled ? (
                                                                     legLiveRanks[leg.id]
                                                                     || legLiveRanks[String(leg.id)]
@@ -4065,7 +4157,9 @@ export default function QuotationBankOfferPage() {
                                                                                         const isLegNotSelected = Boolean(
                                                                                             legOutcome?.status === 'NOT_SELECTED' ||
                                                                                             legOutcome?.status === 'LOST' ||
+                                                                                            legOutcome?.status === 'PASSED' ||
                                                                                             outcomeData?.lost_pairs?.includes(legPairName) ||
+                                                                                            outcomeData?.passed_pairs?.includes(legPairName) ||
                                                                                             (isSinglePair && resultStatus === 'NOT_SELECTED')
                                                                                         );
                                                                                         const isLegInconclusive = Boolean(
@@ -4226,18 +4320,36 @@ export default function QuotationBankOfferPage() {
                                                                     <TrendingUp size={14} className="text-emerald-600" /> Spot FX Quoting Console
                                                                 </h4>
                                                                 <p className="text-[11px] text-slate-500 mt-0.5">
-                                                                    {timeLeft.status === 'OPEN' ? 'Enter your firm quote for this currency pair.' : 'Quotation window is currently closed.'}
+                                                                    {timeLeft.status === 'OPEN' ? 'Enter your firm quote for this currency pair or pass on quoting.' : 'Quotation window is currently closed.'}
                                                                 </p>
                                                             </div>
-                                                            <span className="text-[10px] font-bold font-mono px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                                                {(price && parseFloat(price) > 0) ? '1 / 1 Quoted' : '0 / 1 Quoted'}
-                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                {isSinglePassed && (
+                                                                    <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 border border-slate-200">
+                                                                        1 Passed
+                                                                    </span>
+                                                                )}
+                                                                <span className={`text-[10px] font-bold font-mono px-2.5 py-1 rounded-lg border ${
+                                                                    isSinglePassed
+                                                                        ? 'bg-slate-100 text-slate-500 border-slate-200'
+                                                                        : (price && parseFloat(price) > 0)
+                                                                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                                                            : 'bg-slate-50 text-slate-600 border-slate-200'
+                                                                }`}>
+                                                                    {isSinglePassed ? '0 / 1 Quoted' : (price && parseFloat(price) > 0) ? '1 / 1 Quoted' : '0 / 1 Quoted'}
+                                                                </span>
+                                                            </div>
                                                         </div>
 
                                                         <div className="space-y-3.5">
                                                             <div
-                                                                className={`p-4 rounded-2xl border transition-all ${(price && parseFloat(price) > 0) ? 'bg-white border-slate-300 shadow-xs' : 'bg-slate-50 border-slate-200'
-                                                                    }`}
+                                                                className={`p-4 rounded-2xl border transition-all ${
+                                                                    isSinglePassed
+                                                                        ? 'bg-slate-50/80 border-slate-200 opacity-90'
+                                                                        : (price && parseFloat(price) > 0)
+                                                                            ? 'bg-white border-slate-300 shadow-xs'
+                                                                            : 'bg-slate-50 border-slate-200'
+                                                                }`}
                                                             >
                                                                 <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                                                                     <div className="flex items-center gap-2">
@@ -4262,12 +4374,48 @@ export default function QuotationBankOfferPage() {
                                                                         </span>
                                                                     </div>
 
-                                                                    {/* Status / Live Ranking / Awarding Outcome Stamp */}
-                                                                    <div>
-                                                                        {timeLeft.status === 'CLOSED' ? (
+                                                                    {/* Status / Live Ranking / Awarding Outcome Stamp & Pass Toggle */}
+                                                                    <div className="flex items-center gap-2">
+                                                                        {/* [ Pass Leg ] / [ Quote this Leg ] Toggle for Single-Leg Console */}
+                                                                        {timeLeft.status === 'OPEN' && !isReadOnlyViewer && !isSpectator && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const nextPassed = !isSinglePassed;
+                                                                                    setPassedLegs(prev => ({
+                                                                                        ...prev,
+                                                                                        [singleLegId]: nextPassed,
+                                                                                        ...(singleLeg ? { [singleLeg.id]: nextPassed } : {}),
+                                                                                        ...(rfq?.id ? { [rfq.id]: nextPassed } : {})
+                                                                                    }));
+                                                                                    if (nextPassed) {
+                                                                                        setPrice('');
+                                                                                    }
+                                                                                }}
+                                                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${isSinglePassed
+                                                                                        ? 'bg-sky-50 text-sky-700 border-sky-300 hover:bg-sky-100 shadow-2xs'
+                                                                                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 hover:border-slate-400'
+                                                                                    }`}
+                                                                                title={isSinglePassed ? "Restore this leg to provide a firm price quote" : "Decline/pass quoting on this currency pair"}
+                                                                            >
+                                                                                {isSinglePassed ? (
+                                                                                    <>
+                                                                                        <RotateCw size={12} className="text-sky-600" />
+                                                                                        <span>Quote this Leg</span>
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <span>Pass Leg ✕</span>
+                                                                                    </>
+                                                                                )}
+                                                                            </button>
+                                                                        )}
+
+                                                                        <div>
+                                                                            {timeLeft.status === 'CLOSED' ? (
                                                                             (() => {
                                                                                 const isWon = resultStatus === 'WINNER';
-                                                                                const isNotSelected = resultStatus === 'NOT_SELECTED';
+                                                                                const isNotSelected = resultStatus === 'NOT_SELECTED' || (isSinglePassed && timeLeft.status === 'CLOSED' && resultStatus !== 'WINNER');
                                                                                 const isIndicativeClosed = (resultStatus === 'INDICATIVE_ONLY') || (rfq.quotation_base || '').toLowerCase() === 'indicative';
                                                                                 const isInconclusive = resultStatus === 'INCONCLUSIVE';
 
@@ -4298,11 +4446,15 @@ export default function QuotationBankOfferPage() {
                                                                                 } else {
                                                                                     return (
                                                                                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700">
-                                                                                            Quotation Closed
+                                                                                            Closed
                                                                                         </span>
                                                                                     );
                                                                                 }
                                                                             })()
+                                                                        ) : isSinglePassed ? (
+                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300 shadow-2xs">
+                                                                                Passed (Declined to Quote)
+                                                                            </span>
                                                                         ) : rfq.is_live_ranking_enabled ? (
                                                                             liveRank?.rank === 1 ? (
                                                                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-xs animate-pulse">
@@ -4332,6 +4484,7 @@ export default function QuotationBankOfferPage() {
                                                                         )}
                                                                     </div>
                                                                 </div>
+                                                                </div>
 
                                                                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                                                                     <div className={rfq.allow_alternative_value_date ? "sm:col-span-7" : "sm:col-span-8"}>
@@ -4350,19 +4503,23 @@ export default function QuotationBankOfferPage() {
                                                                             <input
                                                                                 type="number"
                                                                                 step="0.0001"
-                                                                                required
-                                                                                disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
+                                                                                required={!isSinglePassed}
+                                                                                disabled={isSinglePassed || timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
                                                                                 onWheel={(e) => e.currentTarget.blur()}
-                                                                                placeholder="Enter spot rate (e.g. 48.6500)"
-                                                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-base font-bold font-mono focus:bg-white focus:border-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                                                                                value={price}
+                                                                                placeholder={isSinglePassed ? "Leg Passed — No Quote" : "Enter spot rate (e.g. 48.6500)"}
+                                                                                className={`w-full bg-slate-50 border rounded-xl px-3.5 py-2 text-base font-bold font-mono focus:bg-white outline-none disabled:bg-slate-100 disabled:text-slate-400 ${
+                                                                                    isSinglePassed
+                                                                                        ? 'border-slate-200 bg-slate-100/80 text-slate-400 cursor-not-allowed italic'
+                                                                                        : 'border-slate-200 focus:border-slate-900'
+                                                                                }`}
+                                                                                value={isSinglePassed ? '' : price}
                                                                                 onChange={e => setPrice(e.target.value)}
                                                                             />
                                                                             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs pointer-events-none">
                                                                                 {rfq.sell_currency}
                                                                             </div>
                                                                         </div>
-                                                                        </div>
+                                                                    </div>
 
                                                                     {rfq.allow_alternative_value_date ? (
                                                                         <div className="sm:col-span-5">
@@ -4467,11 +4624,11 @@ export default function QuotationBankOfferPage() {
                                                                             // Every leg must be either actively quoted or explicitly passed
                                                                             rfq.legs.some(l => !passedLegs[l.id] && (!legQuotes[l.id]?.price || parseFloat(legQuotes[l.id].price) <= 0))
                                                                         )
-                                                                        : !price
+                                                                        : (!isSinglePassed && !price)
                                                             )}
                                                             className={`w-full py-3.5 rounded-2xl font-bold text-base transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10
                                                                     ? 'bg-gradient-to-r from-amber-600 via-rose-600 to-red-600 hover:from-amber-700 hover:to-red-700 text-white animate-pulse shadow-red-500/25 ring-2 ring-red-400/50'
-                                                                    : (rfq.legs && rfq.legs.length > 1 && rfq.legs.every(l => passedLegs[l.id]))
+                                                                    : ((rfq.legs && rfq.legs.length > 1 && rfq.legs.every(l => passedLegs[l.id])) || isSinglePassed)
                                                                         ? 'bg-slate-700 hover:bg-slate-800 text-white border border-slate-600'
                                                                         : 'bg-slate-950 text-white hover:bg-slate-800'
                                                                 }`}
@@ -4502,7 +4659,9 @@ export default function QuotationBankOfferPage() {
                                                                                     ? `Update Quotes (${quotedCount} of ${rfq.legs.length} Pairs)`
                                                                                     : `Submit Quotes (${quotedCount} of ${rfq.legs.length} Pairs)`;
                                                                             })()
-                                                                            : submitted ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote') : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')
+                                                                            : isSinglePassed
+                                                                                ? (submitted ? 'Update Pass (Decline to Quote)' : 'Submit Pass (Decline to Quote)')
+                                                                                : submitted ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote') : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')
                                                                     } • {String(timeLeft.secondsRemaining).padStart(2, '0')}s Left!</span>
                                                                 </>
                                                             ) : (
@@ -4519,9 +4678,11 @@ export default function QuotationBankOfferPage() {
                                                                             ? `Update Quotes (${quotedCount} of ${rfq.legs.length} Pairs)`
                                                                             : `Submit Quotes (${quotedCount} of ${rfq.legs.length} Pairs)`;
                                                                     })()
-                                                                    : submitted
-                                                                        ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote')
-                                                                        : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')
+                                                                    : isSinglePassed
+                                                                        ? (submitted ? '✕ Update Pass (Decline to Quote)' : '✕ Submit Pass (Decline to Quote)')
+                                                                        : submitted
+                                                                            ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote')
+                                                                            : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')
                                                             )}
                                                         </button>
                                                     )}

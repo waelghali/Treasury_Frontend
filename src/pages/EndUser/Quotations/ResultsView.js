@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Users, UserCheck, Layers, Loader2, Lock, BarChart2 } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Users, UserCheck, Layers, Loader2, Lock, BarChart2, Copy } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import { getCurrentUserId, getUserRole } from '../../../utils/authUtils';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
@@ -974,13 +974,22 @@ export default function ResultsView({ rfqId: propRfqId }) {
                         </button>
                     )}
                     {isWindowClosed && !isCorporateAdmin && !resultsMeta.isInconclusive && rfq?.status !== 'CANCELLED' && (
-                        <button
-                            onClick={() => navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`)}
-                            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 cursor-pointer"
-                            title="Clone quotation parameters into quotation builder"
-                        >
-                            <RefreshCw size={13} /> ⚡ Clone Quotation
-                        </button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                                onClick={() => navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`)}
+                                className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 cursor-pointer"
+                                title="Create a linked re-tender retaining parent RFQ reference, with core currency pairs, amounts, direction & requesting entity locked."
+                            >
+                                <RefreshCw size={13} /> 🔄 Re-Trade (Locked Specs)
+                            </button>
+                            <button
+                                onClick={() => navigate(`/end-user/quotations/active?clone_rfq_id=${rfq.id}`)}
+                                className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                                title="Pre-fills all trade fields as an unlocked draft without parent link or trade constraints."
+                            >
+                                <Copy size={13} /> 📋 Clone as New (Unlocked)
+                            </button>
+                        </div>
                     )}
                     {isWindowClosed && canAcceptOrDecline && !resultsMeta.isInconclusive && rfq?.status !== 'CANCELLED' && (
                         isDeclined ? (
@@ -1101,6 +1110,24 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                         ? 'This quotation request has been submitted and requires your authorization. Counterparties will only be notified once you approve and release this RFQ.'
                                         : 'This quotation request has been submitted and is currently awaiting Corporate Admin authorization before bank links are dispatched.'}
                                 </p>
+                                {rfq?.user_revision_notes && (
+                                    <div className="mt-3 p-3 bg-white/95 rounded-xl border border-amber-300 text-xs text-amber-950 flex items-start gap-2.5 shadow-2xs">
+                                        <MessageSquare size={15} className="text-indigo-600 shrink-0 mt-0.5" />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold text-slate-900 block text-[11px] uppercase tracking-wider">
+                                                    Requestor Revision Remarks:
+                                                </span>
+                                                <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-800 px-1.5 py-0.2 rounded">
+                                                    Resubmitted
+                                                </span>
+                                            </div>
+                                            <p className="mt-1 text-slate-800 leading-relaxed whitespace-pre-wrap font-medium bg-slate-50/80 p-2 rounded-lg border border-slate-200">
+                                                "{rfq.user_revision_notes}"
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         {isCorporateAdmin && !showApprovalPanel && (
@@ -1544,7 +1571,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
             )}
 
             {rfq?.status === 'CANCELLED' && (
-                <div className="p-4 sm:p-5 rounded-2xl bg-slate-100 border border-slate-300 text-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in">
+                <div className="p-4 sm:p-5 rounded-2xl bg-slate-100 border border-slate-300 text-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-fade-in">
                     <div className="flex items-start sm:items-center gap-3">
                         <XCircle className="text-slate-500 shrink-0 mt-0.5 sm:mt-0" size={22} />
                         <div>
@@ -1555,17 +1582,27 @@ export default function ResultsView({ rfqId: propRfqId }) {
                         </div>
                     </div>
                     {!isCorporateAdmin && (
-                        <button
-                            onClick={() => navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`)}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 shrink-0 cursor-pointer"
-                        >
-                            <RefreshCw size={14} /> ⚡ Clone as New Quotation (Re-Trade)
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                            <button
+                                onClick={() => navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`)}
+                                title="Create a linked re-tender retaining parent RFQ reference, with core currency pairs, amounts, direction & requesting entity locked."
+                                className="flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 cursor-pointer"
+                            >
+                                <RefreshCw size={13} /> 🔄 Re-Trade (Locked Specs)
+                            </button>
+                            <button
+                                onClick={() => navigate(`/end-user/quotations/active?clone_rfq_id=${rfq.id}`)}
+                                title="Pre-fills all trade fields as an unlocked draft without parent link or trade constraints."
+                                className="flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                            >
+                                <Copy size={13} /> 📋 Clone as New (Unlocked)
+                            </button>
+                        </div>
                     )}
                 </div>
             )}
 
-            {resultsMeta.isInconclusive && (
+            {resultsMeta.isInconclusive && rfq?.status !== 'CANCELLED' && (
                 <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div className="flex items-start gap-4">
                         <AlertCircle className="text-amber-600 shrink-0 mt-0.5" size={24} />
@@ -1582,12 +1619,22 @@ export default function ResultsView({ rfqId: propRfqId }) {
                         </div>
                     </div>
                     {!isCorporateAdmin && (
-                        <button
-                            onClick={() => navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`)}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 shrink-0 cursor-pointer"
-                        >
-                            <RefreshCw size={14} /> ⚡ Clone as New Quotation
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                            <button
+                                onClick={() => navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`)}
+                                title="Create a linked re-tender retaining parent RFQ reference, with core currency pairs, amounts, direction & requesting entity locked."
+                                className="flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 cursor-pointer"
+                            >
+                                <RefreshCw size={13} /> 🔄 Re-Trade (Locked Specs)
+                            </button>
+                            <button
+                                onClick={() => navigate(`/end-user/quotations/active?clone_rfq_id=${rfq.id}`)}
+                                title="Pre-fills all trade fields as an unlocked draft without parent link or trade constraints."
+                                className="flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-amber-100/60 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                            >
+                                <Copy size={13} /> 📋 Clone as New (Unlocked)
+                            </button>
+                        </div>
                     )}
                 </div>
             )}
@@ -2112,6 +2159,22 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                 </span>
                             </div>
                         </div>
+
+                        {rfq.user_revision_notes && (
+                            <div className="mt-2.5 p-3 rounded-lg bg-indigo-50/70 border border-indigo-200/80 text-xs text-indigo-950 flex items-start gap-2.5 shadow-2xs">
+                                <MessageSquare size={14} className="text-indigo-600 shrink-0 mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-bold text-indigo-900 block text-[11px] uppercase tracking-wider">
+                                            Requestor Revision Remarks (Resubmission Note):
+                                        </span>
+                                    </div>
+                                    <p className="mt-0.5 text-slate-800 leading-relaxed whitespace-pre-wrap font-medium">
+                                        "{rfq.user_revision_notes}"
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Quotation Window Details */}

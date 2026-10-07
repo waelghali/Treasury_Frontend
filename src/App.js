@@ -1,6 +1,6 @@
 // frontend/src/App.js
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 
 import LoginPage from './pages/Auth/LoginPage';
@@ -68,6 +68,28 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
   const [hasReconciliationModule, setHasReconciliationModule] = useState(true);
 
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isPublicRoute = Boolean(
+    location.pathname && (
+      location.pathname.startsWith('/public') ||
+      location.pathname.includes('/public-quotation') ||
+      location.pathname.includes('/public/quotation') ||
+      location.pathname.includes('/public-bank-handshake') ||
+      location.pathname.includes('/public/bank-handshake') ||
+      location.pathname.includes('/public-dealer-handshake') ||
+      location.pathname.includes('/public/dealer-handshake')
+    )
+  );
+
+  // If user navigates to a public counterparty/quotation page, immediately dismiss session warning and stop corporate trackers
+  useEffect(() => {
+    if (isPublicRoute) {
+      onHideSessionModal();
+      stopInactivityTracker();
+      clearSessionTimers();
+    }
+  }, [isPublicRoute, onHideSessionModal]);
 
   // Ref to track modal state inside event listeners without triggering re-renders
   const modalOpenRef = useRef(showSessionModal);
@@ -77,10 +99,16 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
   }, [showSessionModal]);
 
   const onIdleWarning = useCallback(() => {
+    if (isPublicRoute) return;
     onShowSessionWarning();
-  }, [onShowSessionWarning]);
+  }, [isPublicRoute, onShowSessionWarning]);
 
   const initTrackers = (state) => {
+    if (isPublicRoute) {
+      stopInactivityTracker();
+      clearSessionTimers();
+      return;
+    }
     if (state.isAuthenticated && !state.mustChangePassword && !state.mustAcceptPolicies && state.subscriptionStatus !== 'expired') {
       resetTokenRefreshTime();
       startSessionTimers(onIdleWarning);
@@ -289,6 +317,20 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
 const modalStyles = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center' };
 const modalContentStyles = { background: 'white', padding: '30px', borderRadius: '12px', textAlign: 'center', color: '#1f2937' };
 
+const isPublicPage = () => {
+  if (typeof window === 'undefined') return false;
+  const p = (window.location.pathname || '').toLowerCase();
+  return (
+    p.startsWith('/public') ||
+    p.includes('/public-quotation') ||
+    p.includes('/public/quotation') ||
+    p.includes('/public-bank-handshake') ||
+    p.includes('/public/bank-handshake') ||
+    p.includes('/public-dealer-handshake') ||
+    p.includes('/public/dealer-handshake')
+  );
+};
+
 function App() {
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [timeLeft, setTimeLeft] = useState(WARNING_BUFFER_MS / 1000);
@@ -296,11 +338,13 @@ function App() {
   // Unified Countdown Logic
   useEffect(() => {
     let interval;
-    if (showSessionModal) {
+    if (showSessionModal && !isPublicPage()) {
       setTimeLeft(WARNING_BUFFER_MS / 1000);
       interval = setInterval(() => {
         setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
       }, 1000);
+    } else if (showSessionModal && isPublicPage()) {
+      setShowSessionModal(false);
     }
     return () => clearInterval(interval);
   }, [showSessionModal]);
@@ -329,12 +373,14 @@ function App() {
         <ErrorBoundary>
           <AppContent
             showSessionModal={showSessionModal}
-            onShowSessionWarning={() => setShowSessionModal(true)}
+            onShowSessionWarning={() => {
+              if (!isPublicPage()) setShowSessionModal(true);
+            }}
             onHideSessionModal={() => setShowSessionModal(false)}
           />
         </ErrorBoundary>
 
-        {showSessionModal && (
+        {showSessionModal && !isPublicPage() && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             {/* Backdrop with Blur */}
             <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" />

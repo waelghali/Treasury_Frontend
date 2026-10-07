@@ -407,7 +407,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
             role="dialog"
             aria-modal="true"
         >
-            <div className={`relative w-full max-w-5xl xl:max-w-6xl max-h-[96vh] bg-white border rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 flex flex-col ${
+            <div className={`relative w-full max-w-6xl xl:max-w-7xl max-h-[96vh] bg-white border rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 flex flex-col ${
                 isUrgent ? 'border-rose-400 ring-4 ring-rose-400/20' : 'border-slate-300 ring-2 ring-slate-400/10'
             }`}>
                 
@@ -423,22 +423,22 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                     />
                 </div>
 
-                {/* 2. HEADER & CLOCK HUD (Compact Height ~42px) */}
-                <div className="px-4 py-2 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between gap-3 shrink-0">
-                    <div className="flex items-center gap-2.5">
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                {/* 2. HEADER & CLOCK HUD */}
+                <div className="px-6 py-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between gap-4 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                             isUrgent ? 'bg-rose-500/20 text-rose-400 ring-1 ring-rose-400' : 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-400'
                         }`}>
-                            {isUrgent ? <AlertTriangle size={15} className="animate-pulse" /> : <Clock size={15} />}
+                            {isUrgent ? <AlertTriangle size={18} className="animate-pulse" /> : <Clock size={18} />}
                         </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono font-bold tracking-wider text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/30">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                            <span className="text-sm font-mono font-bold tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/30">
                                 {deal.ref_no}
                             </span>
-                            <span className="text-xs font-bold text-slate-200">
+                            <span className="text-sm sm:text-base font-bold text-slate-100">
                                 {deal.type === 'TBILL' ? 'T-Bill Auction' : (deal.is_multi_leg ? `Multi-Currency Basket (${deal.legs?.length} Legs)` : 'FX Spot Tender')}
                             </span>
-                            <span className={`text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded ${
+                            <span className={`text-xs font-extrabold uppercase px-2 py-0.5 rounded-md ${
                                 (deal.direction || 'BUY').toUpperCase() === 'BUY' 
                                     ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
                                     : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
@@ -449,32 +449,37 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                     </div>
 
                     {/* Clock & Action HUD */}
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 text-right">
-                            <span className={`text-xl font-bold font-mono tracking-tight ${
-                                isUrgent ? 'text-rose-400 animate-pulse' : 'text-emerald-400'
-                            }`}>
-                                00:{String(secondsLeft).padStart(2, '0')}s
-                            </span>
-                            <span className="text-[10px] font-bold text-slate-400">
-                                {deal.timeout_action === 'AUTO_ACCEPT' ? '• Auto-Accepts' : '• Auto-Rejects'}
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2.5 text-right">
+                            <div className="flex flex-col items-end">
+                                <span className={`text-2xl sm:text-3xl font-extrabold font-mono tracking-tight leading-none ${
+                                    isUrgent ? 'text-rose-400 animate-pulse' : 'text-emerald-400'
+                                }`}>
+                                    {String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:{String(secondsLeft % 60).padStart(2, '0')}
+                                </span>
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mt-0.5">
+                                    remaining
+                                </span>
+                            </div>
+                            <span className="text-xs font-bold text-slate-300 bg-slate-800 px-2 py-1 rounded-md border border-slate-700 hidden sm:inline">
+                                {deal.timeout_action === 'AUTO_ACCEPT' ? '⚡ Auto-Accepts' : '⚠️ Auto-Rejects'}
                             </span>
                         </div>
 
-                        <div className="flex items-center gap-1 pl-2 border-l border-slate-700">
+                        <div className="flex items-center gap-1.5 pl-3 border-l border-slate-700">
                             <button
                                 onClick={() => setSoundMuted(!soundMuted)}
-                                className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
                                 title={soundMuted ? "Unmute chimes" : "Mute chimes"}
                             >
-                                {soundMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                                {soundMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                             </button>
                             <button
                                 onClick={() => setIsMinimized(true)}
-                                className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors cursor-pointer"
                                 title="Minimize to ticker badge"
                             >
-                                <Minimize2 size={14} />
+                                <Minimize2 size={16} />
                             </button>
                         </div>
                     </div>
@@ -498,87 +503,87 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                     </div>
                 )}
 
-                {/* 4. EXECUTIVE DECISION HUD (Ultra-Compact Single-Row Bar ~50px) */}
-                <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 shrink-0">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {/* 4. EXECUTIVE DECISION HUD */}
+                <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 shrink-0">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {/* Stat 1: Volume */}
-                        <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+                        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
                             <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                                     Trade Volume
                                 </span>
-                                <span className="text-xs font-bold font-mono text-slate-900 truncate block">
+                                <span className="text-sm sm:text-base font-extrabold font-mono text-slate-900 truncate block mt-0.5">
                                     {isMultiLeg ? `${deal.legs?.length || 0} Pairs Basket` : `${formatNum(deal.amount, 0, 2)} ${deal.buy_currency || deal.currency_pair}`}
                                 </span>
                             </div>
-                            <span className="text-[10px] text-slate-500 font-semibold bg-slate-100 px-1.5 py-0.5 rounded">
+                            <span className="text-xs text-slate-600 font-bold bg-slate-100 px-2 py-1 rounded-md">
                                 {deal.value_date ? String(deal.value_date) : 'Spot (T+2)'}
                             </span>
                         </div>
 
                         {/* Stat 2: Awarded Counterparties */}
-                        <div className="bg-white px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs flex items-center justify-between">
+                        <div className="bg-white p-3 rounded-xl border border-emerald-200 shadow-2xs flex items-center justify-between">
                             <div className="min-w-0 pr-1">
-                                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
+                                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">
                                     {isMultiLeg ? 'Awarded Banks' : 'Winning Bank'}
                                 </span>
-                                <span className="text-xs font-bold text-slate-900 truncate block" title={winningBanks.join(', ') || deal.winner_bank_name}>
+                                <span className="text-sm sm:text-base font-extrabold text-slate-900 truncate block mt-0.5" title={winningBanks.join(', ') || deal.winner_bank_name}>
                                     {winningBanks.join(', ') || deal.winner_bank_name || 'Winning Bank'}
                                 </span>
                             </div>
-                            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded shrink-0">
+                            <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2 py-1 rounded-md shrink-0">
                                 {isMultiLeg ? `${winningBanks.length} Banks` : '#1 Rank'}
                             </span>
                         </div>
 
                         {/* Stat 3: Execution Pricing */}
-                        <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+                        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
                             <div className="min-w-0 pr-1">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                                     {isMultiLeg ? 'Pricing Mode' : 'Execution Rate'}
                                 </span>
-                                <span className="text-xs font-bold font-mono text-emerald-700 truncate block">
+                                <span className="text-sm sm:text-base font-extrabold font-mono text-emerald-700 truncate block mt-0.5">
                                     {isMultiLeg ? 'Multi-Pair Rates' : formatNum(deal.winner_rate, 4, 4)}
                                 </span>
                             </div>
-                            <span className="text-[10px] text-slate-500 font-semibold bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
+                            <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-1 rounded-md shrink-0">
                                 {isMultiLeg ? 'Per-Leg Benchmarks' : (deal.market_benchmark?.live_mid ? `Mid: ${formatNum(deal.market_benchmark.live_mid, 4, 4)}` : 'Best Quote')}
                             </span>
                         </div>
 
                         {/* Stat 4: Commercial Value */}
-                        <div className="bg-white px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs flex items-center justify-between">
+                        <div className="bg-white p-3 rounded-xl border border-emerald-200 shadow-2xs flex items-center justify-between">
                             <div className="min-w-0 pr-1">
-                                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
+                                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">
                                     Commercial Value
                                 </span>
-                                <span className="text-xs font-bold font-mono text-emerald-800 truncate block">
+                                <span className="text-sm sm:text-base font-extrabold font-mono text-emerald-800 truncate block mt-0.5">
                                     {deal.is_uncontested || !deal.saved_vs_avg || deal.saved_vs_avg <= 0
                                         ? 'Sole-Source Benchmarked'
                                         : `+${formatNum(deal.saved_vs_avg, 2, 2)} EGP Savings`}
                                 </span>
                             </div>
-                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded shrink-0">
+                            <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md shrink-0">
                                 {deal.is_uncontested ? 'Audit Active' : 'vs Desk Mean'}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                {/* 5. MULTI-LEG MATRIX / SINGLE-LEG DIRECT LADDER (Fits 4 pairs without scrolling) */}
-                <div className="px-4 py-2 bg-white flex-1 overflow-y-auto custom-scrollbar">
+                {/* 5. MULTI-LEG MATRIX / SINGLE-LEG DIRECT LADDER */}
+                <div className="px-6 py-4 bg-white flex-1 overflow-y-auto custom-scrollbar">
                     {isMultiLeg ? (
-                        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                        <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
                             {/* Table Header */}
-                            <div className="bg-slate-100/90 px-3 py-1.5 flex items-center justify-between border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider shrink-0">
-                                <div className="flex items-center gap-1.5">
-                                    <Layers size={13} className="text-slate-500" />
+                            <div className="bg-slate-100/90 px-4 py-2.5 flex items-center justify-between border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider shrink-0">
+                                <div className="flex items-center gap-2">
+                                    <Layers size={15} className="text-slate-600" />
                                     <span>Awarded Currency Pairs ({selectedLegIds.length} of {deal.legs?.length} Selected)</span>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={toggleAllLegs}
-                                    className="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold lowercase first-letter:uppercase hover:underline cursor-pointer"
+                                    className="text-indigo-600 hover:text-indigo-800 text-xs font-bold hover:underline cursor-pointer"
                                 >
                                     {selectedLegIds.length === deal.legs?.length ? 'Deselect All' : 'Select All'}
                                 </button>
@@ -596,7 +601,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                     return (
                                         <div 
                                             key={legIdStr || idx}
-                                            className={`px-3 py-2 transition-colors ${
+                                            className={`px-4 py-3.5 transition-colors ${
                                                 isInconclusive 
                                                     ? 'bg-slate-50/70 text-slate-400'
                                                     : isSelected
@@ -605,9 +610,9 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                             }`}
                                         >
                                             {/* Main Row */}
-                                            <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center justify-between gap-4">
                                                 {/* Left: Checkbox + Pair Details */}
-                                                <div className="flex items-center gap-2 min-w-0">
+                                                <div className="flex items-center gap-3 min-w-0">
                                                     <input
                                                         type="checkbox"
                                                         checked={isSelected}
@@ -615,20 +620,20 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                                         onChange={() => !isInconclusive && toggleLeg(legIdStr)}
                                                         className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer shrink-0"
                                                     />
-                                                    <div className="flex items-center gap-2 min-w-0">
-                                                        <span className="font-bold font-mono text-sm text-slate-900">
+                                                    <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
+                                                        <span className="font-bold font-mono text-base text-slate-900">
                                                             {leg.currency_pair}
                                                         </span>
-                                                        <span className="text-xs font-semibold text-slate-600 uppercase bg-slate-100 px-1.5 py-0.2 rounded">
+                                                        <span className="text-xs font-bold text-slate-700 uppercase bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
                                                             {leg.direction || 'BUY'} {formatNum(leg.amount, 0, 2)}
                                                         </span>
                                                         {leg.is_uncontested && (
-                                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.2 rounded shrink-0">
-                                                                <AlertTriangle size={11} className="text-amber-700" />
+                                                            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md shrink-0">
+                                                                <AlertTriangle size={12} className="text-amber-700" />
                                                                 Sole-Source
                                                             </span>
                                                         )}
-                                                        <span className="text-[11px] text-slate-400 hidden sm:inline">
+                                                        <span className="text-xs text-slate-500 hidden sm:inline font-medium">
                                                             {leg.value_date ? String(leg.value_date) : 'Spot (T+2)'}
                                                         </span>
                                                     </div>
@@ -636,46 +641,46 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
 
                                                 {/* Center: Direct Rate Expectation Assessment */}
                                                 {refEval ? (
-                                                    <div className="flex items-center gap-2 shrink-0">
-                                                        <div className="flex items-center gap-1.5 text-xs font-mono bg-slate-50 px-2 py-0.8 rounded-lg border border-slate-200">
-                                                            <span className="text-slate-500 text-[11px] font-sans">Expected:</span>
-                                                            <strong className="text-slate-700">{formatNum(refEval.expectedRate, 4, 4)}</strong>
+                                                    <div className="flex items-center gap-2.5 shrink-0">
+                                                        <div className="flex items-center gap-2 text-xs font-mono bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+                                                            <span className="text-slate-500 text-xs font-sans">Expected:</span>
+                                                            <strong className="text-slate-800">{formatNum(refEval.expectedRate, 4, 4)}</strong>
                                                             {refEval.isFrozen && (
-                                                                <span className="text-[10px]" title="Rate frozen at trade execution">🔒</span>
+                                                                <span className="text-xs" title="Rate frozen at trade execution">🔒</span>
                                                             )}
                                                             <span className="text-slate-400">→</span>
-                                                            <span className="text-slate-500 text-[11px] font-sans">Quoted:</span>
+                                                            <span className="text-slate-500 text-xs font-sans">Quoted:</span>
                                                             <strong className="text-slate-900">{formatNum(refEval.quotedRate, 4, 4)}</strong>
                                                         </div>
-                                                        <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg border shadow-2xs ${refEval.colorClass}`}>
+                                                        <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border shadow-2xs font-bold ${refEval.colorClass}`}>
                                                             <span>{refEval.icon}</span>
                                                             <span>{refEval.label}</span>
                                                         </span>
                                                     </div>
                                                 ) : leg.avg_rate && leg.total_quotes >= 2 ? (
-                                                    <div className="text-xs text-slate-500 font-mono">
-                                                        Desk Mean: <strong className="text-slate-700">{formatNum(leg.avg_rate, 4, 4)}</strong>
+                                                    <div className="text-xs text-slate-600 font-mono">
+                                                        Desk Mean: <strong className="text-slate-800">{formatNum(leg.avg_rate, 4, 4)}</strong>
                                                     </div>
                                                 ) : null}
 
                                                 {/* Right: Best Executable Rate */}
                                                 <div className="text-right shrink-0">
                                                     {!isInconclusive ? (
-                                                        <div className="flex items-center justify-end gap-2">
+                                                        <div className="flex items-center justify-end gap-2.5">
                                                             <div className="text-right">
-                                                                <div className="text-xs font-bold text-slate-800 leading-tight">
+                                                                <div className="text-xs font-bold text-slate-700 leading-tight">
                                                                     {leg.winner_bank_name || 'Awarded Bank'}
                                                                 </div>
-                                                                <div className="font-mono font-bold text-emerald-700 text-sm sm:text-base leading-tight">
+                                                                <div className="font-mono font-black text-emerald-700 text-base sm:text-lg leading-tight">
                                                                     {formatNum(leg.winner_rate, 4, 4)}
                                                                 </div>
                                                             </div>
-                                                            <span className="text-[10px] uppercase font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-300">
+                                                            <span className="text-xs uppercase font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-300">
                                                                 Best
                                                             </span>
                                                         </div>
                                                     ) : (
-                                                        <span className="text-slate-400 font-semibold text-xs bg-slate-100 px-2 py-0.5 rounded">
+                                                        <span className="text-slate-400 font-bold text-xs bg-slate-100 px-2.5 py-1 rounded-md">
                                                             No Quote
                                                         </span>
                                                     )}
@@ -684,31 +689,31 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
 
                                             {/* Micro Bids Strip */}
                                             {offers.length > 0 && !isInconclusive && (
-                                                <div className="mt-1 pt-1 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
+                                                <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">
                                                         Bids ({offers.length}):
                                                     </span>
                                                     {offers.map((offer, oIdx) => (
                                                         <div
                                                             key={offer.bank_id || oIdx}
-                                                            className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[11px] transition-all ${
+                                                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs transition-all ${
                                                                 offer.is_winner
-                                                                    ? 'bg-emerald-100/90 text-emerald-950 font-bold border border-emerald-300'
+                                                                    ? 'bg-emerald-100/90 text-emerald-950 font-bold border border-emerald-300 shadow-2xs'
                                                                     : offer.is_passed
                                                                     ? 'bg-slate-100 text-slate-400 border border-slate-200'
                                                                     : 'bg-slate-50 text-slate-700 border border-slate-200'
                                                             }`}
                                                         >
-                                                            <span className="font-medium">{offer.bank_name}</span>
+                                                            <span className="font-semibold">{offer.bank_name}</span>
                                                             {offer.has_quote ? (
-                                                                <span className={`font-mono ${offer.is_winner ? 'text-emerald-900 font-bold' : 'text-slate-700'}`}>
+                                                                <span className={`font-mono ${offer.is_winner ? 'text-emerald-900 font-extrabold' : 'text-slate-700 font-medium'}`}>
                                                                     {formatNum(offer.rate, 4, 4)}
                                                                     {offer.is_winner && ' ★'}
                                                                 </span>
                                                             ) : offer.is_passed ? (
-                                                                <span className="text-slate-400 text-[10px]">(Passed)</span>
+                                                                <span className="text-slate-400 text-xs italic">(Passed)</span>
                                                             ) : (
-                                                                <span className="text-slate-400 text-[10px]">(No Quote)</span>
+                                                                <span className="text-slate-400 text-xs italic">(No Quote)</span>
                                                             )}
                                                         </div>
                                                     ))}
@@ -797,41 +802,41 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                     )}
                 </div>
 
-                {/* 6. MICRO DISCLAIMER FOOTNOTE (~18px) */}
-                <div className="px-4 py-1 bg-slate-50 border-t border-slate-200 text-[10px] text-slate-400 flex items-center gap-1.5 shrink-0">
-                    <Info size={12} className="text-slate-400 shrink-0" />
+                {/* 6. DISCLAIMER FOOTNOTE */}
+                <div className="px-6 py-2 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center gap-2 shrink-0">
+                    <Info size={14} className="text-slate-400 shrink-0" />
                     <span className="truncate">
                         Expected market reference rates are derived mathematically from live feeds & historical CBE official fixings. Indicative guidance only.
                     </span>
                 </div>
 
-                {/* 7. HIGH-VISIBILITY ACTION FOOTER (~48px) */}
-                <div className="px-4 py-2 bg-white border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+                {/* 7. HIGH-VISIBILITY ACTION FOOTER */}
+                <div className="px-6 py-3.5 bg-white border-t border-slate-200 flex items-center justify-between gap-4 shrink-0">
                     <button
                         type="button"
                         onClick={handleInspectOrderBook}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer"
                     >
-                        <ExternalLink size={13} />
+                        <ExternalLink size={14} />
                         <span>Inspect Full Order Book</span>
                     </button>
 
-                    <div className="flex items-center gap-2.5">
-                        {/* Requirement 1: Instant Decline Button */}
+                    <div className="flex items-center gap-3">
+                        {/* Instant Decline Button */}
                         <button
                             type="button"
                             onClick={handleImmediateDecline}
                             disabled={isAccepting || isDeclining}
-                            className="px-4 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl border border-rose-300 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                            className="px-5 py-2.5 text-sm font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl border border-rose-300 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-2 shadow-xs"
                         >
                             {isDeclining ? (
                                 <>
-                                    <div className="w-3.5 h-3.5 border-2 border-rose-600 border-t-transparent rounded-full animate-spin" />
+                                    <div className="w-4 h-4 border-2 border-rose-600 border-t-transparent rounded-full animate-spin" />
                                     <span>Declining...</span>
                                 </>
                             ) : (
                                 <>
-                                    <XCircle size={14} />
+                                    <XCircle size={16} />
                                     <span>Decline Tender</span>
                                 </>
                             )}
@@ -841,16 +846,16 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                             type="button"
                             onClick={handleAccept}
                             disabled={isAccepting || isDeclining || secondsLeft <= 0}
-                            className="px-6 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-200 transition-all flex items-center gap-2 cursor-pointer active:scale-98"
+                            className="px-8 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-200 transition-all flex items-center gap-2.5 cursor-pointer active:scale-98"
                         >
                             {isAccepting ? (
                                 <>
-                                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                     <span>Executing Trade...</span>
                                 </>
                             ) : (
                                 <>
-                                    <CheckCircle2 size={15} />
+                                    <CheckCircle2 size={17} />
                                     <span>Accept & Execute Trade</span>
                                 </>
                             )}
