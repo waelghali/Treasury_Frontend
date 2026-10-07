@@ -15,6 +15,8 @@ import PublicIssuanceForm from './pages/Public/PublicIssuanceForm';
 import RequestorDashboard from './pages/Public/RequestorDashboard';
 import QuotationBankOfferPage from './pages/Public/QuotationBankOfferPage';
 import PublicBankHandshakePage from './pages/Public/PublicBankHandshakePage';
+import BankDealerAuthPage from './pages/Public/BankDealerAuthPage';
+import BankDealerDeskPage from './pages/Public/BankDealerDeskPage';
 import RenewalPage from './pages/RenewalPage';
 
 import AuthWrapper from './components/AuthWrapper';
@@ -78,7 +80,8 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
       location.pathname.includes('/public-bank-handshake') ||
       location.pathname.includes('/public/bank-handshake') ||
       location.pathname.includes('/public-dealer-handshake') ||
-      location.pathname.includes('/public/dealer-handshake')
+      location.pathname.includes('/public/dealer-handshake') ||
+      location.pathname.startsWith('/dealer')
     )
   );
 
@@ -281,6 +284,10 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
           <Route path="/public/bank-handshake/:token" element={<PublicBankHandshakePage />} />
           <Route path="/public-dealer-handshake/:token" element={<PublicBankHandshakePage />} />
           <Route path="/public/dealer-handshake/:token" element={<PublicBankHandshakePage />} />
+          <Route path="/dealer" element={<Navigate to="/dealer/desk" replace />} />
+          <Route path="/dealer/login" element={<BankDealerAuthPage initialMode="login" />} />
+          <Route path="/dealer/enroll" element={<BankDealerAuthPage initialMode="enroll" />} />
+          <Route path="/dealer/desk" element={<BankDealerDeskPage />} />
           <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -327,7 +334,8 @@ const isPublicPage = () => {
     p.includes('/public-bank-handshake') ||
     p.includes('/public/bank-handshake') ||
     p.includes('/public-dealer-handshake') ||
-    p.includes('/public/dealer-handshake')
+    p.includes('/public/dealer-handshake') ||
+    p.startsWith('/dealer')
   );
 };
 
