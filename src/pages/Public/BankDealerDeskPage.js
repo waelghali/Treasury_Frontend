@@ -7,7 +7,7 @@ import {
     AlertCircle, CheckCircle2, TrendingUp, Layers, Building2,
     Calendar, Trophy, Award, Search, Filter, Loader2, Info,
     FileText, CheckCircle, XCircle, BarChart3, LayoutList, LayoutGrid, X,
-    Lock, Unlock
+    Lock, Unlock, Crown, Flame, Landmark, Eye, Shield, Globe, Sparkles, Medal
 } from 'lucide-react';
 import tradingAudio from '../../utils/tradingAudioEngine';
 
@@ -32,7 +32,7 @@ export default function BankDealerDeskPage() {
 
     // Session & Profile
     const [dealer, setDealer] = useState(null);
-    const [activeTab, setActiveTab] = useState('live'); // 'live', 'won', 'history', 'analytics'
+    const [activeTab, setActiveTab] = useState('live'); // 'live', 'won', 'history', 'analytics', 'trophies'
     const [blotterViewMode, setBlotterViewMode] = useState('table'); // 'table' vs 'cards'
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -43,9 +43,10 @@ export default function BankDealerDeskPage() {
     const [currentTimeUtc, setCurrentTimeUtc] = useState('');
     const [currentTimeLocal, setCurrentTimeLocal] = useState('');
 
-    // Blotter Data
+    // Blotter Data & Accolades
     const [liveTickets, setLiveTickets] = useState([]);
     const [historyRecords, setHistoryRecords] = useState([]);
+    const [achievements, setAchievements] = useState(null);
     const [blotterStats, setBlotterStats] = useState({
         won_deals_count: 0,
         total_volume_won: 0,
@@ -59,9 +60,22 @@ export default function BankDealerDeskPage() {
 
     // UI state & Modal
     const [expandedTicketId, setExpandedTicketId] = useState(null);
+    const [expandedRowIds, setExpandedRowIds] = useState(new Set());
     const [selectedDealSlip, setSelectedDealSlip] = useState(null);
     const [copiedReceiptId, setCopiedReceiptId] = useState(null);
     const prevLiveCountRef = useRef(0);
+
+    const toggleRowExpand = (rfqId) => {
+        setExpandedRowIds(prev => {
+            const next = new Set(prev);
+            if (next.has(rfqId)) {
+                next.delete(rfqId);
+            } else {
+                next.add(rfqId);
+            }
+            return next;
+        });
+    };
 
     const getAuthHeaders = useCallback(() => {
         const token = localStorage.getItem('grow_bank_dealer_token');
@@ -113,9 +127,10 @@ export default function BankDealerDeskPage() {
         if (!isSilent) setRefreshing(true);
         const headers = getAuthHeaders();
         try {
-            const [liveRes, histRes] = await Promise.all([
+            const [liveRes, histRes, achRes] = await Promise.all([
                 axios.get(`${API_BASE_URL}/api/v1/bank-dealer/blotter/live-rfqs`, { headers }),
-                axios.get(`${API_BASE_URL}/api/v1/bank-dealer/blotter/history`, { headers })
+                axios.get(`${API_BASE_URL}/api/v1/bank-dealer/blotter/history`, { headers }),
+                axios.get(`${API_BASE_URL}/api/v1/bank-dealer/achievements`, { headers }).catch(() => ({ data: null }))
             ]);
 
             if (liveRes.data?.success) {
@@ -135,6 +150,10 @@ export default function BankDealerDeskPage() {
                     win_rate_percent: histRes.data.win_rate_percent || 0,
                     avg_dealer_rank: histRes.data.avg_dealer_rank
                 });
+            }
+
+            if (achRes?.data?.success && achRes.data.achievements) {
+                setAchievements(achRes.data.achievements);
             }
             setError(null);
         } catch (err) {
@@ -211,6 +230,46 @@ export default function BankDealerDeskPage() {
         return `${m}:${s < 10 ? '0' : ''}${s}`;
     };
 
+    const getTrophyIcon = (iconName) => {
+        switch (iconName) {
+            case 'Crown': return <Crown className="w-5 h-5 text-amber-400" />;
+            case 'Landmark': return <Landmark className="w-5 h-5 text-cyan-400" />;
+            case 'Zap': return <Zap className="w-5 h-5 text-yellow-400" />;
+            case 'Eye': return <Eye className="w-5 h-5 text-teal-400" />;
+            case 'Shield': return <Shield className="w-5 h-5 text-emerald-400" />;
+            case 'Clock': return <Clock className="w-5 h-5 text-indigo-400" />;
+            case 'Globe': return <Globe className="w-5 h-5 text-blue-400" />;
+            case 'Flame': return <Flame className="w-5 h-5 text-rose-400" />;
+            case 'Award': return <Award className="w-5 h-5 text-purple-400" />;
+            default: return <Trophy className="w-5 h-5 text-amber-400" />;
+        }
+    };
+
+    const getTierBadgeStyle = (tier) => {
+        switch (tier) {
+            case 'PLATINUM':
+                return 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-xs shadow-purple-500/20';
+            case 'GOLD':
+                return 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-xs shadow-amber-500/20';
+            case 'SILVER':
+                return 'bg-slate-400/20 text-slate-200 border-slate-400/40 shadow-xs shadow-slate-400/20';
+            case 'BRONZE':
+                return 'bg-orange-500/20 text-orange-300 border-orange-500/40 shadow-xs shadow-orange-500/20';
+            default:
+                return 'bg-slate-800 text-slate-400 border-slate-700';
+        }
+    };
+
+    const getTierProgressBar = (tier) => {
+        switch (tier) {
+            case 'PLATINUM': return 'bg-gradient-to-r from-purple-500 to-indigo-400';
+            case 'GOLD': return 'bg-gradient-to-r from-amber-500 to-yellow-300';
+            case 'SILVER': return 'bg-gradient-to-r from-slate-400 to-slate-200';
+            case 'BRONZE': return 'bg-gradient-to-r from-orange-600 to-amber-500';
+            default: return 'bg-gradient-to-r from-emerald-600 to-teal-400';
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#070b12] text-slate-100 flex flex-col selection:bg-emerald-500 selection:text-white">
             {/* Top Institutional Command Bar */}
@@ -236,6 +295,29 @@ export default function BankDealerDeskPage() {
                                 <span className="flex items-center text-emerald-400 font-mono text-[11px]">
                                     <ShieldCheck className="w-3 h-3 mr-1 inline" /> 2FA Active
                                 </span>
+
+                                {/* Header Tier Pill */}
+                                {achievements?.dealer_tier && (
+                                    <>
+                                        <span>&bull;</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveTab('trophies')}
+                                            title="View Trader Accolades & Trophies"
+                                            className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[11px] font-bold border transition-transform hover:scale-105 ${
+                                                achievements.dealer_tier.includes('Diamond') ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400' :
+                                                achievements.dealer_tier.includes('Platinum') ? 'bg-purple-500/10 border-purple-500/30 text-purple-400' :
+                                                achievements.dealer_tier.includes('Gold') ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' :
+                                                achievements.dealer_tier.includes('Silver') ? 'bg-slate-400/10 border-slate-400/30 text-slate-300' :
+                                                'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                                            }`}
+                                        >
+                                            <Trophy className="w-3 h-3 text-amber-400" />
+                                            <span>{achievements.dealer_tier}</span>
+                                            <span className="text-[10px] opacity-75 font-mono">({achievements.earned_trophy_count || 0}/8)</span>
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -287,7 +369,7 @@ export default function BankDealerDeskPage() {
             {/* Main Blotter Body */}
             <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
                 {/* Desk KPI HUD Strip */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
                     <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4 relative overflow-hidden">
                         <div className="flex justify-between items-start">
                             <span className="text-xs text-slate-400 font-medium">Active Live Tenders</span>
@@ -328,6 +410,28 @@ export default function BankDealerDeskPage() {
                             {blotterStats.total_volume_won > 0 ? `$${formatCurrency(blotterStats.total_volume_won)}` : `${blotterStats.won_deals_count} Won Deals`}
                         </div>
                         <span className="text-[11px] text-cyan-500">{blotterStats.won_deals_count} cryptographically sealed</span>
+                    </div>
+
+                    {/* CARD 5: TRADER TROPHIES & TIER */}
+                    <div
+                        onClick={() => setActiveTab('trophies')}
+                        className="bg-[#0f172a] border border-amber-500/30 hover:border-amber-500/60 rounded-2xl p-4 cursor-pointer transition-all hover:bg-slate-900 group"
+                    >
+                        <div className="flex justify-between items-start">
+                            <span className="text-xs text-amber-400 font-semibold flex items-center">
+                                <Trophy className="w-3.5 h-3.5 mr-1 text-amber-400" /> Trader Accolades
+                            </span>
+                            <span className="text-[10px] text-amber-400/80 font-mono group-hover:translate-x-0.5 transition-transform">
+                                View ➔
+                            </span>
+                        </div>
+                        <div className="text-2xl font-black text-white mt-1 font-mono flex items-baseline space-x-1.5">
+                            <span className="text-amber-400">{achievements?.earned_trophy_count || 0}</span>
+                            <span className="text-slate-500 text-sm font-normal">/ {achievements?.total_trophies || 8}</span>
+                        </div>
+                        <span className="text-[11px] text-slate-400 truncate block mt-0.5">
+                            Tier: <strong className="text-slate-200">{achievements?.dealer_tier || 'Active Dealer'}</strong>
+                        </span>
                     </div>
                 </div>
 
@@ -394,6 +498,22 @@ export default function BankDealerDeskPage() {
                         >
                             <BarChart3 className="w-3.5 h-3.5" />
                             <span>Desk Analytics</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('trophies')}
+                            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                                activeTab === 'trophies'
+                                    ? 'bg-amber-500 text-slate-950 font-black shadow-lg shadow-amber-950'
+                                    : 'text-amber-400/90 hover:text-amber-300'
+                            }`}
+                        >
+                            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Trader Accolades &amp; Trophies</span>
+                            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-900/80 font-mono text-amber-300 font-bold">
+                                {achievements?.earned_trophy_count || 0}/8
+                            </span>
                         </button>
                     </div>
 
@@ -667,77 +787,165 @@ export default function BankDealerDeskPage() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-800/60 font-mono">
-                                            {wonHistoryRecords.map((item) => (
-                                                <tr key={item.rfq_id} className="hover:bg-emerald-950/10 transition-colors">
-                                                    <td className="py-3 px-4">
-                                                        <div className="font-bold text-white font-mono">{item.ref_no}</div>
-                                                        <div className="text-[10px] text-slate-500 font-sans mt-0.5">
-                                                            {new Date(item.concluded_at).toLocaleDateString()} {new Date(item.concluded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-3 px-4 font-sans font-semibold text-slate-200">
-                                                        <div className="flex items-center space-x-1.5">
-                                                            <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                                                            <span className="truncate max-w-[140px]">{item.customer_name}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-3 px-4 font-sans">
-                                                        <div className="flex items-center space-x-1.5">
-                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
-                                                                item.summary_direction === 'BUY'
-                                                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                                                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                                                            }`}>
-                                                                {item.summary_direction}
-                                                            </span>
-                                                            <span className="font-bold text-slate-200 font-mono">{item.summary_pair}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-3 px-4 font-mono font-bold text-white">
-                                                        {formatCurrency(item.summary_amount)}{' '}
-                                                        <span className="text-[10px] text-slate-400 font-normal">{item.summary_currency}</span>
-                                                    </td>
-                                                    <td className="py-3 px-4 font-mono font-extrabold text-emerald-400 text-sm">
-                                                        {formatRate(item.dealer_rate || item.winning_rate)}
-                                                    </td>
-                                                    <td className="py-3 px-4 text-slate-300 font-sans text-xs">
-                                                        {item.summary_value_date || 'Spot'}
-                                                    </td>
-                                                    <td className="py-3 px-4">
-                                                        {item.receipt ? (
-                                                            <div className="inline-flex items-center space-x-1.5 bg-slate-900 border border-emerald-500/30 rounded-lg px-2 py-1">
-                                                                <span className="font-mono text-[10px] font-bold text-emerald-400">
-                                                                    {item.receipt.receipt_id}
-                                                                </span>
+                                            {wonHistoryRecords.map((item) => {
+                                                const isMultiLeg = Boolean(item.all_legs_detail && item.all_legs_detail.length > 1);
+                                                const isExpanded = expandedRowIds.has(item.rfq_id);
+
+                                                return (
+                                                    <React.Fragment key={item.rfq_id}>
+                                                        <tr className="hover:bg-emerald-950/10 transition-colors">
+                                                            <td className="py-3 px-4">
+                                                                <div className="font-bold text-white font-mono">{item.ref_no}</div>
+                                                                <div className="text-[10px] text-slate-500 font-sans mt-0.5">
+                                                                    {new Date(item.concluded_at).toLocaleDateString()} {new Date(item.concluded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-3 px-4 font-sans font-semibold text-slate-200">
+                                                                <div className="flex items-center space-x-1.5">
+                                                                    <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                                                    <span className="truncate max-w-[140px]">{item.customer_name}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-3 px-4 font-sans">
+                                                                <div className="flex items-center space-x-1.5">
+                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                                                                        item.summary_direction === 'BUY'
+                                                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                                                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                                                    }`}>
+                                                                        {item.summary_direction}
+                                                                    </span>
+                                                                    <span className="font-bold text-slate-200 font-mono">{item.summary_pair}</span>
+                                                                    {isMultiLeg && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => toggleRowExpand(item.rfq_id)}
+                                                                            className="ml-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40 inline-flex items-center space-x-1 font-sans"
+                                                                        >
+                                                                            <span>{item.all_legs_detail.length} Legs</span>
+                                                                            {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-3 px-4 font-mono font-bold text-white">
+                                                                {formatCurrency(item.summary_amount)}{' '}
+                                                                <span className="text-[10px] text-slate-400 font-normal">{item.summary_currency}</span>
+                                                            </td>
+                                                            <td className="py-3 px-4 font-mono font-extrabold text-emerald-400 text-sm">
+                                                                {isMultiLeg ? (
+                                                                    <div className="flex items-center space-x-1 text-cyan-400 font-sans text-xs font-bold">
+                                                                        <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                                                                        <span>Package ({item.all_legs_detail.length} Legs)</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    formatRate(item.dealer_rate || item.winning_rate)
+                                                                )}
+                                                            </td>
+                                                            <td className="py-3 px-4 text-slate-300 font-sans text-xs">
+                                                                {isMultiLeg ? 'Multiple Dates' : (item.summary_value_date || 'Spot')}
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                {item.receipt ? (
+                                                                    <div className="inline-flex items-center space-x-1.5 bg-slate-900 border border-emerald-500/30 rounded-lg px-2 py-1">
+                                                                        <span className="font-mono text-[10px] font-bold text-emerald-400">
+                                                                            {item.receipt.receipt_id}
+                                                                        </span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleCopyReceipt(item.receipt.signature_hash, item.receipt.receipt_id)}
+                                                                            className="text-slate-400 hover:text-emerald-300"
+                                                                            title="Copy SHA-256 Signature Seal"
+                                                                        >
+                                                                            {copiedReceiptId === item.receipt.receipt_id ? (
+                                                                                <Check className="w-3 h-3 text-emerald-400" />
+                                                                            ) : (
+                                                                                <Copy className="w-3 h-3" />
+                                                                            )}
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-[10px] text-slate-500 font-sans">Pending Seal</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="py-3 px-4 text-right">
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => handleCopyReceipt(item.receipt.signature_hash, item.receipt.receipt_id)}
-                                                                    className="text-slate-400 hover:text-emerald-300"
-                                                                    title="Copy SHA-256 Signature Seal"
+                                                                    onClick={() => setSelectedDealSlip(item)}
+                                                                    className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold transition-colors inline-flex items-center space-x-1 font-sans"
                                                                 >
-                                                                    {copiedReceiptId === item.receipt.receipt_id ? (
-                                                                        <Check className="w-3 h-3 text-emerald-400" />
-                                                                    ) : (
-                                                                        <Copy className="w-3 h-3" />
-                                                                    )}
+                                                                    <FileText className="w-3 h-3" />
+                                                                    <span>Deal Slip</span>
                                                                 </button>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-[10px] text-slate-500 font-sans">Pending Seal</span>
+                                                            </td>
+                                                        </tr>
+
+                                                        {/* Expanded Sub-Table for Multi-Leg RFQ */}
+                                                        {isExpanded && isMultiLeg && (
+                                                            <tr className="bg-slate-950/90 border-b border-slate-800">
+                                                                <td colSpan={8} className="p-3 pl-8">
+                                                                    <div className="bg-[#0f172a] rounded-xl border border-slate-800 p-3.5 space-y-2">
+                                                                        <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                                                                            <div className="flex items-center space-x-2">
+                                                                                <Layers className="w-4 h-4 text-cyan-400" />
+                                                                                <span>Package Legs Breakdown ({item.all_legs_detail.length} Legs)</span>
+                                                                            </div>
+                                                                            <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                                                {item.outcome_badge?.replace('_', ' ') || 'CLEAN SWEEP'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="overflow-x-auto">
+                                                                            <table className="w-full text-xs font-mono text-left">
+                                                                                <thead>
+                                                                                    <tr className="text-slate-500 border-b border-slate-800/80 text-[10px]">
+                                                                                        <th className="pb-1.5 px-2">Leg #</th>
+                                                                                        <th className="pb-1.5 px-2">Side &amp; Pair</th>
+                                                                                        <th className="pb-1.5 px-2">Notional</th>
+                                                                                        <th className="pb-1.5 px-2">Value Date</th>
+                                                                                        <th className="pb-1.5 px-2">Your Rate</th>
+                                                                                        <th className="pb-1.5 px-2">Winning Execution</th>
+                                                                                        <th className="pb-1.5 px-2 text-right">Status</th>
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody className="divide-y divide-slate-800/40">
+                                                                                    {item.all_legs_detail.map((leg, idx) => (
+                                                                                        <tr key={leg.leg_id || idx} className={leg.is_won ? 'bg-emerald-950/20' : ''}>
+                                                                                            <td className="py-2 px-2 text-slate-400 font-bold">#{leg.leg_index || idx + 1}</td>
+                                                                                            <td className="py-2 px-2 font-sans font-bold">
+                                                                                                <span className={`px-1.5 py-0.2 rounded text-[10px] mr-1.5 ${leg.direction === 'BUY' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                                                                                                    {leg.direction}
+                                                                                                </span>
+                                                                                                <span className="text-slate-200">{leg.pair}</span>
+                                                                                            </td>
+                                                                                            <td className="py-2 px-2 text-white font-bold">
+                                                                                                {formatCurrency(leg.amount)} <span className="text-[10px] text-slate-400">{leg.currency}</span>
+                                                                                            </td>
+                                                                                            <td className="py-2 px-2 text-slate-300 font-sans text-[11px]">{leg.value_date || 'Spot'}</td>
+                                                                                            <td className="py-2 px-2">
+                                                                                                <span className="text-emerald-400 font-extrabold">
+                                                                                                    {formatRate(leg.my_rate || leg.winning_rate)}
+                                                                                                </span>
+                                                                                            </td>
+                                                                                            <td className="py-2 px-2">
+                                                                                                <span className="text-white font-bold">{formatRate(leg.winning_rate || leg.my_rate)}</span>
+                                                                                            </td>
+                                                                                            <td className="py-2 px-2 text-right">
+                                                                                                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                                                                    {leg.is_won ? 'WON' : 'AWARDED'}
+                                                                                                </span>
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    ))}
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
                                                         )}
-                                                    </td>
-                                                    <td className="py-3 px-4 text-right">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setSelectedDealSlip(item)}
-                                                            className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold transition-colors inline-flex items-center space-x-1 font-sans"
-                                                        >
-                                                            <FileText className="w-3 h-3" />
-                                                            <span>Deal Slip</span>
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                                    </React.Fragment>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -852,117 +1060,224 @@ export default function BankDealerDeskPage() {
                                             <tr className="bg-slate-900/90 border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                                                 <th className="py-3 px-4">Deal Ref / Date</th>
                                                 <th className="py-3 px-4">Client</th>
-                                                <th className="py-3 px-4">Pair &amp; Side</th>
-                                                <th className="py-3 px-4">Volume</th>
-                                                <th className="py-3 px-4">Desk Quote</th>
-                                                <th className="py-3 px-4">Winning Rate</th>
-                                                <th className="py-3 px-4">Rank / Spread</th>
+                                                <th className="py-3 px-4">Instrument &amp; Pair</th>
+                                                <th className="py-3 px-4">Notional Volume</th>
+                                                <th className="py-3 px-4">Execution / Rates</th>
                                                 <th className="py-3 px-4">Outcome</th>
-                                                <th className="py-3 px-4 text-right">Inspect</th>
+                                                <th className="py-3 px-4 text-right">Ticket</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-800/60 font-mono">
-                                            {filteredHistoryRecords.map((item) => (
-                                                <tr
-                                                    key={item.rfq_id}
-                                                    className={`hover:bg-slate-900/50 transition-colors ${
-                                                        item.is_won ? 'bg-emerald-950/10' : ''
-                                                    }`}
-                                                >
-                                                    <td className="py-3 px-4">
-                                                        <div className="font-bold text-white font-mono">{item.ref_no}</div>
-                                                        <div className="text-[10px] text-slate-500 font-sans mt-0.5">
-                                                            {new Date(item.concluded_at).toLocaleDateString()} {new Date(item.concluded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-3 px-4 font-sans font-semibold text-slate-200">
-                                                        <div className="flex items-center space-x-1.5">
-                                                            <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                                                            <span className="truncate max-w-[130px]">{item.customer_name}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-3 px-4 font-sans">
-                                                        <div className="flex items-center space-x-1.5">
-                                                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold ${
-                                                                item.summary_direction === 'BUY'
-                                                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                                                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                                            }`}>
-                                                                {item.summary_direction}
-                                                            </span>
-                                                            <span className="font-bold text-slate-200 font-mono">{item.summary_pair}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-3 px-4 font-mono font-bold text-white">
-                                                        {formatCurrency(item.summary_amount)}{' '}
-                                                        <span className="text-[10px] text-slate-400 font-normal">{item.summary_currency}</span>
-                                                    </td>
-                                                    <td className="py-3 px-4 font-mono font-semibold">
-                                                        {item.dealer_rate ? (
-                                                            <span className={item.is_won ? 'text-emerald-400 font-extrabold' : 'text-slate-200'}>
-                                                                {formatRate(item.dealer_rate)}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-slate-500 italic font-sans text-[11px]">No Quote</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="py-3 px-4 font-mono">
-                                                        {item.winning_rate ? (
-                                                            <div>
-                                                                <span className="font-bold text-white">{formatRate(item.winning_rate)}</span>
-                                                                {item.winning_bank_name && !item.is_won && (
-                                                                    <div className="text-[10px] text-slate-400 font-sans truncate max-w-[110px]">
-                                                                        {item.winning_bank_name}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-slate-500">—</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="py-3 px-4 font-sans">
-                                                        {item.dealer_rank ? (
-                                                            <div>
-                                                                <span className={`inline-block px-1.5 py-0.2 rounded font-mono text-[11px] font-bold ${
-                                                                    item.dealer_rank === 1
-                                                                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                                                        : 'bg-slate-800 text-slate-300'
-                                                                }`}>
-                                                                    Rank #{item.dealer_rank}
-                                                                </span>
-                                                                {item.spread_delta !== null && item.spread_delta !== undefined && item.dealer_rank > 1 && (
-                                                                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                                                                        +{formatRate(item.spread_delta)}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-slate-500">—</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="py-3 px-4 font-sans">
-                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                                                            item.is_won
-                                                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                                                                : item.outcome === 'CANCELLED'
-                                                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                                                : 'bg-slate-800 text-slate-400'
-                                                        }`}>
-                                                            {item.is_won ? 'WON' : item.outcome?.replace('_', ' ')}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-3 px-4 text-right font-sans">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setSelectedDealSlip(item)}
-                                                            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold transition-colors inline-flex items-center space-x-1"
+                                            {filteredHistoryRecords.map((item) => {
+                                                const isMultiLeg = Boolean(item.all_legs_detail && item.all_legs_detail.length > 1);
+                                                const isExpanded = expandedRowIds.has(item.rfq_id);
+
+                                                return (
+                                                    <React.Fragment key={item.rfq_id}>
+                                                        <tr
+                                                            className={`hover:bg-slate-900/50 transition-colors ${
+                                                                item.is_won ? 'bg-emerald-950/10' : ''
+                                                            }`}
                                                         >
-                                                            <FileText className="w-3 h-3 text-slate-400" />
-                                                            <span>Details</span>
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                                            <td className="py-3 px-4">
+                                                                <div className="font-bold text-white font-mono">{item.ref_no}</div>
+                                                                <div className="text-[10px] text-slate-500 font-sans mt-0.5">
+                                                                    {new Date(item.concluded_at).toLocaleDateString()} {new Date(item.concluded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-3 px-4 font-sans font-semibold text-slate-200">
+                                                                <div className="flex items-center space-x-1.5">
+                                                                    <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                                                    <span className="truncate max-w-[130px]">{item.customer_name}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-3 px-4 font-sans">
+                                                                <div className="flex items-center space-x-1.5">
+                                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold ${
+                                                                        item.summary_direction === 'BUY'
+                                                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                                                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                                                    }`}>
+                                                                        {item.summary_direction}
+                                                                    </span>
+                                                                    <span className="font-bold text-slate-200 font-mono">{item.summary_pair}</span>
+                                                                    {isMultiLeg && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => toggleRowExpand(item.rfq_id)}
+                                                                            className="ml-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40 inline-flex items-center space-x-1 font-sans"
+                                                                        >
+                                                                            <span>{item.all_legs_detail.length} Legs</span>
+                                                                            {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-3 px-4 font-mono font-bold text-white">
+                                                                {formatCurrency(item.summary_amount)}{' '}
+                                                                <span className="text-[10px] text-slate-400 font-normal">{item.summary_currency}</span>
+                                                            </td>
+                                                            <td className="py-3 px-4 font-mono">
+                                                                {item.is_won && !isMultiLeg ? (
+                                                                    <span className="font-extrabold text-emerald-400 text-sm">
+                                                                        {formatRate(item.dealer_rate || item.winning_rate)}
+                                                                    </span>
+                                                                ) : isMultiLeg ? (
+                                                                    <div className="flex items-center space-x-1.5 text-cyan-400 font-sans text-xs font-bold">
+                                                                        <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                                                                        <span>Multi-Leg Package</span>
+                                                                    </div>
+                                                                ) : item.has_quoted ? (
+                                                                    <div className="text-xs">
+                                                                        <div className="text-white font-bold">
+                                                                            {formatRate(item.winning_rate)}{' '}
+                                                                            {item.winning_bank_name && (
+                                                                                <span className="text-slate-400 font-sans text-[10px]">
+                                                                                    ({item.winning_bank_name})
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="text-slate-400 text-[10px]">Desk: {formatRate(item.dealer_rate)}</div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="text-xs text-slate-400">
+                                                                        {item.winning_rate ? formatRate(item.winning_rate) : '—'}
+                                                                        {item.winning_bank_name && (
+                                                                            <span className="text-slate-500 font-sans text-[10px] ml-1">
+                                                                                ({item.winning_bank_name})
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            <td className="py-3 px-4 font-sans">
+                                                                {item.is_won ? (
+                                                                    <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 uppercase">
+                                                                        {item.outcome_badge?.replace('_', ' ') || 'WON'}
+                                                                    </span>
+                                                                ) : item.has_quoted ? (
+                                                                    <div className="inline-flex items-center space-x-1.5">
+                                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                                                                            LOST
+                                                                        </span>
+                                                                        {item.dealer_rank && (
+                                                                            <span className="font-mono text-[10px] text-slate-400">
+                                                                                Rank #{item.dealer_rank}
+                                                                                {item.spread_delta ? ` (+${formatRate(item.spread_delta)})` : ''}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                ) : item.outcome === 'CANCELLED' ? (
+                                                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                                                        CANCELLED
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-900 text-slate-500 border border-slate-800">
+                                                                        UNQUOTED
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="py-3 px-4 text-right font-sans">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSelectedDealSlip(item)}
+                                                                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold transition-colors inline-flex items-center space-x-1"
+                                                                >
+                                                                    <FileText className="w-3 h-3 text-slate-400" />
+                                                                    <span>Details</span>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+
+                                                        {/* Expanded Sub-Table for Multi-Leg RFQ */}
+                                                        {isExpanded && isMultiLeg && (
+                                                            <tr className="bg-slate-950/90 border-b border-slate-800">
+                                                                <td colSpan={7} className="p-3 pl-8">
+                                                                    <div className="bg-[#0f172a] rounded-xl border border-slate-800 p-3.5 space-y-2">
+                                                                        <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                                                                            <div className="flex items-center space-x-2">
+                                                                                <Layers className="w-4 h-4 text-cyan-400" />
+                                                                                <span>Package Legs Breakdown ({item.all_legs_detail.length} Legs)</span>
+                                                                            </div>
+                                                                            {item.outcome_badge && (
+                                                                                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                                                                                    {item.outcome_badge.replace('_', ' ')}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="overflow-x-auto">
+                                                                            <table className="w-full text-xs font-mono text-left">
+                                                                                <thead>
+                                                                                    <tr className="text-slate-500 border-b border-slate-800/80 text-[10px]">
+                                                                                        <th className="pb-1.5 px-2">Leg #</th>
+                                                                                        <th className="pb-1.5 px-2">Side &amp; Pair</th>
+                                                                                        <th className="pb-1.5 px-2">Notional</th>
+                                                                                        <th className="pb-1.5 px-2">Value Date</th>
+                                                                                        <th className="pb-1.5 px-2">Your Quote</th>
+                                                                                        <th className="pb-1.5 px-2">Winning Execution</th>
+                                                                                        <th className="pb-1.5 px-2 text-right">Result</th>
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody className="divide-y divide-slate-800/40">
+                                                                                    {item.all_legs_detail.map((leg, idx) => (
+                                                                                        <tr key={leg.leg_id || idx} className={leg.is_won ? 'bg-emerald-950/20' : ''}>
+                                                                                            <td className="py-2 px-2 text-slate-400 font-bold">#{leg.leg_index || idx + 1}</td>
+                                                                                            <td className="py-2 px-2 font-sans font-bold">
+                                                                                                <span className={`px-1.5 py-0.2 rounded text-[10px] mr-1.5 ${leg.direction === 'BUY' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                                                                                                    {leg.direction}
+                                                                                                </span>
+                                                                                                <span className="text-slate-200">{leg.pair}</span>
+                                                                                            </td>
+                                                                                            <td className="py-2 px-2 text-white font-bold">
+                                                                                                {formatCurrency(leg.amount)} <span className="text-[10px] text-slate-400">{leg.currency}</span>
+                                                                                            </td>
+                                                                                            <td className="py-2 px-2 text-slate-300 font-sans text-[11px]">{leg.value_date || 'Spot'}</td>
+                                                                                            <td className="py-2 px-2">
+                                                                                                {leg.my_rate ? (
+                                                                                                    <span className={leg.is_won ? 'text-emerald-400 font-extrabold' : 'text-slate-300'}>
+                                                                                                        {formatRate(leg.my_rate)}
+                                                                                                    </span>
+                                                                                                ) : (
+                                                                                                    <span className="text-slate-600 font-sans text-[10px]">Unquoted</span>
+                                                                                                )}
+                                                                                            </td>
+                                                                                            <td className="py-2 px-2">
+                                                                                                {leg.winning_rate ? (
+                                                                                                    <div>
+                                                                                                        <span className="text-white font-bold">{formatRate(leg.winning_rate)}</span>
+                                                                                                        {leg.winning_bank_name && !leg.is_won && (
+                                                                                                            <span className="text-slate-400 text-[10px] font-sans ml-1.5">
+                                                                                                                ({leg.winning_bank_name})
+                                                                                                            </span>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                ) : (
+                                                                                                    <span className="text-slate-600">—</span>
+                                                                                                )}
+                                                                                            </td>
+                                                                                            <td className="py-2 px-2 text-right">
+                                                                                                <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                                                                                                    leg.is_won
+                                                                                                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                                                                                        : leg.winning_rate
+                                                                                                        ? 'bg-slate-800 text-slate-400'
+                                                                                                        : 'bg-slate-900 text-slate-600'
+                                                                                                }`}>
+                                                                                                    {leg.is_won ? 'WON' : leg.winning_rate ? 'LOST' : 'UNAWARDED'}
+                                                                                                </span>
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    ))}
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </React.Fragment>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -970,109 +1285,129 @@ export default function BankDealerDeskPage() {
                         ) : (
                             /* Card Grid - All */
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {filteredHistoryRecords.map((item) => (
-                                    <div
-                                        key={item.rfq_id}
-                                        className={`bg-[#0b0f17] border rounded-2xl p-5 shadow-lg transition-all ${
-                                            item.is_won
-                                                ? 'border-emerald-500/40 bg-emerald-950/5'
-                                                : 'border-slate-800'
-                                        }`}
-                                    >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="flex items-center space-x-3">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
-                                                    item.is_won ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'
-                                                }`}>
-                                                    {item.is_won ? <Award className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
+                                {filteredHistoryRecords.map((item) => {
+                                    const isMultiLeg = Boolean(item.all_legs_detail && item.all_legs_detail.length > 1);
+
+                                    return (
+                                        <div
+                                            key={item.rfq_id}
+                                            className={`bg-[#0b0f17] border rounded-2xl p-5 shadow-lg transition-all ${
+                                                item.is_won
+                                                    ? 'border-emerald-500/40 bg-emerald-950/5'
+                                                    : 'border-slate-800'
+                                            }`}
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex items-center space-x-3">
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+                                                        item.is_won ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'
+                                                    }`}>
+                                                        {item.is_won ? <Award className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <h4 className="text-sm font-bold text-white">{item.customer_name}</h4>
+                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                                                item.is_won
+                                                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                                                                    : 'bg-slate-800 text-slate-400'
+                                                            }`}>
+                                                                {item.is_won ? (item.outcome_badge?.replace('_', ' ') || 'WON') : item.outcome?.replace('_', ' ')}
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-xs font-mono text-slate-400 mt-0.5">
+                                                            {item.ref_no} &bull; {new Date(item.concluded_at).toLocaleString()}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedDealSlip(item)}
+                                                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors inline-flex items-center space-x-1"
+                                                >
+                                                    <FileText className="w-3.5 h-3.5 text-slate-400" />
+                                                    <span>Slip</span>
+                                                </button>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-slate-800/80 text-xs">
+                                                <div>
+                                                    <div className="text-[10px] uppercase font-bold text-slate-500">Pair &amp; Side</div>
+                                                    <div className="font-bold text-white mt-0.5">
+                                                        <span className={item.summary_direction === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>
+                                                            {item.summary_direction}
+                                                        </span>{' '}
+                                                        {item.summary_pair}
+                                                    </div>
                                                 </div>
                                                 <div>
+                                                    <div className="text-[10px] uppercase font-bold text-slate-500">Volume</div>
+                                                    <div className="font-mono font-bold text-white mt-0.5">
+                                                        {formatCurrency(item.summary_amount)} {item.summary_currency}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-[10px] uppercase font-bold text-slate-500">
+                                                        {item.is_won ? 'Executed Rate' : 'Winning Execution'}
+                                                    </div>
+                                                    <div className="font-mono font-bold mt-0.5">
+                                                        {item.is_won && !isMultiLeg ? (
+                                                            <span className="text-emerald-400 font-extrabold">
+                                                                {formatRate(item.dealer_rate || item.winning_rate)}
+                                                            </span>
+                                                        ) : isMultiLeg ? (
+                                                            <span className="text-cyan-400 font-bold text-xs">
+                                                                {item.all_legs_detail.length} Legs Package
+                                                            </span>
+                                                        ) : item.winning_rate ? (
+                                                            <span className="text-white font-bold">
+                                                                {formatRate(item.winning_rate)}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-slate-500">—</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-[10px] uppercase font-bold text-slate-500">
+                                                        {item.is_won ? 'Settlement' : 'Your Quote'}
+                                                    </div>
+                                                    <div className="font-mono text-white mt-0.5">
+                                                        {item.is_won ? (
+                                                            <span className="text-slate-300 font-sans">{isMultiLeg ? 'Multiple Dates' : (item.summary_value_date || 'Spot')}</span>
+                                                        ) : item.dealer_rate ? (
+                                                            <span className="text-slate-300 font-bold">{formatRate(item.dealer_rate)}</span>
+                                                        ) : (
+                                                            <span className="text-slate-500 italic text-[11px] font-sans">Unquoted</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {item.dealer_rank && !item.is_won && (
+                                                <div className="mt-3 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs">
                                                     <div className="flex items-center space-x-2">
-                                                        <h4 className="text-sm font-bold text-white">{item.customer_name}</h4>
-                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                                                            item.is_won
-                                                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                                                                : 'bg-slate-800 text-slate-400'
-                                                        }`}>
-                                                            {item.is_won ? 'WON' : item.outcome?.replace('_', ' ')}
+                                                        <span className="text-slate-400 text-[11px]">Rank &amp; Spread:</span>
+                                                        <span className="px-2 py-0.5 rounded font-mono font-bold text-[11px] bg-slate-800 text-slate-300">
+                                                            #{item.dealer_rank}
                                                         </span>
+                                                        {item.spread_delta !== null && item.spread_delta !== undefined && (
+                                                            <span className="text-slate-500 font-mono text-[11px]">
+                                                                (+{formatRate(item.spread_delta)} vs winner)
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    <div className="text-xs font-mono text-slate-400 mt-0.5">
-                                                        {item.ref_no} &bull; {new Date(item.concluded_at).toLocaleString()}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <button
-                                                type="button"
-                                                onClick={() => setSelectedDealSlip(item)}
-                                                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors inline-flex items-center space-x-1"
-                                            >
-                                                <FileText className="w-3.5 h-3.5 text-slate-400" />
-                                                <span>Slip</span>
-                                            </button>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-slate-800/80 text-xs">
-                                            <div>
-                                                <div className="text-[10px] uppercase font-bold text-slate-500">Pair &amp; Side</div>
-                                                <div className="font-bold text-white mt-0.5">
-                                                    <span className={item.summary_direction === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>
-                                                        {item.summary_direction}
-                                                    </span>{' '}
-                                                    {item.summary_pair}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="text-[10px] uppercase font-bold text-slate-500">Volume</div>
-                                                <div className="font-mono font-bold text-white mt-0.5">
-                                                    {formatCurrency(item.summary_amount)} {item.summary_currency}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="text-[10px] uppercase font-bold text-slate-500">Desk Quote</div>
-                                                <div className="font-mono font-bold mt-0.5">
-                                                    {item.dealer_rate ? (
-                                                        <span className={item.is_won ? 'text-emerald-400 font-extrabold' : 'text-slate-200'}>
-                                                            {formatRate(item.dealer_rate)}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-slate-500 italic text-[11px]">No Quote</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="text-[10px] uppercase font-bold text-slate-500">Winning Rate</div>
-                                                <div className="font-mono font-bold text-white mt-0.5">
-                                                    {item.winning_rate ? formatRate(item.winning_rate) : '—'}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {item.dealer_rank && (
-                                            <div className="mt-3 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs">
-                                                <div className="flex items-center space-x-2">
-                                                    <span className="text-slate-400 text-[11px]">Dealer Rank:</span>
-                                                    <span className={`px-2 py-0.5 rounded font-mono font-bold text-[11px] ${
-                                                        item.dealer_rank === 1 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-300'
-                                                    }`}>
-                                                        #{item.dealer_rank}
-                                                    </span>
-                                                    {item.spread_delta !== null && item.spread_delta !== undefined && (
-                                                        <span className="text-slate-500 font-mono text-[11px]">
-                                                            (Spread Δ: {item.spread_delta > 0 ? `+${formatRate(item.spread_delta)}` : formatRate(item.spread_delta)})
+                                                    {item.winning_bank_name && (
+                                                        <span className="text-[11px] text-slate-400">
+                                                            Won by: {item.winning_bank_name}
                                                         </span>
                                                     )}
                                                 </div>
-                                                {item.receipt && (
-                                                    <span className="text-[11px] font-mono text-emerald-400 flex items-center">
-                                                        <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Verified Deal
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -1167,6 +1502,215 @@ export default function BankDealerDeskPage() {
                     </div>
                 )}
 
+                {/* TAB 5: TRADER ACCOLADES & TROPHIES */}
+                {!loading && activeTab === 'trophies' && (
+                    <div className="space-y-6">
+                        {/* Trader Showcase Hero Banner */}
+                        <div className="bg-gradient-to-br from-[#0c1527] via-[#0b0f17] to-[#141d2e] border border-amber-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+
+                            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
+                                <div className="flex items-center space-x-4 sm:space-x-5">
+                                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-600 p-0.5 shadow-xl shadow-amber-950 flex items-center justify-center shrink-0">
+                                        <div className="w-full h-full bg-[#0b0f17] rounded-2xl flex items-center justify-center">
+                                            <Trophy className="w-9 h-9 sm:w-11 sm:h-11 text-amber-400" />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                                                {dealer?.full_name || 'Active Bank Trader'}
+                                            </h2>
+                                            <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${
+                                                achievements?.dealer_tier?.includes('Diamond') ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-lg shadow-cyan-950' :
+                                                achievements?.dealer_tier?.includes('Platinum') ? 'bg-purple-500/20 text-purple-300 border-purple-500/50 shadow-lg shadow-purple-950' :
+                                                achievements?.dealer_tier?.includes('Gold') ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-lg shadow-amber-950' :
+                                                achievements?.dealer_tier?.includes('Silver') ? 'bg-slate-400/20 text-slate-200 border-slate-400/50 shadow-lg shadow-slate-950' :
+                                                'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-lg shadow-emerald-950'
+                                            }`}>
+                                                {achievements?.dealer_tier || 'Bronze Trader'}
+                                            </span>
+                                        </div>
+
+                                        <p className="text-xs sm:text-sm text-slate-300 mt-1 font-medium max-w-xl">
+                                            {achievements?.dealer_perk || 'Sovereign institutional liquidity provider with verified cryptographic execution track record.'}
+                                        </p>
+
+                                        <div className="flex items-center space-x-3 text-xs text-slate-400 mt-2 font-mono">
+                                            <span>Bank: <strong className="text-white font-sans">{dealer?.bank_name || 'Partner Bank'}</strong></span>
+                                            <span>&bull;</span>
+                                            <span>Unlocked: <strong className="text-amber-400">{achievements?.earned_trophy_count || 0}</strong> / {achievements?.total_trophies || 8} Badges</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Quick Highlights Pill Grid */}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 w-full lg:w-auto">
+                                    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
+                                        <div className="text-[10px] uppercase font-bold text-slate-400">Win Streak</div>
+                                        <div className="text-lg font-black text-rose-400 font-mono mt-0.5 flex items-center justify-center">
+                                            <Flame className="w-4 h-4 mr-1 text-rose-400" />
+                                            {achievements?.personal_bests?.current_streak || 0}
+                                        </div>
+                                        <div className="text-[9px] text-slate-500 font-mono">Best: {achievements?.personal_bests?.longest_winning_streak || 0}</div>
+                                    </div>
+
+                                    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
+                                        <div className="text-[10px] uppercase font-bold text-slate-400">Total Won</div>
+                                        <div className="text-lg font-black text-emerald-400 font-mono mt-0.5">
+                                            {achievements?.personal_bests?.total_deals_won || 0}
+                                        </div>
+                                        <div className="text-[9px] text-slate-500">Executions</div>
+                                    </div>
+
+                                    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
+                                        <div className="text-[10px] uppercase font-bold text-slate-400">Volume Won</div>
+                                        <div className="text-lg font-black text-cyan-400 font-mono mt-0.5">
+                                            ${((achievements?.personal_bests?.total_volume_won_usd || 0) / 1000000).toFixed(1)}M
+                                        </div>
+                                        <div className="text-[9px] text-slate-500 font-mono">USD Equiv</div>
+                                    </div>
+
+                                    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
+                                        <div className="text-[10px] uppercase font-bold text-slate-400">Quotes Logged</div>
+                                        <div className="text-lg font-black text-teal-400 font-mono mt-0.5">
+                                            {achievements?.personal_bests?.total_quotes_submitted || 0}
+                                        </div>
+                                        <div className="text-[9px] text-slate-500">Live Bids</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 8 Multi-Metal Institutional Trophies Grid */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between px-1">
+                                <div>
+                                    <h3 className="text-sm font-bold text-white flex items-center">
+                                        <Award className="w-4 h-4 mr-2 text-amber-400" />
+                                        Institutional Multi-Metal Accolades (8 Calibrated Badges)
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                        Progress dynamically updates with every firm quote submitted and tender awarded on Grow Treasury.
+                                    </p>
+                                </div>
+
+                                <div className="hidden sm:flex items-center space-x-1.5 text-xs text-slate-400">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-orange-600 inline-block" /> <span className="text-[11px] mr-2">Bronze</span>
+                                    <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block" /> <span className="text-[11px] mr-2">Silver</span>
+                                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" /> <span className="text-[11px] mr-2">Gold</span>
+                                    <span className="w-2.5 h-2.5 rounded-full bg-purple-400 inline-block" /> <span className="text-[11px]">Platinum</span>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {(achievements?.trophies || []).map((trophy) => {
+                                    const isEarned = trophy.current_tier && trophy.current_tier !== 'NONE';
+                                    return (
+                                        <div
+                                            key={trophy.trophy_id}
+                                            className={`bg-[#0b0f17] rounded-2xl p-5 border transition-all flex flex-col justify-between ${
+                                                isEarned
+                                                    ? 'border-amber-500/40 shadow-lg shadow-amber-950/20 bg-gradient-to-b from-[#0e1626] to-[#0b0f17]'
+                                                    : 'border-slate-800 opacity-90 hover:border-slate-700'
+                                            }`}
+                                        >
+                                            <div>
+                                                {/* Header Icon + Tier Badge */}
+                                                <div className="flex items-start justify-between gap-2 mb-3">
+                                                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center border ${
+                                                        isEarned
+                                                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-md shadow-amber-950'
+                                                            : 'bg-slate-900 border-slate-800 text-slate-500'
+                                                    }`}>
+                                                        {getTrophyIcon(trophy.icon)}
+                                                    </div>
+
+                                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${getTierBadgeStyle(trophy.current_tier)}`}>
+                                                        {trophy.current_tier === 'NONE' ? 'In Progress' : trophy.current_tier}
+                                                    </span>
+                                                </div>
+
+                                                <h4 className="text-sm font-bold text-white leading-snug">
+                                                    {trophy.title}
+                                                </h4>
+                                                {trophy.current_tier_title && trophy.current_tier !== 'NONE' && (
+                                                    <div className="text-[11px] font-semibold text-amber-400 mt-0.5 font-mono">
+                                                        ✦ {trophy.current_tier_title}
+                                                    </div>
+                                                )}
+                                                <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                                                    {trophy.description}
+                                                </p>
+                                            </div>
+
+                                            {/* Progress Section */}
+                                            <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
+                                                <div className="flex items-baseline justify-between text-xs">
+                                                    <span className="text-slate-400 text-[11px]">Current Score:</span>
+                                                    <span className="font-mono font-bold text-white">
+                                                        {trophy.is_currency ? `$${(trophy.current_value / 1000000).toFixed(2)}M` : trophy.current_value} {trophy.unit}
+                                                    </span>
+                                                </div>
+
+                                                {/* Progress Bar */}
+                                                <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+                                                    <div
+                                                        className={`h-full rounded-full transition-all duration-700 ${getTierProgressBar(trophy.current_tier)}`}
+                                                        style={{ width: `${Math.min(100, Math.max(trophy.progress_pct || trophy.progress_percent || 0, isEarned ? 15 : 0))}%` }}
+                                                    />
+                                                </div>
+
+                                                <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                                                    <span>
+                                                        {trophy.next_milestone
+                                                            ? `Next: ${trophy.is_currency ? `$${(trophy.next_milestone / 1000000).toFixed(1)}M` : trophy.next_milestone} ${trophy.unit}`
+                                                            : 'Max Tier Unlocked'}
+                                                    </span>
+                                                    <span className="font-bold text-amber-400">
+                                                        {Math.round(trophy.progress_pct || trophy.progress_percent || 0)}%
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Collective Bank Desk Standing Section */}
+                        {achievements?.bank_desk && (
+                            <div className="bg-[#0b0f17] border border-slate-800 rounded-2xl p-6 shadow-xl space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-bold">
+                                            <Building2 className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-white">
+                                                Collective Bank Desk Standing: {achievements.bank_desk.bank_name || dealer?.bank_name}
+                                            </h4>
+                                            <p className="text-xs text-slate-400 mt-0.5">
+                                                All traders belonging to your institution aggregate into this institutional market profile.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center space-x-2">
+                                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/10 border border-cyan-500/30 text-cyan-300">
+                                            Desk Tier: {achievements.bank_desk.desk_tier || 'Active Desk'}
+                                        </span>
+                                        <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-slate-800 text-amber-400 border border-amber-500/20">
+                                            🏆 {achievements.bank_desk.earned_trophy_count || 0}/8 Unlocked
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* DEAL SLIP INSPECTION MODAL */}
                 {selectedDealSlip && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1245,40 +1789,136 @@ export default function BankDealerDeskPage() {
                                     </div>
                                 </div>
 
-                                {/* Pricing Breakdown */}
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
-                                        <div className="text-[10px] uppercase font-bold text-slate-500">Your Quoted Rate</div>
-                                        <div className="text-base font-extrabold font-mono text-emerald-400 mt-1">
-                                            {selectedDealSlip.dealer_rate ? formatRate(selectedDealSlip.dealer_rate) : '—'}
-                                        </div>
-                                        {selectedDealSlip.dealer_submitted_at && (
-                                            <div className="text-[10px] text-slate-500 mt-1 font-mono">
-                                                Submitted: {new Date(selectedDealSlip.dealer_submitted_at).toLocaleTimeString()}
+                                {/* Pricing Breakdown or Multi-Leg Package Table */}
+                                {selectedDealSlip.all_legs_detail && selectedDealSlip.all_legs_detail.length > 1 ? (
+                                    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center space-x-2 text-white font-bold text-xs uppercase tracking-wider">
+                                                <Layers className="w-4 h-4 text-cyan-400" />
+                                                <span>Package Legs Breakdown ({selectedDealSlip.all_legs_detail.length} Legs)</span>
                                             </div>
-                                        )}
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                                {selectedDealSlip.outcome_badge?.replace('_', ' ') || 'MULTI-LEG PACKAGE'}
+                                            </span>
+                                        </div>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-xs font-mono text-left">
+                                                <thead>
+                                                    <tr className="text-slate-500 border-b border-slate-800 text-[10px]">
+                                                        <th className="pb-1.5 px-2">Leg #</th>
+                                                        <th className="pb-1.5 px-2">Side &amp; Pair</th>
+                                                        <th className="pb-1.5 px-2">Notional</th>
+                                                        <th className="pb-1.5 px-2">Value Date</th>
+                                                        <th className="pb-1.5 px-2">Your Quote</th>
+                                                        <th className="pb-1.5 px-2">Winning Execution</th>
+                                                        <th className="pb-1.5 px-2 text-right">Award Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-800/40">
+                                                    {selectedDealSlip.all_legs_detail.map((leg, idx) => (
+                                                        <tr key={leg.leg_id || idx} className={leg.is_won ? 'bg-emerald-950/20' : ''}>
+                                                            <td className="py-2 px-2 text-slate-400 font-bold">#{leg.leg_index || idx + 1}</td>
+                                                            <td className="py-2 px-2 font-sans font-bold">
+                                                                <span className={`px-1.5 py-0.2 rounded text-[10px] mr-1.5 ${leg.direction === 'BUY' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                                                                    {leg.direction}
+                                                                </span>
+                                                                <span className="text-slate-200">{leg.pair}</span>
+                                                            </td>
+                                                            <td className="py-2 px-2 text-white font-bold">
+                                                                {formatCurrency(leg.amount)} <span className="text-[10px] text-slate-400">{leg.currency}</span>
+                                                            </td>
+                                                            <td className="py-2 px-2 text-slate-300 font-sans text-[11px]">{leg.value_date || 'Spot'}</td>
+                                                            <td className="py-2 px-2">
+                                                                {leg.my_rate ? (
+                                                                    <span className={leg.is_won ? 'text-emerald-400 font-extrabold' : 'text-slate-300'}>
+                                                                        {formatRate(leg.my_rate)}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-slate-600 font-sans text-[10px]">Unquoted</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="py-2 px-2">
+                                                                {leg.winning_rate ? (
+                                                                    <div>
+                                                                        <span className="text-white font-bold">{formatRate(leg.winning_rate)}</span>
+                                                                        {leg.winning_bank_name && !leg.is_won && (
+                                                                            <span className="text-slate-400 text-[10px] font-sans ml-1.5">
+                                                                                ({leg.winning_bank_name})
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-slate-600">—</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="py-2 px-2 text-right">
+                                                                <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                                                                    leg.is_won
+                                                                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                                                        : leg.winning_rate
+                                                                        ? 'bg-slate-800 text-slate-400'
+                                                                        : 'bg-slate-900 text-slate-600'
+                                                                }`}>
+                                                                    {leg.is_won ? 'WON' : leg.winning_rate ? 'LOST' : 'UNAWARDED'}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
-                                    <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
-                                        <div className="text-[10px] uppercase font-bold text-slate-500">Winning Execution Rate</div>
-                                        <div className="text-base font-extrabold font-mono text-white mt-1">
-                                            {selectedDealSlip.winning_rate ? formatRate(selectedDealSlip.winning_rate) : '—'}
+                                ) : selectedDealSlip.is_won ? (
+                                    <div className="bg-slate-900 border border-emerald-500/40 p-4 rounded-xl flex items-center justify-between">
+                                        <div>
+                                            <div className="text-[10px] uppercase font-bold text-slate-500">Executed &amp; Awarded Rate</div>
+                                            <div className="text-2xl font-black font-mono text-emerald-400 mt-1">
+                                                {formatRate(selectedDealSlip.dealer_rate || selectedDealSlip.winning_rate)}
+                                            </div>
+                                            <div className="text-xs text-slate-400 mt-0.5">
+                                                Confirmed Execution Rate for {selectedDealSlip.customer_name}
+                                            </div>
                                         </div>
-                                        <div className="text-[10px] text-slate-500 mt-1 truncate">
-                                            Winner: {selectedDealSlip.is_won ? (dealer?.bank_name || 'This Bank') : (selectedDealSlip.winning_bank_name || 'Counterparty Bank')}
+                                        <div className="text-right">
+                                            <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 uppercase">
+                                                AWARDED #1
+                                            </span>
+                                            {selectedDealSlip.dealer_submitted_at && (
+                                                <div className="text-[10px] text-slate-500 mt-1.5 font-mono">
+                                                    Quoted: {new Date(selectedDealSlip.dealer_submitted_at).toLocaleTimeString()}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                    <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
-                                        <div className="text-[10px] uppercase font-bold text-slate-500">Competitive Rank &amp; Spread</div>
-                                        <div className="text-base font-extrabold font-mono text-teal-400 mt-1">
-                                            {selectedDealSlip.dealer_rank ? `Rank #${selectedDealSlip.dealer_rank}` : '—'}
+                                ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+                                            <div className="text-[10px] uppercase font-bold text-slate-500">Winning Execution Rate</div>
+                                            <div className="text-lg font-extrabold font-mono text-white mt-1">
+                                                {selectedDealSlip.winning_rate ? formatRate(selectedDealSlip.winning_rate) : '—'}
+                                            </div>
+                                            <div className="text-xs text-slate-400 mt-0.5 truncate">
+                                                Winner: <strong className="text-slate-200">{selectedDealSlip.winning_bank_name || 'Counterparty Bank'}</strong>
+                                            </div>
                                         </div>
-                                        <div className="text-[10px] text-slate-500 mt-1 font-mono">
-                                            {selectedDealSlip.spread_delta !== null && selectedDealSlip.spread_delta !== undefined
-                                                ? `Δ ${selectedDealSlip.spread_delta > 0 ? `+${formatRate(selectedDealSlip.spread_delta)}` : formatRate(selectedDealSlip.spread_delta)}`
-                                                : 'Zero delta'}
+                                        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+                                            <div className="text-[10px] uppercase font-bold text-slate-500">Your Quote &amp; Relative Spread</div>
+                                            <div className="text-lg font-extrabold font-mono text-slate-200 mt-1 flex items-baseline space-x-2">
+                                                <span>{selectedDealSlip.dealer_rate ? formatRate(selectedDealSlip.dealer_rate) : 'No Quote'}</span>
+                                                {selectedDealSlip.dealer_rank && (
+                                                    <span className="text-xs font-mono text-amber-400 font-bold">
+                                                        (Rank #{selectedDealSlip.dealer_rank})
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="text-xs text-slate-400 mt-0.5 font-mono">
+                                                {selectedDealSlip.spread_delta !== null && selectedDealSlip.spread_delta !== undefined
+                                                    ? `Spread: +${formatRate(selectedDealSlip.spread_delta)} vs winner`
+                                                    : 'Unranked / Expired'}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
 
                                 {/* Cryptographic Non-Repudiation Seal */}
                                 {selectedDealSlip.receipt ? (
