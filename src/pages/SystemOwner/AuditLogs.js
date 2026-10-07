@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { apiRequest, API_BASE_URL } from 'services/apiService.js';
 import {
   RefreshCw, Search, SlidersHorizontal, X, Download, Loader2,
-  AlertCircle, Shield, User, Building, Eye, Copy, Check
+  AlertCircle, Shield, User, Building, Eye, Copy, Check,
+  ShieldCheck, CheckCircle2
 } from 'lucide-react';
 import moment from 'moment';
 import { toast } from 'react-toastify';
@@ -97,6 +98,28 @@ function AuditLogs() {
   const [isExporting, setIsExporting] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [copiedKey, setCopiedKey] = useState(false);
+
+  // Phase 5: Cryptographic WORM Audit Chain Verification State
+  const [isVerifyingChain, setIsVerifyingChain] = useState(false);
+  const [chainStatus, setChainStatus] = useState(null);
+
+  const handleVerifyChain = async () => {
+    setIsVerifyingChain(true);
+    try {
+      const res = await apiRequest('/system-owner/audit-logs/verify-chain', 'GET');
+      setChainStatus(res);
+      if (res?.is_valid) {
+        toast.success(`WORM Chain Verified: ${res.records_verified} sequential records intact!`);
+      } else {
+        toast.error(`Tamper Alert: ${res?.message || 'Hash chain mismatch detected!'}`);
+      }
+    } catch (err) {
+      console.error('Chain verification failed:', err);
+      toast.error(`Verification failed: ${err.message || 'Error running check'}`);
+    } finally {
+      setIsVerifyingChain(false);
+    }
+  };
 
   // Load customer directory on mount
   useEffect(() => {
@@ -285,6 +308,64 @@ function AuditLogs() {
           <span className="text-sm">{error}</span>
         </div>
       )}
+
+      {/* Cryptographic WORM Audit Chain Health Card */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-4 shadow-sm border border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex-shrink-0">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-white tracking-tight">
+                Cryptographic WORM Audit Trail (Phase 5)
+              </h3>
+              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                chainStatus
+                  ? chainStatus.is_valid
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                  : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  chainStatus?.is_valid === false ? 'bg-rose-400' : 'bg-emerald-400 animate-pulse'
+                }`} />
+                {chainStatus ? (chainStatus.is_valid ? '100% INTACT' : 'TAMPER DETECTED') : 'CHAIN ACTIVE'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              {chainStatus ? (
+                chainStatus.is_valid ? (
+                  <span>Verified <strong className="text-white font-mono">{chainStatus.records_verified}</strong> records mathematically linked via SHA-256. Latest hash: <code className="text-emerald-300 font-mono text-[11px]">{chainStatus.latest_hash ? `${chainStatus.latest_hash.slice(0, 16)}...` : 'Genesis'}</code></span>
+                ) : (
+                  <span className="text-rose-300 font-bold">{chainStatus.message}</span>
+                )
+              ) : (
+                'Every audit event is cryptographically sealed and chained to the previous record. Unauthorized alterations break the chain.'
+              )}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleVerifyChain}
+          disabled={isVerifyingChain}
+          className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white rounded-xl text-xs font-bold shadow transition-all active:scale-95 border border-emerald-400/30 cursor-pointer flex-shrink-0"
+        >
+          {isVerifyingChain ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>Verifying SHA-256 Chain...</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
+              <span>Verify Integrity Now</span>
+            </>
+          )}
+        </button>
+      </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

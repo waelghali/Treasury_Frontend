@@ -55,6 +55,30 @@ function SystemOwnerDashboard({ onLogout }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Cryptographic WORM Audit Chain Verification State
+  const [isVerifyingWorm, setIsVerifyingWorm] = useState(false);
+  const [wormVerifyResult, setWormVerifyResult] = useState(null);
+
+  const handleVerifyWormChain = async () => {
+    setIsVerifyingWorm(true);
+    setWormVerifyResult(null);
+    try {
+      const res = await apiRequest('/system-owner/audit-logs/verify-chain', 'GET');
+      setWormVerifyResult(res);
+      // Refresh telemetry so counts reflect latest status
+      const updatedHealth = await apiRequest('/system-owner/system-health-telemetry', 'GET');
+      if (updatedHealth) setHealthData(updatedHealth);
+    } catch (err) {
+      console.error('Failed to verify audit chain:', err);
+      setWormVerifyResult({
+        is_valid: false,
+        message: err.message || 'Audit chain verification failed'
+      });
+    } finally {
+      setIsVerifyingWorm(false);
+    }
+  };
+
   const fetchAllDashboardData = async () => {
     setIsLoading(true);
     setError('');
@@ -440,6 +464,25 @@ function SystemOwnerDashboard({ onLogout }) {
             </Link>
           </div>
 
+          {/* Cryptographic WORM Integrity Pill */}
+          <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 flex items-center justify-between flex-shrink-0 text-[11px]">
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span className="font-bold text-emerald-900 dark:text-emerald-200">
+                WORM Chain Sealed
+              </span>
+              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono">
+                ({healthData?.audit_worm?.chained_count ?? 0} chained)
+              </span>
+            </div>
+            <button
+              onClick={() => setIsHealthModalOpen(true)}
+              className="font-bold text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-white transition-colors cursor-pointer"
+            >
+              Verify Health →
+            </button>
+          </div>
+
           <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
             {dashboardData.recent_activity.length > 0 ? (
               dashboardData.recent_activity.slice(0, 12).map((activity, index) => (
@@ -514,7 +557,7 @@ function SystemOwnerDashboard({ onLogout }) {
             </div>
 
             {/* Top Quick Telemetry KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 flex-shrink-0">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 flex-shrink-0">
               {/* RAM Usage */}
               <div className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">RAM Utilization</span>
@@ -561,6 +604,89 @@ function SystemOwnerDashboard({ onLogout }) {
                 <span className="text-[10px] text-slate-400 font-medium block">
                   {healthData?.failed_logins_24h ?? 0} Failed Logins (24h)
                 </span>
+              </div>
+
+              {/* WORM Audit Chain */}
+              <div className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">WORM Chain (SHA-256)</span>
+                <span className="text-sm font-black text-emerald-600 block mt-0.5 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                  {healthData?.audit_worm?.status || 'HEALTHY'}
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium block">
+                  {healthData?.audit_worm?.chained_count ?? 0} Chained Blocks
+                </span>
+              </div>
+            </div>
+
+            {/* Cryptographic WORM Audit Trail & Integrity Verification Card */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-3.5 rounded-2xl border border-slate-800 shadow-sm flex-shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex-shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white tracking-tight">
+                      Cryptographic WORM Audit Trail (Phase 5)
+                    </span>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${
+                      wormVerifyResult
+                        ? wormVerifyResult.is_valid
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        wormVerifyResult?.is_valid === false ? 'bg-rose-400' : 'bg-emerald-400 animate-pulse'
+                      }`} />
+                      {wormVerifyResult 
+                        ? (wormVerifyResult.is_valid ? '100% INTACT' : 'TAMPER DETECTED') 
+                        : (healthData?.audit_worm?.status || 'CHAIN ACTIVE')}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    {wormVerifyResult ? (
+                      wormVerifyResult.is_valid ? (
+                        <span>Verified <strong className="text-white font-mono">{wormVerifyResult.records_verified}</strong> records against SHA-256 genesis root. Block: <code className="text-emerald-300 font-mono text-[10px]">{wormVerifyResult.latest_hash ? `${wormVerifyResult.latest_hash.slice(0, 16)}...` : 'Genesis'}</code></span>
+                      ) : (
+                        <span className="text-rose-300 font-bold">{wormVerifyResult.message}</span>
+                      )
+                    ) : (
+                      <span>
+                        SHA-256 sequential forward chain. Chained: <strong className="text-white">{healthData?.audit_worm?.chained_count || 0}</strong> events | Tip: <code className="text-slate-300 font-mono text-[10px]">{healthData?.audit_worm?.latest_hash_short || 'GENESIS'}</code>
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
+                <Link
+                  to="/system-owner/audit-logs"
+                  onClick={() => setIsHealthModalOpen(false)}
+                  className="text-[11px] font-semibold text-indigo-300 hover:text-white px-2 py-1 transition-colors"
+                >
+                  Audit Page →
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleVerifyWormChain}
+                  disabled={isVerifyingWorm}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white rounded-xl text-xs font-bold shadow transition-all active:scale-95 border border-emerald-400/30 cursor-pointer"
+                >
+                  {isVerifyingWorm ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Verifying Chain...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
+                      <span>Verify Integrity Now</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 
