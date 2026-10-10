@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../../services/apiService';
-import { PlusCircle, Edit, Trash2, RotateCcw, CheckCircle, XCircle, Users, Building2, ShieldCheck, Loader2, Shield } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, RotateCcw, CheckCircle, XCircle, Users, Building2, ShieldCheck, Loader2, Shield, Mail } from 'lucide-react';
 import { toast } from 'react-toastify';
 import ApprovalMatrixModal from '../../components/Modals/ApprovalMatrixModal';
 
@@ -35,6 +35,7 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sendingResetUserId, setSendingResetUserId] = useState(null);
   const navigate = useNavigate();
 
   // Modal States for Departments & Groups
@@ -66,6 +67,19 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
 
   const selfId = currentUserId == null ? null : String(currentUserId);
   const [showDeleted, setShowDeleted] = useState(false);
+
+  const handleResendInvitation = async (userId, userEmail) => {
+    setSendingResetUserId(userId);
+    try {
+      const res = await apiRequest(`/corporate-admin/users/${userId}/resend-invitation`, 'POST');
+      toast.success(res?.message || `Private activation link dispatched to "${userEmail}"!`);
+    } catch (err) {
+      console.error('Failed to resend invitation:', err);
+      toast.error(`Failed to dispatch link: ${err.message || 'Error occurred'}`);
+    } finally {
+      setSendingResetUserId(null);
+    }
+  };
 
   const filteredUsers = useMemo(() => {
     if (showDeleted) return users;
@@ -398,11 +412,26 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
                       {user.is_deleted ? <span className="text-red-600 flex items-center"><XCircle className="w-4 h-4 mr-1" /> Deleted</span> : <span className="text-green-600 flex items-center"><CheckCircle className="w-4 h-4 mr-1" /> Active</span>}
                     </td>
                     <td className="px-6 py-4 text-right text-sm font-medium">
-                      <button onClick={() => handleEditUser(user.id)} className="text-blue-600 hover:text-blue-900 mx-2"><Edit className="w-4 h-4" /></button>
+                      {!user.is_deleted && (
+                        <button
+                          type="button"
+                          disabled={sendingResetUserId === user.id || isGracePeriod}
+                          onClick={() => handleResendInvitation(user.id, user.email)}
+                          title="Dispatch Private Activation / Reset Link"
+                          className="text-emerald-600 hover:text-emerald-900 mx-2 disabled:opacity-50"
+                        >
+                          {sendingResetUserId === user.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin inline" />
+                          ) : (
+                            <Mail className="w-4 h-4 inline" />
+                          )}
+                        </button>
+                      )}
+                      <button onClick={() => handleEditUser(user.id)} title="Edit User" className="text-blue-600 hover:text-blue-900 mx-2"><Edit className="w-4 h-4 inline" /></button>
                       {!user.is_deleted ? (
-                        <button onClick={() => handleDeleteUser(user.id, user.email)} className="text-red-600 hover:text-red-900"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteUser(user.id, user.email)} title="Deactivate User" className="text-red-600 hover:text-red-900 mx-2"><Trash2 className="w-4 h-4 inline" /></button>
                       ) : (
-                        <button onClick={() => handleRestoreUser(user.id, user.email)} className="text-green-600 hover:text-green-900"><RotateCcw className="w-4 h-4" /></button>
+                        <button onClick={() => handleRestoreUser(user.id, user.email)} title="Restore User" className="text-green-600 hover:text-green-900 mx-2"><RotateCcw className="w-4 h-4 inline" /></button>
                       )}
                     </td>
                   </tr>

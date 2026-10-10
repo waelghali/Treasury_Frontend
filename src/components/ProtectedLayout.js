@@ -155,57 +155,126 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
 
     let isMounted = true;
     let timerId = null;
+    let channel = null;
+
+    // BroadcastChannel: Synchronizes deal alerts across multiple tabs locally in < 1ms
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        channel = new BroadcastChannel('grow_quotation_alert_channel');
+        channel.onmessage = (event) => {
+          if (!isMounted) return;
+          const data = event.data;
+          if (data && data.type === 'DEAL_ALERT_UPDATE') {
+            if (data.deal) {
+              setPendingDeal(data.deal);
+            } else {
+              setPendingDeal(null);
+            }
+          } else if (data && data.type === 'TRIGGER_IMMEDIATE_CHECK') {
+            pollActiveDeal();
+          }
+        };
+      } catch (bcErr) {
+        console.warn('BroadcastChannel initialization failed, falling back to local polling:', bcErr);
+      }
+    }
+
+    const broadcastDealState = (deal) => {
+      if (channel) {
+        try {
+          channel.postMessage({ type: 'DEAL_ALERT_UPDATE', deal });
+        } catch (e) {}
+      }
+    };
 
     const pollActiveDeal = async () => {
       if (!isMounted) return;
+      if (timerId) clearTimeout(timerId);
+
+      // If tab is in background, pause polling entirely to avoid lock contention
       if (typeof document !== 'undefined' && document.hidden) {
-        // Tab is hidden, check again after 60s
-        timerId = setTimeout(pollActiveDeal, 60000);
         return;
       }
+
       try {
         const res = await apiClient.get(alertEndpoint);
         if (!isMounted) return;
+
         if (res.data?.has_pending_deal && res.data?.deal) {
-          setPendingDeal(res.data.deal);
-          // If a deal is awaiting acceptance, check every 3s to keep countdown sync
-          timerId = setTimeout(pollActiveDeal, 3000);
+          const deal = res.data.deal;
+          setPendingDeal(deal);
+          broadcastDealState(deal);
+          // Crucial Acceptance Window: 500ms sync so countdown and decision state have 0 latency
+          timerId = setTimeout(pollActiveDeal, 500);
         } else {
           setPendingDeal(null);
-          // When on quotation routes, poll frequently (3s) to trigger acceptance popup immediately on window closure.
-          // Otherwise check every 15s.
-          const isQuotationRoute = location.pathname.includes('/quotations');
-          const idleDelay = isQuotationRoute ? 3000 : 15000;
-          timerId = setTimeout(pollActiveDeal, idleDelay);
+          broadcastDealState(null);
+
+          // Adaptive Cadence based on quotation context
+          const pathname = location.pathname || '';
+          const isQuotationRoute = pathname.includes('/quotation');
+          const isResultsView = pathname.includes('/quotations/results');
+
+          if (isResultsView) {
+            // Live tender view: poll at 5 seconds during active bidding
+            timerId = setTimeout(pollActiveDeal, 5000);
+          } else if (isQuotationRoute) {
+            // Other quotation pages (history/roster/create): conservative 10s polling
+            timerId = setTimeout(pollActiveDeal, 10000);
+          } else {
+            // Non-quotation corporate pages: 30s background idle check
+            timerId = setTimeout(pollActiveDeal, 30000);
+          }
         }
       } catch (err) {
         if (!isMounted) return;
-        // If 401 or 403 (unauthorized/forbidden), halt polling permanently to prevent spam
         if (err.response && (err.response.status === 403 || err.response.status === 401)) {
           return;
         }
-        // General error backoff
-        timerId = setTimeout(pollActiveDeal, 30000);
+        timerId = setTimeout(pollActiveDeal, 15000);
       }
     };
 
+    // Initial check on mount
     pollActiveDeal();
 
+    // Instant zero-delay trigger on window closure or explicit deal events
     const handleImmediateCheck = () => {
       if (timerId) clearTimeout(timerId);
       pollActiveDeal();
+      if (channel) {
+        try {
+          channel.postMessage({ type: 'TRIGGER_IMMEDIATE_CHECK' });
+        } catch (e) {}
+      }
+    };
+
+    // Instant wake-up when user switches focus to this tab
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        handleImmediateCheck();
+      }
     };
 
     window.addEventListener('check-deal-acceptance', handleImmediateCheck);
+    window.addEventListener('quotation-window-closed', handleImmediateCheck);
     window.addEventListener('quotation-deal-resolved', handleImmediateCheck);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       isMounted = false;
       if (timerId) clearTimeout(timerId);
+      if (channel) {
+        try {
+          channel.close();
+        } catch (e) {}
+      }
       window.removeEventListener('check-deal-acceptance', handleImmediateCheck);
+      window.removeEventListener('quotation-window-closed', handleImmediateCheck);
       window.removeEventListener('quotation-deal-resolved', handleImmediateCheck);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [hasQuotationModule, userRole]);
+  }, [hasQuotationModule, userRole, location.pathname]);
 
   // Helper to wrap layout with AI Assistant trigger & modal
   const renderWithAiAssistant = (layoutComponent) => (

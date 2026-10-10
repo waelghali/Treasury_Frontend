@@ -9,14 +9,17 @@ body {
 
 /* Base styles for common elements */
 @layer base {
-  input[type="text"],
-  input[type="email"],
-  input[type="password"],
-  input[type="number"],
-  textarea,
-  select {
+  :where(input[type="text"], input[type="email"], input[type="password"], input[type="number"], textarea, select) {
     @apply rounded-md border-blue-200 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 text-base p-2;
   }
+}
+
+/* Global protection: ensure inputs with leading icons (search, calendar, etc.) never overlap text */
+input[class*="pl-8"],
+input[class*="pl-9"],
+input[class*="pl-10"],
+.search-input {
+  padding-left: 2.5rem !important;
 }
 
 /* Custom component styles */

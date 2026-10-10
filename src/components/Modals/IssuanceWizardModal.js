@@ -237,6 +237,29 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
         return selectedFacility.data.sub_limit_id || selectedFacility.data.id || null;
     };
 
+    const openCompanionLetter = async () => {
+        const isCrossBorder = Boolean(request.is_cross_border);
+        const requiresSw = Boolean(request.requires_special_wording);
+        const hasOtherCond = Boolean(request.other_conditions);
+        const hasCompanion = isCrossBorder || requiresSw || hasOtherCond || formFillInfo?.has_companion_letter;
+        
+        if (hasCompanion && request?.id) {
+            try {
+                const letterBlob = await apiRequest(
+                    `/issuance/requests/${request.id}/generate-letter?is_companion=true`,
+                    'GET', null, 'application/json', 'blob'
+                );
+                if (letterBlob instanceof Blob) {
+                    const letterUrl = window.URL.createObjectURL(letterBlob);
+                    window.open(letterUrl, '_blank');
+                    toast.info('📄 Companion Bank Instruction Letter & Legal Annex opened in a new tab.', { autoClose: 6000 });
+                }
+            } catch (lErr) {
+                console.warn('Could not auto-generate companion letter:', lErr);
+            }
+        }
+    };
+
     // Issue 1: Trigger bank form Phase 1 when entering Step 3 (before user clicks Confirm)
     const handleStepForward = async () => {
         if (step === 2 && selectedMethod?.strategy_code === 'BANK_FORM' && !bankFormPreloaded) {
@@ -280,6 +303,7 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                     const blobUrl = window.URL.createObjectURL(response);
                     window.open(blobUrl, '_blank');
                     toast.success('Bank form filled and opened in new tab.');
+                    await openCompanionLetter();
                     setBankFormCompleted(true);
                     setFormFillInfo({});
                 }
@@ -348,6 +372,7 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
             } else {
                 toast.success('Bank form filled and opened in new tab.');
             }
+            await openCompanionLetter();
 
             // Auto-open special wording attachment if applicable
             const swDocId = formFillInfo?.special_wording_doc_id;
@@ -1005,6 +1030,23 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                     >
                                         Dismiss
                                     </button>
+                                </div>
+                            )}
+
+                            {/* Bank Submission Package Notice for Cross-Border & Special Wording */}
+                            {(request.is_cross_border || request.requires_special_wording || request.other_conditions) && (
+                                <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-3.5 flex items-start gap-3 shadow-xs">
+                                    <div className="p-1.5 bg-blue-100 rounded-lg text-blue-700 shrink-0 mt-0.5">
+                                        <FileText className="w-4 h-4" />
+                                    </div>
+                                    <div className="text-xs">
+                                        <p className="font-bold text-blue-900 mb-0.5">Bank Submission Package Ready</p>
+                                        <p className="text-blue-800 leading-relaxed">
+                                            {request.is_cross_border ? "Cross-Border Counter-Guarantee instructions (SWIFT MT760, URDG 758 & Advising Bank) " : ""}
+                                            {request.requires_special_wording ? "Project-specific wording annex " : ""}
+                                            will be attached via the official <strong>Companion Bank Instruction Letter &amp; Legal Annex</strong> extending the bank application form.
+                                        </p>
+                                    </div>
                                 </div>
                             )}
 

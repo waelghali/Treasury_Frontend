@@ -249,14 +249,14 @@ const SearchableCombobox = ({
           {/* Search Header */}
           <div className="px-2.5 pb-1.5 border-b border-gray-100 space-y-1.5">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
               <input
                 ref={inputRef}
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full pl-8 pr-7 py-1.5 text-xs rounded-md border border-gray-200 bg-slate-50 focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full !pl-9 pr-7 py-1.5 text-xs rounded-md border border-gray-200 bg-slate-50 focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               />
               {search && (
                 <button
@@ -1013,13 +1013,13 @@ function SystemNotificationList({ onLogout }) {
           
           {/* Keyword Search Input */}
           <div className="relative flex-1 max-w-lg">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <input
               type="text"
               placeholder="Search by keyword, LG reference, or message..."
               value={filters.search}
               onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-              className="w-full pl-10 pr-9 py-2 rounded-lg border border-gray-200 bg-slate-50 text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition placeholder:text-slate-400"
+              className="w-full !pl-10 pr-9 py-2 rounded-lg border border-gray-200 bg-slate-50 text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition placeholder:text-slate-400"
             />
             {filters.search && (
               <button 

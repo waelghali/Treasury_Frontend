@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { jwtDecode } from 'jwt-decode';
 import {
     Clock, ShieldCheck, Zap, ArrowUpRight, ArrowDownLeft, RefreshCw, Volume2, VolumeX,
     LogOut, ExternalLink, ChevronDown, ChevronUp, Copy, Check,
     AlertCircle, CheckCircle2, TrendingUp, Layers, Building2,
     Calendar, Trophy, Award, Search, Filter, Loader2, Info,
     FileText, CheckCircle, XCircle, BarChart3, LayoutList, LayoutGrid, X,
-    Lock, Unlock, Crown, Flame, Landmark, Eye, Shield, Globe, Sparkles, Medal
+    Lock, Unlock, Crown, Flame, Landmark, Eye, Shield, Globe, Sparkles, Medal,
+    Users, UserCheck, User
 } from 'lucide-react';
 import tradingAudio from '../../utils/tradingAudioEngine';
 
@@ -32,11 +34,20 @@ export default function BankDealerDeskPage() {
 
     // Session & Profile
     const [dealer, setDealer] = useState(null);
-    const [activeTab, setActiveTab] = useState('live'); // 'live', 'won', 'history', 'analytics', 'trophies'
+    const [activeTab, setActiveTab] = useState('won'); // Default landing: Won Trades & Receipts
     const [blotterViewMode, setBlotterViewMode] = useState('table'); // 'table' vs 'cards'
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
+
+    // Inactivity & Session Expiry State (15-min idle timeout, 60-sec warning)
+    const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
+    const INACTIVITY_WARNING_MS = 60 * 1000;
+    const [showIdleWarning, setShowIdleWarning] = useState(false);
+    const [idleCountdown, setIdleCountdown] = useState(60);
+    const lastActivityRef = useRef(Date.now());
+    const showIdleWarningRef = useRef(false);
+    showIdleWarningRef.current = showIdleWarning;
 
     // Audio & Clock
     const [audioMuted, setAudioMuted] = useState(false);
@@ -49,17 +60,23 @@ export default function BankDealerDeskPage() {
     const [achievements, setAchievements] = useState(null);
     const [blotterStats, setBlotterStats] = useState({
         won_deals_count: 0,
+        my_won_deals_count: 0,
         total_volume_won: 0,
         win_rate_percent: 0,
+        my_win_rate_percent: 0,
         avg_dealer_rank: null
     });
 
     // Filters & Search
     const [searchQuery, setSearchQuery] = useState('');
+    const [scopeFilter, setScopeFilter] = useState('ALL_DESK'); // 'ALL_DESK' (All Bank Traders) or 'MY_TRADES' (My Executions)
     const [outcomeFilter, setOutcomeFilter] = useState('ALL'); // 'ALL', 'WON', 'LOST', 'QUOTED'
+    const [dateFilter, setDateFilter] = useState('ALL'); // 'ALL', 'TODAY', '7D', '30D'
+    const [currencyFilter, setCurrencyFilter] = useState('ALL'); // 'ALL', 'USD', 'EUR', etc.
+    const [customerFilter, setCustomerFilter] = useState('ALL'); // 'ALL' or specific customer_name
+    const [sortBy, setSortBy] = useState('NEWEST'); // 'NEWEST', 'OLDEST'
 
     // UI state & Modal
-    const [expandedTicketId, setExpandedTicketId] = useState(null);
     const [expandedRowIds, setExpandedRowIds] = useState(new Set());
     const [selectedDealSlip, setSelectedDealSlip] = useState(null);
     const [copiedReceiptId, setCopiedReceiptId] = useState(null);
@@ -82,24 +99,97 @@ export default function BankDealerDeskPage() {
         return token ? { Authorization: `Bearer ${token}` } : {};
     }, []);
 
-    // Desk Clock Tick
+    // Logout Handler with Optional Reason
+    const handleLogout = useCallback((reason = null) => {
+        localStorage.removeItem('grow_bank_dealer_token');
+        localStorage.removeItem('grow_bank_dealer_profile');
+        if (reason) {
+            navigate(`/dealer/login?reason=${encodeURIComponent(reason)}`, { replace: true });
+        } else {
+            navigate('/dealer/login', { replace: true });
+        }
+    }, [navigate]);
+
+    // Keep Active Handler for Inactivity Warning Modal
+    const handleStayActive = useCallback(() => {
+        lastActivityRef.current = Date.now();
+        setShowIdleWarning(false);
+        setIdleCountdown(60);
+    }, []);
+
+    // Global Activity Listeners (mousedown, keydown, click, scroll, touch, throttled mousemove)
     useEffect(() => {
-        const updateClock = () => {
+        let lastThrottle = 0;
+        const recordActivity = (e) => {
+            const now = Date.now();
+            if (e.type === 'mousemove') {
+                if (now - lastThrottle < 1000) return;
+                lastThrottle = now;
+            }
+            if (!showIdleWarningRef.current) {
+                lastActivityRef.current = now;
+            }
+        };
+
+        const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
+        events.forEach(ev => window.addEventListener(ev, recordActivity, { passive: true }));
+        return () => {
+            events.forEach(ev => window.removeEventListener(ev, recordActivity));
+        };
+    }, []);
+
+    // Desk Clock Tick & Session / Inactivity Sentinel
+    useEffect(() => {
+        const updateClockAndSecurity = () => {
             const now = new Date();
             setCurrentTimeUtc(now.toUTCString().slice(17, 25) + ' UTC');
             setCurrentTimeLocal(now.toLocaleTimeString());
-        };
-        updateClock();
-        const clockTimer = setInterval(updateClock, 1000);
-        return () => clearInterval(clockTimer);
-    }, []);
 
-    // Logout Handler
-    const handleLogout = useCallback(() => {
-        localStorage.removeItem('grow_bank_dealer_token');
-        localStorage.removeItem('grow_bank_dealer_profile');
-        navigate('/dealer/login', { replace: true });
-    }, [navigate]);
+            // 1. Session Token Expiry Validation (cryptographic exp claim)
+            const token = localStorage.getItem('grow_bank_dealer_token');
+            if (token) {
+                try {
+                    const decoded = jwtDecode(token);
+                    if (decoded.exp && Date.now() >= decoded.exp * 1000) {
+                        handleLogout('Trading session expired. Please log in again.');
+                        return;
+                    }
+                } catch (e) {}
+            }
+
+            // 2. Desk Inactivity Check
+            const idleMs = Date.now() - lastActivityRef.current;
+            const remainingMs = INACTIVITY_TIMEOUT_MS - idleMs;
+            if (remainingMs <= 0) {
+                handleLogout('Trading desk automatically locked due to inactivity.');
+            } else if (remainingMs <= INACTIVITY_WARNING_MS) {
+                setShowIdleWarning(true);
+                setIdleCountdown(Math.max(1, Math.ceil(remainingMs / 1000)));
+            } else {
+                if (showIdleWarningRef.current) {
+                    setShowIdleWarning(false);
+                }
+            }
+
+            // 3. Local Countdown Ticker for Live Tickets (No network polling needed)
+            setLiveTickets(prev => {
+                if (!prev || !prev.length) return prev;
+                let hasChanges = false;
+                const next = prev.map(t => {
+                    if (t.seconds_remaining && t.seconds_remaining > 0) {
+                        hasChanges = true;
+                        return { ...t, seconds_remaining: t.seconds_remaining - 1 };
+                    }
+                    return t;
+                });
+                return hasChanges ? next : prev;
+            });
+        };
+
+        updateClockAndSecurity();
+        const clockTimer = setInterval(updateClockAndSecurity, 1000);
+        return () => clearInterval(clockTimer);
+    }, [handleLogout]);
 
     // Fetch Dealer Profile
     useEffect(() => {
@@ -115,10 +205,11 @@ export default function BankDealerDeskPage() {
             if (res.data?.success) {
                 setDealer(res.data.dealer);
             } else {
-                handleLogout();
+                handleLogout('Failed to load dealer credentials.');
             }
-        }).catch(() => {
-            handleLogout();
+        }).catch((err) => {
+            const detail = err.response?.data?.detail || 'Session expired or portal access revoked.';
+            handleLogout(detail);
         });
     }, [navigate, handleLogout]);
 
@@ -146,8 +237,13 @@ export default function BankDealerDeskPage() {
                 setHistoryRecords(histRes.data.records || []);
                 setBlotterStats({
                     won_deals_count: histRes.data.won_deals_count || 0,
+                    my_won_deals_count: histRes.data.my_won_deals_count || 0,
+                    quoted_deals_count: histRes.data.quoted_deals_count || 0,
+                    my_quoted_deals_count: histRes.data.my_quoted_deals_count || 0,
                     total_volume_won: histRes.data.total_volume_won || 0,
+                    won_volume_by_currency: histRes.data.won_volume_by_currency || {},
                     win_rate_percent: histRes.data.win_rate_percent || 0,
+                    my_win_rate_percent: histRes.data.my_win_rate_percent || 0,
                     avg_dealer_rank: histRes.data.avg_dealer_rank
                 });
             }
@@ -158,7 +254,10 @@ export default function BankDealerDeskPage() {
             setError(null);
         } catch (err) {
             if (err.response?.status === 401) {
-                handleLogout();
+                handleLogout('Session expired. Please log in again.');
+            } else if (err.response?.status === 403) {
+                const detail = err.response?.data?.detail || 'Desk access suspended.';
+                handleLogout(detail);
             } else {
                 setError('Could not refresh trading blotter feeds.');
             }
@@ -168,13 +267,9 @@ export default function BankDealerDeskPage() {
         }
     }, [getAuthHeaders, audioMuted, handleLogout]);
 
-    // Initial Load & 3-Second Poll
+    // Initial Load (Manual Refresh via header button or tab navigation)
     useEffect(() => {
         fetchBlotterData();
-        const pollInterval = setInterval(() => {
-            fetchBlotterData(true);
-        }, 3000);
-        return () => clearInterval(pollInterval);
     }, [fetchBlotterData]);
 
     // Copy Receipt Hash
@@ -196,22 +291,112 @@ export default function BankDealerDeskPage() {
         );
     });
 
-    const wonHistoryRecords = historyRecords.filter(h => h.is_won);
+    // Unique Currencies for Filter Dropdown
+    const availableCurrencies = useMemo(() => {
+        const currs = new Set();
+        historyRecords.forEach(h => {
+            if (h.summary_currency) currs.add(h.summary_currency);
+            if (h.all_legs_detail) {
+                h.all_legs_detail.forEach(l => {
+                    if (l.currency) currs.add(l.currency);
+                });
+            }
+        });
+        return Array.from(currs).filter(Boolean).sort();
+    }, [historyRecords]);
 
-    const filteredHistoryRecords = historyRecords.filter(h => {
-        if (outcomeFilter === 'WON' && !h.is_won) return false;
-        if (outcomeFilter === 'LOST' && (h.is_won || h.outcome === 'EXPIRED' || h.outcome === 'CANCELLED')) return false;
-        if (outcomeFilter === 'QUOTED' && !h.has_quoted) return false;
+    // Unique Customers for Filter Dropdown
+    const availableCustomers = useMemo(() => {
+        const custs = new Set();
+        historyRecords.forEach(h => {
+            if (h.customer_name) custs.add(h.customer_name.trim());
+        });
+        return Array.from(custs).filter(Boolean).sort();
+    }, [historyRecords]);
 
-        if (!searchQuery) return true;
-        const q = searchQuery.toLowerCase();
-        return (
-            h.customer_name?.toLowerCase().includes(q) ||
-            h.ref_no?.toLowerCase().includes(q) ||
-            h.summary_pair?.toLowerCase().includes(q) ||
-            h.dealer_submitted_by?.toLowerCase().includes(q)
-        );
-    });
+    const myWonCount = useMemo(() => {
+        const cleanEmail = (dealer?.email || '').trim().toLowerCase();
+        return historyRecords.filter(h => h.is_won && (h.is_won_by_me || (cleanEmail && h.dealer_submitted_by && h.dealer_submitted_by.trim().toLowerCase() === cleanEmail))).length;
+    }, [historyRecords, dealer]);
+
+    const myAllCount = useMemo(() => {
+        const cleanEmail = (dealer?.email || '').trim().toLowerCase();
+        return historyRecords.filter(h => h.quoted_by_me || h.is_won_by_me || (cleanEmail && h.dealer_submitted_by && h.dealer_submitted_by.trim().toLowerCase() === cleanEmail)).length;
+    }, [historyRecords, dealer]);
+
+    const applyHistoryFilters = useCallback((records, filterWonOnly = false) => {
+        const cleanEmail = (dealer?.email || '').trim().toLowerCase();
+        return records.filter(h => {
+            // Scope filter: ALL_DESK vs MY_TRADES
+            if (scopeFilter === 'MY_TRADES') {
+                const isMine = filterWonOnly
+                    ? (h.is_won_by_me || (cleanEmail && h.dealer_submitted_by && h.dealer_submitted_by.trim().toLowerCase() === cleanEmail))
+                    : (h.quoted_by_me || h.is_won_by_me || (cleanEmail && h.dealer_submitted_by && h.dealer_submitted_by.trim().toLowerCase() === cleanEmail));
+                if (!isMine) return false;
+            }
+
+            if (filterWonOnly && !h.is_won) return false;
+            if (!filterWonOnly) {
+                if (outcomeFilter === 'WON' && !h.is_won) return false;
+                if (outcomeFilter === 'LOST' && (h.is_won || h.outcome === 'EXPIRED' || h.outcome === 'CANCELLED')) return false;
+                if (outcomeFilter === 'QUOTED' && !h.has_quoted) return false;
+            }
+
+            // Customer filter
+            if (customerFilter !== 'ALL') {
+                if (h.customer_name?.trim() !== customerFilter) return false;
+            }
+
+            // Currency filter
+            if (currencyFilter !== 'ALL') {
+                const matchSummary = h.summary_currency === currencyFilter;
+                const matchLegs = h.all_legs_detail && h.all_legs_detail.some(l => l.currency === currencyFilter);
+                if (!matchSummary && !matchLegs) return false;
+            }
+
+            // Date Range filter
+            if (dateFilter !== 'ALL' && h.concluded_at) {
+                const itemDate = new Date(h.concluded_at);
+                const now = new Date();
+                if (dateFilter === 'TODAY') {
+                    if (itemDate.toDateString() !== now.toDateString()) return false;
+                } else if (dateFilter === '7D') {
+                    const diffDays = (now - itemDate) / (1000 * 60 * 60 * 24);
+                    if (diffDays > 7) return false;
+                } else if (dateFilter === '30D') {
+                    const diffDays = (now - itemDate) / (1000 * 60 * 60 * 24);
+                    if (diffDays > 30) return false;
+                }
+            }
+
+            // Search query
+            if (!searchQuery) return true;
+            const q = searchQuery.toLowerCase();
+            return (
+                h.customer_name?.toLowerCase().includes(q) ||
+                h.ref_no?.toLowerCase().includes(q) ||
+                h.summary_pair?.toLowerCase().includes(q) ||
+                h.dealer_submitted_by?.toLowerCase().includes(q) ||
+                (h.all_legs_detail && h.all_legs_detail.some(l => 
+                    l.pair?.toLowerCase().includes(q) || 
+                    l.currency?.toLowerCase().includes(q)
+                ))
+            );
+        }).sort((a, b) => {
+            if (sortBy === 'OLDEST') {
+                return new Date(a.concluded_at || 0) - new Date(b.concluded_at || 0);
+            }
+            return new Date(b.concluded_at || 0) - new Date(a.concluded_at || 0);
+        });
+    }, [outcomeFilter, customerFilter, currencyFilter, dateFilter, searchQuery, sortBy, scopeFilter, dealer]);
+
+    const wonHistoryRecords = useMemo(() => applyHistoryFilters(historyRecords, true), [applyHistoryFilters, historyRecords]);
+    const filteredHistoryRecords = useMemo(() => applyHistoryFilters(historyRecords, false), [applyHistoryFilters, historyRecords]);
+
+    const liveOpenCount = useMemo(() => liveTickets.filter(t => t.status === 'LIVE_OPEN').length, [liveTickets]);
+    const scheduledCount = useMemo(() => liveTickets.filter(t => t.status === 'SCHEDULED').length, [liveTickets]);
+    const evaluatingCount = useMemo(() => liveTickets.filter(t => t.status === 'EVALUATING').length, [liveTickets]);
+    const activeTendersCount = useMemo(() => liveTickets.filter(t => t.status === 'LIVE_OPEN' || t.status === 'SCHEDULED').length, [liveTickets]);
 
     const formatCurrency = (amt) => {
         if (amt === null || amt === undefined) return '—';
@@ -373,26 +558,52 @@ export default function BankDealerDeskPage() {
                     <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4 relative overflow-hidden">
                         <div className="flex justify-between items-start">
                             <span className="text-xs text-slate-400 font-medium">Active Live Tenders</span>
-                            {liveTickets.filter(t => t.status === 'LIVE_OPEN').length > 0 && (
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                            {liveOpenCount > 0 ? (
+                                <span className="flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Live</span>
+                                </span>
+                            ) : scheduledCount > 0 ? (
+                                <span className="flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                                    <span className="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">Upcoming</span>
+                                </span>
+                            ) : null}
+                        </div>
+                        <div className="text-2xl font-black text-white mt-1 font-mono flex items-baseline space-x-2">
+                            <span>{activeTendersCount}</span>
+                            {scheduledCount > 0 && liveOpenCount > 0 && (
+                                <span className="text-xs font-semibold text-slate-400 font-sans">
+                                    ({liveOpenCount} Live, {scheduledCount} Upcoming)
+                                </span>
                             )}
                         </div>
-                        <div className="text-2xl font-black text-white mt-1 font-mono">
-                            {liveTickets.filter(t => t.status === 'LIVE_OPEN').length}
-                        </div>
-                        <span className="text-[11px] text-emerald-400">Actionable live client RFQs</span>
+                        <span className="text-[11px] text-emerald-400">
+                            {liveOpenCount > 0 && scheduledCount > 0
+                                ? `${liveOpenCount} live now • ${scheduledCount} scheduled to open`
+                                : liveOpenCount > 0
+                                    ? `${liveOpenCount} actionable live client RFQ${liveOpenCount > 1 ? 's' : ''}`
+                                    : scheduledCount > 0
+                                        ? `${scheduledCount} scheduled tender (starts shortly)`
+                                        : 'Actionable live client RFQs'}
+                        </span>
                     </div>
 
                     <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4">
                         <span className="text-xs text-slate-400 font-medium">Client Evaluating</span>
                         <div className="text-2xl font-black text-white mt-1 font-mono">
-                            {liveTickets.filter(t => t.status === 'EVALUATING').length}
+                            {evaluatingCount}
                         </div>
                         <span className="text-[11px] text-amber-400">Quotes pending award decision</span>
                     </div>
 
                     <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4">
-                        <span className="text-xs text-slate-400 font-medium">Desk Win Ratio</span>
+                        <div className="flex justify-between items-start">
+                            <span className="text-xs text-slate-400 font-medium">Desk Win Ratio</span>
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                                Desk
+                            </span>
+                        </div>
                         <div className="text-2xl font-black text-emerald-400 mt-1 font-mono flex items-baseline space-x-1">
                             <span>{blotterStats.win_rate_percent}%</span>
                             {blotterStats.avg_dealer_rank && (
@@ -401,15 +612,27 @@ export default function BankDealerDeskPage() {
                                 </span>
                             )}
                         </div>
-                        <span className="text-[11px] text-slate-400">Competitiveness across quoted RFQs</span>
+                        <span className="text-[11px] text-slate-400">Institutional desk competitiveness</span>
                     </div>
 
                     <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4">
-                        <span className="text-xs text-slate-400 font-medium">Total Flow Won</span>
-                        <div className="text-2xl font-black text-cyan-400 mt-1 font-mono">
-                            {blotterStats.total_volume_won > 0 ? `$${formatCurrency(blotterStats.total_volume_won)}` : `${blotterStats.won_deals_count} Won Deals`}
+                        <div className="flex justify-between items-start">
+                            <span className="text-xs text-slate-400 font-medium">Bank Desk Flow Won</span>
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                                Desk Total
+                            </span>
                         </div>
-                        <span className="text-[11px] text-cyan-500">{blotterStats.won_deals_count} cryptographically sealed</span>
+                        <div className="text-2xl font-black text-cyan-400 mt-1 font-mono flex items-baseline space-x-1.5">
+                            <span>{blotterStats.won_deals_count} Won</span>
+                            <span className="text-xs font-semibold text-emerald-400 font-sans" title="Won personally by this trader login">
+                                ({achievements?.personal_bests?.total_deals_won ?? blotterStats.my_won_deals_count ?? myWonCount} by You)
+                            </span>
+                        </div>
+                        <span className="text-[11px] text-cyan-400 truncate block mt-0.5" title={blotterStats.won_volume_by_currency ? Object.entries(blotterStats.won_volume_by_currency).map(([c, v]) => `${formatCurrency(v)} ${c}`).join(' • ') : ''}>
+                            {blotterStats.won_volume_by_currency && Object.keys(blotterStats.won_volume_by_currency).length > 0
+                                ? Object.entries(blotterStats.won_volume_by_currency).map(([c, v]) => `${formatCurrency(v)} ${c}`).join(' • ')
+                                : `${blotterStats.won_deals_count} cryptographically sealed`}
+                        </span>
                     </div>
 
                     {/* CARD 5: TRADER TROPHIES & TIER */}
@@ -421,13 +644,16 @@ export default function BankDealerDeskPage() {
                             <span className="text-xs text-amber-400 font-semibold flex items-center">
                                 <Trophy className="w-3.5 h-3.5 mr-1 text-amber-400" /> Trader Accolades
                             </span>
-                            <span className="text-[10px] text-amber-400/80 font-mono group-hover:translate-x-0.5 transition-transform">
-                                View ➔
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                Personal
                             </span>
                         </div>
                         <div className="text-2xl font-black text-white mt-1 font-mono flex items-baseline space-x-1.5">
                             <span className="text-amber-400">{achievements?.earned_trophy_count || 0}</span>
-                            <span className="text-slate-500 text-sm font-normal">/ {achievements?.total_trophies || 8}</span>
+                            <span className="text-slate-500 text-sm font-normal">/ {achievements?.total_trophies || 8} Badges</span>
+                            <span className="text-xs font-semibold text-emerald-400 font-sans ml-1">
+                                &bull; {achievements?.personal_bests?.total_deals_won ?? blotterStats.my_won_deals_count ?? myWonCount} Wins
+                            </span>
                         </div>
                         <span className="text-[11px] text-slate-400 truncate block mt-0.5">
                             Tier: <strong className="text-slate-200">{achievements?.dealer_tier || 'Active Dealer'}</strong>
@@ -436,25 +662,9 @@ export default function BankDealerDeskPage() {
                 </div>
 
                 {/* Sub-Navigation Tabs & Search Bar */}
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-6 bg-[#0f172a] p-2 rounded-2xl border border-slate-800">
-                    {/* Tabs */}
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4 bg-[#0f172a] p-2 rounded-2xl border border-slate-800">
+                    {/* Tabs: Won Trades & History First */}
                     <div className="flex flex-wrap items-center gap-1">
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('live')}
-                            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
-                                activeTab === 'live'
-                                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950'
-                                    : 'text-slate-400 hover:text-white'
-                            }`}
-                        >
-                            <Zap className="w-3.5 h-3.5" />
-                            <span>Live Multi-Customer Feed</span>
-                            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-900/80 font-mono">
-                                {liveTickets.length}
-                            </span>
-                        </button>
-
                         <button
                             type="button"
                             onClick={() => setActiveTab('won')}
@@ -466,8 +676,8 @@ export default function BankDealerDeskPage() {
                         >
                             <Trophy className="w-3.5 h-3.5 text-amber-400" />
                             <span>Won Trades &amp; Receipts</span>
-                            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-900/80 font-mono text-emerald-400 font-bold">
-                                {wonHistoryRecords.length}
+                            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-900/80 font-mono text-emerald-400 font-bold" title={scopeFilter === 'MY_TRADES' ? 'My Won Trades' : 'All Desk Won Trades'}>
+                                {scopeFilter === 'MY_TRADES' ? wonHistoryRecords.length : blotterStats.won_deals_count}
                             </span>
                         </button>
 
@@ -483,7 +693,23 @@ export default function BankDealerDeskPage() {
                             <FileText className="w-3.5 h-3.5" />
                             <span>All Concluded Deals</span>
                             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-900/80 font-mono">
-                                {historyRecords.length}
+                                {scopeFilter === 'MY_TRADES' ? filteredHistoryRecords.length : historyRecords.length}
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('live')}
+                            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                                activeTab === 'live'
+                                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950'
+                                    : 'text-slate-400 hover:text-white'
+                            }`}
+                        >
+                            <Zap className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Live Multi-Customer Feed</span>
+                            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-900/80 font-mono">
+                                {activeTendersCount}
                             </span>
                         </button>
 
@@ -541,41 +767,152 @@ export default function BankDealerDeskPage() {
                         )}
 
                         <div className="relative flex-1 sm:w-64">
-                            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
+                            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                             <input
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Search client, pair, ref..."
-                                className="w-full pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                                className="w-full !pl-10 pr-3 py-1.5 bg-slate-900 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                             />
                         </div>
                     </div>
                 </div>
 
-                {/* Sub-Filters for History Tab */}
-                {activeTab === 'history' && (
-                    <div className="flex flex-wrap items-center gap-2 mb-4 px-1">
-                        <span className="text-xs text-slate-500 font-semibold mr-1 flex items-center">
-                            <Filter className="w-3 h-3 mr-1" /> Filter Outcome:
-                        </span>
-                        {['ALL', 'WON', 'LOST', 'QUOTED'].map((filter) => (
-                            <button
-                                key={filter}
-                                type="button"
-                                onClick={() => setOutcomeFilter(filter)}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                                    outcomeFilter === filter
-                                        ? 'bg-slate-800 text-emerald-400 border border-emerald-500/30'
-                                        : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-slate-800'
-                                }`}
+                {/* Sub-Filters for History & Won Tabs */}
+                {(activeTab === 'history' || activeTab === 'won') && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4 px-2 py-2 bg-[#0b101b] border border-slate-800/80 rounded-xl">
+                        <div className="flex flex-wrap items-center gap-2">
+                            {/* Scope Switcher: All Desk vs My Executions */}
+                            <div className="flex items-center space-x-1 border-r border-slate-800 pr-3 mr-1">
+                                <span className="text-[11px] text-slate-500 font-semibold mr-1 flex items-center">
+                                    <Users className="w-3 h-3 mr-1" /> View:
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setScopeFilter('ALL_DESK')}
+                                    className={`px-2.5 py-0.5 rounded-lg text-xs font-semibold transition-all ${
+                                        scopeFilter === 'ALL_DESK'
+                                            ? 'bg-slate-800 text-cyan-400 border border-cyan-500/40 shadow-sm font-bold'
+                                            : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-slate-800'
+                                    }`}
+                                >
+                                    All Desk ({activeTab === 'won' ? blotterStats.won_deals_count : historyRecords.length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setScopeFilter('MY_TRADES')}
+                                    className={`px-2.5 py-0.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1 ${
+                                        scopeFilter === 'MY_TRADES'
+                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm font-bold'
+                                            : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-slate-800'
+                                    }`}
+                                >
+                                    <UserCheck className="w-3 h-3 text-emerald-400" />
+                                    <span>My Trades ({activeTab === 'won' ? (achievements?.personal_bests?.total_deals_won ?? blotterStats.my_won_deals_count ?? myWonCount) : myAllCount})</span>
+                                </button>
+                            </div>
+                            {/* Outcome Filter (History Tab only) */}
+                            {activeTab === 'history' && (
+                                <div className="flex items-center space-x-1 border-r border-slate-800 pr-3 mr-1">
+                                    <span className="text-[11px] text-slate-500 font-semibold mr-1 flex items-center">
+                                        <Filter className="w-3 h-3 mr-1" /> Outcome:
+                                    </span>
+                                    {['ALL', 'WON', 'LOST', 'QUOTED'].map((filter) => (
+                                        <button
+                                            key={filter}
+                                            type="button"
+                                            onClick={() => setOutcomeFilter(filter)}
+                                            className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-all ${
+                                                outcomeFilter === filter
+                                                    ? 'bg-slate-800 text-emerald-400 border border-emerald-500/30'
+                                                    : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-slate-800'
+                                            }`}
+                                        >
+                                            {filter === 'ALL' && 'All'}
+                                            {filter === 'WON' && 'Won'}
+                                            {filter === 'LOST' && 'Lost'}
+                                            {filter === 'QUOTED' && 'Quoted'}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Date Range Filter */}
+                            <div className="flex items-center space-x-1">
+                                <span className="text-[11px] text-slate-500 font-semibold mr-1 flex items-center">
+                                    <Calendar className="w-3 h-3 mr-1" /> Date:
+                                </span>
+                                {[
+                                    { id: 'ALL', label: 'All Time' },
+                                    { id: 'TODAY', label: 'Today' },
+                                    { id: '7D', label: '7D' },
+                                    { id: '30D', label: '30D' }
+                                ].map((d) => (
+                                    <button
+                                        key={d.id}
+                                        type="button"
+                                        onClick={() => setDateFilter(d.id)}
+                                        className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-all ${
+                                            dateFilter === d.id
+                                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                                                : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-slate-800'
+                                        }`}
+                                    >
+                                        {d.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Currency Filter Dropdown */}
+                            {availableCurrencies.length > 0 && (
+                                <div className="flex items-center space-x-1 pl-2 border-l border-slate-800">
+                                    <span className="text-[11px] text-slate-500 font-semibold">Currency:</span>
+                                    <select
+                                        value={currencyFilter}
+                                        onChange={(e) => setCurrencyFilter(e.target.value)}
+                                        className="bg-slate-900 border border-slate-700 text-xs text-white rounded-lg px-2 py-0.5 focus:outline-none focus:border-emerald-500 font-mono"
+                                    >
+                                        <option value="ALL">All Currencies</option>
+                                        {availableCurrencies.map(c => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {/* Customer / Client Filter Dropdown */}
+                            {availableCustomers.length > 0 && (
+                                <div className="flex items-center space-x-1 pl-2 border-l border-slate-800">
+                                    <span className="text-[11px] text-slate-500 font-semibold flex items-center">
+                                        <Building2 className="w-3 h-3 mr-1 text-slate-400" /> Client:
+                                    </span>
+                                    <select
+                                        value={customerFilter}
+                                        onChange={(e) => setCustomerFilter(e.target.value)}
+                                        className="bg-slate-900 border border-slate-700 text-xs text-white rounded-lg px-2 py-0.5 focus:outline-none focus:border-emerald-500 max-w-[150px] truncate"
+                                    >
+                                        <option value="ALL">All Clients ({availableCustomers.length})</option>
+                                        {availableCustomers.map(c => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Sort Order Dropdown */}
+                        <div className="flex items-center space-x-1">
+                            <span className="text-[11px] text-slate-500 font-semibold">Sort:</span>
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                                className="bg-slate-900 border border-slate-700 text-xs text-white rounded-lg px-2 py-0.5 focus:outline-none focus:border-emerald-500"
                             >
-                                {filter === 'ALL' && 'All Outcomes'}
-                                {filter === 'WON' && 'Won Only'}
-                                {filter === 'LOST' && 'Lost Only'}
-                                {filter === 'QUOTED' && 'Quoted by Desk'}
-                            </button>
-                        ))}
+                                <option value="NEWEST">Newest Concluded</option>
+                                <option value="OLDEST">Oldest Concluded</option>
+                            </select>
+                        </div>
                     </div>
                 )}
 
@@ -600,7 +937,6 @@ export default function BankDealerDeskPage() {
                             </div>
                         ) : (
                             filteredLiveTickets.map((ticket) => {
-                                const isExpanded = expandedTicketId === ticket.assignment_id;
                                 const isUrgent = ticket.status === 'LIVE_OPEN' && ticket.seconds_remaining < 120;
                                 const isCriticallyUrgent = ticket.status === 'LIVE_OPEN' && ticket.seconds_remaining < 30;
 
@@ -641,21 +977,92 @@ export default function BankDealerDeskPage() {
                                                         </span>
                                                     </div>
 
-                                                    <div className="flex flex-wrap items-center gap-2 mt-1 text-xs">
-                                                        <span className="font-extrabold text-white text-sm">
-                                                            {ticket.summary_direction} {Number(ticket.summary_amount).toLocaleString()} {ticket.summary_pair}
-                                                        </span>
-                                                        <span className="text-slate-500">&bull;</span>
-                                                        <span className="text-slate-400 font-medium">{ticket.summary_value_date}</span>
-                                                        <span className="text-slate-500">&bull;</span>
-                                                        <span className={`px-2 py-0.2 rounded text-[10px] font-bold uppercase ${
-                                                            ticket.quotation_base?.toLowerCase() === 'indicative'
-                                                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                                                                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                                        }`}>
-                                                            {ticket.quotation_base || 'Execution'}
-                                                        </span>
-                                                    </div>
+                                                    {ticket.visible_legs && ticket.visible_legs.length > 1 ? (
+                                                        <div className="mt-2.5 space-y-2">
+                                                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                                                                <span className="px-2 py-0.5 rounded text-[11px] font-black uppercase tracking-wider bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                                                                    {ticket.visible_legs.length} Legs Package
+                                                                </span>
+                                                                <span className="text-slate-400 font-medium text-xs">{ticket.summary_value_date}</span>
+                                                                <span className="text-slate-600">&bull;</span>
+                                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                                                    ticket.quotation_base?.toLowerCase() === 'indicative'
+                                                                        ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                                                                        : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                                                }`}>
+                                                                    {ticket.quotation_base || 'Execution'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-2.5">
+                                                                {ticket.visible_legs.map((leg, idx) => (
+                                                                    <div key={leg.leg_id || idx} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700/80 text-xs shadow-xs">
+                                                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 font-mono">
+                                                                            L{idx + 1}
+                                                                        </span>
+                                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                                                                            leg.direction === 'BUY'
+                                                                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                                                                : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                                                        }`}>
+                                                                            {leg.direction}
+                                                                        </span>
+                                                                        <span className="font-mono font-black text-white text-xs">
+                                                                            {formatCurrency(leg.amount)} {leg.currency}
+                                                                        </span>
+                                                                        <span className="text-slate-400 font-semibold text-xs font-mono">
+                                                                            ({leg.currency_pair})
+                                                                        </span>
+                                                                        <span className="text-slate-500 text-[11px]">
+                                                                            &bull; {leg.value_date}
+                                                                        </span>
+                                                                        {leg.allow_alternative_value_date && (
+                                                                            <span className="ml-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30" title="Client allows alternative value date">
+                                                                                Alt Date
+                                                                            </span>
+                                                                        )}
+                                                                        {leg.has_quote && (
+                                                                            <span className="ml-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                                                Quoted
+                                                                            </span>
+                                                                        )}
+                                                                        {leg.is_passed && (
+                                                                            <span className="ml-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                                                                Passed
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-wrap items-center gap-2.5 mt-2 text-xs">
+                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                                                                ticket.summary_direction === 'BUY'
+                                                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                                                    : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                                                            }`}>
+                                                                {ticket.summary_direction}
+                                                            </span>
+                                                            <span className="font-mono font-black text-white text-sm">
+                                                                {ticket.summary_amount ? formatCurrency(ticket.summary_amount) : ''} {ticket.summary_currency ? ticket.summary_currency + ' ' : ''}{ticket.summary_pair}
+                                                            </span>
+                                                            <span className="text-slate-600">&bull;</span>
+                                                            <span className="text-slate-400 font-medium text-xs">{ticket.summary_value_date}</span>
+                                                            {ticket.allow_alternative_value_date && (
+                                                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30" title="Client allows alternative value date">
+                                                                    Alt Date Allowed
+                                                                </span>
+                                                            )}
+                                                            <span className="text-slate-600">&bull;</span>
+                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                                                ticket.quotation_base?.toLowerCase() === 'indicative'
+                                                                    ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                                                                    : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                                            }`}>
+                                                                {ticket.quotation_base || 'Execution'}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -692,10 +1099,17 @@ export default function BankDealerDeskPage() {
                                                         <Clock className="w-4 h-4" />
                                                         <span>{formatSeconds(ticket.seconds_remaining)}</span>
                                                     </div>
+                                                ) : ticket.status === 'SCHEDULED' ? (
+                                                    <div className="px-3 py-1.5 rounded-xl font-mono text-xs font-bold flex items-center space-x-1.5 bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                                                        <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                                                        <span>
+                                                            {ticket.seconds_remaining && ticket.seconds_remaining > 0
+                                                                ? `Starts in ${formatSeconds(ticket.seconds_remaining)}`
+                                                                : 'SCHEDULED'}
+                                                        </span>
+                                                    </div>
                                                 ) : (
-                                                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                                                        ticket.status === 'SCHEDULED' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-slate-800 text-slate-400'
-                                                    }`}>
+                                                    <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400">
                                                         {ticket.status}
                                                     </span>
                                                 )}
@@ -714,43 +1128,7 @@ export default function BankDealerDeskPage() {
                                             </div>
                                         </div>
 
-                                        {/* Multi-Leg Drawer Toggle */}
-                                        {ticket.is_multi_leg && (
-                                            <div className="mt-3 pt-3 border-t border-slate-800/80">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setExpandedTicketId(isExpanded ? null : ticket.assignment_id)}
-                                                    className="flex items-center space-x-1 text-xs text-slate-400 hover:text-white font-medium transition-colors"
-                                                >
-                                                    <Layers className="w-3.5 h-3.5 text-emerald-400" />
-                                                    <span>Multi-Currency Basket ({ticket.visible_legs_count} Visible Legs)</span>
-                                                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                                                </button>
 
-                                                {isExpanded && (
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-3 pt-2">
-                                                        {ticket.visible_legs.map((leg, idx) => (
-                                                            <div key={leg.leg_id || idx} className="p-2.5 bg-slate-900/90 border border-slate-800 rounded-xl text-xs">
-                                                                <div className="flex justify-between font-bold text-white">
-                                                                    <span>{leg.direction} {leg.currency_pair}</span>
-                                                                    <span className="text-emerald-400">{Number(leg.amount).toLocaleString()}</span>
-                                                                </div>
-                                                                <div className="text-[11px] text-slate-500 mt-1 flex justify-between">
-                                                                    <span>Value: {leg.value_date}</span>
-                                                                    {leg.is_passed ? (
-                                                                        <span className="text-amber-400 font-bold">Passed</span>
-                                                                    ) : leg.has_quote ? (
-                                                                        <span className="text-emerald-400 font-bold">Quoted</span>
-                                                                    ) : (
-                                                                        <span className="text-slate-500">Unquoted</span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
                                     </div>
                                 );
                             })
@@ -799,6 +1177,17 @@ export default function BankDealerDeskPage() {
                                                                 <div className="text-[10px] text-slate-500 font-sans mt-0.5">
                                                                     {new Date(item.concluded_at).toLocaleDateString()} {new Date(item.concluded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                                 </div>
+                                                                <div className="mt-1">
+                                                                    {item.is_won_by_me || (item.dealer_submitted_by && dealer?.email && item.dealer_submitted_by.trim().toLowerCase() === dealer.email.trim().toLowerCase()) ? (
+                                                                        <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                                            <UserCheck className="w-2.5 h-2.5 mr-1" /> Won by You
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-medium bg-slate-800 text-slate-400 border border-slate-700/60" title={item.dealer_submitted_by ? `Quoted by: ${item.dealer_submitted_by}` : 'Desk colleague'}>
+                                                                            <Users className="w-2.5 h-2.5 mr-1" /> Desk Win
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             </td>
                                                             <td className="py-3 px-4 font-sans font-semibold text-slate-200">
                                                                 <div className="flex items-center space-x-1.5">
@@ -808,7 +1197,7 @@ export default function BankDealerDeskPage() {
                                                             </td>
                                                             <td className="py-3 px-4 font-sans">
                                                                 <div className="flex items-center space-x-1.5">
-                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold ${
                                                                         item.summary_direction === 'BUY'
                                                                             ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                                                                             : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
@@ -828,15 +1217,33 @@ export default function BankDealerDeskPage() {
                                                                     )}
                                                                 </div>
                                                             </td>
-                                                            <td className="py-3 px-4 font-mono font-bold text-white">
-                                                                {formatCurrency(item.summary_amount)}{' '}
-                                                                <span className="text-[10px] text-slate-400 font-normal">{item.summary_currency}</span>
+                                                            <td className="py-3 px-4 font-mono">
+                                                                {isMultiLeg ? (
+                                                                    <div className="space-y-0.5">
+                                                                        {item.all_legs_detail.map((leg, idx) => (
+                                                                            <div key={idx} className="text-xs whitespace-nowrap">
+                                                                                <span className="font-bold text-white">{formatCurrency(leg.amount)}</span>{' '}
+                                                                                <span className="text-[10px] text-slate-400 font-sans">{leg.currency}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="font-bold text-white text-xs">
+                                                                        {formatCurrency(item.summary_amount)}{' '}
+                                                                        <span className="text-[10px] text-slate-400 font-normal">{item.summary_currency}</span>
+                                                                    </div>
+                                                                )}
                                                             </td>
                                                             <td className="py-3 px-4 font-mono font-extrabold text-emerald-400 text-sm">
                                                                 {isMultiLeg ? (
-                                                                    <div className="flex items-center space-x-1 text-cyan-400 font-sans text-xs font-bold">
-                                                                        <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                                                                        <span>Package ({item.all_legs_detail.length} Legs)</span>
+                                                                    <div className="space-y-1">
+                                                                        {item.all_legs_detail.map((leg, idx) => (
+                                                                            <div key={idx} className="text-xs whitespace-nowrap flex items-center space-x-1.5 font-mono">
+                                                                                <span className="text-[10px] text-slate-500 font-sans">L{leg.leg_index || idx + 1}:</span>
+                                                                                <span className="font-extrabold text-emerald-400">{formatRate(leg.my_rate || leg.winning_rate)}</span>
+                                                                                <span className="text-[9px] px-1 py-0.2 rounded font-sans font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">WON</span>
+                                                                            </div>
+                                                                        ))}
                                                                     </div>
                                                                 ) : (
                                                                     formatRate(item.dealer_rate || item.winning_rate)
@@ -971,8 +1378,17 @@ export default function BankDealerDeskPage() {
                                                             AWARDED
                                                         </span>
                                                     </div>
-                                                    <div className="text-xs font-mono text-slate-400 mt-0.5">
-                                                        {item.ref_no} &bull; {new Date(item.concluded_at).toLocaleString()}
+                                                    <div className="text-xs font-mono text-slate-400 mt-0.5 flex flex-wrap items-center gap-2">
+                                                        <span>{item.ref_no} &bull; {new Date(item.concluded_at).toLocaleString()}</span>
+                                                        {item.is_won_by_me || (item.dealer_submitted_by && dealer?.email && item.dealer_submitted_by.trim().toLowerCase() === dealer.email.trim().toLowerCase()) ? (
+                                                            <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                                <UserCheck className="w-2.5 h-2.5 mr-1" /> Won by You
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-medium bg-slate-800 text-slate-400 border border-slate-700/60">
+                                                                <Users className="w-2.5 h-2.5 mr-1" /> Desk Win
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -987,35 +1403,74 @@ export default function BankDealerDeskPage() {
                                             </button>
                                         </div>
 
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-slate-800/80 text-xs">
-                                            <div>
-                                                <div className="text-[10px] uppercase font-bold text-slate-500">Pair &amp; Side</div>
-                                                <div className="font-bold text-white mt-0.5">
-                                                    <span className={item.summary_direction === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>
-                                                        {item.summary_direction}
-                                                    </span>{' '}
-                                                    {item.summary_pair}
+                                        {Boolean(item.all_legs_detail && item.all_legs_detail.length > 1) ? (
+                                            <div className="mt-4 pt-3 border-t border-slate-800/80">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                                                        <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                                                        <span>Package Legs ({item.all_legs_detail.length} Allocations)</span>
+                                                    </span>
+                                                    <span className="text-[10px] font-mono text-cyan-400 font-bold bg-cyan-950/40 border border-cyan-800/60 px-2 py-0.5 rounded">
+                                                        Awarded Flow
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {item.all_legs_detail.map((leg, idx) => (
+                                                        <div key={leg.leg_id || idx} className="bg-slate-900/90 border border-slate-800/80 rounded-xl px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                                            <div className="flex items-center space-x-2">
+                                                                <span className="text-[10px] font-mono font-bold text-slate-500">#{leg.leg_index || idx + 1}</span>
+                                                                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${leg.direction === 'BUY' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                                                                    {leg.direction}
+                                                                </span>
+                                                                <span className="font-mono font-black text-white">
+                                                                    {formatCurrency(leg.amount)} {leg.currency}
+                                                                </span>
+                                                                <span className="text-slate-400 font-sans text-[11px]">({leg.pair})</span>
+                                                                <span className="text-slate-500 text-[10px] font-sans">&bull; {leg.value_date || 'Spot'}</span>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2.5 font-mono text-xs">
+                                                                <span className="text-emerald-400 font-extrabold text-sm">
+                                                                    {formatRate(leg.my_rate || leg.winning_rate)}
+                                                                </span>
+                                                                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                                    AWARDED
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
-                                            <div>
-                                                <div className="text-[10px] uppercase font-bold text-slate-500">Volume</div>
-                                                <div className="font-mono font-bold text-white mt-0.5">
-                                                    {formatCurrency(item.summary_amount)} {item.summary_currency}
+                                        ) : (
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-slate-800/80 text-xs">
+                                                <div>
+                                                    <div className="text-[10px] uppercase font-bold text-slate-500">Pair &amp; Side</div>
+                                                    <div className="font-bold text-white mt-0.5">
+                                                        <span className={item.summary_direction === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>
+                                                            {item.summary_direction}
+                                                        </span>{' '}
+                                                        {item.summary_pair}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-[10px] uppercase font-bold text-slate-500">Volume</div>
+                                                    <div className="font-mono font-bold text-white mt-0.5">
+                                                        {formatCurrency(item.summary_amount)} {item.summary_currency}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-[10px] uppercase font-bold text-slate-500">Executed Rate</div>
+                                                    <div className="font-mono font-extrabold text-emerald-400 mt-0.5 text-sm">
+                                                        {formatRate(item.dealer_rate || item.winning_rate)}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-[10px] uppercase font-bold text-slate-500">Value Date</div>
+                                                    <div className="text-slate-300 mt-0.5">
+                                                        {item.summary_value_date || 'Spot'}
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div>
-                                                <div className="text-[10px] uppercase font-bold text-slate-500">Executed Rate</div>
-                                                <div className="font-mono font-extrabold text-emerald-400 mt-0.5 text-sm">
-                                                    {formatRate(item.dealer_rate || item.winning_rate)}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="text-[10px] uppercase font-bold text-slate-500">Value Date</div>
-                                                <div className="text-slate-300 mt-0.5">
-                                                    {item.summary_value_date || 'Spot'}
-                                                </div>
-                                            </div>
-                                        </div>
+                                        )}
 
                                         {item.receipt && (
                                             <div className="mt-3 pt-3 border-t border-slate-800/60 flex items-center justify-between bg-slate-900/50 p-2.5 rounded-xl">
@@ -1084,6 +1539,21 @@ export default function BankDealerDeskPage() {
                                                                 <div className="text-[10px] text-slate-500 font-sans mt-0.5">
                                                                     {new Date(item.concluded_at).toLocaleDateString()} {new Date(item.concluded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                                 </div>
+                                                                <div className="mt-1">
+                                                                    {item.quoted_by_me || item.is_won_by_me || (item.dealer_submitted_by && dealer?.email && item.dealer_submitted_by.trim().toLowerCase() === dealer.email.trim().toLowerCase()) ? (
+                                                                        <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                                            <UserCheck className="w-2.5 h-2.5 mr-1" /> Quoted by You
+                                                                        </span>
+                                                                    ) : item.dealer_submitted_by ? (
+                                                                        <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-medium bg-slate-800 text-slate-400 border border-slate-700/60" title={`Quoted by: ${item.dealer_submitted_by}`}>
+                                                                            <Users className="w-2.5 h-2.5 mr-1" /> Desk Trader
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] text-slate-500 font-sans">
+                                                                            Unquoted
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             </td>
                                                             <td className="py-3 px-4 font-sans font-semibold text-slate-200">
                                                                 <div className="flex items-center space-x-1.5">
@@ -1113,9 +1583,22 @@ export default function BankDealerDeskPage() {
                                                                     )}
                                                                 </div>
                                                             </td>
-                                                            <td className="py-3 px-4 font-mono font-bold text-white">
-                                                                {formatCurrency(item.summary_amount)}{' '}
-                                                                <span className="text-[10px] text-slate-400 font-normal">{item.summary_currency}</span>
+                                                            <td className="py-3 px-4 font-mono">
+                                                                {isMultiLeg ? (
+                                                                    <div className="space-y-0.5">
+                                                                        {item.all_legs_detail.map((leg, idx) => (
+                                                                            <div key={idx} className="text-xs whitespace-nowrap">
+                                                                                <span className="font-bold text-white">{formatCurrency(leg.amount)}</span>{' '}
+                                                                                <span className="text-[10px] text-slate-400 font-sans">{leg.currency}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="font-bold text-white text-xs">
+                                                                        {formatCurrency(item.summary_amount)}{' '}
+                                                                        <span className="text-[10px] text-slate-400 font-normal">{item.summary_currency}</span>
+                                                                    </div>
+                                                                )}
                                                             </td>
                                                             <td className="py-3 px-4 font-mono">
                                                                 {item.is_won && !isMultiLeg ? (
@@ -1123,9 +1606,28 @@ export default function BankDealerDeskPage() {
                                                                         {formatRate(item.dealer_rate || item.winning_rate)}
                                                                     </span>
                                                                 ) : isMultiLeg ? (
-                                                                    <div className="flex items-center space-x-1.5 text-cyan-400 font-sans text-xs font-bold">
-                                                                        <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                                                                        <span>Multi-Leg Package</span>
+                                                                    <div className="space-y-1">
+                                                                        {item.all_legs_detail.map((leg, idx) => (
+                                                                            <div key={idx} className="text-xs whitespace-nowrap flex items-center space-x-1.5 font-mono">
+                                                                                <span className="text-[10px] text-slate-500 font-sans">L{leg.leg_index || idx + 1}:</span>
+                                                                                {leg.is_won ? (
+                                                                                    <>
+                                                                                        <span className="font-extrabold text-emerald-400">{formatRate(leg.my_rate || leg.winning_rate)}</span>
+                                                                                        <span className="text-[9px] px-1 py-0.2 rounded font-sans font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">WON</span>
+                                                                                    </>
+                                                                                ) : leg.winning_rate ? (
+                                                                                    <>
+                                                                                        <span className="font-bold text-slate-200">{formatRate(leg.winning_rate)}</span>
+                                                                                        {leg.my_rate && (
+                                                                                            <span className="text-[10px] text-slate-500 font-sans"> (Desk: {formatRate(leg.my_rate)})</span>
+                                                                                        )}
+                                                                                        <span className="text-[9px] px-1 py-0.2 rounded font-sans font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">LOST</span>
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <span className="text-[10px] text-slate-500 italic font-sans">Unawarded</span>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
                                                                     </div>
                                                                 ) : item.has_quoted ? (
                                                                     <div className="text-xs">
@@ -1331,59 +1833,109 @@ export default function BankDealerDeskPage() {
                                                 </button>
                                             </div>
 
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-slate-800/80 text-xs">
-                                                <div>
-                                                    <div className="text-[10px] uppercase font-bold text-slate-500">Pair &amp; Side</div>
-                                                    <div className="font-bold text-white mt-0.5">
-                                                        <span className={item.summary_direction === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>
-                                                            {item.summary_direction}
-                                                        </span>{' '}
-                                                        {item.summary_pair}
+                                            {isMultiLeg ? (
+                                                <div className="mt-4 pt-3 border-t border-slate-800/80">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                                                            <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                                                            <span>Package Legs ({item.all_legs_detail.length} Allocations)</span>
+                                                        </span>
+                                                        <span className="text-[10px] font-mono text-cyan-400 font-bold bg-cyan-950/40 border border-cyan-800/60 px-2 py-0.5 rounded">
+                                                            Multi-Currency
+                                                        </span>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        {item.all_legs_detail.map((leg, idx) => (
+                                                            <div key={leg.leg_id || idx} className="bg-slate-900/90 border border-slate-800/80 rounded-xl px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                                                <div className="flex items-center space-x-2">
+                                                                    <span className="text-[10px] font-mono font-bold text-slate-500">#{leg.leg_index || idx + 1}</span>
+                                                                    <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${leg.direction === 'BUY' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                                                                        {leg.direction}
+                                                                    </span>
+                                                                    <span className="font-mono font-black text-white">
+                                                                        {formatCurrency(leg.amount)} {leg.currency}
+                                                                    </span>
+                                                                    <span className="text-slate-400 font-sans text-[11px]">({leg.pair})</span>
+                                                                    <span className="text-slate-500 text-[10px] font-sans">&bull; {leg.value_date || 'Spot'}</span>
+                                                                </div>
+                                                                <div className="flex items-center space-x-2.5 font-mono text-xs">
+                                                                    {leg.my_rate ? (
+                                                                        <span className="text-slate-300 text-[11px]">
+                                                                            Your: <strong className={leg.is_won ? 'text-emerald-400' : 'text-white'}>{formatRate(leg.my_rate)}</strong>
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-slate-500 italic text-[11px] font-sans">Unquoted</span>
+                                                                    )}
+                                                                    {leg.winning_rate ? (
+                                                                        <span className="text-emerald-400 font-bold">
+                                                                            Win: {formatRate(leg.winning_rate)}
+                                                                        </span>
+                                                                    ) : null}
+                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                                                                        leg.is_won
+                                                                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                                                            : leg.winning_rate
+                                                                            ? 'bg-slate-800 text-slate-400'
+                                                                            : 'bg-slate-900 text-slate-600'
+                                                                    }`}>
+                                                                        {leg.is_won ? 'WON' : leg.winning_rate ? 'LOST' : 'UNAWARDED'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 </div>
-                                                <div>
-                                                    <div className="text-[10px] uppercase font-bold text-slate-500">Volume</div>
-                                                    <div className="font-mono font-bold text-white mt-0.5">
-                                                        {formatCurrency(item.summary_amount)} {item.summary_currency}
+                                            ) : (
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-slate-800/80 text-xs">
+                                                    <div>
+                                                        <div className="text-[10px] uppercase font-bold text-slate-500">Pair &amp; Side</div>
+                                                        <div className="font-bold text-white mt-0.5">
+                                                            <span className={item.summary_direction === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>
+                                                                {item.summary_direction}
+                                                            </span>{' '}
+                                                            {item.summary_pair}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-[10px] uppercase font-bold text-slate-500">Volume</div>
+                                                        <div className="font-mono font-bold text-white mt-0.5">
+                                                            {formatCurrency(item.summary_amount)} {item.summary_currency}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-[10px] uppercase font-bold text-slate-500">
+                                                            {item.is_won ? 'Executed Rate' : 'Winning Execution'}
+                                                        </div>
+                                                        <div className="font-mono font-bold mt-0.5">
+                                                            {item.is_won ? (
+                                                                <span className="text-emerald-400 font-extrabold">
+                                                                    {formatRate(item.dealer_rate || item.winning_rate)}
+                                                                </span>
+                                                            ) : item.winning_rate ? (
+                                                                <span className="text-white font-bold">
+                                                                    {formatRate(item.winning_rate)}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-slate-500">—</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-[10px] uppercase font-bold text-slate-500">
+                                                            {item.is_won ? 'Settlement' : 'Your Quote'}
+                                                        </div>
+                                                        <div className="font-mono text-white mt-0.5">
+                                                            {item.is_won ? (
+                                                                <span className="text-slate-300 font-sans">{item.summary_value_date || 'Spot'}</span>
+                                                            ) : item.dealer_rate ? (
+                                                                <span className="text-slate-300 font-bold">{formatRate(item.dealer_rate)}</span>
+                                                            ) : (
+                                                                <span className="text-slate-500 italic text-[11px] font-sans">Unquoted</span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <div>
-                                                    <div className="text-[10px] uppercase font-bold text-slate-500">
-                                                        {item.is_won ? 'Executed Rate' : 'Winning Execution'}
-                                                    </div>
-                                                    <div className="font-mono font-bold mt-0.5">
-                                                        {item.is_won && !isMultiLeg ? (
-                                                            <span className="text-emerald-400 font-extrabold">
-                                                                {formatRate(item.dealer_rate || item.winning_rate)}
-                                                            </span>
-                                                        ) : isMultiLeg ? (
-                                                            <span className="text-cyan-400 font-bold text-xs">
-                                                                {item.all_legs_detail.length} Legs Package
-                                                            </span>
-                                                        ) : item.winning_rate ? (
-                                                            <span className="text-white font-bold">
-                                                                {formatRate(item.winning_rate)}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-slate-500">—</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-[10px] uppercase font-bold text-slate-500">
-                                                        {item.is_won ? 'Settlement' : 'Your Quote'}
-                                                    </div>
-                                                    <div className="font-mono text-white mt-0.5">
-                                                        {item.is_won ? (
-                                                            <span className="text-slate-300 font-sans">{isMultiLeg ? 'Multiple Dates' : (item.summary_value_date || 'Spot')}</span>
-                                                        ) : item.dealer_rate ? (
-                                                            <span className="text-slate-300 font-bold">{formatRate(item.dealer_rate)}</span>
-                                                        ) : (
-                                                            <span className="text-slate-500 italic text-[11px] font-sans">Unquoted</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            )}
 
                                             {item.dealer_rank && !item.is_won && (
                                                 <div className="mt-3 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs">
@@ -1424,12 +1976,20 @@ export default function BankDealerDeskPage() {
                                 <div className="text-xs text-slate-500 mt-1">Addressed through desk blotter</div>
                             </div>
                             <div className="bg-[#0b0f17] border border-emerald-500/30 rounded-2xl p-5 shadow-lg">
-                                <div className="text-emerald-400 text-xs font-semibold uppercase tracking-wider">Executed &amp; Won</div>
-                                <div className="text-2xl font-black text-emerald-400 font-mono mt-2">
-                                    {blotterStats.won_deals_count}
+                                <div className="flex justify-between items-start">
+                                    <span className="text-emerald-400 text-xs font-semibold uppercase tracking-wider">Executed &amp; Won</span>
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                        Desk Total
+                                    </span>
+                                </div>
+                                <div className="text-2xl font-black text-emerald-400 font-mono mt-2 flex items-baseline space-x-2">
+                                    <span>{blotterStats.won_deals_count}</span>
+                                    <span className="text-xs text-slate-400 font-sans font-normal">
+                                        ({achievements?.personal_bests?.total_deals_won ?? blotterStats.my_won_deals_count ?? myWonCount} by You)
+                                    </span>
                                 </div>
                                 <div className="text-xs text-slate-400 mt-1">
-                                    Win Rate:{' '}
+                                    Desk Win Rate:{' '}
                                     <strong className="text-emerald-400 font-bold">
                                         {blotterStats.win_rate_percent}%
                                     </strong>
@@ -1537,15 +2097,18 @@ export default function BankDealerDeskPage() {
                                             {achievements?.dealer_perk || 'Sovereign institutional liquidity provider with verified cryptographic execution track record.'}
                                         </p>
 
-                                        <div className="flex items-center space-x-3 text-xs text-slate-400 mt-2 font-mono">
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 mt-2 font-mono">
                                             <span>Bank: <strong className="text-white font-sans">{dealer?.bank_name || 'Partner Bank'}</strong></span>
                                             <span>&bull;</span>
                                             <span>Unlocked: <strong className="text-amber-400">{achievements?.earned_trophy_count || 0}</strong> / {achievements?.total_trophies || 8} Badges</span>
+                                            <span>&bull;</span>
+                                            <span className="text-emerald-400 font-bold">{achievements?.personal_bests?.total_deals_won ?? blotterStats.my_won_deals_count ?? myWonCount} Personal Wins</span>
+                                            <span className="text-slate-500 font-sans">({blotterStats.won_deals_count || 27} Bank Desk Total)</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Quick Highlights Pill Grid */}
+                                {/* Quick Highlights Pill Grid - Personal Trader Milestones */}
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 w-full lg:w-auto">
                                     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
                                         <div className="text-[10px] uppercase font-bold text-slate-400">Win Streak</div>
@@ -1557,30 +2120,48 @@ export default function BankDealerDeskPage() {
                                     </div>
 
                                     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
-                                        <div className="text-[10px] uppercase font-bold text-slate-400">Total Won</div>
+                                        <div className="text-[10px] uppercase font-bold text-emerald-400">Personal Won</div>
                                         <div className="text-lg font-black text-emerald-400 font-mono mt-0.5">
-                                            {achievements?.personal_bests?.total_deals_won || 0}
+                                            {achievements?.personal_bests?.total_deals_won ?? blotterStats.my_won_deals_count ?? myWonCount}
                                         </div>
-                                        <div className="text-[9px] text-slate-500">Executions</div>
+                                        <div className="text-[9px] text-slate-400">of {blotterStats.won_deals_count || 27} Desk Wins</div>
                                     </div>
 
                                     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
-                                        <div className="text-[10px] uppercase font-bold text-slate-400">Volume Won</div>
+                                        <div className="text-[10px] uppercase font-bold text-cyan-400">Personal Volume</div>
                                         <div className="text-lg font-black text-cyan-400 font-mono mt-0.5">
                                             ${((achievements?.personal_bests?.total_volume_won_usd || 0) / 1000000).toFixed(1)}M
                                         </div>
-                                        <div className="text-[9px] text-slate-500 font-mono">USD Equiv</div>
+                                        <div className="text-[9px] text-slate-400 font-mono">USD Eqv (Desk: $9M+)</div>
                                     </div>
 
                                     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
-                                        <div className="text-[10px] uppercase font-bold text-slate-400">Quotes Logged</div>
+                                        <div className="text-[10px] uppercase font-bold text-teal-400">Personal Bids</div>
                                         <div className="text-lg font-black text-teal-400 font-mono mt-0.5">
                                             {achievements?.personal_bests?.total_quotes_submitted || 0}
                                         </div>
-                                        <div className="text-[9px] text-slate-500">Live Bids</div>
+                                        <div className="text-[9px] text-slate-400">Live Submitted</div>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Scope & Distinction Notice */}
+                        <div className="bg-[#0b101b] border border-amber-500/30 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs shadow-lg">
+                            <div className="flex items-center space-x-2.5 text-slate-300">
+                                <Info className="w-4 h-4 text-amber-400 shrink-0" />
+                                <span>
+                                    <strong>Personal Scorecard Scope:</strong> Badges and accolades track individual milestones for <strong>{dealer?.full_name || 'Active Trader'}</strong> (<strong className="text-emerald-400">{achievements?.personal_bests?.total_deals_won ?? blotterStats.my_won_deals_count ?? myWonCount} winning deals</strong> personally executed, ${((achievements?.personal_bests?.total_volume_won_usd || 0) / 1000000).toFixed(1)}M USD Equiv). The institutional desk total across all {dealer?.bank_name || 'CIB'} dealers is <strong className="text-cyan-400">{blotterStats.won_deals_count || 27} won deals</strong>.
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => { setActiveTab('won'); setScopeFilter('MY_TRADES'); }}
+                                className="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold transition-colors inline-flex items-center space-x-1.5 shrink-0"
+                            >
+                                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Filter Blotter to My {achievements?.personal_bests?.total_deals_won ?? blotterStats.my_won_deals_count ?? myWonCount} Wins</span>
+                            </button>
                         </div>
 
                         {/* 8 Multi-Metal Institutional Trophies Grid */}
@@ -1648,9 +2229,15 @@ export default function BankDealerDeskPage() {
                                             {/* Progress Section */}
                                             <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
                                                 <div className="flex items-baseline justify-between text-xs">
-                                                    <span className="text-slate-400 text-[11px]">Current Score:</span>
+                                                    <span className="text-slate-400 text-[11px]">
+                                                        {trophy.unit === 'streak' ? 'Active Streak:' : 'Current Score:'}
+                                                    </span>
                                                     <span className="font-mono font-bold text-white">
-                                                        {trophy.is_currency ? `$${(trophy.current_value / 1000000).toFixed(2)}M` : trophy.current_value} {trophy.unit}
+                                                        {trophy.is_currency
+                                                            ? `$${(trophy.current_value / 1000000).toFixed(2)}M`
+                                                            : trophy.unit === 'streak'
+                                                                ? `${trophy.current_value} in a row${trophy.best_record && trophy.best_record > trophy.current_value ? ` (Best: ${trophy.best_record})` : ''}`
+                                                                : `${trophy.current_value} ${trophy.unit}`}
                                                     </span>
                                                 </div>
 
@@ -1664,8 +2251,8 @@ export default function BankDealerDeskPage() {
 
                                                 <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
                                                     <span>
-                                                        {trophy.next_milestone
-                                                            ? `Next: ${trophy.is_currency ? `$${(trophy.next_milestone / 1000000).toFixed(1)}M` : trophy.next_milestone} ${trophy.unit}`
+                                                        {(trophy.next_milestone || (trophy.next_tier && trophy.next_tier !== 'MAX' ? trophy.target_value : null))
+                                                            ? `Next: ${trophy.is_currency ? `$${((trophy.next_milestone || trophy.target_value) / 1000000).toFixed(1)}M` : (trophy.next_milestone || trophy.target_value)} ${trophy.unit} (${trophy.next_tier || 'Next'})`
                                                             : 'Max Tier Unlocked'}
                                                     </span>
                                                     <span className="font-bold text-amber-400">
@@ -1768,9 +2355,12 @@ export default function BankDealerDeskPage() {
                                         </div>
                                     </div>
                                     <div>
-                                        <div className="text-[10px] uppercase font-bold text-slate-500">Notional Volume</div>
+                                        <div className="text-[10px] uppercase font-bold text-slate-500">Notional Allocation</div>
                                         <div className="font-mono font-bold text-white text-sm mt-0.5">
-                                            {formatCurrency(selectedDealSlip.summary_amount)} {selectedDealSlip.summary_currency}
+                                            {selectedDealSlip.all_legs_detail && selectedDealSlip.all_legs_detail.length > 1
+                                                ? `${selectedDealSlip.all_legs_detail.length} Legs Package (Multi-Currency)`
+                                                : `${formatCurrency(selectedDealSlip.summary_amount)} ${selectedDealSlip.summary_currency}`
+                                            }
                                         </div>
                                     </div>
                                     <div>
@@ -1966,6 +2556,58 @@ export default function BankDealerDeskPage() {
                                     className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors"
                                 >
                                     Close Deal Slip
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Inactivity Security Warning Modal */}
+                {showIdleWarning && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+                        <div className="bg-slate-900 border-2 border-amber-500/80 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl shadow-amber-500/10 text-center relative overflow-hidden">
+                            <div className="absolute -top-16 -left-16 w-32 h-32 bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
+                            <div className="absolute -bottom-16 -right-16 w-32 h-32 bg-rose-500/15 rounded-full blur-2xl pointer-events-none" />
+
+                            <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-4">
+                                <Lock className="w-8 h-8 text-amber-400 animate-pulse" />
+                            </div>
+
+                            <div className="inline-block bg-amber-500/10 text-amber-400 text-[10px] font-mono font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-3 border border-amber-500/20">
+                                Institutional Security Inactivity Lock
+                            </div>
+
+                            <h3 className="text-xl font-black text-white mb-2">
+                                Trading Desk Inactive
+                            </h3>
+
+                            <p className="text-xs text-slate-300 mb-6 leading-relaxed">
+                                No interaction detected for 14 minutes. To prevent unauthorized quotation activity and maintain market confidentiality, this desk will lock in:
+                            </p>
+
+                            <div className="bg-slate-950/80 border border-amber-500/30 rounded-xl py-4 px-6 mb-6">
+                                <span className="text-4xl font-black font-mono text-amber-400 tracking-wider">
+                                    {idleCountdown}s
+                                </span>
+                                <span className="block text-[11px] text-slate-400 mt-1 uppercase font-semibold">
+                                    Seconds Remaining Before Auto-Lock
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => handleLogout('Desk locked by trader.')}
+                                    className="px-4 py-2.5 rounded-xl border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                                >
+                                    Lock Desk Now
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleStayActive}
+                                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 active:scale-95 transition-all cursor-pointer"
+                                >
+                                    Keep Desk Active
                                 </button>
                             </div>
                         </div>

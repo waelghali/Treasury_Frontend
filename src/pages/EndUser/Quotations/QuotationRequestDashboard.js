@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, AlertTriangle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal, Save, MessageSquare, Lock, ChevronDown, Zap, BarChart2, EyeOff } from 'lucide-react';
@@ -148,38 +149,10 @@ const findBankLegConflict = (selectedBanksList, pairsList, formData) => {
 
 const BaseTypeDropdown = ({ value, onChange, allowInvisible }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [openUpwards, setOpenUpwards] = useState(false);
-    const dropdownRef = useRef(null);
-
-    const toggleOpen = () => {
-        if (!isOpen && dropdownRef.current) {
-            const rect = dropdownRef.current.getBoundingClientRect();
-            const spaceBelow = window.innerHeight - rect.bottom;
-            if (spaceBelow < 180) {
-                setOpenUpwards(true);
-            } else {
-                setOpenUpwards(false);
-            }
-        }
-        setIsOpen(prev => !prev);
-    };
-
-    useEffect(() => {
-        const handleClickOutside = (e) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-                setIsOpen(false);
-            }
-        };
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') setIsOpen(false);
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        document.addEventListener('keydown', handleKeyDown);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-            document.removeEventListener('keydown', handleKeyDown);
-        };
-    }, []);
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 192, openUpwards: false });
+    const buttonRef = useRef(null);
+    const menuRef = useRef(null);
 
     const options = [
         {
@@ -213,15 +186,198 @@ const BaseTypeDropdown = ({ value, onChange, allowInvisible }) => {
 
     const current = options.find(o => o.value === value) || options[0];
 
+    const updatePosition = useCallback(() => {
+        if (!buttonRef.current) return;
+        const rect = buttonRef.current.getBoundingClientRect();
+
+        // If button is off-screen, close the dropdown
+        if (rect.bottom < 0 || rect.top > window.innerHeight) {
+            setIsOpen(false);
+            return;
+        }
+
+        const menuHeight = (allowInvisible ? 3 : 2) * 36 + 36; // ~108px - 144px
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const shouldOpenUpwards = spaceBelow < menuHeight + 12 && spaceAbove > spaceBelow;
+        const menuWidth = Math.max(rect.width, 192);
+
+        setDropdownPosition({
+            top: shouldOpenUpwards
+                ? Math.max(8, rect.top - menuHeight - 4)
+                : Math.min(rect.bottom + 4, window.innerHeight - menuHeight - 8),
+            left: Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8)),
+            width: menuWidth,
+            openUpwards: shouldOpenUpwards
+        });
+    }, [allowInvisible]);
+
+    const toggleOpen = () => {
+        if (!isOpen) {
+            const curIdx = options.findIndex(o => o.value === value);
+            setHighlightedIndex(curIdx >= 0 ? curIdx : 0);
+            updatePosition();
+            setIsOpen(true);
+        } else {
+            setIsOpen(false);
+        }
+    };
+
+    const findNextMatch = (key, startIndex = -1) => {
+        if (!key || key.length !== 1) return -1;
+        const k = key.toLowerCase();
+
+        // 1. Prefix match (starts with key)
+        const prefixIndices = [];
+        options.forEach((opt, i) => {
+            if (opt.label.toLowerCase().startsWith(k)) {
+                prefixIndices.push(i);
+            }
+        });
+
+        if (prefixIndices.length > 0) {
+            const next = prefixIndices.find(idx => idx > startIndex);
+            return next !== undefined ? next : prefixIndices[0];
+        }
+
+        // 2. Contains match fallback (e.g. 'x' for Execution)
+        const containsIndices = [];
+        options.forEach((opt, i) => {
+            if (opt.label.toLowerCase().includes(k)) {
+                containsIndices.push(i);
+            }
+        });
+        if (containsIndices.length > 0) {
+            const next = containsIndices.find(idx => idx > startIndex);
+            return next !== undefined ? next : containsIndices[0];
+        }
+
+        return -1;
+    };
+
+    const handleButtonKeyDown = (e) => {
+        // When closed
+        if (!isOpen) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                const curIdx = options.findIndex(o => o.value === value);
+                setHighlightedIndex(curIdx >= 0 ? curIdx : 0);
+                updatePosition();
+                setIsOpen(true);
+                return;
+            }
+
+            if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                const curIdx = options.findIndex(o => o.value === value);
+                const matchIdx = findNextMatch(e.key, curIdx);
+                if (matchIdx !== -1) {
+                    e.preventDefault();
+                    onChange(options[matchIdx].value);
+                    setHighlightedIndex(matchIdx);
+                }
+                return;
+            }
+            return;
+        }
+
+        // When open
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (prev < 0 ? 0 : (prev + 1) % options.length));
+            return;
+        }
+
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (prev < 0 ? options.length - 1 : (prev - 1 + options.length) % options.length));
+            return;
+        }
+
+        if (e.key === 'Home') {
+            e.preventDefault();
+            setHighlightedIndex(0);
+            return;
+        }
+
+        if (e.key === 'End') {
+            e.preventDefault();
+            setHighlightedIndex(options.length - 1);
+            return;
+        }
+
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (highlightedIndex >= 0 && highlightedIndex < options.length) {
+                onChange(options[highlightedIndex].value);
+            }
+            setIsOpen(false);
+            return;
+        }
+
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            setIsOpen(false);
+            return;
+        }
+
+        if (e.key === 'Tab') {
+            setIsOpen(false);
+            return;
+        }
+
+        if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            const matchIdx = findNextMatch(e.key, highlightedIndex);
+            if (matchIdx !== -1) {
+                e.preventDefault();
+                setHighlightedIndex(matchIdx);
+            }
+            return;
+        }
+    };
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        updatePosition();
+
+        const handleScrollOrResize = () => {
+            updatePosition();
+        };
+
+        const handleClickOutside = (e) => {
+            if (
+                buttonRef.current && !buttonRef.current.contains(e.target) &&
+                menuRef.current && !menuRef.current.contains(e.target)
+            ) {
+                setIsOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('scroll', handleScrollOrResize, true);
+        window.addEventListener('resize', handleScrollOrResize);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('scroll', handleScrollOrResize, true);
+            window.removeEventListener('resize', handleScrollOrResize);
+        };
+    }, [isOpen, updatePosition]);
+
     return (
-        <div className={`relative w-full ${isOpen ? 'z-50' : 'z-10'}`} ref={dropdownRef}>
+        <div className="relative w-full">
             <button
+                ref={buttonRef}
                 type="button"
                 onClick={toggleOpen}
-                className={`w-full h-8 bg-white border rounded-lg px-2 py-1 text-xs outline-none transition-all flex items-center justify-between gap-1 shadow-2xs cursor-pointer select-none ${
+                onKeyDown={handleButtonKeyDown}
+                aria-haspopup="listbox"
+                aria-expanded={isOpen}
+                aria-label="Counterparty Base Type"
+                className={`w-full h-8 bg-white border rounded-lg px-2 py-1 text-xs outline-none transition-all flex items-center justify-between gap-1 shadow-2xs cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-black/15 ${
                     isOpen 
                         ? 'border-black ring-1 ring-black/10' 
-                        : 'border-gray-200 hover:border-gray-300'
+                        : 'border-gray-200 hover:border-gray-300 focus:border-black'
                 }`}
             >
                 <span className="flex items-center gap-1.5 truncate">
@@ -231,26 +387,45 @@ const BaseTypeDropdown = ({ value, onChange, allowInvisible }) => {
                 <ChevronDown size={13} className={`text-gray-400 shrink-0 transition-transform duration-150 ${isOpen ? 'rotate-180 text-gray-700' : ''}`} />
             </button>
 
-            {isOpen && (
-                <div className={`absolute left-0 ${openUpwards ? 'bottom-full mb-1' : 'top-full mt-1'} w-48 bg-white border border-gray-200 rounded-xl shadow-2xl py-1 z-[100] animate-fade-in text-xs overflow-hidden`}>
-                    <div className="px-2.5 py-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                        Counterparty Base
+            {isOpen && createPortal(
+                <div
+                    ref={menuRef}
+                    style={{
+                        position: 'fixed',
+                        top: `${dropdownPosition.top}px`,
+                        left: `${dropdownPosition.left}px`,
+                        width: `${dropdownPosition.width}px`,
+                        zIndex: 9999
+                    }}
+                    role="listbox"
+                    aria-label="Counterparty Base Options"
+                    className="bg-white border border-gray-200 rounded-xl shadow-2xl py-1 text-xs overflow-hidden animate-fade-in"
+                >
+                    <div className="px-2.5 py-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 flex items-center justify-between">
+                        <span>Counterparty Base</span>
+                        <span className="text-[8px] text-gray-400 font-mono tracking-tight font-normal">↑↓ / letters</span>
                     </div>
-                    {options.map(opt => {
+                    {options.map((opt, idx) => {
                         const isSelected = opt.value === value;
+                        const isHighlighted = idx === highlightedIndex;
                         const OptIcon = opt.icon;
                         return (
                             <button
                                 key={opt.value}
                                 type="button"
+                                role="option"
+                                aria-selected={isSelected}
                                 onClick={() => {
                                     onChange(opt.value);
                                     setIsOpen(false);
                                 }}
+                                onMouseEnter={() => setHighlightedIndex(idx)}
                                 className={`w-full px-2.5 py-1.5 flex items-center justify-between text-left transition-colors cursor-pointer ${
-                                    isSelected 
-                                        ? 'bg-slate-100/90 font-bold text-gray-900' 
-                                        : 'hover:bg-slate-50 text-gray-700 font-medium'
+                                    isHighlighted
+                                        ? 'bg-slate-100/90 font-bold text-gray-900 ring-1 ring-inset ring-slate-300'
+                                        : isSelected
+                                            ? 'bg-slate-50 font-semibold text-gray-900'
+                                            : 'hover:bg-slate-50 text-gray-700 font-medium'
                                 }`}
                             >
                                 <span className="flex items-center gap-2 truncate">
@@ -263,7 +438,8 @@ const BaseTypeDropdown = ({ value, onChange, allowInvisible }) => {
                             </button>
                         );
                     })}
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
@@ -502,6 +678,7 @@ export default function QuotationRequestDashboard() {
     const [showDraftBanner, setShowDraftBanner] = useState(false);
     const [lastSavedTime, setLastSavedTime] = useState(null);
     const [expandedCosts, setExpandedCosts] = useState({});
+    const [includeHistoricalTariffs, setIncludeHistoricalTariffs] = useState(false);
 
     const handleReset = () => {
         if (location.search) {
@@ -1421,12 +1598,14 @@ export default function QuotationRequestDashboard() {
             if (matchedBank && !banksToSelect.find(b => b.id === matchedBank.bank_id)) {
                 const base = formData.quotationBase || 'Execution';
                 let costData = { cost_min: 0, cost_percent: 0, cost_max: 0, cost_flat: 0 };
-                try {
-                    const costRes = await apiClient.get(`/end-user/quotations/banks/latest-costs?bank_id=${matchedBank.bank_id}`);
-                    if (costRes.data) {
-                        costData = costRes.data;
-                    }
-                } catch (e) {}
+                if (includeHistoricalTariffs) {
+                    try {
+                        const costRes = await apiClient.get(`/end-user/quotations/banks/latest-costs?bank_id=${matchedBank.bank_id}`);
+                        if (costRes.data) {
+                            costData = costRes.data;
+                        }
+                    } catch (e) {}
+                }
 
                 const effectiveInitialDate = formData.valueDate || todayStr;
                 banksToSelect.push({
@@ -3981,17 +4160,28 @@ export default function QuotationRequestDashboard() {
                                         </p>
                                     </div>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={handleApplySmartSelection}
-                                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer shrink-0"
-                                >
-                                    <Sparkles size={13} /> Auto-Select Top {recommendations.length}
-                                </button>
+                                <div className="flex items-center gap-3 shrink-0">
+                                    <label className="flex items-center gap-1.5 text-[11px] font-semibold text-blue-900 cursor-pointer select-none bg-white/70 hover:bg-white px-2.5 py-1 rounded-lg border border-blue-200 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={includeHistoricalTariffs}
+                                            onChange={(e) => setIncludeHistoricalTariffs(e.target.checked)}
+                                            className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                                        />
+                                        <span>Include Historical Tariffs</span>
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={handleApplySmartSelection}
+                                        className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer shrink-0"
+                                    >
+                                        <Sparkles size={13} /> Auto-Select Top {recommendations.length}
+                                    </button>
+                                </div>
                             </div>
                         )}
 
-                        <div className="flex flex-col gap-3.5 flex-1">
+                        <div className="flex flex-col gap-3.5 flex-1 relative z-10">
                             {displayedBanks.map(bank => {
                                 const isSelected = selectedBanks.find(b => b.id === bank.bank_id);
                                 const rec = recommendations.find(r => r.bank_id === bank.bank_id);
@@ -4000,7 +4190,7 @@ export default function QuotationRequestDashboard() {
                                 return (
                                     <div
                                         key={bank.id}
-                                        className={`p-3.5 sm:p-4 rounded-2xl border transition-all ${
+                                        className={`p-3.5 sm:p-4 rounded-2xl border transition-all relative ${
                                             isSelected ? 'border-slate-900 bg-slate-50/70 shadow-xs ring-1 ring-slate-900/10' : 'border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-xs'
                                         }`}
                                     >
@@ -4555,7 +4745,7 @@ export default function QuotationRequestDashboard() {
 
                         {/* Mandatory Legal & Execution Acknowledgment Checkbox (for Execution RFQs) */}
                         {hasExecutionBanks && (
-                            <div className="mt-6 p-4 sm:p-5 rounded-2xl bg-amber-50/90 border-2 border-amber-300 text-xs text-amber-950 space-y-2 shadow-sm animate-fade-in-up">
+                            <div className="mt-6 p-4 sm:p-5 rounded-2xl bg-amber-50/90 border-2 border-amber-300 text-xs text-amber-950 space-y-2 shadow-sm animate-fade-in-up relative z-0">
                                 <div className="flex items-start gap-3">
                                     <input
                                         type="checkbox"

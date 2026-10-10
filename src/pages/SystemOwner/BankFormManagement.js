@@ -1337,6 +1337,49 @@ export default function BankFormManagement() {
                                                 </button>
                                             </div>
                                         )}
+
+                                        <datalist id="system-mapping-list">
+                                            <option value="contract_percentage">% of LG from Total Contract (e.g. 10%)</option>
+                                            <option value="contract_percentage_num">% of LG from Total Contract (Number Only: 10)</option>
+                                            <option value="reference_amount">Total Contract Value / Reference Amount</option>
+                                            <option value="reference_number">Reference / Contract Number</option>
+                                            <option value="margin_percentage">Cash Margin %</option>
+                                            <option value="applicant_name">Applicant / Company Name</option>
+                                            <option value="applicant_cr">Applicant CR Number</option>
+                                            <option value="applicant_address">Applicant Address</option>
+                                            <option value="applicant_phone">Applicant Phone</option>
+                                            <option value="applicant_email">Applicant Email</option>
+                                            <option value="beneficiary_name">Beneficiary Name</option>
+                                            <option value="beneficiary_cr">Beneficiary CR / ID</option>
+                                            <option value="beneficiary_address">Beneficiary Address</option>
+                                            <option value="amount">LG Amount</option>
+                                            <option value="amount_with_currency">Amount + Currency</option>
+                                            <option value="amount_in_words">Amount in Words</option>
+                                            <option value="currency_code">Currency Code (EGP, SAR, USD)</option>
+                                            <option value="currency_name">Currency Name</option>
+                                            <option value="current_date">Current / Print Date</option>
+                                            <option value="issue_date">Issue Date</option>
+                                            <option value="expiry_date">Expiry Date</option>
+                                            <option value="tenor_days">Tenor (Days)</option>
+                                            <option value="tenor_months">Tenor (Months)</option>
+                                            <option value="bank_branch">Bank Branch</option>
+                                            <option value="bank_account_number">Bank Account Number</option>
+                                            <option value="iban">IBAN Number</option>
+                                            <option value="facility_account_number">Facility Account Number</option>
+                                            <option value="project_name">Project Name</option>
+                                            <option value="lg_purpose">LG Purpose</option>
+                                            <option value="lg_type_is_bid_bond">Checkbox: Bid Bond</option>
+                                            <option value="lg_type_is_performance">Checkbox: Performance</option>
+                                            <option value="lg_type_is_advance_payment">Checkbox: Advance Payment</option>
+                                            <option value="lg_type_is_retention">Checkbox: Retention</option>
+                                            <option value="has_facility_at_bank">Checkbox: Has Facility at Bank</option>
+                                            <option value="is_third_party">Checkbox: Is Third Party</option>
+                                            <option value="third_party_name">Third Party Name</option>
+                                            <option value="third_party_cr">Third Party CR</option>
+                                            <option value="third_party_address">Third Party Address</option>
+                                            <option value="applicable_rules">Applicable Rules</option>
+                                            <option value="additional_conditions">Special Wording / Conditions</option>
+                                        </datalist>
                                     </div>
                                 </div>
                             )}
@@ -1376,9 +1419,10 @@ export default function BankFormManagement() {
             <VisualBankFormDesignerModal
                 isOpen={isVisualDesignerOpen}
                 onClose={() => setIsVisualDesignerOpen(false)}
-                formTemplate={selectedForm}
+                formTemplate={editingMapping && selectedForm ? { ...selectedForm, field_mapping: editableMapping } : selectedForm}
                 onSaveSuccess={(newMapping) => {
                     setSelectedForm(prev => prev ? { ...prev, field_mapping: newMapping } : null);
+                    setEditableMapping(newMapping);
                     fetchForms();
                 }}
             />

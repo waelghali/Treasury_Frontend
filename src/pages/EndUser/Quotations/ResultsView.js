@@ -376,6 +376,47 @@ export default function ResultsView({ rfqId: propRfqId }) {
         }
     }, [isAwaitingAcceptance, resultsMeta.isInconclusive]);
 
+    // Precision countdown timer to window_end: triggers acceptance check within < 1 second of window close
+    useEffect(() => {
+        if (!rfq?.window_end) return;
+        const endTime = new Date(rfq.window_end).getTime();
+        if (isNaN(endTime)) return;
+
+        const now = Date.now();
+        const msUntilEnd = endTime - now;
+
+        if (msUntilEnd > 0 && msUntilEnd < 86400000) {
+            // Trigger 0: Exactly at window close (0ms) so acceptance modal pops up instantaneously
+            const t0 = setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('quotation-window-closed'));
+                window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
+                fetchResults();
+            }, msUntilEnd);
+
+            // Trigger 1: 400ms after window close (captures any last-second dealer quote in flight)
+            const t1 = setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('quotation-window-closed'));
+                window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
+                fetchResults();
+            }, msUntilEnd + 400);
+
+            // Trigger 2: 1000ms after window close (failsafe)
+            const t2 = setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
+                fetchResults();
+            }, msUntilEnd + 1000);
+
+            return () => {
+                clearTimeout(t0);
+                clearTimeout(t1);
+                clearTimeout(t2);
+            };
+        } else if (msUntilEnd <= 0 && msUntilEnd > -6000 && !isAccepted && !isDeclined) {
+            // Window closed within the last 6s while viewing this screen
+            window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
+        }
+    }, [rfq?.window_end, isAccepted, isDeclined]);
+
     const [acceptanceSecondsRemaining, setAcceptanceSecondsRemaining] = useState(null);
 
     useEffect(() => {
@@ -2284,12 +2325,38 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                         </div>
                                         <div className="flex flex-wrap gap-2">
                                             {docs.map((d, i) => (
-                                                <a
+                                                <button
                                                     key={i}
-                                                    href={d.path?.startsWith('http') ? d.path : `http://localhost:8000${d.path?.startsWith('/') ? '' : '/'}${d.path}`}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-blue-600 hover:bg-slate-100"
+                                                    type="button"
+                                                    onClick={async (e) => {
+                                                        e.preventDefault();
+                                                        const p = d.path;
+                                                        if (!p) {
+                                                            toast.error("Document path not available.");
+                                                            return;
+                                                        }
+                                                        if (p.startsWith('http://') || p.startsWith('https://')) {
+                                                            window.open(p, '_blank');
+                                                            return;
+                                                        }
+                                                        if (p.startsWith('gs://')) {
+                                                            try {
+                                                                const res = await apiClient.get(`/end-user/quotations/document-url?gcs_uri=${encodeURIComponent(p)}`);
+                                                                if (res.data?.url) {
+                                                                    window.open(res.data.url, '_blank');
+                                                                } else {
+                                                                    toast.error("Could not generate secure document link.");
+                                                                }
+                                                            } catch (err) {
+                                                                console.error("Failed to get document URL:", err);
+                                                                toast.error(err.response?.data?.detail || "Failed to open document.");
+                                                            }
+                                                            return;
+                                                        }
+                                                        const fallbackUrl = `http://localhost:8000${p.startsWith('/') ? '' : '/'}${p}`;
+                                                        window.open(fallbackUrl, '_blank');
+                                                    }}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-blue-600 hover:bg-slate-100 cursor-pointer"
                                                 >
                                                     <FileText size={13} className="text-slate-400" />
                                                     <span>{d.name || `Document ${i+1}`}</span>
@@ -2298,7 +2365,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                                             {d.pair}
                                                         </span>
                                                     )}
-                                                </a>
+                                                </button>
                                             ))}
                                         </div>
                                     </>

@@ -1334,8 +1334,8 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                             </button>
                         )}
 
-                        {/* Reserve Facility — only for APPROVED_INTERNAL, end_user, with matching facilities, not locked */}
-                        {userRole === 'end_user' && request.status === 'APPROVED_INTERNAL' && facilities.length > 0 && !request.locked_for_issuance && (
+                        {/* Reserve Facility — only for APPROVED_INTERNAL, end_user, with matching facilities */}
+                        {userRole === 'end_user' && request.status === 'APPROVED_INTERNAL' && facilities.length > 0 && (
                             <button
                                 onClick={() => {
                                     if (typeof onStatusChange === 'function') onStatusChange('EXECUTE', request);
@@ -1346,8 +1346,8 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                             </button>
                         )}
 
-                        {/* Issue to Bank — available on APPROVED_INTERNAL or FACILITY_RESERVED, not locked */}
-                        {userRole === 'end_user' && !request.locked_for_issuance && (request.status === 'APPROVED_INTERNAL' || request.status === 'FACILITY_RESERVED') && (
+                        {/* Issue to Bank — available on APPROVED_INTERNAL or FACILITY_RESERVED */}
+                        {userRole === 'end_user' && (request.status === 'APPROVED_INTERNAL' || request.status === 'FACILITY_RESERVED') && (
                             <button
                                 onClick={() => setShowWizard(true)}
                                 className="flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-semibold text-sm transition-colors shadow-sm"

@@ -595,11 +595,11 @@ const RuleManagement = () => {
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
                         <div className="flex items-center space-x-3 flex-1">
                             <div className="relative flex-1 max-w-md">
-                                <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
+                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                                 <input
                                     type="text"
                                     placeholder="Search counterparties or aliases..."
-                                    className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs w-full focus:ring-2 focus:ring-purple-500 outline-none"
+                                    className="!pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs w-full focus:ring-2 focus:ring-purple-500 outline-none"
                                     value={cpSearch}
                                     onChange={(e) => setCpSearch(e.target.value)}
                                 />
@@ -909,13 +909,13 @@ const RuleManagement = () => {
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-4 rounded-xl border border-gray-200 shadow-xs">
                         <div className="flex items-center space-x-3 w-full sm:w-auto">
                             <div className="relative flex-1 sm:w-80">
-                                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                                 <input
                                     type="text"
                                     value={taxonomySearch}
                                     onChange={(e) => setTaxonomySearch(e.target.value)}
                                     placeholder="Search classes, subclasses, or GL accounts..."
-                                    className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                                    className="w-full !pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
                                 />
                             </div>
                             <span className="px-3 py-1 bg-teal-50 text-teal-700 rounded-lg text-xs font-bold whitespace-nowrap border border-teal-200">

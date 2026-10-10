@@ -2078,13 +2078,13 @@ export default function IssuedLGsPage() {
                     <div className="space-y-3">
                         <div className="flex gap-3 flex-wrap items-center">
                             <div className="relative flex-1 min-w-[200px]">
-                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                                 <input
                                     type="text"
                                     value={searchTerm}
                                     onChange={e => setSearchTerm(e.target.value)}
                                     placeholder="Search by serial, ref, beneficiary, bank, or request..."
-                                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-sm bg-white"
+                                    className="w-full !pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-sm bg-white"
                                 />
                             </div>
                             <select

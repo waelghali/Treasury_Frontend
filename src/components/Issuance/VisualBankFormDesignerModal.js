@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     X, Save, Sparkles, Move, Plus, Trash2, Eye, EyeOff, ZoomIn, ZoomOut,
-    ChevronLeft, ChevronRight, Check, AlertCircle, Loader2, Maximize2, RefreshCw
+    ChevronLeft, ChevronRight, Check, AlertCircle, Loader2, Maximize2, RefreshCw, Printer
 } from 'lucide-react';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
 import { toast } from 'react-toastify';
@@ -32,6 +32,7 @@ const AVAILABLE_MAPPED_FIELDS = [
     { key: 'lg_type_is_retention', label: 'Checkbox: Retention' },
     { key: 'lg_type_is_maintenance', label: 'Checkbox: Maintenance' },
     { key: 'lg_type_is_payment', label: 'Checkbox: Payment / Financial' },
+    { key: 'current_date', label: 'Current / Today Date' },
     { key: 'issue_date', label: 'Issue Date' },
     { key: 'expiry_date', label: 'Expiry Date' },
     { key: 'tenor_days', label: 'Tenor (Days)' },
@@ -42,6 +43,15 @@ const AVAILABLE_MAPPED_FIELDS = [
     { key: 'third_party_address', label: 'Third Party Address' },
     { key: 'third_party_relationship', label: 'Third Party Relationship' },
     { key: 'reference_number', label: 'Reference / Contract Number' },
+    { key: 'reference_amount', label: 'Total Contract Value / Reference Amount' },
+    { key: 'contract_percentage', label: '% of LG from Total Contract (e.g. 10%)' },
+    { key: 'contract_percentage_num', label: '% of LG from Total Contract — Number Only (e.g. 10)' },
+    { key: 'margin_percentage', label: 'Cash Margin % (e.g. 10%)' },
+    { key: 'bank_branch', label: 'Bank Branch Name' },
+    { key: 'reference_start_date', label: 'Contract Start Date' },
+    { key: 'reference_end_date', label: 'Contract End Date' },
+    { key: 'lg_language_is_arabic', label: 'Checkbox: Arabic Language' },
+    { key: 'lg_language_is_english', label: 'Checkbox: English Language' },
     { key: 'project_name', label: 'Project Name' },
     { key: 'applicable_rules', label: 'Applicable Rules (URDG 758)' },
     { key: 'additional_conditions', label: 'Special Wording / Conditions' },
@@ -75,7 +85,12 @@ const DUMMY_PREVIEW_VALUES = {
     amount_in_words: 'Two Hundred Fifty Thousand Egyptian Pounds Only',
     currency_code: 'EGP',
     currency_name: 'Egyptian Pounds',
-    reference_amount: '10%',
+    reference_amount: '2,500,000.00',
+    contract_percentage: '10%',
+    contract_percentage_num: '10',
+    lg_percentage_of_contract: '10%',
+    reference_amount_percentage: '10%',
+    margin_percentage: '10%',
 
     // LG Types & Checkboxes
     lg_type_name: 'Performance Guarantee',
@@ -129,6 +144,7 @@ export default function VisualBankFormDesignerModal({
     // Zoom: scale multiplier (1.0 = 100%)
     const [zoom, setZoom] = useState(1.0);
     const [previewMode, setPreviewMode] = useState(false); // false = Design/Drag, true = Live Preview
+    const [pageDimensions, setPageDimensions] = useState({ width: 612, height: 792 });
     
     // Working mapping array
     const [mapping, setMapping] = useState([]);
@@ -145,7 +161,7 @@ export default function VisualBankFormDesignerModal({
 
     // Initialize mapping from template with smart 2-column fallback positioning if unpositioned
     useEffect(() => {
-        if (!formTemplate) return;
+        if (!isOpen || !formTemplate) return;
         const initial = Array.isArray(formTemplate.field_mapping)
             ? formTemplate.field_mapping.map((f, i) => {
                 const hasExplicitX = f.x_pct !== undefined && f.x_pct !== null && Number(f.x_pct) > 0;
@@ -167,15 +183,16 @@ export default function VisualBankFormDesignerModal({
                     font_size: f.font_size || 10,
                     char_spacing: f.char_spacing !== undefined && f.char_spacing !== null ? Number(f.char_spacing) : 0,
                     form_language: f.form_language || 'BILINGUAL',
+                    date_format: f.date_format || '',
                 };
             })
             : [];
         setMapping(initial);
         setSelectedFieldIdx(initial.length > 0 ? 0 : null);
         setCurrentPage(0);
-    }, [formTemplate]);
+    }, [isOpen, formTemplate]);
 
-    // Fetch page image when form or page changes
+    // Fetch clean bank form page image when form or page changes
     const fetchPageImage = useCallback(async () => {
         if (!formTemplate?.id) return;
         setLoadingImage(true);
@@ -190,9 +207,16 @@ export default function VisualBankFormDesignerModal({
             const total = res.headers.get('X-Total-Pages');
             if (total) setTotalPages(parseInt(total, 10));
 
+            const pWidth = parseFloat(res.headers.get('X-Page-Width')) || 612;
+            const pHeight = parseFloat(res.headers.get('X-Page-Height')) || 792;
+            setPageDimensions({ width: pWidth, height: pHeight });
+
             const blob = await res.blob();
             const objectUrl = URL.createObjectURL(blob);
-            setPageImageUrl(objectUrl);
+            setPageImageUrl(prev => {
+                if (prev) URL.revokeObjectURL(prev);
+                return objectUrl;
+            });
         } catch (err) {
             console.error("Failed to render page image:", err);
             toast.error(err.message || 'Could not render bank form page');
@@ -205,10 +229,13 @@ export default function VisualBankFormDesignerModal({
         if (isOpen && formTemplate?.id) {
             fetchPageImage();
         }
+    }, [isOpen, formTemplate?.id, currentPage, fetchPageImage]);
+
+    useEffect(() => {
         return () => {
             if (pageImageUrl) URL.revokeObjectURL(pageImageUrl);
         };
-    }, [isOpen, formTemplate?.id, currentPage, fetchPageImage]);
+    }, [pageImageUrl]);
 
     // Handle mouse down on a field box (Start dragging)
     const handleBoxMouseDown = (e, index) => {
@@ -295,6 +322,44 @@ export default function VisualBankFormDesignerModal({
         };
     }, [handleMouseMove, handleMouseUp]);
 
+    // Keyboard Arrow Keys nudging for selected field (micro-adjustments in live preview / design mode)
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (selectedFieldIdx === null) return;
+            // Ignore if user is currently typing in an input, textarea, or select
+            const tag = e.target?.tagName?.toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+            const step = e.shiftKey ? 0.5 : 0.1;
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+                setMapping(prev => {
+                    const updated = [...prev];
+                    const cur = updated[selectedFieldIdx];
+                    if (!cur) return prev;
+
+                    let newX = cur.x_pct || 0;
+                    let newY = cur.y_pct || 0;
+
+                    if (e.key === 'ArrowUp') newY = Math.max(0, newY - step);
+                    if (e.key === 'ArrowDown') newY = Math.min(99, newY + step);
+                    if (e.key === 'ArrowLeft') newX = Math.max(0, newX - step);
+                    if (e.key === 'ArrowRight') newX = Math.min(99, newX + step);
+
+                    updated[selectedFieldIdx] = {
+                        ...cur,
+                        x_pct: parseFloat(newX.toFixed(2)),
+                        y_pct: parseFloat(newY.toFixed(2)),
+                    };
+                    return updated;
+                });
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedFieldIdx]);
+
     // Add new field
     const handleAddNewField = () => {
         const newId = `field_${Date.now()}`;
@@ -310,6 +375,7 @@ export default function VisualBankFormDesignerModal({
             width_pct: 25,
             font_size: 10,
             form_language: 'BILINGUAL',
+            date_format: '',
         };
         setMapping(prev => [...prev, newEntry]);
         setSelectedFieldIdx(mapping.length);
@@ -331,9 +397,27 @@ export default function VisualBankFormDesignerModal({
         if (selectedFieldIdx === null || !mapping[selectedFieldIdx]) return;
         setMapping(prev => {
             const updated = [...prev];
+            const current = updated[selectedFieldIdx];
+            const updates = { [key]: value };
+
+            // Auto-detect field_type when mapped_to changes
+            if (key === 'mapped_to' && value) {
+                if (value.includes('date') || value.endsWith('_date')) {
+                    updates.field_type = 'date';
+                    if (!current.date_format) {
+                        updates.date_format = 'YYYY MM DD';
+                    }
+                } else if (value.includes('is_') || value.startsWith('has_') || value.includes('checkbox')) {
+                    updates.field_type = 'checkbox';
+                }
+            }
+            if (key === 'date_format' && value) {
+                updates.field_type = 'date';
+            }
+
             updated[selectedFieldIdx] = {
-                ...updated[selectedFieldIdx],
-                [key]: value,
+                ...current,
+                ...updates,
             };
             return updated;
         });
@@ -353,10 +437,11 @@ export default function VisualBankFormDesignerModal({
                 page: f.page || 0,
                 x_pct: Number(f.x_pct) || 0,
                 y_pct: Number(f.y_pct) || 0,
-                width_pct: Number(f.width_pct) || 25,
+                width_pct: f.field_type === 'checkbox' ? 1.65 : (Number(f.width_pct) || 25),
                 font_size: Number(f.font_size) || 10,
                 char_spacing: Number(f.char_spacing) || 0,
                 form_language: f.form_language || 'BILINGUAL',
+                date_format: f.date_format || null,
             }));
 
             await apiRequest(`/issuance/bank-forms/${formTemplate.id}/mapping`, 'PUT', payload);
@@ -372,10 +457,46 @@ export default function VisualBankFormDesignerModal({
         }
     };
 
+    const handleTogglePreview = () => {
+        setPreviewMode(prev => !prev);
+    };
+
+    const handleOpenPdfPreview = async () => {
+        try {
+            toast.info('Generating PDF with current positions...');
+            const payload = mapping.map(f => ({
+                id: f.id,
+                pdf_field_name: f.pdf_field_name,
+                label: f.label || f.pdf_field_name,
+                mapped_to: f.mapped_to,
+                field_type: f.field_type || 'text',
+                page: f.page || 0,
+                x_pct: Number(f.x_pct) || 0,
+                y_pct: Number(f.y_pct) || 0,
+                width_pct: f.field_type === 'checkbox' ? 1.65 : (Number(f.width_pct) || 25),
+                font_size: Number(f.font_size) || 10,
+                char_spacing: Number(f.char_spacing) || 0,
+                form_language: f.form_language || 'BILINGUAL',
+                date_format: f.date_format || null,
+            }));
+            await apiRequest(`/issuance/bank-forms/${formTemplate.id}/mapping`, 'PUT', payload);
+            
+            const blob = await apiRequest(`/issuance/bank-forms/${formTemplate.id}/preview`, 'POST', null, 'application/json', 'blob');
+            const blobUrl = window.URL.createObjectURL(blob);
+            window.open(blobUrl, '_blank');
+            toast.success('PDF preview generated & opened in new tab');
+        } catch (err) {
+            toast.error(err.message || 'Failed to generate PDF preview');
+        }
+    };
+
     if (!isOpen) return null;
 
     const selectedField = selectedFieldIdx !== null ? mapping[selectedFieldIdx] : null;
     const pageFields = mapping.filter(f => (f.page || 0) === currentPage);
+    const containerWidth = 850;
+    const containerHeight = Math.round(containerWidth * (pageDimensions.height / pageDimensions.width));
+    const fontScale = containerWidth / pageDimensions.width;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-200">
@@ -464,15 +585,25 @@ export default function VisualBankFormDesignerModal({
 
                         {/* Preview Toggle */}
                         <button
-                            onClick={() => setPreviewMode(!previewMode)}
+                            onClick={handleTogglePreview}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
                                 previewMode
                                     ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
                                     : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
                             }`}
+                            title="Toggle actual filled PDF print render directly in canvas"
                         >
                             {previewMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             {previewMode ? 'Exit Preview' : 'Live Data Preview'}
+                        </button>
+
+                        {/* Direct PDF Print Preview Button */}
+                        <button
+                            onClick={handleOpenPdfPreview}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-md"
+                            title="Generate and open the actual ReportLab PDF in a new tab"
+                        >
+                            <Printer className="w-4 h-4" /> PDF Print Preview
                         </button>
 
                         {/* Add Field */}
@@ -514,8 +645,8 @@ export default function VisualBankFormDesignerModal({
                         <div
                             ref={imageContainerRef}
                             style={{
-                                width: '850px',
-                                minHeight: '1150px',
+                                width: `${containerWidth}px`,
+                                height: `${containerHeight}px`,
                                 transform: `scale(${zoom})`,
                                 transformOrigin: 'top center',
                                 transition: 'transform 0.1s ease-out',
@@ -535,22 +666,57 @@ export default function VisualBankFormDesignerModal({
                                 <img
                                     src={pageImageUrl}
                                     alt={`Bank Form Page ${currentPage + 1}`}
-                                    className="w-full h-auto block pointer-events-none select-none rounded-lg"
-                                    style={{ width: '850px', display: 'block' }}
+                                    className="w-full h-full block pointer-events-none select-none rounded-lg"
+                                    style={{ width: `${containerWidth}px`, height: `${containerHeight}px`, display: 'block' }}
+                                    onLoad={(e) => {
+                                        if (e.target.naturalWidth && e.target.naturalHeight) {
+                                            const nw = e.target.naturalWidth;
+                                            const nh = e.target.naturalHeight;
+                                            setPageDimensions(prev => ({
+                                                width: prev.width,
+                                                height: prev.width * (nh / nw)
+                                            }));
+                                        }
+                                    }}
                                 />
                             )}
 
-                                {/* Interactive Overlay Boxes */}
+                                {/* Mode Indicator Banner */}
+                                {previewMode ? (
+                                    <div className="absolute top-3 left-3 z-40 bg-slate-900/90 border border-purple-500/40 text-purple-200 text-xs px-3 py-1.5 rounded-lg shadow-lg flex items-center gap-2 backdrop-blur-sm">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                        <span><strong>Live Data Preview:</strong> Fields are fully draggable & adjustable. Click or drag any field; use Arrow keys (↑, ↓, ←, →) for micro-adjustments.</span>
+                                    </div>
+                                ) : (
+                                    <div className="absolute top-3 left-3 z-40 bg-slate-900/90 border border-blue-500/40 text-blue-200 text-xs px-3 py-1.5 rounded-lg shadow-lg flex items-center gap-2 backdrop-blur-sm">
+                                        <div className="w-2 h-2 rounded-full bg-blue-400" />
+                                        <span><strong>Design Mode:</strong> Showing field boundaries & baseline guides. Toggle <em>Live Data Preview</em> for realistic text fit.</span>
+                                    </div>
+                                )}
+
+                                {/* Interactive Overlay Boxes (Active in BOTH Design Mode and Live Preview Mode!) */}
                                 {pageFields.map((field) => {
                                     const actualIndex = mapping.findIndex(m => m.id === field.id);
                                     const isSelected = selectedFieldIdx === actualIndex;
                                     const isDragging = draggingIdx === actualIndex;
+                                    const isCheckbox = field.field_type === 'checkbox';
                                     
                                     // Sample preview text
-                                    const previewText = DUMMY_PREVIEW_VALUES[field.mapped_to] || `[${field.label}]`;
+                                    const isDateField = field.field_type === 'date' || (field.mapped_to && field.mapped_to.includes('date'));
+                                    let previewText = DUMMY_PREVIEW_VALUES[field.mapped_to] || `[${field.label}]`;
+                                    if (isDateField) {
+                                        const pattern = field.date_format || 'DD/MM/YYYY';
+                                        previewText = pattern
+                                            .replace(/YYYY/gi, '2026')
+                                            .replace(/YY/gi, '26')
+                                            .replace(/MMMM/gi, 'August')
+                                            .replace(/MMM/gi, 'Aug')
+                                            .replace(/MM/gi, '08')
+                                            .replace(/DD/gi, '26');
+                                    }
 
-                                    if (previewMode) {
-                                        // Interactive Live Fill Print Preview mode
+                                    // Checkbox Field: Precise 14px square matching printed form checkbox
+                                    if (isCheckbox) {
                                         return (
                                             <div
                                                 key={field.id}
@@ -559,48 +725,35 @@ export default function VisualBankFormDesignerModal({
                                                     position: 'absolute',
                                                     left: `${field.x_pct}%`,
                                                     top: `${field.y_pct}%`,
-                                                    width: `${field.width_pct || 25}%`,
-                                                    fontSize: `${(field.font_size || 10) * 1.39}px`,
-                                                    lineHeight: '1.0',
-                                                    color: '#0f172a',
-                                                    fontFamily: 'Helvetica, Arial, sans-serif',
-                                                    fontWeight: '600',
-                                                    letterSpacing: field.char_spacing ? `${field.char_spacing * 1.39}px` : 'normal',
-                                                    whiteSpace: 'nowrap',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
+                                                    width: '14px',
+                                                    height: '14px',
                                                     cursor: isDragging ? 'grabbing' : 'grab',
-                                                    zIndex: isSelected ? 30 : 10,
-                                                    padding: 0,
-                                                    margin: 0,
+                                                    zIndex: isSelected ? 40 : 20,
                                                 }}
-                                                className={`group rounded px-0.5 transition-all ${
+                                                className={`group border rounded flex items-center justify-center font-bold transition-all ${
                                                     isSelected
-                                                        ? 'ring-2 ring-purple-500 bg-purple-500/10'
-                                                        : 'hover:ring-1 hover:ring-blue-400 hover:bg-blue-50/20'
+                                                        ? 'border-2 border-purple-600 bg-purple-500/30 text-purple-950 ring-2 ring-purple-400 shadow-md'
+                                                        : previewMode
+                                                            ? 'border-slate-800/40 bg-transparent text-slate-900 hover:border-purple-500 hover:bg-purple-100/30'
+                                                            : 'border-2 border-blue-600 bg-blue-500/20 text-blue-900 hover:border-purple-500 hover:bg-purple-100/40'
                                                 }`}
+                                                title={`${field.label} (${field.mapped_to})`}
                                             >
-                                                {field.field_type === 'checkbox' ? (
-                                                    <span className="font-bold text-slate-900 text-xs">X</span>
-                                                ) : (
-                                                    previewText
-                                                )}
-
-                                                {/* Resize / Stretch Handle in Live Preview */}
-                                                <div
-                                                    onMouseDown={(e) => handleResizeMouseDown(e, actualIndex)}
-                                                    className={`absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-5 bg-purple-600 hover:bg-purple-400 rounded-sm cursor-ew-resize border border-white shadow-sm flex items-center justify-center ${
-                                                        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                                                    } transition-opacity`}
-                                                    title="Drag right edge to stretch width"
-                                                >
-                                                    <div className="w-0.5 h-2.5 bg-white/90 rounded" />
+                                                <span style={{ fontSize: '10px', lineHeight: '1', fontWeight: 'bold' }}>X</span>
+                                                {/* Floating label badge above checkbox */}
+                                                <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 bg-slate-900 text-[9px] text-white rounded whitespace-nowrap pointer-events-none shadow-md ${
+                                                    isSelected || isDragging ? 'opacity-100 ring-1 ring-purple-400' : 'opacity-0 group-hover:opacity-100'
+                                                } transition-opacity z-50`}>
+                                                    {field.label || field.pdf_field_name}
                                                 </div>
                                             </div>
                                         );
                                     }
 
-                                    // Design & Drag Mode
+                                    // Text / Date / Number Field: True WYSIWYG with Exact Baseline Guide
+                                    const fontSizePx = (field.font_size || 10) * fontScale;
+                                    const charSpacingPx = field.char_spacing ? `${field.char_spacing * fontScale}px` : 'normal';
+
                                     return (
                                         <div
                                             key={field.id}
@@ -611,31 +764,64 @@ export default function VisualBankFormDesignerModal({
                                                 top: `${field.y_pct}%`,
                                                 width: `${field.width_pct || 25}%`,
                                                 cursor: isDragging ? 'grabbing' : 'grab',
-                                                zIndex: isSelected ? 30 : 10,
+                                                zIndex: isSelected ? 40 : 20,
+                                                userSelect: 'none',
                                             }}
-                                            className={`group border-2 rounded p-1 transition-shadow ${
-                                                isSelected
-                                                    ? 'border-purple-500 bg-purple-500/20 ring-2 ring-purple-400/50 shadow-lg'
-                                                    : 'border-blue-500/70 bg-blue-500/10 hover:border-blue-400 hover:bg-blue-500/20'
-                                            }`}
+                                            className="group"
                                         >
-                                            <div className="flex items-center justify-between gap-1 overflow-hidden pointer-events-none">
-                                                <span className="text-[10px] font-bold text-slate-900 bg-white/90 px-1 py-0.5 rounded shadow-sm truncate">
-                                                    {field.label || field.pdf_field_name}
-                                                </span>
-                                                <span className="text-[9px] font-mono text-purple-900 bg-purple-100/90 px-1 rounded truncate">
-                                                    {field.mapped_to}
-                                                </span>
+                                            {/* Floating Label Badge ABOVE the field (never covers the form line or text!) */}
+                                            <div
+                                                className={`absolute bottom-full left-0 mb-1 px-1.5 py-0.5 rounded shadow-md pointer-events-none whitespace-nowrap flex items-center gap-1.5 transition-opacity duration-150 ${
+                                                    isSelected || isDragging
+                                                        ? 'bg-purple-950 text-white ring-1 ring-purple-400 opacity-100 z-50'
+                                                        : 'bg-slate-900/90 text-slate-200 opacity-0 group-hover:opacity-100 z-30'
+                                                }`}
+                                            >
+                                                <span className="text-[10px] font-bold">{field.label || field.pdf_field_name}</span>
+                                                <span className="text-[9px] font-mono text-purple-300">({field.mapped_to})</span>
+                                                <span className="text-[9px] text-slate-400 font-mono">[{field.font_size || 10}pt]</span>
                                             </div>
 
-                                            {/* Resize / Stretch Handle in Design Mode */}
+                                            {/* Text Container with WYSIWYG Sample Text & Crisp Baseline Indicator */}
                                             <div
-                                                onMouseDown={(e) => handleResizeMouseDown(e, actualIndex)}
-                                                className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-6 bg-purple-600 hover:bg-purple-400 rounded-sm cursor-ew-resize border border-white shadow-sm flex items-center justify-center"
-                                                title="Drag right edge to stretch width"
+                                                style={{
+                                                    fontSize: `${fontSizePx}px`,
+                                                    lineHeight: '1.0',
+                                                    letterSpacing: charSpacingPx,
+                                                    fontFamily: 'Helvetica, Arial, sans-serif',
+                                                    fontWeight: isSelected ? '700' : (previewMode ? '600' : '500'),
+                                                    color: isSelected ? '#1e1b4b' : '#0f172a',
+                                                }}
+                                                className={`relative px-0.5 pb-0.5 border-b-2 rounded-t-sm transition-colors ${
+                                                    isSelected
+                                                        ? 'border-purple-600 bg-purple-500/25 shadow-sm ring-1 ring-purple-400/40'
+                                                        : previewMode
+                                                            ? 'border-transparent hover:border-purple-400 hover:bg-purple-50/20'
+                                                            : 'border-blue-500/80 bg-blue-500/10 hover:border-purple-500 hover:bg-blue-500/20'
+                                                }`}
                                             >
-                                                <div className="w-0.5 h-3 bg-white/80 rounded" />
+                                                <span className="truncate block whitespace-nowrap overflow-hidden">
+                                                    {previewText}
+                                                </span>
+
+                                                {/* Resize / Width stretch handle on the right */}
+                                                <div
+                                                    onMouseDown={(e) => handleResizeMouseDown(e, actualIndex)}
+                                                    className={`absolute -right-1.5 top-0 bottom-0 w-3 bg-purple-600 hover:bg-purple-500 rounded-sm cursor-ew-resize border border-white shadow flex items-center justify-center transition-opacity ${
+                                                        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                                    }`}
+                                                    title="Drag to resize field width"
+                                                >
+                                                    <div className="w-0.5 h-3 bg-white/90 rounded" />
+                                                </div>
                                             </div>
+
+                                            {/* Baseline Guide Marker: visible when selected */}
+                                            {isSelected && (
+                                                <div className="absolute right-0 top-full mt-0.5 pointer-events-none flex items-center gap-0.5 text-[8px] font-mono font-semibold text-purple-700 bg-purple-100/90 px-1 rounded shadow-xs">
+                                                    <span>▲ Text Baseline</span>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -719,6 +905,57 @@ export default function VisualBankFormDesignerModal({
                                     </div>
                                 </div>
 
+                                {/* Date Format Control (Visible when field_type === 'date' OR mapped_to includes 'date') */}
+                                {(selectedField.field_type === 'date' || (selectedField.mapped_to && selectedField.mapped_to.includes('date'))) && (
+                                    <div className="border border-purple-900/40 bg-purple-950/20 p-3 rounded-xl space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="block text-slate-300 font-semibold text-[11px] uppercase tracking-wider">
+                                                Date Format Pattern
+                                            </label>
+                                            <span className="text-[10px] font-mono text-purple-400 font-bold">
+                                                {selectedField.date_format || 'DD/MM/YYYY'}
+                                            </span>
+                                        </div>
+                                        <select
+                                            value={selectedField.date_format || 'DD/MM/YYYY'}
+                                            onChange={e => handleUpdateSelectedField('date_format', e.target.value)}
+                                            className="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-xs outline-none focus:border-purple-500 font-mono"
+                                        >
+                                            <option value="DD/MM/YYYY">DD/MM/YYYY (e.g. 26/08/2026)</option>
+                                            <option value="YYYY MM DD">YYYY MM DD (e.g. 2026 08 26)</option>
+                                            <option value="YYYY  MM  DD">YYYY  MM  DD (Wide Spaced)</option>
+                                            <option value="YYYY-MM-DD">YYYY-MM-DD (e.g. 2026-08-26)</option>
+                                            <option value="YYYY/MM/DD">YYYY/MM/DD (e.g. 2026/08/26)</option>
+                                            <option value="DD-MMM-YYYY">DD-MMM-YYYY (e.g. 26-Aug-2026)</option>
+                                            <option value="DD.MM.YYYY">DD.MM.YYYY (e.g. 26.08.2026)</option>
+                                            <option value="DD/MM/YY">DD/MM/YY (e.g. 26/08/26)</option>
+                                            <option value="YYYYMMDD">YYYYMMDD (e.g. 20260826)</option>
+                                            <option value="DD MM YYYY">DD MM YYYY (e.g. 26 08 2026)</option>
+                                            <option value="DDMMYYYY">DDMMYYYY (e.g. 26082026)</option>
+                                            <option value="YYYY">YYYY (Year only: 2026)</option>
+                                            <option value="MM">MM (Month only: 08)</option>
+                                            <option value="DD">DD (Day only: 26)</option>
+                                            {selectedField.date_format && ![
+                                                'DD/MM/YYYY', 'YYYY MM DD', 'YYYY  MM  DD', 'YYYY-MM-DD', 'YYYY/MM/DD',
+                                                'DD-MMM-YYYY', 'DD.MM.YYYY', 'DD/MM/YY', 'YYYYMMDD', 'DD MM YYYY', 'DDMMYYYY',
+                                                'YYYY', 'MM', 'DD'
+                                            ].includes(selectedField.date_format) && (
+                                                <option value={selectedField.date_format}>{selectedField.date_format} (Custom)</option>
+                                            )}
+                                        </select>
+                                        <div className="flex items-center gap-1.5 mt-1">
+                                            <span className="text-[10px] text-slate-400">Custom:</span>
+                                            <input
+                                                type="text"
+                                                value={selectedField.date_format || ''}
+                                                onChange={e => handleUpdateSelectedField('date_format', e.target.value)}
+                                                placeholder="e.g. YYYY MM DD"
+                                                className="flex-1 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs font-mono text-purple-300 outline-none focus:border-purple-500"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Precision Coordinates Controls */}
                                 <div className="border border-slate-800 bg-slate-900/60 p-3 rounded-xl space-y-3">
                                     <span className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">
@@ -745,13 +982,21 @@ export default function VisualBankFormDesignerModal({
                                             />
                                         </div>
                                         <div>
-                                            <span className="text-[10px] text-slate-400 block mb-1">Width</span>
-                                            <input
-                                                type="number" step="0.5" min="2" max="100"
-                                                value={selectedField.width_pct || 25}
-                                                onChange={e => handleUpdateSelectedField('width_pct', parseFloat(e.target.value) || 25)}
-                                                className="w-full px-1.5 py-1 bg-slate-800 border border-slate-700 rounded text-center text-white text-xs"
-                                            />
+                                            <span className="text-[10px] text-slate-400 block mb-1">
+                                                {selectedField.field_type === 'checkbox' ? 'Size (Fixed)' : 'Width'}
+                                            </span>
+                                            {selectedField.field_type === 'checkbox' ? (
+                                                <div className="w-full py-1 bg-slate-800/60 border border-slate-700/60 rounded text-center text-purple-300 font-mono text-xs">
+                                                    14px (10pt)
+                                                </div>
+                                            ) : (
+                                                <input
+                                                    type="number" step="0.5" min="2" max="100"
+                                                    value={selectedField.width_pct || 25}
+                                                    onChange={e => handleUpdateSelectedField('width_pct', parseFloat(e.target.value) || 25)}
+                                                    className="w-full px-1.5 py-1 bg-slate-800 border border-slate-700 rounded text-center text-white text-xs"
+                                                />
+                                            )}
                                         </div>
                                     </div>
 
@@ -782,35 +1027,37 @@ export default function VisualBankFormDesignerModal({
                                         </div>
                                     </div>
 
-                                    {/* Stretch Width Slider & Presets */}
-                                    <div className="pt-2 border-t border-slate-800">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-[10px] text-slate-400 font-semibold">Stretch Width:</span>
-                                            <span className="text-[10px] font-mono text-purple-400">{selectedField.width_pct || 25}%</span>
+                                    {/* Stretch Width Slider & Presets (Text fields only) */}
+                                    {selectedField.field_type !== 'checkbox' && (
+                                        <div className="pt-2 border-t border-slate-800">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[10px] text-slate-400 font-semibold">Stretch Width:</span>
+                                                <span className="text-[10px] font-mono text-purple-400">{selectedField.width_pct || 25}%</span>
+                                            </div>
+                                            <input
+                                                type="range" min="3" max="95" step="0.5"
+                                                value={selectedField.width_pct || 25}
+                                                onChange={e => handleUpdateSelectedField('width_pct', parseFloat(e.target.value))}
+                                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                                            />
+                                            <div className="flex items-center gap-1 mt-1.5">
+                                                {[15, 30, 45, 65, 85].map(w => (
+                                                    <button
+                                                        key={w}
+                                                        type="button"
+                                                        onClick={() => handleUpdateSelectedField('width_pct', w)}
+                                                        className={`flex-1 py-0.5 text-[9px] font-mono rounded border transition-colors ${
+                                                            Math.round(selectedField.width_pct || 25) === w
+                                                                ? 'bg-purple-600/30 text-purple-300 border-purple-500 font-bold'
+                                                                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                                                        }`}
+                                                    >
+                                                        {w}%
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
-                                        <input
-                                            type="range" min="3" max="95" step="0.5"
-                                            value={selectedField.width_pct || 25}
-                                            onChange={e => handleUpdateSelectedField('width_pct', parseFloat(e.target.value))}
-                                            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                                        />
-                                        <div className="flex items-center gap-1 mt-1.5">
-                                            {[15, 30, 45, 65, 85].map(w => (
-                                                <button
-                                                    key={w}
-                                                    type="button"
-                                                    onClick={() => handleUpdateSelectedField('width_pct', w)}
-                                                    className={`flex-1 py-0.5 text-[9px] font-mono rounded border transition-colors ${
-                                                        Math.round(selectedField.width_pct || 25) === w
-                                                            ? 'bg-purple-600/30 text-purple-300 border-purple-500 font-bold'
-                                                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
-                                                    }`}
-                                                >
-                                                    {w}%
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
 
                                 {/* Letter / Digit Spacing (Tracking) */}

@@ -281,13 +281,13 @@ export default function QuotationLiveRankingManagement() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Search */}
                     <div className="relative">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <input
                             type="text"
                             placeholder="Search bank or customer..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:border-indigo-600 outline-none transition"
+                            className="w-full !pl-10 pr-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:border-indigo-600 outline-none transition"
                         />
                     </div>
 

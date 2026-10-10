@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../../services/apiService';
-import { Loader2, PlusCircle } from 'lucide-react';
+import { Loader2, PlusCircle, Mail, ShieldCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
@@ -28,7 +28,6 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
 
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
     role: 'end_user',
     has_all_entity_access: true,
     entity_ids: [],
@@ -38,9 +37,9 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
   const [customerEntities, setCustomerEntities] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
   const [error, setError] = useState(null);
   const [formTitle, setFormTitle] = useState('Create New User');
-  const [showPasswordFields, setShowPasswordFields] = useState(true);
 
   useEffect(() => {
     const fetchFormData = async () => {
@@ -59,13 +58,10 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
             has_all_entity_access: userResponse.has_all_entity_access,
             entity_ids: userResponse.entities_with_access ? userResponse.entities_with_access.map(entity => entity.id) : [],
             must_change_password: userResponse.must_change_password,
-            password: '',
           });
-          setShowPasswordFields(false);
         } else {
           setFormTitle('Create New User');
           setFormData(prev => ({ ...prev, must_change_password: true }));
-          setShowPasswordFields(true);
         }
       } catch (err) {
         console.error("Failed to fetch data:", err);
@@ -77,6 +73,19 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
 
     fetchFormData();
   }, [id]);
+
+  const handleResendInvitation = async () => {
+    setIsSendingReset(true);
+    try {
+      const res = await apiRequest(`/corporate-admin/users/${id}/resend-invitation`, 'POST');
+      toast.success(res?.message || `Private activation / reset link dispatched to "${formData.email}"!`);
+    } catch (err) {
+      console.error('Failed to send reset link:', err);
+      toast.error(`Failed to send link: ${err.message || 'Error occurred'}`);
+    } finally {
+      setIsSendingReset(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -120,19 +129,6 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
       return;
     }
 
-    if (showPasswordFields) {
-      if (!formData.password) {
-        setError('Password is required.');
-        setIsSaving(false);
-        return;
-      }
-      if (formData.password.length < 8) {
-        setError('Password must be at least 8 characters long.');
-        setIsSaving(false);
-        return;
-      }
-    }
-
     if (!formData.has_all_entity_access && formData.entity_ids.length === 0) {
       setError('Please select at least one entity or grant access to all entities.');
       setIsSaving(false);
@@ -141,9 +137,8 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
 
     try {
       const payload = { ...formData };
-      if (!showPasswordFields || payload.password === '') {
-        delete payload.password;
-      }
+      delete payload.password;
+      delete payload.confirm_password;
       if (payload.has_all_entity_access) {
         delete payload.entity_ids;
       }
@@ -156,7 +151,7 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
         navigate('/corporate-admin/users', { state: { successMessage: 'User updated successfully!' } });
       } else {
         await apiRequest('/corporate-admin/users/', 'POST', payload);
-        navigate('/corporate-admin/users', { state: { successMessage: 'User created successfully!' } });
+        navigate('/corporate-admin/users', { state: { successMessage: 'User created successfully! Activation link sent to email.' } });
       }
     } catch (err) {
       console.error("Failed to save user:", err);
@@ -217,68 +212,62 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
           </select>
         </div>
 
-        <div className="border-t border-gray-200 pt-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Password</h3>
-            {id && (
-              <button
-                type="button"
-                onClick={() => setShowPasswordFields(!showPasswordFields)}
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                disabled={isGracePeriod} // NEW: Disable password change toggle
-              >
-                {showPasswordFields ? 'Hide Password Fields' : 'Change Password'}
-              </button>
-            )}
-          </div>
-          {showPasswordFields && (
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                  minLength="8"
-                  required={showPasswordFields && !id}
-                  disabled={isGracePeriod} // NEW: Disable password input
-                />
+        {/* Zero-Touch Account Invitation / Host-Blind Credentials */}
+        <div className="border-t border-gray-200 pt-5">
+          {!id ? (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-md font-semibold text-gray-800">Account Access & Authentication</h3>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                  🛡️ Zero-Touch Active
+                </span>
               </div>
-              <div>
-                <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-                <input
-                  type="password"
-                  id="confirm_password"
-                  name="confirm_password"
-                  value={formData.confirm_password || ''}
-                  onChange={(e) => {
-                    setFormData(prev => ({ ...prev, confirm_password: e.target.value }));
-                  }}
-                  className="mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                  minLength="8"
-                  required={showPasswordFields && !id}
-                  disabled={isGracePeriod} // NEW: Disable confirm password input
-                />
-              </div>
-              {id && showPasswordFields && (
-                <div className="flex items-center">
-                  <input
-                    id="must_change_password"
-                    name="must_change_password"
-                    type="checkbox"
-                    checked={formData.must_change_password}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    disabled={isGracePeriod} // NEW: Disable checkbox
-                  />
-                  <label htmlFor="must_change_password" className="ml-2 block text-sm text-gray-900">
-                    Require password change on next login
-                  </label>
+
+              <div className="bg-white border border-emerald-200 rounded-lg p-4 shadow-sm">
+                <div className="flex items-start space-x-3">
+                  <Mail className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-xs font-bold text-emerald-900 uppercase tracking-wide">Automated Zero-Touch Invitation</h4>
+                    <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                      A private, single-use 24-hour activation link will be automatically dispatched to this user via email with 'SendOnly' privacy (never saved to Sent Items). The user will securely establish their confidential password in their browser upon opening the link.
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-1.5 italic">
+                      ⚡ As a Corporate Administrator, you will never see, set, or know their password.
+                    </p>
+                  </div>
                 </div>
-              )}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wide">Password & Credentials</h4>
+                </div>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                  🔒 Host-Blind Protected
+                </span>
+              </div>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                User passwords are encrypted end-to-end and strictly inaccessible to Corporate Administrators. To protect employee and institutional privacy, passwords cannot be viewed or manually altered here.
+              </p>
+              <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between">
+                <span className="text-xs text-gray-500">Need to help this user activate or reset their credentials?</span>
+                <button
+                  type="button"
+                  disabled={isSendingReset || isGracePeriod}
+                  onClick={handleResendInvitation}
+                  className="inline-flex items-center space-x-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 bg-white hover:bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded shadow-sm transition-colors disabled:opacity-50"
+                >
+                  {isSendingReset ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 mr-1" />
+                  ) : (
+                    <Mail className="w-3.5 h-3.5 text-emerald-600 mr-1" />
+                  )}
+                  <span>Dispatch Private Reset Link</span>
+                </button>
+              </div>
             </div>
           )}
         </div>

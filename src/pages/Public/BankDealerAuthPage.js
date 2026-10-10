@@ -27,11 +27,12 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Mode: 'login' vs 'enroll'
+    // Mode: 'login' vs 'enroll' vs 'recovery'
     const [mode, setMode] = useState(location.pathname.includes('enroll') ? 'enroll' : initialMode);
 
-    // Enrolment sub-steps: 1 = Email domain proof, 2 = Verify email OTP, 3 = Scan QR & Set Password
+    // Enrolment & Recovery sub-steps
     const [enrollStep, setEnrollStep] = useState(1);
+    const [recoveryStep, setRecoveryStep] = useState(1);
 
     // Form inputs
     const [email, setEmail] = useState('');
@@ -53,8 +54,17 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
     const [error, setError] = useState(null);
     const [successMsg, setSuccessMsg] = useState(null);
 
-    // Auto-redirect if already authenticated
+    // Auto-redirect if already authenticated (unless an explicit logout reason is provided)
     useEffect(() => {
+        const queryParams = new URLSearchParams(location.search);
+        const reason = queryParams.get('reason');
+        if (reason) {
+            setError(reason);
+            localStorage.removeItem('grow_bank_dealer_token');
+            localStorage.removeItem('grow_bank_dealer_profile');
+            return;
+        }
+
         const token = localStorage.getItem('grow_bank_dealer_token');
         if (token) {
             // Check token validity via /auth/me
@@ -69,7 +79,7 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                 localStorage.removeItem('grow_bank_dealer_profile');
             });
         }
-    }, [navigate]);
+    }, [navigate, location.search]);
 
     const resetMessages = () => {
         setError(null);
@@ -179,6 +189,67 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
             }
         } catch (err) {
             setError(err.response?.data?.detail || 'Invalid or expired verification code.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // -------------------------------------------------------------------------
+    // HANDLERS: RECOVERY (PASSWORD RESET & NEW DEVICE MIGRATION)
+    // -------------------------------------------------------------------------
+    const handleInitiateRecovery = async (e) => {
+        e.preventDefault();
+        resetMessages();
+
+        if (!email.trim()) {
+            setError('Please enter your official corporate bank email.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const res = await axios.post(`${API_BASE_URL}/api/v1/bank-dealer/auth/recovery/initiate`, {
+                email: email.trim().toLowerCase()
+            });
+
+            if (res.data?.success) {
+                setBankName(res.data.bank_name || null);
+                setSuccessMsg(`Recovery verification code sent to ${email.trim()}`);
+                setRecoveryStep(2);
+            }
+        } catch (err) {
+            setError(err.response?.data?.detail || 'Could not initiate account recovery. Check corporate email.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyRecoveryOtp = async (e) => {
+        e.preventDefault();
+        resetMessages();
+
+        if (!emailOtp.trim() || emailOtp.trim().length !== 6) {
+            setError('Please enter the full 6-digit recovery code from your email.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const res = await axios.post(`${API_BASE_URL}/api/v1/bank-dealer/auth/recovery/verify-email`, {
+                email: email.trim().toLowerCase(),
+                otp_code: emailOtp.trim()
+            });
+
+            if (res.data?.success) {
+                setEnrollmentToken(res.data.enrollment_token);
+                setQrCodeBase64(res.data.qr_code_base64);
+                setTotpSecret(res.data.totp_secret);
+                setBankName(res.data.bank_name);
+                setSuccessMsg('Recovery verified! Scan the new QR code below to bind your new phone.');
+                setRecoveryStep(3);
+            }
+        } catch (err) {
+            setError(err.response?.data?.detail || 'Invalid or expired recovery code.');
         } finally {
             setLoading(false);
         }
@@ -381,7 +452,15 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                             )}
                         </button>
 
-                        <div className="pt-2 text-center">
+                        <div className="pt-3 border-t border-slate-800/80 flex flex-col items-center space-y-2">
+                            <button
+                                type="button"
+                                onClick={() => { setMode('recovery'); setRecoveryStep(1); resetMessages(); }}
+                                className="text-xs text-sky-400 hover:text-sky-300 font-semibold transition-colors flex items-center space-x-1.5"
+                            >
+                                <KeyRound className="w-3.5 h-3.5" />
+                                <span>Changed phone or forgot password?</span>
+                            </button>
                             <button
                                 type="button"
                                 onClick={() => { setMode('enroll'); setEnrollStep(1); resetMessages(); }}
@@ -648,6 +727,255 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                                         <>
                                             <ShieldCheck className="w-4 h-4" />
                                             <span>Bind & Activate Permanent Desk</span>
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+                        )}
+                    </div>
+                )}
+
+                {/* ================================================================= */}
+                {/* MODE C: ACCOUNT RECOVERY & NEW DEVICE MIGRATION                   */}
+                {/* ================================================================= */}
+                {mode === 'recovery' && (
+                    <div>
+                        {/* Step Progress Pills */}
+                        <div className="flex items-center justify-between mb-6 px-1">
+                            <div className={`flex items-center space-x-1.5 text-[11px] font-bold ${recoveryStep >= 1 ? 'text-sky-400' : 'text-slate-600'}`}>
+                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${recoveryStep >= 1 ? 'bg-sky-500/20 border border-sky-500/40 text-sky-300' : 'bg-slate-800 text-slate-500'}`}>1</span>
+                                <span>Email</span>
+                            </div>
+                            <div className="w-6 h-[1px] bg-slate-800" />
+                            <div className={`flex items-center space-x-1.5 text-[11px] font-bold ${recoveryStep >= 2 ? 'text-sky-400' : 'text-slate-600'}`}>
+                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${recoveryStep >= 2 ? 'bg-sky-500/20 border border-sky-500/40 text-sky-300' : 'bg-slate-800 text-slate-500'}`}>2</span>
+                                <span>Verify OTP</span>
+                            </div>
+                            <div className="w-6 h-[1px] bg-slate-800" />
+                            <div className={`flex items-center space-x-1.5 text-[11px] font-bold ${recoveryStep >= 3 ? 'text-sky-400' : 'text-slate-600'}`}>
+                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${recoveryStep >= 3 ? 'bg-sky-500/20 border border-sky-500/40 text-sky-300' : 'bg-slate-800 text-slate-500'}`}>3</span>
+                                <span>New Phone &amp; Key</span>
+                            </div>
+                        </div>
+
+                        {/* RECOVERY STEP 1: EMAIL IDENTIFICATION */}
+                        {recoveryStep === 1 && (
+                            <form onSubmit={handleInitiateRecovery} className="space-y-4">
+                                <div className="text-center pb-2">
+                                    <div className="w-12 h-12 bg-sky-500/10 border border-sky-500/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                        <KeyRound className="w-6 h-6 text-sky-400" />
+                                    </div>
+                                    <h3 className="text-sm font-bold text-white">Reset Password or Migrate Device</h3>
+                                    <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+                                        Enter your registered official corporate email. We will send a single-use code to verify your identity.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                                        Official Corporate Bank Email
+                                    </label>
+                                    <div className="flex items-center bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 focus-within:border-sky-500 focus-within:ring-1 focus-within:ring-sky-500 transition-all">
+                                        <Mail className="w-4 h-4 text-sky-400/70 mr-3 shrink-0" />
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            placeholder="dealer@bank.com"
+                                            required
+                                            autoFocus
+                                            className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full mt-2 py-3 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-sky-950 flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
+                                >
+                                    {loading ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <span>Sending Security Code...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>Send Recovery Code</span>
+                                            <ArrowRight className="w-4 h-4" />
+                                        </>
+                                    )}
+                                </button>
+
+                                <div className="pt-2 text-center">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setMode('login'); resetMessages(); }}
+                                        className="text-xs text-slate-400 hover:text-white transition-colors flex items-center justify-center space-x-1 mx-auto"
+                                    >
+                                        <ChevronLeft className="w-3.5 h-3.5" />
+                                        <span>Back to Login</span>
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+
+                        {/* RECOVERY STEP 2: VERIFY RECOVERY EMAIL OTP */}
+                        {recoveryStep === 2 && (
+                            <form onSubmit={handleVerifyRecoveryOtp} className="space-y-4">
+                                <div className="text-center pb-2">
+                                    <div className="w-12 h-12 bg-sky-500/10 border border-sky-500/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                        <Mail className="w-6 h-6 text-sky-400" />
+                                    </div>
+                                    <h3 className="text-sm font-bold text-white">Enter Recovery Code</h3>
+                                    <p className="text-xs text-slate-400 mt-1">
+                                        We sent a 6-digit recovery code to <strong className="text-slate-200">{email}</strong>.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <input
+                                        type="text"
+                                        maxLength={6}
+                                        value={emailOtp}
+                                        onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ''))}
+                                        placeholder="••••••"
+                                        autoFocus
+                                        required
+                                        className="w-full text-center py-3 bg-slate-900 border border-slate-700 rounded-xl text-2xl font-mono tracking-[0.3em] font-extrabold text-sky-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                                    />
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full py-3 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-sky-950 flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
+                                >
+                                    {loading ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <span>Verifying Code...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>Verify &amp; Setup New Phone</span>
+                                            <ArrowRight className="w-4 h-4" />
+                                        </>
+                                    )}
+                                </button>
+
+                                <div className="flex justify-between items-center pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setRecoveryStep(1)}
+                                        className="text-xs text-slate-500 hover:text-slate-300 flex items-center space-x-1"
+                                    >
+                                        <ChevronLeft className="w-3.5 h-3.5" />
+                                        <span>Change Email</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleInitiateRecovery}
+                                        disabled={loading}
+                                        className="text-xs text-sky-400 hover:underline"
+                                    >
+                                        Resend Code
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+
+                        {/* RECOVERY STEP 3: SCAN QR ON NEW PHONE & SET NEW PASSWORD */}
+                        {recoveryStep === 3 && (
+                            <form onSubmit={handleConfirmTotpAndActivate} className="space-y-4">
+                                <div className="text-center pb-2">
+                                    <h3 className="text-sm font-bold text-white">Scan with Your New Phone</h3>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                        Open Microsoft Authenticator or Google Authenticator on your new smartphone and scan this code.
+                                    </p>
+                                </div>
+
+                                {/* QR Code Display */}
+                                {qrCodeBase64 && (
+                                    <div className="bg-white p-3 rounded-2xl w-44 h-44 mx-auto flex items-center justify-center shadow-xl border-4 border-slate-800">
+                                        <img src={qrCodeBase64} alt="Authenticator QR Code" className="w-full h-full object-contain" />
+                                    </div>
+                                )}
+
+                                {totpSecret && (
+                                    <div className="bg-slate-900/80 border border-slate-800 p-2 rounded-lg text-center">
+                                        <span className="text-[10px] text-slate-500 block uppercase font-mono">Manual Secret Key</span>
+                                        <code className="text-xs font-mono font-bold text-sky-400 tracking-wider select-all">{totpSecret}</code>
+                                    </div>
+                                )}
+
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                                        6-Digit Rolling Code from New Phone
+                                    </label>
+                                    <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 focus-within:border-sky-500 focus-within:ring-1 focus-within:ring-sky-500 transition-all">
+                                        <Smartphone className="w-4 h-4 text-sky-400/80 mr-3 shrink-0" />
+                                        <input
+                                            type="text"
+                                            maxLength={6}
+                                            value={totpCode}
+                                            onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+                                            placeholder="123456"
+                                            required
+                                            className="w-full bg-transparent text-center text-lg font-mono tracking-widest font-extrabold text-sky-400 placeholder-slate-600 focus:outline-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                                            New Password
+                                        </label>
+                                        <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 focus-within:border-sky-500 focus-within:ring-1 focus-within:ring-sky-500">
+                                            <Lock className="w-3.5 h-3.5 text-slate-500 mr-2 shrink-0" />
+                                            <input
+                                                type="password"
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                                placeholder="Min 8 chars"
+                                                required
+                                                className="w-full bg-transparent text-xs text-white focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                                            Confirm New Password
+                                        </label>
+                                        <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 focus-within:border-sky-500 focus-within:ring-1 focus-within:ring-sky-500">
+                                            <Lock className="w-3.5 h-3.5 text-slate-500 mr-2 shrink-0" />
+                                            <input
+                                                type="password"
+                                                value={confirmPassword}
+                                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                                placeholder="Confirm"
+                                                required
+                                                className="w-full bg-transparent text-xs text-white focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full py-3 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-sky-950 flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
+                                >
+                                    {loading ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <span>Activating New Device...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ShieldCheck className="w-4 h-4" />
+                                            <span>Bind Phone &amp; Enter Desk</span>
                                         </>
                                     )}
                                 </button>

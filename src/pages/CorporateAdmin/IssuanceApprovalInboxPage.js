@@ -260,11 +260,11 @@ export default function IssuanceApprovalInboxPage() {
                             <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                                 <div className="flex gap-3 items-center">
                                     <div className="relative flex-1">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                                         <input
                                             type="text"
                                             placeholder="Search by serial, beneficiary, requestor, department..."
-                                            className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
+                                            className="!pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border py-2 pr-3"
                                             value={searchTerm}
                                             onChange={e => setSearchTerm(e.target.value)}
                                         />
@@ -499,11 +499,11 @@ export default function IssuanceApprovalInboxPage() {
                             <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                                 <div className="flex gap-3 items-center">
                                     <div className="relative flex-1">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                                         <input
                                             type="text"
                                             placeholder="Search by LG reference, beneficiary, bank, bank LG #..."
-                                            className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500 border p-2"
+                                            className="!pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500 border py-2 pr-3"
                                             value={discSearchTerm}
                                             onChange={e => setDiscSearchTerm(e.target.value)}
                                         />

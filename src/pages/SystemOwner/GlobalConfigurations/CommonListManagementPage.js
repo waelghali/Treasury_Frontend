@@ -14,7 +14,14 @@ import {
   CheckCircle2, 
   XCircle,
   X,
-  Sparkles
+  Sparkles,
+  Users,
+  ShieldAlert,
+  ShieldCheck,
+  KeyRound,
+  Unlock,
+  Lock,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -41,7 +48,7 @@ const ToggleSwitch = ({ id, name, checked, onChange, label }) => (
 // System / internal fields to ignore in automatic dynamic column discovery
 const SYSTEM_IGNORED_FIELDS = [
   'id', 'created_at', 'updated_at', 'deleted_at', 'is_deleted',
-  'password', 'hashed_password', 'customer_id'
+  'password', 'hashed_password', 'customer_id', 'dealer_count'
 ];
 
 // Helper to format field name to human-readable label
@@ -58,6 +65,7 @@ const formatFieldLabel = (field) => {
     iso_code: 'ISO Code',
     symbol: 'Currency Symbol',
     description: 'Description',
+    portal_access_enabled: 'Portal Access',
     is_mandatory: 'Mandatory',
     is_active: 'Active',
     is_global: 'Universal Global',
@@ -115,6 +123,15 @@ function CommonListManagementPage({ onLogout }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleted, setShowDeleted] = useState(false);
 
+  // Bank Dealers & Portal Governance State
+  const [dealersModalBank, setDealersModalBank] = useState(null);
+  const [bankDealers, setBankDealers] = useState([]);
+  const [loadingDealers, setLoadingDealers] = useState(false);
+  const [togglingDealerId, setTogglingDealerId] = useState(null);
+  const [togglingBankId, setTogglingBankId] = useState(null);
+  const [resettingDealerId, setResettingDealerId] = useState(null);
+  const [unlockingDealerId, setUnlockingDealerId] = useState(null);
+
   // Predefined configuration fallback per listType
   const getListConfig = (type) => {
     switch (type) {
@@ -163,7 +180,7 @@ function CommonListManagementPage({ onLogout }) {
       case 'banks': return {
         endpoint: '/system-owner/banks',
         title: 'Banks',
-        fields: ['name', 'short_name', 'swift_code', 'email_domain', 'phone_number', 'fax', 'address', 'former_names'],
+        fields: ['name', 'short_name', 'swift_code', 'email_domain', 'portal_access_enabled', 'phone_number', 'fax', 'address', 'former_names'],
         uniqueField: 'name',
         icon: Building2
       };
@@ -298,6 +315,96 @@ function CommonListManagementPage({ onLogout }) {
       
       return { ...prevData, [name]: value };
     });
+  };
+
+  // Open Dealers Modal
+  const openDealersModal = async (bank) => {
+    setDealersModalBank(bank);
+    setLoadingDealers(true);
+    try {
+      const data = await apiRequest(`/system-owner/banks/${bank.id}/dealers`, 'GET');
+      setBankDealers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error('Failed to load bank dealers: ' + (err.message || 'Error'));
+      setBankDealers([]);
+    } finally {
+      setLoadingDealers(false);
+    }
+  };
+
+  const closeDealersModal = () => {
+    setDealersModalBank(null);
+    setBankDealers([]);
+  };
+
+  // Toggle Portal Access for entire bank
+  const handleToggleBankPortalAccess = async (bank) => {
+    const currentStatus = bank.portal_access_enabled !== false;
+    const nextStatus = !currentStatus;
+    setTogglingBankId(bank.id);
+    try {
+      await apiRequest(`/system-owner/banks/${bank.id}/portal-access`, 'PUT', { portal_access_enabled: nextStatus });
+      setItems(prev => prev.map(b => b.id === bank.id ? { ...b, portal_access_enabled: nextStatus } : b));
+      if (dealersModalBank && dealersModalBank.id === bank.id) {
+        setDealersModalBank(prev => ({ ...prev, portal_access_enabled: nextStatus }));
+      }
+      toast.success(`Trading portal access ${nextStatus ? 'enabled' : 'disabled'} for ${bank.name}.`);
+    } catch (err) {
+      toast.error('Failed to update bank portal access: ' + (err.message || 'Error'));
+    } finally {
+      setTogglingBankId(null);
+    }
+  };
+
+  // Toggle Portal Access for specific dealer
+  const handleToggleDealerAccess = async (dealer) => {
+    const currentStatus = dealer.is_active !== false;
+    const nextStatus = !currentStatus;
+    setTogglingDealerId(dealer.id);
+    try {
+      await apiRequest(`/system-owner/dealers/${dealer.id}/portal-access`, 'PUT', { is_active: nextStatus });
+      setBankDealers(prev => prev.map(d => d.id === dealer.id ? { ...d, is_active: nextStatus } : d));
+      toast.success(`Dealer desk access for ${dealer.full_name} ${nextStatus ? 'enabled' : 'disabled'}.`);
+    } catch (err) {
+      toast.error('Failed to update dealer status: ' + (err.message || 'Error'));
+    } finally {
+      setTogglingDealerId(null);
+    }
+  };
+
+  // Reset 2FA Authenticator & Password (for phone change / forgot password)
+  const handleResetDealerCredentials = async (dealer) => {
+    if (!window.confirm(`Reset 2FA & credentials for ${dealer.full_name} (${dealer.email})?\n\nThis will clear their existing Microsoft Authenticator binding and password, allowing the trader to re-enrol on their new phone.`)) {
+      return;
+    }
+    setResettingDealerId(dealer.id);
+    try {
+      const res = await apiRequest(`/system-owner/dealers/${dealer.id}/reset-credentials`, 'POST');
+      if (res?.dealer) {
+        setBankDealers(prev => prev.map(d => d.id === dealer.id ? res.dealer : d));
+      }
+      toast.success(`2FA and credentials successfully reset for ${dealer.full_name}. Trader can now re-enrol their new device.`);
+    } catch (err) {
+      toast.error('Failed to reset credentials: ' + (err.message || 'Error'));
+    } finally {
+      setResettingDealerId(null);
+    }
+  };
+
+  // Unlock temporarily locked dealer account
+  const handleUnlockDealer = async (dealer) => {
+    setUnlockingDealerId(dealer.id);
+    try {
+      const res = await apiRequest(`/system-owner/dealers/${dealer.id}/unlock`, 'POST');
+      if (res?.dealer) {
+        setBankDealers(prev => prev.map(d => d.id === dealer.id ? res.dealer : d));
+      }
+      toast.success(`Dealer account ${dealer.full_name} unlocked successfully.`);
+    } catch (err) {
+      toast.error('Failed to unlock dealer: ' + (err.message || 'Error'));
+    } finally {
+      setUnlockingDealerId(null);
+    }
   };
 
   // Handle form submission (Add / Edit)
@@ -611,13 +718,13 @@ function CommonListManagementPage({ onLogout }) {
       {/* Filter / Search Bar */}
       <div className="bg-white dark:bg-slate-800 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={`Search ${currentListConfig.title.toLowerCase()} (name, domain, SWIFT)...`}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full !pl-10 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
@@ -724,6 +831,30 @@ function CommonListManagementPage({ onLogout }) {
                         );
                       }
 
+                      if (field === 'portal_access_enabled') {
+                        const isEnabled = val !== false;
+                        const isToggling = togglingBankId === item.id;
+                        return (
+                          <td key={field} className="py-3 px-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isEnabled}
+                                  disabled={isToggling || item.is_deleted}
+                                  onChange={() => handleToggleBankPortalAccess(item)}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-600 disabled:opacity-50"></div>
+                              </label>
+                              <span className={`text-[11px] font-bold ${isEnabled ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'}`}>
+                                {isToggling ? 'Updating...' : (isEnabled ? 'Active' : 'Disabled')}
+                              </span>
+                            </div>
+                          </td>
+                        );
+                      }
+
                       if (['is_mandatory', 'is_active', 'is_global', 'is_default'].includes(field) || field.startsWith('is_')) {
                         return (
                           <td key={field} className="py-3 px-4 whitespace-nowrap">
@@ -784,27 +915,258 @@ function CommonListManagementPage({ onLogout }) {
                         </button>
                       ) : (
                         <div className="inline-flex items-center gap-1.5">
-                          <button
-                            onClick={() => handleEditClick(item)}
-                            className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
-                            title="Edit Record"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(item.id, item.name || item[currentListConfig.uniqueField])}
-                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
-                            title="Soft Delete"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                            {listType === 'banks' && (
+                              <button
+                                type="button"
+                                onClick={() => openDealersModal(item)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 rounded-lg border border-indigo-200 dark:border-indigo-800 transition-all cursor-pointer"
+                                title="Manage registered bank dealers"
+                              >
+                                <Users className="w-3.5 h-3.5" />
+                                <span>Dealers</span>
+                                <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-600 text-white font-mono">
+                                  {item.dealer_count || 0}
+                                </span>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleEditClick(item)}
+                              className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
+                              title="Edit Record"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item.id, item.name || item[currentListConfig.uniqueField])}
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                              title="Soft Delete"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+      {/* Bank Dealers Management Modal */}
+      {dealersModalBank && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scaleIn">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-indigo-600 text-white shadow-xs">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-black text-slate-900 dark:text-white">
+                      {dealersModalBank.name}
+                    </h3>
+                    <span className="text-xs px-2 py-0.5 rounded-md font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      {dealersModalBank.swift_code || 'NO SWIFT'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Manage individual dealer roster and trading desk terminal permissions.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeDealersModal}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Bank Portal Overall Status Banner */}
+            <div className="px-5 py-3 bg-slate-50/60 dark:bg-slate-900/40 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Institution Portal Access:
+                </span>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                  dealersModalBank.portal_access_enabled !== false
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-rose-50 text-rose-700 border border-rose-200'
+                }`}>
+                  {dealersModalBank.portal_access_enabled !== false ? 'Enabled' : 'Disabled (Institution-Wide)'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleToggleBankPortalAccess(dealersModalBank)}
+                disabled={togglingBankId === dealersModalBank.id}
+                className={`text-xs font-bold px-3 py-1 rounded-lg border transition-all cursor-pointer ${
+                  dealersModalBank.portal_access_enabled !== false
+                    ? 'border-rose-300 text-rose-700 hover:bg-rose-50'
+                    : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'
+                }`}
+              >
+                {togglingBankId === dealersModalBank.id ? 'Updating...' : (dealersModalBank.portal_access_enabled !== false ? 'Disable Entire Bank Portal' : 'Enable Bank Portal')}
+              </button>
+            </div>
+
+            {/* Warning if institution access is disabled */}
+            {dealersModalBank.portal_access_enabled === false && (
+              <div className="mx-5 mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 shrink-0 text-amber-600" />
+                <span>
+                  Portal access is currently disabled for this entire bank. Even if individual dealers below are active, they will not be able to log in until institution access is enabled.
+                </span>
+              </div>
+            )}
+
+            {/* Dealers List */}
+            <div className="p-5 flex-1 overflow-y-auto">
+              {loadingDealers ? (
+                <div className="py-12 flex flex-col items-center justify-center text-slate-400">
+                  <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-2" />
+                  <span className="text-xs font-medium">Loading bank dealers roster...</span>
+                </div>
+              ) : bankDealers.length === 0 ? (
+                <div className="py-12 text-center">
+                  <Users className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                  <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                    No Registered Dealers
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                    No bank traders have enrolled under {dealersModalBank.name} yet. When traders complete the 2FA onboarding handshake, they will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-800/80 text-[10px] font-black uppercase text-slate-500 tracking-wider border-b border-slate-200 dark:border-slate-800">
+                        <th className="py-2.5 px-3">Trader Name</th>
+                        <th className="py-2.5 px-3">Corporate Email</th>
+                        <th className="py-2.5 px-3">Desk Role</th>
+                        <th className="py-2.5 px-3">2FA Status</th>
+                        <th className="py-2.5 px-3">Last Active</th>
+                        <th className="py-2.5 px-3 text-right">Actions &amp; Desk Access</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                      {bankDealers.map(dealer => {
+                        const isActive = dealer.is_active !== false;
+                        const isToggling = togglingDealerId === dealer.id;
+                        const isLocked = Boolean(dealer.locked_until && new Date(dealer.locked_until) > new Date());
+                        const isResetting = resettingDealerId === dealer.id;
+                        const isUnlocking = unlockingDealerId === dealer.id;
+
+                        return (
+                          <tr key={dealer.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                            <td className="py-3 px-3">
+                              <div className="font-bold text-slate-900 dark:text-white">
+                                {dealer.full_name}
+                              </div>
+                              {dealer.title && (
+                                <div className="text-[10px] text-slate-400">
+                                  {dealer.title}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                              {dealer.email}
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                {dealer.role || 'EXECUTION'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3">
+                              {isLocked ? (
+                                <div className="flex flex-col gap-1 items-start">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                                    <Lock className="w-3 h-3" /> Account Locked
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUnlockDealer(dealer)}
+                                    disabled={isUnlocking}
+                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline transition-colors"
+                                  >
+                                    {isUnlocking ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Unlock className="w-2.5 h-2.5" />}
+                                    Unlock Now
+                                  </button>
+                                </div>
+                              ) : dealer.is_totp_enrolled ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                  <ShieldCheck className="w-3 h-3" /> Enrolled
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                  Pending 2FA
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 text-[11px] text-slate-500">
+                              {dealer.last_login_at ? new Date(dealer.last_login_at).toLocaleString() : 'Never'}
+                            </td>
+                            <td className="py-3 px-3 text-right">
+                              <div className="inline-flex items-center justify-end gap-2.5">
+                                {/* Reset 2FA / Password (New Phone / Recovery) */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleResetDealerCredentials(dealer)}
+                                  disabled={isResetting}
+                                  title="Reset 2FA Authenticator & password (use when trader changed their phone or forgot their password)"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:text-rose-700 dark:hover:text-rose-400 bg-slate-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-950/40 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-rose-300 transition-colors disabled:opacity-50"
+                                >
+                                  {isResetting ? (
+                                    <Loader2 className="w-3 h-3 animate-spin text-indigo-600" />
+                                  ) : (
+                                    <KeyRound className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                                  )}
+                                  <span>Reset 2FA / Device</span>
+                                </button>
+
+                                {/* Portal Access Toggle */}
+                                <div className="inline-flex items-center gap-1.5 pl-2.5 border-l border-slate-200 dark:border-slate-700">
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={isActive}
+                                      disabled={isToggling}
+                                      onChange={() => handleToggleDealerAccess(dealer)}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-600 disabled:opacity-50"></div>
+                                  </label>
+                                  <span className={`text-[10px] font-bold w-12 text-left ${isActive ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'}`}>
+                                    {isToggling ? '...' : (isActive ? 'Active' : 'Disabled')}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end">
+              <button
+                type="button"
+                onClick={closeDealersModal}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                Close Roster
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -116,6 +116,8 @@ export default function AdminQuotationDashboard() {
     };
     const [history, setHistory] = useState([]);
     const [stats, setStats] = useState([]);
+    const [showStats, setShowStats] = useState(false);
+    const [loadingStats, setLoadingStats] = useState(false);
     const [pendingApprovals, setPendingApprovals] = useState([]);
     const [cancellationRequests, setCancellationRequests] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -166,16 +168,14 @@ export default function AdminQuotationDashboard() {
         isFetchingRef.current = true;
         if (isInitial) setLoading(true);
         try {
-            const [pendingRes, cancelRes, historyRes, statsRes] = await Promise.all([
+            const [pendingRes, cancelRes, historyRes] = await Promise.all([
                 apiClient.get('/corporate-admin/quotations/pending-approvals').catch(() => ({ data: [] })),
                 apiClient.get('/corporate-admin/quotations/cancellation-requests').catch(() => ({ data: [] })),
                 apiClient.get('/end-user/quotations/').catch(() => ({ data: [] })),
-                apiClient.get('/end-user/quotations/stats?trade_type=FX_SPOT').catch(() => ({ data: [] })),
             ]);
             setPendingApprovals(pendingRes.data || []);
             setCancellationRequests(cancelRes.data || []);
             setHistory(historyRes.data || []);
-            setStats(statsRes.data || []);
         } catch (err) {
             console.error('Failed to fetch quotation data:', err);
         } finally {
@@ -183,6 +183,21 @@ export default function AdminQuotationDashboard() {
             if (isInitial) setLoading(false);
         }
     }, []);
+
+    const handleToggleStats = async () => {
+        if (!showStats && stats.length === 0) {
+            setLoadingStats(true);
+            try {
+                const res = await apiClient.get('/end-user/quotations/stats?trade_type=FX_SPOT');
+                setStats(res.data || []);
+            } catch (e) {
+                console.warn('Failed to fetch stats:', e);
+            } finally {
+                setLoadingStats(false);
+            }
+        }
+        setShowStats(prev => !prev);
+    };
 
     useEffect(() => {
         fetchData(true);
@@ -216,6 +231,44 @@ export default function AdminQuotationDashboard() {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [history, pendingApprovals, cancellationRequests, fetchData]);
+
+    // Precision trigger on tender window closure for corporate admin:
+    // Dispatches 'check-deal-acceptance' and refreshes data within < 1 second of window close
+    useEffect(() => {
+        const activeRfqs = (history || []).filter(r => 
+            ['OPEN', 'PENDING', 'EVALUATING'].includes(r.status) && r.window_end
+        );
+        if (!activeRfqs.length) return;
+
+        const now = Date.now();
+        const timers = [];
+
+        activeRfqs.forEach(rfq => {
+            const endMs = new Date(rfq.window_end).getTime();
+            const diff = endMs - now;
+            if (diff > 0 && diff < 86400000) {
+                const t0 = setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('quotation-window-closed'));
+                    window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
+                    fetchData(false);
+                }, diff);
+                const t1 = setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('quotation-window-closed'));
+                    window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
+                    fetchData(false);
+                }, diff + 400);
+                const t2 = setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
+                    fetchData(false);
+                }, diff + 1000);
+                timers.push(t0, t1, t2);
+            }
+        });
+
+        return () => {
+            timers.forEach(t => clearTimeout(t));
+        };
+    }, [history, fetchData]);
 
     const formatLocalDate = (d) => {
         const year = d.getFullYear();
@@ -805,71 +858,111 @@ export default function AdminQuotationDashboard() {
                 </section>
             )}
 
-            {/* Bank Performance Analytics */}
-            {stats.length > 0 && (
-                <section>
-                    <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-5 flex items-center gap-2">
-                        <BarChart3 size={14} /> Bank Performance Analytics
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-                        {stats.map((bank, index) => (
-                            <div
-                                key={bank.bank_id}
-                                className="bg-white p-5 rounded-2xl shadow-sm border border-black/5 hover:shadow-md transition-all"
-                                style={{ animationDelay: `${index * 80}ms` }}
-                            >
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 shrink-0">
-                                        <Landmark size={16} />
-                                    </div>
-                                    <h4 className="font-bold text-sm truncate">{bank.bank_name}</h4>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Win Rate</label>
-                                        <div className="flex items-end gap-2">
-                                            <span className="text-xl font-bold">{bank.win_rate.toFixed(1)}%</span>
-                                            <span className="text-xs text-gray-400 mb-0.5">({bank.total_won}/{bank.total_participated})</span>
-                                        </div>
-                                        <div className="w-full bg-gray-100 h-1.5 rounded-full mt-2 overflow-hidden">
-                                            <div
-                                                className="bg-emerald-500 h-full rounded-full transition-all duration-1000 ease-out"
-                                                style={{ width: `${bank.win_rate}%` }}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-3 gap-1.5">
-                                        <div className="text-center p-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
-                                            <span className="block text-[8px] font-bold text-emerald-600 uppercase mb-0.5">1st</span>
-                                            <span className="text-sm font-bold text-emerald-700">{bank.ranks[1]}</span>
-                                        </div>
-                                        <div className="text-center p-1.5 bg-blue-50 rounded-lg border border-blue-100">
-                                            <span className="block text-[8px] font-bold text-blue-600 uppercase mb-0.5">2nd</span>
-                                            <span className="text-sm font-bold text-blue-700">{bank.ranks[2]}</span>
-                                        </div>
-                                        <div className="text-center p-1.5 bg-gray-50 rounded-lg border border-gray-100">
-                                            <span className="block text-[8px] font-bold text-gray-600 uppercase mb-0.5">3rd</span>
-                                            <span className="text-sm font-bold text-gray-700">{bank.ranks[3]}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-2 border-t border-gray-50">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-[10px] font-bold text-gray-400 uppercase">Avg. Spread</span>
-                                            <span className={`text-xs font-bold flex items-center gap-1 ${bank.avg_spread < 0.1 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                                {bank.avg_spread < 0.1 ? <ArrowDownRight size={12} /> : <ArrowUpRight size={12} />}
-                                                +{bank.avg_spread.toFixed(3)}%
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+            {/* Bank Performance Stats (On-Demand Collapsible) */}
+            <section className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
+                <button
+                    type="button"
+                    onClick={handleToggleStats}
+                    className="w-full px-5 sm:px-6 py-4 flex items-center justify-between gap-4 text-left hover:bg-slate-50/80 transition-colors cursor-pointer"
+                >
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                            <BarChart3 size={16} />
+                        </div>
+                        <div>
+                            <span className="text-xs font-bold text-gray-900 tracking-wide block">
+                                Bank Performance Analytics & Market Intelligence
+                            </span>
+                            <span className="text-[11px] text-gray-500 font-medium">
+                                Institutional win-rate, competitive ladder rankings, and spreads across concluded trades
+                            </span>
+                        </div>
                     </div>
-                </section>
-            )}
+                    <div className="flex items-center gap-2 text-xs font-bold text-blue-600 shrink-0">
+                        {loadingStats ? (
+                            <span className="inline-flex items-center gap-1.5 text-slate-500 text-xs font-semibold">
+                                <RefreshCw size={13} className="animate-spin text-blue-600" /> Calculating insights...
+                            </span>
+                        ) : (
+                            <span className="inline-flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-xl border border-blue-200 transition-colors">
+                                {showStats ? 'Hide Analytics' : 'Show Analytics'}
+                                <ChevronRight size={14} className={`transform transition-transform ${showStats ? 'rotate-90' : ''}`} />
+                            </span>
+                        )}
+                    </div>
+                </button>
+
+                {showStats && (
+                    <div className="p-5 sm:p-6 pt-2 border-t border-slate-100 bg-slate-50/40 animate-fade-in">
+                        {loadingStats ? (
+                            <div className="py-8 text-center text-xs text-slate-500 font-medium flex items-center justify-center gap-2">
+                                <RefreshCw size={14} className="animate-spin text-blue-600" /> Computing historical metrics across closed trades...
+                            </div>
+                        ) : stats.length === 0 ? (
+                            <div className="py-6 text-center text-xs text-slate-400 font-medium">
+                                No concluded trades available yet to generate bank performance analytics.
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
+                                {stats.map((bank, index) => (
+                                    <div
+                                        key={bank.bank_id}
+                                        className="bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80 hover:shadow-sm transition-all"
+                                    >
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-8 h-8 bg-blue-50 text-blue-700 rounded-xl flex items-center justify-center shrink-0">
+                                                <Landmark size={16} />
+                                            </div>
+                                            <h4 className="font-bold text-sm truncate text-slate-900">{bank.bank_name}</h4>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Win Rate</label>
+                                                <div className="flex items-end gap-2">
+                                                    <span className="text-xl font-bold text-slate-900">{bank.win_rate.toFixed(1)}%</span>
+                                                    <span className="text-xs text-gray-400 mb-0.5">({bank.total_won}/{bank.total_participated})</span>
+                                                </div>
+                                                <div className="w-full bg-gray-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                                                    <div
+                                                        className="bg-emerald-500 h-full rounded-full transition-all duration-1000 ease-out"
+                                                        style={{ width: `${bank.win_rate}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 gap-1.5">
+                                                <div className="text-center p-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
+                                                    <span className="block text-[8px] font-bold text-emerald-600 uppercase mb-0.5">1st</span>
+                                                    <span className="text-sm font-bold text-emerald-700">{bank.ranks[1]}</span>
+                                                </div>
+                                                <div className="text-center p-1.5 bg-blue-50 rounded-lg border border-blue-100">
+                                                    <span className="block text-[8px] font-bold text-blue-600 uppercase mb-0.5">2nd</span>
+                                                    <span className="text-sm font-bold text-blue-700">{bank.ranks[2]}</span>
+                                                </div>
+                                                <div className="text-center p-1.5 bg-slate-100 rounded-lg border border-slate-200">
+                                                    <span className="block text-[8px] font-bold text-slate-600 uppercase mb-0.5">3rd</span>
+                                                    <span className="text-sm font-bold text-slate-700">{bank.ranks[3]}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="pt-2 border-t border-slate-100">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Avg. Spread</span>
+                                                    <span className={`text-xs font-bold flex items-center gap-1 ${bank.avg_spread < 0.1 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                                        {bank.avg_spread < 0.1 ? <ArrowDownRight size={12} /> : <ArrowUpRight size={12} />}
+                                                        +{bank.avg_spread.toFixed(3)}%
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </section>
 
             {/* All Quotation History */}
             <section>
@@ -879,11 +972,11 @@ export default function AdminQuotationDashboard() {
                     </h3>
                     <div className="flex flex-wrap gap-2 items-center">
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
                             <input
                                 type="text"
                                 placeholder="Search ref or user..."
-                                className="pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/5 transition-all w-44"
+                                className="!pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/5 transition-all w-48"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
