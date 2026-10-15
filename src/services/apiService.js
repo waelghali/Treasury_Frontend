@@ -142,6 +142,13 @@ export const extendSession = async () => {
  * Centralized API Request Handlers
  */
 export const apiRequest = async (url, method = 'GET', data = null, contentType = 'application/json', responseType = 'json') => {
+  if (contentType && typeof contentType === 'object') {
+    if (contentType.responseType) {
+      responseType = contentType.responseType;
+    }
+    contentType = contentType.contentType || 'application/json';
+  }
+
   const token = getAuthToken();
   const headers = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -174,9 +181,18 @@ export const apiRequest = async (url, method = 'GET', data = null, contentType =
       throw error;
     }
 
-    const contentTypeHeader = response.headers.get('content-type');
+    const contentTypeHeader = (response.headers.get('content-type') || '').toLowerCase();
     if (response.status === 204 || !contentTypeHeader) return null;
-    if (responseType === 'blob') return await response.blob();
+    if (
+      responseType === 'blob' ||
+      contentTypeHeader.includes('spreadsheet') ||
+      contentTypeHeader.includes('excel') ||
+      contentTypeHeader.includes('openxmlformats') ||
+      contentTypeHeader.includes('pdf') ||
+      contentTypeHeader.includes('octet-stream')
+    ) {
+      return await response.blob();
+    }
     return responseType === 'text' ? await response.text() : await response.json();
   } catch (error) {
     console.error('API Request Failed:', error);

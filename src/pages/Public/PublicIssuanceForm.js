@@ -3,11 +3,12 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { apiRequest, publicApiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 import {
-    Loader2, Save, Send, AlertCircle, Info, CheckCircle, User, FileText, DollarSign,
-    Building, ChevronLeft, ChevronRight, Search, X, Upload, Trash2, Clock, AlertTriangle, Edit3, Calendar
+    Loader2, Save, Send, AlertCircle, Info, CheckCircle, CheckCircle2, User, FileText, DollarSign,
+    Building, ChevronLeft, ChevronRight, Search, X, Upload, Trash2, Clock, AlertTriangle, Edit3, Calendar,
+    Wand2, Sparkles, Check
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { COUNTRIES_FOR_SELECT as COUNTRIES } from '../../constants/countries';
+import { COUNTRIES_FOR_SELECT as COUNTRIES, countryNameToCode } from '../../constants/countries';
 
 // ──────────────────────────────────────────────
 // CONSTANTS
@@ -91,19 +92,18 @@ export default function IssuanceRequestForm() {
     const [showVerificationDialog, setShowVerificationDialog] = useState(false);
     const [verifying, setVerifying] = useState(false);
     const [pendingSubmitPayload, setPendingSubmitPayload] = useState(null); // payload to submit after verification
+    const [appliedFields, setAppliedFields] = useState({}); // { [fieldName]: true }
     // { file: File, type: 'CONTRACT'|'PURCHASE_ORDER'|'THIRD_PARTY'|'SPECIAL_WORDING'|'OTHER' }
 
-    // Track the contract file in memory for AI verification across retries
-    const lastContractFileRef = useRef(null);
+    // Track attached supporting document in memory for AI verification across retries
+    const lastAttachedFileRef = useRef(null);
 
     const addFile = (file, docType) => {
         if (file.size > 10 * 1024 * 1024) {
             toast.error('File size exceeds 10MB limit');
             return;
         }
-        if (docType === 'CONTRACT' && file.name?.toLowerCase().endsWith('.pdf')) {
-            lastContractFileRef.current = file;
-        }
+        lastAttachedFileRef.current = { file, type: docType, name: file.name };
         setPendingFiles(prev => [...prev, { file, type: docType, name: file.name }]);
     };
 
@@ -180,15 +180,19 @@ export default function IssuanceRequestForm() {
             setFormData(prev => ({ ...prev, ...fillData }));
 
             // Load existing documents so they appear in the form
-            if (!isPublic) {
-                try {
-                    const docs = await apiRequest(`/issuance/requests/${draftId}/documents`, 'GET');
-                    if (Array.isArray(docs) && docs.length > 0) {
-                        setExistingDocuments(docs);
-                    }
-                } catch (docErr) {
-                    console.warn('Could not load existing documents:', docErr);
+            try {
+                let docs = [];
+                if (isPublic) {
+                    const safeToken = encodeURIComponent(token);
+                    docs = await publicApiRequest(`/public-issuance/requests/${draftId}/documents?token=${safeToken}`, 'GET');
+                } else {
+                    docs = await apiRequest(`/issuance/requests/${draftId}/documents`, 'GET');
                 }
+                if (Array.isArray(docs) && docs.length > 0) {
+                    setExistingDocuments(docs);
+                }
+            } catch (docErr) {
+                console.warn('Could not load existing documents:', docErr);
             }
 
             toast.info('Draft loaded. You can continue editing.');
@@ -671,7 +675,7 @@ export default function IssuanceRequestForm() {
     // FILE UPLOAD HELPER
     // ──────────────────────────────────────────────
     const uploadPendingFiles = async (requestId, usePublicApi) => {
-        if (!pendingFiles || pendingFiles.length === 0) return;
+        if (!pendingFiles || pendingFiles.length === 0) return [];
         const toUpload = [...pendingFiles];
         const uploadedList = [];
         for (const pf of toUpload) {
@@ -706,6 +710,315 @@ export default function IssuanceRequestForm() {
         if (uploadedList.length > 0) {
             setExistingDocuments(prev => [...prev, ...uploadedList]);
         }
+        return uploadedList;
+    };
+
+    // ──────────────────────────────────────────────
+    // AI DOCUMENT VERIFICATION HELPER
+    // ──────────────────────────────────────────────
+    // NOTE: The portal token is resolved here (not passed in) so call sites cannot
+    // shift arguments by accident — a shifted token silently disabled verification before.
+    const runDocumentVerification = async (targetRequestId, fileObj, docType, documentId) => {
+        const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
+        const safeToken = isPublic ? encodeURIComponent(token || '') : null;
+        let resp;
+        if (isPublic) {
+            if (fileObj) {
+                const fd = new FormData();
+                fd.append('file', fileObj);
+                resp = await fetch(`${API_URL}/public-issuance/requests/${targetRequestId}/analyze-document?token=${safeToken}&doc_type=${encodeURIComponent(docType || 'CONTRACT')}`, {
+                    method: 'POST', body: fd
+                });
+            } else {
+                const docParam = documentId ? `&document_id=${documentId}` : '';
+                resp = await fetch(`${API_URL}/public-issuance/requests/${targetRequestId}/analyze-document?token=${safeToken}${docParam}`, {
+                    method: 'POST'
+                });
+            }
+        } else {
+            const authToken = localStorage.getItem('jwt_token');
+            const fd = new FormData();
+            if (fileObj) fd.append('file', fileObj);
+            if (docType) fd.append('doc_type', docType);
+            if (documentId) fd.append('document_id', documentId);
+            resp = await fetch(`${API_URL}/issuance/requests/${targetRequestId}/analyze-document`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${authToken}` },
+                body: fd
+            });
+        }
+        if (!resp || !resp.ok) {
+            throw new Error(`Verification endpoint returned ${resp?.status}`);
+        }
+        return await resp.json();
+    };
+
+    // ──────────────────────────────────────────────
+    // SUBMIT
+    // ──────────────────────────────────────────────
+    // ──────────────────────────────────────────────
+    // AI DOCUMENT VERIFICATION FIX APPLIER
+    // ──────────────────────────────────────────────
+    const extractCleanNumber = (val) => {
+        if (!val && val !== 0) return null;
+        const clean = String(val).replace(/,/g, '').match(/-?\d+(\.\d+)?/);
+        return clean ? clean[0] : null;
+    };
+
+    const extractIsoDate = (val) => {
+        if (!val) return null;
+        const str = String(val).trim();
+        // 1. Direct match for YYYY-MM-DD
+        const isoMatch = str.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+        if (isoMatch) {
+            const [, y, m, d] = isoMatch;
+            return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+        }
+        // 2. Common slash/dash format: DD/MM/YYYY or DD-MM-YYYY or MM/DD/YYYY
+        const dmyMatch = str.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/);
+        if (dmyMatch) {
+            const [, p1, p2, y] = dmyMatch;
+            const n1 = parseInt(p1, 10);
+            const n2 = parseInt(p2, 10);
+            let day = n1;
+            let month = n2;
+            if (n1 <= 12 && n2 > 12) {
+                // MM/DD/YYYY format
+                month = n1;
+                day = n2;
+            }
+            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                return `${y}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            }
+        }
+        // 3. Textual months: e.g. "31 Dec 2026", "December 31, 2026", Arabic "31 ديسمبر 2026"
+        const months = {
+            jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+            jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+            'يناير': '01', 'فبراير': '02', 'مارس': '03', 'ابريل': '04', 'أبريل': '04',
+            'مايو': '05', 'يونيو': '06', 'يوليو': '07', 'اغسطس': '08', 'أغسطس': '08',
+            'سبتمبر': '09', 'اكتوبر': '10', 'أكتوبر': '10', 'نوفمبر': '11', 'ديسمبر': '12'
+        };
+        for (const [mName, mNum] of Object.entries(months)) {
+            if (str.toLowerCase().includes(mName)) {
+                const yearMatch = str.match(/\b(20\d{2})\b/);
+                const dayMatch = str.match(/\b([12]?\d|3[01])\b/);
+                if (yearMatch && dayMatch) {
+                    return `${yearMatch[1]}-${mNum}-${dayMatch[1].padStart(2, '0')}`;
+                }
+            }
+        }
+        // 4. Standard JS date parse fallback
+        const parsed = new Date(str);
+        if (!isNaN(parsed.getTime())) {
+            const y = parsed.getFullYear();
+            const m = String(parsed.getMonth() + 1).padStart(2, '0');
+            const d = String(parsed.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+        return null;
+    };
+
+    const applyDocumentValue = (item) => {
+        const fieldName = item.field;
+        const docVal = item.document_value;
+        if (!docVal && docVal !== 0) return;
+
+        let updatedFormData = { ...formData };
+        let updatedPayload = pendingSubmitPayload ? { ...pendingSubmitPayload.payload } : { ...formData };
+
+        if (fieldName === 'lg_value' || fieldName === 'amount') {
+            const num = extractCleanNumber(docVal);
+            if (num) {
+                updatedFormData.amount = num;
+                updatedPayload.amount = parseFloat(num);
+            }
+        } else if (fieldName === 'contract_value' || fieldName === 'reference_amount') {
+            const num = extractCleanNumber(docVal);
+            if (num) {
+                updatedFormData.reference_amount = num;
+                updatedPayload.reference_amount = parseFloat(num);
+            }
+        } else if (fieldName === 'beneficiary_name') {
+            const strVal = String(docVal).trim();
+            updatedFormData.beneficiary_name = strVal;
+            updatedPayload.beneficiary_name = strVal;
+        } else if (fieldName === 'beneficiary_address') {
+            const strVal = String(docVal).trim();
+            updatedFormData.beneficiary_address = strVal;
+            updatedPayload.beneficiary_address = strVal;
+        } else if (fieldName === 'beneficiary_country') {
+            const rawVal = String(docVal).trim();
+            const cCode = countryNameToCode ? (countryNameToCode(rawVal) || rawVal) : rawVal;
+            const matched = COUNTRIES.find(c => c.id?.toUpperCase() === cCode.toUpperCase() || c.name?.toLowerCase().includes(rawVal.toLowerCase()));
+            const finalCountry = matched ? matched.id : cCode;
+            updatedFormData.beneficiary_country = finalCountry;
+            updatedPayload.beneficiary_country = finalCountry;
+        } else if (fieldName === 'issuance_country') {
+            const rawVal = String(docVal).trim();
+            const cCode = countryNameToCode ? (countryNameToCode(rawVal) || rawVal) : rawVal;
+            const matched = COUNTRIES.find(c => c.id?.toUpperCase() === cCode.toUpperCase() || c.name?.toLowerCase().includes(rawVal.toLowerCase()));
+            const finalCountry = matched ? matched.id : cCode;
+            updatedFormData.issuance_country = finalCountry;
+            updatedPayload.issuance_country = finalCountry;
+            if (finalCountry !== 'EG' && rawVal.toLowerCase() !== 'egypt') {
+                updatedFormData.is_cross_border = true;
+                updatedPayload.is_cross_border = true;
+                setAppliedFields(prev => ({ ...prev, is_cross_border: true }));
+            }
+        } else if (fieldName === 'is_cross_border') {
+            const isCb = String(docVal).toLowerCase().includes('yes') || String(docVal).toLowerCase().includes('true');
+            updatedFormData.is_cross_border = isCb;
+            updatedPayload.is_cross_border = isCb;
+        } else if (fieldName === 'is_third_party') {
+            const isTp = String(docVal).toLowerCase().includes('yes') || String(docVal).toLowerCase().includes('true');
+            updatedFormData.is_third_party = isTp;
+            updatedPayload.is_third_party = isTp;
+        } else if (fieldName === 'third_party_name') {
+            const tpName = String(docVal).trim();
+            updatedFormData.third_party_name = tpName;
+            updatedFormData.is_third_party = true;
+            updatedPayload.third_party_name = tpName;
+            updatedPayload.is_third_party = true;
+            setAppliedFields(prev => ({ ...prev, is_third_party: true }));
+        } else if (fieldName === 'requires_special_wording') {
+            const isSw = String(docVal).toLowerCase().includes('yes') || String(docVal).toLowerCase().includes('true');
+            updatedFormData.requires_special_wording = isSw;
+            updatedPayload.requires_special_wording = isSw;
+        } else if (fieldName === 'reference_number') {
+            const refNo = String(docVal).trim();
+            updatedFormData.reference_number = refNo;
+            updatedPayload.reference_number = refNo;
+        } else if (fieldName === 'is_auto_reducing') {
+            const isAr = String(docVal).toLowerCase().includes('yes') || String(docVal).toLowerCase().includes('true');
+            updatedFormData.is_auto_reducing = isAr;
+            updatedPayload.is_auto_reducing = isAr;
+        } else if (fieldName === 'applicable_rules') {
+            const rules = String(docVal).trim();
+            updatedFormData.applicable_rules = rules;
+            updatedPayload.applicable_rules = rules;
+        } else if (fieldName === 'lg_purpose') {
+            const strVal = String(docVal).trim();
+            updatedFormData.lg_purpose = strVal;
+            updatedPayload.lg_purpose = strVal;
+        } else if (fieldName === 'lg_expiry_date' || fieldName === 'requested_expiry_date') {
+            const dateStr = extractIsoDate(docVal);
+            if (dateStr) {
+                updatedFormData.requested_expiry_date = dateStr;
+                updatedFormData.expiry_type = 'FIXED_DATE';
+                updatedFormData.is_open_ended = false;
+                updatedPayload.requested_expiry_date = dateStr;
+                updatedPayload.expiry_type = 'FIXED_DATE';
+                updatedPayload.is_open_ended = false;
+            }
+        } else if (fieldName === 'currency' || fieldName === 'lg_currency' || fieldName === 'currency_id') {
+            const code = String(docVal).toUpperCase().trim();
+            const matchedCurr = currencies.find(c => c.iso_code?.toUpperCase() === code || c.name?.toUpperCase().includes(code));
+            if (matchedCurr) {
+                if (fieldName === 'lg_currency' || fieldName === 'currency_id') {
+                    updatedFormData.currency_id = String(matchedCurr.id);
+                    updatedPayload.currency_id = matchedCurr.id;
+                } else {
+                    updatedFormData.reference_currency_id = String(matchedCurr.id);
+                    updatedPayload.reference_currency_id = matchedCurr.id;
+                }
+            }
+        } else if (fieldName === 'lg_type' || fieldName === 'lg_type_id') {
+            const rawType = String(docVal).toLowerCase().trim();
+            const matchedType = lgTypes.find(t =>
+                t.name?.toLowerCase().includes(rawType) ||
+                rawType.includes(t.name?.toLowerCase())
+            );
+            if (matchedType) {
+                updatedFormData.lg_type_id = String(matchedType.id);
+                updatedPayload.lg_type_id = matchedType.id;
+            }
+        }
+
+        setFormData(updatedFormData);
+        if (pendingSubmitPayload) {
+            setPendingSubmitPayload(prev => ({
+                ...prev,
+                payload: updatedPayload
+            }));
+        }
+
+        setAppliedFields(prev => ({ ...prev, [fieldName]: true }));
+
+        // Update comparison table inside dialog
+        if (verificationResult?.comparison) {
+            const updatedComparison = verificationResult.comparison.map(c => {
+                if (c.field === fieldName) {
+                    return { ...c, match: true, verdict: 'MATCH', request_value: String(docVal) };
+                }
+                if (fieldName === 'third_party_name' && c.field === 'is_third_party') {
+                    return { ...c, match: true, verdict: 'MATCH', request_value: 'Yes' };
+                }
+                if (fieldName === 'issuance_country' && c.field === 'is_cross_border') {
+                    return { ...c, match: true, verdict: 'MATCH', request_value: 'Yes' };
+                }
+                return c;
+            });
+            const remainingMismatches = updatedComparison.filter(c => c.verdict === 'MISMATCH').length;
+            setVerificationResult(prev => ({
+                ...prev,
+                comparison: updatedComparison,
+                mismatches: remainingMismatches
+            }));
+        }
+
+        toast.success(`Applied "${item.label}" from document!`);
+    };
+
+    const applyClauseHarvestExpiry = () => {
+        const recDate = verificationResult?.clause_harvest?.recommended_expiry_date;
+        if (!recDate) return;
+        const dateStr = extractIsoDate(recDate);
+        if (!dateStr) return;
+
+        let updatedFormData = { ...formData, requested_expiry_date: dateStr, expiry_type: 'FIXED_DATE', is_open_ended: false };
+        let updatedPayload = pendingSubmitPayload
+            ? { ...pendingSubmitPayload.payload, requested_expiry_date: dateStr, expiry_type: 'FIXED_DATE', is_open_ended: false }
+            : updatedFormData;
+
+        setFormData(updatedFormData);
+        if (pendingSubmitPayload) {
+            setPendingSubmitPayload(prev => ({ ...prev, payload: updatedPayload }));
+        }
+        setAppliedFields(prev => ({ ...prev, clause_expiry: true }));
+
+        if (verificationResult?.comparison) {
+            const updatedComparison = verificationResult.comparison.map(c => {
+                if (c.field === 'lg_expiry_date') {
+                    return { ...c, match: true, verdict: 'MATCH', request_value: dateStr };
+                }
+                return c;
+            });
+            const remainingMismatches = updatedComparison.filter(c => c.verdict === 'MISMATCH').length;
+            setVerificationResult(prev => ({
+                ...prev,
+                comparison: updatedComparison,
+                mismatches: remainingMismatches
+            }));
+        }
+        toast.success(`Applied harvested expiry date: ${dateStr}`);
+    };
+
+    const applyAllFixes = () => {
+        if (!verificationResult?.comparison) return;
+        const mismatchesList = verificationResult.comparison.filter(c => c.verdict === 'MISMATCH' && c.document_value);
+        if (mismatchesList.length === 0 && !verificationResult?.clause_harvest?.recommended_expiry_date) {
+            toast.info('No pending mismatches to apply');
+            return;
+        }
+
+        mismatchesList.forEach(item => {
+            applyDocumentValue(item);
+        });
+        if (verificationResult?.clause_harvest?.recommended_expiry_date && !appliedFields.clause_expiry) {
+            applyClauseHarvestExpiry();
+        }
+        toast.success('All suggested document values applied to your request!');
     };
 
     // ──────────────────────────────────────────────
@@ -757,41 +1070,37 @@ export default function IssuanceRequestForm() {
                 if (draftId) {
                     // Editing an existing draft — update via PUT first
                     await publicApiRequest(`/public-issuance/requests/${draftId}?token=${safeToken}`, 'PUT', payload);
+                    let uploadedList = [];
                     if (pendingFiles.length > 0) {
-                        await uploadPendingFiles(draftId, true);
+                        uploadedList = await uploadPendingFiles(draftId, true);
                     }
                     if (actionType === 'SUBMIT') {
-                        // Check for CONTRACT documents to verify with AI (from memory or pending)
-                        const contractFileObj = lastContractFileRef.current || pendingFiles.find(pf => pf.type === 'CONTRACT' && pf.file.name?.toLowerCase().endsWith('.pdf'))?.file;
-                        if (contractFileObj) {
+                        // Check for ANY attached document to verify with AI
+                        const fileObj = lastAttachedFileRef.current?.file || pendingFiles[0]?.file || null;
+                        const docType = lastAttachedFileRef.current?.type || pendingFiles[0]?.type || existingDocuments[0]?.document_type || null;
+                        const documentId = (!fileObj && (existingDocuments[0]?.id || uploadedList[0]?.id)) || null;
+
+                        if (fileObj || documentId || existingDocuments.length > 0 || pendingFiles.length > 0) {
                             setVerifying(true);
                             try {
-                                const fd = new FormData();
-                                fd.append('file', contractFileObj);
-                                const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
-                                const resp = await fetch(`${API_URL}/public-issuance/requests/${draftId}/analyze-document?token=${safeToken}&doc_type=CONTRACT`, {
-                                    method: 'POST', body: fd
-                                });
-                                const result = await resp.json();
-                                if (result.status === 'OK' && result.mismatches > 0) {
-                                    // Show verification dialog — let user decide
+                                const result = await runDocumentVerification(draftId, fileObj, docType, documentId);
+                                if (result && result.status === 'OK' && result.mismatches > 0) {
                                     setVerificationResult(result);
-                                    setPendingSubmitPayload({ editDraftId: draftId, safeToken, payload });
+                                    setPendingSubmitPayload({ editDraftId: draftId, safeToken, payload, isPublic: true });
                                     setShowVerificationDialog(true);
                                     setSubmitting(false);
                                     setVerifying(false);
-                                    return; // Stop here — user will choose
+                                    return; // Pause submit: let user review & apply fixes
                                 }
-                                // If all matched or AI error → proceed
-                                if (result.status === 'OK') {
-                                    setVerificationResult(result); // store for display
+                                if (result && result.status === 'OK') {
+                                    setVerificationResult(result);
                                 }
                             } catch (err) {
                                 console.warn('AI verification failed, proceeding anyway:', err);
                             }
                             setVerifying(false);
                         }
-                        // Submit the SAME updated draft, not a new request
+                        // Submit the updated draft
                         await publicApiRequest(`/public-issuance/requests/${draftId}/submit?token=${safeToken}`, 'POST', payload);
                         setIsSuccess(true);
                     } else {
@@ -813,32 +1122,29 @@ export default function IssuanceRequestForm() {
                         toast.error('Failed to prepare request for submission');
                         return;
                     }
-                    // CRITICAL: Store the draft ID so "Cancel & Edit" reuses it
                     setDraftId(created.id);
-                    const contractFileObj = lastContractFileRef.current || pendingFiles.find(pf => pf.type === 'CONTRACT' && pf.file.name?.toLowerCase().endsWith('.pdf'))?.file;
+                    const fileObj = lastAttachedFileRef.current?.file || pendingFiles[0]?.file || null;
+                    const docType = lastAttachedFileRef.current?.type || pendingFiles[0]?.type || 'CONTRACT';
+                    let uploadedList = [];
                     if (pendingFiles.length > 0) {
-                        await uploadPendingFiles(created.id, true);
+                        uploadedList = await uploadPendingFiles(created.id, true);
                     }
-                    // AI verification on CONTRACT documents
-                    if (contractFileObj) {
+                    const documentId = (!fileObj && uploadedList[0]?.id) || null;
+
+                    // AI verification on attached documents
+                    if (fileObj || documentId || pendingFiles.length > 0) {
                         setVerifying(true);
                         try {
-                            const fd = new FormData();
-                            fd.append('file', contractFileObj);
-                            const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
-                            const resp = await fetch(`${API_URL}/public-issuance/requests/${created.id}/analyze-document?token=${safeToken}&doc_type=CONTRACT`, {
-                                method: 'POST', body: fd
-                            });
-                            const result = await resp.json();
-                            if (result.status === 'OK' && result.mismatches > 0) {
+                            const result = await runDocumentVerification(created.id, fileObj, docType, documentId);
+                            if (result && result.status === 'OK' && result.mismatches > 0) {
                                 setVerificationResult(result);
-                                setPendingSubmitPayload({ editDraftId: created.id, safeToken, payload });
+                                setPendingSubmitPayload({ editDraftId: created.id, safeToken, payload, isPublic: true });
                                 setShowVerificationDialog(true);
                                 setSubmitting(false);
                                 setVerifying(false);
-                                return;
+                                return; // Stop here: user can apply fixes
                             }
-                            if (result.status === 'OK') {
+                            if (result && result.status === 'OK') {
                                 setVerificationResult(result);
                             }
                         } catch (err) {
@@ -851,6 +1157,7 @@ export default function IssuanceRequestForm() {
                     setIsSuccess(true);
                 }
             } else if (draftId) {
+                // Internal mode: editing draft
                 const isPostSubmission = editingStatus && editingStatus !== 'DRAFT' && editingStatus !== 'REVISION_REQUIRED';
                 const requireChangeReason = editingStatus && editingStatus !== 'DRAFT';
 
@@ -860,20 +1167,43 @@ export default function IssuanceRequestForm() {
                     return;
                 }
 
-                // Strip change_reason from payload ONLY if editing DRAFT (not needed)
                 const putPayload = { ...payload };
                 if (editingStatus === 'DRAFT') {
                     delete putPayload.change_reason;
                 }
                 await apiRequest(`/issuance/requests/${draftId}`, 'PUT', putPayload);
-                // Upload any pending documents
+                let uploadedList = [];
                 if (pendingFiles.length > 0) {
-                    await uploadPendingFiles(draftId, false);
+                    uploadedList = await uploadPendingFiles(draftId, false);
                 }
                 if (isPostSubmission) {
-                    // Post-submission edit done — don't call /submit again
                     toast.success('Request updated. Changes have been saved and relevant parties notified.');
                 } else if (actionType === 'SUBMIT') {
+                    // AI verification before internal submission
+                    const fileObj = lastAttachedFileRef.current?.file || pendingFiles[0]?.file || null;
+                    const docType = lastAttachedFileRef.current?.type || pendingFiles[0]?.type || existingDocuments[0]?.document_type || null;
+                    const documentId = (!fileObj && (existingDocuments[0]?.id || uploadedList[0]?.id)) || null;
+
+                    if (fileObj || documentId || existingDocuments.length > 0 || pendingFiles.length > 0) {
+                        setVerifying(true);
+                        try {
+                            const result = await runDocumentVerification(draftId, fileObj, docType, documentId);
+                            if (result && result.status === 'OK' && result.mismatches > 0) {
+                                setVerificationResult(result);
+                                setPendingSubmitPayload({ editDraftId: draftId, payload, isPublic: false });
+                                setShowVerificationDialog(true);
+                                setSubmitting(false);
+                                setVerifying(false);
+                                return;
+                            }
+                            if (result && result.status === 'OK') {
+                                setVerificationResult(result);
+                            }
+                        } catch (err) {
+                            console.warn('AI verification failed, proceeding anyway:', err);
+                        }
+                        setVerifying(false);
+                    }
                     await apiRequest(`/issuance/requests/${draftId}/submit`, 'POST');
                     toast.success(t('pages.publicIssuanceForm.messages.requestSubmitted'));
                 } else {
@@ -881,14 +1211,38 @@ export default function IssuanceRequestForm() {
                 }
                 navigate(-1);
             } else {
-                // Internal user: use draft endpoint for saves, full endpoint for submissions
+                // Internal user: new submission
                 const createUrl = actionType === 'DRAFT' ? '/issuance/requests/draft' : '/issuance/requests/';
                 const createdReq = await apiRequest(createUrl, 'POST', payload);
-                // Upload any pending documents
+                let uploadedList = [];
                 if (pendingFiles.length > 0 && createdReq?.id) {
-                    await uploadPendingFiles(createdReq.id, false);
+                    uploadedList = await uploadPendingFiles(createdReq.id, false);
                 }
                 if (actionType === 'SUBMIT') {
+                    const fileObj = lastAttachedFileRef.current?.file || pendingFiles[0]?.file || null;
+                    const docType = lastAttachedFileRef.current?.type || pendingFiles[0]?.type || 'CONTRACT';
+                    const documentId = (!fileObj && uploadedList[0]?.id) || null;
+
+                    if (fileObj || documentId || pendingFiles.length > 0) {
+                        setVerifying(true);
+                        try {
+                            const result = await runDocumentVerification(createdReq.id, fileObj, docType, documentId);
+                            if (result && result.status === 'OK' && result.mismatches > 0) {
+                                setVerificationResult(result);
+                                setPendingSubmitPayload({ editDraftId: createdReq.id, payload, isPublic: false });
+                                setShowVerificationDialog(true);
+                                setSubmitting(false);
+                                setVerifying(false);
+                                return;
+                            }
+                            if (result && result.status === 'OK') {
+                                setVerificationResult(result);
+                            }
+                        } catch (err) {
+                            console.warn('AI verification failed, proceeding anyway:', err);
+                        }
+                        setVerifying(false);
+                    }
                     await apiRequest(`/issuance/requests/${createdReq.id}/submit`, 'POST');
                     toast.success(t('pages.publicIssuanceForm.messages.requestSubmitted'));
                 } else {
@@ -904,16 +1258,26 @@ export default function IssuanceRequestForm() {
         }
     };
 
-    // Called when user clicks "Submit Anyway" in the verification dialog
+    // Called when user clicks "Submit Anyway" or "Confirm & Submit" in verification dialog
     const proceedAfterVerification = async () => {
         if (!pendingSubmitPayload) return;
         setShowVerificationDialog(false);
         setSubmitting(true);
         try {
-            const { editDraftId: draftId, safeToken: st, payload: pl } = pendingSubmitPayload;
-            await publicApiRequest(`/public-issuance/requests/${draftId}/submit?token=${st}`, 'POST', pl);
-            setIsSuccess(true);
+            const { editDraftId: reqDraftId, safeToken: st, payload: pl, isPublic: isPub } = pendingSubmitPayload;
+            if (isPub) {
+                // Ensure all applied fixes are saved to the draft in DB
+                await publicApiRequest(`/public-issuance/requests/${reqDraftId}?token=${st}`, 'PUT', pl);
+                await publicApiRequest(`/public-issuance/requests/${reqDraftId}/submit?token=${st}`, 'POST', pl);
+                setIsSuccess(true);
+            } else {
+                await apiRequest(`/issuance/requests/${reqDraftId}`, 'PUT', pl);
+                await apiRequest(`/issuance/requests/${reqDraftId}/submit`, 'POST');
+                toast.success(t('pages.publicIssuanceForm.messages.requestSubmitted'));
+                navigate('/issuance/requests');
+            }
         } catch (err) {
+            console.error('Final submission error:', err);
             toast.error(err.response?.data?.detail || 'Submission failed');
         } finally {
             setSubmitting(false);
@@ -925,82 +1289,209 @@ export default function IssuanceRequestForm() {
     const cancelVerification = () => {
         setShowVerificationDialog(false);
         setPendingSubmitPayload(null);
-        toast.info('Submission cancelled. You can review and edit your request.');
+        toast.info('Submission paused. Applied fixes are in your form. You can review and submit when ready.');
     };
 
     // Verification Dialog Component
     const VerificationDialog = () => {
         if (!showVerificationDialog || !verificationResult) return null;
-        const { comparison = [], mismatches = 0, summary } = verificationResult;
+        const { comparison = [], mismatches = 0, summary, clause_harvest } = verificationResult;
+        const hasApplicableFixes = comparison.some(c => c.verdict === 'MISMATCH' && c.document_value);
+
         return (
-            <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-200">
                     {/* Header */}
-                    <div className="bg-amber-50 border-b border-amber-200 px-6 py-4 rounded-t-2xl">
+                    <div className={`px-6 py-4 border-b flex items-center justify-between gap-4 ${
+                        mismatches > 0 ? 'bg-amber-50/80 border-amber-200' : 'bg-emerald-50/80 border-emerald-200'
+                    }`}>
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-                                <AlertTriangle className="w-5 h-5 text-amber-600" />
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                                mismatches > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                            }`}>
+                                {mismatches > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
                             </div>
                             <div>
-                                <h3 className="text-lg font-bold text-amber-900">AI Document Verification</h3>
-                                <p className="text-sm text-amber-700">
-                                    {mismatches} potential mismatch{mismatches !== 1 ? 'es' : ''} found between your request and the reference document
+                                <h3 className={`text-base font-bold ${mismatches > 0 ? 'text-amber-950' : 'text-emerald-950'}`}>
+                                    AI Document Verification & Value Matching
+                                </h3>
+                                <p className={`text-xs ${mismatches > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                    {mismatches > 0
+                                        ? `${mismatches} mismatch${mismatches !== 1 ? 'es' : ''} detected between your request and the attached reference document.`
+                                        : 'All verified request fields match the reference document.'}
                                 </p>
                             </div>
                         </div>
+
+                        {hasApplicableFixes && (
+                            <button
+                                type="button"
+                                onClick={applyAllFixes}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-lg shadow-sm transition shrink-0"
+                            >
+                                <Sparkles className="w-3.5 h-3.5" /> Apply All Fixes
+                            </button>
+                        )}
                     </div>
 
                     {/* Body */}
-                    <div className="px-6 py-4 overflow-y-auto flex-1">
+                    <div className="px-6 py-4 overflow-y-auto flex-1 space-y-3">
                         {summary && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                                <p className="text-xs text-blue-600 font-semibold uppercase mb-1">Document Summary</p>
-                                <p className="text-sm text-blue-900">{summary}</p>
+                            <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 text-xs text-blue-900">
+                                <span className="font-bold uppercase tracking-wider text-[10px] text-blue-600 block mb-1">
+                                    Document Analysis Summary
+                                </span>
+                                <p>{summary}</p>
                             </div>
                         )}
-                        <div className="space-y-2">
-                            {comparison.map((item, idx) => (
-                                <div key={idx} className={`rounded-lg border p-3 ${
-                                    item.match ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
-                                }`}>
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-xs font-bold text-gray-700">{item.label}</span>
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                            item.match ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'
-                                        }`}>
-                                            {item.match ? '✓ Match' : '✗ Mismatch'}
-                                        </span>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
-                                        <div>
-                                            <span className="text-[10px] text-gray-400 block">Your Request</span>
-                                            <span className="text-gray-900 font-medium">{item.request_value || '—'}</span>
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] text-gray-400 block">In Document</span>
-                                            <span className="text-gray-900 font-medium">{item.document_value || '—'}</span>
-                                        </div>
-                                    </div>
+
+                        {clause_harvest && (clause_harvest.clause_citation || clause_harvest.recommended_expiry_date) && (
+                            <div className="bg-indigo-50/60 border border-indigo-200 rounded-xl p-3.5 text-xs">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="font-bold text-indigo-900 flex items-center gap-1.5">
+                                        <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                                        {clause_harvest.clause_title || 'Harvested Expiry Clause'}
+                                    </span>
+                                    {clause_harvest.recommended_expiry_date && (
+                                        appliedFields.clause_expiry ? (
+                                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                                                <Check className="w-3 h-3" /> Expiry Applied
+                                            </span>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={applyClauseHarvestExpiry}
+                                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-sm transition"
+                                            >
+                                                <Wand2 className="w-3 h-3" /> Apply Expiry Date
+                                            </button>
+                                        )
+                                    )}
                                 </div>
-                            ))}
+                                {clause_harvest.clause_citation && (
+                                    <p className="text-slate-700 italic mb-1 bg-white/70 p-2 rounded border border-indigo-100">
+                                        "{clause_harvest.clause_citation}"
+                                    </p>
+                                )}
+                                <div className="flex items-center gap-3 text-[11px] text-indigo-800">
+                                    {clause_harvest.recommended_expiry_date && (
+                                        <span><strong>Recommended Expiry:</strong> {clause_harvest.recommended_expiry_date}</span>
+                                    )}
+                                    {clause_harvest.calculation_basis && (
+                                        <span><strong>Basis:</strong> {clause_harvest.calculation_basis}</span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="space-y-2">
+                            {comparison.map((item, idx) => {
+                                const isApplied = appliedFields[item.field];
+                                const isMismatch = item.verdict === 'MISMATCH' && !isApplied;
+                                const isMatch = item.verdict === 'MATCH' || isApplied;
+
+                                return (
+                                    <div
+                                        key={idx}
+                                        className={`rounded-xl border p-3 transition ${
+                                            isApplied
+                                                ? 'bg-emerald-50/70 border-emerald-300'
+                                                : isMismatch
+                                                ? 'bg-rose-50/60 border-rose-200'
+                                                : isMatch
+                                                ? 'bg-emerald-50/40 border-emerald-200'
+                                                : 'bg-slate-50 border-slate-200'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <span className="text-xs font-bold text-slate-800">{item.label}</span>
+                                            <div className="flex items-center gap-2">
+                                                {isApplied ? (
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 inline-flex items-center gap-1">
+                                                        <Check className="w-3 h-3" /> Applied
+                                                    </span>
+                                                ) : isMatch ? (
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                                        ✓ Match
+                                                    </span>
+                                                ) : isMismatch ? (
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-200 text-rose-800">
+                                                        ✗ Mismatch
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                                                        Not in document
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3 text-xs bg-white/70 p-2 rounded-lg border border-slate-100">
+                                            <div>
+                                                <span className="text-[10px] text-slate-400 block font-semibold uppercase">Your Request</span>
+                                                <span className="text-slate-900 font-medium break-words">{item.request_value || '—'}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] text-slate-400 block font-semibold uppercase">In Document</span>
+                                                <span className="text-slate-900 font-medium break-words">{item.document_value || '—'}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between gap-3 mt-2">
+                                            <span className="text-[11px] text-slate-500 italic">
+                                                {item.note || ''}
+                                            </span>
+
+                                            {item.verdict === 'MISMATCH' && item.document_value && (
+                                                isApplied ? (
+                                                    <span className="text-xs font-semibold text-emerald-700 flex items-center gap-1 shrink-0">
+                                                        <Check className="w-3.5 h-3.5" /> Updated
+                                                    </span>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => applyDocumentValue(item)}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-lg shadow-sm transition shrink-0"
+                                                    >
+                                                        <Wand2 className="w-3.5 h-3.5" /> Apply Fix
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 
                     {/* Footer */}
-                    <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-3 rounded-b-2xl bg-gray-50">
+                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-slate-50">
                         <button
+                            type="button"
                             onClick={cancelVerification}
-                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm border-2 border-gray-300 text-gray-700 hover:bg-gray-100 transition"
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-xs border border-slate-300 text-slate-700 hover:bg-white transition"
                         >
-                            <Edit3 className="w-4 h-4" /> Cancel & Edit
+                            <Edit3 className="w-3.5 h-3.5" /> Cancel & Edit
                         </button>
+
                         <button
+                            type="button"
                             onClick={proceedAfterVerification}
                             disabled={submitting}
-                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-500/20 transition"
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-white transition shadow-sm ${
+                                mismatches === 0
+                                    ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+                                    : 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20'
+                            }`}
                         >
-                            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                            Submit Anyway
+                            {submitting ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : mismatches === 0 ? (
+                                <CheckCircle2 className="w-4 h-4" />
+                            ) : (
+                                <Send className="w-4 h-4" />
+                            )}
+                            {mismatches === 0 ? 'Confirm & Submit Request' : 'Submit Anyway'}
                         </button>
                     </div>
                 </div>

@@ -7,7 +7,7 @@ import {
     BarChart2, ShieldAlert, WifiOff, FileQuestion,
     Users, Lock, Zap, Info, Loader2, Ban, Volume2, VolumeX, Copy, Check,
     RotateCw, AlertTriangle, Trophy, Crown, Sparkles, Hourglass, Download,
-    Star, X, Calendar, CalendarClock
+    Star, X, Calendar, CalendarClock, Laptop
 } from 'lucide-react';
 import tradingAudio from '../../utils/tradingAudioEngine';
 import TradeExecutionConfetti from '../../components/Quotations/TradeExecutionConfetti';
@@ -418,7 +418,18 @@ export default function QuotationBankOfferPage() {
     const [draftRestored, setDraftRestored] = useState(false);
     const tabSessionIdRef = useRef(null);
     if (!tabSessionIdRef.current) {
-        tabSessionIdRef.current = 'tab_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
+        try {
+            const stored = sessionStorage.getItem(`desk_tab_id_${token}`);
+            if (stored) {
+                tabSessionIdRef.current = stored;
+            } else {
+                const newId = 'tab_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
+                sessionStorage.setItem(`desk_tab_id_${token}`, newId);
+                tabSessionIdRef.current = newId;
+            }
+        } catch (_) {
+            tabSessionIdRef.current = 'tab_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
+        }
     }
 
     const lastDeskSyncTimeRef = useRef(0);
@@ -1552,7 +1563,11 @@ export default function QuotationBankOfferPage() {
                 role: authSession.role || 'EXECUTION'
             });
             setDeskState(res.data);
-            setDeskNotice("⚡ You have taken over desk control. You can now submit binding quotes.");
+            const isSelfResume = res.data?.active_controller?.is_you;
+            setDeskNotice(isSelfResume
+                ? "⚡ Quoting session switched to this tab. You can now submit binding quotes."
+                : "⚡ You have taken over desk control. You can now submit binding quotes."
+            );
             setTimeout(() => setDeskNotice(null), 5000);
         } catch (err) {
             alert(err.response?.data?.detail || "Failed to take over desk control.");
@@ -2244,7 +2259,30 @@ export default function QuotationBankOfferPage() {
     const isApproverViewer = isApprover && !canApproverExecute;
     const isViewOnly = authSession?.role === 'VIEW_ONLY';
     const isReadOnlyViewer = isViewOnly || isApproverViewer;
-    const isSpectator = !!(timeLeft.status === 'OPEN' && deskState && !deskState.is_active_trader && !isReadOnlyViewer && (authSession?.role === 'EXECUTION' || canApproverExecute) && deskState.active_trader_email);
+    const isControlledBySelf = Boolean(
+        deskState?.active_trader_email && 
+        authSession?.email && 
+        deskState.active_trader_email.trim().toLowerCase() === authSession.email.trim().toLowerCase()
+    );
+    const isAnotherTabActive = Boolean(
+        timeLeft.status === 'OPEN' && 
+        deskState && 
+        !deskState.is_active_trader && 
+        (deskState.is_another_tab_active || (isControlledBySelf && !deskState.active_controller?.is_current_tab)) && 
+        !isReadOnlyViewer && 
+        (authSession?.role === 'EXECUTION' || canApproverExecute)
+    );
+    const isSpectator = Boolean(
+        timeLeft.status === 'OPEN' && 
+        deskState && 
+        !deskState.is_active_trader && 
+        !isAnotherTabActive && 
+        !isControlledBySelf && 
+        !isReadOnlyViewer && 
+        (authSession?.role === 'EXECUTION' || canApproverExecute) && 
+        deskState.active_trader_email
+    );
+    const isDeskInputsLocked = Boolean(isSpectator || isAnotherTabActive || isReadOnlyViewer);
 
     // Real-time detection of cross-rate inversion / accidental price swap
     const crossInversion = (() => {
@@ -3919,6 +3957,41 @@ export default function QuotationBankOfferPage() {
                                                     </div>
                                                 )}
 
+                                                {/* Multi-Tab Self Handoff Banner (When Same Dealer has Desk Open in Another Tab) */}
+                                                {isAnotherTabActive && (
+                                                    <div className="p-4 bg-sky-50 border-2 border-sky-300 rounded-2xl shadow-xs text-xs animate-fade-in-up">
+                                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                            <div className="flex items-start gap-3">
+                                                                <div className="w-9 h-9 rounded-xl bg-sky-100 border border-sky-300 flex items-center justify-center text-sky-700 shrink-0 mt-0.5">
+                                                                    <Laptop size={18} />
+                                                                </div>
+                                                                <div>
+                                                                    <div className="font-bold text-sky-950 text-sm flex items-center gap-1.5">
+                                                                        <span>Quoting Active in Another Tab or Window</span>
+                                                                    </div>
+                                                                    <p className="text-sky-800 text-xs mt-0.5">
+                                                                        You have this quotation open in another browser window. Inputs in this tab are paused to avoid accidental rate collisions.
+                                                                    </p>
+                                                                    {deskNotice && (
+                                                                        <p className="text-blue-700 font-semibold mt-1 bg-blue-50/80 px-2 py-0.5 rounded border border-blue-200">
+                                                                            ℹ️ {deskNotice}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleTakeoverDesk}
+                                                                disabled={timeLeft.status === 'CLOSED' || isTakingOver}
+                                                                className="shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white font-bold rounded-xl shadow-xs transition-all cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            >
+                                                                <Zap size={14} className={isTakingOver ? "animate-spin" : ""} />
+                                                                {isTakingOver ? "Resuming..." : "⚡ Resume Quoting in This Tab"}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 {/* Multi-Dealer Desk Concurrency Banner (Only for Execution Dealers in Spectator Mode) */}
                                                 {isSpectator && (
                                                     <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl shadow-xs text-xs animate-fade-in-up">
@@ -4013,7 +4086,7 @@ export default function QuotationBankOfferPage() {
                                                         )}
                                                         {tbillLines.map((line, index) => (
                                                             <div key={index} className="p-3.5 sm:p-4 bg-slate-50 rounded-2xl border border-slate-200 relative group">
-                                                                {tbillLines.length > 1 && timeLeft.status === 'OPEN' && !isSpectator && !isReadOnlyViewer && (
+                                                                {tbillLines.length > 1 && timeLeft.status === 'OPEN' && !isDeskInputsLocked && (
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => removeTbillLine(index)}
@@ -4028,7 +4101,7 @@ export default function QuotationBankOfferPage() {
                                                                         <input
                                                                             type="date"
                                                                             required
-                                                                            disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
+                                                                            disabled={timeLeft.status !== 'OPEN' || isDeskInputsLocked}
                                                                             className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
                                                                             value={line.settlementDate}
                                                                             onChange={e => updateTbillLine(index, 'settlementDate', e.target.value)}
@@ -4039,7 +4112,7 @@ export default function QuotationBankOfferPage() {
                                                                         <input
                                                                             type="date"
                                                                             required
-                                                                            disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
+                                                                            disabled={timeLeft.status !== 'OPEN' || isDeskInputsLocked}
                                                                             className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
                                                                             value={line.maturityDate}
                                                                             onChange={e => updateTbillLine(index, 'maturityDate', e.target.value)}
@@ -4051,7 +4124,7 @@ export default function QuotationBankOfferPage() {
                                                                             type="number"
                                                                             step="0.0001"
                                                                             required
-                                                                            disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
+                                                                            disabled={timeLeft.status !== 'OPEN' || isDeskInputsLocked}
                                                                             onWheel={(e) => e.currentTarget.blur()}
                                                                             placeholder="e.g. 18.50"
                                                                             className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
@@ -4064,7 +4137,7 @@ export default function QuotationBankOfferPage() {
                                                                         <input
                                                                             type="number"
                                                                             required
-                                                                            disabled={timeLeft.status !== 'OPEN' || isSpectator || isReadOnlyViewer}
+                                                                            disabled={timeLeft.status !== 'OPEN' || isDeskInputsLocked}
                                                                             onWheel={(e) => e.currentTarget.blur()}
                                                                             placeholder="e.g. 10000000"
                                                                             className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
@@ -4083,7 +4156,7 @@ export default function QuotationBankOfferPage() {
                                                             </div>
                                                         ))}
 
-                                                        {timeLeft.status === 'OPEN' && !isSpectator && !isReadOnlyViewer && (
+                                                        {timeLeft.status === 'OPEN' && !isDeskInputsLocked && (
                                                             <button
                                                                 type="button"
                                                                 onClick={addTbillLine}
@@ -4194,7 +4267,7 @@ export default function QuotationBankOfferPage() {
                                                                             {/* Actions & Status / Live Ranking / Awarding Outcome Stamp */}
                                                                             <div className="flex items-center gap-2">
                                                                                 {/* [ Pass Leg ] / [ Quote this Leg ] Toggle for Active Trading */}
-                                                                                {timeLeft.status === 'OPEN' && !isSpectator && !isReadOnlyViewer && (
+                                                                                {timeLeft.status === 'OPEN' && !isDeskInputsLocked && (
                                                                                     isPassed ? (
                                                                                         <button
                                                                                             type="button"
@@ -4392,7 +4465,7 @@ export default function QuotationBankOfferPage() {
                                                                                         type="number"
                                                                                         step="0.0001"
                                                                                         required={!isPassed}
-                                                                                        disabled={isPassed || timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
+                                                                                        disabled={isPassed || timeLeft.status !== 'OPEN' || isSubmitting || isDeskInputsLocked}
                                                                                         onWheel={(e) => e.currentTarget.blur()}
                                                                                         placeholder={isPassed ? "Leg Passed — No Quote" : "Enter rate (e.g. 48.6500)"}
                                                                                         className={`w-full bg-slate-50 border rounded-xl px-4 py-2.5 text-lg font-black font-mono focus:bg-white outline-none disabled:bg-slate-100 disabled:text-slate-400 ${isPassed
@@ -4426,7 +4499,7 @@ export default function QuotationBankOfferPage() {
                                                                                     <input
                                                                                         type="date"
                                                                                         min={rfq?.window_start ? rfq.window_start.split('T')[0] : new Date().toISOString().split('T')[0]}
-                                                                                        disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
+                                                                                        disabled={timeLeft.status !== 'OPEN' || isSubmitting || isDeskInputsLocked}
                                                                                         className="w-full bg-blue-50/50 border-2 border-blue-200 rounded-xl px-3 py-2 text-sm font-bold font-mono text-blue-950 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400"
                                                                                         value={q.offered_value_date || leg.value_date || ''}
                                                                                         onChange={e => updateLegQuote(leg.id, 'offered_value_date', e.target.value)}
@@ -4512,7 +4585,7 @@ export default function QuotationBankOfferPage() {
                                                                     {/* Status / Live Ranking / Awarding Outcome Stamp & Pass Toggle */}
                                                                     <div className="flex items-center gap-2">
                                                                         {/* [ Pass Leg ] / [ Quote this Leg ] Toggle for Single-Leg Console */}
-                                                                        {timeLeft.status === 'OPEN' && !isReadOnlyViewer && !isSpectator && (
+                                                                        {timeLeft.status === 'OPEN' && !isDeskInputsLocked && (
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => {
@@ -4676,7 +4749,7 @@ export default function QuotationBankOfferPage() {
                                                                             type="number"
                                                                             step="0.0001"
                                                                             required={!isSinglePassed}
-                                                                            disabled={isSinglePassed || timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
+                                                                            disabled={isSinglePassed || timeLeft.status !== 'OPEN' || isSubmitting || isDeskInputsLocked}
                                                                             onWheel={(e) => e.currentTarget.blur()}
                                                                             placeholder={isSinglePassed ? "Leg Passed — No Quote" : "Enter spot rate (e.g. 48.6500)"}
                                                                             className={`w-full bg-slate-50 border rounded-xl px-4 py-2.5 text-lg font-black font-mono focus:bg-white outline-none disabled:bg-slate-100 disabled:text-slate-400 ${
@@ -4706,7 +4779,7 @@ export default function QuotationBankOfferPage() {
                                                                         <input
                                                                             type="date"
                                                                             min={rfq?.window_start ? rfq.window_start.split('T')[0] : new Date().toISOString().split('T')[0]}
-                                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
+                                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || isDeskInputsLocked}
                                                                             className="w-full bg-blue-50/50 border-2 border-blue-200 rounded-xl px-3 py-2 text-sm font-bold font-mono text-blue-950 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400"
                                                                             value={offeredValueDate || rfq.value_date || ''}
                                                                             onChange={e => setOfferedValueDate(e.target.value)}
@@ -4732,7 +4805,7 @@ export default function QuotationBankOfferPage() {
                                                     </label>
                                                     <textarea
                                                         rows={2}
-                                                        disabled={timeLeft.status !== 'OPEN' || isSubmitting || isSpectator || isReadOnlyViewer}
+                                                        disabled={timeLeft.status !== 'OPEN' || isSubmitting || isDeskInputsLocked}
                                                         placeholder="Add any settlement notes, execution remarks, or comments for the treasury desk..."
                                                         className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-gray-800 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none resize-none disabled:bg-slate-100 disabled:text-slate-400"
                                                         value={traderNotes}
@@ -4778,6 +4851,16 @@ export default function QuotationBankOfferPage() {
                                                                     : '👁️ View-Only Observer Mode • Rates entered by execution dealers are mirrored above'}
                                                             </span>
                                                         </div>
+                                                    ) : isAnotherTabActive ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleTakeoverDesk}
+                                                            disabled={timeLeft.status === 'CLOSED' || isTakingOver}
+                                                            className="w-full py-3.5 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white rounded-2xl font-bold text-base transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                                        >
+                                                            <Zap size={16} className={isTakingOver ? "animate-spin" : ""} />
+                                                            {isTakingOver ? 'Resuming Session Here...' : '⚡ Resume Quoting in This Tab'}
+                                                        </button>
                                                     ) : isSpectator ? (
                                                         <button
                                                             type="button"

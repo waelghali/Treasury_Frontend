@@ -355,18 +355,20 @@ export default function ResultsView({ rfqId: propRfqId }) {
 
     const isAutoRejected = rfq?.acceptance_status === 'AUTO_REJECTED';
     const isDeclined = rfq?.status === 'REJECTED' || rfq?.acceptance_status === 'REJECTED' || isAutoRejected;
+    const hasWinner = Boolean(rfq?.winner_bank_name || rfq?.winner_bank_id);
     const isAccepted = Boolean(
         !isDeclined && (
             rfq?.acceptance_status === 'ACCEPTED' ||
             rfq?.acceptance_status === 'AUTO_ACCEPTED' ||
-            (rfq?.status === 'COMPLETED' && !rfq?.acceptance_status)
+            (rfq?.status === 'COMPLETED' && !rfq?.acceptance_status && hasWinner)
         )
     );
     const isAwaitingAcceptance = Boolean(
         isWindowClosed &&
         !isDeclined &&
         !isAccepted &&
-        (rfq?.acceptance_status === 'PENDING' || rfq?.status === 'EVALUATING' || (isWindowClosed && !rfq?.acceptance_status && rfq?.status !== 'COMPLETED'))
+        hasWinner &&
+        (rfq?.acceptance_status === 'PENDING' || rfq?.status === 'EVALUATING')
     );
 
     // Prompt global acceptance modal immediately when deal enters acceptance window

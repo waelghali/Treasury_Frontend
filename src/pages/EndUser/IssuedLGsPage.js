@@ -21,6 +21,7 @@ import IssuanceRequestDetailsModal from '../../components/Modals/IssuanceRequest
 import RequestorDirectoryTab from '../../components/Issuance/RequestorDirectoryTab';
 import CopyBadge from '../../components/CopyBadge';
 import CustomerCashbackWidget from '../../components/CustomerCashbackWidget';
+import CustomExportModal from '../../components/Modals/CustomExportModal';
 
 // Status display labels (module-level so both modal and page can use)
 const statusLabels = {
@@ -1751,6 +1752,7 @@ export default function IssuedLGsPage() {
     const [showFilters, setShowFilters] = useState(false);
     const [selectedLG, setSelectedLG] = useState(null);
     const [pageTab, setPageTab] = useState('LGS'); // 'LGS' | 'REQUESTORS'
+    const [showCustomExportModal, setShowCustomExportModal] = useState(false);
 
     // Detect user role from JWT to gate maintenance actions
     const userRole = useMemo(() => {
@@ -1977,11 +1979,14 @@ export default function IssuedLGsPage() {
                         <button className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-medium hover:bg-emerald-100 transition-colors border border-emerald-200">
                             <Download className="w-4 h-4" /> Export
                         </button>
-                        <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-50 hidden group-hover:block">
+                        <div className="absolute right-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 hidden group-hover:block">
+                            <div className="px-3 py-1 border-b border-slate-100">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Presets</span>
+                            </div>
                             {[
-                                { type: 'summary', label: '📊 Summary', desc: 'Key columns only' },
-                                { type: 'detailed', label: '📋 Detailed', desc: 'All fields' },
-                                { type: 'full_audit', label: '📜 Full Audit', desc: 'With action history' },
+                                { type: 'summary', label: '📊 Summary', desc: 'Core columns for executive view' },
+                                { type: 'detailed', label: '📋 Detailed Position', desc: 'Full register with clean fields' },
+                                { type: 'full_audit', label: '📜 Full Audit Package', desc: '3 Sheets: Register + Lifecycle Log + Approvals' },
                             ].map(opt => (
                                 <button
                                     key={opt.type}
@@ -1990,9 +1995,9 @@ export default function IssuedLGsPage() {
                                             const params = new URLSearchParams({ export_type: opt.type });
                                             if (statusFilter !== 'ALL') params.append('status_filter', statusFilter);
                                             if (searchTerm) params.append('search', searchTerm);
-                                            const response = await apiRequest(`/issuance/issued-lgs/export?${params}`, 'GET', null, { responseType: 'blob' });
-                                            const blob = response instanceof Blob ? response : new Blob([response]);
-                                            const url = window.URL.createObjectURL(blob);
+                                            const blob = await apiRequest(`/issuance/issued-lgs/export?${params}`, 'GET', null, 'application/json', 'blob');
+                                            const fileBlob = blob instanceof Blob ? blob : new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                                            const url = window.URL.createObjectURL(fileBlob);
                                             const a = document.createElement('a');
                                             a.href = url;
                                             a.download = `issued_lgs_${opt.type}.xlsx`;
@@ -2003,12 +2008,24 @@ export default function IssuedLGsPage() {
                                             toast.error('Export failed');
                                         }
                                     }}
-                                    className="w-full px-4 py-2 text-left hover:bg-slate-50 transition-colors"
+                                    className="w-full px-3 py-2 text-left hover:bg-slate-50 transition-colors"
                                 >
-                                    <p className="text-sm font-medium text-slate-800">{opt.label}</p>
+                                    <p className="text-xs font-semibold text-slate-800">{opt.label}</p>
                                     <p className="text-[10px] text-slate-400">{opt.desc}</p>
                                 </button>
                             ))}
+                            <div className="border-t border-slate-100 mt-1 pt-1">
+                                <button
+                                    onClick={() => setShowCustomExportModal(true)}
+                                    className="w-full px-3 py-2 text-left hover:bg-blue-50/70 transition-colors flex items-center gap-2 text-blue-700"
+                                >
+                                    <SlidersHorizontal className="w-4 h-4 text-blue-600 shrink-0" />
+                                    <div>
+                                        <p className="text-xs font-bold text-blue-700">Custom Report Builder...</p>
+                                        <p className="text-[10px] text-blue-500">Select & arrange custom columns</p>
+                                    </div>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     {!isCorporateAdmin && (
@@ -2410,6 +2427,14 @@ export default function IssuedLGsPage() {
                     </div>
                 </div>
             )}
+
+            {/* Custom Report Builder Modal */}
+            <CustomExportModal
+                isOpen={showCustomExportModal}
+                onClose={() => setShowCustomExportModal(false)}
+                statusFilter={statusFilter}
+                searchFilter={searchTerm}
+            />
         </div>
     );
 }
