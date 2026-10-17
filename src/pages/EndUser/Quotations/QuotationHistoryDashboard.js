@@ -179,12 +179,13 @@ export default function QuotationHistoryDashboard() {
 
         try {
             const res = await apiClient.post(`/corporate-admin/quotations/${rfqId}/approve`);
-            toast.success("Quotation approved and released to banks!");
             if (res.data?.bank_email_dispatched === false && res.data?.bank_dispatch_status === 'SUPPRESSED_NO_SMTP') {
                 toast.warn(
-                    res.data?.email_notice || "Bank emails were not sent: Custom SMTP is not configured. Please share the portal links manually.",
-                    { autoClose: 9000 }
+                    res.data?.message || res.data?.email_notice || "Quotation approved and active. Note: Bank emails were not sent automatically because Custom SMTP is not configured.",
+                    { autoClose: 10000 }
                 );
+            } else {
+                toast.success(res.data?.message || "Quotation approved and released to banks!");
             }
             fetchData();
         } catch (err) {

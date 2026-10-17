@@ -2701,18 +2701,18 @@ export default function QuotationRequestDashboard() {
             setSavedDraft(null);
             setShowDraftBanner(false);
             setLastSavedTime(null);
-            if (retradeRfqId) {
+            if (res.data.bank_email_dispatched === false && res.data.bank_dispatch_status === 'SUPPRESSED_NO_SMTP') {
+                const label = retradeRfqId ? 'Re-trade RFQ' : (cloneRfqId ? 'Cloned RFQ' : 'RFQ');
+                toast.warn(
+                    `${label} ${res.data.ref_no} created. Notice: Bank emails were not sent (Custom SMTP not configured). Please copy and share the links manually.`,
+                    { autoClose: 10000 }
+                );
+            } else if (retradeRfqId) {
                 toast.success(`Re-trade RFQ ${res.data.ref_no} launched successfully!`);
             } else if (cloneRfqId) {
                 toast.success(`Cloned RFQ ${res.data.ref_no} launched successfully!`);
             } else {
                 toast.success(`RFQ ${res.data.ref_no} created successfully!`);
-            }
-            if (res.data.bank_email_dispatched === false && res.data.bank_dispatch_status === 'SUPPRESSED_NO_SMTP') {
-                toast.warn(
-                    res.data.email_notice || 'Bank emails were not sent: Custom SMTP is not configured. Please share links manually.',
-                    { autoClose: 9000 }
-                );
             }
             setCreatedRfq(res.data);
         } catch (err) {
