@@ -7,7 +7,7 @@ import AdminRevisionModal from '../../components/Modals/AdminRevisionModal';
 import MarketSpreadTicker from '../../components/Quotations/MarketSpreadTicker';
 import { getRfqTimingState } from '../../utils/quotationTiming';
 import {
-    Bell, Check, X, BarChart3, Landmark, Building, History, ChevronRight, Clock,
+    Bell, Check, X, BarChart3, Landmark, Building, History, ChevronRight, ChevronDown, Clock,
     Search, Filter, AlertCircle, TrendingUp, ArrowUpRight, ArrowDownRight, FileText, Download,
     Undo2, RefreshCw, Sparkles, Trophy, AlertTriangle, Shield, ShieldAlert, Info, Loader2,
     Calendar, CalendarClock, Zap, MessageSquare
@@ -162,6 +162,72 @@ export default function AdminQuotationDashboard() {
     const [typeFilter, setTypeFilter] = useState('ALL');
     const [entityFilter, setEntityFilter] = useState('ALL');
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Time & Date Filters
+    const [timeFilterField, setTimeFilterField] = useState('created_at'); // 'created_at' | 'window_start' | 'window_end' | 'value_date'
+    const [timeFilterPreset, setTimeFilterPreset] = useState('ALL'); // 'ALL' | 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS' | 'LAST_30_DAYS' | 'THIS_MONTH' | 'CUSTOM'
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+    const [showDatePopover, setShowDatePopover] = useState(false);
+    const datePopoverRef = useRef(null);
+
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (datePopoverRef.current && !datePopoverRef.current.contains(event.target)) {
+                setShowDatePopover(false);
+            }
+        }
+        if (showDatePopover) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showDatePopover]);
+
+    const getDateFilterLabel = () => {
+        if (timeFilterPreset === 'ALL' && !dateFrom && !dateTo) {
+            return 'All Dates';
+        }
+        const fieldMap = {
+            created_at: 'Created',
+            window_start: 'Win Start',
+            window_end: 'Win Close',
+            value_date: 'Value Date',
+        };
+        const prefix = fieldMap[timeFilterField] || 'Date';
+
+        if (timeFilterPreset === 'TODAY') return `${prefix}: Today`;
+        if (timeFilterPreset === 'YESTERDAY') return `${prefix}: Yesterday`;
+        if (timeFilterPreset === 'LAST_7_DAYS') return `${prefix}: 7 Days`;
+        if (timeFilterPreset === 'LAST_30_DAYS') return `${prefix}: 30 Days`;
+        if (timeFilterPreset === 'THIS_MONTH') return `${prefix}: This Month`;
+        if (dateFrom && dateTo) return `${prefix}: ${dateFrom} - ${dateTo}`;
+        if (dateFrom) return `${prefix}: >= ${dateFrom}`;
+        if (dateTo) return `${prefix}: <= ${dateTo}`;
+        return `${prefix}: Custom`;
+    };
+
+    const hasActiveFilters = Boolean(
+        searchTerm ||
+        statusFilter !== 'ALL' ||
+        typeFilter !== 'ALL' ||
+        entityFilter !== 'ALL' ||
+        timeFilterPreset !== 'ALL' ||
+        dateFrom ||
+        dateTo
+    );
+
+    const handleResetAllFilters = () => {
+        setSearchTerm('');
+        setStatusFilter('ALL');
+        setTypeFilter('ALL');
+        setEntityFilter('ALL');
+        setTimeFilterPreset('ALL');
+        setDateFrom('');
+        setDateTo('');
+        setShowDatePopover(false);
+    };
 
     const fetchData = useCallback(async (isInitial = false) => {
         if (isFetchingRef.current) return;
@@ -486,7 +552,57 @@ export default function AdminQuotationDashboard() {
             (rfq.creator_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
             (rfq.winner_bank_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
             legDetails.includes(searchTerm.toLowerCase());
-        return matchesStatus && matchesType && matchesEntity && matchesSearch;
+
+        // Date / Time Filter
+        let matchesDate = true;
+        if (timeFilterPreset !== 'ALL' || dateFrom || dateTo) {
+            let rawDate = null;
+            if (timeFilterField === 'created_at') rawDate = rfq.created_at;
+            else if (timeFilterField === 'window_start') rawDate = rfq.window_start;
+            else if (timeFilterField === 'window_end') rawDate = rfq.window_end;
+            else if (timeFilterField === 'value_date') rawDate = rfq.value_date || (rfq.legs && rfq.legs[0]?.value_date);
+
+            if (!rawDate) {
+                matchesDate = false;
+            } else {
+                const targetDate = new Date(rawDate);
+                if (isNaN(targetDate.getTime())) {
+                    matchesDate = false;
+                } else {
+                    const now = new Date();
+                    if (timeFilterPreset === 'TODAY') {
+                        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+                        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+                        matchesDate = targetDate >= startOfToday && targetDate <= endOfToday;
+                    } else if (timeFilterPreset === 'YESTERDAY') {
+                        const yesterday = new Date(now);
+                        yesterday.setDate(now.getDate() - 1);
+                        const startOfYesterday = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0, 0);
+                        const endOfYesterday = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999);
+                        matchesDate = targetDate >= startOfYesterday && targetDate <= endOfYesterday;
+                    } else if (timeFilterPreset === 'LAST_7_DAYS') {
+                        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        matchesDate = targetDate >= sevenDaysAgo && targetDate <= now;
+                    } else if (timeFilterPreset === 'LAST_30_DAYS') {
+                        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                        matchesDate = targetDate >= thirtyDaysAgo && targetDate <= now;
+                    } else if (timeFilterPreset === 'THIS_MONTH') {
+                        matchesDate = targetDate.getFullYear() === now.getFullYear() && targetDate.getMonth() === now.getMonth();
+                    } else if (timeFilterPreset === 'CUSTOM') {
+                        if (dateFrom) {
+                            const fromDt = new Date(dateFrom + 'T00:00:00');
+                            if (targetDate < fromDt) matchesDate = false;
+                        }
+                        if (dateTo) {
+                            const toDt = new Date(dateTo + 'T23:59:59');
+                            if (targetDate > toDt) matchesDate = false;
+                        }
+                    }
+                }
+            }
+        }
+
+        return matchesStatus && matchesType && matchesEntity && matchesSearch && matchesDate;
     });
 
 
@@ -966,25 +1082,53 @@ export default function AdminQuotationDashboard() {
 
             {/* All Quotation History */}
             <section>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
                     <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400 flex items-center gap-2">
                         <History size={14} /> All Quotation Requests
                     </h3>
-                    <div className="flex flex-wrap gap-2 items-center">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
-                            <input
-                                type="text"
-                                placeholder="Search ref or user..."
-                                className="!pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/5 transition-all w-48"
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                            />
-                        </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-400 font-medium">
+                        <span>Showing <strong className="text-gray-900 font-bold">{filteredHistory.length}</strong> of {history.length} tenders</span>
+                        {hasActiveFilters && (
+                            <button
+                                onClick={handleResetAllFilters}
+                                className="text-xs font-bold text-red-600 hover:text-red-700 hover:underline transition-all cursor-pointer ml-1"
+                            >
+                                Reset All
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* 1-Line Unified Filter Bar - Guaranteed Fits in 1 Line Without Scrolling */}
+                <div className="flex items-center gap-2 mb-4 w-full">
+                    {/* Search Input (flexible width) */}
+                    <div className="relative flex-1 min-w-[130px] max-w-[280px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                        <input
+                            type="text"
+                            placeholder="Search ref, entity..."
+                            className="w-full h-10 pl-9 pr-7 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-black/5 transition-all shadow-2xs placeholder-gray-400 text-gray-800"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchTerm('')}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
+                            >
+                                <X size={12} />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Status Dropdown */}
+                    <div className="relative shrink-0 w-28 sm:w-36">
                         <select
-                            className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/5"
+                            className="w-full h-10 bg-white border border-gray-200 rounded-xl px-2.5 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-black/5 shadow-2xs cursor-pointer text-gray-700 truncate"
                             value={statusFilter}
                             onChange={e => setStatusFilter(e.target.value)}
+                            title="Filter by status"
                         >
                             <option value="ALL">All Statuses</option>
                             <option value="PENDING_APPROVAL">Needs Approval</option>
@@ -995,37 +1139,226 @@ export default function AdminQuotationDashboard() {
                             <option value="REJECTED">Rejected</option>
                             <option value="EXPIRED">Expired</option>
                         </select>
+                    </div>
+
+                    {/* Type Dropdown */}
+                    <div className="relative shrink-0 w-24 sm:w-32">
                         <select
-                            className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/5"
+                            className="w-full h-10 bg-white border border-gray-200 rounded-xl px-2.5 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-black/5 shadow-2xs cursor-pointer text-gray-700 truncate"
                             value={typeFilter}
                             onChange={e => setTypeFilter(e.target.value)}
+                            title="Filter by trade type"
                         >
                             <option value="ALL">All Types</option>
-                            <option value="FX_SPOT">FX Spot (Single Leg)</option>
-                            <option value="FX_PORTFOLIO">FX Portfolio (Multi-Leg)</option>
+                            <option value="FX_SPOT">FX Spot</option>
+                            <option value="FX_PORTFOLIO">FX Portfolio</option>
                             <option value="TBILL">T-Bill</option>
                         </select>
-                        {uniqueEntities.length > 1 && (
+                    </div>
+
+                    {/* Legal Entity Dropdown (if multiple) */}
+                    {uniqueEntities.length > 1 && (
+                        <div className="relative shrink-0 w-28 sm:w-36">
                             <select
-                                className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/5"
+                                className="w-full h-10 bg-white border border-gray-200 rounded-xl px-2.5 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-black/5 shadow-2xs cursor-pointer text-gray-700 truncate"
                                 value={entityFilter}
                                 onChange={e => setEntityFilter(e.target.value)}
+                                title="Filter by legal entity"
                             >
-                                <option value="ALL">All Legal Entities ({uniqueEntities.length})</option>
+                                <option value="ALL">All Entities ({uniqueEntities.length})</option>
                                 {uniqueEntities.map(ent => {
                                     const entityName = ent.entity_name || ent.name || ent.code;
-                                    const label = ent.code && ent.code !== entityName
-                                        ? `${entityName} (${ent.code})`
-                                        : entityName;
                                     return (
                                         <option key={ent.id} value={ent.id}>
-                                            {label}
+                                            {entityName}
                                         </option>
                                     );
                                 })}
                             </select>
+                        </div>
+                    )}
+
+                    {/* Compact Date Filter Popover */}
+                    <div className="relative shrink-0" ref={datePopoverRef}>
+                        <button
+                            type="button"
+                            onClick={() => setShowDatePopover(prev => !prev)}
+                            className={`h-10 px-3 rounded-xl border text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer shadow-2xs select-none ${
+                                timeFilterPreset !== 'ALL' || dateFrom || dateTo
+                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold ring-1 ring-indigo-200'
+                                    : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50/50'
+                            }`}
+                            title="Filter by date range"
+                        >
+                            <Calendar size={14} className={timeFilterPreset !== 'ALL' || dateFrom || dateTo ? 'text-indigo-600 shrink-0' : 'text-gray-400 shrink-0'} />
+                            <span className="truncate max-w-[110px] sm:max-w-[150px]">{getDateFilterLabel()}</span>
+                            {(timeFilterPreset !== 'ALL' || dateFrom || dateTo) ? (
+                                <span
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setTimeFilterPreset('ALL');
+                                        setDateFrom('');
+                                        setDateTo('');
+                                    }}
+                                    className="p-0.5 rounded-full hover:bg-indigo-200/60 text-indigo-500 hover:text-indigo-800 transition-colors ml-0.5"
+                                    title="Reset date filter"
+                                >
+                                    <X size={12} />
+                                </span>
+                            ) : (
+                                <ChevronDown size={13} className={`text-gray-400 shrink-0 transition-transform duration-200 ${showDatePopover ? 'rotate-180' : ''}`} />
+                            )}
+                        </button>
+
+                        {/* Floating Popover Menu */}
+                        {showDatePopover && (
+                            <div className="absolute right-0 top-full mt-2 z-50 w-72 sm:w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3.5 animate-in fade-in zoom-in-95 duration-150">
+                                {/* Date Field Picker */}
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                                        Date Field
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-xl">
+                                        {[
+                                            { id: 'created_at', label: 'Creation Date' },
+                                            { id: 'window_start', label: 'Window Start' },
+                                            { id: 'window_end', label: 'Window Close' },
+                                            { id: 'value_date', label: 'Value Date' },
+                                        ].map(f => (
+                                            <button
+                                                key={f.id}
+                                                type="button"
+                                                onClick={() => setTimeFilterField(f.id)}
+                                                className={`px-2 py-1 text-xs rounded-lg transition-all ${
+                                                    timeFilterField === f.id
+                                                        ? 'bg-white text-gray-900 shadow-2xs font-semibold'
+                                                        : 'text-gray-600 hover:text-gray-900'
+                                                }`}
+                                            >
+                                                {f.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Quick Presets */}
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                                        Quick Range
+                                    </label>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                        {[
+                                            { id: 'ALL', label: 'All Time' },
+                                            { id: 'TODAY', label: 'Today' },
+                                            { id: 'YESTERDAY', label: 'Yesterday' },
+                                            { id: 'LAST_7_DAYS', label: 'Last 7 Days' },
+                                            { id: 'LAST_30_DAYS', label: 'Last 30 Days' },
+                                            { id: 'THIS_MONTH', label: 'This Month' },
+                                        ].map(p => (
+                                            <button
+                                                key={p.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setTimeFilterPreset(p.id);
+                                                    setDateFrom('');
+                                                    setDateTo('');
+                                                    setShowDatePopover(false);
+                                                }}
+                                                className={`px-2 py-1.5 text-xs rounded-lg border text-center transition-all ${
+                                                    timeFilterPreset === p.id && !dateFrom && !dateTo
+                                                        ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold'
+                                                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                }`}
+                                            >
+                                                {p.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Custom Date Range */}
+                                <div className="pt-2.5 border-t border-gray-100">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                                            Custom Date Range
+                                        </label>
+                                        {(dateFrom || dateTo) && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setDateFrom('');
+                                                    setDateTo('');
+                                                    setTimeFilterPreset('ALL');
+                                                }}
+                                                className="text-[11px] text-gray-400 hover:text-red-500 font-medium"
+                                            >
+                                                Clear
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <input
+                                            type="date"
+                                            value={dateFrom}
+                                            onChange={e => {
+                                                setDateFrom(e.target.value);
+                                                setTimeFilterPreset('CUSTOM');
+                                            }}
+                                            className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs font-mono outline-none text-gray-700 focus:bg-white focus:border-indigo-300"
+                                        />
+                                        <span className="text-gray-400 text-xs shrink-0">to</span>
+                                        <input
+                                            type="date"
+                                            value={dateTo}
+                                            onChange={e => {
+                                                setDateTo(e.target.value);
+                                                setTimeFilterPreset('CUSTOM');
+                                            }}
+                                            className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs font-mono outline-none text-gray-700 focus:bg-white focus:border-indigo-300"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Footer */}
+                                <div className="flex items-center justify-between pt-2.5 border-t border-gray-100">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setTimeFilterPreset('ALL');
+                                            setDateFrom('');
+                                            setDateTo('');
+                                            setShowDatePopover(false);
+                                        }}
+                                        className="text-xs text-gray-500 hover:text-gray-700 font-medium"
+                                    >
+                                        Reset to All Time
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowDatePopover(false)}
+                                        className="px-3 py-1 bg-black text-white text-xs font-semibold rounded-lg hover:bg-gray-800 transition-colors"
+                                    >
+                                        Done
+                                    </button>
+                                </div>
+                            </div>
                         )}
                     </div>
+
+                    {/* Reset Icon Button (inline when active) */}
+                    {hasActiveFilters && (
+                        <button
+                            type="button"
+                            onClick={handleResetAllFilters}
+                            className="h-10 px-2.5 rounded-xl border border-red-200 bg-red-50/50 text-red-600 hover:bg-red-50 hover:border-red-300 text-xs font-semibold transition-all shrink-0 flex items-center gap-1 shadow-2xs cursor-pointer"
+                            title="Reset all filters"
+                        >
+                            <X size={14} />
+                            <span className="hidden md:inline">Reset</span>
+                        </button>
+                    )}
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-sm border border-black/5 overflow-hidden">
