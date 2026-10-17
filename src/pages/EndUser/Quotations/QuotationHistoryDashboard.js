@@ -178,8 +178,14 @@ export default function QuotationHistoryDashboard() {
         }
 
         try {
-            await apiClient.post(`/corporate-admin/quotations/${rfqId}/approve`);
+            const res = await apiClient.post(`/corporate-admin/quotations/${rfqId}/approve`);
             toast.success("Quotation approved and released to banks!");
+            if (res.data?.bank_email_dispatched === false && res.data?.bank_dispatch_status === 'SUPPRESSED_NO_SMTP') {
+                toast.warn(
+                    res.data?.email_notice || "Bank emails were not sent: Custom SMTP is not configured. Please share the portal links manually.",
+                    { autoClose: 9000 }
+                );
+            }
             fetchData();
         } catch (err) {
             toast.error("Failed to approve quotation: " + (err.response?.data?.detail || err.message));

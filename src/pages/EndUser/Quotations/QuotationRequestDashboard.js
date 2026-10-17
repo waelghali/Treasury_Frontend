@@ -2708,6 +2708,12 @@ export default function QuotationRequestDashboard() {
             } else {
                 toast.success(`RFQ ${res.data.ref_no} created successfully!`);
             }
+            if (res.data.bank_email_dispatched === false && res.data.bank_dispatch_status === 'SUPPRESSED_NO_SMTP') {
+                toast.warn(
+                    res.data.email_notice || 'Bank emails were not sent: Custom SMTP is not configured. Please share links manually.',
+                    { autoClose: 9000 }
+                );
+            }
             setCreatedRfq(res.data);
         } catch (err) {
             console.error('RFQ Submission Error:', err);
@@ -2734,6 +2740,31 @@ export default function QuotationRequestDashboard() {
                             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Reference Number</label>
                             <p className="text-base sm:text-lg font-mono font-bold text-black break-all">{createdRfq.ref_no || 'Generating...'}</p>
                         </div>
+
+                        {createdRfq.bank_email_dispatched === false && createdRfq.bank_dispatch_status === 'SUPPRESSED_NO_SMTP' && (
+                            <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 animate-fade-in shadow-xs">
+                                <div className="flex items-start gap-3">
+                                    <AlertTriangle className="shrink-0 text-amber-600 mt-0.5" size={20} />
+                                    <div className="text-xs leading-relaxed">
+                                        <p className="font-bold text-amber-950 text-sm mb-1">Bank Invitations Not Emailed</p>
+                                        <p className="text-amber-800">
+                                            Your organization does not have a verified <strong>Custom SMTP</strong> server configured. To prevent domain spoofing, automatic emails to external banks are disabled.
+                                        </p>
+                                        <div className="mt-2.5 p-2 bg-amber-100/70 rounded-lg font-medium text-amber-950">
+                                            👉 <strong>Action Required:</strong> Please copy the secure bank links below and forward them directly to your bank dealers.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {createdRfq.bank_email_dispatched === true && (
+                            <div className="mb-6 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5 animate-fade-in">
+                                <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                                <span>Invitations successfully emailed to all selected bank contacts via your company's email server.</span>
+                            </div>
+                        )}
+
                         <p className="text-gray-600 mb-5 text-sm">
                             Secure tokens generated for {selectedBanks.length} banks. Monitoring submissions in real-time.
                         </p>
@@ -2747,6 +2778,11 @@ export default function QuotationRequestDashboard() {
                                     <div key={a.token} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                                         <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
                                             <span className="font-medium text-sm text-gray-800">{bank?.name || `Bank ${a.bankId}`}</span>
+                                            {createdRfq.bank_email_dispatched === false && createdRfq.bank_dispatch_status === 'SUPPRESSED_NO_SMTP' && (
+                                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200">
+                                                    Manual Link Delivery
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <input

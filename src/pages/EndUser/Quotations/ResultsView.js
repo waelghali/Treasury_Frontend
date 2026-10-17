@@ -621,6 +621,12 @@ export default function ResultsView({ rfqId: propRfqId }) {
                 scheduled_release_at: scheduledReleaseIso
             });
             toast.success(res.data?.message || "Quotation approved and released successfully!");
+            if (res.data?.bank_email_dispatched === false && res.data?.bank_dispatch_status === 'SUPPRESSED_NO_SMTP') {
+                toast.warn(
+                    res.data?.email_notice || "Bank emails were not sent: Custom SMTP is not configured. Please share the portal links manually.",
+                    { autoClose: 9000 }
+                );
+            }
             setShowApprovalPanel(false);
             fetchResults();
         } catch (err) {

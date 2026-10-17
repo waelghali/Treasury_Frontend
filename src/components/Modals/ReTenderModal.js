@@ -54,6 +54,12 @@ export default function ReTenderModal({ rfq, onClose, onSuccess }) {
 
             const res = await apiClient.post(`/end-user/quotations/${rfq.id}/re-tender`, payload);
             toast.success(`Quotation re-tendered successfully as ${res.data.ref_no}!`);
+            if (res.data?.bank_email_dispatched === false && res.data?.bank_dispatch_status === 'SUPPRESSED_NO_SMTP') {
+                toast.warn(
+                    res.data?.email_notice || 'Bank emails were not sent: Custom SMTP is not configured for your company. Please share links manually.',
+                    { autoClose: 9000 }
+                );
+            }
             if (onSuccess) {
                 onSuccess(res.data);
             }
