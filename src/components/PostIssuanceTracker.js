@@ -912,60 +912,90 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
 
                                                                     {/* Comparison Table */}
                                                                     {aiResult.comparison && (
-                                                                        <div className="border rounded-lg overflow-hidden bg-white">
-                                                                            <div className="px-3 py-2 bg-gray-50 border-b flex items-center justify-between">
-                                                                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Compliance Check</span>
-                                                                                {aiResult.comparison.has_discrepancy ? (
-                                                                                    <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded-full flex items-center gap-1">
-                                                                                        <AlertTriangle className="w-3 h-3" /> Discrepancies Found
-                                                                                    </span>
-                                                                                ) : (
-                                                                                    <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-600 rounded-full flex items-center gap-1">
-                                                                                        <CheckCircle className="w-3 h-3" /> All Matched
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
-                                                                            <table className="w-full text-xs">
-                                                                                <thead className="bg-gray-50/50">
-                                                                                    <tr>
-                                                                                        <th className="px-3 py-2 text-left text-gray-500 font-medium w-28">Field</th>
-                                                                                        <th className="px-3 py-2 text-left text-gray-500 font-medium">Requested</th>
-                                                                                        <th className="px-3 py-2 text-left text-gray-500 font-medium">{isManualEntry ? 'Entered' : 'AI Extracted'}</th>
-                                                                                        <th className="px-3 py-2 text-center text-gray-500 font-medium w-16">Match</th>
-                                                                                    </tr>
-                                                                                </thead>
-                                                                                <tbody className="divide-y divide-gray-100">
-                                                                                    {aiResult.comparison.fields.map((f, i) => (
-                                                                                        <tr key={i} className={!f.match ? 'bg-amber-50/50' : (f.tolerance_applied ? 'bg-emerald-50/40' : '')}>
-                                                                                            <td className="px-3 py-2 font-medium text-gray-700">
-                                                                                                {f.field}
-                                                                                                {f.tolerance_applied && (
-                                                                                                    <span className="block text-[9px] text-emerald-600 font-normal">
-                                                                                                        {f.note || 'Within tolerance'}
-                                                                                                    </span>
-                                                                                                )}
-                                                                                            </td>
-                                                                                            <td className="px-3 py-2 text-gray-600">{f.requested || '—'}</td>
-                                                                                            <td className={`px-3 py-2 font-medium ${!f.match ? 'text-amber-700' : 'text-gray-800'}`}>{f.extracted || '—'}</td>
-                                                                                            <td className="px-3 py-2 text-center">
-                                                                                                {f.match ? (
-                                                                                                    <div className="flex flex-col items-center">
-                                                                                                        <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />
-                                                                                                        {f.tolerance_applied && <span className="text-[8px] text-emerald-600 font-bold mt-0.5">TOLERANCE</span>}
-                                                                                                        {f.match_pct != null && f.match_pct < 100 && <span className="text-[8px] text-emerald-600 font-bold mt-0.5">{f.match_pct}%</span>}
-                                                                                                    </div>
-                                                                                                ) : (
-                                                                                                    <div className="flex flex-col items-center">
-                                                                                                        <AlertTriangle className="w-4 h-4 text-amber-500" />
-                                                                                                        {f.match_pct != null && <span className="text-[9px] text-amber-500 mt-0.5">{f.match_pct}%</span>}
-                                                                                                        {f.diff_days != null && <span className="text-[9px] text-amber-500 mt-0.5">±{f.diff_days}d</span>}
-                                                                                                    </div>
-                                                                                                )}
-                                                                                            </td>
+                                                                        <div className="space-y-3">
+                                                                            {/* Bank mismatch internal alert */}
+                                                                            {aiResult.comparison.has_bank_mismatch && (
+                                                                                <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-xs text-amber-900 space-y-1 shadow-sm">
+                                                                                    <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                                                                                        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                                                                                        <span>Internal Bank Mismatch Detected</span>
+                                                                                    </div>
+                                                                                    <p>
+                                                                                        System expected: <strong className="font-semibold">{aiResult.comparison.bank_mismatch_detail?.requested_bank || 'Recorded Bank'}</strong> &bull; Uploaded LG: <strong className="font-semibold">{aiResult.comparison.bank_mismatch_detail?.extracted_bank || 'Different Bank'}</strong>
+                                                                                    </p>
+                                                                                    <p className="text-[11px] text-amber-700 leading-relaxed">
+                                                                                        This indicates an internal company issue (the issuing bank was changed without updating the system facility, or an incorrect LG document was uploaded). This discrepancy is an internal routing matter and cannot be sent to the bank in a correction letter.
+                                                                                    </p>
+                                                                                </div>
+                                                                            )}
+
+                                                                            <div className="border rounded-lg overflow-hidden bg-white">
+                                                                                <div className="px-3 py-2 bg-gray-50 border-b flex items-center justify-between">
+                                                                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Compliance Check</span>
+                                                                                    {aiResult.comparison.has_discrepancy ? (
+                                                                                        <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded-full flex items-center gap-1">
+                                                                                            <AlertTriangle className="w-3 h-3" /> Discrepancies Found
+                                                                                        </span>
+                                                                                    ) : (
+                                                                                        <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-600 rounded-full flex items-center gap-1">
+                                                                                            <CheckCircle className="w-3 h-3" /> All Matched
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                                <table className="w-full text-xs">
+                                                                                    <thead className="bg-gray-50/50">
+                                                                                        <tr>
+                                                                                            <th className="px-3 py-2 text-left text-gray-500 font-medium w-28">Field</th>
+                                                                                            <th className="px-3 py-2 text-left text-gray-500 font-medium">Requested</th>
+                                                                                            <th className="px-3 py-2 text-left text-gray-500 font-medium">{isManualEntry ? 'Entered' : 'AI Extracted'}</th>
+                                                                                            <th className="px-3 py-2 text-center text-gray-500 font-medium w-16">Match</th>
                                                                                         </tr>
-                                                                                    ))}
-                                                                                </tbody>
-                                                                            </table>
+                                                                                    </thead>
+                                                                                    <tbody className="divide-y divide-gray-100">
+                                                                                        {aiResult.comparison.fields.map((f, i) => (
+                                                                                            <tr key={i} className={!f.match ? (f.is_internal ? 'bg-amber-50/70' : 'bg-red-50/40') : (f.tolerance_applied ? 'bg-emerald-50/40' : '')}>
+                                                                                                <td className="px-3 py-2 font-medium text-gray-700">
+                                                                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                                                                        <span>{f.field}</span>
+                                                                                                        {f.is_internal && (
+                                                                                                            <span className="px-1.5 py-0.2 text-[9px] font-bold bg-amber-200 text-amber-800 rounded">
+                                                                                                                Internal
+                                                                                                            </span>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                    {f.tolerance_applied && (
+                                                                                                        <span className="block text-[9px] text-emerald-600 font-normal">
+                                                                                                            {f.note || 'Within tolerance'}
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                                    {f.is_internal && (
+                                                                                                        <span className="block text-[9px] text-amber-700 font-normal">
+                                                                                                            Internal company issue &bull; Not sent to bank
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="px-3 py-2 text-gray-600">{f.requested || '—'}</td>
+                                                                                                <td className={`px-3 py-2 font-medium ${!f.match ? (f.is_internal ? 'text-amber-800' : 'text-red-700') : 'text-gray-800'}`}>{f.extracted || '—'}</td>
+                                                                                                <td className="px-3 py-2 text-center">
+                                                                                                    {f.match ? (
+                                                                                                        <div className="flex flex-col items-center">
+                                                                                                            <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />
+                                                                                                            {f.tolerance_applied && <span className="text-[8px] text-emerald-600 font-bold mt-0.5">TOLERANCE</span>}
+                                                                                                            {f.match_pct != null && f.match_pct < 100 && <span className="text-[8px] text-emerald-600 font-bold mt-0.5">{f.match_pct}%</span>}
+                                                                                                        </div>
+                                                                                                    ) : (
+                                                                                                        <div className="flex flex-col items-center">
+                                                                                                            <AlertTriangle className={`w-4 h-4 ${f.is_internal ? 'text-amber-500' : 'text-red-500'}`} />
+                                                                                                            {f.match_pct != null && <span className="text-[9px] text-amber-500 mt-0.5">{f.match_pct}%</span>}
+                                                                                                            {f.diff_days != null && <span className="text-[9px] text-amber-500 mt-0.5">±{f.diff_days}d</span>}
+                                                                                                        </div>
+                                                                                                    )}
+                                                                                                </td>
+                                                                                            </tr>
+                                                                                        ))}
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </div>
                                                                         </div>
                                                                     )}
 
@@ -1106,8 +1136,16 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                                 </button>
                                                                                 <button onClick={async () => {
                                                                                     try {
-                                                                                        const mismatched = aiResult.comparison.fields.filter(f => !f.match);
-                                                                                        const blob = await apiRequest(`/issuance/lg-records/${lgId}/generate-correction-letter`, 'POST', { discrepancies: mismatched }, 'application/json', 'blob');
+                                                                                        const mismatched = aiResult.comparison.fields.filter(f => !f.match && !f.is_internal && f.field !== 'Issuing Bank' && f.field !== 'issuing_bank');
+                                                                                        if (mismatched.length === 0) {
+                                                                                            toast.error('The detected discrepancy is an internal bank mismatch. It cannot be sent to the bank in a correction letter. Please update the facility or re-upload the correct LG.');
+                                                                                            return;
+                                                                                        }
+                                                                                        const blob = await apiRequest(`/issuance/lg-records/${lgId}/generate-correction-letter`, 'POST', {
+                                                                                            discrepancies: mismatched,
+                                                                                            bank_lg_number: replyForm.bank_lg_number || aiResult.extracted?.bank_lg_number || data?.record?.bank_lg_number,
+                                                                                            bank_name: replyForm.issuing_bank_name || data?.record?.bank?.name || data?.bank_name
+                                                                                        }, 'application/json', 'blob');
                                                                                         const url = URL.createObjectURL(blob);
                                                                                         window.open(url, '_blank');
                                                                                         toast.success('Correction letter generated!');
@@ -1424,9 +1462,19 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                                     if (arrMatch) raw = arrMatch[0];
                                                                                     const cleaned = raw.replace(/'/g, '"').replace(/\bNone\b/g, 'null').replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false');
                                                                                     const parsed = JSON.parse(cleaned);
-                                                                                    if (Array.isArray(parsed) && parsed.length > 0) discList = parsed.filter(f => !f.match);
+                                                                                    if (Array.isArray(parsed) && parsed.length > 0) {
+                                                                                        discList = parsed.filter(f => !f.match && !f.is_internal && f.field !== 'Issuing Bank' && f.field !== 'issuing_bank');
+                                                                                    }
                                                                                 } catch { discList = []; }
-                                                                                const blob = await apiRequest(`/issuance/lg-records/${lgId}/generate-correction-letter`, 'POST', { discrepancies: discList }, 'application/json', 'blob');
+                                                                                if (discList.length === 0) {
+                                                                                    toast.error('No bank-correctable discrepancies found (internal bank mismatches cannot be sent to the bank).');
+                                                                                    return;
+                                                                                }
+                                                                                const blob = await apiRequest(`/issuance/lg-records/${lgId}/generate-correction-letter`, 'POST', {
+                                                                                    discrepancies: discList,
+                                                                                    bank_lg_number: data?.record?.bank_lg_number,
+                                                                                    bank_name: data?.record?.bank?.name || data?.bank_name
+                                                                                }, 'application/json', 'blob');
                                                                                 window.open(URL.createObjectURL(blob), '_blank');
                                                                                 toast.success('Correction letter generated!');
                                                                             } catch (err) { toast.error(err.message); }
@@ -1765,9 +1813,19 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                                     if (arrMatch) raw = arrMatch[0];
                                                                                     const cleaned = raw.replace(/'/g, '"').replace(/\bNone\b/g, 'null').replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false');
                                                                                     const parsed = JSON.parse(cleaned);
-                                                                                    if (Array.isArray(parsed) && parsed.length > 0) discList = parsed.filter(f => !f.match);
+                                                                                    if (Array.isArray(parsed) && parsed.length > 0) {
+                                                                                        discList = parsed.filter(f => !f.match && !f.is_internal && f.field !== 'Issuing Bank' && f.field !== 'issuing_bank');
+                                                                                    }
                                                                                 } catch { discList = []; }
-                                                                                const blob = await apiRequest(`/issuance/lg-records/${lgId}/generate-correction-letter`, 'POST', { discrepancies: discList }, 'application/json', 'blob');
+                                                                                if (discList.length === 0) {
+                                                                                    toast.error('No bank-correctable discrepancies found (internal bank mismatches cannot be sent to the bank).');
+                                                                                    return;
+                                                                                }
+                                                                                const blob = await apiRequest(`/issuance/lg-records/${lgId}/generate-correction-letter`, 'POST', {
+                                                                                    discrepancies: discList,
+                                                                                    bank_lg_number: data?.record?.bank_lg_number,
+                                                                                    bank_name: data?.record?.bank?.name || data?.bank_name
+                                                                                }, 'application/json', 'blob');
                                                                                 window.open(URL.createObjectURL(blob), '_blank');
                                                                                 toast.success('Correction letter generated!');
                                                                             } catch (err) { toast.error(err.message); }

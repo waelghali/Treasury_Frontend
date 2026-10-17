@@ -90,7 +90,7 @@ export default function IssuanceRequestsPage() {
       setGeneratedLink(response.invite_link);
       toast.success("Invite link generated!");
     } catch (err) {
-      toast.error("Failed to generate link. Ensure the email domain is registered.");
+      toast.error(err.message || "Failed to generate link. Ensure the email domain is registered.");
     }
   };
 
