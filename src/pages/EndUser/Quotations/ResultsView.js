@@ -2344,21 +2344,40 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                                             toast.error("Document path not available.");
                                                             return;
                                                         }
+                                                        let targetGcsUri = p;
+                                                        if (p.includes('storage.googleapis.com/')) {
+                                                            targetGcsUri = 'gs://' + p.split('storage.googleapis.com/')[1].split('?')[0];
+                                                        }
+
+                                                        if (targetGcsUri.startsWith('gs://')) {
+                                                            try {
+                                                                const response = await apiClient.get(`/quotations/documents/download?gcs_uri=${encodeURIComponent(targetGcsUri)}`, {
+                                                                    responseType: 'blob'
+                                                                });
+                                                                const contentType = response.headers['content-type'] || 'application/pdf';
+                                                                const blob = new Blob([response.data], { type: contentType });
+                                                                const blobUrl = window.URL.createObjectURL(blob);
+                                                                window.open(blobUrl, '_blank');
+                                                            } catch (err) {
+                                                                console.error("Failed to unseal document:", err);
+                                                                let detail = "Failed to unseal document.";
+                                                                if (err.response?.data instanceof Blob) {
+                                                                    try {
+                                                                        const text = await err.response.data.text();
+                                                                        const json = JSON.parse(text);
+                                                                        detail = json.detail || detail;
+                                                                    } catch {}
+                                                                }
+                                                                toast.error(detail);
+                                                            }
+                                                            return;
+                                                        }
+
                                                         if (p.startsWith('http://') || p.startsWith('https://')) {
                                                             window.open(p, '_blank');
                                                             return;
                                                         }
-                                                        if (p.startsWith('gs://')) {
-                                                            try {
-                                                                const token = localStorage.getItem('token') || localStorage.getItem('jwt_token') || '';
-                                                                const downloadUrl = `/api/v1/quotations/documents/download?gcs_uri=${encodeURIComponent(p)}&auth_token=${encodeURIComponent(token)}`;
-                                                                window.open(downloadUrl, '_blank');
-                                                            } catch (err) {
-                                                                console.error("Failed to open document:", err);
-                                                                toast.error("Failed to open document.");
-                                                            }
-                                                            return;
-                                                        }
+
                                                         const fallbackUrl = `http://localhost:8000${p.startsWith('/') ? '' : '/'}${p}`;
                                                         window.open(fallbackUrl, '_blank');
                                                     }}
