@@ -83,6 +83,25 @@ export default function QuotationBankOfferPage() {
     const magicTokenParam = searchParams.get('magic_token');
     const emailParam = searchParams.get('email');
 
+    const resolveDocDownloadUrl = useCallback((path) => {
+        if (!path) return '';
+        if (path.startsWith('gs://')) {
+            return `${API_BASE_URL}/api/v1/quotations/documents/download?gcs_uri=${encodeURIComponent(path)}&token=${token}`;
+        }
+        if (path.includes('storage.googleapis.com/')) {
+            const cleanGcs = 'gs://' + path.split('storage.googleapis.com/')[1].split('?')[0];
+            return `${API_BASE_URL}/api/v1/quotations/documents/download?gcs_uri=${encodeURIComponent(cleanGcs)}&token=${token}`;
+        }
+        if (path.startsWith('/api/v1/')) {
+            return `${API_BASE_URL}${path}`;
+        }
+        if (path.startsWith('http://') || path.startsWith('https://')) {
+            return path;
+        }
+        return `${API_BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+    }, [token]);
+
+
     const [rfq, setRfq] = useState(null);
     const [error, setError] = useState(null);
     const [price, setPrice] = useState('');
@@ -205,14 +224,14 @@ export default function QuotationBankOfferPage() {
                                             )}
                                         </span>
                                         <a
-                                            href={doc.path}
+                                            href={resolveDocDownloadUrl(doc.path)}
                                             target="_blank"
                                             rel="noreferrer"
-                                            download
                                             className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-md transition-colors shrink-0"
                                         >
-                                            <ExternalLink size={12} /> Download
+                                            <ExternalLink size={12} /> View Document
                                         </a>
+
                                     </div>
                                 ))}
                             </div>
@@ -3527,7 +3546,7 @@ export default function QuotationBankOfferPage() {
                                                 {(rfq.documents && rfq.documents.length > 0 ? rfq.documents : [{ name: 'Attached Supporting Document', path: rfq.document_path }]).map((doc, idx) => (
                                                     <a
                                                         key={idx}
-                                                        href={doc.path?.startsWith('http') ? doc.path : `${API_BASE_URL}${doc.path?.startsWith('/') ? '' : '/'}${doc.path}`}
+                                                        href={resolveDocDownloadUrl(doc.path)}
                                                         target="_blank"
                                                         rel="noreferrer"
                                                         className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all text-xs font-medium text-gray-800"
