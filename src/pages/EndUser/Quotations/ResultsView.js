@@ -2350,15 +2350,12 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                                         }
                                                         if (p.startsWith('gs://')) {
                                                             try {
-                                                                const res = await apiClient.get(`/end-user/quotations/document-url?gcs_uri=${encodeURIComponent(p)}`);
-                                                                if (res.data?.url) {
-                                                                    window.open(res.data.url, '_blank');
-                                                                } else {
-                                                                    toast.error("Could not generate secure document link.");
-                                                                }
+                                                                const token = localStorage.getItem('token') || localStorage.getItem('jwt_token') || '';
+                                                                const downloadUrl = `/api/v1/quotations/documents/download?gcs_uri=${encodeURIComponent(p)}&auth_token=${encodeURIComponent(token)}`;
+                                                                window.open(downloadUrl, '_blank');
                                                             } catch (err) {
-                                                                console.error("Failed to get document URL:", err);
-                                                                toast.error(err.response?.data?.detail || "Failed to open document.");
+                                                                console.error("Failed to open document:", err);
+                                                                toast.error("Failed to open document.");
                                                             }
                                                             return;
                                                         }
