@@ -2302,15 +2302,15 @@ export default function ResultsView({ rfqId: propRfqId }) {
                         <div className="pt-2.5 border-t border-slate-100">
                             {(() => {
                                 let docs = [];
-                                let isWinnerOnly = Boolean(rfq.release_docs_to_winner_only);
+                                let rootWinnerOnly = Boolean(rfq.release_docs_to_winner_only);
                                 try {
                                     const parsed = JSON.parse(rfq.document_path);
                                     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-                                        isWinnerOnly = Boolean(parsed.release_to_winner_only);
+                                        rootWinnerOnly = Boolean(parsed.release_to_winner_only);
                                         docs = Array.isArray(parsed.documents) ? parsed.documents : [];
                                     } else if (Array.isArray(parsed)) {
                                         docs = parsed;
-                                        isWinnerOnly = isWinnerOnly || parsed.some(d => d.release_to_winner_only);
+                                        rootWinnerOnly = rootWinnerOnly || parsed.some(d => d.release_to_winner_only);
                                     } else {
                                         docs = [{ name: 'Attached Document', path: rfq.document_path }];
                                     }
@@ -2318,80 +2318,121 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                     docs = rfq.document_path.split(',').map(p => ({ name: p.trim(), path: p.trim() }));
                                 }
 
+                                const normalizedDocs = docs.map((d, i) => {
+                                    const isInternal = Boolean(d.is_internal_only || d.scope === 'INTERNAL_ONLY');
+                                    const timing = isInternal ? null : (d.release_timing || (d.release_to_winner_only || rootWinnerOnly ? 'WINNER_ONLY' : 'BIDDING'));
+                                    return {
+                                        ...d,
+                                        is_internal_only: isInternal,
+                                        release_timing: timing,
+                                        display_name: d.name || d.filename || `Document ${i + 1}`
+                                    };
+                                });
+
+                                const internalCount = normalizedDocs.filter(d => d.is_internal_only).length;
+                                const externalCount = normalizedDocs.length - internalCount;
+
                                 return (
                                     <>
-                                        <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
-                                            <span className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-wider">Attached Documents</span>
-                                            {isWinnerOnly ? (
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                                    <Lock size={10} className="text-amber-600" /> Released to Winning Bank(s) Only
+                                        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                    Attached Documents ({normalizedDocs.length})
                                                 </span>
-                                            ) : (
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                                                    🌐 Shared with All Execution Banks
-                                                </span>
-                                            )}
+                                                {internalCount > 0 && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.2 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300">
+                                                        <Lock size={9} className="text-amber-700" /> {internalCount} Internal Vault
+                                                    </span>
+                                                )}
+                                                {externalCount > 0 && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.2 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                                                        🌐 {externalCount} External Bank
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="flex flex-wrap gap-2">
-                                            {docs.map((d, i) => (
-                                                <button
-                                                    key={i}
-                                                    type="button"
-                                                    onClick={async (e) => {
-                                                        e.preventDefault();
-                                                        const p = d.path;
-                                                        if (!p) {
-                                                            toast.error("Document path not available.");
-                                                            return;
-                                                        }
-                                                        let targetGcsUri = p;
-                                                        if (p.includes('storage.googleapis.com/')) {
-                                                            targetGcsUri = 'gs://' + p.split('storage.googleapis.com/')[1].split('?')[0];
-                                                        }
-
-                                                        if (targetGcsUri.startsWith('gs://')) {
-                                                            try {
-                                                                const response = await apiClient.get(`/quotations/documents/download?gcs_uri=${encodeURIComponent(targetGcsUri)}`, {
-                                                                    responseType: 'blob'
-                                                                });
-                                                                const contentType = response.headers['content-type'] || 'application/pdf';
-                                                                const blob = new Blob([response.data], { type: contentType });
-                                                                const blobUrl = window.URL.createObjectURL(blob);
-                                                                window.open(blobUrl, '_blank');
-                                                            } catch (err) {
-                                                                console.error("Failed to unseal document:", err);
-                                                                let detail = "Failed to unseal document.";
-                                                                if (err.response?.data instanceof Blob) {
-                                                                    try {
-                                                                        const text = await err.response.data.text();
-                                                                        const json = JSON.parse(text);
-                                                                        detail = json.detail || detail;
-                                                                    } catch {}
-                                                                }
-                                                                toast.error(detail);
+                                            {normalizedDocs.map((d, i) => {
+                                                const isInternal = d.is_internal_only;
+                                                return (
+                                                    <button
+                                                        key={i}
+                                                        type="button"
+                                                        onClick={async (e) => {
+                                                            e.preventDefault();
+                                                            const p = d.path;
+                                                            if (!p) {
+                                                                toast.error("Document path not available.");
+                                                                return;
                                                             }
-                                                            return;
-                                                        }
+                                                            let targetGcsUri = p;
+                                                            if (p.includes('storage.googleapis.com/')) {
+                                                                targetGcsUri = 'gs://' + p.split('storage.googleapis.com/')[1].split('?')[0];
+                                                            }
 
-                                                        if (p.startsWith('http://') || p.startsWith('https://')) {
-                                                            window.open(p, '_blank');
-                                                            return;
-                                                        }
+                                                            if (targetGcsUri.startsWith('gs://')) {
+                                                                try {
+                                                                    const response = await apiClient.get(`/quotations/documents/download?gcs_uri=${encodeURIComponent(targetGcsUri)}`, {
+                                                                        responseType: 'blob'
+                                                                    });
+                                                                    const contentType = response.headers['content-type'] || 'application/pdf';
+                                                                    const blob = new Blob([response.data], { type: contentType });
+                                                                    const blobUrl = window.URL.createObjectURL(blob);
+                                                                    window.open(blobUrl, '_blank');
+                                                                } catch (err) {
+                                                                    console.error("Failed to unseal document:", err);
+                                                                    let detail = "Failed to unseal document.";
+                                                                    if (err.response?.data instanceof Blob) {
+                                                                        try {
+                                                                            const text = await err.response.data.text();
+                                                                            const json = JSON.parse(text);
+                                                                            detail = json.detail || detail;
+                                                                        } catch {}
+                                                                    }
+                                                                    toast.error(detail);
+                                                                }
+                                                                return;
+                                                            }
 
-                                                        const fallbackUrl = `http://localhost:8000${p.startsWith('/') ? '' : '/'}${p}`;
-                                                        window.open(fallbackUrl, '_blank');
-                                                    }}
-                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-blue-600 hover:bg-slate-100 cursor-pointer"
-                                                >
-                                                    <FileText size={13} className="text-slate-400" />
-                                                    <span>{d.name || `Document ${i+1}`}</span>
-                                                    {d.pair && (
-                                                        <span className="text-[10px] font-bold bg-blue-100/70 text-blue-800 px-1.5 py-0.2 rounded border border-blue-200/60">
-                                                            {d.pair}
-                                                        </span>
-                                                    )}
-                                                </button>
-                                            ))}
+                                                            if (p.startsWith('http://') || p.startsWith('https://')) {
+                                                                window.open(p, '_blank');
+                                                                return;
+                                                            }
+
+                                                            const fallbackUrl = `http://localhost:8000${p.startsWith('/') ? '' : '/'}${p}`;
+                                                            window.open(fallbackUrl, '_blank');
+                                                        }}
+                                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium cursor-pointer transition-all shadow-2xs ${
+                                                            isInternal 
+                                                                ? 'bg-amber-50/70 border-amber-200 text-amber-900 hover:bg-amber-100' 
+                                                                : 'bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100'
+                                                        }`}
+                                                    >
+                                                        <FileText size={13} className={isInternal ? "text-amber-600" : "text-blue-500"} />
+                                                        <span className="font-semibold">{d.display_name}</span>
+
+                                                        {isInternal ? (
+                                                            <span className="text-[10px] font-bold bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded border border-amber-300 flex items-center gap-0.5">
+                                                                <Lock size={9} /> Internal Only
+                                                            </span>
+                                                        ) : d.release_timing === 'WINNER_ONLY' ? (
+                                                            <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded border border-indigo-200">
+                                                                🏆 Winner Only
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded border border-emerald-200">
+                                                                ⚡ During Bidding
+                                                            </span>
+                                                        )}
+
+                                                        {d.pair && (
+                                                            <span className="text-[10px] font-bold bg-blue-100/70 text-blue-800 px-1.5 py-0.2 rounded border border-blue-200/60">
+                                                                {d.pair}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </>
                                 );

@@ -1461,10 +1461,22 @@ export default function QuotationRequestDashboard() {
                                     legPair = `${rfqLegs[legIdx].buy_currency || 'BUY'}/${rfqLegs[legIdx].sell_currency || 'SELL'}`;
                                 }
                             }
+                            const isInternal = Boolean(d.is_internal_only || d.scope === 'INTERNAL_ONLY');
+                            let docScope = d.scope;
+                            if (!docScope) {
+                                docScope = isInternal ? 'INTERNAL_ONLY' : (legIdx !== null && legIdx !== undefined ? 'SPECIFIC_LEG' : 'ALL_PAIRS');
+                            }
+                            let docTiming = d.release_timing;
+                            if (!docTiming && !isInternal) {
+                                docTiming = (d.release_to_winner_only || Boolean(parsed?.release_to_winner_only)) ? 'WINNER_ONLY' : 'BIDDING';
+                            }
                             return {
                                 ...d,
-                                leg_index: legIdx !== undefined ? legIdx : null,
-                                pair: legPair || null
+                                scope: docScope,
+                                release_timing: isInternal ? null : docTiming,
+                                is_internal_only: isInternal,
+                                leg_index: isInternal ? null : (legIdx !== undefined ? legIdx : null),
+                                pair: isInternal ? null : (legPair || null)
                             };
                         });
                         setExistingDocs(loadedDocs);
@@ -2526,32 +2538,48 @@ export default function QuotationRequestDashboard() {
 
         const combinedDocs = [
             ...existingDocs.map(d => {
-                let legIdx = d.leg_index !== undefined ? d.leg_index : null;
-                let legPair = d.pair || null;
+                const isInternal = Boolean(d.is_internal_only || d.scope === 'INTERNAL_ONLY');
+                let legIdx = isInternal ? null : (d.leg_index !== undefined ? d.leg_index : null);
+                let legPair = isInternal ? null : (d.pair || null);
                 if (legIdx !== null && pairs[legIdx]) {
                     legPair = `${pairs[legIdx].buyCurrency || 'BUY'}/${pairs[legIdx].sellCurrency || 'SELL'}`;
                 }
+                const docScope = isInternal ? 'INTERNAL_ONLY' : (d.scope || (legIdx !== null ? 'SPECIFIC_LEG' : 'ALL_PAIRS'));
+                const docTiming = isInternal ? null : (d.release_timing || (releaseDocsToWinnerOnly ? 'WINNER_ONLY' : 'BIDDING'));
                 return {
+                    id: d.id || `doc_ext_${Math.random().toString(36).substring(2, 9)}`,
                     name: d.name || d.filename || 'Document',
                     path: d.path,
-                    leg_index: legIdx,
-                    pair: legPair
+                    scope: docScope,
+                    release_timing: docTiming,
+                    is_internal_only: isInternal,
+                    leg_index: isInternal ? null : legIdx,
+                    pair: isInternal ? null : legPair,
+                    release_to_winner_only: docTiming === 'WINNER_ONLY'
                 };
             }),
             ...uploadedDocs.map((d, i) => {
                 const fObj = files[i];
                 const fileKey = fObj?._uid || i;
                 const meta = fileLegMap[fileKey] || fileLegMap[i] || {};
-                let legIdx = meta.leg_index !== undefined ? meta.leg_index : null;
-                let legPair = meta.pair || null;
+                const isInternal = Boolean(meta.is_internal_only || meta.scope === 'INTERNAL_ONLY');
+                let legIdx = isInternal ? null : (meta.leg_index !== undefined ? meta.leg_index : null);
+                let legPair = isInternal ? null : (meta.pair || null);
                 if (legIdx !== null && pairs[legIdx]) {
                     legPair = `${pairs[legIdx].buyCurrency || 'BUY'}/${pairs[legIdx].sellCurrency || 'SELL'}`;
                 }
+                const docScope = isInternal ? 'INTERNAL_ONLY' : (meta.scope || (legIdx !== null ? 'SPECIFIC_LEG' : 'ALL_PAIRS'));
+                const docTiming = isInternal ? null : (meta.release_timing || (releaseDocsToWinnerOnly ? 'WINNER_ONLY' : 'BIDDING'));
                 return {
+                    id: `doc_new_${Math.random().toString(36).substring(2, 9)}`,
                     name: d.name,
                     path: d.path,
-                    leg_index: legIdx,
-                    pair: legPair
+                    scope: docScope,
+                    release_timing: docTiming,
+                    is_internal_only: isInternal,
+                    leg_index: isInternal ? null : legIdx,
+                    pair: isInternal ? null : legPair,
+                    release_to_winner_only: docTiming === 'WINNER_ONLY'
                 };
             })
         ];
@@ -3838,22 +3866,27 @@ export default function QuotationRequestDashboard() {
                         </p>
 
                         {/* Confidentiality & Release Guard */}
-                        <div className="mb-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start gap-3">
-                            <input
-                                type="checkbox"
-                                id="releaseDocsToWinnerOnly"
-                                checked={releaseDocsToWinnerOnly}
-                                onChange={e => setReleaseDocsToWinnerOnly(e.target.checked)}
-                                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                            />
-                            <label htmlFor="releaseDocsToWinnerOnly" className="cursor-pointer select-none">
-                                <span className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                                    <Lock size={13} className="text-indigo-600" /> Release documents only to winning bank(s) after trade completion
-                                </span>
-                                <span className="text-[11px] text-gray-500 block mt-0.5 leading-relaxed">
-                                    When enabled, attached documents remain strictly confidential and will only be released to the winning counterparty awarded the executed deal.
-                                </span>
-                            </label>
+                        <div className="mb-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start justify-between gap-3 flex-wrap">
+                            <div className="flex items-start gap-3 max-w-xl">
+                                <input
+                                    type="checkbox"
+                                    id="releaseDocsToWinnerOnly"
+                                    checked={releaseDocsToWinnerOnly}
+                                    onChange={e => setReleaseDocsToWinnerOnly(e.target.checked)}
+                                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                />
+                                <label htmlFor="releaseDocsToWinnerOnly" className="cursor-pointer select-none">
+                                    <span className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-1.5">
+                                        <Lock size={13} className="text-indigo-600" /> Default new attachments to Winner-Only release
+                                    </span>
+                                    <span className="text-[11px] text-gray-500 block mt-0.5 leading-relaxed">
+                                        When enabled, new trade documents default to Winner-Only release. Each file below can also be customized individually or marked as <strong>Internal Use Only</strong>.
+                                    </span>
+                                </label>
+                            </div>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 flex items-center gap-1 shrink-0">
+                                🛡️ Phase 12 Orthogonal Governance
+                            </span>
                         </div>
 
                         <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center hover:border-black/20 hover:bg-gray-50 transition-all cursor-pointer relative overflow-hidden group">
@@ -3881,45 +3914,116 @@ export default function QuotationRequestDashboard() {
                         {existingDocs.length > 0 && (
                             <div className="mt-4 space-y-2">
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Attached Documents</span>
-                                {existingDocs.map((doc, idx) => (
-                                    <div key={`existing-${idx}`} className="flex items-center justify-between p-2.5 rounded-xl bg-blue-50/60 border border-blue-100 text-xs gap-2 flex-wrap">
-                                        <div className="flex items-center gap-2 truncate text-blue-900 font-medium min-w-0 max-w-[220px] sm:max-w-[260px]">
-                                            <FileText size={14} className="text-blue-500 shrink-0" />
-                                            <span className="truncate">{doc.name || doc.filename || 'Document'}</span>
-                                        </div>
+                                {existingDocs.map((doc, idx) => {
+                                    const isInternal = Boolean(doc.is_internal_only || doc.scope === 'INTERNAL_ONLY');
+                                    const timing = doc.release_timing || (releaseDocsToWinnerOnly ? 'WINNER_ONLY' : 'BIDDING');
+                                    const assignedScope = isInternal ? 'INTERNAL_ONLY' : (doc.leg_index !== null && doc.leg_index !== undefined ? `LEG_${doc.leg_index}` : 'ALL_PAIRS');
 
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            {formData.type === 'FX_SPOT' && pairs.length > 1 && (
-                                                <div className="flex items-center gap-1.5 bg-blue-100/60 border border-blue-200 rounded-lg px-2 py-0.5" title="Link document to a specific currency pair leg. Counterparties where that leg is invisible or disabled will never see this document.">
-                                                    <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Applies To:</span>
+                                    return (
+                                        <div key={`existing-${idx}`} className={`p-3 rounded-xl border text-xs gap-3 flex flex-col md:flex-row md:items-center justify-between transition-all ${isInternal ? 'bg-amber-50/70 border-amber-200' : 'bg-slate-50/90 border-slate-200'}`}>
+                                            <div className="flex items-center gap-2.5 min-w-0 max-w-full md:max-w-[280px]">
+                                                <FileText size={15} className={isInternal ? "text-amber-600 shrink-0" : "text-blue-500 shrink-0"} />
+                                                <div className="truncate">
+                                                    <span className="font-semibold text-gray-900 block truncate">{doc.name || doc.filename || 'Document'}</span>
+                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                        {isInternal ? (
+                                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                                                                🔒 Internal Vault (100% Bank Air-Gap)
+                                                            </span>
+                                                        ) : timing === 'WINNER_ONLY' ? (
+                                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                                                🏆 Winner Only
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                ⚡ During Bidding
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                                                {/* Dimension 1: Scope */}
+                                                <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-2xs">
+                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Scope:</span>
                                                     <select
-                                                        value={doc.leg_index !== undefined && doc.leg_index !== null ? doc.leg_index : ''}
+                                                        value={assignedScope}
                                                         onChange={e => {
-                                                            const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
-                                                            const selPair = val !== null && pairs[val] ? `${pairs[val].buyCurrency || 'BUY'}/${pairs[val].sellCurrency || 'SELL'}` : null;
-                                                            setExistingDocs(prev => prev.map((d, i) => i === idx ? { ...d, leg_index: val, pair: selPair } : d));
+                                                            const val = e.target.value;
+                                                            if (val === 'INTERNAL_ONLY') {
+                                                                setExistingDocs(prev => prev.map((d, i) => i === idx ? {
+                                                                    ...d,
+                                                                    scope: 'INTERNAL_ONLY',
+                                                                    is_internal_only: true,
+                                                                    release_timing: null,
+                                                                    leg_index: null,
+                                                                    pair: null
+                                                                } : d));
+                                                            } else if (val.startsWith('LEG_')) {
+                                                                const pIdx = parseInt(val.replace('LEG_', ''), 10);
+                                                                const selPair = pairs[pIdx] ? `${pairs[pIdx].buyCurrency || 'BUY'}/${pairs[pIdx].sellCurrency || 'SELL'}` : null;
+                                                                setExistingDocs(prev => prev.map((d, i) => i === idx ? {
+                                                                    ...d,
+                                                                    scope: 'SPECIFIC_LEG',
+                                                                    is_internal_only: false,
+                                                                    leg_index: pIdx,
+                                                                    pair: selPair,
+                                                                    release_timing: d.release_timing || (releaseDocsToWinnerOnly ? 'WINNER_ONLY' : 'BIDDING')
+                                                                } : d));
+                                                            } else {
+                                                                setExistingDocs(prev => prev.map((d, i) => i === idx ? {
+                                                                    ...d,
+                                                                    scope: 'ALL_PAIRS',
+                                                                    is_internal_only: false,
+                                                                    leg_index: null,
+                                                                    pair: null,
+                                                                    release_timing: d.release_timing || (releaseDocsToWinnerOnly ? 'WINNER_ONLY' : 'BIDDING')
+                                                                } : d));
+                                                            }
                                                         }}
-                                                        className="text-[11px] font-semibold bg-white border border-blue-300 rounded px-1.5 py-0.5 text-blue-900 cursor-pointer outline-none"
+                                                        className="text-[11px] font-semibold bg-transparent text-gray-800 cursor-pointer outline-none"
                                                     >
-                                                        <option value="">🌐 All Pairs (Global)</option>
-                                                        {pairs.map((p, pIdx) => (
-                                                             <option key={pIdx} value={pIdx}>
-                                                                Leg {pIdx + 1}: {p.buyCurrency || 'BUY'}/{p.sellCurrency || 'SELL'}
+                                                        <option value="ALL_PAIRS">🌐 All Pairs (Global)</option>
+                                                        {formData.type === 'FX_SPOT' && pairs.map((p, pIdx) => (
+                                                            <option key={pIdx} value={`LEG_${pIdx}`}>
+                                                                🎯 Leg {pIdx + 1}: {p.buyCurrency || 'BUY'}/{p.sellCurrency || 'SELL'}
                                                             </option>
                                                         ))}
+                                                        <option value="INTERNAL_ONLY">🔒 Internal Use Only (Customer Vault)</option>
                                                     </select>
                                                 </div>
-                                            )}
-                                            <button
-                                                type="button"
-                                                onClick={() => setExistingDocs(prev => prev.filter((_, i) => i !== idx))}
-                                                className="text-red-500 hover:text-red-700 p-1 rounded font-bold text-xs shrink-0 cursor-pointer"
-                                            >
-                                                Remove
-                                            </button>
+
+                                                {/* Dimension 2: Release Timing (Active only when not internal) */}
+                                                {!isInternal && (
+                                                    <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-2xs">
+                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Timing:</span>
+                                                        <select
+                                                            value={timing}
+                                                            onChange={e => {
+                                                                const val = e.target.value;
+                                                                setExistingDocs(prev => prev.map((d, i) => i === idx ? { ...d, release_timing: val } : d));
+                                                            }}
+                                                            className="text-[11px] font-semibold bg-transparent text-gray-800 cursor-pointer outline-none"
+                                                        >
+                                                            <option value="BIDDING">⚡ During Bidding</option>
+                                                            <option value="WINNER_ONLY">🏆 Winner Only</option>
+                                                        </select>
+                                                    </div>
+                                                )}
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setExistingDocs(prev => prev.filter((_, i) => i !== idx))}
+                                                    className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 font-bold text-xs shrink-0 cursor-pointer transition-colors"
+                                                    title="Remove document"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
 
@@ -3928,42 +4032,111 @@ export default function QuotationRequestDashboard() {
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">New Files</span>
                                 {files.map((f, idx) => {
                                     const fileKey = f._uid || `file-${idx}`;
-                                    const assignedLegIdx = fileLegMap[fileKey]?.leg_index !== undefined && fileLegMap[fileKey]?.leg_index !== null 
-                                        ? fileLegMap[fileKey].leg_index 
-                                        : (fileLegMap[idx]?.leg_index !== undefined && fileLegMap[idx]?.leg_index !== null ? fileLegMap[idx].leg_index : '');
+                                    const meta = fileLegMap[fileKey] || fileLegMap[idx] || {};
+                                    const isInternal = Boolean(meta.is_internal_only || meta.scope === 'INTERNAL_ONLY');
+                                    const timing = meta.release_timing || (releaseDocsToWinnerOnly ? 'WINNER_ONLY' : 'BIDDING');
+                                    const assignedScope = isInternal ? 'INTERNAL_ONLY' : (meta.leg_index !== null && meta.leg_index !== undefined ? `LEG_${meta.leg_index}` : (meta.scope || 'ALL_PAIRS'));
+
                                     return (
-                                        <div key={fileKey} className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs gap-2 flex-wrap">
-                                            <div className="flex items-center gap-2 truncate text-gray-700 font-medium min-w-0 max-w-[220px] sm:max-w-[260px]">
-                                                <FileText size={14} className="text-gray-400 shrink-0" />
-                                                <span className="truncate">{f.name}</span>
+                                        <div key={fileKey} className={`p-3 rounded-xl border text-xs gap-3 flex flex-col md:flex-row md:items-center justify-between transition-all ${isInternal ? 'bg-amber-50/70 border-amber-200' : 'bg-slate-50/90 border-slate-200'}`}>
+                                            <div className="flex items-center gap-2.5 min-w-0 max-w-full md:max-w-[280px]">
+                                                <FileText size={15} className={isInternal ? "text-amber-600 shrink-0" : "text-gray-400 shrink-0"} />
+                                                <div className="truncate">
+                                                    <span className="font-semibold text-gray-900 block truncate">{f.name}</span>
+                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                        {isInternal ? (
+                                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                                                                🔒 Internal Vault (100% Bank Air-Gap)
+                                                            </span>
+                                                        ) : timing === 'WINNER_ONLY' ? (
+                                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                                                🏆 Winner Only
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                ⚡ During Bidding
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
 
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                {formData.type === 'FX_SPOT' && pairs.length > 1 && (
-                                                    <div className="flex items-center gap-1.5 bg-gray-100 border border-gray-200 rounded-lg px-2 py-0.5" title="Link document to a specific currency pair leg. Counterparties where that leg is invisible or disabled will never see this document.">
-                                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Applies To:</span>
+                                            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                                                {/* Dimension 1: Scope */}
+                                                <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-2xs">
+                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Scope:</span>
+                                                    <select
+                                                        value={assignedScope}
+                                                        onChange={e => {
+                                                            const val = e.target.value;
+                                                            let update = {};
+                                                            if (val === 'INTERNAL_ONLY') {
+                                                                update = {
+                                                                    scope: 'INTERNAL_ONLY',
+                                                                    is_internal_only: true,
+                                                                    release_timing: null,
+                                                                    leg_index: null,
+                                                                    pair: null
+                                                                };
+                                                            } else if (val.startsWith('LEG_')) {
+                                                                const pIdx = parseInt(val.replace('LEG_', ''), 10);
+                                                                const selPair = pairs[pIdx] ? `${pairs[pIdx].buyCurrency || 'BUY'}/${pairs[pIdx].sellCurrency || 'SELL'}` : null;
+                                                                update = {
+                                                                    scope: 'SPECIFIC_LEG',
+                                                                    is_internal_only: false,
+                                                                    leg_index: pIdx,
+                                                                    pair: selPair,
+                                                                    release_timing: meta.release_timing || (releaseDocsToWinnerOnly ? 'WINNER_ONLY' : 'BIDDING')
+                                                                };
+                                                            } else {
+                                                                update = {
+                                                                    scope: 'ALL_PAIRS',
+                                                                    is_internal_only: false,
+                                                                    leg_index: null,
+                                                                    pair: null,
+                                                                    release_timing: meta.release_timing || (releaseDocsToWinnerOnly ? 'WINNER_ONLY' : 'BIDDING')
+                                                                };
+                                                            }
+                                                            setFileLegMap(prev => ({
+                                                                ...prev,
+                                                                [fileKey]: { ...(prev[fileKey] || {}), ...update },
+                                                                [idx]: { ...(prev[idx] || {}), ...update }
+                                                            }));
+                                                        }}
+                                                        className="text-[11px] font-semibold bg-transparent text-gray-800 cursor-pointer outline-none"
+                                                    >
+                                                        <option value="ALL_PAIRS">🌐 All Pairs (Global)</option>
+                                                        {formData.type === 'FX_SPOT' && pairs.map((p, pIdx) => (
+                                                            <option key={pIdx} value={`LEG_${pIdx}`}>
+                                                                🎯 Leg {pIdx + 1}: {p.buyCurrency || 'BUY'}/{p.sellCurrency || 'SELL'}
+                                                            </option>
+                                                        ))}
+                                                        <option value="INTERNAL_ONLY">🔒 Internal Use Only (Customer Vault)</option>
+                                                    </select>
+                                                </div>
+
+                                                {/* Dimension 2: Release Timing (Active only when not internal) */}
+                                                {!isInternal && (
+                                                    <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-2xs">
+                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Timing:</span>
                                                         <select
-                                                            value={assignedLegIdx}
+                                                            value={timing}
                                                             onChange={e => {
-                                                                const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
-                                                                const selPair = val !== null && pairs[val] ? `${pairs[val].buyCurrency || 'BUY'}/${pairs[val].sellCurrency || 'SELL'}` : null;
-                                                                setFileLegMap(prev => ({ 
-                                                                    ...prev, 
-                                                                    [fileKey]: { leg_index: val, pair: selPair },
-                                                                    [idx]: { leg_index: val, pair: selPair }
+                                                                const val = e.target.value;
+                                                                setFileLegMap(prev => ({
+                                                                    ...prev,
+                                                                    [fileKey]: { ...(prev[fileKey] || {}), release_timing: val },
+                                                                    [idx]: { ...(prev[idx] || {}), release_timing: val }
                                                                 }));
                                                             }}
-                                                            className="text-[11px] font-semibold bg-white border border-gray-300 rounded px-1.5 py-0.5 text-gray-800 cursor-pointer outline-none"
+                                                            className="text-[11px] font-semibold bg-transparent text-gray-800 cursor-pointer outline-none"
                                                         >
-                                                            <option value="">🌐 All Pairs (Global)</option>
-                                                            {pairs.map((p, pIdx) => (
-                                                                <option key={pIdx} value={pIdx}>
-                                                                    Leg {pIdx + 1}: {p.buyCurrency || 'BUY'}/{p.sellCurrency || 'SELL'}
-                                                                </option>
-                                                            ))}
+                                                            <option value="BIDDING">⚡ During Bidding</option>
+                                                            <option value="WINNER_ONLY">🏆 Winner Only</option>
                                                         </select>
                                                     </div>
                                                 )}
+
                                                 <button
                                                     type="button"
                                                     onClick={() => {
@@ -3975,7 +4148,8 @@ export default function QuotationRequestDashboard() {
                                                             return copy;
                                                         });
                                                     }}
-                                                    className="text-red-500 hover:text-red-700 p-1 rounded font-bold text-xs shrink-0 cursor-pointer"
+                                                    className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 font-bold text-xs shrink-0 cursor-pointer transition-colors"
+                                                    title="Remove document"
                                                 >
                                                     Remove
                                                 </button>
