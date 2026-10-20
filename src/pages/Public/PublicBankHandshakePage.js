@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { 
     Landmark, Shield, CheckCircle2, AlertCircle, Loader2, Users, 
-    ArrowRight, Check, RefreshCw, Mail, Calendar, Building2, UserCheck
+    ArrowRight, Check, RefreshCw, Mail, Calendar, Building2, UserCheck,
+    KeyRound, Lock, Send, AlertTriangle, ShieldCheck, Timer
 } from 'lucide-react';
 
 const DIRECT_BACKEND_URL = 'https://api.growbusinessdevelopment.com';
@@ -26,11 +27,41 @@ const API_BASE_URL = getApiBaseUrl();
 export default function PublicBankHandshakePage() {
     const { token } = useParams();
     const [loading, setLoading] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
     const [data, setData] = useState(null);
     const [error, setError] = useState(null);
     const [confirmedAt, setConfirmedAt] = useState(null);
     const [isDealerMode, setIsDealerMode] = useState(true);
+
+    // Interactive OTP Gate State
+    const [otp, setOtp] = useState('');
+    const [otpSent, setOtpSent] = useState(false);
+    const [isSendingOtp, setIsSendingOtp] = useState(false);
+    const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+    const [cooldown, setCooldown] = useState(0);
+    const [otpExpiresIn, setOtpExpiresIn] = useState(0);
+    const [failedAttempts, setFailedAttempts] = useState(0);
+    const [isLocked, setIsLocked] = useState(false);
+    const [otpError, setOtpError] = useState(null);
+    const [otpSuccessMessage, setOtpSuccessMessage] = useState(null);
+    const otpInputRef = useRef(null);
+
+    // Cooldown countdown timer
+    useEffect(() => {
+        if (cooldown <= 0) return;
+        const timer = setInterval(() => {
+            setCooldown(prev => (prev > 1 ? prev - 1 : 0));
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [cooldown]);
+
+    // OTP validity expiration countdown timer
+    useEffect(() => {
+        if (otpExpiresIn <= 0) return;
+        const timer = setInterval(() => {
+            setOtpExpiresIn(prev => (prev > 1 ? prev - 1 : 0));
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [otpExpiresIn]);
 
     useEffect(() => {
         if (!token) {
@@ -49,6 +80,19 @@ export default function PublicBankHandshakePage() {
                     const res = await axios.get(`${API_BASE_URL}/api/v1/public-quotation/dealer-handshake/${token}`);
                     setData(res.data);
                     setIsDealerMode(true);
+                    setFailedAttempts(res.data.failed_otp_attempts || 0);
+
+                    if (res.data.is_locked || res.data.status === 'LOCKED' || res.data.status === 'REVOKED') {
+                        setIsLocked(true);
+                    }
+                    if (res.data.cooldown_remaining > 0) {
+                        setCooldown(res.data.cooldown_remaining);
+                        setOtpSent(true);
+                    }
+                    if (res.data.otp_active_seconds > 0) {
+                        setOtpExpiresIn(res.data.otp_active_seconds);
+                        setOtpSent(true);
+                    }
                     if (res.data.accepted_at || res.data.already_accepted) {
                         setConfirmedAt(res.data.accepted_at || new Date().toISOString());
                     }
@@ -78,21 +122,61 @@ export default function PublicBankHandshakePage() {
         fetchDetails();
     }, [token]);
 
-    const handleConfirm = async () => {
+    const handleRequestOtp = async () => {
+        if (cooldown > 0 || isLocked) return;
+        setOtpError(null);
+        setOtpSuccessMessage(null);
         try {
-            setSubmitting(true);
+            setIsSendingOtp(true);
+            const res = await axios.post(`${API_BASE_URL}/api/v1/public-quotation/dealer-handshake/${token}/request-otp`);
+            setOtpSent(true);
+            setCooldown(res.data.cooldown_seconds || 60);
+            setOtpExpiresIn(res.data.expires_in_seconds || 300);
+            setOtpSuccessMessage(res.data.message || "Verification code sent to your registered institutional email.");
+            // Focus on OTP input
+            setTimeout(() => {
+                if (otpInputRef.current) otpInputRef.current.focus();
+            }, 100);
+        } catch (err) {
+            console.error("Failed to request OTP:", err);
+            const msg = err.response?.data?.detail || "Could not dispatch verification code. Please try again.";
+            setOtpError(msg);
+        } finally {
+            setIsSendingOtp(false);
+        }
+    };
+
+    const handleVerifyOtp = async (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        const cleanOtp = otp.trim().replace(/\D/g, '');
+        if (cleanOtp.length !== 6) {
+            setOtpError("Please enter the complete 6-digit verification code.");
+            return;
+        }
+
+        setOtpError(null);
+        try {
+            setIsVerifyingOtp(true);
             const endpoint = isDealerMode 
-                ? `${API_BASE_URL}/api/v1/public-quotation/dealer-handshake/${token}/accept`
+                ? `${API_BASE_URL}/api/v1/public-quotation/dealer-handshake/${token}/verify-otp`
                 : `${API_BASE_URL}/api/v1/public-quotation/bank-handshake/${token}/confirm`;
 
-            const res = await axios.post(endpoint, {});
+            const res = await axios.post(endpoint, { otp: cleanOtp });
             setConfirmedAt(res.data.accepted_at || res.data.confirmed_at || new Date().toISOString());
+            setOtpSuccessMessage("Verification successful! Access confirmed and one-time link burned.");
         } catch (err) {
-            console.error("Failed to complete handshake:", err);
-            const msg = err.response?.data?.detail || "Could not complete handshake confirmation. Please try again or contact support.";
-            alert(msg);
+            console.error("Failed to verify OTP:", err);
+            const msg = err.response?.data?.detail || "Verification failed. Please check the code and try again.";
+            setOtpError(msg);
+            
+            // Check if locked
+            if (msg.includes("Maximum") || msg.includes("permanently locked") || msg.includes("revoked")) {
+                setIsLocked(true);
+            } else {
+                setFailedAttempts(prev => prev + 1);
+            }
         } finally {
-            setSubmitting(false);
+            setIsVerifyingOtp(false);
         }
     };
 
@@ -192,10 +276,15 @@ export default function PublicBankHandshakePage() {
                                             </div>
                                         </div>
                                     </div>
+                                ) : isLocked ? (
+                                    <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold">
+                                        <Lock className="w-4 h-4 text-rose-400" />
+                                        <span>Invitation Locked</span>
+                                    </div>
                                 ) : (
                                     <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold">
-                                        <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
-                                        <span>Acceptance Pending</span>
+                                        <RefreshCw className="w-4 h-4 text-amber-400" />
+                                        <span>Handshake Pending</span>
                                     </div>
                                 )}
                             </div>
@@ -208,7 +297,9 @@ export default function PublicBankHandshakePage() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                                     <div>
                                         <span className="text-slate-400 block text-[11px]">Representative Email</span>
-                                        <span className="font-mono text-white text-sm font-semibold">{data.email}</span>
+                                        <span className="font-mono text-emerald-300 text-sm font-semibold">
+                                            {data.masked_email || data.email}
+                                        </span>
                                     </div>
                                     <div>
                                         <span className="text-slate-400 block text-[11px]">Name / Title</span>
@@ -264,51 +355,170 @@ export default function PublicBankHandshakePage() {
                             </div>
                         </div>
 
-                        {/* Action Card */}
-                        <div className="bg-gradient-to-r from-slate-900/90 via-[#0e1a38] to-slate-900/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 text-center space-y-4 shadow-xl">
+                        {/* Interactive Verification Gate Card */}
+                        <div className="bg-gradient-to-r from-slate-900/90 via-[#0e1a38] to-slate-900/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 text-center space-y-5 shadow-xl">
                             {confirmedAt ? (
-                                <div className="space-y-2">
-                                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 mb-2">
-                                        <CheckCircle2 className="w-6 h-6" />
+                                /* Confirmed State */
+                                <div className="space-y-3 py-4">
+                                    <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 mb-2 border border-emerald-500/30">
+                                        <CheckCircle2 className="w-8 h-8" />
                                     </div>
-                                    <h4 className="text-lg font-bold text-white">Welcome Aboard!</h4>
+                                    <h4 className="text-xl font-extrabold text-white">Trading Access Active &amp; Verified!</h4>
                                     <p className="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
-                                        Your trading access has been confirmed. You will now receive RFQs and quoting invitations dispatched by <strong>{data.customer_name}</strong>'s treasury desk.
+                                        Your trading identity has been verified via one-time authorization code. This single-activation link has now been permanently burned. You will receive live RFQs and quoting invitations dispatched by <strong>{data.customer_name}</strong>'s treasury desk.
+                                    </p>
+                                </div>
+                            ) : isLocked ? (
+                                /* Locked State */
+                                <div className="space-y-3 py-4 text-center">
+                                    <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-rose-500/20 text-rose-400 mb-2 border border-rose-500/30">
+                                        <Lock className="w-8 h-8" />
+                                    </div>
+                                    <h4 className="text-xl font-extrabold text-white">Invitation Permanently Locked</h4>
+                                    <p className="text-xs text-rose-300 max-w-md mx-auto leading-relaxed">
+                                        For institutional security, this single-activation invitation has been locked because the maximum of 3 verification attempts was exceeded.
+                                    </p>
+                                    <p className="text-xs text-slate-400">
+                                        Please contact <strong>{data.customer_name}</strong>'s corporate treasury team to request a new invitation.
                                     </p>
                                 </div>
                             ) : (
-                                <div className="space-y-4">
+                                /* Interactive Gate (OTP Flow) */
+                                <div className="space-y-6 max-w-md mx-auto">
                                     <div>
-                                        <h4 className="text-lg font-bold text-white">Accept Invitation &amp; Activate Trading Access</h4>
-                                        <p className="text-xs text-slate-300 max-w-lg mx-auto mt-1 leading-relaxed">
-                                            By clicking accept, you confirm your contact details and agree to represent {data.bank_name} for transactions across {data.entities && data.entities.length > 1 ? `all ${data.entities.length} authorized legal entities within ` : ''}{data.customer_name}'s treasury platform.
+                                        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center justify-center gap-1.5 mb-1.5">
+                                            <ShieldCheck size={14} /> Two-Channel Security Handshake
+                                        </span>
+                                        <h4 className="text-xl font-extrabold text-white">Identity Verification</h4>
+                                        <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                                            To complete authorization, a single-use 6-digit verification code must be dispatched to your corporate banking email.
                                         </p>
                                     </div>
 
-                                    <button
-                                        onClick={handleConfirm}
-                                        disabled={submitting}
-                                        className="inline-flex items-center gap-2.5 px-8 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all transform active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
-                                    >
-                                        {submitting ? (
-                                            <>
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                <span>Activating Access...</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <UserCheck className="w-5 h-5" />
-                                                <span>🤝 Accept Invitation &amp; Activate</span>
-                                                <ArrowRight className="w-4 h-4" />
-                                            </>
-                                        )}
-                                    </button>
+                                    {!otpSent ? (
+                                        /* Step 1: Request OTP */
+                                        <div className="space-y-4 pt-2">
+                                            <div className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-300 text-left flex items-start gap-2.5">
+                                                <Mail className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <span className="text-slate-400">Verification code will be dispatched to:</span>
+                                                    <div className="font-mono text-white font-bold text-sm mt-0.5">{data.masked_email || data.email}</div>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                onClick={handleRequestOtp}
+                                                disabled={isSendingOtp}
+                                                className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all transform active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                                            >
+                                                {isSendingOtp ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                        <span>Sending Verification Code...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Send className="w-4 h-4" />
+                                                        <span>Send 6-Digit Verification Code</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        /* Step 2: Enter & Verify 6-digit OTP */
+                                        <form onSubmit={handleVerifyOtp} className="space-y-4 pt-2">
+                                            {otpSuccessMessage && (
+                                                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-medium">
+                                                    {otpSuccessMessage}
+                                                </div>
+                                            )}
+
+                                            {otpError && (
+                                                <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center justify-center gap-2">
+                                                    <AlertTriangle size={14} className="shrink-0" />
+                                                    <span>{otpError}</span>
+                                                </div>
+                                            )}
+
+                                            <div>
+                                                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block mb-2">
+                                                    Enter 6-Digit Verification Code
+                                                </label>
+                                                <input
+                                                    ref={otpInputRef}
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]*"
+                                                    maxLength={6}
+                                                    value={otp}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                                                        setOtp(val);
+                                                        setOtpError(null);
+                                                    }}
+                                                    placeholder="&bull;&bull;&bull;&bull;&bull;&bull;"
+                                                    className="w-full px-4 py-3 text-center text-3xl font-mono font-black tracking-[12px] bg-slate-950/80 border-2 border-emerald-500/50 focus:border-emerald-400 focus:outline-none rounded-xl text-white shadow-inner"
+                                                    autoComplete="one-time-code"
+                                                />
+                                            </div>
+
+                                            <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+                                                <span className="flex items-center gap-1">
+                                                    <Timer size={13} className="text-amber-400" />
+                                                    {otpExpiresIn > 0 ? (
+                                                        <span>Code expires in: <strong className="text-amber-300">{Math.floor(otpExpiresIn / 60)}:{(otpExpiresIn % 60).toString().padStart(2, '0')}</strong></span>
+                                                    ) : (
+                                                        <span className="text-rose-400">Code expired. Please resend.</span>
+                                                    )}
+                                                </span>
+                                                <span className="text-[11px] text-slate-500">
+                                                    Attempt: <strong>{Math.min(3, failedAttempts + 1)}</strong>/3
+                                                </span>
+                                            </div>
+
+                                            <button
+                                                type="submit"
+                                                disabled={isVerifyingOtp || otp.length !== 6}
+                                                className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all transform active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                                            >
+                                                {isVerifyingOtp ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                        <span>Verifying Code &amp; Activating...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <UserCheck className="w-4 h-4" />
+                                                        <span>Verify &amp; Activate Access &rarr;</span>
+                                                    </>
+                                                )}
+                                            </button>
+
+                                            {/* Resend Cooldown Button */}
+                                            <div className="pt-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={handleRequestOtp}
+                                                    disabled={cooldown > 0 || isSendingOtp}
+                                                    className="text-xs text-slate-400 hover:text-emerald-400 transition-colors disabled:opacity-40 disabled:hover:text-slate-400 cursor-pointer"
+                                                >
+                                                    {cooldown > 0 ? (
+                                                        <span>Resend code in {cooldown}s</span>
+                                                    ) : (
+                                                        <span>Didn't receive the code? <strong>Resend Code</strong></span>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    )}
                                 </div>
                             )}
 
-                            <p className="text-[11px] text-slate-400 pt-3 border-t border-slate-800">
-                                Need to modify your role or have questions? Simply reply to your invitation email.
-                            </p>
+                            <div className="text-[11px] text-slate-400 pt-3 border-t border-slate-800 space-y-1">
+                                <p>🔒 Single-Activation Guarantee: This link is automatically burned upon verification.</p>
+                                <p>Need to modify your role or have questions? Simply reply to your corporate invitation email.</p>
+                            </div>
                         </div>
                     </div>
                 ) : (
@@ -324,7 +534,7 @@ export default function PublicBankHandshakePage() {
 
             {/* Footer */}
             <footer className="border-t border-slate-800/80 bg-[#070d1e] py-6 px-4 text-center text-xs text-slate-400">
-                <p>Grow Treasury Platform &bull; Secure Institutional Counterparty Network</p>
+                <p>Grow Treasury Platform &bull; Zero-Knowledge Institutional Counterparty Network</p>
             </footer>
         </div>
     );

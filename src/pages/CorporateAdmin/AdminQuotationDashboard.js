@@ -787,6 +787,11 @@ export default function AdminQuotationDashboard() {
                                             {rfq.ref_no}
                                         </span>
                                         <span className="text-xs font-bold text-gray-400 uppercase">{rfq.type === 'TBILL' ? 'T-Bill' : 'FX Spot'}</span>
+                                        {rfq.legs && rfq.legs.length > 1 && (
+                                            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                📑 {rfq.legs.length} Legs Package
+                                            </span>
+                                        )}
                                         {(() => {
                                             const legBases = Array.from(new Set((rfq.legs || []).map(l => l.quotation_base).filter(Boolean)));
                                             const isMixed = rfq.quotation_base === 'Mixed' || legBases.length > 1;
@@ -819,15 +824,17 @@ export default function AdminQuotationDashboard() {
                                             `${rfq.direction} Quotation`
                                         ) : rfq.legs && rfq.legs.length > 1 ? (
                                             <div className="flex flex-wrap items-center gap-2">
-                                                <span className="text-gray-900">{rfq.direction}</span>
+                                                {rfq.direction && <span className="text-gray-900">{rfq.direction}</span>}
                                                 {rfq.legs.map((leg, lIdx) => {
                                                     const pair = leg.currency_pair || (leg.buy_currency && leg.sell_currency ? `${leg.buy_currency}/${leg.sell_currency}` : leg.buy_currency);
+                                                    const dir = leg.direction && leg.direction !== rfq.direction ? leg.direction : null;
                                                     return (
                                                         <span
                                                             key={leg.id || lIdx}
                                                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs sm:text-sm bg-slate-100 text-slate-800 border border-slate-200 font-semibold shadow-2xs"
                                                         >
                                                             <span className="text-[10px] text-indigo-600 font-extrabold tracking-wide uppercase">Leg #{lIdx + 1}</span>
+                                                            {dir && <span className="text-xs font-bold text-amber-700">{dir}</span>}
                                                             <span className="font-bold text-slate-900">{leg.amount != null ? Number(leg.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 }) : '-'}</span>
                                                             <span className="font-mono text-xs text-slate-600 font-bold">{pair}</span>
                                                         </span>

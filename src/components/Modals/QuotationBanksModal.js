@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Trash2, Edit2, CheckCircle2, X, Building, UserCheck, Eye, Shield, Mail, User, ChevronDown, ArrowLeft, RefreshCw, Clock } from 'lucide-react';
+import { Plus, Search, Trash2, Edit2, CheckCircle2, X, Building, UserCheck, Eye, Shield, Mail, User, ChevronDown, ArrowLeft, RefreshCw, Clock, Copy, Check, Lock } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 
 export default function QuotationBanksModal({ onClose }) {
@@ -33,7 +33,9 @@ export default function QuotationBanksModal({ onClose }) {
     const [isSendingReport, setIsSendingReport] = useState(false);
     const [reportSentSuccess, setReportSentSuccess] = useState(null);
     const [pendingInvitations, setPendingInvitations] = useState([]);
+    const [copiedId, setCopiedId] = useState(null);
     const [isInvitingContact, setIsInvitingContact] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [rosterSearch, setRosterSearch] = useState('');
     const [rosterEntityFilter, setRosterEntityFilter] = useState('ALL');
     const [rosterTradeTypeFilter, setRosterTradeTypeFilter] = useState('ALL');
@@ -84,6 +86,30 @@ export default function QuotationBanksModal({ onClose }) {
         }
     };
 
+    const resetForm = () => {
+        setFormData({
+            bank_id: '',
+            trade_type: 'BOTH',
+            entity_scope: 'ALL_ENTITIES',
+            entity_ids: [],
+            contacts: [],
+            authorized_contact_email: '',
+            authorized_contact_name: ''
+        });
+        setEditingBankId(null);
+        setNewContact({ email: '', name: '', role: 'EXECUTION' });
+        setPendingInvitations([]);
+        setRoleNotice(null);
+        setReportSentSuccess(null);
+        setBankSearchTerm('');
+        setIsBankDropdownOpen(false);
+    };
+
+    const handleCancelOrBack = () => {
+        resetForm();
+        setIsAdding(false);
+    };
+
     const fetchPendingInvitations = async (bankId) => {
         if (!bankId) {
             setPendingInvitations([]);
@@ -113,6 +139,20 @@ export default function QuotationBanksModal({ onClose }) {
             setPendingInvitations(prev => prev.filter(inv => inv.id !== invitationId));
         } catch (err) {
             alert('Failed to cancel invitation: ' + (err.response?.data?.detail || err.message));
+        }
+    };
+
+    const handleCopyLink = (inv) => {
+        const link = inv.handshake_link || `${window.location.origin}/public/dealer-handshake/${inv.token}`;
+        if (navigator?.clipboard?.writeText) {
+            navigator.clipboard.writeText(link).then(() => {
+                setCopiedId(inv.id);
+                setTimeout(() => setCopiedId(null), 2500);
+            }).catch(() => {
+                prompt("Copy dealer invitation link:", link);
+            });
+        } else {
+            prompt("Copy dealer invitation link:", link);
         }
     };
 
@@ -200,7 +240,7 @@ export default function QuotationBanksModal({ onClose }) {
                 });
                 setPendingInvitations(prev => [res.data, ...prev]);
                 setNewContact({ email: '', name: '', role: 'EXECUTION' });
-                setRoleNotice(`Invitation successfully emailed to ${email}! They will be activated once they accept their invitation link.`);
+                setRoleNotice(`Invitation link (48h TTL) dispatched to ${email}! Dealer will verify their identity with a 6-digit OTP code upon opening.`);
             } catch (err) {
                 alert('Failed to send invitation: ' + (err.response?.data?.detail || err.message));
             } finally {
@@ -254,6 +294,8 @@ export default function QuotationBanksModal({ onClose }) {
     const handleStartEdit = (bank) => {
         setRoleNotice(null);
         setReportSentSuccess(null);
+        setNewContact({ email: '', name: '', role: 'EXECUTION' });
+        setPendingInvitations([]);
         let parsedContacts = bank.contacts || [];
         if (!parsedContacts.length && bank.emails) {
             parsedContacts = bank.emails.split(',').map(e => ({
@@ -300,6 +342,8 @@ export default function QuotationBanksModal({ onClose }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        if (isSubmitting) return;
+
         if (!formData.bank_id) {
             alert('Please select a System Bank entity.');
             return;
@@ -337,9 +381,14 @@ export default function QuotationBanksModal({ onClose }) {
             return;
         }
 
+        // If user is adding a bank that already exists in the roster, seamlessly target its existing ID
+        const existingRosterBank = !editingBankId ? banks.find(x => x.bank_id === parseInt(formData.bank_id)) : null;
+        const targetId = editingBankId || (existingRosterBank ? existingRosterBank.id : undefined);
+
+        setIsSubmitting(true);
         try {
             await apiClient.post('/end-user/quotations/banks', {
-                id: editingBankId || undefined,
+                id: targetId,
                 bank_id: parseInt(formData.bank_id),
                 trade_type: formData.trade_type,
                 entity_scope: formData.entity_scope,
@@ -348,25 +397,13 @@ export default function QuotationBanksModal({ onClose }) {
                 authorized_contact_email: formData.authorized_contact_email ? formData.authorized_contact_email.trim() : null,
                 authorized_contact_name: formData.authorized_contact_name ? formData.authorized_contact_name.trim() : null
             });
+            resetForm();
             setIsAdding(false);
-            setEditingBankId(null);
-            setRoleNotice(null);
-            setReportSentSuccess(null);
-            setBankSearchTerm('');
-            setIsBankDropdownOpen(false);
-            setFormData({
-                bank_id: '',
-                trade_type: 'BOTH',
-                entity_scope: 'ALL_ENTITIES',
-                entity_ids: [],
-                contacts: [],
-                authorized_contact_email: '',
-                authorized_contact_name: ''
-            });
-            setPendingInvitations([]);
-            fetchBanks();
+            await fetchBanks();
         } catch (error) {
             alert('Failed to configure bank. ' + (error.response?.data?.detail || 'It may already exist for this trade type.'));
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -504,19 +541,7 @@ export default function QuotationBanksModal({ onClose }) {
                                     </div>
                                     <button
                                         onClick={() => {
-                                            setEditingBankId(null);
-                                            setRoleNotice(null);
-                                            setBankSearchTerm('');
-                                            setIsBankDropdownOpen(false);
-                                            setFormData({
-                                                bank_id: '',
-                                                trade_type: 'BOTH',
-                                                entity_scope: 'ALL_ENTITIES',
-                                                entity_ids: [],
-                                                contacts: [],
-                                                authorized_contact_email: '',
-                                                authorized_contact_name: ''
-                                            });
+                                            resetForm();
                                             setIsAdding(true);
                                         }}
                                         className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 text-white text-xs font-semibold rounded-xl shadow-xs hover:bg-blue-700 transition-all cursor-pointer whitespace-nowrap"
@@ -655,7 +680,14 @@ export default function QuotationBanksModal({ onClose }) {
                                                         <tr key={bank.id} className="hover:bg-slate-50/70 transition-colors">
                                                             {/* Column 1: Bank Partner */}
                                                             <td className="py-3.5 px-4 align-top">
-                                                                <div className="font-bold text-gray-900 text-sm">{bank.bank?.name || `Bank #${bank.bank_id}`}</div>
+                                                                <div className="font-bold text-gray-900 text-sm flex items-center gap-1.5 flex-wrap">
+                                                                    <span>{bank.bank?.name || `Bank #${bank.bank_id}`}</span>
+                                                                    {bank.bank?.allow_dealer_comments === false && (
+                                                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded" title="Trader execution comments are dimmed on the quotation portal per this bank's institutional policy">
+                                                                            <Lock size={9} className="text-slate-400" /> Comments Dimmed
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                                 <div className="text-[11px] text-gray-400 font-mono">ID: {bank.bank_id}</div>
                                                                 {bank.authorized_contact_email && (
                                                                     <div className="text-[10px] text-indigo-700 font-mono flex items-center gap-1 mt-1.5 font-semibold" title={`Authorized Governance Officer: ${bank.authorized_contact_name || bank.authorized_contact_email}`}>
@@ -787,7 +819,7 @@ export default function QuotationBanksModal({ onClose }) {
                                 <div className="flex items-center gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => { setIsAdding(false); setEditingBankId(null); setRoleNotice(null); }}
+                                        onClick={handleCancelOrBack}
                                         className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 font-semibold px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                                     >
                                         <ArrowLeft size={14} /> Back to Roster
@@ -800,7 +832,7 @@ export default function QuotationBanksModal({ onClose }) {
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => { setIsAdding(false); setEditingBankId(null); setRoleNotice(null); }}
+                                    onClick={handleCancelOrBack}
                                     className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                                 >
                                     <X size={16} />
@@ -843,8 +875,7 @@ export default function QuotationBanksModal({ onClose }) {
                                                                 type="button"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setFormData({ ...formData, bank_id: '' });
-                                                                    setBankSearchTerm('');
+                                                                    resetForm();
                                                                     setIsBankDropdownOpen(true);
                                                                 }}
                                                                 className="p-1 text-slate-400 hover:text-red-500 rounded-md hover:bg-white/60 transition-colors cursor-pointer"
@@ -901,13 +932,28 @@ export default function QuotationBanksModal({ onClose }) {
                                                         ) : (
                                                             filteredSystemBanks.map((b) => {
                                                                 const isSelected = String(b.id) === String(formData.bank_id);
+                                                                const existingRosterBank = banks.find(x => x.bank_id === b.id);
                                                                 return (
                                                                     <div
                                                                         key={b.id}
                                                                         onClick={() => {
-                                                                            setFormData({ ...formData, bank_id: b.id });
-                                                                            setBankSearchTerm('');
-                                                                            setIsBankDropdownOpen(false);
+                                                                            if (existingRosterBank && !editingBankId) {
+                                                                                handleStartEdit(existingRosterBank);
+                                                                                setRoleNotice(`Note: ${b.name} is already in your counterparty roster. Loaded existing profile so you can add contacts or modify permissions without creating duplicates.`);
+                                                                            } else {
+                                                                                setEditingBankId(null);
+                                                                                setPendingInvitations([]);
+                                                                                setFormData(prev => ({
+                                                                                    ...prev,
+                                                                                    bank_id: b.id,
+                                                                                    contacts: editingBankId ? [] : prev.contacts,
+                                                                                    authorized_contact_email: editingBankId ? '' : prev.authorized_contact_email,
+                                                                                    authorized_contact_name: editingBankId ? '' : prev.authorized_contact_name
+                                                                                }));
+                                                                                setRoleNotice(null);
+                                                                                setBankSearchTerm('');
+                                                                                setIsBankDropdownOpen(false);
+                                                                            }
                                                                         }}
                                                                         className={`px-3.5 py-2 text-xs flex items-center justify-between cursor-pointer transition-colors ${
                                                                             isSelected ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-700 hover:bg-slate-50'
@@ -916,6 +962,11 @@ export default function QuotationBanksModal({ onClose }) {
                                                                         <div className="flex items-center gap-2 truncate">
                                                                             <Building className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
                                                                             <span className="truncate">{b.name}</span>
+                                                                            {existingRosterBank && !editingBankId && (
+                                                                                <span className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded ml-1 shrink-0">
+                                                                                    In Roster (Click to Edit)
+                                                                                </span>
+                                                                            )}
                                                                         </div>
                                                                         {b.swift_code && (
                                                                             <span className="text-[10px] font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded ml-2 shrink-0">
@@ -1172,49 +1223,76 @@ export default function QuotationBanksModal({ onClose }) {
                                         )}
                                     </div>
 
-                                    {/* Pending Dealer Invitations (Staged) */}
-                                    {pendingInvitations && pendingInvitations.length > 0 && (
+                                    {/* Pending Dealer Invitations (Staged - only shown when editing existing bank) */}
+                                    {editingBankId && pendingInvitations && pendingInvitations.length > 0 && (
                                         <div className="mt-3 pt-3 border-t border-slate-200 space-y-1.5">
                                             <div className="text-[11px] font-bold uppercase tracking-wider text-amber-800 flex items-center justify-between">
                                                 <span className="flex items-center gap-1.5">
                                                     <Clock size={13} className="text-amber-600" />
                                                     Pending Dealer Invitations ({pendingInvitations.length})
                                                 </span>
-                                                <span className="text-[10px] text-amber-700 font-normal">Waiting for dealer handshake acceptance</span>
+                                                <span className="text-[10px] text-amber-700 font-normal">Waiting for dealer handshake &amp; OTP verification</span>
                                             </div>
-                                            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                                                {pendingInvitations.map((inv) => (
-                                                    <div key={inv.id} className="flex items-center justify-between bg-amber-50/70 px-3 py-1.5 rounded-xl border border-amber-200 shadow-2xs">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-xs font-mono font-bold text-gray-900">{inv.email}</span>
-                                                            {inv.title && <span className="text-[11px] text-gray-500 font-medium">({inv.title})</span>}
-                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                                                                ⏳ Awaiting Dealer Handshake
-                                                            </span>
+                                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                                {pendingInvitations.map((inv) => {
+                                                    const isLocked = inv.status === 'LOCKED' || inv.status === 'REVOKED' || (inv.failed_otp_attempts >= 3);
+                                                    return (
+                                                        <div key={inv.id} className={`flex items-center justify-between px-3 py-2 rounded-xl border shadow-2xs ${isLocked ? 'bg-rose-50/80 border-rose-200' : 'bg-amber-50/70 border-amber-200'}`}>
+                                                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                                                                <span className="text-xs font-mono font-bold text-gray-900">{inv.email}</span>
+                                                                {inv.title && <span className="text-[11px] text-gray-500 font-medium">({inv.title})</span>}
+                                                                {isLocked ? (
+                                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1 w-fit">
+                                                                        <Lock size={10} /> Locked (3/3 Failed Attempts)
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 w-fit">
+                                                                        <Clock size={10} /> Pending Handshake (48h TTL)
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                <span className="text-[11px] font-bold text-gray-600 mr-1">
+                                                                    {inv.role === 'EXECUTION' ? '⚡ Execution' : inv.role === 'APPROVER' ? '🛡️ Approver' : '👁️ View Only'}
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleCopyLink(inv)}
+                                                                    className="px-2 py-1 text-[11px] bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                                                                    title="Copy invitation link to clipboard"
+                                                                >
+                                                                    {copiedId === inv.id ? (
+                                                                        <>
+                                                                            <Check size={11} className="text-emerald-600" />
+                                                                            <span className="text-emerald-700 font-bold">Copied</span>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <Copy size={11} className="text-slate-500" />
+                                                                            <span>Copy Link</span>
+                                                                        </>
+                                                                    )}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleResendInvitation(inv.id, inv.email)}
+                                                                    className="px-2 py-1 text-[11px] bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 rounded-lg font-semibold transition-colors cursor-pointer"
+                                                                    title={isLocked ? "Unlock and resend invitation link" : "Resend invitation email"}
+                                                                >
+                                                                    {isLocked ? "Unlock & Resend" : "Resend"}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleRevokeInvitation(inv.id)}
+                                                                    className="p-1 text-gray-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
+                                                                    title="Cancel pending invitation"
+                                                                >
+                                                                    <Trash2 size={13} />
+                                                                </button>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-[11px] font-bold text-gray-600">
-                                                                {inv.role === 'EXECUTION' ? '⚡ Execution' : inv.role === 'APPROVER' ? '🛡️ Approver' : '👁️ View Only'}
-                                                            </span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleResendInvitation(inv.id, inv.email)}
-                                                                className="px-2 py-0.5 text-[11px] bg-white border border-amber-300 hover:bg-amber-100 text-amber-800 rounded font-semibold transition-colors cursor-pointer"
-                                                                title="Resend invitation email"
-                                                            >
-                                                                Resend
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleRevokeInvitation(inv.id)}
-                                                                className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors cursor-pointer"
-                                                                title="Cancel pending invitation"
-                                                            >
-                                                                <Trash2 size={13} />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}
@@ -1295,16 +1373,18 @@ export default function QuotationBanksModal({ onClose }) {
                                 <div className="flex justify-end gap-2.5 pt-1">
                                     <button
                                         type="button"
-                                        onClick={() => { setIsAdding(false); setEditingBankId(null); }}
+                                        onClick={handleCancelOrBack}
                                         className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="px-5 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-xs hover:bg-emerald-700 transition-colors cursor-pointer"
+                                        disabled={isSubmitting}
+                                        className="px-5 py-2 bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs hover:bg-emerald-700 transition-colors cursor-pointer flex items-center gap-1.5"
                                     >
-                                        {editingBankId ? 'Save Changes' : 'Save Counterparty'}
+                                        {isSubmitting && <RefreshCw size={14} className="animate-spin text-white" />}
+                                        {isSubmitting ? 'Saving...' : (editingBankId ? 'Save Changes' : 'Save Counterparty')}
                                     </button>
                                 </div>
                             </form>

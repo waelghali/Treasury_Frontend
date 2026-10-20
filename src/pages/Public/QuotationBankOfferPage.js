@@ -223,14 +223,18 @@ export default function QuotationBankOfferPage() {
                                                 </span>
                                             )}
                                         </span>
-                                        <a
-                                            href={resolveDocDownloadUrl(doc.path)}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-md transition-colors shrink-0"
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDownloadDocument(doc.path, doc.leg_id)}
+                                            disabled={downloadingDocPath === doc.path}
+                                            className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 px-2.5 py-1 rounded-md transition-colors shrink-0 cursor-pointer"
                                         >
-                                            <ExternalLink size={12} /> View Document
-                                        </a>
+                                            {downloadingDocPath === doc.path ? (
+                                                <><Loader2 size={12} className="animate-spin" /> Unsealing...</>
+                                            ) : (
+                                                <><ExternalLink size={12} /> View Document</>
+                                            )}
+                                        </button>
 
                                     </div>
                                 ))}
@@ -457,6 +461,74 @@ export default function QuotationBankOfferPage() {
         if (!authSession?.session_token) return undefined;
         return `${authSession.session_token}_tab_${tabSessionIdRef.current}`;
     }, [authSession?.session_token]);
+
+    const [downloadingDocPath, setDownloadingDocPath] = useState(null);
+
+    const handleDownloadDocument = useCallback(async (docPath, legId = null) => {
+        if (!docPath) return;
+        let targetGcsUri = docPath;
+        let targetLegId = legId;
+
+        if (docPath.includes('gcs_uri=')) {
+            try {
+                targetGcsUri = decodeURIComponent(docPath.split('gcs_uri=')[1].split('&')[0]);
+            } catch (_) {
+                targetGcsUri = docPath.split('gcs_uri=')[1].split('&')[0];
+            }
+            if (!targetLegId && docPath.includes('leg_id=')) {
+                targetLegId = docPath.split('leg_id=')[1].split('&')[0];
+            }
+        } else if (docPath.includes('storage.googleapis.com/')) {
+            targetGcsUri = 'gs://' + docPath.split('storage.googleapis.com/')[1].split('?')[0];
+        }
+
+        if (targetGcsUri.startsWith('gs://')) {
+            try {
+                setDownloadingDocPath(docPath);
+                // Option A + B: Exchange active OTP session for a 15-minute cryptographically signed download ticket
+                const ticketRes = await quotationApi.post('/api/v1/quotations/documents/ticket', {
+                    gcs_uri: targetGcsUri,
+                    token: token,
+                    session_token: getEffectiveSessionToken(),
+                    leg_id: targetLegId || undefined
+                });
+
+                const { download_url } = ticketRes.data;
+                const fullDownloadUrl = download_url.startsWith('http') ? download_url : `${API_BASE_URL}${download_url}`;
+
+                // Smooth in-browser streaming decryption
+                const response = await axios.get(fullDownloadUrl, { responseType: 'blob' });
+                const contentType = response.headers['content-type'] || 'application/pdf';
+                const blob = new Blob([response.data], { type: contentType });
+                const blobUrl = window.URL.createObjectURL(blob);
+                window.open(blobUrl, '_blank');
+            } catch (err) {
+                console.error("Failed to unseal document:", err);
+                let detail = "Access Denied: Unable to unseal document.";
+                if (err.response?.data) {
+                    if (err.response.data instanceof Blob) {
+                        try {
+                            const text = await err.response.data.text();
+                            const json = JSON.parse(text);
+                            detail = json.detail || detail;
+                        } catch {}
+                    } else if (err.response.data.detail) {
+                        detail = err.response.data.detail;
+                    }
+                }
+                alert(detail);
+            } finally {
+                setDownloadingDocPath(null);
+            }
+            return;
+        }
+
+        if (docPath.startsWith('http://') || docPath.startsWith('https://')) {
+            window.open(docPath, '_blank');
+            return;
+        }
+        window.open(`${API_BASE_URL}${docPath.startsWith('/') ? '' : '/'}${docPath}`, '_blank');
+    }, [token, getEffectiveSessionToken]);
 
     const storageKey = emailParam ? `quotation_auth_${token}_${emailParam.toLowerCase()}` : `quotation_auth_${token}`;
 
@@ -3544,12 +3616,10 @@ export default function QuotationBankOfferPage() {
                                             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Supporting Documents</label>
                                             <div className="space-y-2">
                                                 {(rfq.documents && rfq.documents.length > 0 ? rfq.documents : [{ name: 'Attached Supporting Document', path: rfq.document_path }]).map((doc, idx) => (
-                                                    <a
+                                                    <div
                                                         key={idx}
-                                                        href={resolveDocDownloadUrl(doc.path)}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all text-xs font-medium text-gray-800"
+                                                        onClick={() => handleDownloadDocument(doc.path, doc.leg_id)}
+                                                        className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all text-xs font-medium text-gray-800 cursor-pointer"
                                                     >
                                                         <span className="flex items-center gap-2 truncate">
                                                             <FileText size={16} className="text-slate-500 shrink-0" />
@@ -3560,10 +3630,18 @@ export default function QuotationBankOfferPage() {
                                                                 </span>
                                                             )}
                                                         </span>
-                                                        <span className="text-[10px] font-bold bg-white text-slate-800 border border-slate-200 px-3 py-1 rounded-lg uppercase tracking-wider shrink-0 hover:bg-black hover:text-white transition-colors">
-                                                            Download
-                                                        </span>
-                                                    </a>
+                                                        <button
+                                                            type="button"
+                                                            disabled={downloadingDocPath === doc.path}
+                                                            className="text-[10px] font-bold bg-white text-slate-800 border border-slate-200 px-3 py-1 rounded-lg uppercase tracking-wider shrink-0 hover:bg-black hover:text-white transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                                                        >
+                                                            {downloadingDocPath === doc.path ? (
+                                                                <><Loader2 size={10} className="animate-spin" /> Unsealing...</>
+                                                            ) : (
+                                                                <>Download</>
+                                                            )}
+                                                        </button>
+                                                    </div>
                                                 ))}
                                             </div>
                                         </div>
@@ -4818,18 +4896,38 @@ export default function QuotationBankOfferPage() {
 
                                                 {/* Trader Comments / Notes */}
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 flex items-center gap-1.5">
-                                                        <MessageSquare size={13} className="text-gray-400" />
-                                                        Trader Comments / Execution Notes (Optional)
-                                                    </label>
-                                                    <textarea
-                                                        rows={2}
-                                                        disabled={timeLeft.status !== 'OPEN' || isSubmitting || isDeskInputsLocked}
-                                                        placeholder="Add any settlement notes, execution remarks, or comments for the treasury desk..."
-                                                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium text-gray-800 focus:bg-white focus:ring-2 focus:ring-black/5 transition-all outline-none resize-none disabled:bg-slate-100 disabled:text-slate-400"
-                                                        value={traderNotes}
-                                                        onChange={(e) => setTraderNotes(e.target.value)}
-                                                    />
+                                                    {(() => {
+                                                        const isCommentsDisabled = rfq?.allow_dealer_comments === false;
+                                                        return (
+                                                            <>
+                                                                <div className="flex items-center justify-between mb-1.5">
+                                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase flex items-center gap-1.5">
+                                                                        <MessageSquare size={13} className={isCommentsDisabled ? "text-slate-300" : "text-gray-400"} />
+                                                                        Trader Comments / Execution Notes
+                                                                        {isCommentsDisabled ? (
+                                                                            <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md normal-case">
+                                                                                <Lock size={10} className="text-amber-600" /> Disabled per Bank Policy
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="text-[10px] text-gray-400 font-normal lowercase">(Optional)</span>
+                                                                        )}
+                                                                    </label>
+                                                                </div>
+                                                                <textarea
+                                                                    rows={2}
+                                                                    disabled={isCommentsDisabled || timeLeft.status !== 'OPEN' || isSubmitting || isDeskInputsLocked}
+                                                                    placeholder={isCommentsDisabled ? "Execution remarks are disabled for this institution per bank treasury desk compliance policy." : "Add any settlement notes, execution remarks, or comments for the treasury desk..."}
+                                                                    className={`w-full rounded-2xl px-4 py-3 text-xs font-medium transition-all outline-none resize-none ${
+                                                                        isCommentsDisabled 
+                                                                            ? "bg-slate-100/90 border border-slate-200 text-slate-400 cursor-not-allowed opacity-75 select-none" 
+                                                                            : "bg-slate-50 border border-slate-200 text-gray-800 focus:bg-white focus:ring-2 focus:ring-black/5 disabled:bg-slate-100 disabled:text-slate-400"
+                                                                    }`}
+                                                                    value={isCommentsDisabled ? '' : traderNotes}
+                                                                    onChange={(e) => !isCommentsDisabled && setTraderNotes(e.target.value)}
+                                                                />
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </div>
 
                                                 {/* Form Submit Action directly below */}
