@@ -4,12 +4,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { v4 as uuidv4 } from 'uuid'; 
 import { ArrowLeft, Loader2, Shield } from 'lucide-react';
+import HoneypotField from '../../components/Security/HoneypotField';
 
 function LoginPage({ onLoginSuccess }) {
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -41,7 +43,8 @@ function LoginPage({ onLoginSuccess }) {
           password: password,
           device_id: getOrCreateDeviceId(),
           remember_me: rememberMe,
-          device_name: navigator.userAgent.split(') ')[0] || "Web Browser"
+          device_name: navigator.userAgent.split(') ')[0] || "Web Browser",
+          website_url: websiteUrl,
         }),
       });
 
@@ -218,6 +221,9 @@ function LoginPage({ onLoginSuccess }) {
 
           {!showMfa ? (
             <form className="space-y-5" onSubmit={handleSubmit}>
+              {/* Zero-friction perimeter anti-bot honeypot trap */}
+              <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Email Address</label>
                 <input

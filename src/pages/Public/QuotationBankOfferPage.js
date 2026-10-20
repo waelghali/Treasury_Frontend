@@ -12,6 +12,7 @@ import {
 import tradingAudio from '../../utils/tradingAudioEngine';
 import TradeExecutionConfetti from '../../components/Quotations/TradeExecutionConfetti';
 import TradeAccoladePromotionToast from '../../components/Quotations/TradeAccoladePromotionToast';
+import HoneypotField from '../../components/Security/HoneypotField';
 import './quotation-animations.css';
 
 const DIRECT_BACKEND_URL = 'https://api.growbusinessdevelopment.com';
@@ -362,6 +363,7 @@ export default function QuotationBankOfferPage() {
     const [feedbackComment, setFeedbackComment] = useState('');
     const [feedbackIsAnonymous, setFeedbackIsAnonymous] = useState(false);
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+    const [websiteUrl, setWebsiteUrl] = useState('');
     const [feedbackSubmitted, setFeedbackSubmitted] = useState(() => {
         try {
             return localStorage.getItem(`quotation_feedback_submitted_${token}`) === 'true';
@@ -416,7 +418,8 @@ export default function QuotationBankOfferPage() {
                 category: feedbackCategory,
                 comment: feedbackComment,
                 is_anonymous: feedbackIsAnonymous,
-                dealer_email: authSession?.email || undefined
+                dealer_email: authSession?.email || undefined,
+                website_url: websiteUrl
             });
             setFeedbackSubmitted(true);
             try {
@@ -1540,7 +1543,8 @@ export default function QuotationBankOfferPage() {
         try {
             await quotationApi.post('/api/v1/public-quotation/request-otp', {
                 token,
-                email: targetEmail
+                email: targetEmail,
+                website_url: websiteUrl
             });
             setOtpSent(true);
         } catch (err) {
@@ -1564,7 +1568,8 @@ export default function QuotationBankOfferPage() {
             const res = await quotationApi.post('/api/v1/public-quotation/verify-otp', {
                 token,
                 email: targetEmail,
-                otp_code: otpCode.trim()
+                otp_code: otpCode.trim(),
+                website_url: websiteUrl
             });
             const session = res.data;
             setAuthSession(session);
@@ -2446,6 +2451,9 @@ export default function QuotationBankOfferPage() {
 
                             {!otpSent ? (
                                 <form onSubmit={handleRequestOtp} className="space-y-4">
+                                    {/* Zero-friction perimeter anti-bot honeypot trap */}
+                                    <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+
                                     <div className="text-left">
                                         <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
                                             <Mail size={13} className="text-blue-400" />
@@ -2479,6 +2487,9 @@ export default function QuotationBankOfferPage() {
                                 </form>
                             ) : (
                                 <form onSubmit={handleVerifyOtp} className="space-y-4">
+                                    {/* Zero-friction perimeter anti-bot honeypot trap */}
+                                    <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+
                                     <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700 text-left">
                                         <p className="text-xs text-slate-300">
                                             Access code sent to <strong className="text-white font-mono">{inputEmail}</strong>.
@@ -5435,6 +5446,9 @@ export default function QuotationBankOfferPage() {
                                     </div>
                                 ) : (
                                     <>
+                                        {/* Zero-friction perimeter anti-bot honeypot trap */}
+                                        <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+
                                         {/* Star Rating */}
                                         <div className="space-y-1.5 text-center">
                                             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">

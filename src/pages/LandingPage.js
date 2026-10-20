@@ -8,10 +8,11 @@ import {
   Send, Building2, Briefcase, ChevronRight,
   Clock, Users, BookOpen, TrendingUp, FileSpreadsheet
 } from 'lucide-react';
+import HoneypotField from '../components/Security/HoneypotField';
 
 function LandingPage() {
   const demoFormRef = useRef(null);
-  const [formData, setFormData] = useState({ name: '', company: '', email: '', phone: '', message: '' });
+  const [formData, setFormData] = useState({ name: '', company: '', email: '', phone: '', message: '', website_url: '' });
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -23,6 +24,14 @@ function LandingPage() {
   const handleDemoSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+
+    // Perimeter Anti-Bot Honeypot Defense
+    if (formData.website_url && formData.website_url.trim()) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      setFormError('Invalid request submission. Please verify your information.');
+      return;
+    }
+
     if (!formData.name || !formData.company || !formData.email || !formData.phone) {
       setFormError('Please fill out all required fields.');
       return;
@@ -470,6 +479,9 @@ function LandingPage() {
                 </div>
               ) : (
                 <form onSubmit={handleDemoSubmit} className="space-y-4">
+                  {/* Zero-friction perimeter anti-bot honeypot trap */}
+                  <HoneypotField name="website_url" value={formData.website_url} onChange={handleInputChange} />
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="name" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Name *</label>

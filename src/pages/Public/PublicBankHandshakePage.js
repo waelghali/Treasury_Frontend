@@ -6,6 +6,7 @@ import {
     ArrowRight, Check, RefreshCw, Mail, Calendar, Building2, UserCheck,
     KeyRound, Lock, Send, AlertTriangle, ShieldCheck, Timer
 } from 'lucide-react';
+import HoneypotField from '../../components/Security/HoneypotField';
 
 const DIRECT_BACKEND_URL = 'https://api.growbusinessdevelopment.com';
 
@@ -43,6 +44,7 @@ export default function PublicBankHandshakePage() {
     const [isLocked, setIsLocked] = useState(false);
     const [otpError, setOtpError] = useState(null);
     const [otpSuccessMessage, setOtpSuccessMessage] = useState(null);
+    const [websiteUrl, setWebsiteUrl] = useState('');
     const otpInputRef = useRef(null);
 
     // Cooldown countdown timer
@@ -128,7 +130,8 @@ export default function PublicBankHandshakePage() {
         setOtpSuccessMessage(null);
         try {
             setIsSendingOtp(true);
-            const res = await axios.post(`${API_BASE_URL}/api/v1/public-quotation/dealer-handshake/${token}/request-otp`);
+            const otpUrl = `${API_BASE_URL}/api/v1/public-quotation/dealer-handshake/${token}/request-otp${websiteUrl ? `?website_url=${encodeURIComponent(websiteUrl)}` : ''}`;
+            const res = await axios.post(otpUrl);
             setOtpSent(true);
             setCooldown(res.data.cooldown_seconds || 60);
             setOtpExpiresIn(res.data.expires_in_seconds || 300);
@@ -161,7 +164,7 @@ export default function PublicBankHandshakePage() {
                 ? `${API_BASE_URL}/api/v1/public-quotation/dealer-handshake/${token}/verify-otp`
                 : `${API_BASE_URL}/api/v1/public-quotation/bank-handshake/${token}/confirm`;
 
-            const res = await axios.post(endpoint, { otp: cleanOtp });
+            const res = await axios.post(endpoint, { otp: cleanOtp, website_url: websiteUrl });
             setConfirmedAt(res.data.accepted_at || res.data.confirmed_at || new Date().toISOString());
             setOtpSuccessMessage("Verification successful! Access confirmed and one-time link burned.");
         } catch (err) {
@@ -398,6 +401,9 @@ export default function PublicBankHandshakePage() {
                                     {!otpSent ? (
                                         /* Step 1: Request OTP */
                                         <div className="space-y-4 pt-2">
+                                            {/* Zero-friction perimeter anti-bot honeypot trap */}
+                                            <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+
                                             <div className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-300 text-left flex items-start gap-2.5">
                                                 <Mail className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                                                 <div>
@@ -428,6 +434,9 @@ export default function PublicBankHandshakePage() {
                                     ) : (
                                         /* Step 2: Enter & Verify 6-digit OTP */
                                         <form onSubmit={handleVerifyOtp} className="space-y-4 pt-2">
+                                            {/* Zero-friction perimeter anti-bot honeypot trap */}
+                                            <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+
                                             {otpSuccessMessage && (
                                                 <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-medium">
                                                     {otpSuccessMessage}

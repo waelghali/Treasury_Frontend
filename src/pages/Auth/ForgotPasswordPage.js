@@ -4,9 +4,11 @@ import { API_BASE_URL } from 'services/apiService';
 import { Mail, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import HoneypotField from '../../components/Security/HoneypotField';
 
 function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +29,7 @@ function ForgotPasswordPage() {
       await fetch(`${API_BASE_URL}/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, website_url: websiteUrl }),
       });
 
       setMessage('If an account with that email exists, a password reset link has been sent to your inbox.');
@@ -73,6 +75,9 @@ function ForgotPasswordPage() {
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
+            {/* Zero-friction perimeter anti-bot honeypot trap */}
+            <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+
             <div>
               <label htmlFor="email" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                 Email Address
