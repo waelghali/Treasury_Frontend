@@ -5,6 +5,7 @@ import { publicApiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 import { Helmet } from 'react-helmet-async';
 import { Loader2, Shield, Zap, Globe, Building2, UserCircle, Package, AlertCircle, ArrowRight, Upload } from 'lucide-react';
+import HoneypotField from '../../components/Security/HoneypotField';
 
 const benefits = [
   { icon: Shield, title: "Audit-Ready Controls", description: "Complete immutable audit trails and role-based maker-checker approvals." },
@@ -32,6 +33,7 @@ function FreeTrialRegistration() {
     modules_reconciliation: preselectedModule === 'reconciliation',
     commercial_register_document: null,
     accepted_terms: false,
+    website_url: '',
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -104,6 +106,7 @@ function FreeTrialRegistration() {
     data.append('requested_modules', modules.join(','));
     data.append('commercial_register_document', formData.commercial_register_document);
     data.append('accepted_terms', String(formData.accepted_terms));
+    data.append('website_url', formData.website_url || '');
 
     try {
       await publicApiRequest('/public/register-free-trial/', 'POST', data);
@@ -225,6 +228,8 @@ function FreeTrialRegistration() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-8">
+              {/* Zero-friction perimeter anti-bot honeypot trap */}
+              <HoneypotField name="website_url" value={formData.website_url} onChange={handleChange} />
 
               {/* ── Section: Organization Details ── */}
               <div>
