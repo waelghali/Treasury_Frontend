@@ -2372,13 +2372,38 @@ export default function ResultsView({ rfqId: propRfqId }) {
 
                                                             if (targetGcsUri.startsWith('gs://')) {
                                                                 try {
+                                                                    // Step 1: Exchange authenticated corporate session for ephemeral 15-min signed streaming ticket
+                                                                    const ticketRes = await apiClient.post('/quotations/documents/ticket', {
+                                                                        gcs_uri: targetGcsUri
+                                                                    });
+                                                                    const downloadPath = ticketRes.data?.download_url;
+                                                                    if (downloadPath) {
+                                                                        const apiBase = apiClient.defaults.baseURL || 'http://localhost:8000/api/v1';
+                                                                        const origin = apiBase.replace(/\/api\/v1\/?$/, '');
+                                                                        const fullUrl = `${origin}${downloadPath.startsWith('/') ? '' : '/'}${downloadPath}`;
+                                                                        window.open(fullUrl, '_blank');
+                                                                        return;
+                                                                    }
+                                                                } catch (ticketErr) {
+                                                                    console.warn("Direct ticket streaming acquisition fell through, falling back to blob:", ticketErr);
+                                                                }
+
+                                                                // Step 2: Safe fallback to authenticated blob download using an anchor element
+                                                                // (Avoids Chromium top-level blob URL sandbox restrictions where Edge displays "We can't open this file")
+                                                                try {
                                                                     const response = await apiClient.get(`/quotations/documents/download?gcs_uri=${encodeURIComponent(targetGcsUri)}`, {
                                                                         responseType: 'blob'
                                                                     });
                                                                     const contentType = response.headers['content-type'] || 'application/pdf';
                                                                     const blob = new Blob([response.data], { type: contentType });
                                                                     const blobUrl = window.URL.createObjectURL(blob);
-                                                                    window.open(blobUrl, '_blank');
+                                                                    const link = document.createElement('a');
+                                                                    link.href = blobUrl;
+                                                                    link.setAttribute('download', d.display_name || 'document.pdf');
+                                                                    document.body.appendChild(link);
+                                                                    link.click();
+                                                                    document.body.removeChild(link);
+                                                                    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 10000);
                                                                 } catch (err) {
                                                                     console.error("Failed to unseal document:", err);
                                                                     let detail = "Failed to unseal document.";

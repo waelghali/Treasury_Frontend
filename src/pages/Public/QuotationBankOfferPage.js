@@ -496,12 +496,9 @@ export default function QuotationBankOfferPage() {
                 const { download_url } = ticketRes.data;
                 const fullDownloadUrl = download_url.startsWith('http') ? download_url : `${API_BASE_URL}${download_url}`;
 
-                // Smooth in-browser streaming decryption
-                const response = await axios.get(fullDownloadUrl, { responseType: 'blob' });
-                const contentType = response.headers['content-type'] || 'application/pdf';
-                const blob = new Blob([response.data], { type: contentType });
-                const blobUrl = window.URL.createObjectURL(blob);
-                window.open(blobUrl, '_blank');
+                // Smooth in-browser streaming decryption natively via signed ticket URL
+                // Direct top-level HTTP navigation avoids Chromium blob sandbox error ("We can't open this file")
+                window.open(fullDownloadUrl, '_blank');
             } catch (err) {
                 console.error("Failed to unseal document:", err);
                 let detail = "Access Denied: Unable to unseal document.";
