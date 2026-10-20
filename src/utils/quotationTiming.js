@@ -99,6 +99,37 @@ export function getRfqTimingState(rfq) {
         };
     }
     if (rfq.status === 'REJECTED') {
+        // Disambiguation: Did acceptance time out, did the user explicitly decline, or did admin reject?
+        if (rfq.acceptance_status === 'AUTO_REJECTED') {
+            return {
+                badge: 'AUTO_REJECT_TIMEOUT',
+                label: 'Acceptance Timed Out',
+                counterpartyLabel: 'Acceptance Window Expired',
+                style: 'bg-amber-50 text-amber-800 border border-amber-300',
+                isLive: false,
+                isScheduled: false
+            };
+        }
+        if (rfq.acceptance_status === 'REJECTED' && (rfq.acceptance_resolved_by_user_id != null || rfq.acceptance_resolved_at)) {
+            return {
+                badge: 'USER_DECLINED',
+                label: 'Declined by User',
+                counterpartyLabel: 'Quotes Declined by Corporate',
+                style: 'bg-slate-100 text-slate-700 border border-slate-300',
+                isLive: false,
+                isScheduled: false
+            };
+        }
+        if (rfq.is_dispatched === false || rfq.admin_reviewed_at) {
+            return {
+                badge: 'ADMIN_REJECTED',
+                label: 'Rejected by Admin',
+                counterpartyLabel: 'Rejected by Corporate Admin',
+                style: 'bg-red-50 text-red-700 border border-red-200',
+                isLive: false,
+                isScheduled: false
+            };
+        }
         return {
             badge: 'REJECTED',
             label: 'Rejected',
@@ -109,6 +140,16 @@ export function getRfqTimingState(rfq) {
         };
     }
     if (rfq.status === 'EXPIRED') {
+        if (rfq.is_dispatched === false && !rfq.admin_reviewed_at) {
+            return {
+                badge: 'APPROVAL_EXPIRED',
+                label: 'Approval Expired',
+                counterpartyLabel: 'Unapproved Window Expired',
+                style: 'bg-slate-100 text-slate-500 border border-slate-200',
+                isLive: false,
+                isScheduled: false
+            };
+        }
         return {
             badge: 'EXPIRED',
             label: 'Expired',
@@ -119,11 +160,38 @@ export function getRfqTimingState(rfq) {
         };
     }
     if (rfq.status === 'COMPLETED' || rfq.status === 'TRADED') {
+        const hasWinner = Boolean(
+            rfq.winner_bank_name ||
+            (rfq.legs && rfq.legs.length > 0 && rfq.legs.some(l => l.winner_bank_name))
+        );
+
+        if (!hasWinner || rfq.acceptance_status === 'NO_QUOTES') {
+            return {
+                badge: 'NO_QUOTES',
+                label: 'No Quotes (Inconclusive)',
+                counterpartyLabel: 'No Quotes (Inconclusive)',
+                style: 'bg-slate-100 text-slate-600 border border-slate-200',
+                isLive: false,
+                isScheduled: false
+            };
+        }
+
+        if (rfq.acceptance_status === 'AUTO_ACCEPTED') {
+            return {
+                badge: 'AUTO_ACCEPTED',
+                label: 'Auto-Executed',
+                counterpartyLabel: rfq.winner_bank_name ? `@ ${typeof rfq.winner_rate === 'number' ? rfq.winner_rate.toFixed(4) : rfq.winner_rate}` : 'Trade Auto-Executed',
+                style: 'bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold',
+                isLive: false,
+                isScheduled: false
+            };
+        }
+
         return {
-            badge: 'COMPLETED',
-            label: 'Completed',
+            badge: 'TRADED',
+            label: 'Traded / Executed',
             counterpartyLabel: rfq.winner_bank_name ? `@ ${typeof rfq.winner_rate === 'number' ? rfq.winner_rate.toFixed(4) : rfq.winner_rate}` : 'Trade Finalized',
-            style: 'bg-emerald-100 text-emerald-800',
+            style: 'bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold',
             isLive: false,
             isScheduled: false
         };
