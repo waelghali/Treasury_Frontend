@@ -32,6 +32,13 @@ const formatDate = (d) => {
     }
 };
 
+const formatFileSize = (bytes) => {
+    if (!bytes || bytes <= 0) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 const findDuplicatePairConflict = (pairsList) => {
     if (!pairsList || pairsList.length <= 1) return null;
     for (let i = 0; i < pairsList.length; i++) {
@@ -3857,39 +3864,50 @@ export default function QuotationRequestDashboard() {
                     </section>
 
                     {/* Documents Section */}
-                    <section className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100">
-                        <h3 className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-1 flex items-center gap-2">
-                            <FileText size={14} /> Supporting Documents
-                        </h3>
+                    <section className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100 shadow-2xs">
+                        <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+                            <h3 className="text-xs font-bold uppercase tracking-widest text-blue-600 flex items-center gap-2">
+                                <FileText size={14} /> Supporting Documents
+                            </h3>
+                            {(existingDocs.length > 0 || files.length > 0) && (
+                                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                                    {existingDocs.length + files.length} attached
+                                </span>
+                            )}
+                        </div>
                         <p className="text-[11px] text-gray-500 mb-4 leading-relaxed">
                             Upload commercial invoices, purchase orders, or trade contracts. In multi-pair tenders, each file can be scoped to a specific currency pair leg so uninvited or non-visible counterparties never receive it.
                         </p>
 
-                        {/* Confidentiality & Release Guard */}
-                        <div className="mb-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start justify-between gap-3 flex-wrap">
-                            <div className="flex items-start gap-3 max-w-xl">
+                        {/* Confidentiality & Release Policy Toggle */}
+                        <div className="mb-4 p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                                    <Lock size={13} />
+                                </div>
+                                <div className="min-w-0">
+                                    <label htmlFor="releaseDocsToWinnerOnly" className="cursor-pointer text-xs font-bold text-slate-900 block select-none">
+                                        Default attachments to Winner-Only release
+                                    </label>
+                                    <p className="text-[11px] text-slate-500 truncate leading-tight">
+                                        When enabled, trade documents stay sealed and are released only to the winning bank.
+                                    </p>
+                                </div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input
                                     type="checkbox"
                                     id="releaseDocsToWinnerOnly"
                                     checked={releaseDocsToWinnerOnly}
                                     onChange={e => setReleaseDocsToWinnerOnly(e.target.checked)}
-                                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                    className="sr-only peer"
                                 />
-                                <label htmlFor="releaseDocsToWinnerOnly" className="cursor-pointer select-none">
-                                    <span className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                                        <Lock size={13} className="text-indigo-600" /> Default new attachments to Winner-Only release
-                                    </span>
-                                    <span className="text-[11px] text-gray-500 block mt-0.5 leading-relaxed">
-                                        When enabled, new trade documents default to Winner-Only release. Each file below can also be customized individually or marked as <strong>Internal Use Only</strong>.
-                                    </span>
-                                </label>
-                            </div>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 flex items-center gap-1 shrink-0">
-                                🛡️ Phase 12 Orthogonal Governance
-                            </span>
+                                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
                         </div>
 
-                        <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center hover:border-black/20 hover:bg-gray-50 transition-all cursor-pointer relative overflow-hidden group">
+                        {/* Drag and Drop Zone */}
+                        <div className="border-2 border-dashed border-gray-200 rounded-2xl p-5 text-center hover:border-black/20 hover:bg-gray-50/70 transition-all cursor-pointer relative overflow-hidden group">
                             <input
                                 type="file"
                                 multiple
@@ -3906,47 +3924,88 @@ export default function QuotationRequestDashboard() {
                                     }
                                 }}
                             />
-                            <Plus className="mx-auto text-gray-300 group-hover:text-black mb-2 transition-colors" />
-                            <p className="text-xs sm:text-sm text-gray-500">Click or drag to attach files (Multiple allowed)</p>
+                            <Plus className="mx-auto text-gray-300 group-hover:text-black mb-1.5 transition-colors" size={20} />
+                            <p className="text-xs sm:text-sm font-medium text-gray-700">Click or drag to attach files</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">PDF, DOCX, XLSX, PNG, JPG (multiple files allowed)</p>
                         </div>
 
                         {/* Existing Attachments from previous submission */}
                         {existingDocs.length > 0 && (
-                            <div className="mt-4 space-y-2">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Attached Documents</span>
+                            <div className="mt-4 space-y-2.5">
+                                <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                    <span>Attached Documents</span>
+                                    <span>{existingDocs.length}</span>
+                                </div>
                                 {existingDocs.map((doc, idx) => {
                                     const isInternal = Boolean(doc.is_internal_only || doc.scope === 'INTERNAL_ONLY');
                                     const timing = doc.release_timing || (releaseDocsToWinnerOnly ? 'WINNER_ONLY' : 'BIDDING');
                                     const assignedScope = isInternal ? 'INTERNAL_ONLY' : (doc.leg_index !== null && doc.leg_index !== undefined ? `LEG_${doc.leg_index}` : 'ALL_PAIRS');
 
                                     return (
-                                        <div key={`existing-${idx}`} className={`p-3 rounded-xl border text-xs gap-3 flex flex-col md:flex-row md:items-center justify-between transition-all ${isInternal ? 'bg-amber-50/70 border-amber-200' : 'bg-slate-50/90 border-slate-200'}`}>
-                                            <div className="flex items-center gap-2.5 min-w-0 max-w-full md:max-w-[280px]">
-                                                <FileText size={15} className={isInternal ? "text-amber-600 shrink-0" : "text-blue-500 shrink-0"} />
-                                                <div className="truncate">
-                                                    <span className="font-semibold text-gray-900 block truncate">{doc.name || doc.filename || 'Document'}</span>
-                                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                                        {isInternal ? (
-                                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                                                                🔒 Internal Vault (100% Bank Air-Gap)
-                                                            </span>
-                                                        ) : timing === 'WINNER_ONLY' ? (
-                                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                                                🏆 Winner Only
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                                ⚡ During Bidding
-                                                            </span>
-                                                        )}
+                                        <div
+                                            key={`existing-${idx}`}
+                                            className={`p-3 rounded-xl border text-xs transition-all ${
+                                                isInternal
+                                                    ? 'bg-amber-50/60 border-amber-200/90 shadow-2xs'
+                                                    : timing === 'WINNER_ONLY'
+                                                    ? 'bg-indigo-50/30 border-indigo-100 shadow-2xs'
+                                                    : 'bg-slate-50/80 border-slate-200 shadow-2xs'
+                                            }`}
+                                        >
+                                            {/* Header Row: Icon, File name, Badge, Remove button */}
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                                        isInternal
+                                                            ? 'bg-amber-100 text-amber-700'
+                                                            : timing === 'WINNER_ONLY'
+                                                            ? 'bg-indigo-100 text-indigo-700'
+                                                            : 'bg-blue-100 text-blue-600'
+                                                    }`}>
+                                                        <FileText size={15} />
                                                     </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <span className="font-semibold text-slate-900 block truncate text-xs" title={doc.name || doc.filename || 'Document'}>
+                                                            {doc.name || doc.filename || 'Document'}
+                                                        </span>
+                                                        {doc.size ? (
+                                                            <span className="text-[10px] text-slate-400 font-medium">
+                                                                {formatFileSize(doc.size)}
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    {isInternal ? (
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1 shadow-2xs">
+                                                            🔒 Internal Vault
+                                                        </span>
+                                                    ) : timing === 'WINNER_ONLY' ? (
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1 shadow-2xs">
+                                                            🏆 Winner Only
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                                                            ⚡ During Bidding
+                                                        </span>
+                                                    )}
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setExistingDocs(prev => prev.filter((_, i) => i !== idx))}
+                                                        className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                                                        title="Remove document"
+                                                    >
+                                                        <Trash2 size={13} />
+                                                    </button>
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                                                {/* Dimension 1: Scope */}
-                                                <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-2xs">
-                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Scope:</span>
+                                            {/* Controls Row: Scope dropdown + Timing dropdown (or Air-Gap banner) */}
+                                            <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2 flex-wrap">
+                                                <div className="flex items-center gap-1.5 flex-1 min-w-[170px]">
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Scope:</span>
                                                     <select
                                                         value={assignedScope}
                                                         onChange={e => {
@@ -3982,7 +4041,7 @@ export default function QuotationRequestDashboard() {
                                                                 } : d));
                                                             }
                                                         }}
-                                                        className="text-[11px] font-semibold bg-transparent text-gray-800 cursor-pointer outline-none"
+                                                        className="w-full text-[11px] font-semibold bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-800 shadow-2xs cursor-pointer outline-none focus:border-blue-500"
                                                     >
                                                         <option value="ALL_PAIRS">🌐 All Pairs (Global)</option>
                                                         {formData.type === 'FX_SPOT' && pairs.map((p, pIdx) => (
@@ -3990,36 +4049,31 @@ export default function QuotationRequestDashboard() {
                                                                 🎯 Leg {pIdx + 1}: {p.buyCurrency || 'BUY'}/{p.sellCurrency || 'SELL'}
                                                             </option>
                                                         ))}
-                                                        <option value="INTERNAL_ONLY">🔒 Internal Use Only (Customer Vault)</option>
+                                                        <option value="INTERNAL_ONLY">🔒 Internal Use Only (Vault)</option>
                                                     </select>
                                                 </div>
 
-                                                {/* Dimension 2: Release Timing (Active only when not internal) */}
-                                                {!isInternal && (
-                                                    <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-2xs">
-                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Timing:</span>
+                                                {!isInternal ? (
+                                                    <div className="flex items-center gap-1.5 min-w-[135px]">
+                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Timing:</span>
                                                         <select
                                                             value={timing}
                                                             onChange={e => {
                                                                 const val = e.target.value;
                                                                 setExistingDocs(prev => prev.map((d, i) => i === idx ? { ...d, release_timing: val } : d));
                                                             }}
-                                                            className="text-[11px] font-semibold bg-transparent text-gray-800 cursor-pointer outline-none"
+                                                            className="w-full text-[11px] font-semibold bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-800 shadow-2xs cursor-pointer outline-none focus:border-blue-500"
                                                         >
                                                             <option value="BIDDING">⚡ During Bidding</option>
                                                             <option value="WINNER_ONLY">🏆 Winner Only</option>
                                                         </select>
                                                     </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-1 text-[10px] text-amber-800 bg-amber-100/70 border border-amber-200/80 px-2 py-1 rounded-lg">
+                                                        <Shield size={11} className="text-amber-700 shrink-0" />
+                                                        <span className="font-semibold">100% Bank Air-Gap &bull; Hidden from counterparties</span>
+                                                    </div>
                                                 )}
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setExistingDocs(prev => prev.filter((_, i) => i !== idx))}
-                                                    className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 font-bold text-xs shrink-0 cursor-pointer transition-colors"
-                                                    title="Remove document"
-                                                >
-                                                    Remove
-                                                </button>
                                             </div>
                                         </div>
                                     );
@@ -4028,8 +4082,11 @@ export default function QuotationRequestDashboard() {
                         )}
 
                         {files.length > 0 && (
-                            <div className="mt-4 space-y-2">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">New Files</span>
+                            <div className="mt-4 space-y-2.5">
+                                <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                    <span>New Files</span>
+                                    <span>{files.length}</span>
+                                </div>
                                 {files.map((f, idx) => {
                                     const fileKey = f._uid || `file-${idx}`;
                                     const meta = fileLegMap[fileKey] || fileLegMap[idx] || {};
@@ -4038,33 +4095,78 @@ export default function QuotationRequestDashboard() {
                                     const assignedScope = isInternal ? 'INTERNAL_ONLY' : (meta.leg_index !== null && meta.leg_index !== undefined ? `LEG_${meta.leg_index}` : (meta.scope || 'ALL_PAIRS'));
 
                                     return (
-                                        <div key={fileKey} className={`p-3 rounded-xl border text-xs gap-3 flex flex-col md:flex-row md:items-center justify-between transition-all ${isInternal ? 'bg-amber-50/70 border-amber-200' : 'bg-slate-50/90 border-slate-200'}`}>
-                                            <div className="flex items-center gap-2.5 min-w-0 max-w-full md:max-w-[280px]">
-                                                <FileText size={15} className={isInternal ? "text-amber-600 shrink-0" : "text-gray-400 shrink-0"} />
-                                                <div className="truncate">
-                                                    <span className="font-semibold text-gray-900 block truncate">{f.name}</span>
-                                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                                        {isInternal ? (
-                                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                                                                🔒 Internal Vault (100% Bank Air-Gap)
-                                                            </span>
-                                                        ) : timing === 'WINNER_ONLY' ? (
-                                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                                                🏆 Winner Only
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                                ⚡ During Bidding
-                                                            </span>
-                                                        )}
+                                        <div
+                                            key={fileKey}
+                                            className={`p-3 rounded-xl border text-xs transition-all ${
+                                                isInternal
+                                                    ? 'bg-amber-50/60 border-amber-200/90 shadow-2xs'
+                                                    : timing === 'WINNER_ONLY'
+                                                    ? 'bg-indigo-50/30 border-indigo-100 shadow-2xs'
+                                                    : 'bg-slate-50/80 border-slate-200 shadow-2xs'
+                                            }`}
+                                        >
+                                            {/* Header Row: Icon, File name, Badge, Remove button */}
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                                        isInternal
+                                                            ? 'bg-amber-100 text-amber-700'
+                                                            : timing === 'WINNER_ONLY'
+                                                            ? 'bg-indigo-100 text-indigo-700'
+                                                            : 'bg-blue-100 text-blue-600'
+                                                    }`}>
+                                                        <FileText size={15} />
                                                     </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <span className="font-semibold text-slate-900 block truncate text-xs" title={f.name}>
+                                                            {f.name}
+                                                        </span>
+                                                        {f.size ? (
+                                                            <span className="text-[10px] text-slate-400 font-medium">
+                                                                {formatFileSize(f.size)}
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    {isInternal ? (
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1 shadow-2xs">
+                                                            🔒 Internal Vault
+                                                        </span>
+                                                    ) : timing === 'WINNER_ONLY' ? (
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1 shadow-2xs">
+                                                            🏆 Winner Only
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                                                            ⚡ During Bidding
+                                                        </span>
+                                                    )}
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setFiles(prev => prev.filter(item => (item._uid ? item._uid !== f._uid : item !== f)));
+                                                            setFileLegMap(prev => {
+                                                                const copy = { ...prev };
+                                                                delete copy[fileKey];
+                                                                delete copy[idx];
+                                                                return copy;
+                                                            });
+                                                        }}
+                                                        className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                                                        title="Remove document"
+                                                    >
+                                                        <Trash2 size={13} />
+                                                    </button>
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                                                {/* Dimension 1: Scope */}
-                                                <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-2xs">
-                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Scope:</span>
+                                            {/* Controls Row: Scope dropdown + Timing dropdown (or Air-Gap banner) */}
+                                            <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2 flex-wrap">
+                                                <div className="flex items-center gap-1.5 flex-1 min-w-[170px]">
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Scope:</span>
                                                     <select
                                                         value={assignedScope}
                                                         onChange={e => {
@@ -4103,7 +4205,7 @@ export default function QuotationRequestDashboard() {
                                                                 [idx]: { ...(prev[idx] || {}), ...update }
                                                             }));
                                                         }}
-                                                        className="text-[11px] font-semibold bg-transparent text-gray-800 cursor-pointer outline-none"
+                                                        className="w-full text-[11px] font-semibold bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-800 shadow-2xs cursor-pointer outline-none focus:border-blue-500"
                                                     >
                                                         <option value="ALL_PAIRS">🌐 All Pairs (Global)</option>
                                                         {formData.type === 'FX_SPOT' && pairs.map((p, pIdx) => (
@@ -4111,14 +4213,13 @@ export default function QuotationRequestDashboard() {
                                                                 🎯 Leg {pIdx + 1}: {p.buyCurrency || 'BUY'}/{p.sellCurrency || 'SELL'}
                                                             </option>
                                                         ))}
-                                                        <option value="INTERNAL_ONLY">🔒 Internal Use Only (Customer Vault)</option>
+                                                        <option value="INTERNAL_ONLY">🔒 Internal Use Only (Vault)</option>
                                                     </select>
                                                 </div>
 
-                                                {/* Dimension 2: Release Timing (Active only when not internal) */}
-                                                {!isInternal && (
-                                                    <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-2xs">
-                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Timing:</span>
+                                                {!isInternal ? (
+                                                    <div className="flex items-center gap-1.5 min-w-[135px]">
+                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Timing:</span>
                                                         <select
                                                             value={timing}
                                                             onChange={e => {
@@ -4129,30 +4230,18 @@ export default function QuotationRequestDashboard() {
                                                                     [idx]: { ...(prev[idx] || {}), release_timing: val }
                                                                 }));
                                                             }}
-                                                            className="text-[11px] font-semibold bg-transparent text-gray-800 cursor-pointer outline-none"
+                                                            className="w-full text-[11px] font-semibold bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-800 shadow-2xs cursor-pointer outline-none focus:border-blue-500"
                                                         >
                                                             <option value="BIDDING">⚡ During Bidding</option>
                                                             <option value="WINNER_ONLY">🏆 Winner Only</option>
                                                         </select>
                                                     </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-1 text-[10px] text-amber-800 bg-amber-100/70 border border-amber-200/80 px-2 py-1 rounded-lg">
+                                                        <Shield size={11} className="text-amber-700 shrink-0" />
+                                                        <span className="font-semibold">100% Bank Air-Gap &bull; Hidden from counterparties</span>
+                                                    </div>
                                                 )}
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setFiles(prev => prev.filter(item => (item._uid ? item._uid !== f._uid : item !== f)));
-                                                        setFileLegMap(prev => {
-                                                            const copy = { ...prev };
-                                                            delete copy[fileKey];
-                                                            delete copy[idx];
-                                                            return copy;
-                                                        });
-                                                    }}
-                                                    className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 font-bold text-xs shrink-0 cursor-pointer transition-colors"
-                                                    title="Remove document"
-                                                >
-                                                    Remove
-                                                </button>
                                             </div>
                                         </div>
                                     );
