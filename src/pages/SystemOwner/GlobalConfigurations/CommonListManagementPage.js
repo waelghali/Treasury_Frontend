@@ -67,6 +67,7 @@ const formatFieldLabel = (field) => {
     description: 'Description',
     portal_access_enabled: 'Portal Access',
     allow_dealer_comments: 'Trader Comments',
+    allow_dealer_feedback: 'Trader Feedback',
     is_mandatory: 'Mandatory',
     is_active: 'Active',
     is_global: 'Universal Global',
@@ -131,6 +132,7 @@ function CommonListManagementPage({ onLogout }) {
   const [togglingDealerId, setTogglingDealerId] = useState(null);
   const [togglingBankId, setTogglingBankId] = useState(null);
   const [togglingCommentsBankId, setTogglingCommentsBankId] = useState(null);
+  const [togglingFeedbackBankId, setTogglingFeedbackBankId] = useState(null);
   const [resettingDealerId, setResettingDealerId] = useState(null);
   const [unlockingDealerId, setUnlockingDealerId] = useState(null);
 
@@ -182,7 +184,7 @@ function CommonListManagementPage({ onLogout }) {
       case 'banks': return {
         endpoint: '/system-owner/banks',
         title: 'Banks',
-        fields: ['name', 'short_name', 'swift_code', 'email_domain', 'portal_access_enabled', 'allow_dealer_comments', 'phone_number', 'fax', 'address', 'former_names'],
+        fields: ['name', 'short_name', 'swift_code', 'email_domain', 'portal_access_enabled', 'allow_dealer_comments', 'allow_dealer_feedback', 'phone_number', 'fax', 'address', 'former_names'],
         uniqueField: 'name',
         icon: Building2
       };
@@ -374,6 +376,25 @@ function CommonListManagementPage({ onLogout }) {
       toast.error('Failed to update trader comments setting: ' + (err.message || 'Error'));
     } finally {
       setTogglingCommentsBankId(null);
+    }
+  };
+
+  // Toggle Trader Feedback for entire bank
+  const handleToggleBankDealerFeedback = async (bank) => {
+    const currentStatus = bank.allow_dealer_feedback !== false;
+    const nextStatus = !currentStatus;
+    setTogglingFeedbackBankId(bank.id);
+    try {
+      await apiRequest(`/system-owner/banks/${bank.id}/dealer-feedback`, 'PUT', { allow_dealer_feedback: nextStatus });
+      setItems(prev => prev.map(b => b.id === bank.id ? { ...b, allow_dealer_feedback: nextStatus } : b));
+      if (dealersModalBank && dealersModalBank.id === bank.id) {
+        setDealersModalBank(prev => ({ ...prev, allow_dealer_feedback: nextStatus }));
+      }
+      toast.success(`Trader feedback ${nextStatus ? 'enabled' : 'disabled'} for ${bank.name}.`);
+    } catch (err) {
+      toast.error('Failed to update trader feedback setting: ' + (err.message || 'Error'));
+    } finally {
+      setTogglingFeedbackBankId(null);
     }
   };
 
@@ -900,6 +921,30 @@ function CommonListManagementPage({ onLogout }) {
                         );
                       }
 
+                      if (field === 'allow_dealer_feedback') {
+                        const isEnabled = val !== false;
+                        const isToggling = togglingFeedbackBankId === item.id;
+                        return (
+                          <td key={field} className="py-3 px-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isEnabled}
+                                  disabled={isToggling || item.is_deleted}
+                                  onChange={() => handleToggleBankDealerFeedback(item)}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-indigo-600 disabled:opacity-50"></div>
+                              </label>
+                              <span className={`text-[11px] font-bold ${isEnabled ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-400'}`}>
+                                {isToggling ? 'Updating...' : (isEnabled ? 'Allowed' : 'Disabled')}
+                              </span>
+                            </div>
+                          </td>
+                        );
+                      }
+
                       if (['is_mandatory', 'is_active', 'is_global', 'is_default'].includes(field) || field.startsWith('is_')) {
                         return (
                           <td key={field} className="py-3 px-4 whitespace-nowrap">
@@ -1066,6 +1111,27 @@ function CommonListManagementPage({ onLogout }) {
                     className="text-[11px] font-semibold px-2 py-0.5 rounded border border-slate-300 hover:bg-slate-100 text-slate-700 transition-all cursor-pointer"
                   >
                     {togglingCommentsBankId === dealersModalBank.id ? 'Updating...' : (dealersModalBank.allow_dealer_comments !== false ? 'Dim Comments' : 'Allow Comments')}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 pl-3 border-l border-slate-200 dark:border-slate-700">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Trader Feedback:
+                  </span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                    dealersModalBank.allow_dealer_feedback !== false
+                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                      : 'bg-slate-100 text-slate-600 border border-slate-300'
+                  }`}>
+                    {dealersModalBank.allow_dealer_feedback !== false ? 'Allowed' : 'Disabled'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleBankDealerFeedback(dealersModalBank)}
+                    disabled={togglingFeedbackBankId === dealersModalBank.id}
+                    className="text-[11px] font-semibold px-2 py-0.5 rounded border border-slate-300 hover:bg-slate-100 text-slate-700 transition-all cursor-pointer"
+                  >
+                    {togglingFeedbackBankId === dealersModalBank.id ? 'Updating...' : (dealersModalBank.allow_dealer_feedback !== false ? 'Disable Feedback' : 'Allow Feedback')}
                   </button>
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Trash2, Edit2, CheckCircle2, X, Building, UserCheck, Eye, Shield, Mail, User, ChevronDown, ArrowLeft, RefreshCw, Clock, Copy, Check, Lock } from 'lucide-react';
+import { Plus, Search, Trash2, Edit2, CheckCircle2, X, Building, UserCheck, Eye, Shield, Mail, User, ChevronDown, ArrowLeft, RefreshCw, Clock, Copy, Check, Lock, MessageSquareOff } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 
 export default function QuotationBanksModal({ onClose }) {
@@ -685,6 +685,11 @@ export default function QuotationBanksModal({ onClose }) {
                                                                     {bank.bank?.allow_dealer_comments === false && (
                                                                         <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded" title="Trader execution comments are dimmed on the quotation portal per this bank's institutional policy">
                                                                             <Lock size={9} className="text-slate-400" /> Comments Dimmed
+                                                                        </span>
+                                                                    )}
+                                                                    {bank.bank?.allow_dealer_feedback === false && (
+                                                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded" title="Dealer feedback rating and prompt are disabled on the quotation portal per this bank's institutional policy">
+                                                                            <MessageSquareOff size={9} className="text-amber-600" /> Feedback Disabled
                                                                         </span>
                                                                     )}
                                                                 </div>

@@ -381,6 +381,7 @@ export default function QuotationBankOfferPage() {
 
     // Proactive feedback prompt: ONLY ONCE per tender, and ONLY after the quotation is 100% finished & concluded with zero trading heat
     useEffect(() => {
+        if (rfq?.allow_dealer_feedback === false) return;
         try {
             const alreadyPrompted = localStorage.getItem(`quotation_feedback_prompted_${token}`);
             const alreadySubmitted = localStorage.getItem(`quotation_feedback_submitted_${token}`);
@@ -3147,18 +3148,20 @@ export default function QuotationBankOfferPage() {
                                     })}
                                 </div>
 
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsFeedbackModalOpen(true);
-                                        setShowFeedbackToast(false);
-                                    }}
-                                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-lg transition-all cursor-pointer shadow-2xs mr-1"
-                                    title="Share direct feedback on your quotation terminal experience"
-                                >
-                                    <MessageSquare size={13} className="text-indigo-500" />
-                                    <span>Feedback</span>
-                                </button>
+                                {rfq?.allow_dealer_feedback !== false && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsFeedbackModalOpen(true);
+                                            setShowFeedbackToast(false);
+                                        }}
+                                        className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-lg transition-all cursor-pointer shadow-2xs mr-1"
+                                        title="Share direct feedback on your quotation terminal experience"
+                                    >
+                                        <MessageSquare size={13} className="text-indigo-500" />
+                                        <span>Feedback</span>
+                                    </button>
+                                )}
 
                                 <div className="h-4 w-px bg-slate-200 hidden sm:block mx-1" />
 
@@ -5346,7 +5349,7 @@ export default function QuotationBankOfferPage() {
                 )}
 
                 {/* PHASE 7.2: OPTIONAL POST-QUOTE EXPERIENCE TOAST */}
-                {showFeedbackToast && !feedbackSubmitted && (
+                {showFeedbackToast && !feedbackSubmitted && rfq?.allow_dealer_feedback !== false && (
                     <div className="fixed bottom-5 right-5 z-50 animate-slideUp">
                         <div className="bg-slate-900/95 backdrop-blur-md text-white p-4 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center gap-3.5 max-w-md">
                             <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
@@ -5391,7 +5394,7 @@ export default function QuotationBankOfferPage() {
                 )}
 
                 {/* PHASE 7.2: COMPACT DEALER FEEDBACK MODAL */}
-                {isFeedbackModalOpen && (
+                {isFeedbackModalOpen && rfq?.allow_dealer_feedback !== false && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-955/60 backdrop-blur-xs animate-fadeIn">
                         <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-scaleUp">
                             {/* Modal Header */}
