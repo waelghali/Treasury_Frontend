@@ -421,6 +421,9 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                                 <Smartphone className="w-4 h-4 text-emerald-400/70 mr-3 shrink-0" />
                                 <input
                                     type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    autoComplete="one-time-code"
                                     maxLength={6}
                                     value={totpCode}
                                     onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
@@ -587,6 +590,9 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                                 <div>
                                     <input
                                         type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        autoComplete="one-time-code"
                                         maxLength={6}
                                         value={emailOtp}
                                         onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ''))}
@@ -668,6 +674,9 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                                         <Smartphone className="w-4 h-4 text-emerald-400/80 mr-3 shrink-0" />
                                         <input
                                             type="text"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            autoComplete="one-time-code"
                                             maxLength={6}
                                             value={totpCode}
                                             onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
@@ -836,6 +845,9 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                                 <div>
                                     <input
                                         type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        autoComplete="one-time-code"
                                         maxLength={6}
                                         value={emailOtp}
                                         onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ''))}
@@ -917,6 +929,9 @@ export default function BankDealerAuthPage({ initialMode = 'login' }) {
                                         <Smartphone className="w-4 h-4 text-sky-400/80 mr-3 shrink-0" />
                                         <input
                                             type="text"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            autoComplete="one-time-code"
                                             maxLength={6}
                                             value={totpCode}
                                             onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}

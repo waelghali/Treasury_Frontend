@@ -258,6 +258,9 @@ function LoginPage({ onLoginSuccess }) {
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Enter 6-Digit Code</label>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="one-time-code"
                   maxLength="6"
                   required
                   autoFocus

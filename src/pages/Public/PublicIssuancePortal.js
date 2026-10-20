@@ -208,6 +208,9 @@ export default function PublicIssuancePortal() {
                 <div>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="one-time-code"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
                     placeholder="000000"

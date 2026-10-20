@@ -2494,13 +2494,16 @@ export default function QuotationBankOfferPage() {
                                         </label>
                                         <input
                                             type="text"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            autoComplete="one-time-code"
                                             required
                                             maxLength={6}
                                             placeholder="123456"
                                             autoFocus
                                             className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-center text-xl font-mono tracking-widest outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                                             value={otpCode}
-                                            onChange={(e) => setOtpCode(e.target.value)}
+                                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                                         />
                                         <div className="flex justify-between items-center text-[11px] text-slate-400 mt-1.5 px-0.5">
                                             <span>Didn't receive or code expired?</span>
