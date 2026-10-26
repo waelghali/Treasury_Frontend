@@ -9,6 +9,7 @@ import {
 import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner';
 import { apiRequest } from '../../services/apiService';
+import MobileAlertsControl from '../MobileAlertsControl';
 import { fetchActiveSystemNotifications } from '../../services/notificationService';
 import { parseISO } from 'date-fns';
 
@@ -889,6 +890,9 @@ function CorporateAdminLayout({
               ))}
             </div>
           )}
+          <div className="sticky bottom-0 bg-white rounded-b-xl">
+            <MobileAlertsControl />
+          </div>
         </div>
       )}
 

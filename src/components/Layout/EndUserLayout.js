@@ -10,6 +10,7 @@ import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner';
 import { fetchActiveSystemNotifications } from '../../services/notificationService';
 import { apiRequest } from '../../services/apiService';
+import MobileAlertsControl from '../MobileAlertsControl';
 import { parseISO } from 'date-fns';
 
 function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, headerTitle, subscriptionStatus, subscriptionEndDate, userPermissions, hasCustodyModule, hasIssuanceModule, hasQuotationModule = true, hasReconciliationModule = true }) {
@@ -621,6 +622,9 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
               ))}
             </div>
           )}
+          <div className="sticky bottom-0 bg-white rounded-b-xl">
+            <MobileAlertsControl />
+          </div>
         </div>
       )}
 
