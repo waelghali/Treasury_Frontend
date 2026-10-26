@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, ExternalLink, X, CheckCheck, Clock, AlertTriangle, ShieldAlert, FileText, Building2, Settings, Info } from 'lucide-react';
+import { Bell, Check, ExternalLink, X, CheckCheck, Clock, AlertTriangle, ShieldAlert, FileText, Building2, Settings, Info, CheckCircle2, XCircle } from 'lucide-react';
 import apiClient from '../services/apiClient';
 import { useNavigate } from 'react-router-dom';
 
@@ -17,16 +17,38 @@ function timeAgo(dateStr) {
 }
 
 // ─── Notification type → icon + color ───────────────────────────
+// UserNotification.event_type values are partly dynamic
+// (e.g. MAINTENANCE_{action}_APPROVED, BANK_INITIATED_{action}),
+// so exact keys are checked first, then outcome patterns.
+const TYPE_STYLES = {
+    pending: { icon: Clock, color: 'text-amber-500 bg-amber-50' },
+    success: { icon: CheckCircle2, color: 'text-emerald-600 bg-emerald-50' },
+    negative: { icon: XCircle, color: 'text-red-500 bg-red-50' },
+    bank: { icon: Building2, color: 'text-blue-500 bg-blue-50' },
+    warning: { icon: AlertTriangle, color: 'text-orange-500 bg-orange-50' },
+    risk: { icon: ShieldAlert, color: 'text-red-500 bg-red-50' },
+    document: { icon: FileText, color: 'text-orange-500 bg-orange-50' },
+    info: { icon: Info, color: 'text-slate-500 bg-slate-50' },
+};
+
+const EXACT_TYPE_MAP = {
+    LG_ISSUED: 'success',
+    LG_EXPIRED: 'risk',
+    ISSUANCE_LG_EXPIRY: 'pending',
+    REFERENCE_EXPIRY: 'document',
+    FACILITY_UTILIZATION: 'risk',
+    cbe: 'bank',
+};
+
 function getTypeIcon(type) {
-    const map = {
-        LG_EXPIRED: { icon: AlertTriangle, color: 'text-red-500 bg-red-50' },
-        ISSUANCE_LG_EXPIRY: { icon: Clock, color: 'text-amber-500 bg-amber-50' },
-        REFERENCE_EXPIRY: { icon: FileText, color: 'text-orange-500 bg-orange-50' },
-        FACILITY_UTILIZATION: { icon: ShieldAlert, color: 'text-red-500 bg-red-50' },
-        cbe: { icon: Building2, color: 'text-blue-500 bg-blue-50' },
-        system_info: { icon: Info, color: 'text-slate-500 bg-slate-50' },
-    };
-    return map[type] || map.system_info;
+    if (!type) return TYPE_STYLES.info;
+    if (EXACT_TYPE_MAP[type]) return TYPE_STYLES[EXACT_TYPE_MAP[type]];
+    if (type.startsWith('BANK_FORM_ISSUE')) return TYPE_STYLES.warning;
+    if (type.startsWith('BANK_INITIATED_')) return TYPE_STYLES.bank;
+    if (type.endsWith('_REJECTED') || type.endsWith('_CANCELLED')) return TYPE_STYLES.negative;
+    if (type.endsWith('_APPROVED') || type.endsWith('_BANK_CONFIRMED')) return TYPE_STYLES.success;
+    if (type.endsWith('_SUBMITTED') || type.endsWith('_PENDING')) return TYPE_STYLES.pending;
+    return TYPE_STYLES.info;
 }
 
 // ─── Module badge ───────────────────────────────────────────────
@@ -95,7 +117,7 @@ export default function NotificationCenter() {
     const markAsRead = async (id) => {
         try {
             await apiClient.patch(`/notifications/${id}/read`, {});
-            setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
             setUnreadCount(prev => Math.max(0, prev - 1));
         } catch (error) {
             console.error("Error marking notification as read:", error);
@@ -105,7 +127,7 @@ export default function NotificationCenter() {
     const markAllAsRead = async () => {
         try {
             await apiClient.patch('/notifications/mark-all-read', {});
-            setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
             setUnreadCount(0);
         } catch (error) {
             console.error("Error marking all as read:", error);
@@ -123,7 +145,8 @@ export default function NotificationCenter() {
     const earlierNotifs = notifications.filter(n => !isToday(n.created_at));
 
     const renderNotification = (notif) => {
-        const typeInfo = getTypeIcon(notif.notification_type);
+        // Backend field is `event_type`; `notification_type` kept as a legacy fallback.
+        const typeInfo = getTypeIcon(notif.event_type || notif.notification_type);
         const TypeIcon = typeInfo.icon;
         return (
             <div
