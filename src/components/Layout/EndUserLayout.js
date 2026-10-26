@@ -49,13 +49,14 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
     if (!bellRef.current) return {};
     const rect = bellRef.current.getBoundingClientRect();
     const isMobile = window.innerWidth < 768;
+    const width = isMobile ? Math.min(320, window.innerWidth - 24) : 320;
     return {
       position: 'fixed',
       top: isMobile ? rect.bottom + 8 : 'auto',
       bottom: isMobile ? 'auto' : window.innerHeight - rect.top + 8,
-      left: isMobile ? Math.max(12, rect.right - 280) : rect.left - 240,
-      width: 288,
-      maxHeight: 'min(20rem, 60vh)',
+      left: isMobile ? Math.max(12, rect.right - width) : rect.left - 240,
+      width,
+      maxHeight: 'min(24rem, 70vh)',
       zIndex: 9999,
     };
   };

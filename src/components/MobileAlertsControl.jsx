@@ -1,9 +1,15 @@
 // src/components/MobileAlertsControl.jsx
-// Minimal "Phone alerts" control (Notifications Q3). The full Mobile Alerts
-// page (device list, quotation on/off switch, install guide) arrives in Q5.
+// Phone alerts control & UX (Notifications Q3 + Q5).
 import React, { useCallback, useEffect, useState } from 'react';
-import { Smartphone, BellRing, BellOff, Info } from 'lucide-react';
-import { disablePushOnThisDevice, enablePush, getPushStatus } from '../services/pushService';
+import { Smartphone, BellRing, BellOff, Info, Settings2, HelpCircle, AlertTriangle } from 'lucide-react';
+import {
+    disablePushOnThisDevice,
+    enablePush,
+    getPushStatus,
+    SWITCHED_OWNER_KEY,
+} from '../services/pushService';
+import PushDevicesModal from './Modals/PushDevicesModal';
+import PushInstallGuideModal from './Modals/PushInstallGuideModal';
 
 const HINTS = {
     'needs-install': 'On iPhone/iPad: tap Share, then "Add to Home Screen", open Grow from the new icon and enable here.',
@@ -15,6 +21,9 @@ export default function MobileAlertsControl() {
     const [status, setStatus] = useState('loading');
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
+    const [showDevicesModal, setShowDevicesModal] = useState(false);
+    const [showGuideModal, setShowGuideModal] = useState(false);
+    const [switchedNotice, setSwitchedNotice] = useState(false);
 
     const refresh = useCallback(async () => {
         try {
@@ -24,7 +33,21 @@ export default function MobileAlertsControl() {
         }
     }, []);
 
-    useEffect(() => { refresh(); }, [refresh]);
+    useEffect(() => {
+        refresh();
+        try {
+            if (sessionStorage.getItem(SWITCHED_OWNER_KEY)) {
+                setSwitchedNotice(true);
+            }
+        } catch {}
+    }, [refresh]);
+
+    const dismissSwitchedNotice = () => {
+        setSwitchedNotice(false);
+        try {
+            sessionStorage.removeItem(SWITCHED_OWNER_KEY);
+        } catch {}
+    };
 
     const run = async (fn, okText) => {
         setBusy(true);
@@ -32,6 +55,7 @@ export default function MobileAlertsControl() {
         try {
             await fn();
             setMessage(okText);
+            dismissSwitchedNotice();
         } catch (e) {
             setMessage(e?.response?.data?.detail || e?.message || 'Something went wrong.');
         } finally {
@@ -43,40 +67,94 @@ export default function MobileAlertsControl() {
     const userId = localStorage.getItem('user_id');
 
     return (
-        <div id="mobile-alerts-control" className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40">
-            <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-200">
-                    <Smartphone size={14} />
-                    Phone alerts
-                    {status === 'enabled' && <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">On</span>}
-                </div>
-                <div className="flex items-center gap-2">
-                    {status === 'available' && (
+        <>
+            <div id="mobile-alerts-control" className="px-3.5 py-2.5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/40">
+                {/* Notice if previous user's push alerts were safely deactivated on this shared browser */}
+                {switchedNotice && (
+                    <div className="mb-2 p-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-lg text-[10px] text-amber-900 dark:text-amber-200 flex items-start justify-between gap-1.5 animate-fadeIn">
+                        <div className="flex items-start gap-1 min-w-0">
+                            <AlertTriangle size={12} className="text-amber-600 shrink-0 mt-0.5" />
+                            <span>Phone alerts were turned off because another account was active on this browser. Click Enable to turn them on for your account.</span>
+                        </div>
                         <button
-                            id="mobile-alerts-enable"
-                            disabled={busy}
-                            onClick={() => run(() => enablePush(userId), 'Phone alerts are on. You will be alerted here when a quotation needs approval, is decided, is about to close, has quotes ready, or is resolved.')}
-                            className="text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 px-2.5 py-1 rounded-md flex items-center gap-1"
+                            onClick={dismissSwitchedNotice}
+                            className="text-amber-700 dark:text-amber-300 font-bold hover:underline shrink-0 text-[10px]"
                         >
-                            <BellRing size={12} /> Enable
+                            Dismiss
                         </button>
-                    )}
-                    {status === 'enabled' && (
+                    </div>
+                )}
+
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                        <Smartphone size={13} className="text-gray-500" />
+                        <span>Phone alerts</span>
+                        {status === 'enabled' && (
+                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-full">On</span>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        {status === 'available' && (
+                            <button
+                                id="mobile-alerts-enable"
+                                disabled={busy}
+                                onClick={() => run(() => enablePush(userId), 'Phone alerts are on. You will be alerted here when a quotation needs approval, is decided, is about to close, has quotes ready, or is resolved.')}
+                                className="text-[11px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 px-2 py-0.8 rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                            >
+                                <BellRing size={11} /> Enable
+                            </button>
+                        )}
+                        {status === 'enabled' && (
+                            <button
+                                id="mobile-alerts-disable"
+                                disabled={busy}
+                                onClick={() => run(() => disablePushOnThisDevice(), 'Phone alerts are off for this device.')}
+                                className="text-[11px] font-medium text-gray-500 hover:text-rose-600 disabled:opacity-50 flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                                <BellOff size={11} /> Turn off
+                            </button>
+                        )}
                         <button
-                            id="mobile-alerts-disable"
-                            disabled={busy}
-                            onClick={() => run(() => disablePushOnThisDevice(), 'Phone alerts are off for this device.')}
-                            className="text-xs font-medium text-gray-500 hover:text-red-600 disabled:opacity-50 flex items-center gap-1"
+                            type="button"
+                            onClick={() => setShowDevicesModal(true)}
+                            title="Manage registered devices"
+                            className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-md hover:bg-gray-200/60 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                         >
-                            <BellOff size={12} /> Turn off
+                            <Settings2 size={12} />
                         </button>
-                    )}
+                        <button
+                            type="button"
+                            onClick={() => setShowGuideModal(true)}
+                            title="How to install & enable phone alerts"
+                            className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-gray-200/60 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                        >
+                            <HelpCircle size={12} />
+                        </button>
+                    </div>
                 </div>
+
+                {HINTS[status] && (
+                    <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400 flex gap-1 leading-tight">
+                        <Info size={11} className="shrink-0 mt-0.5" />
+                        <span>{HINTS[status]}</span>
+                    </p>
+                )}
+                {message && <p className="mt-1 text-[10px] text-gray-600 dark:text-gray-300 font-medium">{message}</p>}
             </div>
-            {HINTS[status] && (
-                <p className="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400 flex gap-1"><Info size={12} className="shrink-0 mt-0.5" />{HINTS[status]}</p>
-            )}
-            {message && <p className="mt-1.5 text-[11px] text-gray-600 dark:text-gray-300">{message}</p>}
-        </div>
+
+            {/* Modals */}
+            <PushDevicesModal
+                isOpen={showDevicesModal}
+                onClose={() => {
+                    setShowDevicesModal(false);
+                    refresh();
+                }}
+                onDeviceRemoved={() => refresh()}
+            />
+            <PushInstallGuideModal
+                isOpen={showGuideModal}
+                onClose={() => setShowGuideModal(false)}
+            />
+        </>
     );
 }

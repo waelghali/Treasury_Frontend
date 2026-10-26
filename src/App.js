@@ -212,6 +212,17 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     };
   }, [isAuthenticated, onIdleWarning]);
 
+  const getPostLoginTarget = (role) => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get('next');
+      if (next && next.startsWith('/') && !next.startsWith('/login') && next !== '/app') {
+        return next;
+      }
+    } catch {}
+    return getDefaultRedirectPath(role);
+  };
+
   const handleLoginSuccess = (response) => {
     setAuthToken(response.access_token);
     const state = decodeTokenAndSetState(response.access_token);
@@ -221,7 +232,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     else if (state.subscriptionStatus === 'expired') navigate("/renewal", { replace: true });
     else {
       initTrackers(state);
-      navigate(getDefaultRedirectPath(state.userRole), { replace: true });
+      navigate(getPostLoginTarget(state.userRole), { replace: true });
     }
   };
 
@@ -232,7 +243,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     else if (state.subscriptionStatus === 'expired') navigate("/renewal", { replace: true });
     else {
       initTrackers(state);
-      navigate(getDefaultRedirectPath(state.userRole), { replace: true });
+      navigate(getPostLoginTarget(state.userRole), { replace: true });
     }
   };
 

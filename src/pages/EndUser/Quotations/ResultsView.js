@@ -274,6 +274,8 @@ export default function ResultsView({ rfqId: propRfqId }) {
     const [copiedToken, setCopiedToken] = useState(null);
     const [isAcceptingDeal, setIsAcceptingDeal] = useState(false);
     const [isDecliningDeal, setIsDecliningDeal] = useState(false);
+    const [showDeclineModal, setShowDeclineModal] = useState(false);
+    const [declineReason, setDeclineReason] = useState('Price exceeded internal budget / market volatility');
     const [selectedLegDecisions, setSelectedLegDecisions] = useState({});
 
     // Reset selection when switching RFQs
@@ -697,14 +699,19 @@ export default function ResultsView({ rfqId: propRfqId }) {
         }
     };
 
-    const handleDeclineDeal = async () => {
-        const reason = window.prompt("Please enter the reason for declining this deal:", "Price exceeded internal budget / market volatility");
-        if (reason === null) return;
+    const handleOpenDeclineModal = () => {
+        setDeclineReason('Price exceeded internal budget / market volatility');
+        setShowDeclineModal(true);
+    };
+
+    const handleConfirmDeclineDeal = async () => {
+        const reason = (declineReason || '').trim() || 'Price exceeded internal budget / market volatility';
         try {
             setIsDecliningDeal(true);
             const declineUrl = isCorporateAdmin ? `/corporate-admin/quotations/${rfqId}/decline-deal` : `/end-user/quotations/${rfqId}/decline-deal`;
             const res = await apiClient.post(declineUrl, { reason });
             toast.info(res.data?.message || "Deal declined.");
+            setShowDeclineModal(false);
             fetchResults();
         } catch (err) {
             console.error("Failed to decline deal:", err);
@@ -712,6 +719,10 @@ export default function ResultsView({ rfqId: propRfqId }) {
         } finally {
             setIsDecliningDeal(false);
         }
+    };
+
+    const handleDeclineDeal = () => {
+        handleOpenDeclineModal();
     };
 
     const handleSendResults = async () => {
@@ -822,7 +833,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
                             ) : (
                                 <p className="text-xs text-amber-500 font-medium">No quote submitted</p>
                             )}
-                            {!result.is_excluded && result.token && (
+                            {!result.is_excluded && result.token && rfq?.status !== 'REJECTED' && rfq?.status !== 'CANCELLED' && (
                                 <button
                                     onClick={() => handleCopyBiddingLink(result.token)}
                                     className={`text-[10px] flex items-center gap-1 font-medium transition-colors cursor-pointer ${
@@ -836,7 +847,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                     {copiedToken === result.token ? 'Copied!' : 'Link'}
                                 </button>
                             )}
-                            {!result.is_excluded && result.quotation_bank_id && (
+                            {!result.is_excluded && result.quotation_bank_id && rfq?.status !== 'REJECTED' && rfq?.status !== 'CANCELLED' && (
                                 <button
                                     onClick={() => handleResendInvite(result.quotation_bank_id, result.bank_name)}
                                     className="text-[10px] text-emerald-600 hover:underline flex items-center gap-1 font-medium"
@@ -1552,18 +1563,18 @@ export default function ResultsView({ rfqId: propRfqId }) {
 
                     {/* Action Bar */}
                     {isAwaitingAcceptance && (
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
-                            <span className="text-xs text-slate-400">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
+                            <span className="text-[11px] sm:text-xs text-slate-400 text-center sm:text-left">
                                 {rfq?.acceptance_timeout_action ? `Timeout action: ${rfq.acceptance_timeout_action.replace('_', ' ')}` : 'Timeout action: Auto-Reject on expiration'}
                             </span>
-                            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto justify-end">
                                 <button
                                     type="button"
                                     onClick={handleDeclineDeal}
                                     disabled={isDecliningDeal || isAcceptingDeal}
-                                    className="px-4 py-2.5 bg-white text-rose-700 hover:bg-rose-50 border border-rose-300 font-bold rounded-xl transition-all text-xs cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                                    className="min-h-[44px] px-4 py-2.5 bg-white text-rose-700 hover:bg-rose-50 border border-rose-300 font-bold rounded-xl transition-all text-xs cursor-pointer shadow-xs disabled:opacity-50 flex items-center justify-center gap-1.5"
                                 >
-                                    <XCircle size={14} />
+                                    <XCircle size={15} />
                                     <span>{isDecliningDeal ? 'Declining...' : 'Decline Tender'}</span>
                                 </button>
                                 {(() => {
@@ -1576,13 +1587,13 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                             type="button"
                                             onClick={handleAcceptDeal}
                                             disabled={isDecliningDeal || isAcceptingDeal || isZeroSelected}
-                                            className={`px-5 py-2.5 font-bold rounded-xl transition-all text-xs flex items-center gap-1.5 shadow-sm ${
+                                            className={`min-h-[44px] px-5 py-2.5 font-bold rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 shadow-sm ${
                                                 isZeroSelected
                                                     ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed'
-                                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 cursor-pointer'
+                                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 cursor-pointer active:scale-98'
                                             }`}
                                         >
-                                            <CheckCircle2 size={14} />
+                                            <CheckCircle2 size={15} />
                                             <span>
                                                 {isAcceptingDeal
                                                     ? 'Accepting...'
@@ -2179,12 +2190,20 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                     <Shield size={12} className="text-blue-500" /> RFQ Approved By
                                 </span>
                                 <span className="text-xs sm:text-sm font-bold text-slate-900 block truncate" title={rfq.approved_by_name || rfq.approved_by_email || 'Direct Corporate Release'}>
-                                    {rfq.approved_by_name || rfq.approved_by_email || (rfq.status === 'PENDING_APPROVAL' ? '⏳ Awaiting Admin Approval' : 'Direct Corporate Release')}
+                                    {rfq.approved_by_name || rfq.approved_by_email || (
+                                        rfq.status === 'PENDING_APPROVAL'
+                                            ? '⏳ Awaiting Admin Approval'
+                                            : rfq.status === 'REJECTED'
+                                                ? (rfq.acceptance_status === 'AUTO_REJECTED' ? '⏱️ Auto-Rejected (Approval Timed Out)' : '❌ Not Approved (Rejected)')
+                                                : rfq.status === 'CANCELLED'
+                                                    ? '🚫 Withdrawn / Cancelled'
+                                                    : 'Direct Corporate Release'
+                                    )}
                                 </span>
                                 <span className="text-[11px] text-slate-500 block mt-0.5">
                                     {rfq.admin_reviewed_at 
                                         ? `Approved: ${formatDate(rfq.admin_reviewed_at)} at ${new Date(rfq.admin_reviewed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                                        : (rfq.status === 'PENDING_APPROVAL' ? 'Pending Corporate Admin review' : 'No pre-approval required')}
+                                        : (rfq.status === 'PENDING_APPROVAL' ? 'Pending Corporate Admin review' : rfq.status === 'REJECTED' ? 'Did not pass approval' : 'No pre-approval required')}
                                 </span>
                             </div>
 
@@ -2235,6 +2254,12 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                 <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Quotation Window Timeline</span>
                             </div>
                             {(() => {
+                                if (rfq.status === 'REJECTED') {
+                                    return <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-rose-50 text-rose-700 border border-rose-300 px-2.5 py-0.5 rounded-full uppercase tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>Quotation Rejected — Link Inactive</span>;
+                                }
+                                if (rfq.status === 'CANCELLED') {
+                                    return <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-rose-50 text-rose-700 border border-rose-300 px-2.5 py-0.5 rounded-full uppercase tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>Quotation Cancelled — Link Inactive</span>;
+                                }
                                 const now = new Date();
                                 const start = rfq.window_start ? new Date(rfq.window_start) : null;
                                 const end = rfq.window_end ? new Date(rfq.window_end) : null;
@@ -2721,7 +2746,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                             <p className="text-sm font-mono font-bold text-emerald-600">{result.best_score.toFixed(6)}</p>
                                         </div>
                                     )}
-                                    {result.token && (
+                                    {result.token && rfq?.status !== 'REJECTED' && rfq?.status !== 'CANCELLED' && (
                                         <button
                                             onClick={() => handleCopyBiddingLink(result.token)}
                                             className={`text-[10px] font-bold px-3 py-1.5 rounded uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer ${
@@ -2735,7 +2760,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                             {copiedToken === result.token ? 'Copied' : 'Bidding Link'}
                                         </button>
                                     )}
-                                    {result.quotation_bank_id && (
+                                    {result.quotation_bank_id && rfq?.status !== 'REJECTED' && rfq?.status !== 'CANCELLED' && (
                                         <button
                                             onClick={() => handleResendInvite(result.quotation_bank_id, result.bank_name)}
                                             className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded uppercase tracking-wider hover:bg-emerald-100 transition-colors flex items-center gap-1"
@@ -3625,6 +3650,99 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                 className="flex items-center gap-1.5 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-indigo-200 cursor-pointer disabled:opacity-50"
                             >
                                 <UserCheck size={14} /> {delegating ? 'Delegating...' : 'Authorize Colleague'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Accessible Mobile-Usable Decline Modal */}
+            {showDeclineModal && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="decline-deal-title"
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+                >
+                    <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+                        <div className="p-5 bg-gradient-to-r from-rose-900 to-slate-900 text-white flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-rose-500/20 text-rose-300 rounded-xl border border-rose-500/30">
+                                    <XCircle size={20} />
+                                </div>
+                                <div>
+                                    <h3 id="decline-deal-title" className="font-bold text-base leading-snug">Decline Tender Execution</h3>
+                                    <p className="text-xs text-rose-200/80 font-mono">RFQ #{rfq?.ref_no || rfqId}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowDeclineModal(false)}
+                                disabled={isDecliningDeal}
+                                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                                aria-label="Close modal"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="p-3.5 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-800 leading-relaxed flex items-start gap-2.5">
+                                <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                                <span>
+                                    Declining this tender will reject all winning quotes, close the acceptance window, and notify participating banks. This action is irreversible.
+                                </span>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 block mb-1.5 uppercase tracking-wide">
+                                    Reason for Declining (Required for Audit Log)
+                                </label>
+                                <div className="flex flex-wrap gap-1.5 mb-2.5">
+                                    {[
+                                        'Price exceeded budget',
+                                        'Market volatility / wide spread',
+                                        'Commercial requirement cancelled',
+                                        'Alternative funding route selected'
+                                    ].map((preset) => (
+                                        <button
+                                            key={preset}
+                                            type="button"
+                                            onClick={() => setDeclineReason(preset)}
+                                            className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium transition-colors cursor-pointer ${
+                                                declineReason === preset
+                                                    ? 'bg-rose-100 text-rose-800 border-rose-300 font-bold'
+                                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                            }`}
+                                        >
+                                            {preset}
+                                        </button>
+                                    ))}
+                                </div>
+                                <textarea
+                                    value={declineReason}
+                                    onChange={(e) => setDeclineReason(e.target.value)}
+                                    rows={3}
+                                    placeholder="Enter specific justification for audit logs..."
+                                    className="w-full text-xs p-3 rounded-xl border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500 font-medium placeholder:text-slate-400"
+                                />
+                            </div>
+                        </div>
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-col-reverse sm:flex-row justify-end gap-2.5">
+                            <button
+                                type="button"
+                                onClick={() => setShowDeclineModal(false)}
+                                disabled={isDecliningDeal}
+                                className="min-h-[44px] px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center"
+                            >
+                                Keep Reviewing
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmDeclineDeal}
+                                disabled={isDecliningDeal || !(declineReason || '').trim()}
+                                className="min-h-[44px] flex items-center justify-center gap-1.5 px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-rose-200 cursor-pointer disabled:opacity-50"
+                            >
+                                <XCircle size={15} />
+                                <span>{isDecliningDeal ? 'Declining...' : 'Confirm Decline'}</span>
                             </button>
                         </div>
                     </div>

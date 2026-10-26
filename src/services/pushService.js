@@ -118,6 +118,8 @@ export const disablePushOnThisDevice = async ({ notifyServer = true } = {}) => {
   }
 };
 
+export const SWITCHED_OWNER_KEY = 'push_switched_owner_notice';
+
 /**
  * Run after login / app start. If this browser's alerts belong to another
  * user, switch them off; if they belong to the current user, refresh the
@@ -133,6 +135,9 @@ export const syncPushOwnership = async (userId) => {
     if (owner && owner !== String(userId)) {
       await sub.unsubscribe();
       localStorage.removeItem(OWNER_KEY);
+      try {
+        sessionStorage.setItem(SWITCHED_OWNER_KEY, 'true');
+      } catch {}
       return;
     }
     if (owner === String(userId)) {
@@ -141,4 +146,20 @@ export const syncPushOwnership = async (userId) => {
   } catch (e) {
     console.warn('Push: ownership sync skipped', e);
   }
+};
+
+/**
+ * Fetch all registered active devices for the current user.
+ */
+export const listPushDevices = async () => {
+  const { data } = await apiClient.get('/notifications/push/devices');
+  return data || [];
+};
+
+/**
+ * Revoke a specific device by its subscription ID.
+ */
+export const removePushDevice = async (deviceId) => {
+  const { data } = await apiClient.delete(`/notifications/push/devices/${deviceId}`);
+  return data;
 };

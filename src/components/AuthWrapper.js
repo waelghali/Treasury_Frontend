@@ -14,10 +14,14 @@ function AuthWrapper({ isAuthenticated, userRole, onLogout }) { // Receive state
     console.log(`AuthWrapper: Rendered. isAuthenticated: ${isAuthenticated}, userRole: ${userRole}`);
   }, [isAuthenticated, userRole]); // Re-run if auth state changes
 
-  // If not authenticated, redirect to login page
+  // If not authenticated, redirect to login page with preserved target URL
   if (!isAuthenticated) {
-    console.log(`AuthWrapper: User is NOT authenticated. Redirecting to /login from path: ${window.location.pathname}`);
-    return <Navigate to="/login" replace />;
+    const current = window.location.pathname + window.location.search + window.location.hash;
+    const loginTarget = current && current !== '/' && current !== '/app' && !current.startsWith('/login')
+      ? `/login?next=${encodeURIComponent(current)}`
+      : '/login';
+    console.log(`AuthWrapper: User is NOT authenticated. Redirecting to ${loginTarget}`);
+    return <Navigate to={loginTarget} replace />;
   }
 
   // If authenticated, render the Outlet. The parent Route in App.js will define what gets rendered here.
