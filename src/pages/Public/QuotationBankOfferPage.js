@@ -604,7 +604,14 @@ export default function QuotationBankOfferPage() {
                 detailStr.toLowerCase().includes('cancelled') ||
                 detailStr.toLowerCase().includes('canceled');
 
-            const isExpired = !isCancelled && (
+            const isRejected = !isCancelled && (
+                detailStr.toLowerCase().includes('rejected') ||
+                detailStr.toLowerCase().includes('before corporate approval') ||
+                detailStr.toLowerCase().includes('acceptance window expired') ||
+                detailStr.toLowerCase().includes('without trade execution')
+            );
+
+            const isExpired = !isCancelled && !isRejected && (
                 status === 410 ||
                 detailStr.toLowerCase().includes('expired') ||
                 detailStr.toLowerCase().includes('validity of this link')
@@ -622,6 +629,7 @@ export default function QuotationBankOfferPage() {
                 status,
                 message: rawMessage,
                 isCancelled,
+                isRejected,
                 isExpired,
                 isPendingApproval,
                 isInvalidToken,
@@ -667,6 +675,8 @@ export default function QuotationBankOfferPage() {
                 nextStatus = 'PARTIALLY_WON';
             } else if (status === 'INCONCLUSIVE') {
                 nextStatus = 'INCONCLUSIVE';
+            } else if (status === 'REJECTED') {
+                nextStatus = 'REJECTED';
             } else if (status === 'AWAITING_MANUAL_SELECTION' || status === 'PENDING') {
                 nextStatus = 'AWAITING_SELECTION';
             } else if (status === 'NOT_SELECTED' || status === 'UNEXECUTED') {
@@ -2221,6 +2231,7 @@ export default function QuotationBankOfferPage() {
 
     if (error) {
         const isCancelled = typeof error === 'object' && error?.isCancelled;
+        const isRejected = typeof error === 'object' && error?.isRejected;
         const isExpired = typeof error === 'object' && error?.isExpired;
         const isPendingApproval = typeof error === 'object' && error?.isPendingApproval;
         const isInvalid = typeof error === 'object' && error?.isInvalidToken;
@@ -2242,6 +2253,16 @@ export default function QuotationBankOfferPage() {
             badge = { text: "Quotation Cancelled", bg: "bg-rose-50 text-rose-800 border-rose-300" };
             title = "Quotation Request Cancelled";
             description = "This Request for Quotation (RFQ) was officially cancelled and withdrawn by corporate treasury. No pricing or participation is required for this request.";
+            showRetry = false;
+        } else if (isRejected) {
+            icon = (
+                <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center mx-auto mb-4 text-rose-600 shadow-sm">
+                    <Ban size={36} />
+                </div>
+            );
+            badge = { text: "Quotation Rejected", bg: "bg-rose-50 text-rose-800 border-rose-300" };
+            title = "Quotation Request Not Approved / Rejected";
+            description = rawMessage || "This quotation request was rejected or expired before corporate approval. No quotation submission or action is required.";
             showRetry = false;
         } else if (isExpired) {
             icon = (
@@ -2311,9 +2332,11 @@ export default function QuotationBankOfferPage() {
                         <p>
                             {isCancelled
                                 ? "This RFQ was officially withdrawn and cancelled by the corporate client. No further quotation submissions or actions are required."
-                                : isExpired
-                                    ? "If you are an authorized bank partner and require an extended or refreshed quotation window, please contact the issuing corporate treasury officer directly."
-                                    : "For questions regarding this quotation, please contact the issuing corporate treasury desk."}
+                                : isRejected
+                                    ? "This RFQ was not approved or concluded without trade execution. No further quotation submissions or actions are required."
+                                    : isExpired
+                                        ? "If you are an authorized bank partner and require an extended or refreshed quotation window, please contact the issuing corporate treasury officer directly."
+                                        : "For questions regarding this quotation, please contact the issuing corporate treasury desk."}
                         </p>
                     </div>
 
@@ -3260,11 +3283,18 @@ export default function QuotationBankOfferPage() {
                                                 : 'Thank you for your quotation. The corporate treasury team is currently finalizing counterparty selection.'}
                                         </p>
                                     </div>
+                                ) : resultStatus === 'REJECTED' ? (
+                                    <div className="flex flex-col items-center">
+                                        <h2 className="text-base sm:text-lg font-bold text-slate-800">Quotation Concluded without Execution</h2>
+                                        <p className="text-xs sm:text-sm text-slate-600 mt-1 text-center max-w-lg">
+                                            {outcomeData?.detail || 'This quotation request was concluded without trade execution.'}
+                                        </p>
+                                    </div>
                                 ) : (
                                     <div className="flex flex-col items-center">
                                         <h2 className="text-base sm:text-lg font-bold text-slate-800">Quotation Concluded</h2>
                                         <p className="text-xs sm:text-sm text-slate-600 mt-1 text-center max-w-lg">
-                                            Thank you for submitting your quotation. This request has concluded and your offer was not selected for trade execution on this occasion. We appreciate your participation.
+                                            {outcomeData?.detail || 'Thank you for submitting your quotation. This request has concluded and your offer was not selected for trade execution on this occasion. We appreciate your participation.'}
                                         </p>
                                     </div>
                                 )}
@@ -3412,7 +3442,7 @@ export default function QuotationBankOfferPage() {
                                                             <div>
                                                                 <span className="text-[10px] font-semibold text-gray-400 uppercase block mb-0.5">Approved By</span>
                                                                 <p className="font-semibold text-gray-800 font-mono text-[11px] truncate" title={rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || ''}>
-                                                                    {rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || (rfq.admin_reviewed_at ? 'Corporate Treasury Admin' : 'Direct Corporate Release')}
+                                                                    {rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || (rfq.admin_reviewed_at ? 'Corporate Treasury Admin' : (rfq.status === 'REJECTED' ? 'Not Approved (Rejected)' : rfq.status === 'PENDING_APPROVAL' ? 'Pending Approval' : 'Direct Corporate Release'))}
                                                                 </p>
                                                                 {(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at) && (
                                                                     <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
@@ -3467,7 +3497,7 @@ export default function QuotationBankOfferPage() {
                                                         <div>
                                                             <span className="text-[10px] font-semibold text-gray-400 uppercase block mb-0.5">Approved By</span>
                                                             <p className="font-semibold text-gray-800 font-mono text-[11px] truncate" title={rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || ''}>
-                                                                {rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || (rfq.admin_reviewed_at ? 'Corporate Treasury Admin' : 'Direct Corporate Release')}
+                                                                {rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || (rfq.admin_reviewed_at ? 'Corporate Treasury Admin' : (rfq.status === 'REJECTED' ? 'Not Approved (Rejected)' : rfq.status === 'PENDING_APPROVAL' ? 'Pending Approval' : 'Direct Corporate Release'))}
                                                             </p>
                                                             {(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at) && (
                                                                 <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
@@ -3598,7 +3628,7 @@ export default function QuotationBankOfferPage() {
                                                             <div>
                                                                 <span className="text-[10px] font-semibold text-gray-400 uppercase block mb-0.5">Approved By</span>
                                                                 <p className="font-semibold text-gray-800 font-mono text-[11px] truncate" title={rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || ''}>
-                                                                    {rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || (rfq.admin_reviewed_at ? 'Corporate Treasury Admin' : 'Direct Corporate Release')}
+                                                                    {rfq.rfq_approved_by_email || rfq.rfq_approved_by_name || (rfq.admin_reviewed_at ? 'Corporate Treasury Admin' : (rfq.status === 'REJECTED' ? 'Not Approved (Rejected)' : rfq.status === 'PENDING_APPROVAL' ? 'Pending Approval' : 'Direct Corporate Release'))}
                                                                 </p>
                                                                 {(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at) && (
                                                                     <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
