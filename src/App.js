@@ -17,6 +17,7 @@ import QuotationBankOfferPage from './pages/Public/QuotationBankOfferPage';
 import PublicBankHandshakePage from './pages/Public/PublicBankHandshakePage';
 import BankDealerAuthPage from './pages/Public/BankDealerAuthPage';
 import BankDealerDeskPage from './pages/Public/BankDealerDeskPage';
+import DealerStandingAlertSetupPage from './pages/Public/DealerStandingAlertSetupPage';
 import RenewalPage from './pages/RenewalPage';
 
 import AuthWrapper from './components/AuthWrapper';
@@ -311,6 +312,8 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
           <Route path="/dealer/login" element={<BankDealerAuthPage initialMode="login" />} />
           <Route path="/dealer/enroll" element={<BankDealerAuthPage initialMode="enroll" />} />
           <Route path="/dealer/desk" element={<BankDealerDeskPage />} />
+          <Route path="/dealer/alerts/setup/:setupToken" element={<DealerStandingAlertSetupPage />} />
+          <Route path="/dealer-alerts/setup/:setupToken" element={<DealerStandingAlertSetupPage />} />
           <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />

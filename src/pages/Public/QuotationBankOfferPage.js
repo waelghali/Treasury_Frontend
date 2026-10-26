@@ -14,6 +14,7 @@ import TradeExecutionConfetti from '../../components/Quotations/TradeExecutionCo
 import TradeAccoladePromotionToast from '../../components/Quotations/TradeAccoladePromotionToast';
 import HoneypotField from '../../components/Security/HoneypotField';
 import './quotation-animations.css';
+import DealerMobileAlertsBanner from '../../components/DealerMobileAlertsBanner';
 
 const DIRECT_BACKEND_URL = 'https://api.growbusinessdevelopment.com';
 
@@ -3326,6 +3327,12 @@ export default function QuotationBankOfferPage() {
                                 </button>
                             </div>
                         )}
+
+                        {/* Dealer Mobile Alerts Bar / Banner */}
+                        <DealerMobileAlertsBanner
+                            token={token}
+                            defaultEmail={authSession?.email || inputEmail || ''}
+                        />
 
                         {/* Clean Symmetrical 2-Column Desktop Grid */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
