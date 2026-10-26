@@ -142,10 +142,3 @@ export const syncPushOwnership = async (userId) => {
     console.warn('Push: ownership sync skipped', e);
   }
 };
-
-export const sendTestPush = async () => {
-  const reg = await navigator.serviceWorker.getRegistration();
-  const sub = reg ? await reg.pushManager.getSubscription() : null;
-  const { data } = await apiClient.post('/notifications/push/test', { endpoint: sub ? sub.endpoint : null });
-  return data;
-};

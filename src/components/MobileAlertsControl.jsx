@@ -2,8 +2,8 @@
 // Minimal "Phone alerts" control (Notifications Q3). The full Mobile Alerts
 // page (device list, quotation on/off switch, install guide) arrives in Q5.
 import React, { useCallback, useEffect, useState } from 'react';
-import { Smartphone, BellRing, BellOff, Send, Info } from 'lucide-react';
-import { disablePushOnThisDevice, enablePush, getPushStatus, sendTestPush } from '../services/pushService';
+import { Smartphone, BellRing, BellOff, Info } from 'lucide-react';
+import { disablePushOnThisDevice, enablePush, getPushStatus } from '../services/pushService';
 
 const HINTS = {
     'needs-install': 'On iPhone/iPad: tap Share, then "Add to Home Screen", open Grow from the new icon and enable here.',
@@ -55,31 +55,21 @@ export default function MobileAlertsControl() {
                         <button
                             id="mobile-alerts-enable"
                             disabled={busy}
-                            onClick={() => run(() => enablePush(userId), 'Phone alerts are on for this device.')}
+                            onClick={() => run(() => enablePush(userId), 'Phone alerts are on. You will be alerted here when a quotation needs approval, is decided, is about to close, has quotes ready, or is resolved.')}
                             className="text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 px-2.5 py-1 rounded-md flex items-center gap-1"
                         >
                             <BellRing size={12} /> Enable
                         </button>
                     )}
                     {status === 'enabled' && (
-                        <>
-                            <button
-                                id="mobile-alerts-test"
-                                disabled={busy}
-                                onClick={() => run(sendTestPush, 'Test sent - it should arrive within a few seconds.')}
-                                className="text-xs font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50 flex items-center gap-1"
-                            >
-                                <Send size={12} /> Test
-                            </button>
-                            <button
-                                id="mobile-alerts-disable"
-                                disabled={busy}
-                                onClick={() => run(() => disablePushOnThisDevice(), 'Phone alerts are off for this device.')}
-                                className="text-xs font-medium text-gray-500 hover:text-red-600 disabled:opacity-50 flex items-center gap-1"
-                            >
-                                <BellOff size={12} /> Turn off
-                            </button>
-                        </>
+                        <button
+                            id="mobile-alerts-disable"
+                            disabled={busy}
+                            onClick={() => run(() => disablePushOnThisDevice(), 'Phone alerts are off for this device.')}
+                            className="text-xs font-medium text-gray-500 hover:text-red-600 disabled:opacity-50 flex items-center gap-1"
+                        >
+                            <BellOff size={12} /> Turn off
+                        </button>
                     )}
                 </div>
             </div>
