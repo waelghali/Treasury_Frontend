@@ -38,6 +38,11 @@ const EXACT_TYPE_MAP = {
     REFERENCE_EXPIRY: 'document',
     FACILITY_UTILIZATION: 'risk',
     cbe: 'bank',
+    // Quotation events (app/services/notifications/catalog.py)
+    RFQ_APPROVAL_REQUIRED: 'pending',
+    RFQ_CANCELLATION_REQUESTED: 'pending',
+    RFQ_REVISION_REQUESTED: 'warning',
+    RFQ_CANCELLATION_DECIDED: 'info',
 };
 
 function getTypeIcon(type) {
