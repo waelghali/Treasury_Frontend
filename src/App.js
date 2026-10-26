@@ -41,6 +41,7 @@ import {
   handleUserActivity,
   WARNING_BUFFER_MS
 } from './services/apiService';
+import { disablePushOnThisDevice, syncPushOwnership } from './services/pushService';
 import { jwtDecode } from 'jwt-decode';
 
 import { ToastContainer, Flip } from 'react-toastify';
@@ -235,12 +236,23 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Explicit sign-out: stop mobile alerts on this device first, while the
+    // session token still exists. Never let this block sign-out for long.
+    await Promise.race([
+      disablePushOnThisDevice(),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]);
     setIsAuthenticated(false);
     setShowLegalModal(false);
     onHideSessionModal();
     logoutUser();
   };
+
+  // Mobile alerts belong to whoever enabled them in this browser.
+  useEffect(() => {
+    if (isAuthenticated && userId) syncPushOwnership(userId);
+  }, [isAuthenticated, userId]);
 
   const getDefaultRedirectPath = (role) => {
     if (role === 'system_owner') return "/system-owner/dashboard";

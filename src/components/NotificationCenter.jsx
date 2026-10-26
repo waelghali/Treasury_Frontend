@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, ExternalLink, X, CheckCheck, Clock, AlertTriangle, ShieldAlert, FileText, Building2, Settings, Info, CheckCircle2, XCircle } from 'lucide-react';
 import apiClient from '../services/apiClient';
 import { useNavigate } from 'react-router-dom';
+import MobileAlertsControl from './MobileAlertsControl';
 
 // ─── Time-ago helper ────────────────────────────────────────────
 function timeAgo(dateStr) {
@@ -267,6 +268,7 @@ export default function NotificationCenter() {
                             </>
                         )}
                     </div>
+                    <MobileAlertsControl />
                 </div>
             )}
         </div>
