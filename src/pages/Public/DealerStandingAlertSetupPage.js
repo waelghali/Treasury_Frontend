@@ -133,7 +133,20 @@ export default function DealerStandingAlertSetupPage() {
 
                 {/* Body */}
                 <div className="p-6 space-y-5">
-                    {optedOut ? (
+                    {info?.allow_dealer_mobile_alerts === false ? (
+                        <div className="text-center py-6">
+                            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center mx-auto mb-3">
+                                <ShieldCheck size={22} />
+                            </div>
+                            <h3 className="font-bold text-sm text-slate-200">Mobile Alerts Disabled by Institutional Policy</h3>
+                            <p className="text-xs text-slate-400 mt-2 leading-relaxed max-w-sm mx-auto">
+                                Your institution (<strong>{info?.bank_name}</strong>) has disabled mobile alerts by administrator compliance policy.
+                            </p>
+                            <div className="mt-4 p-3 bg-slate-800/80 rounded-xl border border-slate-700 text-[11px] text-slate-400 inline-block">
+                                Quotations will continue to reach your desk via secure email invitation.
+                            </div>
+                        </div>
+                    ) : optedOut ? (
                         <div className="text-center py-6">
                             <div className="w-12 h-12 rounded-2xl bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-3">
                                 <BellOff size={22} />

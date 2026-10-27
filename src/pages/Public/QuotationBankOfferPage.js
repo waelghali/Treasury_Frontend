@@ -3329,10 +3329,12 @@ export default function QuotationBankOfferPage() {
                         )}
 
                         {/* Dealer Mobile Alerts Bar / Banner */}
-                        <DealerMobileAlertsBanner
-                            token={token}
-                            defaultEmail={authSession?.email || inputEmail || ''}
-                        />
+                        {rfq?.allow_dealer_mobile_alerts !== false && (
+                            <DealerMobileAlertsBanner
+                                token={token}
+                                defaultEmail={authSession?.email || inputEmail || ''}
+                            />
+                        )}
 
                         {/* Clean Symmetrical 2-Column Desktop Grid */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">

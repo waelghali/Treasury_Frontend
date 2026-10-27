@@ -15,7 +15,7 @@ import {
     getDealerQrStatus
 } from '../services/dealerPushService';
 
-export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onAlertsToggled = null }) {
+export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onAlertsToggled = null, allowMobileAlerts = true }) {
     const [supported, setSupported] = useState(false);
     const [isActive, setIsActive] = useState(false);
     const [activeEmail, setActiveEmail] = useState('');
@@ -194,6 +194,10 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
             setLoading(false);
         }
     };
+
+    if (allowMobileAlerts === false) {
+        return null;
+    }
 
     if (!supported && !isIosDevice()) {
         return null;
