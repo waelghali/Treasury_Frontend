@@ -198,3 +198,18 @@ export async function optOutStandingSetup(setupToken) {
     const res = await apiClient.post(`/public-quotation/dealer-alerts/setup/${setupToken}/opt-out`);
     return res.data;
 }
+
+export async function generateDealerQrPair(token, email = null, frontendOrigin = null) {
+    const origin = frontendOrigin || (typeof window !== 'undefined' ? window.location.origin : '');
+    const res = await apiClient.post('/public-quotation/dealer-alerts/qr-pair', {
+        token,
+        email: email ? email.trim().toLowerCase() : null,
+        frontend_origin: origin
+    });
+    return res.data;
+}
+
+export async function getDealerQrStatus(setupToken) {
+    const res = await apiClient.get(`/public-quotation/dealer-alerts/qr-status/${setupToken}`);
+    return res.data;
+}

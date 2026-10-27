@@ -1,6 +1,6 @@
 // src/components/DealerMobileAlertsBanner.jsx
-import React, { useState, useEffect } from 'react';
-import { Smartphone, CheckCircle, Bell, BellOff, X, HelpCircle, Share2, PlusSquare, AlertTriangle, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Smartphone, CheckCircle, Bell, BellOff, X, HelpCircle, Share2, PlusSquare, AlertTriangle, RefreshCw, QrCode, Copy, Check, ExternalLink } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
     isPushSupported,
@@ -10,7 +10,9 @@ import {
     getExistingSubscription,
     getDealerPushStatus,
     subscribeDealerPush,
-    unsubscribeDealerPush
+    unsubscribeDealerPush,
+    generateDealerQrPair,
+    getDealerQrStatus
 } from '../services/dealerPushService';
 
 export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onAlertsToggled = null }) {
@@ -21,8 +23,14 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
     const [showSetupModal, setShowSetupModal] = useState(false);
     const [showIosGuide, setShowIosGuide] = useState(false);
     const [showBlockedModal, setShowBlockedModal] = useState(false);
+    const [showQrModal, setShowQrModal] = useState(false);
+    const [qrData, setQrData] = useState(null);
+    const [qrLoading, setQrLoading] = useState(false);
+    const [isPairedSuccess, setIsPairedSuccess] = useState(false);
+    const [isCopied, setIsCopied] = useState(false);
     const [dealerEmail, setDealerEmail] = useState(defaultEmail || '');
     const [endpoint, setEndpoint] = useState(null);
+    const pollingTimerRef = useRef(null);
 
     useEffect(() => {
         setSupported(isPushSupported());
@@ -51,6 +59,77 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
         } catch (e) {
             console.warn('Could not verify push status:', e);
         }
+    };
+
+    const handleOpenQrModal = async () => {
+        setShowQrModal(true);
+        setIsPairedSuccess(false);
+        setQrLoading(true);
+        try {
+            const data = await generateDealerQrPair(token, dealerEmail || defaultEmail);
+            setQrData(data);
+            if (data.email && !dealerEmail) {
+                setDealerEmail(data.email);
+            }
+            if (data.is_paired) {
+                setIsPairedSuccess(true);
+                setIsActive(true);
+                setActiveEmail(data.email);
+            }
+        } catch (err) {
+            console.error('Failed to generate QR pair token:', err);
+            toast.error(err.response?.data?.detail || 'Could not generate mobile pairing QR code.');
+        } finally {
+            setQrLoading(false);
+        }
+    };
+
+    // Live polling when QR modal is open to auto-detect when phone is paired
+    useEffect(() => {
+        if (!showQrModal || !qrData?.setup_token || isPairedSuccess) {
+            if (pollingTimerRef.current) {
+                clearInterval(pollingTimerRef.current);
+                pollingTimerRef.current = null;
+            }
+            return;
+        }
+
+        pollingTimerRef.current = setInterval(async () => {
+            try {
+                const status = await getDealerQrStatus(qrData.setup_token);
+                if (status.is_paired) {
+                    setIsPairedSuccess(true);
+                    setIsActive(true);
+                    setActiveEmail(status.email || qrData.email);
+                    if (onAlertsToggled) onAlertsToggled(true);
+                    toast.success('Mobile phone paired successfully! Lock-screen alerts are now active.');
+                    if (pollingTimerRef.current) {
+                        clearInterval(pollingTimerRef.current);
+                        pollingTimerRef.current = null;
+                    }
+                    setTimeout(() => {
+                        setShowQrModal(false);
+                    }, 2400);
+                }
+            } catch (e) {
+                // Silent catch during background poll
+            }
+        }, 2500);
+
+        return () => {
+            if (pollingTimerRef.current) {
+                clearInterval(pollingTimerRef.current);
+                pollingTimerRef.current = null;
+            }
+        };
+    }, [showQrModal, qrData?.setup_token, isPairedSuccess]);
+
+    const handleCopySetupUrl = () => {
+        if (!qrData?.setup_url) return;
+        navigator.clipboard.writeText(qrData.setup_url);
+        setIsCopied(true);
+        toast.info('Mobile setup link copied! You can send it to your phone via WhatsApp or Email.');
+        setTimeout(() => setIsCopied(false), 2500);
     };
 
     const handleOpenEnable = () => {
@@ -156,15 +235,28 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
                             <span>{loading ? 'Updating...' : 'Turn Off Alerts'}</span>
                         </button>
                     ) : (
-                        <button
-                            type="button"
-                            onClick={handleOpenEnable}
-                            disabled={loading}
-                            className="min-h-[38px] px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-emerald-950 cursor-pointer flex items-center gap-1.5 active:scale-98"
-                        >
-                            <Bell size={13} />
-                            <span>Enable Phone Alerts</span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={handleOpenQrModal}
+                                disabled={loading}
+                                className="min-h-[38px] px-3.5 sm:px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-emerald-950 cursor-pointer flex items-center gap-1.5 active:scale-98"
+                                title="Pair your smartphone by scanning a QR code with your phone camera"
+                            >
+                                <QrCode size={14} />
+                                <span>Pair Phone via QR</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleOpenEnable}
+                                disabled={loading}
+                                className="min-h-[38px] px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5"
+                                title="Enable alerts directly on this computer browser"
+                            >
+                                <Bell size={13} />
+                                <span className="hidden md:inline">Alert this Browser</span>
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
@@ -390,6 +482,143 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
                             >
                                 <RefreshCw size={13} />
                                 <span>Check Permission Again</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* QR Code Phone Pairing Modal */}
+            {showQrModal && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="qr-pair-modal-title"
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-150"
+                >
+                    <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200">
+                        {/* Header */}
+                        <div className="p-5 bg-gradient-to-r from-emerald-950 via-slate-900 to-indigo-950 text-white flex justify-between items-center">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-2.5 bg-emerald-500/20 text-emerald-300 rounded-2xl border border-emerald-500/30">
+                                    <QrCode size={20} />
+                                </div>
+                                <div>
+                                    <h3 id="qr-pair-modal-title" className="font-bold text-sm">Pair Phone for Lock-Screen Alerts</h3>
+                                    <p className="text-[11px] text-emerald-200/80">Scan with your phone camera · No app download</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowQrModal(false)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-5 space-y-4">
+                            {qrLoading ? (
+                                <div className="py-12 text-center text-slate-500">
+                                    <div className="w-10 h-10 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                                    <p className="text-xs font-semibold">Generating secure smartphone pairing token...</p>
+                                </div>
+                            ) : isPairedSuccess ? (
+                                <div className="py-8 text-center space-y-3 animate-in zoom-in-95 duration-200">
+                                    <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-600 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
+                                        <CheckCircle size={32} />
+                                    </div>
+                                    <h3 className="font-bold text-base text-slate-900">Phone Paired Successfully!</h3>
+                                    <p className="text-xs text-slate-600 max-w-xs mx-auto leading-relaxed">
+                                        Lock-screen alerts are now active for <strong className="text-slate-900">{activeEmail || dealerEmail}</strong>.
+                                    </p>
+                                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-[11px] text-emerald-800 font-medium inline-block">
+                                        ✓ Your phone will ring & vibrate on every incoming RFQ invitation
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Email indicator / selector */}
+                                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between text-xs">
+                                        <div>
+                                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Registered Bank Desk</span>
+                                            <span className="font-semibold text-slate-800">{qrData?.bank_name || 'Treasury Desk'}</span>
+                                        </div>
+                                        <span className="font-mono text-emerald-700 bg-emerald-100/70 border border-emerald-300/50 px-2 py-0.5 rounded-lg text-[11px]">
+                                            {qrData?.email || dealerEmail || 'Bank Dealer'}
+                                        </span>
+                                    </div>
+
+                                    {/* QR Code Graphic Container */}
+                                    <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-2xl flex flex-col items-center justify-center">
+                                        {qrData?.qr_code_base64 ? (
+                                            <div className="p-2 bg-white rounded-xl shadow-xs border border-slate-200">
+                                                <img
+                                                    src={qrData.qr_code_base64}
+                                                    alt="Scan to pair smartphone"
+                                                    className="w-48 h-48 sm:w-52 sm:h-52 object-contain rounded-lg"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="w-48 h-48 flex items-center justify-center text-slate-400 text-xs">
+                                                QR code unavailable
+                                            </div>
+                                        )}
+
+                                        <p className="text-[11px] font-semibold text-slate-700 mt-2.5 flex items-center gap-1.5">
+                                            <Smartphone size={13} className="text-emerald-600" />
+                                            <span>Point your phone camera at the screen</span>
+                                        </p>
+                                    </div>
+
+                                    {/* Steps Guide */}
+                                    <div className="space-y-1.5 text-[11px] text-slate-600">
+                                        <div className="flex items-start gap-2">
+                                            <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">1</span>
+                                            <span>Open your <strong>Camera</strong> app on iPhone or Android and scan this code.</span>
+                                        </div>
+                                        <div className="flex items-start gap-2">
+                                            <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">2</span>
+                                            <span>Tap the banner that pops up on your phone.</span>
+                                        </div>
+                                        <div className="flex items-start gap-2">
+                                            <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">3</span>
+                                            <span>Tap <strong>Enable Phone Alerts</strong> on your phone (iOS: Add to Home Screen first).</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Live detection banner */}
+                                    <div className="flex items-center justify-between p-2.5 bg-slate-100/80 border border-slate-200 rounded-xl text-[11px] text-slate-600">
+                                        <div className="flex items-center gap-2">
+                                            <span className="relative flex h-2 w-2">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                            </span>
+                                            <span>Waiting for phone scan (auto-detects)...</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleCopySetupUrl}
+                                            className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                                            title="Copy mobile link"
+                                        >
+                                            {isCopied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                                            <span>{isCopied ? 'Copied!' : 'Copy Link'}</span>
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                            <span className="text-[11px] text-slate-400">Covers all RFQs from all clients</span>
+                            <button
+                                type="button"
+                                onClick={() => setShowQrModal(false)}
+                                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+                            >
+                                Close
                             </button>
                         </div>
                     </div>
