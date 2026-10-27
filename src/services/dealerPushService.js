@@ -19,6 +19,17 @@ export function isStandalone() {
     return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
+export function getNotificationPermission() {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+        return Notification.permission;
+    }
+    return 'default';
+}
+
+export function isPermissionDenied() {
+    return getNotificationPermission() === 'denied';
+}
+
 export function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -74,9 +85,17 @@ export async function subscribeDealerPush({ token, email, deviceLabel = null }) 
         throw new Error('Mobile alerts are not enabled on this server.');
     }
 
+    if (getNotificationPermission() === 'denied') {
+        const err = new Error('Notification permission is blocked in your browser settings. Please allow notifications for this site in your browser settings.');
+        err.code = 'PERMISSION_DENIED';
+        throw err;
+    }
+
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-        throw new Error('Notification permission was denied. Please allow notifications in your browser settings.');
+        const err = new Error('Notification permission was denied. Please allow notifications in your browser settings.');
+        err.code = 'PERMISSION_DENIED';
+        throw err;
     }
 
     const reg = await navigator.serviceWorker.ready;
@@ -136,9 +155,17 @@ export async function subscribeStandingSetup(setupToken, deviceLabel = null) {
         throw new Error('Mobile alerts are not enabled on this server.');
     }
 
+    if (getNotificationPermission() === 'denied') {
+        const err = new Error('Notification permission is blocked in your browser settings. Please allow notifications for this site in your browser settings.');
+        err.code = 'PERMISSION_DENIED';
+        throw err;
+    }
+
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-        throw new Error('Notification permission was denied. Please allow notifications in your browser settings.');
+        const err = new Error('Notification permission was denied. Please allow notifications in your browser settings.');
+        err.code = 'PERMISSION_DENIED';
+        throw err;
     }
 
     const reg = await navigator.serviceWorker.ready;

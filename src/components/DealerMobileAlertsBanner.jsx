@@ -1,11 +1,12 @@
 // src/components/DealerMobileAlertsBanner.jsx
 import React, { useState, useEffect } from 'react';
-import { Smartphone, CheckCircle, Bell, BellOff, X, HelpCircle, Share2, PlusSquare } from 'lucide-react';
+import { Smartphone, CheckCircle, Bell, BellOff, X, HelpCircle, Share2, PlusSquare, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
     isPushSupported,
     isIosDevice,
     isStandalone,
+    isPermissionDenied,
     getExistingSubscription,
     getDealerPushStatus,
     subscribeDealerPush,
@@ -19,6 +20,7 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
     const [loading, setLoading] = useState(false);
     const [showSetupModal, setShowSetupModal] = useState(false);
     const [showIosGuide, setShowIosGuide] = useState(false);
+    const [showBlockedModal, setShowBlockedModal] = useState(false);
     const [dealerEmail, setDealerEmail] = useState(defaultEmail || '');
     const [endpoint, setEndpoint] = useState(null);
 
@@ -52,6 +54,10 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
     };
 
     const handleOpenEnable = () => {
+        if (isPermissionDenied()) {
+            setShowBlockedModal(true);
+            return;
+        }
         if (isIosDevice() && !isStandalone()) {
             setShowIosGuide(true);
             return;
@@ -79,7 +85,13 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
             checkCurrentStatus();
         } catch (err) {
             console.error('Failed to enable dealer push:', err);
-            toast.error(err.response?.data?.detail || err.message || 'Failed to enable mobile alerts.');
+            if (err.code === 'PERMISSION_DENIED' || isPermissionDenied()) {
+                setShowSetupModal(false);
+                setShowBlockedModal(true);
+                toast.warn('Notifications are currently blocked in your browser settings.');
+            } else {
+                toast.error(err.response?.data?.detail || err.message || 'Failed to enable mobile alerts.');
+            }
         } finally {
             setLoading(false);
         }
@@ -278,6 +290,106 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
                                 className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs"
                             >
                                 Got it
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Browser Blocked Guide Modal */}
+            {showBlockedModal && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="blocked-modal-title"
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+                >
+                    <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl border border-amber-200">
+                        <div className="p-5 bg-gradient-to-r from-amber-950 via-slate-900 to-amber-900 text-white flex justify-between items-center">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-2 bg-amber-500/20 text-amber-300 rounded-xl border border-amber-500/30">
+                                    <AlertTriangle size={18} />
+                                </div>
+                                <div>
+                                    <h3 id="blocked-modal-title" className="font-bold text-sm">Notifications Blocked in Browser</h3>
+                                    <p className="text-[11px] text-amber-200/80">Permission is currently denied by your browser</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowBlockedModal(false)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        <div className="p-5 space-y-4 text-xs text-slate-700">
+                            <p className="leading-relaxed">
+                                Your browser has blocked notifications for this platform. To enable instant RFQ sound & vibration alerts, please allow notifications in your address bar:
+                            </p>
+
+                            <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl space-y-3">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-6 h-6 rounded-full bg-amber-200 text-amber-900 font-bold flex items-center justify-center shrink-0 text-xs">
+                                        1
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-slate-900">Click the Site Settings / Lock Icon</p>
+                                        <p className="text-[11px] text-slate-600 mt-0.5">
+                                            Look at the top left of your browser window, directly to the left of the website address (URL). Click the <strong className="text-slate-800">Lock 🔒</strong> or <strong className="text-slate-800">Tune / Sliders 🎛️</strong> icon.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-start gap-3">
+                                    <div className="w-6 h-6 rounded-full bg-amber-200 text-amber-900 font-bold flex items-center justify-center shrink-0 text-xs">
+                                        2
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-slate-900">Change Notifications to "Allow"</p>
+                                        <p className="text-[11px] text-slate-600 mt-0.5">
+                                            Find <strong className="text-slate-800">Notifications</strong> in the permissions popup and switch it from <em>Block</em> to <strong className="text-emerald-700 font-semibold">Allow</strong>.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-start gap-3">
+                                    <div className="w-6 h-6 rounded-full bg-amber-200 text-amber-900 font-bold flex items-center justify-center shrink-0 text-xs">
+                                        3
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-slate-900">Confirm Permission</p>
+                                        <p className="text-[11px] text-slate-600 mt-0.5">
+                                            Click the button below to verify that notifications are unblocked.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2.5">
+                            <button
+                                type="button"
+                                onClick={() => setShowBlockedModal(false)}
+                                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+                            >
+                                Dismiss
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!isPermissionDenied()) {
+                                        setShowBlockedModal(false);
+                                        setShowSetupModal(true);
+                                        toast.success('Permission unblocked! You can now activate your alerts.');
+                                    } else {
+                                        toast.info('Notifications are still blocked. Please toggle Notifications to "Allow" in the address bar lock icon.');
+                                    }
+                                }}
+                                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
+                            >
+                                <RefreshCw size={13} />
+                                <span>Check Permission Again</span>
                             </button>
                         </div>
                     </div>

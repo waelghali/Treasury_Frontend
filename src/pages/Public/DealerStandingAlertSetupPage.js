@@ -1,12 +1,13 @@
 // src/pages/Public/DealerStandingAlertSetupPage.js
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { Smartphone, CheckCircle, Bell, BellOff, AlertCircle, Share2, PlusSquare, ShieldCheck, Zap } from 'lucide-react';
+import { Smartphone, CheckCircle, Bell, BellOff, AlertCircle, Share2, PlusSquare, ShieldCheck, Zap, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
     isPushSupported,
     isIosDevice,
     isStandalone,
+    isPermissionDenied,
     getStandingSetup,
     subscribeStandingSetup,
     optOutStandingSetup
@@ -23,6 +24,7 @@ export default function DealerStandingAlertSetupPage() {
     const [error, setError] = useState(null);
     const [isSuccess, setIsSuccess] = useState(false);
     const [optedOut, setOptedOut] = useState(false);
+    const [isBlocked, setIsBlocked] = useState(false);
 
     useEffect(() => {
         loadSetupData();
@@ -48,6 +50,12 @@ export default function DealerStandingAlertSetupPage() {
     };
 
     const handleEnablePush = async () => {
+        if (isPermissionDenied()) {
+            setIsBlocked(true);
+            toast.warn('Notifications are blocked by your browser settings.');
+            return;
+        }
+
         if (!isPushSupported() && isIosDevice() && !isStandalone()) {
             toast.info('Please add this page to your Home Screen first to enable push on iOS.');
             return;
@@ -60,7 +68,12 @@ export default function DealerStandingAlertSetupPage() {
             toast.success('Mobile alerts successfully enabled for your dealer desk!');
         } catch (err) {
             console.error('Failed to enable standing push:', err);
-            toast.error(err.response?.data?.detail || err.message || 'Could not enable mobile alerts.');
+            if (err.code === 'PERMISSION_DENIED' || isPermissionDenied()) {
+                setIsBlocked(true);
+                toast.warn('Notifications are currently blocked by your browser.');
+            } else {
+                toast.error(err.response?.data?.detail || err.message || 'Could not enable mobile alerts.');
+            }
         } finally {
             setSubscribing(false);
         }
@@ -180,6 +193,39 @@ export default function DealerStandingAlertSetupPage() {
                                         <li>Select <strong>Add to Home Screen</strong>.</li>
                                         <li>Open Grow from your Home Screen to finish setup.</li>
                                     </ol>
+                                </div>
+                            )}
+
+                            {/* Browser Blocked Guide */}
+                            {isBlocked && (
+                                <div className="p-4 bg-amber-950/40 border border-amber-500/40 rounded-2xl space-y-3 text-xs text-amber-200">
+                                    <div className="flex items-center gap-2 text-amber-400 font-bold">
+                                        <AlertTriangle size={16} />
+                                        <span>Notifications are Blocked in Your Browser</span>
+                                    </div>
+                                    <p className="text-[11px] text-amber-300/90 leading-relaxed">
+                                        To enable lock-screen alerts, you need to unblock notifications in your browser's address bar:
+                                    </p>
+                                    <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-white font-medium">
+                                        <li>Click the <strong>Lock 🔒</strong> or <strong>Site Settings 🎛️</strong> icon at the top left of your browser address bar.</li>
+                                        <li>Find <strong>Notifications</strong> and change it to <strong className="text-emerald-400">Allow</strong>.</li>
+                                        <li>Click <strong>Check Again</strong> below.</li>
+                                    </ol>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!isPermissionDenied()) {
+                                                setIsBlocked(false);
+                                                toast.success('Permission unblocked! Tap the button below to activate alerts.');
+                                            } else {
+                                                toast.info('Still blocked. Please toggle Notifications to "Allow" in the lock icon.');
+                                            }
+                                        }}
+                                        className="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                                    >
+                                        <RefreshCw size={13} />
+                                        <span>Check Permission Again</span>
+                                    </button>
                                 </div>
                             )}
 
