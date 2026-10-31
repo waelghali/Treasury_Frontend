@@ -5,6 +5,7 @@ import apiClient from '../../services/apiClient';
 import ResultsView from '../EndUser/Quotations/ResultsView';
 import AdminRevisionModal from '../../components/Modals/AdminRevisionModal';
 import MarketSpreadTicker from '../../components/Quotations/MarketSpreadTicker';
+import CorporateMobileAlertsBanner from '../../components/CorporateMobileAlertsBanner';
 import { getRfqTimingState } from '../../utils/quotationTiming';
 import {
     Bell, Check, X, BarChart3, Landmark, Building, History, ChevronRight, ChevronDown, Clock,
@@ -647,6 +648,14 @@ export default function AdminQuotationDashboard() {
                     </button>
                 </div>
             </header>
+
+            {/* Corporate Quotation Mobile Alerts Banner */}
+            <CorporateMobileAlertsBanner
+                title="Real-Time Quotation Alerts"
+                description="Receive instant lock-screen notifications the moment banks submit quotes, RFQs open for evaluation, or countdown timeouts approach."
+                dismissKey="corp_admin_rfq_alerts_dismissed"
+                className="mb-2"
+            />
 
             {/* Zero-Knowledge Collaborative Market Intelligence */}
             <MarketSpreadTicker currencyPair="USD/EGP" tradeType="FX_SPOT" />

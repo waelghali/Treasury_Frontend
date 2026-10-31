@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
-import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, CheckCircle, MinusCircle, Eye, Edit, PlayCircle, Copy, Sparkles } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, CheckCircle, MinusCircle, Eye, Edit, PlayCircle, Copy, Sparkles, Clock, Truck, Building, FileText } from 'lucide-react';
 import moment from 'moment';
 import LGLifecycleHistoryComponent from '../../components/LGLifecycleHistoryComponent';
 import ChangeLGOwnerModal from '../../components/Modals/ChangeLGOwnerModal';
@@ -20,6 +20,7 @@ import LGActivateNonOperativeModal from '../../components/Modals/LGActivateNonOp
 import { Switch } from '@headlessui/react';
 import CopyBadge from '../../components/CopyBadge';
 import LgTimelineBar from '../../components/LgTimelineBar';
+import { openInNewTab } from '../../utils/navUtils';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -179,11 +180,13 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
         setShowAmendModal(false);
         setShowActivateModal(false);
 
-        setLgRecord(updatedRecordFromBackend);
+        if (updatedRecordFromBackend && updatedRecordFromBackend.lg_number) {
+            setLgRecord(updatedRecordFromBackend);
+        }
 
         if (latestInstructionId) {
             setTimeout(() => {
-                handleViewLetter(updatedRecordFromBackend, latestInstructionId);
+                handleViewLetter(updatedRecordFromBackend || lgRecord, latestInstructionId);
             }, 50);
         } else {
             fetchLgRecord(true);
@@ -329,10 +332,10 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 
 		try {
 			const response = await apiRequest(`/end-user/lg-documents/${documentId}/view`, 'GET');
-			const signedUrl = response.signed_url;
+			const targetUrl = response.download_url || response.signed_url;
 
-			if (signedUrl) {
-				window.open(signedUrl, '_blank');
+			if (targetUrl) {
+				openInNewTab(targetUrl);
 				toast.info("Opening document securely in a new tab.");
 			} else {
 				toast.error("Failed to retrieve secure document link.");
@@ -363,6 +366,15 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
             console.error("Failed to mark instruction as accessed for print or open letter:", error);
             toast.error("Could not open letter. Please try again later.");
         }
+    };
+
+    const handleViewDiscrepancyLetter = (instructionId) => {
+        const authToken = getAuthToken();
+        let letterUrl = `${API_BASE_URL}/end-user/lg-records/instructions/${instructionId}/view-discrepancy-letter`;
+        if (authToken) {
+            letterUrl += `?token=${authToken}&print=true`;
+        }
+        window.open(letterUrl, '_blank');
     };
 
 
@@ -438,6 +450,16 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 
     // Determine if the bank name is "Foreign Bank"
     const isForeignBank = lgRecord.issuing_bank?.name === 'Foreign Bank';
+
+    // Enhancement D: Compute open / in-flight instructions awaiting delivery or bank reply
+    const inFlightInstructions = (lgRecord.instructions || []).filter(
+        (inst) =>
+            !inst.is_deleted &&
+            inst.instruction_type !== 'LG_REMINDER_TO_BANKS' &&
+            inst.status !== 'Canceled' &&
+            inst.status !== 'Confirmed by Bank' &&
+            (!inst.delivery_date || !inst.bank_reply_date)
+    );
 
 	const handleCopyLgNumber = () => {
 			if (lgRecord?.lg_number) {
@@ -567,6 +589,112 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
             </div>
 
 			<LgTimelineBar lgRecord={lgRecord} isGracePeriod={isGracePeriod} />
+
+            {/* Enhancement D: In-Flight Instruction Visual Indicator Banner */}
+            {inFlightInstructions.length > 0 && (
+                <div className="mb-6 p-3.5 bg-amber-50/90 border border-amber-200 rounded-xl shadow-sm">
+                    <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                        <div className="flex items-center gap-2 text-amber-900 font-bold text-xs uppercase tracking-wider">
+                            <Clock className="h-4 w-4 text-amber-600 animate-pulse" />
+                            <span>In-Flight Instruction{inFlightInstructions.length > 1 ? 's' : ''} ({inFlightInstructions.length} Open)</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setActiveTab('history');
+                                const targetId = inFlightInstructions[0]?.id;
+                                setTimeout(() => {
+                                    const el =
+                                        (targetId && document.getElementById(`lifecycle-instruction-${targetId}`)) ||
+                                        document.getElementById('lifecycle-history-section');
+                                    if (el) {
+                                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        el.classList.add('ring-2', 'ring-amber-400');
+                                        setTimeout(() => el.classList.remove('ring-2', 'ring-amber-400'), 2200);
+                                    }
+                                }, 120);
+                            }}
+                            className="text-xs font-semibold text-amber-800 hover:text-amber-950 underline cursor-pointer"
+                        >
+                            View in Lifecycle History →
+                        </button>
+                    </div>
+                    <div className="space-y-2">
+                        {inFlightInstructions.map((inst) => {
+                            const needsDelivery = !inst.delivery_date;
+                            const needsReply = !!inst.delivery_date && !inst.bank_reply_date;
+                            const isTermsRejected = inst?.details?.bank_terms_admin_approval?.status === 'REJECTED_BY_ADMIN';
+                            const typeLabel = (inst.instruction_type || '').replace(/^LG_/, '').replace(/_/g, ' ');
+                            return (
+                                <div
+                                    key={inst.id}
+                                    className="flex items-center justify-between flex-wrap gap-2 bg-white/90 px-3 py-2 rounded-lg border border-amber-200/80 text-xs"
+                                >
+                                    <div className="flex items-center flex-wrap gap-2">
+                                        <span className="font-mono font-bold text-gray-900">
+                                            {inst.serial_number || `Instruction #${inst.id}`}
+                                        </span>
+                                        <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200">
+                                            {typeLabel}
+                                        </span>
+                                        {needsDelivery ? (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-200">
+                                                <Truck className="h-3 w-3" />
+                                                Awaiting Bank Delivery
+                                            </span>
+                                        ) : isTermsRejected ? (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-700 font-semibold border border-red-200">
+                                                <AlertCircle className="h-3 w-3" />
+                                                Admin Rejected Bank Terms — Send Discrepancy Letter & Record Corrected Reply
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-semibold border border-teal-200">
+                                                <Building className="h-3 w-3" />
+                                                Delivered ({formatDate(inst.delivery_date)}) — Awaiting Bank Reply
+                                            </span>
+                                        )}
+                                    </div>
+                                    {!isCorporateAdminView && !isGracePeriod && (
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            {needsDelivery && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRecordDelivery(inst)}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm"
+                                                >
+                                                    <Truck className="h-3.5 w-3.5" />
+                                                    <span>Record Delivery</span>
+                                                </button>
+                                            )}
+                                            {isTermsRejected && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleViewDiscrepancyLetter(inst.id)}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white font-semibold transition-colors shadow-sm"
+                                                    title="Print formal Discrepancy Notice letter to send to the bank"
+                                                >
+                                                    <FileText className="h-3.5 w-3.5" />
+                                                    <span>Print Discrepancy Letter</span>
+                                                </button>
+                                            )}
+                                            {needsReply && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRecordBankReply(inst)}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-teal-600 hover:bg-teal-700 text-white font-semibold transition-colors shadow-sm"
+                                                >
+                                                    <Building className="h-3.5 w-3.5" />
+                                                    <span>{isTermsRejected ? 'Record Corrected Reply' : 'Record Bank Reply'}</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             <div className="border-b border-gray-200 mb-6">
                 <nav className="-mb-px flex space-x-8" aria-label="Tabs">
@@ -803,17 +931,21 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 					</div>
 				)}
                 {activeTab === 'history' && (
-                    <LGLifecycleHistoryComponent
-                        lgRecordId={lgRecord.id}
-                        lgInstructions={lgRecord.instructions || []}
-                        lgDocuments={lgRecord.documents || []}
-                        onRecordDelivery={isCorporateAdminView || isGracePeriod ? null : handleRecordDelivery}
-                        onRecordBankReply={isCorporateAdminView || isGracePeriod ? null : handleRecordBankReply}
-                        onSendReminder={isCorporateAdminView || isGracePeriod ? null : handleSendReminderToBank}
-                        onViewInstructionLetter={handleViewInstructionLetterFromHistory}
-                        onViewInstructionDocument={handleViewInstructionDocument}
-                        isCorporateAdminView={isCorporateAdminView}
-                    />
+                    <div id="lifecycle-history-section">
+                        <LGLifecycleHistoryComponent
+                            lgRecordId={lgRecord.id}
+                            lgRecord={lgRecord}
+                            lgInstructions={lgRecord.instructions || []}
+                            lgDocuments={lgRecord.documents || []}
+                            onRecordDelivery={isCorporateAdminView || isGracePeriod ? null : handleRecordDelivery}
+                            onRecordBankReply={isCorporateAdminView || isGracePeriod ? null : handleRecordBankReply}
+                            onSendReminder={isCorporateAdminView || isGracePeriod ? null : handleSendReminderToBank}
+                            onViewInstructionLetter={handleViewInstructionLetterFromHistory}
+                            onViewInstructionDocument={handleViewInstructionDocument}
+                            onRefreshLgRecord={() => fetchLgRecord(true)}
+                            isCorporateAdminView={isCorporateAdminView}
+                        />
+                    </div>
                 )}
             </div>
 

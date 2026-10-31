@@ -118,6 +118,24 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
     const isCorporateAdmin = userRole === 'corporate_admin' || userRole === 'checker' || userRole === 'system_owner';
     const playedEntranceChimeRef = useRef(false);
 
+    // Reset modal state cleanly whenever a new deal RFQ arrives
+    useEffect(() => {
+        if (!deal?.rfq_id) return;
+        setSecondsLeft(typeof deal.seconds_remaining === 'number' ? deal.seconds_remaining : 30);
+        setIsMinimized(false);
+        setIsAccepting(false);
+        setIsDeclining(false);
+        setIsDeclined(false);
+        setSavedReason(null);
+        setIsUpdatingReason(false);
+        playedEntranceChimeRef.current = false;
+        if (deal.legs) {
+            setSelectedLegIds(deal.legs.filter(l => !l.is_inconclusive).map(l => String(l.leg_id)));
+        } else {
+            setSelectedLegIds([]);
+        }
+    }, [deal?.rfq_id]);
+
     // Entrance sound effect
     useEffect(() => {
         if (!playedEntranceChimeRef.current && !soundMuted) {
@@ -130,14 +148,20 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
         }
     }, [deal?.rfq_id, soundMuted]);
 
-    // Live countdown timer (halts if deal already declined)
+    // Live countdown timer anchored to server-provided seconds_remaining (immune to client PC clock skew)
     useEffect(() => {
-        if (!deal?.acceptance_deadline || isDeclined) return;
+        if (!deal?.rfq_id || isDeclined) return;
+
+        const initialSeconds = typeof deal.seconds_remaining === 'number' && deal.seconds_remaining > 0
+            ? deal.seconds_remaining
+            : (deal.acceptance_deadline
+                ? Math.max(1, Math.floor((new Date(deal.acceptance_deadline).getTime() - Date.now()) / 1000))
+                : 30);
+        const mountedAtMs = Date.now();
 
         const syncTimer = () => {
-            const now = new Date().getTime();
-            const deadline = new Date(deal.acceptance_deadline).getTime();
-            const diff = Math.max(0, Math.floor((deadline - now) / 1000));
+            const elapsedSec = (Date.now() - mountedAtMs) / 1000;
+            const diff = Math.max(0, Math.ceil(initialSeconds - elapsedSec));
             setSecondsLeft(diff);
 
             // Auditory urgency ticks in final 10 seconds
@@ -153,7 +177,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
         syncTimer();
         const intervalId = setInterval(syncTimer, 1000);
         return () => clearInterval(intervalId);
-    }, [deal?.acceptance_deadline, deal?.rfq_id, onResolve, soundMuted, isDeclined]);
+    }, [deal?.rfq_id, deal?.acceptance_deadline, onResolve, soundMuted, isDeclined]);
 
     if (!deal) return null;
 
@@ -205,7 +229,8 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
 
     /**
      * Requirement 1: Immediate decline on customer action.
-     * Rejects tender right away on backend, then smoothly presents optional reason collection.
+     * Rejects tender right away on backend, then smoothly presents optional reason collection
+     * (keeping the two steps separated without unmounting the modal prematurely).
      */
     const handleImmediateDecline = async () => {
         const declineEndpoint = isCorporateAdmin
@@ -226,9 +251,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                 detail: { rfqId: deal.rfq_id, status: 'REJECTED' }
             }));
 
-            if (onResolve) onResolve();
-
-            // Immediately switch to post-decline reason collection
+            // Switch to Step 2 (optional post-decline reason collection) before calling onResolve()
             setIsDeclined(true);
         } catch (err) {
             console.error("Deal decline error:", err);
@@ -246,7 +269,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
 
         try {
             setIsUpdatingReason(true);
-            await apiClient.post(declineEndpoint, { reason: reasonOption });
+            await apiClient.post(declineEndpoint, { reason: reasonOption, update_reason_only: true });
             toast.success("Decline reason recorded.");
         } catch (err) {
             console.warn("Could not update decline reason:", err);
@@ -256,6 +279,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
     };
 
     const handleFinishDeclinedClose = () => {
+        if (onResolve) onResolve();
         const targetUrl = isCorporateAdmin
             ? `/corporate-admin/quotations/results/${deal.rfq_id}`
             : `/end-user/quotations/results/${deal.rfq_id}`;

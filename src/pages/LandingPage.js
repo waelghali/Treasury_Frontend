@@ -25,8 +25,16 @@ function LandingPage() {
     e.preventDefault();
     setFormError('');
 
-    // Perimeter Anti-Bot Honeypot Defense
-    if (formData.website_url && formData.website_url.trim()) {
+    // Perimeter Anti-Bot Honeypot Defense (with browser autofill collision shield)
+    const trap = formData.website_url ? formData.website_url.trim().toLowerCase() : '';
+    const isAutofillCollision = trap && (
+      (formData.email && trap === formData.email.trim().toLowerCase()) ||
+      (formData.name && trap === formData.name.trim().toLowerCase()) ||
+      (formData.company && trap === formData.company.trim().toLowerCase()) ||
+      (formData.phone && trap === formData.phone.trim().toLowerCase())
+    );
+
+    if (trap && !isAutofillCollision) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       setFormError('Invalid request submission. Please verify your information.');
       return;
@@ -479,9 +487,6 @@ function LandingPage() {
                 </div>
               ) : (
                 <form onSubmit={handleDemoSubmit} className="space-y-4">
-                  {/* Zero-friction perimeter anti-bot honeypot trap */}
-                  <HoneypotField name="website_url" value={formData.website_url} onChange={handleInputChange} />
-
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="name" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Name *</label>
@@ -510,6 +515,9 @@ function LandingPage() {
                   <button type="submit" className="w-full flex items-center justify-center py-2.5 px-4 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md">
                     Request Demo <ArrowRight className="ml-2 w-4 h-4" />
                   </button>
+
+                  {/* Zero-friction perimeter anti-bot honeypot trap positioned after form fields to prevent autofill heuristic collisions */}
+                  <HoneypotField name="website_url" value={formData.website_url} onChange={handleInputChange} />
                 </form>
               )}
             </div>

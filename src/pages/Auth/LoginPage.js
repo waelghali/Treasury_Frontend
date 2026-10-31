@@ -35,6 +35,11 @@ function LoginPage({ onLoginSuccess }) {
     setIsLoading(true);
 
     try {
+      // Prevent browser autofill false positive if browser populated honeypot with the user's email
+      const safeWebsiteUrl = (websiteUrl && email && websiteUrl.trim().toLowerCase() === email.trim().toLowerCase())
+        ? ''
+        : websiteUrl;
+
       const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -44,7 +49,7 @@ function LoginPage({ onLoginSuccess }) {
           device_id: getOrCreateDeviceId(),
           remember_me: rememberMe,
           device_name: navigator.userAgent.split(') ')[0] || "Web Browser",
-          website_url: websiteUrl,
+          website_url: safeWebsiteUrl,
         }),
       });
 
@@ -221,9 +226,6 @@ function LoginPage({ onLoginSuccess }) {
 
           {!showMfa ? (
             <form className="space-y-5" onSubmit={handleSubmit}>
-              {/* Zero-friction perimeter anti-bot honeypot trap */}
-              <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
-
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Email Address</label>
                 <input
@@ -257,6 +259,9 @@ function LoginPage({ onLoginSuccess }) {
                   <><Loader2 className="animate-spin h-4 w-4 mr-2" /> Signing In...</>
                 ) : 'Sign In'}
               </button>
+
+              {/* Zero-friction perimeter anti-bot honeypot trap positioned after credentials to prevent autofill heuristic collisions */}
+              <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
             </form>
           ) : (
             <form className="space-y-4" onSubmit={handleMfaVerify}>

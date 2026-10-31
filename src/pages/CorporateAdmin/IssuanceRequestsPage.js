@@ -27,10 +27,12 @@ export default function IssuanceRequestsPage() {
   const [selectedRequest, setSelectedRequest] = useState(null);
 
   const location = useLocation();
-  const openRequestId = location.state?.openRequestId;
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const paramRequestId = searchParams.get('request_id') || searchParams.get('id');
+  const openRequestId = location.state?.openRequestId || paramRequestId;
   const executeRequestId = location.state?.executeRequestId;
 
-  // Auto-open requested modal if passed via navigation state
+  // Auto-open requested modal if passed via navigation state or URL query parameter
   useEffect(() => {
     if (requests.length > 0) {
       const targetId = openRequestId || executeRequestId;

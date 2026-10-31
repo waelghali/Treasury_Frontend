@@ -117,7 +117,22 @@ export default function QuotationBanksModal({ onClose }) {
         }
         try {
             const res = await apiClient.get(`/end-user/quotations/banks/${bankId}/invitations`);
-            setPendingInvitations(res.data || []);
+            const invList = res.data || [];
+            setPendingInvitations(invList);
+            const pendingEmailSet = new Set(
+                invList
+                    .filter(inv => inv.status === 'PENDING' || inv.status === 'LOCKED')
+                    .map(inv => (inv.email || '').trim().toLowerCase())
+                    .filter(Boolean)
+            );
+            if (pendingEmailSet.size > 0) {
+                setFormData(prev => ({
+                    ...prev,
+                    contacts: (prev.contacts || []).filter(
+                        c => !pendingEmailSet.has((c.email || '').trim().toLowerCase())
+                    )
+                }));
+            }
         } catch (err) {
             console.error('Failed to fetch pending invitations:', err);
         }
@@ -296,8 +311,10 @@ export default function QuotationBanksModal({ onClose }) {
         setReportSentSuccess(null);
         setNewContact({ email: '', name: '', role: 'EXECUTION' });
         setPendingInvitations([]);
-        let parsedContacts = bank.contacts || [];
-        if (!parsedContacts.length && bank.emails) {
+        let parsedContacts = (bank.contacts || []).filter(
+            c => !c.is_pending && c.invitation_status !== 'PENDING'
+        );
+        if (!parsedContacts.length && (!bank.contacts || !bank.contacts.length) && bank.emails) {
             parsedContacts = bank.emails.split(',').map(e => ({
                 email: e.trim(),
                 name: '',
@@ -364,13 +381,18 @@ export default function QuotationBanksModal({ onClose }) {
             }
         }
         const validContacts = Array.from(contactMap.values());
-        if (validContacts.length === 0) {
+        const activePendingInvitations = (pendingInvitations || []).filter(
+            inv => inv.status !== 'REVOKED' && inv.status !== 'LOCKED'
+        );
+        const combinedContacts = [...validContacts, ...activePendingInvitations];
+
+        if (combinedContacts.length === 0) {
             alert('Please add at least one contact email address.');
             return;
         }
 
-        // Enforce: At least 1 Execution Dealer or Approver
-        const hasExecutionOrApprover = validContacts.some(c => c.role === 'EXECUTION' || c.role === 'APPROVER');
+        // Enforce: At least 1 Execution Dealer or Approver (across active contacts or pending invitations)
+        const hasExecutionOrApprover = combinedContacts.some(c => c.role === 'EXECUTION' || c.role === 'APPROVER');
         if (!hasExecutionOrApprover) {
             alert('Counterparty configuration requires at least one contact with an Execution Dealer (⚡) or Approver (🛡️) role. View-Only contacts alone cannot execute trades.');
             return;

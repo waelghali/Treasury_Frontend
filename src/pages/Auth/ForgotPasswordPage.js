@@ -26,10 +26,14 @@ function ForgotPasswordPage() {
     }
 
     try {
+      const safeWebsiteUrl = (websiteUrl && email && websiteUrl.trim().toLowerCase() === email.trim().toLowerCase())
+        ? ''
+        : websiteUrl;
+
       await fetch(`${API_BASE_URL}/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, website_url: websiteUrl }),
+        body: JSON.stringify({ email, website_url: safeWebsiteUrl }),
       });
 
       setMessage('If an account with that email exists, a password reset link has been sent to your inbox.');
@@ -75,9 +79,6 @@ function ForgotPasswordPage() {
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-            {/* Zero-friction perimeter anti-bot honeypot trap */}
-            <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
-
             <div>
               <label htmlFor="email" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                 Email Address
@@ -119,6 +120,9 @@ function ForgotPasswordPage() {
                 <><Mail className="h-4 w-4 mr-2" /> Send Reset Link</>
               )}
             </button>
+
+            {/* Zero-friction perimeter anti-bot honeypot trap positioned after form fields to prevent autofill heuristic collisions */}
+            <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
           </form>
 
           <div className="text-center pt-4 border-t border-gray-100">

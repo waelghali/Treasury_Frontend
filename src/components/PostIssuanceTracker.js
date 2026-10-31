@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { apiRequest } from 'services/apiService';
 import { toast } from 'react-toastify';
+import { openInNewTab } from 'utils/navUtils';
 import {
     CheckCircle, Clock, AlertTriangle, XCircle, Send, Upload,
     FileText, Truck, MessageSquare, ShieldCheck, Loader2,
@@ -1319,8 +1320,8 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                                     // Strip /api/v1 prefix since apiRequest adds it automatically
                                                                                     const path = result.cancellation_notice_download_url.replace('/api/v1', '');
                                                                                     const docRes = await apiRequest(path, 'GET');
-                                                                                    if (docRes && docRes.download_url) {
-                                                                                        window.open(docRes.download_url, '_blank');
+                                                                                    if (docRes && (docRes.download_url || docRes.signed_url)) {
+                                                                                        openInNewTab(docRes.download_url || docRes.signed_url);
                                                                                     }
                                                                                 } catch (e) {
                                                                                     console.error('Failed to auto-open cancellation notice:', e);
@@ -2045,8 +2046,8 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                 onClick={async () => {
                                                                     try {
                                                                         const res = await apiRequest(`/issuance/lg-records/${lgId}/cancellation-notice-pdf`, 'GET');
-                                                                        if (res?.download_url) {
-                                                                            window.open(res.download_url, '_blank');
+                                                                        if (res?.download_url || res?.signed_url) {
+                                                                            openInNewTab(res.download_url || res.signed_url);
                                                                         }
                                                                     } catch (err) {
                                                                         toast.error('Failed to load cancellation notice.');

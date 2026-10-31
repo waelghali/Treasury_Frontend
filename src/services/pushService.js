@@ -13,15 +13,31 @@ import { getOrCreateDeviceId } from './apiService';
 
 const OWNER_KEY = 'push_owner_user_id';
 
-const urlBase64ToUint8Array = (base64String) => {
+export const urlBase64ToUint8Array = (base64String) => {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const raw = window.atob(base64);
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 };
 
+export const getVapidPublicKey = async () => {
+  try {
+    const { data } = await apiClient.get('/notifications/push/public-key');
+    return data?.enabled ? data.public_key : null;
+  } catch (e) {
+    console.warn('Could not fetch corporate VAPID public key:', e);
+    return null;
+  }
+};
+
 export const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent)
   || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+export const isIosDevice = isIos;
+
+export const isPushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+export const isPermissionDenied = () => typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'denied';
 
 export const isStandalone = () => window.matchMedia?.('(display-mode: standalone)').matches
   || window.navigator.standalone === true;

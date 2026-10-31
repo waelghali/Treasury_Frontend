@@ -5,6 +5,7 @@ import { X, Check, FileText, AlertCircle, Loader2, XCircle, Sparkles } from 'luc
 import moment from 'moment';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
+import { openInNewTab } from '../../utils/navUtils';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -28,7 +29,11 @@ const buttonBaseClassNames = "inline-flex items-center px-3 py-1 text-sm font-me
 
 const formatActionType = (actionType) => {
     if (!actionType) return 'N/A';
-    return String(actionType).replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+    return String(actionType).replace(/_/g, ' ').split(' ').map(word => {
+        const upper = word.toUpperCase();
+        if (upper === 'LG' || upper === 'ID' || upper === 'RFQ') return upper;
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }).join(' ');
 };
 
 const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, onWithdraw, isEndUserView, isGracePeriod }) => {
@@ -96,7 +101,7 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
         return date.isValid() ? date.format('DD-MMM-YYYY') : 'Invalid Date';
     };
 
-    const getFieldDisplay = (label, snapshotValue, currentValue, type = 'text') => {
+    const getFieldDisplay = (label, snapshotValue, currentValue, type = 'text', colSpanClass = '') => {
         let isChanged = false;
         let displaySnapshot = snapshotValue;
         let displayCurrent = currentValue;
@@ -144,9 +149,11 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
             displayCurrent = currentValue ? 'Yes' : 'No';
             isChanged = snapshotValue !== currentValue;
         } else if (type === 'json_object') {
-            displaySnapshot = JSON.stringify(snapshotValue, null, 2);
-            displayCurrent = JSON.stringify(currentValue, null, 2);
-            isChanged = JSON.stringify(snapshotValue) !== JSON.stringify(currentValue);
+            const hasSnap = snapshotValue && typeof snapshotValue === 'object' && Object.keys(snapshotValue).length > 0;
+            const hasCurr = currentValue && typeof currentValue === 'object' && Object.keys(currentValue).length > 0;
+            displaySnapshot = hasSnap ? JSON.stringify(snapshotValue) : null;
+            displayCurrent = hasCurr ? JSON.stringify(currentValue) : null;
+            isChanged = (displaySnapshot || '') !== (displayCurrent || '');
         } else if (type === 'list') {
             displaySnapshot = Array.isArray(snapshotValue) ? snapshotValue.join(', ') : String(snapshotValue || '');
             displayCurrent = Array.isArray(currentValue) ? currentValue.join(', ') : String(currentValue || '');
@@ -164,23 +171,24 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
         }
 
         return (
-            <p key={label}>
+            <div key={label} className={`leading-snug ${colSpanClass}`}>
                 <strong className={isChanged ? 'text-red-700' : 'text-gray-700'}>
                     {label}:
                 </strong>{' '}
-                <span className={isChanged ? 'font-bold' : ''}>
+                <span className={isChanged ? 'font-bold text-red-900 bg-red-50 px-1 rounded' : 'text-gray-800'}>
                     {displayString}
                 </span>
-                {isChanged && <span className="text-red-500 text-xs ml-2">(Changed)</span>}
-            </p>
+                {isChanged && <span className="text-red-500 text-[11px] font-medium ml-1.5">(Changed)</span>}
+            </div>
         );
     };
 
     const handleViewDocument = async (documentId) => {
 		try {
 			const response = await apiRequest(`/end-user/lg-documents/${documentId}/view`, 'GET');
-			if (response && response.signed_url) {
-				window.open(response.signed_url, '_blank');
+			const targetUrl = response?.download_url || response?.signed_url;
+			if (targetUrl) {
+				openInNewTab(targetUrl);
 			} else {
 				toast.error("Failed to retrieve the document link.");
 			}
@@ -381,6 +389,89 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                     </div>
                 );
             }
+            case 'LG_CANCEL_LAST_INSTRUCTION': {
+                const targetInst = currentLgRecord?.instructions?.find(
+                    inst => Number(inst.id) === Number(details.instruction_id)
+                ) || request.related_instruction || null;
+
+                const instSerial = details.instruction_serial || targetInst?.serial_number || `ID #${details.instruction_id}`;
+                const instTypeRaw = details.instruction_type || targetInst?.instruction_type;
+                const instTypeFormatted = instTypeRaw ? formatActionType(instTypeRaw) : 'Instruction';
+                const instStatus = details.instruction_status || targetInst?.status || 'N/A';
+                const instMeta = targetInst?.details || {};
+                const oldExpiry = details.old_expiry_date || instMeta.old_expiry_date;
+                const newExpiry = details.new_expiry_date || instMeta.new_expiry_date;
+
+                let rollbackSummary = 'Approving this request will mark the instruction as Canceled and roll back the LG to its prior state.';
+                if (oldExpiry && newExpiry) {
+                    rollbackSummary = `Expiry Date will roll back from ${formatDate(newExpiry)} ➔ ${formatDate(oldExpiry)}`;
+                } else if (instTypeRaw === 'LG_DECREASE_AMOUNT' && instMeta.decrease_amount) {
+                    rollbackSummary = `LG Amount will be restored by adding back ${formatAmount(instMeta.decrease_amount, currentLgRecord?.lg_currency?.iso_code || request.lg_record?.lg_currency?.iso_code)}`;
+                } else if (instTypeRaw === 'LG_RELEASE' || instTypeRaw === 'LG_LIQUIDATE') {
+                    rollbackSummary = 'LG Status will revert to Valid';
+                }
+
+                const handleViewTargetLetter = async () => {
+                    if (!details.instruction_id) return;
+                    try {
+                        const response = await apiRequest(
+                            `/end-user/lg-records/instructions/${details.instruction_id}/view-letter`,
+                            'GET',
+                            null,
+                            'text/html',
+                            'text'
+                        );
+                        const blob = new Blob([response], { type: 'text/html' });
+                        const url = URL.createObjectURL(blob);
+                        openInNewTab(url);
+                    } catch (err) {
+                        toast.error(`Failed to open instruction letter: ${err.message || 'Unexpected error'}`);
+                    }
+                };
+
+                return (
+                    <div className="mt-4 p-3.5 bg-rose-50/70 border border-rose-200 rounded-lg space-y-2 text-sm">
+                        <div className="flex items-center justify-between border-b border-rose-200/80 pb-2 mb-1">
+                            <h4 className="font-semibold text-rose-900">Instruction Cancellation Details</h4>
+                            <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-100 text-rose-800 border border-rose-200">
+                                {instTypeFormatted}
+                            </span>
+                        </div>
+                        <p className="text-gray-800">
+                            <strong className="text-gray-700">Instruction Serial:</strong>{' '}
+                            <span className="font-mono font-semibold text-gray-900">{instSerial}</span>
+                        </p>
+                        <p className="text-gray-800">
+                            <strong className="text-gray-700">Instruction Status:</strong>{' '}
+                            <span>{instStatus}</span>
+                        </p>
+                        <div className="p-2.5 bg-white border border-rose-200 rounded-md text-xs text-rose-900">
+                            <strong className="block text-rose-800 mb-0.5">Rollback Impact on Approval:</strong>
+                            {rollbackSummary}
+                        </div>
+                        <p className="text-gray-800">
+                            <strong className="text-gray-700">Cancellation Reason:</strong>{' '}
+                            <span className="italic text-gray-900">{(details.reason || '').trim() || 'No reason provided'}</span>
+                        </p>
+                        <div className="flex items-center justify-between pt-1">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
+                                <Check className="h-3.5 w-3.5" />
+                                Maker Null & Void Declaration Confirmed
+                            </span>
+                            {details.instruction_id && (
+                                <button
+                                    type="button"
+                                    onClick={handleViewTargetLetter}
+                                    className="inline-flex items-center text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline focus:outline-none"
+                                >
+                                    <FileText className="h-3.5 w-3.5 mr-1" />
+                                    View Instruction Letter
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
             default:
                 return (
                     <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
@@ -425,38 +516,40 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                             leaveFrom="opacity-100 translate-y-0 sm:scale-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
-                            <DialogPanel className="relative transform overflow-hidden rounded-xl bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-4xl sm:p-6">
-                                <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
+                            <DialogPanel className="relative transform overflow-hidden rounded-xl bg-white px-4 pb-3.5 pt-3.5 text-left shadow-xl transition-all sm:my-2 sm:w-full sm:max-w-5xl sm:px-5 sm:py-4">
+                                <div className="absolute right-0 top-0 hidden pr-4 pt-3.5 sm:block">
                                     <button
                                         type="button"
                                         className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                                         onClick={onClose}
                                     >
                                         <span className="sr-only">Close</span>
-                                        <X className="h-6 w-6" aria-hidden="true" />
+                                        <X className="h-5 w-5" aria-hidden="true" />
                                     </button>
                                 </div>
                                 <div className="sm:flex sm:items-start">
-                                    <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                                        <DialogTitle as="h3" className="text-lg font-bold leading-6 text-gray-900 tracking-tight border-b pb-3 mb-3">
-                                            Review Approval Request: {request.lg_record?.lg_number || 'N/A'} - {formatActionType(request.action_type)}
-                                            <span className={`ml-3 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                request.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                                request.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                                                request.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                                                'bg-gray-100 text-gray-800'
-                                            }`}>
-                                                {request.status}
-                                            </span>
-                                        </DialogTitle>
-                                        <div className="mt-2">
-                                            <p className="text-sm text-red-700 mb-3">
+                                    <div className="text-center sm:text-left w-full">
+                                        <div className="border-b border-gray-200 pb-2 mb-2.5 pr-8">
+                                            <DialogTitle as="h3" className="text-base font-bold leading-6 text-gray-900 tracking-tight flex items-center flex-wrap gap-2">
+                                                <span>Review Approval Request: {request.lg_record?.lg_number || 'N/A'} - {formatActionType(request.action_type)}</span>
+                                                <span className={`px-2 py-0.5 inline-flex text-xs leading-4 font-semibold rounded-full ${
+                                                    request.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                                    request.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                                                    request.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                                                    'bg-gray-100 text-gray-800'
+                                                }`}>
+                                                    {request.status}
+                                                </span>
+                                            </DialogTitle>
+                                            <p className="text-xs text-red-600/90 mt-0.5">
                                                 Review the details below. The data presented are based on the most recent information available, rather than the data at the time the request was submitted.
                                             </p>
+                                        </div>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-                                                <div>
-                                                    <h4 className="font-semibold text-gray-800 mb-2">Request Information:</h4>
+                                        <div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs sm:text-[13px] mb-2.5 items-start [&>div]:mt-0 [&_h4]:mb-1">
+                                                <div className="p-2.5 bg-gray-50 border border-gray-200 rounded-md space-y-1">
+                                                    <h4 className="font-semibold text-gray-800 mb-1">Request Information:</h4>
                                                     <p><strong>Action Type:</strong> {formatActionType(request.action_type)}</p>
                                                     <p><strong>Requested By:</strong> {request.maker_user?.email || 'N/A'}</p>
                                                     <p><strong>Requested On:</strong> {moment(request.created_at).format('DD-MMM-YYYY HH:mm')}</p>
@@ -467,30 +560,29 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                                                         <p className="text-green-600"><strong>Approved By:</strong> {request.checker_user.email} on {moment(request.updated_at).format('DD-MMM-YYYY HH:mm')}</p>
                                                     )}
                                                     {request.status !== 'PENDING' && !request.checker_user?.email && (
-                                                        <p className="text-gray-500 italic mt-2">This request was automatically {request.status.toLowerCase()}.</p>
+                                                        <p className="text-gray-500 italic mt-1">This request was automatically {request.status.toLowerCase()}.</p>
                                                     )}
                                                 </div>
                                                 {renderActionSpecificDetails()}
                                             </div>
 
-
                                             {/* Only show LG Record comparison for actual LGRecord entity types */}
                                             {request.entity_type === 'LGRecord' && (
                                             <>
-                                            <h4 className="text-md font-semibold text-gray-800 mb-3 border-b pb-2">LG Record Details (Snapshot vs. Current)</h4>
+                                            <h4 className="text-xs sm:text-sm font-semibold text-gray-800 mb-1.5 border-b pb-1">LG Record Details (Snapshot vs. Current)</h4>
 
                                             {isLoadingDetails ? (
-                                                <div className="flex justify-center items-center py-4">
-                                                    <Loader2 className="animate-spin h-6 w-6 text-blue-600" />
-                                                    <p className="ml-2 text-gray-600">Loading LG record details...</p>
+                                                <div className="flex justify-center items-center py-3">
+                                                    <Loader2 className="animate-spin h-5 w-5 text-blue-600" />
+                                                    <p className="ml-2 text-xs text-gray-600">Loading LG record details...</p>
                                                 </div>
                                             ) : detailsError ? (
-                                                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md flex items-center">
-                                                    <AlertCircle className="mr-2" size={20} />
+                                                <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 text-xs rounded-md flex items-center">
+                                                    <AlertCircle className="mr-2" size={16} />
                                                     {detailsError}
                                                 </div>
                                             ) : (
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-gray-700">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1.5 text-xs sm:text-[13px] text-gray-700 bg-gray-50/60 border border-gray-200/80 rounded-lg p-2.5">
                                                     {getFieldDisplay('LG Number', lgRecordSnapshot?.lg_number, currentLgRecord?.lg_number)}
                                                     {getFieldDisplay('Issuer Name', lgRecordSnapshot?.issuer_name, currentLgRecord?.issuer_name)}
                                                     {getFieldDisplay('Beneficiary', lgRecordSnapshot?.beneficiary_corporate, currentLgRecord?.beneficiary_corporate)}
@@ -503,94 +595,115 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                                                     {getFieldDisplay('Status', lgRecordSnapshot?.lg_status, currentLgRecord?.lg_status)}
                                                     {getFieldDisplay('Operational Status', lgRecordSnapshot?.lg_operational_status, currentLgRecord?.lg_operational_status)}
                                                     {getFieldDisplay('Payment Conditions', lgRecordSnapshot?.payment_conditions, currentLgRecord?.payment_conditions)}
-                                                    {getFieldDisplay('Description Purpose', lgRecordSnapshot?.description_purpose, currentLgRecord?.description_purpose)}
                                                     {getFieldDisplay('Issuing Bank', lgRecordSnapshot?.issuing_bank, currentLgRecord?.issuing_bank)}
-                                                    {getFieldDisplay('Applicable Rules Text', lgRecordSnapshot?.applicable_rules_text, currentLgRecord?.applicable_rules_text)}
-                                                    {getFieldDisplay('Other Conditions', lgRecordSnapshot?.other_conditions, currentLgRecord?.other_conditions)}
                                                     {getFieldDisplay('Internal Owner', lgRecordSnapshot?.internal_owner_contact, currentLgRecord?.internal_owner_contact)}
                                                     {getFieldDisplay('LG Category', lgRecordSnapshot?.lg_category, currentLgRecord?.lg_category)}
-                                                    {getFieldDisplay('Additional Fields', lgRecordSnapshot?.additional_field_values, currentLgRecord?.additional_field_values, 'json_object')}
+                                                    {getFieldDisplay('Applicable Rules Text', lgRecordSnapshot?.applicable_rules_text, currentLgRecord?.applicable_rules_text)}
+                                                    {getFieldDisplay('Other Conditions', lgRecordSnapshot?.other_conditions, currentLgRecord?.other_conditions)}
                                                     {getFieldDisplay('Internal Contract/Project ID', lgRecordSnapshot?.internal_contract_project_id, currentLgRecord?.internal_contract_project_id)}
+                                                    {getFieldDisplay('Additional Fields', lgRecordSnapshot?.additional_field_values, currentLgRecord?.additional_field_values, 'json_object')}
                                                     {getFieldDisplay('Notes', lgRecordSnapshot?.notes, currentLgRecord?.notes)}
+                                                    {getFieldDisplay('Description Purpose', lgRecordSnapshot?.description_purpose, currentLgRecord?.description_purpose, 'text', 'sm:col-span-2 lg:col-span-3')}
                                                 </div>
                                             )}
                                             </>)}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
+                                <div className="mt-3 pt-2.5 border-t border-gray-100">
                                     {isEndUserView ? (
-                                        <>
-                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                <button
-                                                    type="button"
-                                                    className={`${buttonBaseClassNames} sm:col-start-2 bg-red-600 text-white hover:bg-red-700 ${!areButtonsEnabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                    onClick={() => {
-                                                        if (areButtonsEnabled && onWithdraw) {
-                                                            setIsProcessing(true);
-                                                            onWithdraw(request.id).finally(() => setIsProcessing(false));
-                                                        }
-                                                    }}
-                                                    disabled={!areButtonsEnabled || isProcessing || isGracePeriod}
-                                                >
-                                                    {isProcessing ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <XCircle className="h-5 w-5 mr-2" />}
-                                                    {isProcessing ? 'Withdrawing...' : 'Withdraw Request'}
-                                                </button>
-                                            </GracePeriodTooltip>
-                                            {!areButtonsEnabled && (
-                                                <p className="sm:col-span-2 text-center text-gray-500 text-sm mt-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            {!areButtonsEnabled ? (
+                                                <p className="text-gray-500 text-xs italic">
                                                     No actions available for this request (status is {request.status.toLowerCase()}).
                                                 </p>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <>
-                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                            ) : <span />}
+                                            <div className="flex items-center gap-2">
+                                                {areButtonsEnabled && (
+                                                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                        <button
+                                                            type="button"
+                                                            className={`${buttonBaseClassNames} bg-red-600 text-white hover:bg-red-700 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                            onClick={() => {
+                                                                if (areButtonsEnabled && onWithdraw) {
+                                                                    setIsProcessing(true);
+                                                                    onWithdraw(request.id).finally(() => setIsProcessing(false));
+                                                                }
+                                                            }}
+                                                            disabled={isProcessing || isGracePeriod}
+                                                        >
+                                                            {isProcessing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <XCircle className="h-4 w-4 mr-1.5" />}
+                                                            {isProcessing ? 'Withdrawing...' : 'Withdraw Request'}
+                                                        </button>
+                                                    </GracePeriodTooltip>
+                                                )}
                                                 <button
                                                     type="button"
-                                                    className={`${buttonBaseClassNames} sm:col-start-2 bg-green-600 text-white hover:bg-green-700 ${!areButtonsEnabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                    onClick={() => {
-                                                        if (areButtonsEnabled && onApprove) {
-                                                            setIsProcessing(true);
-                                                            onApprove(request.id).finally(() => setIsProcessing(false));
-                                                        }
-                                                    }}
-                                                    disabled={!areButtonsEnabled || isProcessing || isGracePeriod}
+                                                    onClick={onClose}
+                                                    className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
                                                 >
-                                                    {isProcessing ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Check className="h-5 w-5 mr-2" />}
-                                                    {isProcessing ? 'Approving...' : 'Approve'}
+                                                    Close
                                                 </button>
-                                            </GracePeriodTooltip>
-                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                <button
-                                                    type="button"
-                                                    className={`${buttonBaseClassNames} sm:col-start-1 text-red-600 border border-red-300 hover:bg-red-50 ${!areButtonsEnabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                    onClick={() => {
-                                                        if (areButtonsEnabled && onReject) {
-                                                            setIsProcessing(true);
-                                                            onReject(request.id, rejectionReason).finally(() => setIsProcessing(false));
-                                                        }
-                                                    }}
-                                                    disabled={!areButtonsEnabled || isProcessing || isGracePeriod}
-                                                >
-                                                    {isProcessing ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <X className="h-5 w-5 mr-2" />}
-                                                    {isProcessing ? 'Rejecting...' : 'Reject'}
-                                                </button>
-                                            </GracePeriodTooltip>
+                                            </div>
+                                        </div>
+                                    ) : areButtonsEnabled ? (
+                                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
                                             <input
                                                 type="text"
-                                                placeholder="Reason for rejection (optional)"
+                                                placeholder="Reason for rejection (optional)..."
                                                 value={rejectionReason}
                                                 onChange={(e) => setRejectionReason(e.target.value)}
-                                                className={`col-span-2 mt-3 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-2 ${!areButtonsEnabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                disabled={!areButtonsEnabled || isProcessing || isGracePeriod}
+                                                className={`flex-1 rounded-md border border-gray-300 shadow-sm text-xs sm:text-sm px-3 py-1.5 focus:ring-indigo-500 focus:border-indigo-500 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                disabled={isProcessing || isGracePeriod}
                                             />
-                                            {!areButtonsEnabled && (
-                                                <p className="sm:col-span-2 text-center text-gray-500 text-sm mt-3">
-                                                    No actions available for this request (status is {request.status.toLowerCase()}).
-                                                </p>
-                                            )}
-                                        </>
+                                            <div className="flex items-center justify-end gap-2 shrink-0">
+                                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                    <button
+                                                        type="button"
+                                                        className={`${buttonBaseClassNames} text-red-600 border border-red-300 hover:bg-red-50 px-4 py-1.5 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        onClick={() => {
+                                                            if (areButtonsEnabled && onReject) {
+                                                                setIsProcessing(true);
+                                                                onReject(request.id, rejectionReason).finally(() => setIsProcessing(false));
+                                                            }
+                                                        }}
+                                                        disabled={isProcessing || isGracePeriod}
+                                                    >
+                                                        {isProcessing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <X className="h-4 w-4 mr-1.5" />}
+                                                        {isProcessing ? 'Rejecting...' : 'Reject'}
+                                                    </button>
+                                                </GracePeriodTooltip>
+                                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                    <button
+                                                        type="button"
+                                                        className={`${buttonBaseClassNames} bg-green-600 text-white hover:bg-green-700 px-5 py-1.5 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        onClick={() => {
+                                                            if (areButtonsEnabled && onApprove) {
+                                                                setIsProcessing(true);
+                                                                onApprove(request.id).finally(() => setIsProcessing(false));
+                                                            }
+                                                        }}
+                                                        disabled={isProcessing || isGracePeriod}
+                                                    >
+                                                        {isProcessing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Check className="h-4 w-4 mr-1.5" />}
+                                                        {isProcessing ? 'Approving...' : 'Approve'}
+                                                    </button>
+                                                </GracePeriodTooltip>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-gray-500 text-xs italic">
+                                                No actions available for this request (status is {request.status.toLowerCase()}).
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={onClose}
+                                                className="px-4 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                                            >
+                                                Close
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                             </DialogPanel>

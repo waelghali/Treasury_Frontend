@@ -54,7 +54,8 @@ export async function getDealerVapidPublicKey() {
 export async function getExistingSubscription() {
     if (!isPushSupported()) return null;
     try {
-        const reg = await navigator.serviceWorker.ready;
+        const reg = await navigator.serviceWorker.getRegistration('/');
+        if (!reg) return null;
         return await reg.pushManager.getSubscription();
     } catch {
         return null;
@@ -98,6 +99,7 @@ export async function subscribeDealerPush({ token, email, deviceLabel = null }) 
         throw err;
     }
 
+    await navigator.serviceWorker.register('/sw.js', { scope: '/' });
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
@@ -126,14 +128,18 @@ export async function subscribeDealerPush({ token, email, deviceLabel = null }) 
     return res.data;
 }
 
-export async function unsubscribeDealerPush(endpoint, token = null) {
-    if (!endpoint) return;
+export async function unsubscribeDealerPush(endpoint = null, token = null, email = null, target = 'all') {
+    if (!endpoint && !email) return;
     try {
-        await apiClient.post('/public-quotation/push/unsubscribe', { endpoint, token });
-        const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
-        if (sub) {
-            await sub.unsubscribe();
+        await apiClient.post('/public-quotation/push/unsubscribe', { endpoint, token, email, target });
+        if ((target === 'browser' || target === 'all') && 'serviceWorker' in navigator) {
+            const reg = await navigator.serviceWorker.getRegistration('/');
+            if (reg) {
+                const sub = await reg.pushManager.getSubscription();
+                if (sub) {
+                    await sub.unsubscribe();
+                }
+            }
         }
     } catch (e) {
         console.warn('Dealer push unsubscribe error:', e);
@@ -141,11 +147,12 @@ export async function unsubscribeDealerPush(endpoint, token = null) {
 }
 
 export async function getStandingSetup(setupToken) {
-    const res = await apiClient.get(`/public-quotation/dealer-alerts/setup/${setupToken}`);
+    const cleanToken = encodeURIComponent(String(setupToken || '').trim());
+    const res = await apiClient.get(`/public-quotation/dealer-alerts/setup/${cleanToken}`);
     return res.data;
 }
 
-export async function subscribeStandingSetup(setupToken, deviceLabel = null) {
+export async function subscribeStandingSetup(setupToken, deviceLabel = null, otpCode = null) {
     if (!isPushSupported()) {
         throw new Error('Web Push notifications are not supported in this browser.');
     }
@@ -168,6 +175,7 @@ export async function subscribeStandingSetup(setupToken, deviceLabel = null) {
         throw err;
     }
 
+    await navigator.serviceWorker.register('/sw.js', { scope: '/' });
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
@@ -181,21 +189,30 @@ export async function subscribeStandingSetup(setupToken, deviceLabel = null) {
     const platform = isIosDevice() ? 'ios' : (/Android/.test(navigator.userAgent) ? 'android' : 'desktop');
     const label = deviceLabel || (isIosDevice() ? 'iPhone / iPad' : (platform === 'android' ? 'Android Device' : 'Desktop Browser'));
 
-    const res = await apiClient.post(`/public-quotation/dealer-alerts/setup/${setupToken}/subscribe`, {
+    const cleanToken = encodeURIComponent(String(setupToken || '').trim());
+    const res = await apiClient.post(`/public-quotation/dealer-alerts/setup/${cleanToken}/subscribe`, {
         endpoint: sub.endpoint,
         keys: {
             p256dh: json.keys?.p256dh,
             auth: json.keys?.auth
         },
         device_label: label,
-        platform
+        platform,
+        otp_code: otpCode ? String(otpCode).trim() : null
     });
 
     return res.data;
 }
 
+export async function sendDealerSetupOtp(setupToken) {
+    const cleanToken = encodeURIComponent(String(setupToken || '').trim());
+    const res = await apiClient.post(`/public-quotation/dealer-alerts/setup/${cleanToken}/send-otp`);
+    return res.data;
+}
+
 export async function optOutStandingSetup(setupToken) {
-    const res = await apiClient.post(`/public-quotation/dealer-alerts/setup/${setupToken}/opt-out`);
+    const cleanToken = encodeURIComponent(String(setupToken || '').trim());
+    const res = await apiClient.post(`/public-quotation/dealer-alerts/setup/${cleanToken}/opt-out`);
     return res.data;
 }
 

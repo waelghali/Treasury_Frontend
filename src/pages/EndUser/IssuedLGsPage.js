@@ -22,6 +22,7 @@ import RequestorDirectoryTab from '../../components/Issuance/RequestorDirectoryT
 import CopyBadge from '../../components/CopyBadge';
 import CustomerCashbackWidget from '../../components/CustomerCashbackWidget';
 import CustomExportModal from '../../components/Modals/CustomExportModal';
+import { openInNewTab } from '../../utils/navUtils';
 
 // Status display labels (module-level so both modal and page can use)
 const statusLabels = {
@@ -92,8 +93,8 @@ function DocumentsTab({ lgId }) {
                 const result = await apiRequest(
                     `/issuance/requests/${doc.request_id}/documents/${doc.document_id}/download`, 'GET'
                 );
-                if (result?.download_url) {
-                    window.open(result.download_url, '_blank');
+                if (result?.download_url || result?.signed_url) {
+                    openInNewTab(result.download_url || result.signed_url);
                 } else {
                     toast.error('Could not generate download link');
                 }
@@ -122,8 +123,8 @@ function DocumentsTab({ lgId }) {
                         // It was JSON — parse the signed URL
                         const text = await blob.text();
                         const res = JSON.parse(text);
-                        if (res?.download_url) {
-                            window.open(res.download_url, '_blank');
+                        if (res?.download_url || res?.signed_url) {
+                            openInNewTab(res.download_url || res.signed_url);
                         } else {
                             toast.error('Could not generate download link');
                         }
@@ -1283,7 +1284,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                         <div className="flex flex-wrap gap-1.5 mt-1">
                                                             {a.delivery_date ? (
                                                                 a.delivery_document_path ? (
-                                                                    <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/delivery`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url) window.open(res.download_url, '_blank'); } } catch { toast.error('Failed to load delivery document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors" title="Click to download delivery proof">
+                                                                    <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/delivery`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url || res?.signed_url) openInNewTab(res.download_url || res.signed_url); } } catch { toast.error('Failed to load delivery document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors" title="Click to download delivery proof">
                                                                         📦 Delivered {new Date(a.delivery_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} ⬇
                                                                     </button>
                                                                 ) : (
@@ -1294,7 +1295,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                             ) : null}
                                                             {a.bank_reply_date ? (
                                                                 a.bank_reply_document_path ? (
-                                                                    <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/bank_reply`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url) window.open(res.download_url, '_blank'); } } catch { toast.error('Failed to load bank reply document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 cursor-pointer transition-colors" title="Click to download bank reply document">
+                                                                    <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/bank_reply`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url || res?.signed_url) openInNewTab(res.download_url || res.signed_url); } } catch { toast.error('Failed to load bank reply document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 cursor-pointer transition-colors" title="Click to download bank reply document">
                                                                         🏦 Replied {new Date(a.bank_reply_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} ⬇
                                                                     </button>
                                                                 ) : (
@@ -1328,7 +1329,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                         {/* Bank-initiated document download (if no badge handles it) */}
                                                         {a.action_data?.bank_document_gcs && (
                                                             <div className="mt-1 flex flex-wrap gap-1.5">
-                                                                <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/bank_initiated`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url) window.open(res.download_url, '_blank'); } } catch { toast.error('Failed to load document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 cursor-pointer transition-colors" title="Click to download bank letter">
+                                                                <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/bank_initiated`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url || res?.signed_url) openInNewTab(res.download_url || res.signed_url); } } catch { toast.error('Failed to load document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 cursor-pointer transition-colors" title="Click to download bank letter">
                                                                     📄 Bank Letter ⬇
                                                                 </button>
                                                             </div>

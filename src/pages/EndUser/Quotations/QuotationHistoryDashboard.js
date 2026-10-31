@@ -3,6 +3,7 @@ import apiClient from '../../../services/apiClient';
 import ResultsView from './ResultsView';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
 import MarketSpreadTicker from '../../../components/Quotations/MarketSpreadTicker';
+import CorporateMobileAlertsBanner from '../../../components/CorporateMobileAlertsBanner';
 import { getRfqTimingState } from '../../../utils/quotationTiming';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'react-toastify';
@@ -298,7 +299,11 @@ export default function QuotationHistoryDashboard() {
         }
 
         if (statusFilter !== 'ALL') {
-            list = list.filter(r => r.status === statusFilter);
+            if (statusFilter === 'AWAITING_ACCEPTANCE') {
+                list = list.filter(r => r.acceptance_status === 'PENDING' || r.status === 'EVALUATING' || r.status === 'AWAITING_ACCEPTANCE');
+            } else {
+                list = list.filter(r => r.status === statusFilter);
+            }
         }
 
         if (searchQuery.trim()) {
@@ -395,6 +400,14 @@ export default function QuotationHistoryDashboard() {
                     </button>
                 </div>
             </header>
+
+            {/* Corporate Quotation Mobile Alerts Banner */}
+            <CorporateMobileAlertsBanner
+                title="Quotation Mobile Alerts"
+                description="Pair your phone to receive instant sound alerts the moment bank dealers submit quotes or when tender evaluation begins."
+                dismissKey="end_user_rfq_history_alerts_dismissed"
+                className="mb-2"
+            />
 
             {/* Zero-Knowledge Collaborative Market Intelligence (Only active when live tenders are running) */}
             {liveRfqs.some(r => ['PENDING', 'OPEN', 'EVALUATING'].includes(r.status)) && (

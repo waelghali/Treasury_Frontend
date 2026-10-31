@@ -4,9 +4,11 @@ import { apiRequest, getAuthToken } from '../services/apiService';
 import { format, differenceInDays, startOfDay, endOfDay } from 'date-fns';
 import { 
     Loader, AlertCircle, Truck, Building, RotateCcw, FileText, ChevronDown, 
-    Download, Mail, Eye, Filter, Calendar, CheckSquare, Square, Check, Activity, ShieldCheck, Bell 
+    Mail, Eye, Filter, Calendar, CheckSquare, Square, Check, Activity, ShieldCheck, Bell,
+    CheckCircle2, AlertTriangle, ArrowLeftRight
 } from 'lucide-react';
 import CancelInstructionModal from 'components/Modals/CancelInstructionModal';
+import DocumentInspectorModal from './Modals/DocumentInspectorModal';
 import { toast } from 'react-toastify';
 import { getEventIcon, formatActionTypeLabel } from '../utils/timelineHelpers';
 
@@ -16,16 +18,18 @@ const ACTION_CATEGORIES = {
     'Core Milestones': [
         'LG_CREATED', 'LG_EXTENDED', 'LG_LIQUIDATED_FULL', 'LG_LIQUIDATED_PARTIAL', 
         'LG_RELEASED', 'LG_DECREASED_AMOUNT', 'LG_AMENDED', 'MIGRATION_IMPORT_RECORD', 
-        'LG_ACTIVATED', 'LG_ACTIVATE_NON_OPERATIVE', 'AUDIT_ACTION_TYPE_LG_AMENDED'
+        'LG_ACTIVATED', 'LG_ACTIVATE_NON_OPERATIVE', 'AUDIT_ACTION_TYPE_LG_AMENDED',
+        'LG_EXPIRY_ALIGNED_TO_BANK_CONVENTION', 'LG_INSTRUCTION_CANCELED'
     ],
     'Logistics': [
         'LG_INSTRUCTION_DELIVERED', 'LG_RECORD_DELIVERY', 'LG_BANK_REPLY_RECORDED', 
-        'LG_RECORD_BANK_REPLY', 'INSTRUCTION_ACCESSED_FOR_PRINT'
+        'LG_RECORD_BANK_REPLY', 'INSTRUCTION_ACCESSED_FOR_PRINT',
+        'LG_BANK_REPLY_REDIRECTED_BY_AI'
     ],
     'Approvals': [
         'APPROVAL_REQUEST_SUBMITTED', 'APPROVAL_REQUEST_APPROVED', 'APPROVAL_REQUEST_REJECTED', 
         'APPROVAL_REQUEST_WITHDRAWN', 'APPROVAL_REQUEST_AUTO_REJECTED', 
-        'APPROVAL_INVALIDATED_BY_OTHER_APPROVAL'
+        'APPROVAL_INVALIDATED_BY_OTHER_APPROVAL', 'LG_BANK_REPLY_TERMS_REJECTED'
     ],
     'System Logs': [
         'NOTIFICATION_SENT', 'NOTIFICATION_FAILED', 'LG_REMINDER_SENT_TO_BANK', 
@@ -105,6 +109,7 @@ const QuickFilterButton = ({ label, icon: Icon, isActive, onClick }) => (
 
 const LGLifecycleHistoryComponent = ({
     lgRecordId,
+    lgRecord = null,
     lgInstructions = [],
     lgDocuments = [],
     onRecordDelivery,
@@ -112,12 +117,22 @@ const LGLifecycleHistoryComponent = ({
     onSendReminder,
     onViewInstructionLetter,
     onViewInstructionDocument,
+    onRefreshLgRecord = null,
     isCorporateAdminView = false,
     isGracePeriod
 }) => {
     const [events, setEvents] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // --- Split-Screen Document Inspector State ---
+    const [inspectorState, setInspectorState] = useState({
+        isOpen: false,
+        documentId: null,
+        fileName: null,
+        instruction: null,
+        docType: 'delivery',
+    });
     
     // --- FILTER STATE ---
     const [dateRange, setDateRange] = useState({ from: '', to: '' });
@@ -147,7 +162,11 @@ const LGLifecycleHistoryComponent = ({
 
 
     const instructionsMap = useMemo(() => {
-        return new Map(lgInstructions.map(inst => [inst.id, inst]));
+        return new Map(lgInstructions.map(inst => [Number(inst.id), inst]));
+    }, [lgInstructions]);
+
+    const instructionsBySerialMap = useMemo(() => {
+        return new Map(lgInstructions.filter(inst => inst.serial_number).map(inst => [inst.serial_number, inst]));
     }, [lgInstructions]);
 
     const findLatestCancellableInstruction = useCallback(() => {
@@ -165,8 +184,10 @@ const LGLifecycleHistoryComponent = ({
 
     const latestCancellableInstruction = findLatestCancellableInstruction();
 
-    const fetchLifecycleHistoryAndConfig = useCallback(async () => {
-        setIsLoading(true);
+    const fetchLifecycleHistoryAndConfig = useCallback(async (isBackgroundRefresh = false) => {
+        if (!isBackgroundRefresh) {
+            setIsLoading(true);
+        }
         setError(null);
         try {
             const allEventsResponse = await apiRequest(`/end-user/lg-records/${lgRecordId}/lifecycle-history`, 'GET');
@@ -177,14 +198,27 @@ const LGLifecycleHistoryComponent = ({
             const uniqueTypes = new Set(sortedEvents.map(e => e.action_type));
             setAvailableTypes(uniqueTypes);
 
-            // Default: Select only Core, Logistics, and Approvals
-            const initialSelection = new Set();
-            uniqueTypes.forEach(type => {
-                if (INITIAL_SELECTED_TYPES.has(type)) {
-                    initialSelection.add(type);
-                }
-            });
-            setSelectedFilters(initialSelection);
+            if (!isBackgroundRefresh) {
+                // Default: Select only Core, Logistics, and Approvals
+                const initialSelection = new Set();
+                uniqueTypes.forEach(type => {
+                    if (INITIAL_SELECTED_TYPES.has(type)) {
+                        initialSelection.add(type);
+                    }
+                });
+                setSelectedFilters(initialSelection);
+            } else {
+                // Add any newly appeared Core/Logistics/Approvals event types to active filters
+                setSelectedFilters(prev => {
+                    const next = new Set(prev);
+                    uniqueTypes.forEach(type => {
+                        if (INITIAL_SELECTED_TYPES.has(type) && !availableTypes.has(type)) {
+                            next.add(type);
+                        }
+                    });
+                    return next;
+                });
+            }
             
             setEvents(sortedEvents);
 
@@ -221,22 +255,48 @@ const LGLifecycleHistoryComponent = ({
 
     useEffect(() => {
         if (lgRecordId) {
-            fetchLifecycleHistoryAndConfig();
+            fetchLifecycleHistoryAndConfig(false);
         }
     }, [lgRecordId, fetchLifecycleHistoryAndConfig]);
 
+    // Refresh lifecycle events in background when instructions or documents update (e.g. after recording delivery/reply)
+    const instructionsSignature = useMemo(
+        () => lgInstructions.map(i => `${i.id}:${i.status}:${i.delivery_date || ''}:${i.bank_reply_date || ''}`).join('|'),
+        [lgInstructions]
+    );
+    useEffect(() => {
+        if (lgRecordId && !isLoading) {
+            fetchLifecycleHistoryAndConfig(true);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [instructionsSignature, lgDocuments.length]);
+
     const getInstructionForEvent = useCallback((eventItem) => {
         if (eventItem.entity_type === "LGInstruction" && eventItem.entity_id) {
-            return instructionsMap.get(eventItem.entity_id);
+            const byEntity = instructionsMap.get(Number(eventItem.entity_id));
+            if (byEntity) return byEntity;
         }
         if (eventItem.details) {
-            const instructionIdFromDetails = eventItem.details.generated_instruction_id || eventItem.details.instruction_id || eventItem.details.new_instruction_id;
+            const instructionIdFromDetails =
+                eventItem.details.generated_instruction_id ||
+                eventItem.details.instruction_id ||
+                eventItem.details.new_instruction_id ||
+                eventItem.details.target_instruction_id;
             if (instructionIdFromDetails) {
-                return instructionsMap.get(instructionIdFromDetails);
+                const byId = instructionsMap.get(Number(instructionIdFromDetails));
+                if (byId) return byId;
+            }
+            const serialFromDetails =
+                eventItem.details.instruction_serial ||
+                eventItem.details.serial_number ||
+                eventItem.details.instruction_serial_number;
+            if (serialFromDetails) {
+                const bySerial = instructionsBySerialMap.get(serialFromDetails);
+                if (bySerial) return bySerial;
             }
         }
         return null;
-    }, [instructionsMap]);
+    }, [instructionsMap, instructionsBySerialMap]);
 
     const hasReminderBeenSent = useCallback((originalInstructionId) => {
         if (originalInstructionId === null || originalInstructionId === undefined) return false;
@@ -331,8 +391,21 @@ const LGLifecycleHistoryComponent = ({
             case 'LG_RECORD_BANK_REPLY':
                  addPart(null, `Bank reply recorded`);
                  addPart("Replied on", formatDate(details.bank_reply_date));
+                 addPart("Letter Date", formatDate(details.bank_reply_letter_date));
                  addPart("Details", details.reply_details);
                  addPart("Document stored", details.document_stored ? 'Yes' : null);
+                 if (details.admin_terms_approval_request_id) {
+                     addPart("Admin Terms Approval", `Request #${details.admin_terms_approval_request_id}`);
+                 }
+                break;
+            case 'LG_BANK_REPLY_TERMS_REJECTED':
+                addPart(null, details.message || `Corporate Admin rejected bank-modified terms — instruction re-opened`);
+                addPart("Instruction", details.instruction_serial);
+                addPart("Rejection Reason", details.rejection_reason);
+                break;
+            case 'LG_INSTRUCTION_CANCELED':
+                addPart(null, `Instruction ${details.canceled_instruction_serial || ''} (${formatActionTypeLabel(details.canceled_instruction_type || '')}) canceled — LG state rolled back to pre-instruction values`);
+                addPart("Reason", details.reason);
                 break;
             case 'NOTIFICATION_SENT':
                  addPart(null, "Notification sent");
@@ -671,6 +744,8 @@ const LGLifecycleHistoryComponent = ({
                 // Look in lgDocuments (Prop) for documents
                 const deliveryDoc = lgDocuments.find(doc => doc.document_type === 'DELIVERY_PROOF' && doc.lg_instruction_id === instruction?.id);
                 const bankReplyDoc = lgDocuments.find(doc => doc.document_type === 'BANK_REPLY' && doc.lg_instruction_id === instruction?.id);
+                const rejectedReplyDoc = lgDocuments.find(doc => doc.document_type === 'REJECTED_BANK_REPLY' && doc.lg_instruction_id === instruction?.id);
+                const isTermsRejectedByAdmin = instruction?.details?.bank_terms_admin_approval?.status === 'REJECTED_BY_ADMIN';
 
                 const hasDeliveryDate = instruction && (instruction.delivery_date !== null && instruction.delivery_date !== "");
                 const hasBankReplyDate = instruction && (instruction.bank_reply_date !== null && instruction.bank_reply_date !== "");
@@ -680,10 +755,34 @@ const LGLifecycleHistoryComponent = ({
                 const showSendReminderButtonForEndUser = !isCorporateAdminView && instruction && Number.isInteger(instruction.id) && (instruction.bank_reply_date === null || instruction.bank_reply_date === "") && !isReminderInstruction && isReminderApplicableByTime(instruction) && !hasBeenRemindedPreviously && !!onSendReminder;
                 const showViewIssuedReminderButton = instruction && Number.isInteger(instruction.id) && (hasBeenRemindedPreviously || isReminderInstruction);
                 
-                const isLatestInstruction = latestCancellableInstruction && instruction?.id === latestCancellableInstruction.id;
+                const isDeliveryLogisticsEvent = ['LG_RECORD_DELIVERY', 'LG_INSTRUCTION_DELIVERED'].includes(eventItem.action_type);
+                const isBankReplyLogisticsEvent = ['LG_RECORD_BANK_REPLY', 'LG_BANK_REPLY_RECORDED', 'LG_BANK_REPLY_REDIRECTED_BY_AI', 'LG_EXPIRY_ALIGNED_TO_BANK_CONVENTION'].includes(eventItem.action_type);
+                const isCoreInstructionEvent = [
+                    'LG_EXTENDED', 'LG_LIQUIDATED_FULL', 'LG_LIQUIDATED_PARTIAL', 'LG_LIQUIDATE',
+                    'LG_RELEASED', 'LG_RELEASE', 'LG_DECREASED_AMOUNT', 'LG_DECREASE_AMOUNT',
+                    'LG_AMENDED', 'AUDIT_ACTION_TYPE_LG_AMENDED', 'LG_ACTIVATED', 'LG_ACTIVATE_NON_OPERATIVE',
+                    'LG_REMINDER_SENT_TO_BANK', 'LG_REMINDER_TO_BANKS'
+                ].includes(eventItem.action_type);
+
+                const isLatestInstruction = isCoreInstructionEvent && latestCancellableInstruction && instruction?.id === latestCancellableInstruction.id;
                 const isCancellableStatus = instruction?.status === 'Instruction Issued' || instruction?.status === 'Reminder Issued';
                 const isCancellableType = ['LG_EXTENSION', 'LG_LIQUIDATION', 'LG_RELEASE', 'LG_DECREASE_AMOUNT', 'LG_ACTIVATE_NON_OPERATIVE'].includes(instruction?.instruction_type);
-                const showAllActionButtons = instruction && instruction.generated_content_path;
+                const hasPendingCancelRequest = Boolean(
+                    instruction && (
+                        instruction.details?.pending_cancellation_request_id ||
+                        events.some(ev =>
+                            ev.action_type === 'APPROVAL_REQUEST_SUBMITTED' &&
+                            (ev.details?.action_type === 'LG_CANCEL_LAST_INSTRUCTION' || ev.details?.action_type_requested === 'LG_CANCEL_LAST_INSTRUCTION') &&
+                            (Number(ev.details?.instruction_id) === Number(instruction.id) || String(ev.details?.request_details_summary || '').includes(`'instruction_id': ${instruction.id}`))
+                        )
+                    ) && !events.some(ev =>
+                        ['APPROVAL_REQUEST_APPROVED', 'APPROVAL_REQUEST_REJECTED', 'APPROVAL_REQUEST_WITHDRAWN'].includes(ev.action_type) &&
+                        (ev.details?.action_type === 'LG_CANCEL_LAST_INSTRUCTION' || ev.details?.action_type_approved === 'LG_CANCEL_LAST_INSTRUCTION' || ev.details?.action_type_rejected === 'LG_CANCEL_LAST_INSTRUCTION') &&
+                        new Date(ev.timestamp) > new Date(instruction.created_at)
+                    )
+                );
+                const isInstructionCanceled = Boolean(isCoreInstructionEvent && instruction?.status === 'Canceled');
+                const showAllActionButtons = Boolean(!isInstructionCanceled && isCoreInstructionEvent && instruction && (instruction.generated_content_path || instruction.template_id || instruction.id));
 
                 return (
                     <div key={eventItem.id || `event-${index}`} className="mb-8 relative">
@@ -693,9 +792,21 @@ const LGLifecycleHistoryComponent = ({
                         </div>
                         
                         {/* CARD STYLE (Fixed to apply system log background) */}
-                        <div className={`${styles.cardClass} rounded-lg p-4 ml-4 border`}>
+                        <div
+                            id={isCoreInstructionEvent && instruction ? `lifecycle-instruction-${instruction.id}` : undefined}
+                            className={`${isInstructionCanceled ? 'bg-gray-50/80 border-gray-300 opacity-85' : styles.cardClass} rounded-lg p-4 ml-4 border transition-all duration-300`}
+                        >
                             <div className="flex justify-between items-center mb-2">
-                                <h3 className={`font-semibold text-lg ${styles.isSystem ? 'text-gray-700' : 'text-gray-800'}`}>{formatActionTypeLabel(eventItem.action_type)}</h3>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h3 className={`font-semibold text-lg ${isInstructionCanceled ? 'text-gray-500 line-through' : (styles.isSystem ? 'text-gray-700' : 'text-gray-800')}`}>
+                                        {formatActionTypeLabel(eventItem.action_type)}
+                                    </h3>
+                                    {isInstructionCanceled && (
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700 border border-rose-200">
+                                            🚫 Canceled &amp; Rolled Back
+                                        </span>
+                                    )}
+                                </div>
                                 <span className="text-sm text-gray-500">
                                     {format(new Date(eventItem.timestamp), 'MMM dd, yyyy HH:mm')}
                                 </span>
@@ -705,24 +816,128 @@ const LGLifecycleHistoryComponent = ({
                             </p>
                             
                             {/* DETAILS (NOW CLEAN) */}
-                            <p className="text-gray-600 text-sm">
+                            <p className={`text-sm ${isInstructionCanceled ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
                                 {formatEventDetails(eventItem.action_type, eventItem.details, eventItem.user_email)}
                             </p>
 
                             {instruction && (
                                 <div className="mt-3 flex flex-wrap gap-2">
-                                    {!isCorporateAdminView && !isGracePeriod && isLatestInstruction && isCancellableStatus && isCancellableType && (
-                                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                    {isInstructionCanceled && (
+                                        <>
                                             <button
-                                                onClick={() => handleCancelInstruction(instruction)}
-                                                className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-md shadow-sm bg-red-100 text-red-700 hover:bg-red-200"
-                                                title="Cancel Last Instruction"
-                                                disabled={isGracePeriod}
+                                                onClick={() => onViewInstructionLetter(instruction.id)}
+                                                className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-gray-600 bg-white hover:bg-gray-100"
+                                                title="View Canceled Instruction Letter"
                                             >
-                                                <RotateCcw className="h-4 w-4 mr-2" />
-                                                Cancel
+                                                <FileText className="h-3.5 w-3.5 mr-1.5 text-gray-500" />
+                                                View Letter (Canceled)
                                             </button>
-                                        </GracePeriodTooltip>
+                                            <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-md bg-rose-50 text-rose-700 border border-rose-200">
+                                                Instruction Canceled — LG State Rolled Back{instruction.details?.old_expiry_date ? ` to ${formatDateSimple(instruction.details.old_expiry_date)}` : ''}
+                                            </span>
+                                        </>
+                                    )}
+                                    {!isCorporateAdminView && !isGracePeriod && isLatestInstruction && isCancellableStatus && isCancellableType && (
+                                        hasPendingCancelRequest ? (
+                                            <span className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                                                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                                                Cancellation Pending Approval
+                                            </span>
+                                        ) : (
+                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                <button
+                                                    onClick={() => handleCancelInstruction(instruction)}
+                                                    className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-md shadow-sm bg-red-100 text-red-700 hover:bg-red-200"
+                                                    title="Cancel Last Instruction"
+                                                    disabled={isGracePeriod}
+                                                >
+                                                    <RotateCcw className="h-4 w-4 mr-2" />
+                                                    Cancel
+                                                </button>
+                                            </GracePeriodTooltip>
+                                        )
+                                    )}
+
+                                    {/* On Delivery Logistics events (LG Record Delivery), show the Delivery Evidence button directly */}
+                                    {isDeliveryLogisticsEvent && deliveryDoc && (
+                                        <button
+                                            onClick={() => setInspectorState({
+                                                isOpen: true,
+                                                documentId: deliveryDoc.id,
+                                                fileName: deliveryDoc.file_name,
+                                                instruction: instruction,
+                                                docType: 'delivery',
+                                            })}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                            title={`Inspect Delivery Evidence (${formatDateSimple(instruction.delivery_date)})`}
+                                        >
+                                            <Eye className="h-4 w-4 text-cyan-600 shrink-0" />
+                                            <span>Delivery Evid. ({formatDateSimple(instruction.delivery_date)})</span>
+                                            {instruction?.details?.delivery_override ? (
+                                                <span
+                                                    className="inline-flex items-center justify-center ml-0.5 p-0.5 rounded bg-amber-200/80 text-amber-800"
+                                                    title={`Confirmed with Override: ${instruction.details.delivery_override.reason || 'Discrepancies overridden'}`}
+                                                >
+                                                    <AlertTriangle className="h-3.5 w-3.5" />
+                                                </span>
+                                            ) : instruction?.details?.delivery_ai_verification?.status === 'verified' ? (
+                                                <span
+                                                    className="inline-flex items-center justify-center ml-0.5 p-0.5 rounded bg-emerald-100 text-emerald-700"
+                                                    title="AI Verified"
+                                                >
+                                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                                </span>
+                                            ) : null}
+                                        </button>
+                                    )}
+
+                                    {/* On Bank Reply Logistics events (LG Record Bank Reply / Redirected), show the Bank Reply Evidence button directly */}
+                                    {isBankReplyLogisticsEvent && bankReplyDoc && (
+                                        <button
+                                            onClick={() => setInspectorState({
+                                                isOpen: true,
+                                                documentId: bankReplyDoc.id,
+                                                fileName: bankReplyDoc.file_name,
+                                                instruction: instruction,
+                                                docType: 'bank_reply',
+                                            })}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                            title={`Inspect Bank Reply (${formatDateSimple(instruction.bank_reply_date)})`}
+                                        >
+                                            <Eye className="h-4 w-4 text-teal-600 shrink-0" />
+                                            <span>Bank Reply Evid. ({formatDateSimple(instruction.bank_reply_date)})</span>
+                                            {instruction?.details?.bank_reply_override ? (
+                                                <span
+                                                    className="inline-flex items-center justify-center ml-0.5 p-0.5 rounded bg-amber-200/80 text-amber-800"
+                                                    title={`Confirmed with Override: ${instruction.details.bank_reply_override.reason || 'Discrepancies overridden'}`}
+                                                >
+                                                    <AlertTriangle className="h-3.5 w-3.5" />
+                                                </span>
+                                            ) : (instruction?.details?.bank_reply_ai_verification?.status === 'verified' || instruction?.details?.date_convention_alignment?.status === 'ACCEPTED_BY_USER') ? (
+                                                <span
+                                                    className="inline-flex items-center justify-center ml-0.5 p-0.5 rounded bg-emerald-100 text-emerald-700"
+                                                    title="AI Verified"
+                                                >
+                                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                                </span>
+                                            ) : null}
+                                            {instruction?.details?.disambiguation_redirect && (
+                                                <span
+                                                    className="inline-flex items-center justify-center p-0.5 rounded bg-purple-100 text-purple-700"
+                                                    title={`Redirected via AI from ${instruction.details.disambiguation_redirect.switched_from_serial || `Instruction #${instruction.details.disambiguation_redirect.switched_from_instruction_id}`}`}
+                                                >
+                                                    <ArrowLeftRight className="h-3.5 w-3.5" />
+                                                </span>
+                                            )}
+                                            {instruction?.details?.bank_terms_admin_approval && (
+                                                <span
+                                                    className="inline-flex items-center justify-center p-0.5 rounded bg-indigo-100 text-indigo-700"
+                                                    title={`Bank-modified terms submitted for Admin approval (#${instruction.details.bank_terms_admin_approval.approval_request_id})`}
+                                                >
+                                                    <ShieldCheck className="h-3.5 w-3.5" />
+                                                </span>
+                                            )}
+                                        </button>
                                     )}
 
                                     {showAllActionButtons && (
@@ -751,20 +966,43 @@ const LGLifecycleHistoryComponent = ({
                                                     </button>
                                                 </GracePeriodTooltip>
                                             ) : hasDeliveryDate ? (
-                                                deliveryDoc ? (
-                                                    <button
-                                                        onClick={() => onViewInstructionDocument(deliveryDoc.id)}
-                                                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                                                        title={`View Delivery Evidence (${formatDateSimple(instruction.delivery_date)})`}
-                                                    >
-                                                        <Download className="h-4 w-4 mr-2" />
-                                                        Delivery Evid.
-                                                    </button>
-                                                ) : (
-                                                    <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
-                                                        Delivered {formatDateSimple(instruction.delivery_date)} (No Doc)
-                                                    </span>
-                                                )
+                                                <>
+                                                    {deliveryDoc ? (
+                                                        <button
+                                                            onClick={() => setInspectorState({
+                                                                isOpen: true,
+                                                                documentId: deliveryDoc.id,
+                                                                fileName: deliveryDoc.file_name,
+                                                                instruction: instruction,
+                                                                docType: 'delivery',
+                                                            })}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                                            title={`Inspect Delivery Evidence (${formatDateSimple(instruction.delivery_date)})`}
+                                                        >
+                                                            <Eye className="h-4 w-4 text-cyan-600 shrink-0" />
+                                                            <span>Delivery Evid. ({formatDateSimple(instruction.delivery_date)})</span>
+                                                            {instruction?.details?.delivery_override ? (
+                                                                <span
+                                                                    className="inline-flex items-center justify-center ml-0.5 p-0.5 rounded bg-amber-200/80 text-amber-800"
+                                                                    title={`Confirmed with Override: ${instruction.details.delivery_override.reason || 'Discrepancies overridden'}`}
+                                                                >
+                                                                    <AlertTriangle className="h-3.5 w-3.5" />
+                                                                </span>
+                                                            ) : instruction?.details?.delivery_ai_verification?.status === 'verified' ? (
+                                                                <span
+                                                                    className="inline-flex items-center justify-center ml-0.5 p-0.5 rounded bg-emerald-100 text-emerald-700"
+                                                                    title="AI Verified"
+                                                                >
+                                                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                                                </span>
+                                                            ) : null}
+                                                        </button>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
+                                                            Delivered {formatDateSimple(instruction.delivery_date)} (No Doc)
+                                                        </span>
+                                                    )}
+                                                </>
                                             ) : (
                                                 isCorporateAdminView && (
                                                     <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
@@ -774,32 +1012,108 @@ const LGLifecycleHistoryComponent = ({
                                             )}
 
                                             {!isCorporateAdminView && !hasBankReplyDate ? (
-                                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                    <button
-                                                        onClick={() => onRecordBankReply(instruction)}
-                                                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-teal-600 bg-teal-100 hover:bg-teal-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                                                        title="Record Bank Reply"
-                                                        disabled={isGracePeriod}
-                                                    >
-                                                        <Building className="h-4 w-4 mr-2" />
-                                                        Record Reply
-                                                    </button>
-                                                </GracePeriodTooltip>
+                                                <>
+                                                    {isTermsRejectedByAdmin && (
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const authToken = getAuthToken();
+                                                                    const baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
+                                                                    const url = `${baseUrl}/end-user/lg-records/instructions/${instruction.id}/view-discrepancy-letter${authToken ? `?token=${authToken}&print=true` : '?print=true'}`;
+                                                                    window.open(url, '_blank');
+                                                                }}
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1 border border-rose-300 text-sm font-medium rounded-md shadow-sm text-rose-800 bg-rose-50 hover:bg-rose-100 focus:outline-none"
+                                                                title={`Corporate Admin rejected bank-modified terms (${instruction?.details?.bank_terms_admin_approval?.rejection_reason || 'Discrepancy'}). Click to print Discrepancy Notice Letter for the bank.`}
+                                                            >
+                                                                <FileText className="h-4 w-4 text-rose-600" />
+                                                                <span>Print Discrepancy Letter</span>
+                                                            </button>
+                                                            {rejectedReplyDoc && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setInspectorState({
+                                                                        isOpen: true,
+                                                                        documentId: rejectedReplyDoc.id,
+                                                                        fileName: rejectedReplyDoc.file_name,
+                                                                        instruction: instruction,
+                                                                        docType: 'bank_reply',
+                                                                    })}
+                                                                    className="inline-flex items-center gap-1 px-2.5 py-1 border border-gray-200 text-xs font-medium rounded-md text-gray-600 bg-gray-50 hover:bg-gray-100"
+                                                                    title="Inspect previously rejected Bank Reply advice"
+                                                                >
+                                                                    <Eye className="h-3.5 w-3.5 text-rose-500" />
+                                                                    <span>Rejected Reply</span>
+                                                                </button>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                        <button
+                                                            onClick={() => onRecordBankReply(instruction)}
+                                                            className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-teal-600 bg-teal-100 hover:bg-teal-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                                                            title="Record Bank Reply"
+                                                            disabled={isGracePeriod}
+                                                        >
+                                                            <Building className="h-4 w-4 mr-2" />
+                                                            {isTermsRejectedByAdmin ? 'Record Corrected Reply' : 'Record Reply'}
+                                                        </button>
+                                                    </GracePeriodTooltip>
+                                                </>
                                             ) : hasBankReplyDate ? (
-                                                bankReplyDoc ? (
-                                                    <button
-                                                        onClick={() => onViewInstructionDocument(bankReplyDoc.id)}
-                                                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                                                        title={`View Bank Reply (${formatDateSimple(instruction.bank_reply_date)})`}
-                                                    >
-                                                        <Download className="h-4 w-4 mr-2" />
-                                                        Bank Reply Evid.
-                                                    </button>
-                                                ) : (
-                                                    <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
-                                                        Replied {formatDateSimple(instruction.bank_reply_date)} (No Doc)
-                                                    </span>
-                                                )
+                                                <>
+                                                    {bankReplyDoc ? (
+                                                        <button
+                                                            onClick={() => setInspectorState({
+                                                                isOpen: true,
+                                                                documentId: bankReplyDoc.id,
+                                                                fileName: bankReplyDoc.file_name,
+                                                                instruction: instruction,
+                                                                docType: 'bank_reply',
+                                                            })}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                                            title={`Inspect Bank Reply (${formatDateSimple(instruction.bank_reply_date)})`}
+                                                        >
+                                                            <Eye className="h-4 w-4 text-teal-600 shrink-0" />
+                                                            <span>Bank Reply Evid. ({formatDateSimple(instruction.bank_reply_date)})</span>
+                                                            {instruction?.details?.bank_reply_override ? (
+                                                                <span
+                                                                    className="inline-flex items-center justify-center ml-0.5 p-0.5 rounded bg-amber-200/80 text-amber-800"
+                                                                    title={`Confirmed with Override: ${instruction.details.bank_reply_override.reason || 'Discrepancies overridden'}`}
+                                                                >
+                                                                    <AlertTriangle className="h-3.5 w-3.5" />
+                                                                </span>
+                                                            ) : (instruction?.details?.bank_reply_ai_verification?.status === 'verified' || instruction?.details?.date_convention_alignment?.status === 'ACCEPTED_BY_USER') ? (
+                                                                <span
+                                                                    className="inline-flex items-center justify-center ml-0.5 p-0.5 rounded bg-emerald-100 text-emerald-700"
+                                                                    title="AI Verified"
+                                                                >
+                                                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                                                </span>
+                                                            ) : null}
+                                                            {instruction?.details?.disambiguation_redirect && (
+                                                                <span
+                                                                    className="inline-flex items-center justify-center p-0.5 rounded bg-purple-100 text-purple-700"
+                                                                    title={`Redirected via AI from ${instruction.details.disambiguation_redirect.switched_from_serial || `Instruction #${instruction.details.disambiguation_redirect.switched_from_instruction_id}`}`}
+                                                                >
+                                                                    <ArrowLeftRight className="h-3.5 w-3.5" />
+                                                                </span>
+                                                            )}
+                                                            {instruction?.details?.bank_terms_admin_approval && (
+                                                                <span
+                                                                    className="inline-flex items-center justify-center p-0.5 rounded bg-indigo-100 text-indigo-700"
+                                                                    title={`Bank-modified terms submitted for Admin approval (#${instruction.details.bank_terms_admin_approval.approval_request_id})`}
+                                                                >
+                                                                    <ShieldCheck className="h-3.5 w-3.5" />
+                                                                </span>
+                                                            )}
+                                                        </button>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
+                                                            Replied {formatDateSimple(instruction.bank_reply_date)} (No Doc)
+                                                        </span>
+                                                    )}
+                                                </>
                                             ) : (
                                                 isCorporateAdminView && (
                                                     <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
@@ -846,9 +1160,32 @@ const LGLifecycleHistoryComponent = ({
             {showCancelModal && selectedInstructionToCancel && (
                 <CancelInstructionModal
                     instruction={selectedInstructionToCancel}
-                    onClose={() => setShowCancelModal(false)}
-                    onSuccess={fetchLifecycleHistoryAndConfig}
+                    onClose={() => {
+                        setShowCancelModal(false);
+                        setSelectedInstructionToCancel(null);
+                    }}
+                    onSuccess={async () => {
+                        setShowCancelModal(false);
+                        setSelectedInstructionToCancel(null);
+                        await fetchLifecycleHistoryAndConfig();
+                        if (onRefreshLgRecord) {
+                            await onRefreshLgRecord();
+                        }
+                    }}
                     isGracePeriod={isGracePeriod}
+                />
+            )}
+
+            {inspectorState.isOpen && (
+                <DocumentInspectorModal
+                    isOpen={inspectorState.isOpen}
+                    onClose={() => setInspectorState(prev => ({ ...prev, isOpen: false }))}
+                    documentId={inspectorState.documentId}
+                    fileName={inspectorState.fileName}
+                    instruction={inspectorState.instruction}
+                    lgRecord={lgRecord}
+                    docType={inspectorState.docType}
+                    mode="view"
                 />
             )}
         </div>

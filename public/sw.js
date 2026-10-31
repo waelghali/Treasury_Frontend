@@ -54,8 +54,27 @@ self.addEventListener('push', (event) => {
     data: { url: sameOriginPath(expired ? '/app' : data.url) },
   };
 
-  // Always show something (see rules above), even for expired payloads.
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(title, options).catch((err) => {
+        console.warn('[SW] showNotification error with full options, retrying basic:', err);
+        return self.registration.showNotification(title, {
+          body: options.body,
+          data: options.data,
+        });
+      }),
+      self.clients
+        .matchAll({ type: 'window', includeUncontrolled: true })
+        .then((clients) => {
+          clients.forEach((c) => {
+            try {
+              c.postMessage({ type: 'PUSH_NOTIFICATION_RECEIVED', data });
+            } catch (e) { /* ignore */ }
+          });
+        })
+        .catch(() => {}),
+    ])
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {
@@ -78,9 +97,32 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 self.addEventListener('pushsubscriptionchange', (event) => {
-  // Q3 will re-subscribe and POST the new subscription to the backend.
-  // Until then, tell open tabs so they can refresh on next load.
+  // Self-healing background token rotation (APNs / FCM key rotation).
+  // Re-subscribes using the existing applicationServerKey and rotates the endpoint on the server.
   event.waitUntil((async () => {
+    try {
+      const oldSub = event.oldSubscription;
+      let newSub = event.newSubscription;
+      if (!newSub && oldSub && oldSub.options) {
+        newSub = await self.registration.pushManager.subscribe(oldSub.options);
+      }
+      if (newSub && oldSub && oldSub.endpoint) {
+        const json = newSub.toJSON();
+        if (json && json.endpoint && json.keys && json.keys.p256dh && json.keys.auth) {
+          await fetch('/api/v1/notifications/push/rotate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              old_endpoint: oldSub.endpoint,
+              new_endpoint: json.endpoint,
+              keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+            }),
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[SW] Background pushsubscriptionchange rotation failed:', err);
+    }
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     all.forEach((c) => c.postMessage({ type: 'PUSH_SUBSCRIPTION_CHANGED' }));
   })());

@@ -200,13 +200,14 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
             };
 
             // Fetch custody data + issuance unified data in parallel (silent catch for issuance — module may not be subscribed)
-            const [renewal, undelivered, noReply, pendingPrints, maintPendingPrints,
+            const [renewal, undelivered, noReply, pendingPrints, discrepancyPendingPrints, maintPendingPrints,
                    issUnifiedDelivery, issUnifiedBankReply,
                    issApprovedReqs, issApprovedMaint, issExpiry] = await Promise.all([
                 apiRequest(urls.renewal, 'GET'),
                 apiRequest(urls.undelivered, 'GET'),
                 apiRequest(urls.awaitingReply, 'GET'),
                 apiRequest(urls.pendingPrint, 'GET'),
+                isCorporateAdminView ? Promise.resolve([]) : apiRequest('/end-user/action-center/discrepancy-letters-pending-print', 'GET').catch(() => []),
                 apiRequest('/issuance/maintenance/pending-print', 'GET').catch(() => []),
                 // Unified issuance action center
                 apiRequest('/issuance/action-center/unified-pending-delivery', 'GET').catch(() => []),
@@ -216,7 +217,16 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                 apiRequest('/issuance/action-center/approaching-expiry?days_threshold=30', 'GET').catch(() => []),
             ]);
             
-            // Merge custody + issuance maintenance pending prints into one list
+            // Merge custody + discrepancy letters + issuance maintenance pending prints into one list
+            const normalizedDiscrepancy = (discrepancyPendingPrints || []).map(inst => ({
+                ...inst,
+                _source: 'custody_discrepancy',
+                _display_lg_number: inst.lg_record?.lg_number || 'N/A',
+                _display_serial: inst.serial_number || '',
+                _display_action_type: 'BANK_DISCREPANCY_NOTICE',
+                _display_date: inst.details?.bank_terms_admin_approval?.rejected_at || inst.updated_at,
+                _instruction_id: inst.id,
+            }));
             const normalizedMaint = (maintPendingPrints || []).map(m => ({
                 ...m,
                 _source: 'issuance_maintenance',
@@ -251,7 +261,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
             setLgRenewalList(renewal);
             setInstructionsUndelivered([...(undelivered || []).map(u => ({ ...u, _issuance: false })), ...normalizedIssDelivery]);
             setInstructionsNoReply([...(noReply || []).map(r => ({ ...r, _issuance: false })), ...normalizedIssBankReply]);
-            setApprovedPendingPrints([...normalizedCustody, ...normalizedMaint]);
+            setApprovedPendingPrints([...normalizedDiscrepancy, ...normalizedCustody, ...normalizedMaint]);
 
             // Module-gated issuance sections
             setIssuanceApprovedRequests(issApprovedReqs || []);
@@ -304,6 +314,17 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
         if (isGracePeriod) return toast.warn("Subscription Grace Period: Action disabled.");
         await handleViewLetter(instructionId, lgNumber);
         fetchAllActionCenterData(true);
+    };
+
+    const handlePrintDiscrepancyLetter = (instructionId, lgNumber = 'N/A') => {
+        if (isGracePeriod) return toast.warn("Subscription Grace Period: Action disabled.");
+        if (!instructionId) return toast.error("Instruction ID is missing.");
+        const authToken = getAuthToken();
+        let letterUrl = `${API_BASE_URL}/end-user/lg-records/instructions/${instructionId}/view-discrepancy-letter`;
+        if (authToken) letterUrl += `?token=${authToken}&print=true`;
+        window.open(letterUrl, '_blank');
+        toast.info(`Opening Bank Discrepancy Notice for LG ${lgNumber}...`);
+        setTimeout(() => fetchAllActionCenterData(true), 1200);
     };
 
     const handlePrintMaintenanceLetter = async (actionId) => {
@@ -484,8 +505,9 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                     <tbody className="bg-white divide-y divide-gray-200">
                         {approvedPendingPrints.map((req) => {
                             const isMaint = req._source === 'issuance_maintenance';
+                            const isDiscrepancy = req._source === 'custody_discrepancy';
                             return (
-                            <tr key={`${req._source || 'custody'}-${req.id}`} className="hover:bg-gray-50 transition-colors">
+                            <tr key={`${req._source || 'custody'}-${req.id}`} className={`${isDiscrepancy ? 'bg-rose-50/40 hover:bg-rose-50/80' : 'hover:bg-gray-50'} transition-colors`}>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <span className="text-sm font-bold text-indigo-600">
                                         {req._display_lg_number}
@@ -494,29 +516,47 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                         {isMaint ? `Instruction: ${req._display_serial}` : `Ref: ${req._display_serial}`}
                                     </div>
                                     {isMaint && <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded font-medium">Issuance</span>}
+                                    {isDiscrepancy && <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 rounded font-semibold">Terms Rejected by Admin</span>}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-medium text-gray-900">{formatActionTypeLabel(req._display_action_type)}</div>
-                                    <div className="text-xs text-gray-500">{isMaint ? '' : (req.maker_user?.email || '')}</div>
+                                    <div className="text-sm font-medium text-gray-900">
+                                        {isDiscrepancy ? 'Discrepancy Notice' : formatActionTypeLabel(req._display_action_type)}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                        {isMaint ? '' : (req.maker_user?.email || '')}
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(req._display_date)}</td>
                                 {!isCorporateAdminView && (
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                            <button 
-                                                onClick={(e) => { 
-                                                    e.stopPropagation();
-                                                    if (isMaint) {
-                                                        handlePrintMaintenanceLetter(req.id);
-                                                    } else {
-                                                        req.related_instruction?.id && req.lg_record?.lg_number ? handlePrintApprovedLetter(req.related_instruction.id, req.lg_record.lg_number) : toast.error("Data missing.");
-                                                    }
-                                                }}
-                                                disabled={isGracePeriod}
-                                                className={`inline-flex items-center px-3 py-1.5 border border-purple-200 text-sm font-medium rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                            >
-                                                <Printer className="h-4 w-4 mr-1.5" /> Print Letter
-                                            </button>
+                                            {isDiscrepancy ? (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handlePrintDiscrepancyLetter(req._instruction_id || req.id, req._display_lg_number);
+                                                    }}
+                                                    disabled={isGracePeriod}
+                                                    className={`inline-flex items-center px-3 py-1.5 border border-rose-300 text-sm font-medium rounded-md text-rose-700 bg-rose-50 hover:bg-rose-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                >
+                                                    <Printer className="h-4 w-4 mr-1.5" /> Print Letter
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation();
+                                                        if (isMaint) {
+                                                            handlePrintMaintenanceLetter(req.id);
+                                                        } else {
+                                                            req.related_instruction?.id && req.lg_record?.lg_number ? handlePrintApprovedLetter(req.related_instruction.id, req.lg_record.lg_number) : toast.error("Data missing.");
+                                                        }
+                                                    }}
+                                                    disabled={isGracePeriod}
+                                                    className={`inline-flex items-center px-3 py-1.5 border border-purple-200 text-sm font-medium rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                >
+                                                    <Printer className="h-4 w-4 mr-1.5" /> Print Letter
+                                                </button>
+                                            )}
                                         </GracePeriodTooltip>
                                     </td>
                                 )}
@@ -786,8 +826,9 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                             const actionLabel = isIss ? formatActionTypeLabel(inst.action_type) : formatActionTypeLabel(inst.instruction_type);
                             const serialNum = isIss ? (inst.serial_number || '') : inst.serial_number;
                             const delivDate = inst.delivery_date;
+                            const isTermsRejected = !isIss && inst.details?.bank_terms_admin_approval?.status === 'REJECTED_BY_ADMIN';
                             return (
-                            <tr key={`${isIss ? 'iss' : 'cust'}-${inst.id}-${idx}`} className="hover:bg-gray-50 transition-colors">
+                            <tr key={`${isIss ? 'iss' : 'cust'}-${inst.id}-${idx}`} className={`${isTermsRejected ? 'bg-rose-50/30 hover:bg-rose-50/60' : 'hover:bg-gray-50'} transition-colors`}>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     {lgId ? (
                                         <button onClick={(e) => { e.stopPropagation(); handleViewDetails(lgId); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
@@ -797,6 +838,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                         <span className="text-sm font-bold text-gray-900">{lgNum}</span>
                                     )}
                                     {isIss && <span className={`inline-block ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium ${inst._source === 'issuance_maintenance' ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-700'}`}>{inst._source === 'issuance_maintenance' ? 'Maint.' : 'Issuance'}</span>}
+                                    {isTermsRejected && <span className="inline-block ml-2 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-rose-100 text-rose-700 border border-rose-200">Terms Rejected</span>}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="text-sm text-gray-900">{actionLabel}</div>
@@ -809,6 +851,11 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                                 <CheckCircle2 className="w-3 h-3 mr-1"/> Delivered: {formatDate(delivDate)}
                                             </span>
                                         )}
+                                        {isTermsRejected && (
+                                            <span className="text-rose-700 font-semibold flex items-center">
+                                                <AlertCircle className="w-3 h-3 mr-1"/> Terms Rejected
+                                            </span>
+                                        )}
                                         {isIss && inst.days_waiting != null && (
                                             <StatusBadge type={inst.days_waiting > 7 ? 'critical' : inst.days_waiting > 3 ? 'warning' : 'neutral'}>{inst.days_waiting} Days Waiting</StatusBadge>
                                         )}
@@ -816,6 +863,20 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                 </td>
                                 {!isCorporateAdminView && (
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                        {isTermsRejected && (
+                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handlePrintDiscrepancyLetter(inst.id, lgNum);
+                                                    }}
+                                                    disabled={isGracePeriod}
+                                                    className={`inline-flex items-center px-3 py-1.5 border border-rose-300 text-sm font-medium rounded-md text-rose-700 bg-rose-50 hover:bg-rose-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                >
+                                                    <Printer className="h-4 w-4 mr-1.5" /> Print Notice
+                                                </button>
+                                            </GracePeriodTooltip>
+                                        )}
                                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                 <button 
                                                     onClick={(e) => {

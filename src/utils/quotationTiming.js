@@ -160,6 +160,39 @@ export function getRfqTimingState(rfq) {
         };
     }
     if (rfq.status === 'COMPLETED' || rfq.status === 'TRADED') {
+        if (rfq.acceptance_status === 'AUTO_REJECTED') {
+            return {
+                badge: 'AUTO_REJECT_TIMEOUT',
+                label: 'Acceptance Timed Out',
+                counterpartyLabel: 'Acceptance Window Expired',
+                style: 'bg-amber-50 text-amber-800 border border-amber-300',
+                isLive: false,
+                isScheduled: false
+            };
+        }
+
+        if (rfq.acceptance_status === 'REJECTED') {
+            return {
+                badge: 'USER_DECLINED',
+                label: 'Declined by User',
+                counterpartyLabel: 'Quotes Declined by Corporate',
+                style: 'bg-slate-100 text-slate-700 border border-slate-300',
+                isLive: false,
+                isScheduled: false
+            };
+        }
+
+        if (rfq.acceptance_status === 'INDICATIVE_COMPLETED') {
+            return {
+                badge: 'INDICATIVE_COMPLETED',
+                label: 'Benchmarking Concluded',
+                counterpartyLabel: 'Indicative Benchmarking Finalized',
+                style: 'bg-sky-50 text-sky-800 border border-sky-200',
+                isLive: false,
+                isScheduled: false
+            };
+        }
+
         const hasWinner = Boolean(
             rfq.winner_bank_name ||
             (rfq.legs && rfq.legs.length > 0 && rfq.legs.some(l => l.winner_bank_name))
@@ -251,8 +284,18 @@ export function getRfqTimingState(rfq) {
         };
     }
 
-    // C. Past Window: EVALUATING / WINDOW CLOSED
+    // C. Past Window: EVALUATING / AWAITING ACCEPTANCE / WINDOW CLOSED
     if (end && now > end) {
+        if (rfq.acceptance_status === 'PENDING' || rfq.status === 'EVALUATING') {
+            return {
+                badge: 'AWAITING_ACCEPTANCE',
+                label: 'Awaiting Acceptance',
+                counterpartyLabel: 'Awaiting Corporate Acceptance',
+                style: 'bg-amber-50 text-amber-800 border border-amber-300 font-bold',
+                isLive: false,
+                isScheduled: false
+            };
+        }
         return {
             badge: 'WINDOW_CLOSED',
             label: 'Window Closed',

@@ -44,6 +44,16 @@ const EXACT_TYPE_MAP = {
     RFQ_CANCELLATION_REQUESTED: 'pending',
     RFQ_REVISION_REQUESTED: 'warning',
     RFQ_CANCELLATION_DECIDED: 'info',
+    // LG Custody events (app/services/notifications/catalog.py)
+    LG_CUSTODY_INACTION_ESCALATION: 'risk',
+    LG_CUSTODY_UNDELIVERED_LETTER: 'risk',
+    LG_CUSTODY_APPROVAL_REQUIRED: 'pending',
+    LG_CUSTODY_DAY_ZERO: 'risk',
+    LG_CUSTODY_BANK_DEFECT: 'risk',
+    LG_USER_EXPIRY_ACTION_NOTICE: 'warning',
+    LG_USER_PRE_ESCALATION_WARNING: 'warning',
+    LG_USER_REQUEST_DECIDED: 'info',
+    LG_CUSTODY_PORTFOLIO_BURST_DIGEST: 'risk',
 };
 
 function getTypeIcon(type) {

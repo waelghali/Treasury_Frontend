@@ -1,7 +1,7 @@
 // src/components/MobileAlertsControl.jsx
 // Phone alerts control & UX (Notifications Q3 + Q5).
 import React, { useCallback, useEffect, useState } from 'react';
-import { Smartphone, BellRing, BellOff, Info, Settings2, HelpCircle, AlertTriangle } from 'lucide-react';
+import { Smartphone, BellRing, BellOff, Info, Settings2, HelpCircle, AlertTriangle, QrCode } from 'lucide-react';
 import {
     disablePushOnThisDevice,
     enablePush,
@@ -10,6 +10,7 @@ import {
 } from '../services/pushService';
 import PushDevicesModal from './Modals/PushDevicesModal';
 import PushInstallGuideModal from './Modals/PushInstallGuideModal';
+import PushPairQrModal from './Modals/PushPairQrModal';
 
 const HINTS = {
     'needs-install': 'On iPhone/iPad: tap Share, then "Add to Home Screen", open Grow from the new icon and enable here.',
@@ -23,6 +24,7 @@ export default function MobileAlertsControl() {
     const [message, setMessage] = useState('');
     const [showDevicesModal, setShowDevicesModal] = useState(false);
     const [showGuideModal, setShowGuideModal] = useState(false);
+    const [showPairQrModal, setShowPairQrModal] = useState(false);
     const [switchedNotice, setSwitchedNotice] = useState(false);
 
     const refresh = useCallback(async () => {
@@ -98,7 +100,7 @@ export default function MobileAlertsControl() {
                             <button
                                 id="mobile-alerts-enable"
                                 disabled={busy}
-                                onClick={() => run(() => enablePush(userId), 'Phone alerts are on. You will be alerted here when a quotation needs approval, is decided, is about to close, has quotes ready, or is resolved.')}
+                                onClick={() => run(() => enablePush(userId), 'Phone alerts are on. You will be alerted here for urgent quotation events, approvals, and critical LG Custody escalations.')}
                                 className="text-[11px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 px-2 py-0.8 rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
                             >
                                 <BellRing size={11} /> Enable
@@ -114,6 +116,15 @@ export default function MobileAlertsControl() {
                                 <BellOff size={11} /> Turn off
                             </button>
                         )}
+                        <button
+                            type="button"
+                            onClick={() => setShowPairQrModal(true)}
+                            title="Pair smartphone via QR code"
+                            className="p-1 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-950/60 transition-colors cursor-pointer flex items-center gap-1"
+                        >
+                            <QrCode size={12} />
+                            <span className="text-[10px] font-bold hidden sm:inline">Pair Phone</span>
+                        </button>
                         <button
                             type="button"
                             onClick={() => setShowDevicesModal(true)}
@@ -143,6 +154,11 @@ export default function MobileAlertsControl() {
             </div>
 
             {/* Modals */}
+            <PushPairQrModal
+                isOpen={showPairQrModal}
+                onClose={() => setShowPairQrModal(false)}
+                onSuccess={() => refresh()}
+            />
             <PushDevicesModal
                 isOpen={showDevicesModal}
                 onClose={() => {

@@ -88,8 +88,18 @@ const CancelInstructionModal = ({ instruction, onClose, onSuccess, isGracePeriod
         setIsLoading(true);
         try {
             const response = await cancelLGInstruction(instruction.id, reason, declarationConfirmed);
-            toast.success(response.message);
-            onSuccess(response.lg_record, response.instruction.id);
+            toast.success(
+                response?.message ||
+                (response?.status === 'PENDING'
+                    ? 'Cancellation request submitted for Corporate Admin approval.'
+                    : 'Instruction canceled successfully.')
+            );
+            if (onSuccess) {
+                await onSuccess(response?.lg_record, response?.instruction?.id);
+            }
+            if (onClose) {
+                onClose();
+            }
         } catch (error) {
             console.error("Failed to cancel instruction:", error);
             toast.error(`Failed to cancel instruction: ${error.message || 'An unexpected error occurred.'}`);
@@ -102,7 +112,11 @@ const CancelInstructionModal = ({ instruction, onClose, onSuccess, isGracePeriod
 
     const formatActionTypeLabel = (actionType) => {
         if (!actionType) return '';
-        return actionType.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+        return actionType.replace(/_/g, ' ').split(' ').map(word => {
+            const upper = word.toUpperCase();
+            if (upper === 'LG' || upper === 'ID' || upper === 'RFQ') return upper;
+            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        }).join(' ');
     };
 
     return (

@@ -1462,6 +1462,96 @@ export default function ResultsView({ rfqId: propRfqId }) {
                         </div>
                     )}
 
+                    {/* Single-Leg / T-Bill Winner Summary inside Acceptance Panel */}
+                    {isAwaitingAcceptance && (!legs || legs.length <= 1) && (() => {
+                        const singleLeg = (legs && legs.length === 1) ? legs[0] : null;
+                        const effectiveSavings = resultsMeta.savingsSummary || singleLeg?.savings_summary || null;
+                        const winBank = singleLeg?.winner_bank_name || effectiveSavings?.winner_bank_name || rfq?.winner_bank_name;
+                        const winRate = singleLeg?.winner_rate ?? effectiveSavings?.winner_rate ?? rfq?.winner_rate;
+                        const winNormRate = effectiveSavings?.winner_normalized_rate;
+                        const isTvmAdj = Boolean(effectiveSavings?.is_tvm_adjusted && winNormRate !== undefined && winNormRate !== null);
+                        const winValDate = effectiveSavings?.winner_value_date || singleLeg?.value_date || rfq?.value_date;
+                        const isCustomValDate = Boolean(winValDate && rfq?.value_date && String(winValDate).split('T')[0] !== String(rfq.value_date).split('T')[0]);
+                        const dirStr = (singleLeg?.direction || rfq?.direction || 'BUY').toUpperCase();
+                        const isBuy = dirStr === 'BUY';
+                        const pairLabel = rfq?.type === 'TBILL'
+                            ? `T-Bill (${dirStr})`
+                            : (singleLeg?.currency_pair || `${singleLeg?.buy_currency || rfq?.buy_currency || 'USD'}/${singleLeg?.sell_currency || rfq?.sell_currency || 'EGP'}`);
+                        const amtVal = singleLeg?.amount ?? rfq?.amount ?? 0;
+                        const amtCurr = rfq?.type === 'TBILL' ? 'EGP' : (singleLeg?.buy_currency || rfq?.buy_currency || '');
+                        const savedVsAvg = effectiveSavings?.saved_vs_avg ?? singleLeg?.saved_vs_avg ?? rfq?.saved_vs_avg;
+                        const saveCurr = effectiveSavings?.currency || singleLeg?.sell_currency || rfq?.sell_currency || 'EGP';
+                        const totalBidsCount = effectiveSavings?.total_quotes || (results || []).filter(r => r.price != null || r.best_score != null).length;
+
+                        if (!winBank) return null;
+
+                        return (
+                            <div className="py-4">
+                                <div className="p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50/20 shadow-xs">
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2.5 flex-wrap">
+                                            <span className={`uppercase text-[10px] font-black px-2.5 py-0.5 rounded ${
+                                                isBuy ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                                            }`}>
+                                                {dirStr}
+                                            </span>
+                                            <span className="font-extrabold text-sm text-slate-900 tracking-tight">
+                                                {pairLabel}
+                                            </span>
+                                            {winValDate && (
+                                                <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded border ${
+                                                    isCustomValDate
+                                                        ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                                        : 'bg-white text-slate-600 border-slate-200'
+                                                }`}>
+                                                    <Calendar size={11} className={isCustomValDate ? 'text-amber-600' : 'text-slate-400'} />
+                                                    <span>Val: {formatDate(winValDate)}</span>
+                                                    {isCustomValDate && (
+                                                        <span className="text-[9px] font-bold bg-amber-200 text-amber-900 px-1 rounded">Custom Date</span>
+                                                    )}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className="font-mono text-xs font-bold text-slate-800 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shrink-0 shadow-2xs">
+                                            {formatAmount(amtVal)} {amtCurr}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-3 pt-2.5 border-t border-emerald-200/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                        <div className="flex items-center gap-1.5 text-slate-800 font-semibold flex-wrap">
+                                            <Trophy size={15} className="text-amber-500 shrink-0" />
+                                            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Winning Counterparty:</span>
+                                            <span className="font-bold text-slate-900">{winBank}</span>
+                                            {winRate !== undefined && winRate !== null && (
+                                                <span className="font-mono font-bold text-emerald-800 bg-white px-2 py-0.5 rounded border border-emerald-300 shrink-0">
+                                                    @ {typeof winRate === 'number' ? winRate.toFixed(4) : winRate}
+                                                </span>
+                                            )}
+                                            {isTvmAdj && (
+                                                <span className="font-mono text-[11px] font-semibold text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 shrink-0" title="Time-Value of Money (TVM) normalized equivalent rate on target settlement date">
+                                                    TVM Eval: {typeof winNormRate === 'number' ? winNormRate.toFixed(4) : winNormRate}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            {savedVsAvg > 0 && (
+                                                <span className="font-mono text-[11px] font-bold text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                                                    +{saveCurr} {Number(savedVsAvg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} vs avg
+                                                </span>
+                                            )}
+                                            {totalBidsCount > 0 && (
+                                                <span className="text-[11px] font-semibold text-slate-600 bg-white px-2.5 py-0.5 rounded-full border border-slate-200">
+                                                    {totalBidsCount} {totalBidsCount === 1 ? 'Bid' : 'Bids'} Evaluated
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
                     {/* Currency Pair Leg Selection (Multi-Leg) */}
                     {isAwaitingAcceptance && legs && legs.length > 1 && (
                         <div className="py-4 space-y-3">
@@ -1904,8 +1994,15 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                         </span>
                                         <span className="text-xs text-slate-300 font-mono">Regulatory & Governance Standard</span>
                                     </div>
-                                    <h3 className="text-base sm:text-lg font-bold text-white mt-0.5">
-                                        {isAccepted ? `Awarded to ${effectiveSavings.winner_bank_name} @ ${effectiveSavings.winner_rate}` : `Leading Quote: ${effectiveSavings.winner_bank_name} @ ${effectiveSavings.winner_rate} (Pending Acceptance)`}
+                                    <h3 className="text-base sm:text-lg font-bold text-white mt-0.5 flex items-center gap-2 flex-wrap">
+                                        <span>
+                                            {isAccepted ? `Awarded to ${effectiveSavings.winner_bank_name} @ ${effectiveSavings.winner_rate}` : `Leading Quote: ${effectiveSavings.winner_bank_name} @ ${effectiveSavings.winner_rate} (Pending Acceptance)`}
+                                        </span>
+                                        {effectiveSavings.is_tvm_adjusted && effectiveSavings.winner_normalized_rate !== undefined && (
+                                            <span className="text-xs font-mono font-semibold bg-teal-950/80 text-teal-200 border border-teal-500/40 px-2 py-0.5 rounded-lg">
+                                                TVM Eval: {effectiveSavings.winner_normalized_rate}
+                                            </span>
+                                        )}
                                     </h3>
                                 </div>
                             </div>

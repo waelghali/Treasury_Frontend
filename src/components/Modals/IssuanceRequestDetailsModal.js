@@ -10,6 +10,7 @@ import {
 import { toast } from 'react-toastify';
 import ApprovalProgressTracker from '../ApprovalProgressTracker';
 import IssuanceWizardModal from './IssuanceWizardModal';
+import { openInNewTab } from '../../utils/navUtils';
 
 export default function IssuanceRequestDetailsModal({ request: requestProp, onClose, onStatusChange }) {
     const navigate = useNavigate();
@@ -136,8 +137,8 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
             if (contentType.includes('application/json')) {
                 // GCS path — response contains { download_url }
                 const data = await resp.json();
-                if (data?.download_url) {
-                    window.open(data.download_url, '_blank');
+                if (data?.download_url || data?.signed_url) {
+                    openInNewTab(data.download_url || data.signed_url);
                 } else {
                     toast.error('Download URL not available');
                 }

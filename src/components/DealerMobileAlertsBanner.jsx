@@ -1,6 +1,24 @@
 // src/components/DealerMobileAlertsBanner.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Smartphone, CheckCircle, Bell, BellOff, X, HelpCircle, Share2, PlusSquare, AlertTriangle, RefreshCw, QrCode, Copy, Check, ExternalLink } from 'lucide-react';
+import {
+    Smartphone,
+    Monitor,
+    CheckCircle,
+    Bell,
+    BellOff,
+    X,
+    Share2,
+    PlusSquare,
+    AlertTriangle,
+    RefreshCw,
+    QrCode,
+    Copy,
+    Check,
+    ShieldCheck,
+    Volume2,
+    VolumeX,
+    ExternalLink
+} from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
     isPushSupported,
@@ -15,27 +33,52 @@ import {
     getDealerQrStatus
 } from '../services/dealerPushService';
 
-export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onAlertsToggled = null, allowMobileAlerts = true }) {
+
+
+export default function DealerMobileAlertsBanner({
+    token,
+    defaultEmail = '',
+    onAlertsToggled = null,
+    allowMobileAlerts = true,
+    mode = 'header-chip',
+    soundEnabled = true,
+    onToggleSound = null
+}) {
     const [supported, setSupported] = useState(false);
+    const [isBrowserActive, setIsBrowserActive] = useState(false);
+    const [isPhoneActive, setIsPhoneActive] = useState(false);
     const [isActive, setIsActive] = useState(false);
     const [activeEmail, setActiveEmail] = useState('');
+    const [browserLabel, setBrowserLabel] = useState('');
+    const [phoneLabel, setPhoneLabel] = useState('');
+    const [dealerEmail, setDealerEmail] = useState(defaultEmail || '');
+    const [endpoint, setEndpoint] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [loadingTarget, setLoadingTarget] = useState(null); // 'browser' | 'phone' | null
+
     const [showSetupModal, setShowSetupModal] = useState(false);
     const [showIosGuide, setShowIosGuide] = useState(false);
     const [showBlockedModal, setShowBlockedModal] = useState(false);
     const [showQrModal, setShowQrModal] = useState(false);
+
+
     const [qrData, setQrData] = useState(null);
     const [qrLoading, setQrLoading] = useState(false);
     const [isPairedSuccess, setIsPairedSuccess] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
-    const [dealerEmail, setDealerEmail] = useState(defaultEmail || '');
-    const [endpoint, setEndpoint] = useState(null);
     const pollingTimerRef = useRef(null);
 
     useEffect(() => {
+        try { localStorage.removeItem('dealer_inactive_alert_theme'); } catch (_) {}
         setSupported(isPushSupported());
         checkCurrentStatus();
-    }, [token]);
+    }, [token, defaultEmail]);
+
+    useEffect(() => {
+        const handleOpen = () => setShowSetupModal(true);
+        window.addEventListener('open-dealer-alert-modal', handleOpen);
+        return () => window.removeEventListener('open-dealer-alert-modal', handleOpen);
+    }, []);
 
     useEffect(() => {
         if (defaultEmail && !dealerEmail) {
@@ -46,18 +89,110 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
     const checkCurrentStatus = async () => {
         try {
             const sub = await getExistingSubscription();
-            if (sub && sub.endpoint) {
-                setEndpoint(sub.endpoint);
-                const status = await getDealerPushStatus(sub.endpoint, token, defaultEmail);
-                if (status && status.is_active) {
-                    setIsActive(true);
-                    setActiveEmail(status.email || '');
-                } else {
-                    setIsActive(false);
+            const curEndpoint = sub?.endpoint || null;
+            if (curEndpoint) {
+                setEndpoint(curEndpoint);
+            }
+            const status = await getDealerPushStatus(curEndpoint, token, defaultEmail || dealerEmail);
+            if (status) {
+                const bActive = Boolean(status.is_browser_active);
+                const pActive = Boolean(status.is_phone_active);
+                setIsBrowserActive(bActive);
+                setIsPhoneActive(pActive);
+                const activeState = bActive || pActive || Boolean(status.is_active);
+                setIsActive(activeState);
+                if (onAlertsToggled) onAlertsToggled(activeState);
+                if (status.email) {
+                    setActiveEmail(status.email);
+                    if (!dealerEmail) setDealerEmail(status.email);
                 }
+                if (status.browser_label) setBrowserLabel(status.browser_label);
+                if (status.phone_label) setPhoneLabel(status.phone_label);
+            } else {
+                setIsBrowserActive(false);
+                setIsPhoneActive(false);
+                setIsActive(false);
+                if (onAlertsToggled) onAlertsToggled(false);
             }
         } catch (e) {
             console.warn('Could not verify push status:', e);
+        }
+    };
+
+    const handleToggleBrowserAlerts = async () => {
+        const targetEmail = dealerEmail || activeEmail || defaultEmail;
+        if (!isBrowserActive && (!targetEmail || !targetEmail.includes('@'))) {
+            toast.error('Please enter your official bank email.');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setLoadingTarget('browser');
+            if (isBrowserActive) {
+                await unsubscribeDealerPush(endpoint, token, targetEmail, 'browser');
+                setIsBrowserActive(false);
+                const remaining = isPhoneActive;
+                setIsActive(remaining);
+                if (onAlertsToggled) onAlertsToggled(remaining);
+                toast.info('Windows desktop alerts turned off for this browser.');
+            } else {
+                if (isPermissionDenied()) {
+                    setShowBlockedModal(true);
+                    return;
+                }
+                if (isIosDevice() && !isStandalone()) {
+                    setShowIosGuide(true);
+                    return;
+                }
+                const res = await subscribeDealerPush({
+                    token,
+                    email: targetEmail.trim().toLowerCase(),
+                    deviceLabel: 'Windows Desktop / Browser'
+                });
+                setIsBrowserActive(true);
+                setIsActive(true);
+                setActiveEmail(targetEmail.trim().toLowerCase());
+                if (onAlertsToggled) onAlertsToggled(true);
+                toast.success(res.message || 'Windows desktop alerts enabled for this browser!');
+            }
+            await checkCurrentStatus();
+        } catch (err) {
+            console.error('Failed to toggle browser push:', err);
+            if (err.code === 'PERMISSION_DENIED' || isPermissionDenied()) {
+                setShowBlockedModal(true);
+                toast.warn('Notifications are currently blocked in your browser settings.');
+            } else {
+                toast.error(err.response?.data?.detail || err.message || 'Failed to update desktop alerts.');
+            }
+        } finally {
+            setLoading(false);
+            setLoadingTarget(null);
+        }
+    };
+
+    const handleUnlinkPhone = async () => {
+        if (!window.confirm('Unlink paired mobile phone? This phone will no longer receive lock-screen alerts.')) {
+            return;
+        }
+        try {
+            setLoading(true);
+            setLoadingTarget('phone');
+            const targetEmail = activeEmail || dealerEmail || defaultEmail;
+            await unsubscribeDealerPush(endpoint, token, targetEmail, 'phone');
+            setIsPhoneActive(false);
+            setPhoneLabel('');
+            const remaining = isBrowserActive;
+            setIsActive(remaining);
+            if (onAlertsToggled) onAlertsToggled(remaining);
+            toast.info('Mobile phone unlinked successfully.');
+            await checkCurrentStatus();
+        } catch (err) {
+            console.error('Failed to unlink phone push:', err);
+            toast.error('Failed to unlink phone.');
+        } finally {
+            setLoading(false);
+            setLoadingTarget(null);
         }
     };
 
@@ -70,11 +205,6 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
             setQrData(data);
             if (data.email && !dealerEmail) {
                 setDealerEmail(data.email);
-            }
-            if (data.is_paired) {
-                setIsPairedSuccess(true);
-                setIsActive(true);
-                setActiveEmail(data.email);
             }
         } catch (err) {
             console.error('Failed to generate QR pair token:', err);
@@ -99,6 +229,7 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
                 const status = await getDealerQrStatus(qrData.setup_token);
                 if (status.is_paired) {
                     setIsPairedSuccess(true);
+                    setIsPhoneActive(true);
                     setIsActive(true);
                     setActiveEmail(status.email || qrData.email);
                     if (onAlertsToggled) onAlertsToggled(true);
@@ -107,9 +238,10 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
                         clearInterval(pollingTimerRef.current);
                         pollingTimerRef.current = null;
                     }
+                    await checkCurrentStatus();
                     setTimeout(() => {
                         setShowQrModal(false);
-                    }, 2400);
+                    }, 2200);
                 }
             } catch (e) {
                 // Silent catch during background poll
@@ -124,75 +256,36 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
         };
     }, [showQrModal, qrData?.setup_token, isPairedSuccess]);
 
-    const handleCopySetupUrl = () => {
+    const handleCopySetupUrl = async () => {
         if (!qrData?.setup_url) return;
-        navigator.clipboard.writeText(qrData.setup_url);
+        let success = false;
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(qrData.setup_url);
+                success = true;
+            }
+        } catch (e) {
+            console.warn('navigator.clipboard failed, using fallback:', e);
+        }
+        if (!success) {
+            try {
+                const textArea = document.createElement('textarea');
+                textArea.value = qrData.setup_url;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                textArea.style.top = '-9999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            } catch (err) {
+                console.error('execCommand copy failed:', err);
+            }
+        }
         setIsCopied(true);
         toast.info('Mobile setup link copied! You can send it to your phone via WhatsApp or Email.');
         setTimeout(() => setIsCopied(false), 2500);
-    };
-
-    const handleOpenEnable = () => {
-        if (isPermissionDenied()) {
-            setShowBlockedModal(true);
-            return;
-        }
-        if (isIosDevice() && !isStandalone()) {
-            setShowIosGuide(true);
-            return;
-        }
-        setShowSetupModal(true);
-    };
-
-    const handleConfirmSubscribe = async () => {
-        if (!dealerEmail || !dealerEmail.includes('@')) {
-            toast.error('Please enter your official corporate bank email.');
-            return;
-        }
-
-        try {
-            setLoading(true);
-            const res = await subscribeDealerPush({
-                token,
-                email: dealerEmail.trim().toLowerCase(),
-            });
-            setIsActive(true);
-            setActiveEmail(dealerEmail.trim().toLowerCase());
-            setShowSetupModal(false);
-            toast.success(res.message || 'Phone alerts enabled! You will now receive lock-screen alerts for all RFQs.');
-            if (onAlertsToggled) onAlertsToggled(true);
-            checkCurrentStatus();
-        } catch (err) {
-            console.error('Failed to enable dealer push:', err);
-            if (err.code === 'PERMISSION_DENIED' || isPermissionDenied()) {
-                setShowSetupModal(false);
-                setShowBlockedModal(true);
-                toast.warn('Notifications are currently blocked in your browser settings.');
-            } else {
-                toast.error(err.response?.data?.detail || err.message || 'Failed to enable mobile alerts.');
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleUnsubscribe = async () => {
-        if (!window.confirm('Turn off phone alerts on this device? You will no longer receive lock-screen notifications for incoming RFQs.')) {
-            return;
-        }
-        try {
-            setLoading(true);
-            await unsubscribeDealerPush(endpoint, token);
-            setIsActive(false);
-            setActiveEmail('');
-            toast.info('Phone alerts have been turned off for this device.');
-            if (onAlertsToggled) onAlertsToggled(false);
-        } catch (err) {
-            console.error('Failed to turn off dealer push:', err);
-            toast.error('Failed to turn off alerts.');
-        } finally {
-            setLoading(false);
-        }
     };
 
     if (allowMobileAlerts === false) {
@@ -203,69 +296,67 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
         return null;
     }
 
+
     return (
         <>
-            <div className="mb-4 bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl p-3.5 sm:p-4 shadow-md border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-200">
-                <div className="flex items-center gap-3">
-                    <div className={`p-2.5 rounded-xl border shrink-0 ${isActive ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'}`}>
-                        {isActive ? <CheckCircle size={18} /> : <Smartphone size={18} />}
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold uppercase tracking-wider text-indigo-200">Institutional Phone Alerts</span>
-                            {isActive && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Active on this phone
-                                </span>
-                            )}
-                        </div>
-                        <p className="text-xs text-slate-300 mt-0.5">
-                            {isActive
-                                ? `Receiving instant lock-screen alerts for ${activeEmail || 'your desk'}. One setup covers all RFQs from all corporate clients.`
-                                : 'Get instant lock-screen alerts whenever your desk is invited to quote. Covers all RFQs with zero app-store download.'}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                    {isActive ? (
-                        <button
-                            type="button"
-                            onClick={handleUnsubscribe}
-                            disabled={loading}
-                            className="min-h-[38px] px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
-                        >
-                            <BellOff size={13} />
-                            <span>{loading ? 'Updating...' : 'Turn Off Alerts'}</span>
-                        </button>
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={handleOpenQrModal}
-                                disabled={loading}
-                                className="min-h-[38px] px-3.5 sm:px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-emerald-950 cursor-pointer flex items-center gap-1.5 active:scale-98"
-                                title="Pair your smartphone by scanning a QR code with your phone camera"
-                            >
-                                <QrCode size={14} />
-                                <span>Pair Phone via QR</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleOpenEnable}
-                                disabled={loading}
-                                className="min-h-[38px] px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5"
-                                title="Enable alerts directly on this computer browser"
-                            >
-                                <Bell size={13} />
-                                <span className="hidden md:inline">Alert this Browser</span>
-                            </button>
-                        </div>
+            {mode === 'header-chip' ? (
+                <div className="relative inline-flex items-center group">
+                    {/* Glowing Obsidian Titanium Halo ONLY when alerts are INACTIVE */}
+                    {!isActive && (
+                        <span className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-slate-200 via-white to-slate-400 opacity-75 blur-xs animate-pulse group-hover:opacity-100 transition duration-300 pointer-events-none"></span>
                     )}
-                </div>
-            </div>
 
-            {/* Email Confirmation & Setup Modal */}
+                    <button
+                        type="button"
+                        onClick={() => setShowSetupModal(true)}
+                        className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                            isActive
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 shadow-2xs'
+                                : 'bg-slate-950 text-slate-100 border-2 border-slate-300/85 shadow-md shadow-white/15 hover:bg-slate-900 active:scale-95'
+                        }`}
+                        title="Configure Trading Desk Alerts for Audio, Windows PC, and Mobile Phone"
+                    >
+                        {isActive ? (
+                            <>
+                                {/* Steady solid dot: NO ping, NO glow when active */}
+                                <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0"></span>
+                                {isBrowserActive && isPhoneActive ? (
+                                    <>
+                                        <Bell size={13} className="text-emerald-700 shrink-0" />
+                                        <span className="hidden sm:inline">Alerts: PC + Phone Active</span>
+                                        <span className="sm:hidden">Alerts Active</span>
+                                    </>
+                                ) : isBrowserActive ? (
+                                    <>
+                                        <Monitor size={13} className="text-emerald-700 shrink-0" />
+                                        <span className="hidden sm:inline">PC Alert: Active</span>
+                                        <span className="sm:hidden">PC Active</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Smartphone size={13} className="text-emerald-700 shrink-0" />
+                                        <span className="hidden sm:inline">Phone Alert: Active</span>
+                                        <span className="sm:hidden">Phone Active</span>
+                                    </>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                {/* Glowing animated Titanium radar ping dot when INACTIVE */}
+                                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-90"></span>
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white shadow-xs"></span>
+                                </span>
+                                <Bell size={13} className="text-white shrink-0 drop-shadow-xs" />
+                                <span className="hidden sm:inline font-extrabold text-white tracking-tight drop-shadow-xs">Turn On RFQ Alerts</span>
+                                <span className="sm:hidden font-extrabold text-white">Alerts</span>
+                            </>
+                        )}
+                    </button>
+                </div>
+            ) : null}
+
+            {/* UNIFIED 3-CHANNEL DESK ALERTS MODAL: Audio Chimes + Windows PC + Mobile Phone */}
             {showSetupModal && (
                 <div
                     role="dialog"
@@ -273,61 +364,219 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
                     aria-labelledby="dealer-alert-modal-title"
                     className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
                 >
-                    <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200">
-                        <div className="p-5 bg-gradient-to-r from-emerald-900 to-slate-900 text-white flex justify-between items-center">
-                            <div className="flex items-center gap-2.5">
-                                <div className="p-2 bg-emerald-500/20 text-emerald-300 rounded-xl border border-emerald-500/30">
-                                    <Smartphone size={18} />
+                    <div className="bg-white rounded-3xl max-w-2xl sm:max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-200">
+                        {/* Modal Header with Verified Desk Badge */}
+                        <div className="p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-indigo-500/20 text-indigo-300 rounded-2xl border border-indigo-500/30">
+                                    <Bell size={20} />
                                 </div>
                                 <div>
-                                    <h3 id="dealer-alert-modal-title" className="font-bold text-sm">Enable Dealer Phone Alerts</h3>
-                                    <p className="text-[11px] text-emerald-200/80">Covers all RFQs from all corporate clients</p>
+                                    <h3 id="dealer-alert-modal-title" className="font-bold text-base text-white">Trading Desk Alerts & Audio</h3>
+                                    <p className="text-xs text-indigo-200/80">
+                                        Verified Desk: <span className="font-mono text-emerald-300 font-semibold">{activeEmail || dealerEmail || 'Bank Dealer'}</span>
+                                    </p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setShowSetupModal(false)}
-                                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors"
                             >
-                                <X size={16} />
+                                <X size={18} />
                             </button>
                         </div>
-                        <div className="p-5 space-y-3.5">
-                            <p className="text-xs text-slate-600 leading-relaxed">
-                                Enter your official corporate bank email. Your phone will receive instant sound and vibration alerts whenever your desk is invited to an RFQ by <strong>any corporate client</strong>.
-                            </p>
-                            <div>
-                                <label className="text-xs font-bold text-slate-700 block mb-1">
-                                    Official Bank Email
-                                </label>
-                                <input
-                                    type="email"
-                                    value={dealerEmail}
-                                    onChange={(e) => setDealerEmail(e.target.value)}
-                                    placeholder="dealer@bank.com"
-                                    className="w-full text-xs p-3 rounded-xl border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 font-medium"
-                                />
+
+                        {/* Modal Body: 3 Clean Compact Channels */}
+                        <div className="p-5 space-y-3.5 max-h-[75vh] overflow-y-auto">
+                            {/* CHANNEL 1: 🔊 Trading Desk Audio Chimes */}
+                            <div className="p-4 rounded-2xl border transition-all bg-white border-slate-200 hover:border-slate-300">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div className="flex items-start gap-3">
+                                        <div className={`p-2.5 rounded-xl shrink-0 ${soundEnabled ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                                            {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="font-bold text-sm text-slate-900">Trading Desk Chimes</h4>
+                                                {soundEnabled ? (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> AUDIO ON
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">
+                                                        ○ MUTED
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                                                In-terminal audio cues for incoming quotation requests and closing countdowns.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={onToggleSound ? onToggleSound : () => {}}
+                                            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs ${soundEnabled
+                                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
+                                                : 'bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            {soundEnabled ? <Volume2 size={14} className="text-emerald-700" /> : <VolumeX size={14} className="text-slate-500" />}
+                                            <span>{soundEnabled ? 'Sound: On' : 'Sound: Muted'}</span>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-600 space-y-1">
-                                <p className="font-semibold text-slate-800">🔒 Confidential & Safe</p>
-                                <p>Trade amounts, bank identities, and currencies are strictly redacted on your phone lock screen.</p>
+
+                            {/* CHANNEL 2: 💻 Windows Desktop Notifications */}
+                            <div className={`p-4 rounded-2xl border transition-all ${
+                                isBrowserActive 
+                                    ? 'bg-emerald-50/40 border-emerald-300/80 shadow-2xs' 
+                                    : 'bg-white border-slate-200 hover:border-slate-300'
+                            }`}>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div className="flex items-start gap-3">
+                                        <div className={`p-2.5 rounded-xl shrink-0 ${
+                                            isBrowserActive 
+                                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                                                : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                        }`}>
+                                            <Monitor size={20} />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="font-bold text-sm text-slate-900">Windows Desktop Notifications</h4>
+                                                {isBrowserActive ? (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ACTIVE ON THIS PC
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
+                                                        ○ INACTIVE ON THIS PC
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                                                Pop-up toast alerts on your PC even when the browser is minimized.
+                                            </p>
+                                            {isBrowserActive && browserLabel && (
+                                                <p className="text-[11px] font-medium text-emerald-800 mt-0.5">
+                                                    Connected: {browserLabel}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="self-end sm:self-center shrink-0">
+                                        {isBrowserActive ? (
+                                            <button
+                                                type="button"
+                                                onClick={handleToggleBrowserAlerts}
+                                                disabled={loading}
+                                                className="px-4 py-2 bg-white hover:bg-rose-50 text-rose-700 hover:text-rose-800 border border-rose-300 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                            >
+                                                <BellOff size={14} />
+                                                <span>{loading && loadingTarget === 'browser' ? 'Deactivating...' : 'Deactivate PC Alert'}</span>
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={handleToggleBrowserAlerts}
+                                                disabled={loading || !dealerEmail}
+                                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                            >
+                                                <Monitor size={14} />
+                                                <span>{loading && loadingTarget === 'browser' ? 'Activating...' : 'Activate on this PC'}</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* CHANNEL 3: 📱 Mobile Smartphone */}
+                            <div className={`p-4 rounded-2xl border transition-all ${
+                                isPhoneActive 
+                                    ? 'bg-emerald-50/40 border-emerald-300/80 shadow-2xs' 
+                                    : 'bg-white border-slate-200 hover:border-slate-300'
+                            }`}>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div className="flex items-start gap-3">
+                                        <div className={`p-2.5 rounded-xl shrink-0 ${
+                                            isPhoneActive 
+                                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                                                : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                        }`}>
+                                            <Smartphone size={20} />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="font-bold text-sm text-slate-900">Mobile Smartphone</h4>
+                                                {isPhoneActive ? (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ACTIVE ON MOBILE
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
+                                                        ○ NO PHONE LINKED
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                                                Sound & vibration lock-screen push alerts when you are away from your desk.
+                                            </p>
+                                            {isPhoneActive && phoneLabel && (
+                                                <p className="text-[11px] font-medium text-emerald-800 mt-0.5">
+                                                    Linked Device: {phoneLabel}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="self-end sm:self-center shrink-0">
+                                        {isPhoneActive ? (
+                                            <button
+                                                type="button"
+                                                onClick={handleUnlinkPhone}
+                                                disabled={loading}
+                                                className="px-4 py-2 bg-white hover:bg-rose-50 text-rose-700 hover:text-rose-800 border border-rose-300 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                            >
+                                                <BellOff size={14} />
+                                                <span>{loading && loadingTarget === 'phone' ? 'Deactivating...' : 'Deactivate / Unlink Phone'}</span>
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={handleOpenQrModal}
+                                                disabled={loading}
+                                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                                            >
+                                                <QrCode size={14} />
+                                                <span>Pair Phone via QR</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Privacy and Security Seal */}
+                            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-2.5 text-[11px] text-slate-600">
+                                <ShieldCheck size={16} className="text-indigo-600 shrink-0" />
+                                <span>
+                                    <strong>Redacted & Confidential:</strong> Trade amounts, bank identities, and currencies are strictly concealed on lock screens.
+                                </span>
                             </div>
                         </div>
-                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2.5">
+
+                        {/* Modal Footer */}
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
                             <button
                                 type="button"
                                 onClick={() => setShowSetupModal(false)}
-                                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs"
+                                className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs cursor-pointer transition-colors"
                             >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleConfirmSubscribe}
-                                disabled={loading || !dealerEmail}
-                                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm flex items-center gap-1.5 disabled:opacity-50"
-                            >
-                                <Bell size={13} />
-                                <span>{loading ? 'Activating...' : 'Activate Alerts'}</span>
+                                Close
                             </button>
                         </div>
                     </div>
@@ -355,7 +604,7 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
                             </div>
                             <button
                                 onClick={() => setShowIosGuide(false)}
-                                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
                             >
                                 <X size={16} />
                             </button>
@@ -383,7 +632,7 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
                             <button
                                 type="button"
                                 onClick={() => setShowIosGuide(false)}
-                                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs"
+                                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs cursor-pointer"
                             >
                                 Got it
                             </button>
@@ -421,7 +670,7 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
 
                         <div className="p-5 space-y-4 text-xs text-slate-700">
                             <p className="leading-relaxed">
-                                Your browser has blocked notifications for this platform. To enable instant RFQ sound & vibration alerts, please allow notifications in your address bar:
+                                Your browser has blocked notifications for this platform. To enable instant RFQ sound & notifications on this computer:
                             </p>
 
                             <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl space-y-3">
@@ -432,7 +681,7 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
                                     <div>
                                         <p className="font-bold text-slate-900">Click the Site Settings / Lock Icon</p>
                                         <p className="text-[11px] text-slate-600 mt-0.5">
-                                            Look at the top left of your browser window, directly to the left of the website address (URL). Click the <strong className="text-slate-800">Lock 🔒</strong> or <strong className="text-slate-800">Tune / Sliders 🎛️</strong> icon.
+                                            Look directly to the left of the website address (URL) in your browser address bar. Click the <strong className="text-slate-800">Lock 🔒</strong> or <strong className="text-slate-800">Sliders 🎛️</strong> icon.
                                         </p>
                                     </div>
                                 </div>
@@ -509,7 +758,7 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
                                 </div>
                                 <div>
                                     <h3 id="qr-pair-modal-title" className="font-bold text-sm">Pair Phone for Lock-Screen Alerts</h3>
-                                    <p className="text-[11px] text-emerald-200/80">Scan with your phone camera · No app download</p>
+                                    <p className="text-[11px] text-emerald-200/80">Scan with phone camera · No app store download</p>
                                 </div>
                             </div>
                             <button
@@ -537,12 +786,12 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
                                         Lock-screen alerts are now active for <strong className="text-slate-900">{activeEmail || dealerEmail}</strong>.
                                     </p>
                                     <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-[11px] text-emerald-800 font-medium inline-block">
-                                        ✓ Your phone will ring & vibrate on every incoming RFQ invitation
+                                        ✓ Your phone will chime & vibrate on every incoming RFQ invitation
                                     </div>
                                 </div>
                             ) : (
                                 <>
-                                    {/* Email indicator / selector */}
+                                    {/* Email indicator */}
                                     <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between text-xs">
                                         <div>
                                             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Registered Bank Desk</span>
@@ -583,7 +832,7 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
                                         </div>
                                         <div className="flex items-start gap-2">
                                             <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">2</span>
-                                            <span>Tap the banner that pops up on your phone.</span>
+                                            <span>Tap the link banner that appears on your phone screen.</span>
                                         </div>
                                         <div className="flex items-start gap-2">
                                             <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">3</span>
@@ -600,15 +849,27 @@ export default function DealerMobileAlertsBanner({ token, defaultEmail = '', onA
                                             </span>
                                             <span>Waiting for phone scan (auto-detects)...</span>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={handleCopySetupUrl}
-                                            className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
-                                            title="Copy mobile link"
-                                        >
-                                            {isCopied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
-                                            <span>{isCopied ? 'Copied!' : 'Copy Link'}</span>
-                                        </button>
+                                        <div className="flex items-center gap-2.5">
+                                            <button
+                                                type="button"
+                                                onClick={handleCopySetupUrl}
+                                                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                                                title="Copy mobile link"
+                                            >
+                                                {isCopied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                                                <span>{isCopied ? 'Copied!' : 'Copy Link'}</span>
+                                            </button>
+                                            <a
+                                                href={qrData?.setup_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                                                title="Open setup link in new tab"
+                                            >
+                                                <ExternalLink size={12} />
+                                                <span>Open</span>
+                                            </a>
+                                        </div>
                                     </div>
                                 </>
                             )}

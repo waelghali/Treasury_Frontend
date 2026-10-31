@@ -63,6 +63,11 @@ function PendingApprovalsPage({ isGracePeriod }) {
     const [issuanceSearch, setIssuanceSearch] = useState('');
     // Filters for Discrepancy tab
     const [discStatusFilter, setDiscStatusFilter] = useState('ALL');
+    const [discSearch, setDiscSearch] = useState('');
+    // Filters for LG Actions tab & Admin Changes tab
+    const [lgActionsStatusFilter, setLgActionsStatusFilter] = useState('ALL');
+    const [adminStatusFilter, setAdminStatusFilter] = useState('ALL');
+    const [adminSearch, setAdminSearch] = useState('');
 
     // K1: Admin Change Requests state
     const [adminChanges, setAdminChanges] = useState([]);
@@ -262,7 +267,11 @@ function PendingApprovalsPage({ isGracePeriod }) {
 
     const formatActionType = (actionType) => {
         if (!actionType) return 'N/A';
-        return actionType.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+        return actionType.replace(/_/g, ' ').split(' ').map(word => {
+            const upper = word.toUpperCase();
+            if (upper === 'LG' || upper === 'ID' || upper === 'RFQ') return upper;
+            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        }).join(' ');
     };
 
     const getDeciderName = (request) => {
@@ -293,6 +302,10 @@ function PendingApprovalsPage({ isGracePeriod }) {
     const handleClearFilters = () => {
         setSearchTerm('');
         setSelectedStatuses([]);
+        setLgActionsStatusFilter('ALL');
+        setDiscSearch('');
+        setAdminStatusFilter('ALL');
+        setAdminSearch('');
         setDateFrom('');
         setDateTo('');
     };
@@ -575,6 +588,13 @@ function PendingApprovalsPage({ isGracePeriod }) {
     }).length;
 
     const totalPending = pendingCustodyCount + pendingIssuanceCount + pendingDiscrepancyCount + pendingAdminChangeCount + pendingMaintenanceCount + pendingCancelCount;
+
+    useEffect(() => {
+        if (!isLoading && !loadingIssuance && !loadingDiscrepancies && !loadingAdminChanges && !loadingMaintenance) {
+            localStorage.setItem('sidebar_pending_count', totalPending.toString());
+            window.dispatchEvent(new CustomEvent('approval-count-updated', { detail: totalPending }));
+        }
+    }, [totalPending, isLoading, loadingIssuance, loadingDiscrepancies, loadingAdminChanges, loadingMaintenance]);
 
     // LG Cancellation approve/reject handlers
     const handleLGCancelApprove = async (lgId) => {
@@ -859,6 +879,15 @@ function PendingApprovalsPage({ isGracePeriod }) {
                             !row.actionType.toLowerCase().includes(term) &&
                             !row.requestedBy.toLowerCase().includes(term)) return false;
                     }
+                    if (lgActionsStatusFilter !== 'ALL') {
+                        if (lgActionsStatusFilter === 'APPROVED') {
+                            if (row.status !== 'APPROVED' && row.status !== 'PRINTED') return false;
+                        } else if (lgActionsStatusFilter === 'OTHER') {
+                            if (['PENDING', 'APPROVED', 'PRINTED', 'REJECTED', 'WITHDRAWN'].includes(row.status)) return false;
+                        } else if (row.status !== lgActionsStatusFilter) {
+                            return false;
+                        }
+                    }
                     if (selectedStatuses.length > 0 && !selectedStatuses.includes(row.status)) return false;
                     if (dateFrom && row.createdAt && moment(row.createdAt).isBefore(moment(dateFrom), 'day')) return false;
                     if (dateTo && row.createdAt && moment(row.createdAt).isAfter(moment(dateTo), 'day')) return false;
@@ -885,7 +914,70 @@ function PendingApprovalsPage({ isGracePeriod }) {
                 return (
                 <>
 
-            {/* Filters Row */}
+            {/* Unified Segmented Pill Filter + Search Bar for LG Actions */}
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+                <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                    {[
+                        { key: 'ALL', label: 'All', count: mergedRows.length },
+                        { key: 'PENDING', label: 'Pending', count: mergedRows.filter(r => r.status === 'PENDING').length },
+                        { key: 'APPROVED', label: 'Approved', count: mergedRows.filter(r => r.status === 'APPROVED' || r.status === 'PRINTED').length },
+                        { key: 'REJECTED', label: 'Rejected', count: mergedRows.filter(r => r.status === 'REJECTED').length },
+                        ...(mergedRows.some(r => r.status === 'WITHDRAWN')
+                            ? [{ key: 'WITHDRAWN', label: 'Withdrawn', count: mergedRows.filter(r => r.status === 'WITHDRAWN').length }]
+                            : []),
+                        ...(mergedRows.some(r => !['PENDING', 'APPROVED', 'PRINTED', 'REJECTED', 'WITHDRAWN'].includes(r.status))
+                            ? [{ key: 'OTHER', label: 'Expired / Superseded', count: mergedRows.filter(r => !['PENDING', 'APPROVED', 'PRINTED', 'REJECTED', 'WITHDRAWN'].includes(r.status)).length }]
+                            : []),
+                    ].map(f => (
+                        <button
+                            key={f.key}
+                            onClick={() => setLgActionsStatusFilter(f.key)}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                                lgActionsStatusFilter === f.key
+                                    ? 'bg-white text-blue-700 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            {f.label} {f.count > 0 && <span className="ml-1 text-gray-400">({f.count})</span>}
+                        </button>
+                    ))}
+                </div>
+                <div className="relative flex-1 max-w-xs min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                    <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search LG No, Action, Requestor..."
+                        className="w-full !pl-10 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:border-blue-400 focus:ring-blue-400"
+                    />
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-400 text-[11px]">From:</span>
+                        <input
+                            type="date"
+                            className="pl-10 pr-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            value={dateFrom}
+                            onChange={(e) => setDateFrom(e.target.value)}
+                        />
+                    </div>
+                    <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-400 text-[11px]">To:</span>
+                        <input
+                            type="date"
+                            className="pl-7 pr-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            value={dateTo}
+                            onChange={(e) => setDateTo(e.target.value)}
+                            min={dateFrom}
+                        />
+                    </div>
+                </div>
+                <p className="text-xs text-gray-400 ml-auto">
+                    Showing {filtered.length} of {mergedRows.length}
+                </p>
+            </div>
+            <div className="hidden">
             <div className="mb-4 flex flex-col md:flex-row items-center flex-wrap gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
                 <div className="relative flex-grow min-w-[200px] w-full md:w-auto">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -950,6 +1042,8 @@ function PendingApprovalsPage({ isGracePeriod }) {
                         </div>
                     )}
                 </Listbox>
+            </div>
+
             </div>
 
             {(isLoading || loadingMaintenance) ? (
@@ -1179,8 +1273,15 @@ function PendingApprovalsPage({ isGracePeriod }) {
                             <p className="text-sm text-gray-400 mt-1">No issuance requests found.</p>
                         </div>
                     ) : (() => {
+                        const approvedIssuanceStatuses = ['APPROVED_INTERNAL', 'INTERNAL_PROCESSING', 'FACILITY_RESERVED', 'SUBMITTED', 'COMPLETED', 'LG_ISSUED'];
                         const filteredIssuance = issuanceRequests.filter(req => {
-                            if (issuanceStatusFilter !== 'ALL' && req.status !== issuanceStatusFilter) return false;
+                            if (issuanceStatusFilter !== 'ALL') {
+                                if (issuanceStatusFilter === 'APPROVED_INTERNAL') {
+                                    if (!approvedIssuanceStatuses.includes(req.status)) return false;
+                                } else if (req.status !== issuanceStatusFilter) {
+                                    return false;
+                                }
+                            }
                             if (issuanceSearch) {
                                 const s = issuanceSearch.toLowerCase();
                                 return (req.serial_number || '').toLowerCase().includes(s)
@@ -1201,8 +1302,14 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                         { key: 'PENDING_APPROVAL', label: 'Pending', count: issuanceRequests.filter(r => r.status === 'PENDING_APPROVAL').length },
                                         { key: 'EDIT_REQUESTED', label: 'Edit Pending', count: issuanceRequests.filter(r => r.status === 'EDIT_REQUESTED').length },
                                         { key: 'CANCELLATION_REQUESTED', label: 'Cancel Pending', count: issuanceRequests.filter(r => r.status === 'CANCELLATION_REQUESTED').length },
-                                        { key: 'APPROVED_INTERNAL', label: 'Approved', count: issuanceRequests.filter(r => r.status === 'APPROVED_INTERNAL').length },
+                                        { key: 'APPROVED_INTERNAL', label: 'Approved', count: issuanceRequests.filter(r => approvedIssuanceStatuses.includes(r.status)).length },
                                         { key: 'REJECTED', label: 'Rejected', count: issuanceRequests.filter(r => r.status === 'REJECTED').length },
+                                        ...(issuanceRequests.some(r => r.status === 'REVISION_REQUIRED')
+                                            ? [{ key: 'REVISION_REQUIRED', label: 'Revision', count: issuanceRequests.filter(r => r.status === 'REVISION_REQUIRED').length }]
+                                            : []),
+                                        ...(issuanceRequests.some(r => r.status === 'CANCELLED')
+                                            ? [{ key: 'CANCELLED', label: 'Cancelled', count: issuanceRequests.filter(r => r.status === 'CANCELLED').length }]
+                                            : []),
                                     ].map(f => (
                                         <button
                                             key={f.key}
@@ -1401,7 +1508,17 @@ function PendingApprovalsPage({ isGracePeriod }) {
                         </div>
                     ) : (() => {
                         const filteredDisc = discrepancyLGs.filter(lg => {
-                            if (discStatusFilter === 'ALL') return true;
+                            if (discStatusFilter === 'DISCREPANCY' && lg.verification_status !== 'DISCREPANCY') return false;
+                            if (discStatusFilter === 'ACCEPTED' && lg.verification_status !== 'ACCEPTED') return false;
+                            if (discStatusFilter === 'REJECTED' && lg.verification_status !== 'DISCREPANCY_REJECTED') return false;
+                            if (discSearch) {
+                                const s = discSearch.toLowerCase();
+                                return (lg.lg_ref_number || '').toLowerCase().includes(s)
+                                    || (lg.beneficiary_name || '').toLowerCase().includes(s)
+                                    || (lg.bank_name || '').toLowerCase().includes(s)
+                                    || (lg.verification_notes || '').toLowerCase().includes(s);
+                            }
+                            return true;
                             if (discStatusFilter === 'DISCREPANCY') return lg.verification_status === 'DISCREPANCY';
                             if (discStatusFilter === 'ACCEPTED') return lg.verification_status === 'ACCEPTED';
                             if (discStatusFilter === 'REJECTED') return lg.verification_status === 'DISCREPANCY_REJECTED';
@@ -1430,6 +1547,16 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                             {f.label} {f.count > 0 && <span className="ml-1 text-gray-400">({f.count})</span>}
                                         </button>
                                     ))}
+                                </div>
+                                <div className="relative flex-1 max-w-xs min-w-[200px]">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                                    <input
+                                        type="text"
+                                        value={discSearch}
+                                        onChange={e => setDiscSearch(e.target.value)}
+                                        placeholder="Search LG ref, beneficiary, bank..."
+                                        className="w-full !pl-10 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:border-amber-400 focus:ring-amber-400"
+                                    />
                                 </div>
                                 <p className="text-xs text-gray-400 ml-auto">
                                     Showing {filteredDisc.length} of {discrepancyLGs.length}
@@ -1662,7 +1789,75 @@ function PendingApprovalsPage({ isGracePeriod }) {
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {adminChanges.map(change => {
+                            {(() => {
+                                const filteredAdminChanges = adminChanges.filter(change => {
+                                    if (adminStatusFilter !== 'ALL' && change.status !== adminStatusFilter) return false;
+                                    if (adminSearch) {
+                                        const s = adminSearch.toLowerCase();
+                                        const typeLabel = (formatChangeType(change.change_type) || '').toLowerCase();
+                                        const reqBy = (change.requested_by_email || '').toLowerCase();
+                                        const appBy = (change.approved_by_email || '').toLowerCase();
+                                        const payloadStr = JSON.stringify(change.change_payload || {}).toLowerCase();
+                                        return typeLabel.includes(s) || reqBy.includes(s) || appBy.includes(s) || payloadStr.includes(s);
+                                    }
+                                    return true;
+                                });
+                                return (
+                                    <>
+                                        {/* Filter bar for Admin Changes */}
+                                        <div className="flex flex-wrap items-center gap-3 mb-4">
+                                            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                                                {[
+                                                    { key: 'ALL', label: 'All', count: adminChanges.length },
+                                                    { key: 'PENDING', label: 'Pending', count: adminChanges.filter(c => c.status === 'PENDING').length },
+                                                    { key: 'APPROVED', label: 'Approved', count: adminChanges.filter(c => c.status === 'APPROVED').length },
+                                                    { key: 'REJECTED', label: 'Rejected', count: adminChanges.filter(c => c.status === 'REJECTED').length },
+                                                ].map(f => (
+                                                    <button
+                                                        key={f.key}
+                                                        onClick={() => setAdminStatusFilter(f.key)}
+                                                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                                                            adminStatusFilter === f.key
+                                                                ? 'bg-white text-purple-700 shadow-sm'
+                                                                : 'text-gray-500 hover:text-gray-700'
+                                                        }`}
+                                                    >
+                                                        {f.label} {f.count > 0 && <span className="ml-1 text-gray-400">({f.count})</span>}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div className="relative flex-1 max-w-xs min-w-[200px]">
+                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                                                <input
+                                                    type="text"
+                                                    value={adminSearch}
+                                                    onChange={e => setAdminSearch(e.target.value)}
+                                                    placeholder="Search change type, setting, user..."
+                                                    className="w-full !pl-10 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:border-purple-400 focus:ring-purple-400"
+                                                />
+                                            </div>
+                                            <p className="text-xs text-gray-400 ml-auto">
+                                                Showing {filteredAdminChanges.length} of {adminChanges.length}
+                                            </p>
+                                        </div>
+                                        {filteredAdminChanges.length === 0 && (
+                                            <div className="text-center py-8 text-gray-400 text-sm">No matching admin change requests</div>
+                                        )}
+                                    </>
+                                );
+                            })()}
+                            {adminChanges.filter(change => {
+                                if (adminStatusFilter !== 'ALL' && change.status !== adminStatusFilter) return false;
+                                if (adminSearch) {
+                                    const s = adminSearch.toLowerCase();
+                                    const typeLabel = (formatChangeType(change.change_type) || '').toLowerCase();
+                                    const reqBy = (change.requested_by_email || '').toLowerCase();
+                                    const appBy = (change.approved_by_email || '').toLowerCase();
+                                    const payloadStr = JSON.stringify(change.change_payload || {}).toLowerCase();
+                                    return typeLabel.includes(s) || reqBy.includes(s) || appBy.includes(s) || payloadStr.includes(s);
+                                }
+                                return true;
+                            }).map(change => {
                                 const payload = change.change_payload || {};
                                 const newVal = payload.new_value || {};
                                 const oldVal = payload.old_value || {};

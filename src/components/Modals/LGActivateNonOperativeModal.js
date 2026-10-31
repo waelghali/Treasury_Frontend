@@ -12,10 +12,10 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeri
     const [isProcessing, setIsProcessing] = useState(false);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [paymentDetails, setPaymentDetails] = useState({
-        payment_method: '',
-        amount: '',
-        currency_id: '',
-        issuing_bank_id: '',
+        payment_method: 'Wire Transfer',
+        amount: lgRecord?.lg_amount ? String(parseFloat(lgRecord.lg_amount)) : '',
+        currency_id: lgRecord?.lg_currency_id || lgRecord?.lg_currency?.id || '',
+        issuing_bank_id: lgRecord?.issuing_bank_id || lgRecord?.issuing_bank?.id || '',
         payment_reference: '',
         payment_date: moment().format('YYYY-MM-DD'),
         notes: '',
@@ -79,8 +79,8 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeri
         setError('');
         setIsProcessing(true);
 
-        const requiredFields = ['amount', 'payment_method', 'payment_date', 'currency_id', 'issuing_bank_id'];
-        const missingFields = requiredFields.filter(field => !paymentDetails[field]);
+        const requiredFields = ['amount', 'payment_method', 'payment_date', 'currency_id', 'issuing_bank_id', 'payment_reference'];
+        const missingFields = requiredFields.filter(field => !paymentDetails[field] || String(paymentDetails[field]).trim() === '');
         if (missingFields.length > 0) {
             setError(`Please fill in all required fields. Missing: ${missingFields.join(', ')}`);
             setIsProcessing(false);
@@ -90,9 +90,12 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeri
         try {
             const formData = new FormData();
             for (const key in paymentDetails) {
-                if (paymentDetails[key]) {
+                if (paymentDetails[key] !== undefined && paymentDetails[key] !== null && String(paymentDetails[key]).trim() !== '') {
                     formData.append(key, paymentDetails[key]);
                 }
+            }
+            if (!formData.has('payment_reference')) {
+                formData.append('payment_reference', 'N/A');
             }
             if (supportingDocument) {
                 formData.append('internal_supporting_document_file', supportingDocument);
@@ -119,7 +122,15 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeri
         }
     };
 
-    const isFormValid = paymentDetails.amount && paymentDetails.payment_method && paymentDetails.payment_date && paymentDetails.currency_id && paymentDetails.issuing_bank_id;
+    const isFormValid = Boolean(
+        paymentDetails.amount &&
+        paymentDetails.payment_method &&
+        paymentDetails.payment_date &&
+        paymentDetails.currency_id &&
+        paymentDetails.issuing_bank_id &&
+        paymentDetails.payment_reference &&
+        String(paymentDetails.payment_reference).trim() !== ''
+    );
 
     return (
         <Transition show={true} as={Fragment}>
@@ -241,9 +252,59 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeri
                                                                 type="text"
                                                                 name="payment_method"
                                                                 id="payment_method"
+                                                                list="payment-method-options"
+                                                                placeholder="e.g., Wire Transfer, Check"
                                                                 value={paymentDetails.payment_method}
                                                                 onChange={handleInputChange}
                                                                 required
+                                                                className="block w-full rounded-lg border border-gray-300 shadow-sm text-sm p-2"
+                                                                disabled={isProcessing || isGracePeriod}
+                                                            />
+                                                            <datalist id="payment-method-options">
+                                                                <option value="Wire Transfer" />
+                                                                <option value="Check" />
+                                                                <option value="Internal Account Transfer" />
+                                                                <option value="SWIFT MT103" />
+                                                            </datalist>
+                                                        </div>
+                                                        <div>
+                                                            <label htmlFor="payment_reference" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Payment Reference (Wire / Check #)*</label>
+                                                            <input
+                                                                type="text"
+                                                                name="payment_reference"
+                                                                id="payment_reference"
+                                                                placeholder="e.g., WIRE-2026-99881"
+                                                                maxLength={100}
+                                                                value={paymentDetails.payment_reference}
+                                                                onChange={handleInputChange}
+                                                                required
+                                                                className="block w-full rounded-lg border border-gray-300 shadow-sm text-sm p-2"
+                                                                disabled={isProcessing || isGracePeriod}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label htmlFor="payment_date" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Payment Date*</label>
+                                                            <input
+                                                                type="date"
+                                                                name="payment_date"
+                                                                id="payment_date"
+                                                                max={moment().format('YYYY-MM-DD')}
+                                                                value={paymentDetails.payment_date}
+                                                                onChange={handleInputChange}
+                                                                required
+                                                                className="block w-full rounded-lg border border-gray-300 shadow-sm text-sm p-2"
+                                                                disabled={isProcessing || isGracePeriod}
+                                                            />
+                                                        </div>
+                                                        <div className="sm:col-span-2">
+                                                            <label htmlFor="notes" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Additional Notes (Optional)</label>
+                                                            <textarea
+                                                                name="notes"
+                                                                id="notes"
+                                                                rows={2}
+                                                                placeholder="Optional notes to include in the activation instruction..."
+                                                                value={paymentDetails.notes}
+                                                                onChange={handleInputChange}
                                                                 className="block w-full rounded-lg border border-gray-300 shadow-sm text-sm p-2"
                                                                 disabled={isProcessing || isGracePeriod}
                                                             />

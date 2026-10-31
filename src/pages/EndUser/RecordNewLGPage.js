@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
 import { ChevronDown, ChevronUp, Upload, Scan, Save, AlertCircle, XCircle, Loader2, CheckCircle, Search, FileUp, FileText, Sparkles } from 'lucide-react';
+import { toast } from 'react-toastify';
 import moment from 'moment';
 
 // A reusable component to provide a tooltip for disabled elements during the grace period.
@@ -324,6 +325,8 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  const [errorField, setErrorField] = useState('');
+  const errorBannerRef = useRef(null);
   const [extractedClauseCitation, setExtractedClauseCitation] = useState(null);
   const [accordionsOpen, setAccordionsOpen] = useState({
     mainLGData: true,
@@ -476,6 +479,9 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    if (errorField === name) {
+      setErrorField('');
+    }
     setFormData((prevData) => {
       if (type === 'checkbox') {
         return { ...prevData, [name]: checked };
@@ -636,14 +642,17 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
 
         // If a foreign bank ID is matched by name or if the AI returns foreign bank details,
         // use the foreign bank ID and populate the new fields.
-        if ((foreignBank && String(issuingBankId) === String(foreignBank.id)) || foreignBankName) {
+        const isForeignDetected = Boolean((foreignBank && String(issuingBankId) === String(foreignBank.id)) || foreignBankName);
+        if (isForeignDetected) {
             if (foreignBank) {
                 issuingBankId = String(foreignBank.id);
                 issuingBankAddress = '';
                 issuingBankPhone = '';
                 issuingBankFax = '';
             }
+            setIsForeignBankSelected(true);
         } else {
+            setIsForeignBankSelected(false);
             // Otherwise, clear foreign bank fields and advising status fields
             foreignBankName = '';
             foreignBankCountry = '';
@@ -651,7 +660,19 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
             foreignBankSwiftCode = '';
             advisingStatus = 'Not Advised';
             communicationBankId = '';
+            // Populate local bank address/phone/fax from matched bank if not already set
+            const matchedLocalBank = dropdownData.banks.find(b => String(b.id) === String(issuingBankId));
+            if (matchedLocalBank) {
+                issuingBankAddress = issuingBankAddress || matchedLocalBank.address || '';
+                issuingBankPhone = issuingBankPhone || matchedLocalBank.phone_number || '';
+                issuingBankFax = issuingBankFax || matchedLocalBank.fax || '';
+            }
         }
+
+        const extractedCurrencyStr = extractedData.lg_currency_id ? String(extractedData.lg_currency_id) : '';
+        const extractedPayableCurrencyStr = extractedData.lg_payable_currency_id
+          ? String(extractedData.lg_payable_currency_id)
+          : extractedCurrencyStr;
 
         const newFormData = {
           ...prev,
@@ -660,13 +681,13 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
           issuer_id: extractedData.issuer_id || '',
           lg_number: extractedData.lg_number || '',
           lg_amount: extractedData.lg_amount ? parseFloat(extractedData.lg_amount) : '',
-          lg_currency_id: extractedData.lg_currency_id ? String(extractedData.lg_currency_id) : '',
-          lg_payable_currency_id: extractedData.lg_payable_currency_id ? String(extractedData.lg_payable_currency_id) : null,
+          lg_currency_id: extractedCurrencyStr,
+          lg_payable_currency_id: extractedPayableCurrencyStr,
           issuance_date: extractedData.issuance_date ? formatDateForInput(extractedData.issuance_date) : '',
           expiry_date: extractedData.expiry_date ? formatDateForInput(extractedData.expiry_date) : '',
           auto_renewal: extractedData.auto_renewal !== true,
           lg_type_id: extractedData.lg_type_id ? String(extractedData.lg_type_id) : '',
-          lg_operational_status_id: extractedData.lg_operational_status_id ? String(extractedData.lg_operational_status_id) : null,
+          lg_operational_status_id: extractedData.lg_operational_status_id ? String(extractedData.lg_operational_status_id) : '',
           payment_conditions: extractedData.payment_conditions || '',
           description_purpose: extractedData.description_purpose || '',
           issuing_bank_id: issuingBankId,
@@ -693,11 +714,19 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
         };
         return newFormData;
       });
+      // Open Bank Data accordion automatically so user can review populated bank / foreign bank / advising details
+      setAccordionsOpen(prev => ({
+        ...prev,
+        mainLGData: true,
+        bankData: true,
+      }));
       setAiScanSuccess(true);
-      alert("AI scan successful! Form fields have been auto-populated.");
+      toast.success("AI scan complete! Form fields have been auto-populated.");
     } catch (err) {
       console.error('AI Scan failed:', err);
-      setError(`AI Scan failed: ${err.message || 'An unexpected error occurred.'}`);
+      const errMsg = `AI Scan failed: ${err.message || 'An unexpected error occurred.'}`;
+      setError(errMsg);
+      toast.error(errMsg);
       setAiScanSuccess(false);
       if (aiFileInputRef.current) {
         aiFileInputRef.current.value = '';
@@ -765,6 +794,97 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
       console.error('Internal Owner lookup failed:', err);
       setIsInternalOwnerFieldsLocked(false);
     }
+  };
+
+  const focusAndScrollToError = (msg) => {
+    toast.error(msg, { autoClose: 6000 });
+
+    const lower = (msg || '').toLowerCase();
+    let targetField = '';
+    let section = '';
+
+    if (lower.includes('already exists') || lower.includes('lg number') || lower.includes('lg_number')) {
+      targetField = 'lg_number';
+      section = 'mainLGData';
+    } else if (lower.includes('beneficiary corporate')) {
+      targetField = 'beneficiary_corporate_id';
+      section = 'mainLGData';
+    } else if (lower.includes('issuer name')) {
+      targetField = 'issuer_name';
+      section = 'mainLGData';
+    } else if (lower.includes('lg amount')) {
+      targetField = 'lg_amount';
+      section = 'mainLGData';
+    } else if (lower.includes('lg currency')) {
+      targetField = 'lg_currency_id';
+      section = 'mainLGData';
+    } else if (lower.includes('expiry date') || lower.includes('expired lg')) {
+      targetField = 'expiry_date';
+      section = 'mainLGData';
+    } else if (lower.includes('issuance date')) {
+      targetField = 'issuance_date';
+      section = 'mainLGData';
+    } else if (lower.includes('operational status')) {
+      targetField = 'lg_operational_status_id';
+      section = 'mainLGData';
+    } else if (lower.includes('payment conditions')) {
+      targetField = 'payment_conditions';
+      section = 'mainLGData';
+    } else if (lower.includes('lg type')) {
+      targetField = 'lg_type_id';
+      section = 'mainLGData';
+    } else if (lower.includes('description/purpose')) {
+      targetField = 'description_purpose';
+      section = 'mainLGData';
+    } else if (lower.includes('swift')) {
+      targetField = 'foreign_bank_swift_code';
+      section = 'bankData';
+    } else if (lower.includes('foreign bank name')) {
+      targetField = 'foreign_bank_name';
+      section = 'bankData';
+    } else if (lower.includes('foreign bank country')) {
+      targetField = 'foreign_bank_country';
+      section = 'bankData';
+    } else if (lower.includes('foreign bank address')) {
+      targetField = 'foreign_bank_address';
+      section = 'bankData';
+    } else if (lower.includes('communication bank')) {
+      targetField = 'communication_bank_id';
+      section = 'bankData';
+    } else if (lower.includes('issuing bank')) {
+      targetField = 'issuing_bank_id';
+      section = 'bankData';
+    } else if (lower.includes('applicable rule')) {
+      targetField = 'applicable_rule_id';
+      section = 'bankData';
+    } else if (lower.includes('internal owner email')) {
+      targetField = 'internal_owner_email';
+      section = 'internalData';
+    } else if (lower.includes('category')) {
+      targetField = 'lg_category_id';
+      section = 'internalData';
+    }
+
+    if (section) {
+      setAccordionsOpen(prev => ({ ...prev, [section]: true }));
+    }
+    setErrorField(targetField);
+
+    setTimeout(() => {
+      if (targetField) {
+        const el = document.getElementById(targetField) || document.querySelector(`[name="${targetField}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (typeof el.focus === 'function') el.focus();
+          return;
+        }
+      }
+      if (errorBannerRef.current) {
+        errorBannerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 100);
   };
 
   const toggleAccordion = (sectionToToggle) => {
@@ -866,13 +986,15 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
     }
 
     if (errors.length > 0) {
-      setError(errors.join(' '));
+      const combinedError = errors.join(' ');
+      setError(combinedError);
       setIsSaving(false);
       setAccordionsOpen({
-        mainLGData: errors.some(e => ['Beneficiary Corporate', 'Issuer Name', 'LG Number', 'LG Amount', 'LG Currency', 'Issuance Date', 'Expiry Date', 'LG Type', 'Operational Status', 'Payment Conditions', 'Description/Purpose'].some(field => e.includes(field))),
-        bankData: errors.some(e => ['Issuing Bank', 'Issuing Bank Address', 'Issuing Bank Phone', 'Issuing Method', 'Applicable Rule', 'Applicable Rules Text', 'Foreign Bank Name', 'Foreign Bank Country', 'Foreign Bank Address', 'Advising Status', 'Communication Bank'].some(field => e.includes(field))),
+        mainLGData: errors.some(e => ['Beneficiary Corporate', 'Issuer Name', 'LG Number', 'LG Amount', 'LG Currency', 'Issuance Date', 'Expiry Date', 'LG Type', 'Operational Status', 'Payment Conditions', 'Description/Purpose', 'expired LG'].some(field => e.includes(field))),
+        bankData: errors.some(e => ['Issuing Bank', 'Issuing Bank Address', 'Issuing Bank Phone', 'Issuing Method', 'Applicable Rule', 'Applicable Rules Text', 'Foreign Bank Name', 'Foreign Bank Country', 'Foreign Bank Address', 'Foreign Bank SWIFT Code', 'Advising Status', 'Communication Bank'].some(field => e.includes(field))),
         internalData: errors.some(e => ['Internal Owner', 'Category', 'Custom field'].some(field => e.includes(field))),
       });
+      focusAndScrollToError(errors[0]);
       return;
     }
 
@@ -924,7 +1046,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
 
     try {
         const response = await apiRequest('/end-user/lg-records/', 'POST', formDataToSend, 'multipart/form-data');
-        alert('New LG Record created successfully!');
+        toast.success('New LG Record created successfully!');
         clearFormDirectly();
         navigate('/end-user/dashboard');
     } catch (err) {
@@ -942,7 +1064,9 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
       } else if (err.message) {
         errorMessage = err.message;
       }
-      setError(`Error creating LG Record: ${errorMessage}`);
+      const fullError = `Error creating LG Record: ${errorMessage}`;
+      setError(fullError);
+      focusAndScrollToError(fullError);
     } finally {
       setIsSaving(false);
     }
@@ -989,9 +1113,12 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
-          <AlertCircle className="h-5 w-5 mr-2" />
-          <span className="block sm:inline">{error}</span>
+        <div ref={errorBannerRef} className="bg-red-50 border-l-4 border-red-500 text-red-800 px-4 py-3.5 rounded-lg shadow-sm relative mb-5 flex items-start gap-2.5 animate-pulse" role="alert">
+          <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="flex-1 text-sm font-medium">{error}</div>
+          <button type="button" onClick={() => { setError(''); setErrorField(''); }} className="text-red-500 hover:text-red-700">
+            <XCircle className="h-4 w-4" />
+          </button>
         </div>
       )}
 
@@ -1018,10 +1145,20 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
           {accordionsOpen.mainLGData && (
             <div className={`p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
               <div className="md:col-span-2 mb-4">
+                <input
+                  type="file"
+                  name="ai_scan_file"
+                  id="ai_scan_file"
+                  ref={aiFileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  disabled={isFormDisabled || isGracePeriod}
+                />
                 {!formData.ai_scan_file ? (
                   <div
                     className={`border-2 border-dashed border-blue-200 rounded-2xl p-8 sm:p-10 text-center bg-blue-50/30 hover:bg-blue-50/60 hover:border-blue-300 transition-all duration-300 cursor-pointer relative overflow-hidden group ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    onClick={() => { if (!isFormDisabled && !isGracePeriod && aiFileInputRef.current) aiFileInputRef.current.click(); }}
+                    onClick={() => { if (!isFormDisabled && !isGracePeriod && aiFileInputRef.current) { aiFileInputRef.current.value = ''; aiFileInputRef.current.click(); } }}
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                     onDrop={(e) => {
                       e.preventDefault(); e.stopPropagation();
@@ -1031,16 +1168,6 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                       }
                     }}
                   >
-                    <input
-                      type="file"
-                      name="ai_scan_file"
-                      id="ai_scan_file"
-                      ref={aiFileInputRef}
-                      onChange={handleFileChange}
-                      accept="image/*,application/pdf"
-                      className="hidden"
-                      disabled={isFormDisabled || isGracePeriod}
-                    />
                     <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
                       <FileUp size={28} />
                     </div>
@@ -1053,7 +1180,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                         <button
                           type="button"
                           className={`inline-flex items-center px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          onClick={(e) => { e.stopPropagation(); if (aiFileInputRef.current) aiFileInputRef.current.click(); }}
+                          onClick={(e) => { e.stopPropagation(); if (aiFileInputRef.current) { aiFileInputRef.current.value = ''; aiFileInputRef.current.click(); } }}
                           disabled={isFormDisabled || isGracePeriod}
                         >
                           <Upload className="h-4 w-4 mr-2" />
@@ -1063,7 +1190,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                       <button
                         type="button"
                         className={`inline-flex items-center px-5 py-2.5 bg-white text-gray-700 text-sm font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300 transition-all duration-200 ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        onClick={(e) => { e.stopPropagation(); if (aiFileInputRef.current) aiFileInputRef.current.click(); }}
+                        onClick={(e) => { e.stopPropagation(); if (aiFileInputRef.current) { aiFileInputRef.current.value = ''; aiFileInputRef.current.click(); } }}
                         disabled={isFormDisabled || isGracePeriod}
                       >
                         Browse Files
@@ -1105,7 +1232,12 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                         <button
                           type="button"
                           className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 text-sm font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 transition-all duration-200"
-                          onClick={() => aiFileInputRef.current && aiFileInputRef.current.click()}
+                          onClick={() => {
+                            if (aiFileInputRef.current) {
+                              aiFileInputRef.current.value = '';
+                              aiFileInputRef.current.click();
+                            }
+                          }}
                         >
                           Change File
                         </button>
@@ -1143,7 +1275,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
               </div>
               <div className="mb-2">
                 <label htmlFor="lg_number" className={labelClassNames}>LG Number {requiredSpan}</label>
-                <input type="text" name="lg_number" id="lg_number" value={formData.lg_number} onChange={handleChange} required maxLength="64" className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
+                <input type="text" name="lg_number" id="lg_number" value={formData.lg_number} onChange={handleChange} required maxLength="64" className={`${inputClassNames} ${errorField === 'lg_number' ? 'border-red-500 ring-2 ring-red-200 bg-red-50/30' : ''}`} disabled={isFormDisabled || isGracePeriod} />
               </div>
               <div className="mb-2">
                 <label htmlFor="lg_amount" className={labelClassNames}>LG Amount {requiredSpan}</label>
@@ -1223,10 +1355,10 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                   </select>
                 </div>
               )}
-              {selectedLgType && selectedLgType.name === "Advance Payment LG" && selectedOperationalStatus && selectedOperationalStatus.name === "None Operative" && (
+              {selectedLgType && selectedLgType.name === "Advance Payment LG" && selectedOperationalStatus && (selectedOperationalStatus.name === "None Operative" || selectedOperationalStatus.name === "Non-Operative") && (
                 <div className="mb-2">
                   <label htmlFor="payment_conditions" className={labelClassNames}>Payment Conditions {requiredSpan}</label>
-                  <textarea name="payment_conditions" id="payment_conditions" value={formData.payment_conditions} onChange={handleChange} required={selectedLgType.name === "Advance Payment LG" && selectedOperationalStatus.name === "Non-Operative"} maxLength="1024" rows="1" className={inputClassNames} disabled={isFormDisabled || isGracePeriod}></textarea>
+                  <textarea name="payment_conditions" id="payment_conditions" value={formData.payment_conditions} onChange={handleChange} required={selectedLgType.name === "Advance Payment LG" && (selectedOperationalStatus.name === "None Operative" || selectedOperationalStatus.name === "Non-Operative")} maxLength="1024" rows="1" className={inputClassNames} disabled={isFormDisabled || isGracePeriod}></textarea>
                   <CharCounter currentLength={(formData.payment_conditions || '').length} maxLength={1024} />
                 </div>
               )}

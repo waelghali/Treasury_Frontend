@@ -227,7 +227,7 @@ export default function BankDealerDeskPage() {
             if (liveRes.data?.success) {
                 const tickets = liveRes.data.tickets || [];
                 if (tickets.length > prevLiveCountRef.current && prevLiveCountRef.current > 0 && !audioMuted) {
-                    try { tradingAudio.play('openingBell'); } catch (e) {}
+                    try { tradingAudio.playWindowOpened(); } catch (e) {}
                 }
                 prevLiveCountRef.current = tickets.length;
                 setLiveTickets(tickets);
@@ -2103,7 +2103,7 @@ export default function BankDealerDeskPage() {
                                             <span>Unlocked: <strong className="text-amber-400">{achievements?.earned_trophy_count || 0}</strong> / {achievements?.total_trophies || 8} Badges</span>
                                             <span>&bull;</span>
                                             <span className="text-emerald-400 font-bold">{achievements?.personal_bests?.total_deals_won ?? blotterStats.my_won_deals_count ?? myWonCount} Personal Wins</span>
-                                            <span className="text-slate-500 font-sans">({blotterStats.won_deals_count || 27} Bank Desk Total)</span>
+                                            <span className="text-slate-500 font-sans">({blotterStats.won_deals_count ?? 0} Bank Desk Total)</span>
                                         </div>
                                     </div>
                                 </div>
@@ -2124,7 +2124,7 @@ export default function BankDealerDeskPage() {
                                         <div className="text-lg font-black text-emerald-400 font-mono mt-0.5">
                                             {achievements?.personal_bests?.total_deals_won ?? blotterStats.my_won_deals_count ?? myWonCount}
                                         </div>
-                                        <div className="text-[9px] text-slate-400">of {blotterStats.won_deals_count || 27} Desk Wins</div>
+                                        <div className="text-[9px] text-slate-400">of {blotterStats.won_deals_count ?? 0} Desk Wins</div>
                                     </div>
 
                                     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
@@ -2132,7 +2132,7 @@ export default function BankDealerDeskPage() {
                                         <div className="text-lg font-black text-cyan-400 font-mono mt-0.5">
                                             ${((achievements?.personal_bests?.total_volume_won_usd || 0) / 1000000).toFixed(1)}M
                                         </div>
-                                        <div className="text-[9px] text-slate-400 font-mono">USD Eqv (Desk: $9M+)</div>
+                                        <div className="text-[9px] text-slate-400 font-mono">USD Eqv (Desk: ${((achievements?.bank_desk?.personal_bests?.total_volume_won_usd ?? blotterStats.total_volume_won ?? 0) / 1000000).toFixed(1)}M)</div>
                                     </div>
 
                                     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
@@ -2151,7 +2151,7 @@ export default function BankDealerDeskPage() {
                             <div className="flex items-center space-x-2.5 text-slate-300">
                                 <Info className="w-4 h-4 text-amber-400 shrink-0" />
                                 <span>
-                                    <strong>Personal Scorecard Scope:</strong> Badges and accolades track individual milestones for <strong>{dealer?.full_name || 'Active Trader'}</strong> (<strong className="text-emerald-400">{achievements?.personal_bests?.total_deals_won ?? blotterStats.my_won_deals_count ?? myWonCount} winning deals</strong> personally executed, ${((achievements?.personal_bests?.total_volume_won_usd || 0) / 1000000).toFixed(1)}M USD Equiv). The institutional desk total across all {dealer?.bank_name || 'CIB'} dealers is <strong className="text-cyan-400">{blotterStats.won_deals_count || 27} won deals</strong>.
+                                    <strong>Personal Scorecard Scope:</strong> Badges and accolades track individual milestones for <strong>{dealer?.full_name || 'Active Trader'}</strong> (<strong className="text-emerald-400">{achievements?.personal_bests?.total_deals_won ?? blotterStats.my_won_deals_count ?? myWonCount} winning deals</strong> personally executed, ${((achievements?.personal_bests?.total_volume_won_usd || 0) / 1000000).toFixed(1)}M USD Equiv). The institutional desk total across all {dealer?.bank_name || 'Partner Bank'} dealers is <strong className="text-cyan-400">{blotterStats.won_deals_count ?? 0} won deals</strong>.
                                 </span>
                             </div>
                             <button

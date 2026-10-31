@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, ChevronRight, ChevronLeft, Building, FileText, FileSpreadsheet, Wifi, Check, Zap, Loader2, Send, AlertCircle, Lock, AlertTriangle, TrendingUp, Search, DollarSign } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiRequest } from '../../services/apiService';
+import { openInNewTab } from '../../utils/navUtils';
 
 /**
  * 3-step Issuance Wizard:
@@ -379,8 +380,8 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
             if (swDocId && request?.id) {
                 try {
                     const docRes = await apiRequest(`/issuance/requests/${request.id}/documents/${swDocId}/download`);
-                    if (docRes?.download_url) {
-                        window.open(docRes.download_url, '_blank');
+                    if (docRes?.download_url || docRes?.signed_url) {
+                        openInNewTab(docRes.download_url || docRes.signed_url);
                         toast.info('Special wording document opened in a new tab.', { autoClose: 5000 });
                     }
                 } catch (swErr) {

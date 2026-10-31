@@ -106,7 +106,14 @@ function FreeTrialRegistration() {
     data.append('requested_modules', modules.join(','));
     data.append('commercial_register_document', formData.commercial_register_document);
     data.append('accepted_terms', String(formData.accepted_terms));
-    data.append('website_url', formData.website_url || '');
+    const trap = formData.website_url ? formData.website_url.trim().toLowerCase() : '';
+    const isAutofillCollision = trap && (
+      (formData.admin_email && trap === formData.admin_email.trim().toLowerCase()) ||
+      (formData.contact_admin_name && trap === formData.contact_admin_name.trim().toLowerCase()) ||
+      (formData.organization_name && trap === formData.organization_name.trim().toLowerCase()) ||
+      (formData.contact_phone && trap === formData.contact_phone.trim().toLowerCase())
+    );
+    data.append('website_url', isAutofillCollision ? '' : (formData.website_url || ''));
 
     try {
       await publicApiRequest('/public/register-free-trial/', 'POST', data);
@@ -228,9 +235,6 @@ function FreeTrialRegistration() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Zero-friction perimeter anti-bot honeypot trap */}
-              <HoneypotField name="website_url" value={formData.website_url} onChange={handleChange} />
-
               {/* ── Section: Organization Details ── */}
               <div>
                 <div className="flex items-center space-x-2 mb-5">
@@ -433,6 +437,8 @@ function FreeTrialRegistration() {
                 </div>
               </div>
 
+              {/* Zero-friction perimeter anti-bot honeypot trap positioned after form fields to prevent autofill heuristic collisions */}
+              <HoneypotField name="website_url" value={formData.website_url} onChange={handleChange} />
             </form>
           </div>
         </div>

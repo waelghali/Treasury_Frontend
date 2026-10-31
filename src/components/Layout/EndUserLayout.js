@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import {
   Home, FileText, PlusCircle, BarChart, LogOut,
@@ -75,33 +75,58 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
     loadNotifications();
   }, []);
 
-  // Fetch UserNotification records efficiently (every 5 minutes)
-  useEffect(() => {
-    let timer = null;
+  // Fetch UserNotification records (10s during quotation workflows, 60s otherwise + instant on Bell click / push / window events)
+  const fetchUserNotifs = useCallback(() => {
+    if (typeof document !== 'undefined' && document.hidden) return;
+    if (!localStorage.getItem('jwt_token')) return;
+    apiRequest('/notifications/', 'GET')
+      .then(data => {
+        const list = data || [];
+        setUserNotifications(list);
+        setUnreadCount(list.filter(n => !n.is_read).length);
+      })
+      .catch(() => {});
+  }, []);
 
-    const fetchUserNotifs = () => {
-      if (document.hidden) return;
-      apiRequest('/notifications/', 'GET')
-        .then(data => {
-          const list = data || [];
-          setUserNotifications(list);
-          setUnreadCount(list.filter(n => !n.is_read).length);
-        })
-        .catch((err) => {
-          // If token expired / unauthorized, stop polling
-          if (err?.status === 401 || err?.detail?.includes('token') || err?.detail?.includes('credentials')) {
-            if (timer) clearInterval(timer);
-          }
-        });
+  useEffect(() => {
+    fetchUserNotifs();
+    const isQuotationView = location.pathname.includes('/quotation');
+    const pollIntervalMs = isQuotationView ? 10000 : 60000;
+    const timer = setInterval(fetchUserNotifs, pollIntervalMs);
+
+    const handleInstantRefresh = () => fetchUserNotifs();
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && !document.hidden) fetchUserNotifs();
+    };
+    const handleSwMessage = (event) => {
+      if (event?.data?.type === 'PUSH_NOTIFICATION_RECEIVED') {
+        fetchUserNotifs();
+      }
     };
 
-    fetchUserNotifs();
-    timer = setInterval(fetchUserNotifs, 300000); // 5 minutes
+    window.addEventListener('quotation-window-closed', handleInstantRefresh);
+    window.addEventListener('quotation-deal-resolved', handleInstantRefresh);
+    window.addEventListener('check-deal-acceptance', handleInstantRefresh);
+    window.addEventListener('refresh-user-notifications', handleInstantRefresh);
+    window.addEventListener('focus', handleInstantRefresh);
+    document.addEventListener('visibilitychange', handleVisibility);
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    }
 
     return () => {
-      if (timer) clearInterval(timer);
+      clearInterval(timer);
+      window.removeEventListener('quotation-window-closed', handleInstantRefresh);
+      window.removeEventListener('quotation-deal-resolved', handleInstantRefresh);
+      window.removeEventListener('check-deal-acceptance', handleInstantRefresh);
+      window.removeEventListener('refresh-user-notifications', handleInstantRefresh);
+      window.removeEventListener('focus', handleInstantRefresh);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+      }
     };
-  }, []);
+  }, [fetchUserNotifs, location.pathname]);
 
   const markNotifRead = async (id) => {
     try {
@@ -433,7 +458,7 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
         <div className="flex items-center space-x-2">
           <button
             ref={bellRef}
-            onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+            onClick={() => { if (!showNotifDropdown) fetchUserNotifs(); setShowNotifDropdown(!showNotifDropdown); }}
             className="relative p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
             title="Notifications"
           >
@@ -555,7 +580,7 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
                 <div className="relative ml-2">
                   <button
                     ref={bellRef}
-                    onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+                    onClick={() => { if (!showNotifDropdown) fetchUserNotifs(); setShowNotifDropdown(!showNotifDropdown); }}
                     className="relative p-1.5 rounded-lg transition-colors"
                     style={{ color: '#94a3b8' }}
                     onMouseEnter={e => e.currentTarget.style.color = '#60a5fa'}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FolderKanban, Users, Settings, TrendingUp, TrendingDown, Clock, BarChart } from 'lucide-react';
 import { apiRequest } from 'services/apiService.js';
 import { toast } from 'react-toastify';
+import CorporateMobileAlertsBanner from '../../components/CorporateMobileAlertsBanner';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
@@ -260,6 +261,14 @@ function CorporateAdminDashboard({ isGracePeriod }) {
           <span className="block sm:inline">{error}</span>
         </div>
       )}
+
+      {/* Institutional Mobile Alerts Banner */}
+      <CorporateMobileAlertsBanner
+        title="Executive Mobile Alerts"
+        description="Receive instant lock-screen notifications for incoming bank quotes, pending RFQ approvals, and countdown timeouts."
+        dismissKey="corp_admin_dash_alerts_dismissed"
+        className="mb-6"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PlusCircle, FileText, BarChart2, AlertCircle, Save, Loader2, Clock, Printer, Wrench, CalendarClock, TrendingUp, Pencil, XCircle, CheckCircle, ArrowRight } from 'lucide-react';
 import { apiRequest } from 'services/apiService.js';
+import CorporateMobileAlertsBanner from '../../components/CorporateMobileAlertsBanner';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -147,6 +148,14 @@ function EndUserDashboard({ isGracePeriod }) { // NEW: Accept isGracePeriod prop
         <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Welcome to Your Dashboard</h2>
         <p className="text-sm text-gray-500 mt-1">Your LG portfolio at a glance — key metrics and quick actions.</p>
       </div>
+
+      {/* Institutional Mobile Alerts Banner */}
+      <CorporateMobileAlertsBanner
+        title="Mobile Push Alerts"
+        description="Pair your smartphone to receive real-time lock-screen sound alerts whenever your transactions require action or updates occur."
+        dismissKey="end_user_dash_alerts_dismissed"
+        className="mb-6"
+      />
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-6">

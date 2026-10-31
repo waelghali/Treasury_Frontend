@@ -18,6 +18,7 @@ import PublicBankHandshakePage from './pages/Public/PublicBankHandshakePage';
 import BankDealerAuthPage from './pages/Public/BankDealerAuthPage';
 import BankDealerDeskPage from './pages/Public/BankDealerDeskPage';
 import DealerStandingAlertSetupPage from './pages/Public/DealerStandingAlertSetupPage';
+import MobilePairAuthPage from './pages/Public/MobilePairAuthPage';
 import RenewalPage from './pages/RenewalPage';
 
 import AuthWrapper from './components/AuthWrapper';
@@ -33,6 +34,10 @@ import EndUserRoutes from './routes/EndUserRoutes.js';
 import {
   getAuthToken,
   setAuthToken,
+  isTokenValid,
+  isSessionIdleExpired,
+  getRemainingWarningSeconds,
+  subscribeSessionSync,
   resetTokenRefreshTime,
   stopInactivityTracker,
   startSessionTimers,
@@ -83,7 +88,8 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
       location.pathname.includes('/public/bank-handshake') ||
       location.pathname.includes('/public-dealer-handshake') ||
       location.pathname.includes('/public/dealer-handshake') ||
-      location.pathname.startsWith('/dealer')
+      location.pathname.startsWith('/dealer') ||
+      location.pathname.startsWith('/mobile-pair')
     )
   );
 
@@ -108,24 +114,32 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     onShowSessionWarning();
   }, [isPublicRoute, onShowSessionWarning]);
 
-  const initTrackers = (state) => {
+  const initTrackers = useCallback((state, resetClock = false) => {
     if (isPublicRoute) {
       stopInactivityTracker();
       clearSessionTimers();
       return;
     }
     if (state.isAuthenticated && !state.mustChangePassword && !state.mustAcceptPolicies && state.subscriptionStatus !== 'expired') {
-      resetTokenRefreshTime();
+      if (resetClock) {
+        resetTokenRefreshTime();
+      }
       startSessionTimers(onIdleWarning);
     } else {
       stopInactivityTracker();
       clearSessionTimers();
     }
-  };
+  }, [isPublicRoute, onIdleWarning]);
 
-  const decodeTokenAndSetState = (token) => {
+  const decodeTokenAndSetState = (token, checkExpiry = true) => {
     if (token) {
       try {
+        if (checkExpiry && (!isTokenValid(token) || isSessionIdleExpired())) {
+          setAuthToken(null);
+          setIsAuthenticated(false);
+          setUserRole(null);
+          return { isAuthenticated: false };
+        }
         const decoded = jwtDecode(token);
         setIsAuthenticated(true);
         setUserRole(decoded.role);
@@ -151,16 +165,24 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
         setSubscriptionEndDate(decoded.subscription_end_date || null);
         setUserPermissions(decoded.permissions || []);
         const isSysOwner = decoded.role === 'system_owner';
-        setHasCustodyModule(isSysOwner ? true : (decoded.has_custody_module !== undefined ? Boolean(decoded.has_custody_module) : false));
-        setHasIssuanceModule(isSysOwner ? true : (decoded.has_issuance_module !== undefined ? Boolean(decoded.has_issuance_module) : false));
-        setHasQuotationModule(isSysOwner ? true : (decoded.has_quotation_module !== undefined ? Boolean(decoded.has_quotation_module) : false));
-        setHasReconciliationModule(isSysOwner ? true : (decoded.has_reconciliation_module !== undefined ? Boolean(decoded.has_reconciliation_module) : false));
+        const decodedCustody = isSysOwner ? true : (decoded.has_custody_module !== undefined ? Boolean(decoded.has_custody_module) : false);
+        const decodedIssuance = isSysOwner ? true : (decoded.has_issuance_module !== undefined ? Boolean(decoded.has_issuance_module) : false);
+        const decodedQuotation = isSysOwner ? true : (decoded.has_quotation_module !== undefined ? Boolean(decoded.has_quotation_module) : false);
+        const decodedReconciliation = isSysOwner ? true : (decoded.has_reconciliation_module !== undefined ? Boolean(decoded.has_reconciliation_module) : false);
+        setHasCustodyModule(decodedCustody);
+        setHasIssuanceModule(decodedIssuance);
+        setHasQuotationModule(decodedQuotation);
+        setHasReconciliationModule(decodedReconciliation);
         return {
           isAuthenticated: true,
           userRole: decoded.role,
           mustChangePassword: decoded.must_change_password || false,
           mustAcceptPolicies: decoded.must_accept_policies || false,
-          subscriptionStatus: decoded.subscription_status || 'active'
+          subscriptionStatus: decoded.subscription_status || 'active',
+          hasCustodyModule: decodedCustody,
+          hasIssuanceModule: decodedIssuance,
+          hasQuotationModule: decodedQuotation,
+          hasReconciliationModule: decodedReconciliation
         };
       } catch (error) {
         console.error("App.js: Failed to decode token:", error);
@@ -174,77 +196,142 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     return { isAuthenticated: false };
   };
 
-  // Initial Load & Storage Sync
+  // Initial Load & Multi-Tab Storage/Broadcast Sync
   useEffect(() => {
     const token = getAuthToken();
-    const state = decodeTokenAndSetState(token);
+    const state = decodeTokenAndSetState(token, true);
 
-    if (state.isAuthenticated && !modalOpenRef.current) initTrackers(state);
+    if (state.isAuthenticated && !modalOpenRef.current) initTrackers(state, false);
     if (state.isAuthenticated && state.mustAcceptPolicies) setShowLegalModal(true);
 
     const handleStorageChange = (event) => {
       if (event.key === 'jwt_token') {
-        const newState = decodeTokenAndSetState(event.newValue);
-        if (newState.isAuthenticated && !modalOpenRef.current) initTrackers(newState);
+        if (!event.newValue) {
+          onHideSessionModal();
+          stopInactivityTracker();
+          clearSessionTimers();
+          setIsAuthenticated(false);
+          setUserRole(null);
+          return;
+        }
+        const newState = decodeTokenAndSetState(event.newValue, false);
+        if (newState.isAuthenticated && !modalOpenRef.current) initTrackers(newState, false);
+      } else if (event.key === 'last_activity_at' && event.newValue) {
+        if (modalOpenRef.current) {
+          onHideSessionModal();
+        }
+        if (getAuthToken()) {
+          startSessionTimers(onIdleWarning, Number(event.newValue));
+        }
       }
     };
 
+    const unsubscribeSync = subscribeSessionSync((data) => {
+      if (data.type === 'SESSION_LOGOUT') {
+        onHideSessionModal();
+        stopInactivityTracker();
+        clearSessionTimers();
+        setIsAuthenticated(false);
+        setUserRole(null);
+      } else if (data.type === 'SESSION_EXTENDED' || data.type === 'USER_ACTIVITY') {
+        if (modalOpenRef.current) {
+          onHideSessionModal();
+        }
+      }
+    });
+
     window.addEventListener('storage', handleStorageChange);
     setIsLoading(false);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      unsubscribeSync();
+    };
   }, []);
+
+  // Wake-up / Tab Focus Verification (catches laptop sleep or backgrounded tab expiration immediately)
+  useEffect(() => {
+    if (!isAuthenticated || isPublicRoute) return;
+
+    const verifyActiveSessionOnWake = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      const token = getAuthToken();
+      if (!token || isSessionIdleExpired() || !isTokenValid(token)) {
+        onHideSessionModal();
+        setIsAuthenticated(false);
+        logoutUser({ preserveNext: true });
+      }
+    };
+
+    document.addEventListener('visibilitychange', verifyActiveSessionOnWake);
+    window.addEventListener('focus', verifyActiveSessionOnWake);
+    return () => {
+      document.removeEventListener('visibilitychange', verifyActiveSessionOnWake);
+      window.removeEventListener('focus', verifyActiveSessionOnWake);
+    };
+  }, [isAuthenticated, isPublicRoute, onHideSessionModal]);
 
   // User Activity Tracking
   useEffect(() => {
-    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
     const resetAction = () => {
-      // If modal is open, we stop resetting the timer to let it expire
-      if (isAuthenticated && !modalOpenRef.current) {
+      // If warning modal is open, require explicit click on "Stay Logged In"
+      if (isAuthenticated && !modalOpenRef.current && !isPublicRoute) {
         handleUserActivity(onIdleWarning);
       }
     };
 
-    if (isAuthenticated) {
-      activityEvents.forEach(event => window.addEventListener(event, resetAction));
+    if (isAuthenticated && !isPublicRoute) {
+      activityEvents.forEach(event => window.addEventListener(event, resetAction, { passive: true }));
     }
 
     return () => {
       activityEvents.forEach(event => window.removeEventListener(event, resetAction));
     };
-  }, [isAuthenticated, onIdleWarning]);
+  }, [isAuthenticated, isPublicRoute, onIdleWarning]);
 
-  const getPostLoginTarget = (role) => {
+  const isNextPathAllowedForRole = (nextPath, role) => {
+    if (!nextPath || !nextPath.startsWith('/') || nextPath.startsWith('/login') || nextPath === '/app') return false;
+    if (role === 'system_owner') return nextPath.startsWith('/system-owner');
+    if (role === 'corporate_admin') return nextPath.startsWith('/corporate-admin') || nextPath.startsWith('/lg-records') || nextPath.startsWith('/issuance');
+    if (role === 'checker') return nextPath.startsWith('/checker');
+    if (role === 'end_user' || role === 'viewer') return nextPath.startsWith('/end-user') || nextPath.startsWith('/lg-records') || nextPath.startsWith('/issuance');
+    return false;
+  };
+
+  const getPostLoginTarget = (role, moduleState = null) => {
     try {
       const params = new URLSearchParams(window.location.search);
       const next = params.get('next');
-      if (next && next.startsWith('/') && !next.startsWith('/login') && next !== '/app') {
+      if (isNextPathAllowedForRole(next, role)) {
         return next;
       }
     } catch {}
-    return getDefaultRedirectPath(role);
+    return getDefaultRedirectPath(role, moduleState);
   };
 
   const handleLoginSuccess = (response) => {
+    resetTokenRefreshTime();
     setAuthToken(response.access_token);
-    const state = decodeTokenAndSetState(response.access_token);
+    const state = decodeTokenAndSetState(response.access_token, false);
     if (state.mustAcceptPolicies) setShowLegalModal(true);
     else if (!state.isAuthenticated) navigate("/login", { replace: true });
     else if (state.mustChangePassword) navigate("/force-password-change", { replace: true });
     else if (state.subscriptionStatus === 'expired') navigate("/renewal", { replace: true });
     else {
-      initTrackers(state);
-      navigate(getPostLoginTarget(state.userRole), { replace: true });
+      initTrackers(state, true);
+      navigate(getPostLoginTarget(state.userRole, state), { replace: true });
     }
   };
 
   const handleAcceptSuccess = () => {
-    const state = decodeTokenAndSetState(getAuthToken());
+    resetTokenRefreshTime();
+    const state = decodeTokenAndSetState(getAuthToken(), false);
     setShowLegalModal(false);
     if (state.mustChangePassword) navigate("/force-password-change", { replace: true });
     else if (state.subscriptionStatus === 'expired') navigate("/renewal", { replace: true });
     else {
-      initTrackers(state);
-      navigate(getPostLoginTarget(state.userRole), { replace: true });
+      initTrackers(state, true);
+      navigate(getPostLoginTarget(state.userRole, state), { replace: true });
     }
   };
 
@@ -255,10 +342,11 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
       disablePushOnThisDevice(),
       new Promise((resolve) => setTimeout(resolve, 3000)),
     ]);
+    logoutUser({ preserveNext: false });
     setIsAuthenticated(false);
     setShowLegalModal(false);
     onHideSessionModal();
-    logoutUser();
+    navigate("/login", { replace: true });
   };
 
   // Mobile alerts belong to whoever enabled them in this browser.
@@ -266,17 +354,21 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     if (isAuthenticated && userId) syncPushOwnership(userId);
   }, [isAuthenticated, userId]);
 
-  const getDefaultRedirectPath = (role) => {
+  const getDefaultRedirectPath = (role, moduleState = null) => {
+    const custody = moduleState?.hasCustodyModule !== undefined ? moduleState.hasCustodyModule : hasCustodyModule;
+    const issuance = moduleState?.hasIssuanceModule !== undefined ? moduleState.hasIssuanceModule : hasIssuanceModule;
+    const quotation = moduleState?.hasQuotationModule !== undefined ? moduleState.hasQuotationModule : hasQuotationModule;
+
     if (role === 'system_owner') return "/system-owner/dashboard";
     if (role === 'corporate_admin') {
-      if (!hasCustodyModule && !hasIssuanceModule && hasQuotationModule) {
+      if (!custody && !issuance && quotation) {
         return "/corporate-admin/quotations";
       }
       return "/corporate-admin/dashboard";
     }
     if (role === 'checker') return "/checker/approval-requests";
     if (role === 'end_user' || role === 'viewer') {
-      if (!hasCustodyModule && !hasIssuanceModule && hasQuotationModule) {
+      if (!custody && !issuance && quotation) {
         return "/end-user/quotations/active";
       }
       return "/end-user/action-center";
@@ -314,6 +406,8 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
           <Route path="/dealer/desk" element={<BankDealerDeskPage />} />
           <Route path="/dealer/alerts/setup/:setupToken" element={<DealerStandingAlertSetupPage />} />
           <Route path="/dealer-alerts/setup/:setupToken" element={<DealerStandingAlertSetupPage />} />
+          <Route path="/mobile-pair" element={<MobilePairAuthPage />} />
+          <Route path="/mobile-pair/:token" element={<MobilePairAuthPage />} />
           <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -361,7 +455,8 @@ const isPublicPage = () => {
     p.includes('/public/bank-handshake') ||
     p.includes('/public-dealer-handshake') ||
     p.includes('/public/dealer-handshake') ||
-    p.startsWith('/dealer')
+    p.startsWith('/dealer') ||
+    p.startsWith('/mobile-pair')
   );
 };
 
@@ -369,13 +464,19 @@ function App() {
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [timeLeft, setTimeLeft] = useState(WARNING_BUFFER_MS / 1000);
 
-  // Unified Countdown Logic
+  // Unified Wall-Clock Countdown Logic
   useEffect(() => {
     let interval;
     if (showSessionModal && !isPublicPage()) {
-      setTimeLeft(WARNING_BUFFER_MS / 1000);
+      setTimeLeft(getRemainingWarningSeconds() || (WARNING_BUFFER_MS / 1000));
       interval = setInterval(() => {
-        setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+        const remaining = getRemainingWarningSeconds();
+        setTimeLeft(remaining);
+        if (remaining <= 0) {
+          clearInterval(interval);
+          setShowSessionModal(false);
+          logoutUser({ preserveNext: true });
+        }
       }, 1000);
     } else if (showSessionModal && isPublicPage()) {
       setShowSessionModal(false);
@@ -388,16 +489,16 @@ function App() {
     if (success) {
       setShowSessionModal(false);
       // Restart timers for the next cycle
-      startSessionTimers(() => setShowSessionModal(true));
+      startSessionTimers(() => setShowSessionModal(true), Date.now());
     } else {
       setShowSessionModal(false);
-      logoutUser();
+      logoutUser({ preserveNext: true });
     }
   };
 
   const handleCloseAndLogout = () => {
     setShowSessionModal(false);
-    logoutUser();
+    logoutUser({ preserveNext: false });
   };
 
   return (

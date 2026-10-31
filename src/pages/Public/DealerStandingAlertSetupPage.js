@@ -10,6 +10,7 @@ import {
     isPermissionDenied,
     getStandingSetup,
     subscribeStandingSetup,
+    sendDealerSetupOtp,
     optOutStandingSetup
 } from '../../services/dealerPushService';
 
@@ -26,6 +27,11 @@ export default function DealerStandingAlertSetupPage() {
     const [optedOut, setOptedOut] = useState(false);
     const [isBlocked, setIsBlocked] = useState(false);
 
+    // OTP Verification for unattended laptop protection
+    const [otpCode, setOtpCode] = useState('');
+    const [otpSent, setOtpSent] = useState(false);
+    const [sendingOtp, setSendingOtp] = useState(false);
+
     useEffect(() => {
         loadSetupData();
     }, [setupToken]);
@@ -40,6 +46,9 @@ export default function DealerStandingAlertSetupPage() {
                 if (isOptOutRequested && !data.opted_out) {
                     await optOutStandingSetup(setupToken);
                 }
+            } else {
+                // Auto-send verification code to bank email on load
+                triggerSendOtp(false);
             }
         } catch (err) {
             console.error('Failed to load setup data:', err);
@@ -49,7 +58,33 @@ export default function DealerStandingAlertSetupPage() {
         }
     };
 
-    const handleEnablePush = async () => {
+    const triggerSendOtp = async (isManual = false) => {
+        setSendingOtp(true);
+        try {
+            const res = await sendDealerSetupOtp(setupToken);
+            setOtpSent(true);
+            if (isManual) {
+                toast.success(res?.message || 'Verification code sent to your bank email.');
+            } else {
+                toast.info(`Verification code sent to ${info?.email || 'your bank email'}. Check your inbox.`);
+            }
+        } catch (err) {
+            console.error('Failed to send OTP:', err);
+            const msg = err.response?.data?.detail || err.message || 'Could not send verification code.';
+            toast.error(msg);
+        } finally {
+            setSendingOtp(false);
+        }
+    };
+
+    const handleEnablePush = async (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+
+        if (!otpCode.trim() || otpCode.trim().length < 4) {
+            toast.error('Please enter the 6-digit verification code sent to your bank email.');
+            return;
+        }
+
         if (isPermissionDenied()) {
             setIsBlocked(true);
             toast.warn('Notifications are blocked by your browser settings.');
@@ -63,7 +98,7 @@ export default function DealerStandingAlertSetupPage() {
 
         try {
             setSubscribing(true);
-            await subscribeStandingSetup(setupToken);
+            await subscribeStandingSetup(setupToken, null, otpCode.trim());
             setIsSuccess(true);
             toast.success('Mobile alerts successfully enabled for your dealer desk!');
         } catch (err) {
@@ -242,14 +277,45 @@ export default function DealerStandingAlertSetupPage() {
                                 </div>
                             )}
 
+                            {/* Physical Security OTP Verification (Unattended Laptop Protection) */}
+                            <div className="p-4 bg-slate-900/90 border border-emerald-500/30 rounded-2xl space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                                        <ShieldCheck size={14} className="text-emerald-400" />
+                                        <span>Confirm Device Ownership</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => triggerSendOtp(true)}
+                                        disabled={sendingOtp}
+                                        className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 underline disabled:opacity-50 cursor-pointer"
+                                    >
+                                        {sendingOtp ? 'Sending...' : 'Resend Code'}
+                                    </button>
+                                </div>
+                                <p className="text-[11px] text-slate-400 leading-relaxed">
+                                    Enter the 6-digit confirmation code sent to <strong className="text-slate-200">{info?.email}</strong>:
+                                </p>
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    maxLength={6}
+                                    value={otpCode}
+                                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                                    placeholder="000000"
+                                    className="w-full text-center tracking-[8px] font-mono text-xl py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-emerald-400 font-bold placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                                />
+                            </div>
+
                             <button
                                 type="button"
                                 onClick={handleEnablePush}
-                                disabled={subscribing}
+                                disabled={subscribing || !otpCode.trim()}
                                 className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl text-xs transition-all shadow-lg shadow-emerald-950 cursor-pointer flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
                             >
                                 <Bell size={16} />
-                                <span>{subscribing ? 'Activating Alerts...' : 'Enable Phone Alerts on this Device'}</span>
+                                <span>{subscribing ? 'Activating Alerts...' : 'Verify Code & Enable Phone Alerts'}</span>
                             </button>
                         </>
                     )}

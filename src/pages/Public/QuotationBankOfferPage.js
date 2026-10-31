@@ -291,7 +291,7 @@ export default function QuotationBankOfferPage() {
         setSoundEnabled(next);
         tradingAudio.setSoundEnabled(next);
         if (next) {
-            tradingAudio.playUrgencyTick(10);
+            tradingAudio.playWindowOpened();
         }
     };
 
@@ -413,6 +413,12 @@ export default function QuotationBankOfferPage() {
         if (isSubmittingFeedback) return;
         setIsSubmittingFeedback(true);
         try {
+            const trap = websiteUrl ? websiteUrl.trim().toLowerCase() : '';
+            const isAutofill = trap && (
+                (authSession?.email && trap === authSession.email.toLowerCase())
+            );
+            const safeWebsiteUrl = isAutofill ? '' : websiteUrl;
+
             await quotationApi.post('/api/v1/public-quotation/feedback', {
                 token,
                 star_rating: feedbackRating,
@@ -420,7 +426,7 @@ export default function QuotationBankOfferPage() {
                 comment: feedbackComment,
                 is_anonymous: feedbackIsAnonymous,
                 dealer_email: authSession?.email || undefined,
-                website_url: websiteUrl
+                website_url: safeWebsiteUrl
             });
             setFeedbackSubmitted(true);
             try {
@@ -1552,10 +1558,14 @@ export default function QuotationBankOfferPage() {
         setIsRequestingOtp(true);
         setOtpError('');
         try {
+            const trap = websiteUrl ? websiteUrl.trim().toLowerCase() : '';
+            const isAutofill = trap && (targetEmail && trap === targetEmail.toLowerCase());
+            const safeWebsiteUrl = isAutofill ? '' : websiteUrl;
+
             await quotationApi.post('/api/v1/public-quotation/request-otp', {
                 token,
                 email: targetEmail,
-                website_url: websiteUrl
+                website_url: safeWebsiteUrl
             });
             setOtpSent(true);
         } catch (err) {
@@ -1576,11 +1586,18 @@ export default function QuotationBankOfferPage() {
         setIsVerifyingOtp(true);
         setOtpError('');
         try {
+            const trap = websiteUrl ? websiteUrl.trim().toLowerCase() : '';
+            const isAutofill = trap && (
+                (targetEmail && trap === targetEmail.toLowerCase()) ||
+                (otpCode && trap === otpCode.trim())
+            );
+            const safeWebsiteUrl = isAutofill ? '' : websiteUrl;
+
             const res = await quotationApi.post('/api/v1/public-quotation/verify-otp', {
                 token,
                 email: targetEmail,
                 otp_code: otpCode.trim(),
-                website_url: websiteUrl
+                website_url: safeWebsiteUrl
             });
             const session = res.data;
             setAuthSession(session);
@@ -1747,6 +1764,32 @@ export default function QuotationBankOfferPage() {
         }
     };
 
+    // Helper: detect if two rates differ by a single adjacent digit transposition (e.g. 56.12 -> 65.12 or 51.62)
+    const isAdjacentDigitTransposition = (numA, numB) => {
+        if (isNaN(numA) || isNaN(numB) || numA <= 0 || numB <= 0 || numA === numB) return false;
+        const strA = String(numA);
+        const strB = String(numB);
+        const decA = (strA.split('.')[1] || '').length;
+        const decB = (strB.split('.')[1] || '').length;
+        const decimals = Math.min(4, Math.max(decA, decB, 2));
+        const normA = numA.toFixed(decimals);
+        const normB = numB.toFixed(decimals);
+        if (normA.indexOf('.') !== normB.indexOf('.')) return false;
+        const digitsA = normA.replace('.', '');
+        const digitsB = normB.replace('.', '');
+        if (digitsA.length !== digitsB.length) return false;
+        const diffs = [];
+        for (let i = 0; i < digitsA.length; i++) {
+            if (digitsA[i] !== digitsB[i]) diffs.push(i);
+        }
+        return (
+            diffs.length === 2 &&
+            diffs[1] === diffs[0] + 1 &&
+            digitsA[diffs[0]] === digitsB[diffs[1]] &&
+            digitsA[diffs[1]] === digitsB[diffs[0]]
+        );
+    };
+
     const handleSubmit = async (e) => {
         e?.preventDefault();
         if (isSubmitting) return;
@@ -1794,7 +1837,13 @@ export default function QuotationBankOfferPage() {
             }
 
             const val = parseFloat(price);
-            const bm = parseFloat(rfq?.cbe_benchmark_rate);
+            const rawBm = parseFloat(rfq?.cbe_benchmark_rate || rfq?.legs?.[0]?.cbe_benchmark_rate);
+            const prevOfferPrice = parseFloat(rfq?.offers?.[0]?.price ?? rfq?.legs?.[0]?.offers?.[0]?.price);
+            const hasCbeBm = !isNaN(rawBm) && rawBm > 0;
+            const hasPrevQuote = !isNaN(prevOfferPrice) && prevOfferPrice > 0;
+            const bm = hasCbeBm ? rawBm : (hasPrevQuote ? prevOfferPrice : NaN);
+            const bmLabel = hasCbeBm ? 'CBE Market Benchmark' : 'Your Previous Active Quote';
+            const bmProse = hasCbeBm ? 'the prevailing CBE reference rate' : 'your previously submitted quote';
 
             if (!isNaN(val) && !isNaN(bm) && val > 0 && bm > 0) {
                 // Check 1: Inverted / reciprocal rate (e.g. 0.0195 vs 51.28)
@@ -1804,51 +1853,91 @@ export default function QuotationBankOfferPage() {
                     setFatFingerModal({
                         enteredPrice: val,
                         benchmark: bm,
+                        benchmarkLabel: bmLabel,
                         type: 'INVERSION',
                         suggestedRate: suggested,
                         title: '⚠️ Possible Inverted Rate Detected',
-                        message: `You entered ${val}, which matches the reciprocal (inverted) quotation for ${rfq.buy_currency}/${rfq.sell_currency}. Prevailing CBE market benchmark is ~${bm.toFixed(4)}. Did you mean ${suggested}?`
+                        message: `You entered ${val}, which matches the reciprocal (inverted) quotation for ${rfq.buy_currency}/${rfq.sell_currency}. ${hasCbeBm ? 'Prevailing CBE market benchmark' : 'Your previous active quote'} is ~${bm.toFixed(4)}. Did you mean ${suggested}?`
                     });
                     return;
                 }
 
-                // Check 2: 10x Displaced Decimal (e.g. 512.8 or 5.128 vs 51.28)
+                // Check 2: Displaced Decimal (10x, 100x, 1,000x, 10,000x high or low — e.g. 5605 or 5.605 vs 56.05)
                 const ratio = val / bm;
-                if (ratio >= 8 && ratio <= 12) {
-                    const suggested = (val / 10).toFixed(4);
-                    setFatFingerModal({
-                        enteredPrice: val,
-                        benchmark: bm,
-                        type: 'DECIMAL_10X_HIGH',
-                        suggestedRate: suggested,
-                        title: '⚠️ Displaced Decimal Point (~10x High)',
-                        message: `You entered ${val}, which appears approximately 10x higher than the prevailing CBE reference rate (~${bm.toFixed(4)}). Did you mean ${suggested}?`
-                    });
-                    return;
-                }
-                if (ratio >= 0.08 && ratio <= 0.12) {
-                    const suggested = (val * 10).toFixed(4);
-                    setFatFingerModal({
-                        enteredPrice: val,
-                        benchmark: bm,
-                        type: 'DECIMAL_10X_LOW',
-                        suggestedRate: suggested,
-                        title: '⚠️ Displaced Decimal Point (~10x Low)',
-                        message: `You entered ${val}, which appears approximately 10x lower than the prevailing CBE reference rate (~${bm.toFixed(4)}). Did you mean ${suggested}?`
-                    });
-                    return;
+                for (const factor of [10, 100, 1000, 10000]) {
+                    const factorLabel = `${factor.toLocaleString()}x`;
+                    if (ratio / factor >= 0.8 && ratio / factor <= 1.2) {
+                        const suggested = (val / factor).toFixed(4);
+                        setFatFingerModal({
+                            enteredPrice: val,
+                            benchmark: bm,
+                            benchmarkLabel: bmLabel,
+                            type: 'DECIMAL_10X_HIGH',
+                            suggestedRate: suggested,
+                            title: `⚠️ Displaced Decimal Point (~${factorLabel} High)`,
+                            message: `You entered ${val}, which appears approximately ${factorLabel} higher than ${bmProse} (~${bm.toFixed(4)}). Did you mean ${suggested}?`
+                        });
+                        return;
+                    }
+                    if (ratio * factor >= 0.8 && ratio * factor <= 1.2) {
+                        const suggested = (val * factor).toFixed(4);
+                        setFatFingerModal({
+                            enteredPrice: val,
+                            benchmark: bm,
+                            benchmarkLabel: bmLabel,
+                            type: 'DECIMAL_10X_LOW',
+                            suggestedRate: suggested,
+                            title: `⚠️ Displaced Decimal Point (~${factorLabel} Low)`,
+                            message: `You entered ${val}, which appears approximately ${factorLabel} lower than ${bmProse} (~${bm.toFixed(4)}). Did you mean ${suggested}?`
+                        });
+                        return;
+                    }
                 }
 
                 // Check 3: Extreme Market Deviation (> 25%)
                 const pctDiff = ((val - bm) / bm) * 100;
                 if (Math.abs(pctDiff) >= 25) {
+                    const isPrevNearMarket = hasPrevQuote && (!hasCbeBm || Math.abs(prevOfferPrice - rawBm) / rawBm < 0.05);
+                    const fallbackSuggested = (isPrevNearMarket ? prevOfferPrice : bm).toFixed(4);
                     setFatFingerModal({
                         enteredPrice: val,
                         benchmark: bm,
+                        benchmarkLabel: bmLabel,
                         type: 'EXTREME_OUTLIER',
-                        suggestedRate: null,
+                        suggestedRate: fallbackSuggested,
                         title: '⚠️ Significant Rate Deviation Warning',
-                        message: `Your quote of ${val} deviates by ${pctDiff > 0 ? '+' : ''}${pctDiff.toFixed(1)}% from the prevailing CBE benchmark (~${bm.toFixed(4)}). Please confirm this is intentional.`
+                        message: `Your quote of ${val} deviates by ${pctDiff > 0 ? '+' : ''}${pctDiff.toFixed(1)}% from ${bmProse} (~${bm.toFixed(4)}). Did you mean ${fallbackSuggested}, or is ${val} intentional?`
+                    });
+                    return;
+                }
+            }
+
+            // Check 4: Self-Delta & Digit Transposition Check against Dealer's Own Previous Active Quote
+            if (!isNaN(val) && val > 0 && hasPrevQuote && val !== prevOfferPrice) {
+                const prevDiffPct = ((val - prevOfferPrice) / prevOfferPrice) * 100;
+                const isPrevNearMarket = !hasCbeBm || Math.abs(prevOfferPrice - rawBm) / rawBm < 0.05;
+                const prevSuggested = (isPrevNearMarket ? prevOfferPrice : rawBm).toFixed(4);
+                if (Math.abs(prevDiffPct) >= 1 && isAdjacentDigitTransposition(val, prevOfferPrice)) {
+                    setFatFingerModal({
+                        enteredPrice: val,
+                        benchmark: prevOfferPrice,
+                        benchmarkLabel: 'Your Previous Active Quote',
+                        type: 'PREV_QUOTE_TRANSPOSITION',
+                        suggestedRate: prevSuggested,
+                        title: '⚠️ Possible Digit Transposition on Update',
+                        message: `Your updated quote of ${val} appears to transpose two digits from your currently active quote (${prevOfferPrice.toFixed(4)}), shifting your price by ${prevDiffPct > 0 ? '+' : ''}${prevDiffPct.toFixed(1)}%. Did you mean ${prevSuggested}?`
+                    });
+                    return;
+                }
+                if (Math.abs(prevDiffPct) >= 5) {
+                    setFatFingerModal({
+                        enteredPrice: val,
+                        benchmark: prevOfferPrice,
+                        benchmarkLabel: 'Your Previous Active Quote',
+                        type: 'PREV_QUOTE_DELTA',
+                        suggestedRate: prevSuggested,
+                        title: '⚠️ Large Quote Amendment Warning',
+                        message: `Your updated quote of ${val} changes your currently active quote (${prevOfferPrice.toFixed(4)}) by ${prevDiffPct > 0 ? '+' : ''}${prevDiffPct.toFixed(1)}%. Did you mean ${prevSuggested}, or is this price change intentional?`
                     });
                     return;
                 }
@@ -1862,9 +1951,11 @@ export default function QuotationBankOfferPage() {
                 const amt = parseFloat(line.maxAmount);
 
                 if (!isNaN(rate)) {
-                    // Check 1: 10x high misplaced decimal (e.g., 270% instead of 27%)
+                    // Check 1: High misplaced decimal (e.g., 270% or 2725% instead of 27% / 27.25%)
                     if (rate >= 45) {
-                        const suggested = (rate / 10).toString();
+                        let scaled = rate / 10;
+                        while (scaled >= 45) scaled /= 10;
+                        const suggested = parseFloat(scaled.toFixed(4)).toString();
                         const suggestedLines = tbillLines.map((l, idx) => idx === i ? { ...l, discountRate: suggested } : { ...l });
                         setFatFingerModal({
                             isTBill: true,
@@ -1879,9 +1970,11 @@ export default function QuotationBankOfferPage() {
                         return;
                     }
 
-                    // Check 2: 10x low misplaced decimal (e.g., 2.7% instead of 27%)
+                    // Check 2: Low misplaced decimal (e.g., 2.7% or 0.27% instead of 27%)
                     if (rate > 0 && rate <= 4) {
-                        const suggested = (rate * 10).toString();
+                        let scaled = rate * 10;
+                        while (scaled <= 4 && scaled > 0) scaled *= 10;
+                        const suggested = parseFloat(scaled.toFixed(4)).toString();
                         const suggestedLines = tbillLines.map((l, idx) => idx === i ? { ...l, discountRate: suggested } : { ...l });
                         setFatFingerModal({
                             isTBill: true,
@@ -2057,24 +2150,29 @@ export default function QuotationBankOfferPage() {
 
                 const q = legQuotes[leg.id];
                 const p = q?.price ? parseFloat(q.price) : NaN;
-                const bm = parseFloat(leg.cbe_benchmark_rate || rfq.cbe_benchmark_rate);
+                const rawBm = parseFloat(leg.cbe_benchmark_rate || rfq.cbe_benchmark_rate);
+                const prevLegPrice = parseFloat(leg?.offers?.[0]?.price);
+                const hasCbeBm = !isNaN(rawBm) && rawBm > 0;
+                const hasPrevQuote = !isNaN(prevLegPrice) && prevLegPrice > 0;
+                const bm = hasCbeBm ? rawBm : (hasPrevQuote ? prevLegPrice : NaN);
+                const bmLabel = hasCbeBm ? 'CBE Market Benchmark' : 'Your Previous Active Quote';
+                const bmProse = hasCbeBm ? 'prevailing CBE reference rate' : 'your previously submitted quote';
+                const pair = leg.currency_pair || (leg.buy_currency && leg.sell_currency ? `${leg.buy_currency}/${leg.sell_currency}` : `Leg ${lIdx + 1}`);
+
+                // Collect other quotes that are valid for Lock & Isolate
+                const validQuotes = quotesToSubmit.filter(item => {
+                    if (item.leg_id === leg.id) return false;
+                    const otherLeg = (rfq.legs || []).find(l => l.id === item.leg_id);
+                    const otherBm = parseFloat(otherLeg?.cbe_benchmark_rate || rfq.cbe_benchmark_rate || otherLeg?.offers?.[0]?.price);
+                    if (!isNaN(otherBm) && otherBm > 0) {
+                        const ratio = item.price / otherBm;
+                        const diff = Math.abs(((item.price - otherBm) / otherBm) * 100);
+                        if (ratio >= 8 || ratio <= 0.12 || diff >= 25) return false;
+                    }
+                    return true;
+                });
 
                 if (!isNaN(p) && !isNaN(bm) && p > 0 && bm > 0) {
-                    const pair = leg.currency_pair || (leg.buy_currency && leg.sell_currency ? `${leg.buy_currency}/${leg.sell_currency}` : `Leg ${lIdx + 1}`);
-
-                    // Collect other quotes that are valid for Lock & Isolate
-                    const validQuotes = quotesToSubmit.filter(item => {
-                        if (item.leg_id === leg.id) return false;
-                        const otherLeg = (rfq.legs || []).find(l => l.id === item.leg_id);
-                        const otherBm = parseFloat(otherLeg?.cbe_benchmark_rate || rfq.cbe_benchmark_rate);
-                        if (!isNaN(otherBm) && otherBm > 0) {
-                            const ratio = item.price / otherBm;
-                            const diff = Math.abs(((item.price - otherBm) / otherBm) * 100);
-                            if (ratio >= 8 || ratio <= 0.12 || diff >= 25) return false;
-                        }
-                        return true;
-                    });
-
                     // Check 1: Inverted / reciprocal rate
                     const inv = 1 / p;
                     if (Math.abs(inv - bm) / bm < 0.15) {
@@ -2084,6 +2182,7 @@ export default function QuotationBankOfferPage() {
                             legId: leg.id,
                             enteredPrice: p,
                             benchmark: bm,
+                            benchmarkLabel: bmLabel,
                             type: 'INVERSION',
                             suggestedRate: suggested,
                             validQuotes: validQuotes.length > 0 ? validQuotes : null,
@@ -2091,68 +2190,117 @@ export default function QuotationBankOfferPage() {
                             totalCount: rfq.legs.length,
                             passedLegs: passedLegIds,
                             title: `⚠️ Leg #${lIdx + 1} (${pair}): Possible Inverted Rate Detected`,
-                            message: `For ${pair}, you entered ${p}, which matches the reciprocal (inverted) quotation. Prevailing CBE market benchmark is ~${bm.toFixed(4)}. Did you mean ${suggested}?`
+                            message: `For ${pair}, you entered ${p}, which matches the reciprocal (inverted) quotation. ${hasCbeBm ? 'Prevailing CBE market benchmark' : 'Your previous active quote'} is ~${bm.toFixed(4)}. Did you mean ${suggested}?`
                         });
                         return;
                     }
 
-                    // Check 2: 10x Displaced Decimal (High)
+                    // Check 2: Displaced Decimal (10x, 100x, 1,000x, 10,000x High or Low)
                     const ratio = p / bm;
-                    if (ratio >= 8 && ratio <= 12) {
-                        const suggested = (p / 10).toFixed(4);
-                        setFatFingerModal({
-                            isBatch: true,
-                            legId: leg.id,
-                            enteredPrice: p,
-                            benchmark: bm,
-                            type: 'DECIMAL_10X_HIGH',
-                            suggestedRate: suggested,
-                            validQuotes: validQuotes.length > 0 ? validQuotes : null,
-                            validCount: validQuotes.length,
-                            totalCount: rfq.legs.length,
-                            passedLegs: passedLegIds,
-                            title: `⚠️ Leg #${lIdx + 1} (${pair}): Displaced Decimal Point (~10x High)`,
-                            message: `For ${pair}, you entered ${p}, which appears approximately 10x higher than prevailing CBE reference rate (~${bm.toFixed(4)}). Did you mean ${suggested}?`
-                        });
-                        return;
-                    }
-
-                    // Check 2b: 10x Displaced Decimal (Low)
-                    if (ratio >= 0.08 && ratio <= 0.12) {
-                        const suggested = (p * 10).toFixed(4);
-                        setFatFingerModal({
-                            isBatch: true,
-                            legId: leg.id,
-                            enteredPrice: p,
-                            benchmark: bm,
-                            type: 'DECIMAL_10X_LOW',
-                            suggestedRate: suggested,
-                            validQuotes: validQuotes.length > 0 ? validQuotes : null,
-                            validCount: validQuotes.length,
-                            totalCount: rfq.legs.length,
-                            passedLegs: passedLegIds,
-                            title: `⚠️ Leg #${lIdx + 1} (${pair}): Displaced Decimal Point (~10x Low)`,
-                            message: `For ${pair}, you entered ${p}, which appears approximately 10x lower than prevailing CBE reference rate (~${bm.toFixed(4)}). Did you mean ${suggested}?`
-                        });
-                        return;
+                    for (const factor of [10, 100, 1000, 10000]) {
+                        const factorLabel = `${factor.toLocaleString()}x`;
+                        if (ratio / factor >= 0.8 && ratio / factor <= 1.2) {
+                            const suggested = (p / factor).toFixed(4);
+                            setFatFingerModal({
+                                isBatch: true,
+                                legId: leg.id,
+                                enteredPrice: p,
+                                benchmark: bm,
+                                benchmarkLabel: bmLabel,
+                                type: 'DECIMAL_10X_HIGH',
+                                suggestedRate: suggested,
+                                validQuotes: validQuotes.length > 0 ? validQuotes : null,
+                                validCount: validQuotes.length,
+                                totalCount: rfq.legs.length,
+                                passedLegs: passedLegIds,
+                                title: `⚠️ Leg #${lIdx + 1} (${pair}): Displaced Decimal Point (~${factorLabel} High)`,
+                                message: `For ${pair}, you entered ${p}, which appears approximately ${factorLabel} higher than ${bmProse} (~${bm.toFixed(4)}). Did you mean ${suggested}?`
+                            });
+                            return;
+                        }
+                        if (ratio * factor >= 0.8 && ratio * factor <= 1.2) {
+                            const suggested = (p * factor).toFixed(4);
+                            setFatFingerModal({
+                                isBatch: true,
+                                legId: leg.id,
+                                enteredPrice: p,
+                                benchmark: bm,
+                                benchmarkLabel: bmLabel,
+                                type: 'DECIMAL_10X_LOW',
+                                suggestedRate: suggested,
+                                validQuotes: validQuotes.length > 0 ? validQuotes : null,
+                                validCount: validQuotes.length,
+                                totalCount: rfq.legs.length,
+                                passedLegs: passedLegIds,
+                                title: `⚠️ Leg #${lIdx + 1} (${pair}): Displaced Decimal Point (~${factorLabel} Low)`,
+                                message: `For ${pair}, you entered ${p}, which appears approximately ${factorLabel} lower than ${bmProse} (~${bm.toFixed(4)}). Did you mean ${suggested}?`
+                            });
+                            return;
+                        }
                     }
 
                     // Check 3: Extreme Market Deviation (> 25%)
                     const pctDiff = ((p - bm) / bm) * 100;
                     if (Math.abs(pctDiff) >= 25) {
+                        const isPrevNearMarket = hasPrevQuote && (!hasCbeBm || Math.abs(prevLegPrice - rawBm) / rawBm < 0.05);
+                        const fallbackSuggested = (isPrevNearMarket ? prevLegPrice : bm).toFixed(4);
                         setFatFingerModal({
                             isBatch: true,
                             legId: leg.id,
                             enteredPrice: p,
                             benchmark: bm,
+                            benchmarkLabel: bmLabel,
                             type: 'EXTREME_OUTLIER',
-                            suggestedRate: null,
+                            suggestedRate: fallbackSuggested,
                             validQuotes: validQuotes.length > 0 ? validQuotes : null,
                             validCount: validQuotes.length,
                             totalCount: rfq.legs.length,
                             passedLegs: passedLegIds,
                             title: `⚠️ Leg #${lIdx + 1} (${pair}): Significant Rate Deviation Warning`,
-                            message: `Your quote of ${p} for ${pair} deviates by ${pctDiff > 0 ? '+' : ''}${pctDiff.toFixed(1)}% from prevailing CBE benchmark (~${bm.toFixed(4)}). Please confirm this is intentional.`
+                            message: `Your quote of ${p} for ${pair} deviates by ${pctDiff > 0 ? '+' : ''}${pctDiff.toFixed(1)}% from ${bmProse} (~${bm.toFixed(4)}). Did you mean ${fallbackSuggested}, or is ${p} intentional?`
+                        });
+                        return;
+                    }
+                }
+
+                // Check 4: Self-Delta & Digit Transposition Check against Dealer's Own Previous Active Quote for this Leg
+                if (!isNaN(p) && p > 0 && hasPrevQuote && p !== prevLegPrice) {
+                    const prevDiffPct = ((p - prevLegPrice) / prevLegPrice) * 100;
+                    const isPrevNearMarket = !hasCbeBm || Math.abs(prevLegPrice - rawBm) / rawBm < 0.05;
+                    const prevSuggested = (isPrevNearMarket ? prevLegPrice : rawBm).toFixed(4);
+                    if (Math.abs(prevDiffPct) >= 1 && isAdjacentDigitTransposition(p, prevLegPrice)) {
+                        setFatFingerModal({
+                            isBatch: true,
+                            legId: leg.id,
+                            enteredPrice: p,
+                            benchmark: prevLegPrice,
+                            benchmarkLabel: 'Your Previous Active Quote',
+                            type: 'PREV_QUOTE_TRANSPOSITION',
+                            suggestedRate: prevSuggested,
+                            validQuotes: validQuotes.length > 0 ? validQuotes : null,
+                            validCount: validQuotes.length,
+                            totalCount: rfq.legs.length,
+                            passedLegs: passedLegIds,
+                            title: `⚠️ Leg #${lIdx + 1} (${pair}): Possible Digit Transposition on Update`,
+                            message: `For ${pair}, your updated quote of ${p} appears to transpose two digits from your currently active quote (${prevLegPrice.toFixed(4)}), shifting your price by ${prevDiffPct > 0 ? '+' : ''}${prevDiffPct.toFixed(1)}%. Did you mean ${prevSuggested}?`
+                        });
+                        return;
+                    }
+                    if (Math.abs(prevDiffPct) >= 5) {
+                        setFatFingerModal({
+                            isBatch: true,
+                            legId: leg.id,
+                            enteredPrice: p,
+                            benchmark: prevLegPrice,
+                            benchmarkLabel: 'Your Previous Active Quote',
+                            type: 'PREV_QUOTE_DELTA',
+                            suggestedRate: prevSuggested,
+                            validQuotes: validQuotes.length > 0 ? validQuotes : null,
+                            validCount: validQuotes.length,
+                            totalCount: rfq.legs.length,
+                            passedLegs: passedLegIds,
+                            title: `⚠️ Leg #${lIdx + 1} (${pair}): Large Quote Amendment Warning`,
+                            message: `For ${pair}, your updated quote of ${p} changes your currently active quote (${prevLegPrice.toFixed(4)}) by ${prevDiffPct > 0 ? '+' : ''}${prevDiffPct.toFixed(1)}%. Did you mean ${prevSuggested}, or is this price change intentional?`
                         });
                         return;
                     }
@@ -2475,9 +2623,6 @@ export default function QuotationBankOfferPage() {
 
                             {!otpSent ? (
                                 <form onSubmit={handleRequestOtp} className="space-y-4">
-                                    {/* Zero-friction perimeter anti-bot honeypot trap */}
-                                    <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
-
                                     <div className="text-left">
                                         <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
                                             <Mail size={13} className="text-blue-400" />
@@ -2508,12 +2653,12 @@ export default function QuotationBankOfferPage() {
                                     >
                                         {isRequestingOtp ? 'Sending Access Code...' : 'Send Access Code'}
                                     </button>
+
+                                    {/* Zero-friction perimeter anti-bot honeypot trap positioned after form controls to prevent autofill heuristic collisions */}
+                                    <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
                                 </form>
                             ) : (
                                 <form onSubmit={handleVerifyOtp} className="space-y-4">
-                                    {/* Zero-friction perimeter anti-bot honeypot trap */}
-                                    <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
-
                                     <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700 text-left">
                                         <p className="text-xs text-slate-300">
                                             Access code sent to <strong className="text-white font-mono">{inputEmail}</strong>.
@@ -2586,6 +2731,9 @@ export default function QuotationBankOfferPage() {
                                             {isVerifyingOtp ? 'Verifying...' : 'Unlock Workspace'}
                                         </button>
                                     </div>
+
+                                    {/* Zero-friction perimeter anti-bot honeypot trap positioned after form controls to prevent autofill heuristic collisions */}
+                                    <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
                                 </form>
                             )}
                         </div>
@@ -2735,19 +2883,30 @@ export default function QuotationBankOfferPage() {
                             </button>
                         </div>
 
-                        {/* Institutional Audio Alerts Toggle */}
+                        {/* Institutional Audio Alerts Toggle (Icon Only) */}
                         <button
                             type="button"
                             onClick={handleToggleSound}
-                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0 ${soundEnabled
-                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                            className={`flex items-center justify-center p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0 ${soundEnabled
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300'
                                     : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'
                                 }`}
-                            title={soundEnabled ? "Audio cues active: Trading Desk Chimes (Click to mute)" : "Audio cues muted (Click to enable)"}
+                            title={soundEnabled ? "Desk Audio: Trading desk chimes active (Click to mute)" : "Desk Audio: Muted (Click to enable)"}
+                            aria-label={soundEnabled ? "Mute Desk Audio" : "Enable Desk Audio"}
                         >
-                            {soundEnabled ? <Volume2 size={13} className="text-emerald-600" /> : <VolumeX size={13} className="text-slate-400" />}
-                            <span className="hidden sm:inline">{soundEnabled ? 'Alerts On' : 'Muted'}</span>
+                            {soundEnabled ? <Volume2 size={15} className="text-emerald-600" /> : <VolumeX size={15} className="text-slate-400" />}
                         </button>
+
+                        {/* Institutional Phone Alerts Header Chip */}
+                        {rfq?.allow_dealer_mobile_alerts !== false && (
+                            <DealerMobileAlertsBanner
+                                token={token}
+                                defaultEmail={authSession?.email || inputEmail || ''}
+                                mode="header-chip"
+                                soundEnabled={soundEnabled}
+                                onToggleSound={handleToggleSound}
+                            />
+                        )}
 
                         {/* Executive Countdown Timer Badge */}
                         <div className="shrink-0">
@@ -3328,13 +3487,6 @@ export default function QuotationBankOfferPage() {
                             </div>
                         )}
 
-                        {/* Dealer Mobile Alerts Bar / Banner */}
-                        {rfq?.allow_dealer_mobile_alerts !== false && (
-                            <DealerMobileAlertsBanner
-                                token={token}
-                                defaultEmail={authSession?.email || inputEmail || ''}
-                            />
-                        )}
 
                         {/* Clean Symmetrical 2-Column Desktop Grid */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
@@ -5272,7 +5424,7 @@ export default function QuotationBankOfferPage() {
                                     <h3 className="text-base font-bold text-slate-900">{fatFingerModal.title}</h3>
                                     {fatFingerModal.benchmark !== null && fatFingerModal.benchmark !== undefined && (
                                         <p className="text-xs text-slate-500 mt-0.5">
-                                            CBE Market Benchmark: <span className="font-mono font-bold text-slate-800">~{Number(fatFingerModal.benchmark).toFixed(4)}</span>
+                                            {fatFingerModal.benchmarkLabel || 'CBE Market Benchmark'}: <span className="font-mono font-bold text-slate-800">~{Number(fatFingerModal.benchmark).toFixed(4)}</span>
                                         </p>
                                     )}
                                 </div>
@@ -5485,9 +5637,6 @@ export default function QuotationBankOfferPage() {
                                     </div>
                                 ) : (
                                     <>
-                                        {/* Zero-friction perimeter anti-bot honeypot trap */}
-                                        <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
-
                                         {/* Star Rating */}
                                         <div className="space-y-1.5 text-center">
                                             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -5608,6 +5757,9 @@ export default function QuotationBankOfferPage() {
                                                 <span>Submit Feedback</span>
                                             </button>
                                         </div>
+
+                                        {/* Zero-friction perimeter anti-bot honeypot trap positioned after controls to prevent autofill heuristic collisions */}
+                                        <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
                                     </>
                                 )}
                             </div>

@@ -19,7 +19,7 @@ export const HoneypotField = ({
   value = '',
   onChange = () => {},
   label = 'Website URL (Leave blank if human)',
-  autoComplete = 'off',
+  autoComplete = 'nope',
 }) => {
   return (
     <div
@@ -48,6 +48,10 @@ export const HoneypotField = ({
         onChange={onChange}
         tabIndex={-1}
         autoComplete={autoComplete}
+        data-lpignore="true"
+        data-1p-ignore="true"
+        data-bwignore="true"
+        data-form-type="other"
       />
     </div>
   );
