@@ -763,24 +763,11 @@ function MigrationUploadPage() {
         }
     };
 
-    const ensureLocalAttachmentsSynced = async (forcePrompt = false) => {
-        const latestUploaded = await fetchUploadedAttachments();
-        const missingNames = getMissingLocalAttachmentNames(latestUploaded);
-        if (missingNames.length === 0 && !forcePrompt) {
-            return true;
-        }
-
+    const openNativeFolderPicker = async (missingNames = []) => {
         const sampleList = missingNames.slice(0, 4).join(', ') + (missingNames.length > 4 ? ` (+${missingNames.length - 4} more)` : '');
-        const confirmed = window.confirm(
-            missingNames.length > 0
-                ? `Your staged records reference ${missingNames.length} local file(s) on your computer:\n${sampleList}\n\nClick OK to select the folder on your computer containing these files so the system can read and encrypt them automatically.`
-                : `Select the folder on your computer containing your scanned LG PDF files:`
-        );
-        if (!confirmed) {
-            return false;
-        }
 
-        // Prefer modern File System Access API (Chrome / Edge) for 1-click recursive directory reading
+        // Use standard webkitdirectory input first OR showDirectoryPicker directly inside the click gesture
+        // (No window.confirm before the picker, because window.confirm expires the browser's 5-second user gesture timer!)
         if (typeof window.showDirectoryPicker === 'function') {
             try {
                 const dirHandle = await window.showDirectoryPicker();
@@ -808,23 +795,59 @@ function MigrationUploadPage() {
                     setIsSuccess(true);
                     return true;
                 } else {
-                    alert(`Could not find the referenced files (${sampleList}) inside the selected folder.`);
+                    alert(`Could not find the referenced files (${sampleList || 'PDFs'}) inside the selected folder.`);
                     return false;
                 }
             } catch (err) {
-                if (err?.name === 'AbortError') return false;
-                console.warn('showDirectoryPicker fallback to webkitdirectory input:', err);
+                if (err?.name === 'AbortError') {
+                    return false;
+                }
+                // Note: Chrome blocks showDirectoryPicker on system folders like Desktop/Downloads (SecurityError/NotAllowedError).
+                // Fall through immediately to folderInputRef.current.click() if user activation is still active!
+                console.warn('showDirectoryPicker unavailable or restricted folder, falling back to folder input:', err);
             }
         }
 
-        // Fallback to standard folder input (<input webkitdirectory />)
         if (folderInputRef.current) {
             return new Promise((resolve) => {
-                pendingFolderResolverRef.current = resolve;
-                folderInputRef.current.click();
+                let settled = false;
+                const finish = (val) => {
+                    if (settled) return;
+                    settled = true;
+                    window.removeEventListener('focus', onWindowFocus);
+                    pendingFolderResolverRef.current = null;
+                    resolve(val);
+                };
+                const onWindowFocus = () => {
+                    setTimeout(() => {
+                        if (!settled && pendingFolderResolverRef.current) {
+                            finish(false);
+                        }
+                    }, 1000);
+                };
+                pendingFolderResolverRef.current = finish;
+                window.addEventListener('focus', onWindowFocus);
+                try {
+                    folderInputRef.current.click();
+                } catch (clickErr) {
+                    finish(false);
+                }
             });
         }
         return false;
+    };
+
+    const ensureLocalAttachmentsSynced = async (forcePrompt = false) => {
+        const missingNames = getMissingLocalAttachmentNames(uploadedAttachments);
+        const alreadyHasSomeUploaded = Array.isArray(uploadedAttachments) && uploadedAttachments.length > 0;
+
+        if (!forcePrompt && (missingNames.length === 0 || alreadyHasSomeUploaded)) {
+            return true;
+        }
+
+        // Open the folder picker IMMEDIATELY on the click event without window.confirm()
+        // so the browser's user-gesture token never expires!
+        return await openNativeFolderPicker(missingNames);
     };
 
     // EFFICIENT DATA FETCHING: Separate effects for static lookups and dynamic records
@@ -1123,10 +1146,15 @@ function MigrationUploadPage() {
     
     // NEW: Function to Run AI Audit
     const handleRunAudit = async () => {
-        setIsAuditing(true);
         setAuditReport(null); // Clear previous results
         try {
             await ensureLocalAttachmentsSynced(false);
+        } catch (syncErr) {
+            console.warn("Folder sync skipped:", syncErr);
+        }
+
+        setIsAuditing(true);
+        try {
             // Using the centralized apiRequest instead of raw fetch
             const result = await apiRequest('/corporate-admin/migration/staged/audit', 'POST');
             setAuditReport(result);
