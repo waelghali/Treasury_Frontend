@@ -101,10 +101,13 @@ const HistoryPreviewModal = ({ lgHistory, onClose }) => {
 };
 
 // Component to display a single validation log entry as a card.
-const ValidationLogCard = ({ field, message }) => {
+const ValidationLogCard = ({ field, message, onDismissAi }) => {
+    if (field === 'ignored_ai_issues') return null;
+
     const msgStr = String(message || '');
     const isAuditPassed = field === 'ai_audit_status' && msgStr.startsWith('AUDITED_PASSED');
     const isAuditSkipped = field === 'ai_audit_status' && msgStr.startsWith('SKIPPED');
+    const isAiMismatch = field === 'ai_warning' || (field === 'ai_audit_status' && msgStr.startsWith('MISMATCH'));
 
     const borderClass = isAuditPassed
         ? 'border-green-500'
@@ -129,9 +132,21 @@ const ValidationLogCard = ({ field, message }) => {
                 )}
             </div>
             <div className="flex-1">
-                <p className="font-bold text-gray-700 uppercase tracking-wide text-[10px]">
-                    {field === 'ai_audit_status' ? 'AI AUDIT STATUS' : field}
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                    <p className="font-bold text-gray-700 uppercase tracking-wide text-[10px]">
+                        {field === 'ai_audit_status' ? 'AI AUDIT STATUS' : field === 'ai_warning' ? 'AI DISCREPANCY NOTE' : field}
+                    </p>
+                    {isAiMismatch && onDismissAi && (
+                        <button
+                            type="button"
+                            onClick={onDismissAi}
+                            className="px-2 py-0.5 bg-green-50 text-green-700 border border-green-300 rounded text-[10px] font-semibold hover:bg-green-100 transition-colors"
+                            title="Skip / ignore this AI warning if you are sure your Excel data is accurate"
+                        >
+                            ✓ Skip / Approve
+                        </button>
+                    )}
+                </div>
                 <p className="text-gray-600 mt-0.5 font-medium">{msgStr}</p>
             </div>
         </div>
@@ -152,7 +167,7 @@ const ALL_LG_FIELDS = [
 ];
 
 // UPDATED: Component to render the dynamic table of staged records with editing functionality
-const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordDelete, selectedRecords, onToggleSelect, onToggleSelectAll, currencies, getCurrencyCodeById, lgTypes, getLgTypeNameById, issuingMethods, getIssuingMethodNameById, rules, getRuleNameById, banks, getBankNameById, entities, getEntityNameById, lgCategories, getLgCategoryNameById, lgOperationalStatuses, getLgOperationalStatusNameById, internalOwners = [], uploadedAttachments = [], onLocateFolder }) => {
+const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordDelete, selectedRecords, onToggleSelect, onToggleSelectAll, currencies, getCurrencyCodeById, lgTypes, getLgTypeNameById, issuingMethods, getIssuingMethodNameById, rules, getRuleNameById, banks, getBankNameById, entities, getEntityNameById, lgCategories, getLgCategoryNameById, lgOperationalStatuses, getLgOperationalStatusNameById, internalOwners = [], uploadedAttachments = [], onLocateFolder, onDismissAi }) => {
     const [editingId, setEditingId] = useState(null);
     const [editFormData, setEditFormData] = useState({});
 
@@ -306,10 +321,15 @@ const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordD
                                     </span>
                                 </td>
                                 <td className="py-4 px-6" style={{ minWidth: '400px' }}>
-                                    {record.validation_log && Object.keys(record.validation_log).length > 0 ? (
+                                    {record.validation_log && Object.keys(record.validation_log).filter(k => k !== 'ignored_ai_issues').length > 0 ? (
                                         <div className="space-y-2">
                                             {Object.entries(record.validation_log).map(([field, message]) => (
-                                                <ValidationLogCard key={field} field={field} message={message} />
+                                                <ValidationLogCard
+                                                    key={field}
+                                                    field={field}
+                                                    message={message}
+                                                    onDismissAi={onDismissAi ? () => onDismissAi(record.id, record.source_data_json?.lg_number) : undefined}
+                                                />
                                             ))}
                                         </div>
                                     ) : (
@@ -1178,6 +1198,78 @@ function MigrationUploadPage() {
         }
     };
 
+    const handleDismissAiDiscrepancy = async (recordId, lgNumber, specificIssue = null) => {
+        try {
+            let targetRecordId = recordId;
+            if (!targetRecordId && lgNumber) {
+                const matchingRec = stagedRecords.find(
+                    r => String(r.source_data_json?.lg_number || '').trim() === String(lgNumber).trim()
+                );
+                if (matchingRec) targetRecordId = matchingRec.id;
+            }
+            if (!targetRecordId) return;
+
+            const updatedRec = await apiRequest(
+                `/corporate-admin/migration/staged/${targetRecordId}/dismiss-ai-audit`,
+                'POST',
+                specificIssue ? { issue: specificIssue } : {}
+            );
+
+            setStagedRecords(prev => prev.map(r => (r.id === updatedRec.id ? updatedRec : r)));
+
+            setAuditReport(prev => {
+                if (!prev) return prev;
+                const currentSummary = prev.audit_summary || [];
+                const currentPassed = prev.audited_passed || [];
+                const updatedSummary = [];
+                let newlyPassedItem = null;
+
+                for (const item of currentSummary) {
+                    const isMatch = (item.record_id && item.record_id === targetRecordId) ||
+                        (lgNumber && String(item.lg_number) === String(lgNumber));
+                    if (!isMatch) {
+                        updatedSummary.push(item);
+                        continue;
+                    }
+                    if (!specificIssue) {
+                        newlyPassedItem = {
+                            record_id: targetRecordId,
+                            lg_number: item.lg_number,
+                            message: 'Reviewed & approved by user',
+                        };
+                    } else {
+                        const remaining = (item.issues || []).filter(iss => iss !== specificIssue);
+                        if (remaining.length > 0) {
+                            updatedSummary.push({ ...item, issues: remaining });
+                        } else {
+                            newlyPassedItem = {
+                                record_id: targetRecordId,
+                                lg_number: item.lg_number,
+                                message: 'Reviewed & approved by user',
+                            };
+                        }
+                    }
+                }
+
+                return {
+                    ...prev,
+                    audit_summary: updatedSummary,
+                    audited_passed: newlyPassedItem ? [...currentPassed, newlyPassedItem] : currentPassed,
+                };
+            });
+        } catch (err) {
+            console.error('Failed to dismiss AI discrepancy:', err);
+            alert(`Failed to dismiss AI warning: ${err.message || 'Unexpected error'}`);
+        }
+    };
+
+    const handleDismissAllAiDiscrepancies = async () => {
+        if (!auditReport?.audit_summary?.length) return;
+        for (const item of auditReport.audit_summary) {
+            await handleDismissAiDiscrepancy(item.record_id, item.lg_number, null);
+        }
+    };
+
     // Close the preview modal
     const closePreviewModal = () => {
         setPreviewModalOpen(false);
@@ -1587,21 +1679,53 @@ function MigrationUploadPage() {
                     {/* 2. Discrepancies Found */}
                     {auditReport.audit_summary && auditReport.audit_summary.length > 0 && (
                         <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                            <div className="flex items-center gap-2 mb-2">
-                                <AlertTriangle className="w-4 h-4 text-red-600" />
-                                <h4 className="font-bold text-red-800 text-sm">
-                                    Discrepancies Found ({auditReport.audit_summary.length})
-                                </h4>
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <div className="flex items-center gap-2">
+                                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                                    <h4 className="font-bold text-red-800 text-sm">
+                                        Discrepancies Found ({auditReport.audit_summary.length})
+                                    </h4>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleDismissAllAiDiscrepancies}
+                                    className="px-3 py-1 bg-white text-green-700 border border-green-300 rounded text-xs font-semibold hover:bg-green-50 transition-colors shadow-sm"
+                                    title="Skip all AI discrepancy notes and mark these records as approved"
+                                >
+                                    ✓ Skip All & Approve All ({auditReport.audit_summary.length})
+                                </button>
                             </div>
+                            <p className="text-xs text-red-700 mb-2">
+                                If you have verified that your Excel data is accurate (for example, when a bank updated the LG number format), you can skip individual notes or approve the record.
+                            </p>
                             <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                                 {auditReport.audit_summary.map((item, idx) => (
                                     <div key={idx} className="bg-white p-3 rounded border border-red-100 text-xs shadow-sm">
-                                        <span className="font-bold text-gray-800">
-                                            {item.lg_number} {item.files_checked ? `(${item.files_checked.join(', ')})` : ''}:
-                                        </span>
-                                        <ul className="list-disc list-inside ml-2 mt-1 text-red-700 space-y-0.5">
+                                        <div className="flex items-center justify-between gap-2 mb-1">
+                                            <span className="font-bold text-gray-800">
+                                                {item.lg_number} {item.files_checked ? `(${item.files_checked.join(', ')})` : ''}:
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDismissAiDiscrepancy(item.record_id, item.lg_number, null)}
+                                                className="px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-300 rounded text-[11px] font-semibold hover:bg-green-100 transition-colors"
+                                            >
+                                                ✓ Ignore All & Approve LG
+                                            </button>
+                                        </div>
+                                        <ul className="ml-1 mt-1 text-red-700 space-y-1">
                                             {item.issues.map((issue, i) => (
-                                                <li key={i}>{issue}</li>
+                                                <li key={i} className="flex items-center justify-between gap-2 py-0.5 border-b border-gray-50 last:border-0">
+                                                    <span>• {issue}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDismissAiDiscrepancy(item.record_id, item.lg_number, issue)}
+                                                        className="px-2 py-0.5 text-[10px] font-semibold text-gray-600 bg-gray-100 hover:bg-green-100 hover:text-green-800 rounded transition-colors shrink-0"
+                                                        title="Skip this specific AI note"
+                                                    >
+                                                        Skip Note
+                                                    </button>
+                                                </li>
                                             ))}
                                         </ul>
                                     </div>
@@ -1674,6 +1798,7 @@ function MigrationUploadPage() {
                         internalOwners={internalOwners}
                         uploadedAttachments={uploadedAttachments}
                         onLocateFolder={() => ensureLocalAttachmentsSynced(true)}
+                        onDismissAi={handleDismissAiDiscrepancy}
 					/>
                 </div>
             )}
