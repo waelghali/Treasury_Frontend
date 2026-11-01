@@ -1,11 +1,12 @@
 // frontend/src/pages/CorporateAdmin/MigrationUploadPage.js
 
 import React, { useState, useEffect } from 'react';
-import { Upload, Layers, Clock, CalendarX, Copy, Loader2, CheckCircle, XCircle, Eye, AlertCircle, Zap, Edit, Save, Trash2, RotateCcw, CloudUpload, Filter, TrendingUp, History, X, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Upload, Layers, Clock, CalendarX, Copy, Loader2, CheckCircle, XCircle, Eye, AlertCircle, Zap, Edit, Save, Trash2, RotateCcw, CloudUpload, Filter, TrendingUp, History, X, ShieldCheck, AlertTriangle, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // IMPORTING THE CENTRALIZED API SERVICE
 import { apiRequest } from 'services/apiService';
+import InternalOwnerFormModal from '../../components/Modals/InternalOwnerFormModal';
 
 // =====================================================================
 // NEW: History Preview Modal Component
@@ -128,7 +129,7 @@ const ALL_LG_FIELDS = [
 ];
 
 // UPDATED: Component to render the dynamic table of staged records with editing functionality
-const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordDelete, selectedRecords, onToggleSelect, onToggleSelectAll, currencies, getCurrencyCodeById, lgTypes, getLgTypeNameById, issuingMethods, getIssuingMethodNameById, rules, getRuleNameById, banks, getBankNameById, entities, getEntityNameById, lgCategories, getLgCategoryNameById, lgOperationalStatuses, getLgOperationalStatusNameById }) => {
+const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordDelete, selectedRecords, onToggleSelect, onToggleSelectAll, currencies, getCurrencyCodeById, lgTypes, getLgTypeNameById, issuingMethods, getIssuingMethodNameById, rules, getRuleNameById, banks, getBankNameById, entities, getEntityNameById, lgCategories, getLgCategoryNameById, lgOperationalStatuses, getLgOperationalStatusNameById, internalOwners = [] }) => {
     const [editingId, setEditingId] = useState(null);
     const [editFormData, setEditFormData] = useState({});
 
@@ -426,12 +427,22 @@ const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordD
                                                         ))}
                                                     </select>
                                                 ) : isEditingField && !isImported ? (
-                                                    <input
-                                                        type={inputType}
-                                                        value={displayValue}
-                                                        onChange={(e) => handleEditChange(key, e.target.value)}
-                                                        className="w-full text-sm rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                                    />
+                                                    <>
+                                                        <input
+                                                            type={inputType}
+                                                            list={key === 'internal_owner_email' ? `internal-owners-list-${record.id}` : undefined}
+                                                            value={displayValue}
+                                                            onChange={(e) => handleEditChange(key, e.target.value)}
+                                                            className="w-full text-sm rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                                        />
+                                                        {key === 'internal_owner_email' && internalOwners.length > 0 && (
+                                                            <datalist id={`internal-owners-list-${record.id}`}>
+                                                                {internalOwners.map(owner => (
+                                                                    <option key={owner.id} value={owner.email} />
+                                                                ))}
+                                                            </datalist>
+                                                        )}
+                                                    </>
                                                 ) : (
                                                     <span>{displayValue || 'N/A'}</span>
                                                 )}
@@ -468,6 +479,8 @@ function MigrationUploadPage() {
     const [entities, setEntities] = useState([]);
     const [lgCategories, setLgCategories] = useState([]);
     const [lgOperationalStatuses, setLgOperationalStatuses] = useState([]);
+    const [internalOwners, setInternalOwners] = useState([]);
+    const [isAddOwnerModalOpen, setIsAddOwnerModalOpen] = useState(false);
 
     // NEW: State for filtering
     const [filterStatus, setFilterStatus] = useState('');
@@ -587,6 +600,17 @@ function MigrationUploadPage() {
             console.error('Failed to fetch currencies:', err);
         }
     };
+    const fetchInternalOwners = async () => {
+        try {
+            const ownersData = await apiRequest('/end-user/internal-owner-contacts/with-lg-count', 'GET');
+            if (Array.isArray(ownersData)) {
+                setInternalOwners(ownersData);
+            }
+        } catch (err) {
+            console.error('Failed to fetch internal owners:', err);
+        }
+    };
+
     // NEW: Fetching for other lookup tables
     const fetchLookups = async () => {
         try {
@@ -615,6 +639,7 @@ function MigrationUploadPage() {
     useEffect(() => {
         fetchCurrencies();
         fetchLookups();
+        fetchInternalOwners();
     }, []); // Empty dependency array ensures this runs only once on mount.
 
     useEffect(() => {
@@ -691,17 +716,25 @@ function MigrationUploadPage() {
     };
 		
     const handleFinalizeMigration = async () => {
+        const eligibleStatuses = ['READY_FOR_IMPORT', 'EXPIRED', 'DUPLICATE'];
         const readyRecordsCount = stagedRecords.filter(rec => rec.record_status === 'READY_FOR_IMPORT').length;
-        if (readyRecordsCount === 0) {
+        const lgNumbersToImport = [...new Set(
+            stagedRecords
+                .filter(rec => eligibleStatuses.includes(rec.record_status) && rec.source_data_json?.lg_number)
+                .map(rec => rec.source_data_json.lg_number)
+        )];
+        const isHistoricalImport = lgNumbersToImport.some(
+            lgNum => stagedRecords.filter(rec => rec.source_data_json?.lg_number === lgNum).length > 1
+        );
+
+        if (readyRecordsCount === 0 && !isHistoricalImport) {
             setUploadMessage('There are no records ready for import.');
             setIsSuccess(false);
             return;
         }
 
-        const lgNumbersToImport = [...new Set(stagedRecords.filter(rec => rec.record_status === 'READY_FOR_IMPORT').map(rec => rec.source_data_json.lg_number))];
-        const isHistoricalImport = lgNumbersToImport.some(lgNum => stagedRecords.filter(rec => rec.source_data_json.lg_number === lgNum).length > 1);
-
-        if (!window.confirm(`Are you sure you want to finalize the migration and import ${readyRecordsCount} records? This action cannot be undone.`)) {
+        const countToConfirm = isHistoricalImport ? lgNumbersToImport.length : readyRecordsCount;
+        if (!window.confirm(`Are you sure you want to finalize the migration and import ${countToConfirm} LG(s)? This action cannot be undone.`)) {
             return;
         }
 
@@ -954,7 +987,12 @@ function MigrationUploadPage() {
         }
     };
     
-    const hasReadyRecords = stagedRecords.some(rec => rec.record_status === 'READY_FOR_IMPORT');
+    const hasReadyRecords = stagedRecords.some(rec => rec.record_status === 'READY_FOR_IMPORT') ||
+        stagedRecords.some(rec =>
+            ['READY_FOR_IMPORT', 'EXPIRED', 'DUPLICATE'].includes(rec.record_status) &&
+            rec.source_data_json?.lg_number &&
+            stagedRecords.filter(r => r.source_data_json?.lg_number === rec.source_data_json.lg_number).length > 1
+        );
     const hasUnprocessedRecords = stagedRecords.some(rec => rec.record_status === 'PENDING' || rec.record_status === 'ERROR');
 
     const inputClassNames = "mt-1 block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none";
@@ -963,6 +1001,17 @@ function MigrationUploadPage() {
     return (
         <div className="bg-white p-6 md:p-4 rounded-xl shadow-2xl max-w-full mx-auto my-6 font-sans overflow-x-auto">
             {previewModalOpen && <HistoryPreviewModal lgHistory={previewModalData} onClose={closePreviewModal} />}
+            {isAddOwnerModalOpen && (
+                <InternalOwnerFormModal
+                    owner={null}
+                    onClose={() => setIsAddOwnerModalOpen(false)}
+                    onSuccess={() => {
+                        setIsAddOwnerModalOpen(false);
+                        fetchInternalOwners();
+                    }}
+                    isGracePeriod={false}
+                />
+            )}
 
             {uploadMessage && (
                 <div className={`p-4 mb-4 text-sm rounded-lg border-l-4 ${isSuccess ? 'bg-green-100 text-green-700 border-green-500' : 'bg-red-100 text-red-700 border-red-500'}`} role="alert">
@@ -1148,6 +1197,15 @@ function MigrationUploadPage() {
                             <History className="w-4 h-4 mr-2" />
                             Preview Historical Import
                         </button>
+                        <button
+                            type="button"
+                            onClick={() => setIsAddOwnerModalOpen(true)}
+                            disabled={isLoading}
+                            className="w-full flex items-center justify-center px-6 py-3 text-sm font-medium rounded-lg shadow-md transition-all duration-200 bg-teal-600 text-white hover:bg-teal-700 hover:shadow-lg"
+                        >
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            Add New Internal Owner ({internalOwners.length} Existing)
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1301,6 +1359,7 @@ function MigrationUploadPage() {
                         getLgCategoryNameById={getLgCategoryNameById}
                         lgOperationalStatuses={lgOperationalStatuses}
                         getLgOperationalStatusNameById={getLgOperationalStatusNameById}
+                        internalOwners={internalOwners}
 					/>
                 </div>
             )}

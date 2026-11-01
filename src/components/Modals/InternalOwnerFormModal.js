@@ -72,9 +72,7 @@ const InternalOwnerFormModal = ({ owner, onClose, onSuccess, isGracePeriod }) =>
             if (isEditMode) {
                 response = await apiRequest(`/end-user/internal-owner-contacts/${owner.id}`, 'PUT', payload);
             } else {
-                toast.error("Adding new internal owners directly is not currently supported via this form. Owners are typically added when changing an LG's owner.");
-                setSubmitting(false);
-                return;
+                response = await apiRequest('/end-user/internal-owner-contacts', 'POST', payload);
             }
 
             if (response.approval_request_id) {

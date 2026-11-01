@@ -1,10 +1,13 @@
 // src/pages/Auth/ForgotPasswordPage.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from 'services/apiService';
-import { Mail, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Mail, Loader2, ArrowLeft, CheckCircle, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import HoneypotField from '../../components/Security/HoneypotField';
+
+const COOLDOWN_STORAGE_KEY = 'grow_pwd_reset_cooldown_until';
+const DEFAULT_COOLDOWN_SECONDS = 60;
 
 function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -12,9 +15,41 @@ function ForgotPasswordPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(() => {
+    const savedUntil = sessionStorage.getItem(COOLDOWN_STORAGE_KEY);
+    if (savedUntil) {
+      const remaining = Math.ceil((parseInt(savedUntil, 10) - Date.now()) / 1000);
+      return remaining > 0 ? remaining : 0;
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    if (cooldown <= 0) {
+      sessionStorage.removeItem(COOLDOWN_STORAGE_KEY);
+      return undefined;
+    }
+    const timer = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          sessionStorage.removeItem(COOLDOWN_STORAGE_KEY);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
+
+  const startCooldown = (seconds = DEFAULT_COOLDOWN_SECONDS) => {
+    const until = Date.now() + seconds * 1000;
+    sessionStorage.setItem(COOLDOWN_STORAGE_KEY, until.toString());
+    setCooldown(seconds);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (cooldown > 0) return;
     setMessage('');
     setError('');
     setIsLoading(true);
@@ -30,13 +65,24 @@ function ForgotPasswordPage() {
         ? ''
         : websiteUrl;
 
-      await fetch(`${API_BASE_URL}/forgot-password`, {
+      const response = await fetch(`${API_BASE_URL}/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, website_url: safeWebsiteUrl }),
+        body: JSON.stringify({ email: email.trim(), website_url: safeWebsiteUrl }),
       });
 
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const detail = errData.detail || 'Unable to process password reset request. Please try again.';
+        if (response.status === 429) {
+          const match = detail.match(/(\d+)\s*seconds?/i);
+          startCooldown(match ? parseInt(match[1], 10) : DEFAULT_COOLDOWN_SECONDS);
+        }
+        throw new Error(detail);
+      }
+
       setMessage('If an account with that email exists, a password reset link has been sent to your inbox.');
+      startCooldown(DEFAULT_COOLDOWN_SECONDS);
     } catch (err) {
       setError(err.message || 'An unexpected error occurred. Please try again.');
     } finally {
@@ -111,11 +157,13 @@ function ForgotPasswordPage() {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center py-3 px-4 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50"
-              disabled={isLoading}
+              className="w-full flex items-center justify-center py-3 px-4 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading || cooldown > 0}
             >
               {isLoading ? (
                 <><Loader2 className="animate-spin h-4 w-4 mr-2" /> Sending...</>
+              ) : cooldown > 0 ? (
+                <><Clock className="h-4 w-4 mr-2" /> Resend available in {cooldown}s</>
               ) : (
                 <><Mail className="h-4 w-4 mr-2" /> Send Reset Link</>
               )}
