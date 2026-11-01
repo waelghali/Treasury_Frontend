@@ -1,6 +1,6 @@
 // frontend/src/pages/CorporateAdmin/MigrationUploadPage.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Layers, Clock, CalendarX, Copy, Loader2, CheckCircle, XCircle, Eye, AlertCircle, Zap, Edit, Save, Trash2, RotateCcw, CloudUpload, Filter, TrendingUp, History, X, ShieldCheck, AlertTriangle, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -152,7 +152,7 @@ const ALL_LG_FIELDS = [
 ];
 
 // UPDATED: Component to render the dynamic table of staged records with editing functionality
-const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordDelete, selectedRecords, onToggleSelect, onToggleSelectAll, currencies, getCurrencyCodeById, lgTypes, getLgTypeNameById, issuingMethods, getIssuingMethodNameById, rules, getRuleNameById, banks, getBankNameById, entities, getEntityNameById, lgCategories, getLgCategoryNameById, lgOperationalStatuses, getLgOperationalStatusNameById, internalOwners = [], uploadedAttachments = [] }) => {
+const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordDelete, selectedRecords, onToggleSelect, onToggleSelectAll, currencies, getCurrencyCodeById, lgTypes, getLgTypeNameById, issuingMethods, getIssuingMethodNameById, rules, getRuleNameById, banks, getBankNameById, entities, getEntityNameById, lgCategories, getLgCategoryNameById, lgOperationalStatuses, getLgOperationalStatusNameById, internalOwners = [], uploadedAttachments = [], onLocateFolder }) => {
     const [editingId, setEditingId] = useState(null);
     const [editFormData, setEditFormData] = useState({});
 
@@ -471,14 +471,26 @@ const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordD
                                                     (() => {
                                                         const rawAtt = recordData.attachment_url || recordData.attachement || recordData.attachment || recordData.file_path || '';
                                                         if (!rawAtt) return <span className="text-gray-400">N/A</span>;
+                                                        const isRemoteUrl = /^(https?:\/\/|gs:\/\/)/i.test(String(rawAtt).trim());
                                                         const baseName = String(rawAtt).replace(/\\/g, '/').split('/').pop().trim();
-                                                        const isUploaded = uploadedAttachments.some(f => f.toLowerCase() === baseName.toLowerCase());
+                                                        const isUploaded = isRemoteUrl || uploadedAttachments.some(f => f.toLowerCase() === baseName.toLowerCase());
                                                         return (
                                                             <div className="flex flex-col space-y-1">
                                                                 <span className="text-xs font-mono text-gray-800" title={rawAtt}>{baseName}</span>
-                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold w-max ${isUploaded ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
-                                                                    {isUploaded ? '✓ PDF Staged' : '⚠ Upload PDF Required'}
-                                                                </span>
+                                                                {isUploaded ? (
+                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold w-max bg-green-100 text-green-800">
+                                                                        ✓ Encrypted & Ready
+                                                                    </span>
+                                                                ) : (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => onLocateFolder && onLocateFolder()}
+                                                                        className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold w-max bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors cursor-pointer"
+                                                                        title="Click to select the local folder containing your PDF scans"
+                                                                    >
+                                                                        ⚠ Local Path (Auto-Read on Audit/Import)
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         );
                                                     })()
@@ -544,8 +556,8 @@ function MigrationUploadPage() {
     const [isAuditing, setIsAuditing] = useState(false);
     const [auditReport, setAuditReport] = useState(null);
     const [uploadedAttachments, setUploadedAttachments] = useState([]);
-    const [selectedAttachmentFiles, setSelectedAttachmentFiles] = useState([]);
-    const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
+    const folderInputRef = useRef(null);
+    const pendingFolderResolverRef = useRef(null);
     
     // NEW: Helper function to map currency ID to ISO code for display
     const getCurrencyCodeById = (id) => {
@@ -680,33 +692,139 @@ function MigrationUploadPage() {
     const fetchUploadedAttachments = async () => {
         try {
             const res = await apiRequest('/corporate-admin/migration/uploaded-attachments', 'GET');
-            if (res && Array.isArray(res.files)) {
-                setUploadedAttachments(res.files);
+            const list = res?.files || res?.uploaded_files || [];
+            if (Array.isArray(list)) {
+                setUploadedAttachments(list);
+                return list;
             }
         } catch (err) {
             console.error('Failed to fetch uploaded attachments:', err);
         }
+        return [];
     };
 
-    const handleUploadAttachments = async () => {
-        if (!selectedAttachmentFiles || selectedAttachmentFiles.length === 0) return;
-        setIsUploadingAttachments(true);
-        try {
-            const formData = new FormData();
-            Array.from(selectedAttachmentFiles).forEach((file) => {
-                formData.append('files', file);
-            });
-            const res = await apiRequest('/corporate-admin/migration/upload-attachments', 'POST', formData);
-            setSelectedAttachmentFiles([]);
-            await fetchUploadedAttachments();
-            setUploadMessage(res?.message || `Uploaded ${selectedAttachmentFiles.length} PDF attachment(s) for AI Audit.`);
-            setIsSuccess(true);
-        } catch (err) {
-            setUploadMessage(`Failed to upload PDF attachments: ${err.message || 'An unexpected error occurred.'}`);
-            setIsSuccess(false);
-        } finally {
-            setIsUploadingAttachments(false);
+    const getMissingLocalAttachmentNames = (currentUploadedList = uploadedAttachments) => {
+        const uploadedSet = new Set((currentUploadedList || []).map(f => String(f).toLowerCase()));
+        const missingSet = new Set();
+
+        stagedRecords.forEach(rec => {
+            if (rec.record_status === 'IMPORTED') return;
+            const data = rec.source_data_json || {};
+            const rawAtt = data.attachment_url || data.attachement || data.attachment || data.file_path || '';
+            if (!rawAtt) return;
+            const cleanStr = String(rawAtt).trim();
+            if (!cleanStr || /^(https?:\/\/|gs:\/\/)/i.test(cleanStr)) return;
+            const baseName = cleanStr.replace(/\\/g, '/').split('/').pop().trim();
+            if (baseName && !uploadedSet.has(baseName.toLowerCase())) {
+                missingSet.add(baseName);
+            }
+        });
+
+        return Array.from(missingSet);
+    };
+
+    const uploadMatchedFilesToServer = async (matchedFiles) => {
+        if (!matchedFiles || matchedFiles.length === 0) return false;
+        const formData = new FormData();
+        matchedFiles.forEach(file => formData.append('files', file));
+        await apiRequest('/corporate-admin/migration/upload-attachments', 'POST', formData);
+        await fetchUploadedAttachments();
+        return true;
+    };
+
+    const handleFolderInputSelected = async (e) => {
+        const files = Array.from(e.target.files || []);
+        e.target.value = '';
+        const resolver = pendingFolderResolverRef.current;
+        pendingFolderResolverRef.current = null;
+
+        if (files.length === 0) {
+            if (resolver) resolver(false);
+            return;
         }
+
+        try {
+            const missingNames = getMissingLocalAttachmentNames();
+            const missingLower = new Set(missingNames.map(n => n.toLowerCase()));
+            const matched = files.filter(f => missingLower.size === 0 || missingLower.has(f.name.toLowerCase()));
+
+            if (matched.length > 0) {
+                await uploadMatchedFilesToServer(matched);
+                setUploadMessage(`Automatically read & encrypted ${matched.length} matching PDF file(s) from your folder.`);
+                setIsSuccess(true);
+                if (resolver) resolver(true);
+            } else {
+                alert(`None of the required files (${missingNames.slice(0, 5).join(', ')}) were found in the selected folder.`);
+                if (resolver) resolver(false);
+            }
+        } catch (err) {
+            console.error('Failed to sync files from folder:', err);
+            if (resolver) resolver(false);
+        }
+    };
+
+    const ensureLocalAttachmentsSynced = async (forcePrompt = false) => {
+        const latestUploaded = await fetchUploadedAttachments();
+        const missingNames = getMissingLocalAttachmentNames(latestUploaded);
+        if (missingNames.length === 0 && !forcePrompt) {
+            return true;
+        }
+
+        const sampleList = missingNames.slice(0, 4).join(', ') + (missingNames.length > 4 ? ` (+${missingNames.length - 4} more)` : '');
+        const confirmed = window.confirm(
+            missingNames.length > 0
+                ? `Your staged records reference ${missingNames.length} local file(s) on your computer:\n${sampleList}\n\nClick OK to select the folder on your computer containing these files so the system can read and encrypt them automatically.`
+                : `Select the folder on your computer containing your scanned LG PDF files:`
+        );
+        if (!confirmed) {
+            return false;
+        }
+
+        // Prefer modern File System Access API (Chrome / Edge) for 1-click recursive directory reading
+        if (typeof window.showDirectoryPicker === 'function') {
+            try {
+                const dirHandle = await window.showDirectoryPicker();
+                const missingLower = new Set(missingNames.map(n => n.toLowerCase()));
+                const matchedFiles = [];
+
+                const scanDir = async (handle, depth = 0) => {
+                    if (depth > 4) return;
+                    for await (const entry of handle.values()) {
+                        if (entry.kind === 'file') {
+                            if (missingLower.size === 0 || missingLower.has(entry.name.toLowerCase())) {
+                                const fileObj = await entry.getFile();
+                                matchedFiles.push(fileObj);
+                            }
+                        } else if (entry.kind === 'directory') {
+                            await scanDir(entry, depth + 1);
+                        }
+                    }
+                };
+
+                await scanDir(dirHandle);
+                if (matchedFiles.length > 0) {
+                    await uploadMatchedFilesToServer(matchedFiles);
+                    setUploadMessage(`Automatically read & encrypted ${matchedFiles.length} matching PDF file(s) from your folder.`);
+                    setIsSuccess(true);
+                    return true;
+                } else {
+                    alert(`Could not find the referenced files (${sampleList}) inside the selected folder.`);
+                    return false;
+                }
+            } catch (err) {
+                if (err?.name === 'AbortError') return false;
+                console.warn('showDirectoryPicker fallback to webkitdirectory input:', err);
+            }
+        }
+
+        // Fallback to standard folder input (<input webkitdirectory />)
+        if (folderInputRef.current) {
+            return new Promise((resolve) => {
+                pendingFolderResolverRef.current = resolve;
+                folderInputRef.current.click();
+            });
+        }
+        return false;
     };
 
     // EFFICIENT DATA FETCHING: Separate effects for static lookups and dynamic records
@@ -817,6 +935,7 @@ function MigrationUploadPage() {
         setUploadMessage('');
 
         try {
+            await ensureLocalAttachmentsSynced(false);
             let response;
             if (isHistoricalImport) {
                 const importBody = {
@@ -1007,10 +1126,12 @@ function MigrationUploadPage() {
         setIsAuditing(true);
         setAuditReport(null); // Clear previous results
         try {
+            await ensureLocalAttachmentsSynced(false);
             // Using the centralized apiRequest instead of raw fetch
             const result = await apiRequest('/corporate-admin/migration/staged/audit', 'POST');
             setAuditReport(result);
             await fetchStagedRecords();
+            await fetchUploadedAttachments();
 
             const passedCount = result.audited_passed?.length || 0;
             const discrepancyCount = result.audit_summary?.length || 0;
@@ -1080,6 +1201,15 @@ function MigrationUploadPage() {
 
     return (
         <div className="bg-white p-6 md:p-4 rounded-xl shadow-2xl max-w-full mx-auto my-6 font-sans overflow-x-auto">
+            <input
+                type="file"
+                ref={folderInputRef}
+                onChange={handleFolderInputSelected}
+                webkitdirectory="true"
+                directory="true"
+                multiple
+                className="hidden"
+            />
             {previewModalOpen && <HistoryPreviewModal lgHistory={previewModalData} onClose={closePreviewModal} />}
             {isAddOwnerModalOpen && (
                 <InternalOwnerFormModal
@@ -1235,44 +1365,6 @@ function MigrationUploadPage() {
                         {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
                         Stage Records
                     </button>
-
-                    {/* PDF Attachment Upload for AI Audit & Migration */}
-                    <div className="mt-5 pt-4 border-t border-gray-200">
-                        <div className="flex items-center justify-between mb-2">
-                            <label className="text-sm font-semibold text-gray-800">
-                                Upload Scanned PDFs for Attachment Column
-                            </label>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-semibold">
-                                {uploadedAttachments.length} PDF(s) on Server
-                            </span>
-                        </div>
-                        <p className="text-xs text-gray-500 mb-2">
-                            Select the scanned LG / amendment PDF files referenced in your Excel <code className="bg-gray-200 px-1 rounded">ATTACHMENT</code> column so AI Audit and Finalize Migration can read them.
-                        </p>
-                        <div className="flex flex-col sm:flex-row gap-2 items-center">
-                            <input
-                                type="file"
-                                multiple
-                                accept=".pdf,image/*"
-                                onChange={(e) => setSelectedAttachmentFiles(e.target.files)}
-                                className={inputClassNames}
-                                disabled={isUploadingAttachments}
-                            />
-                            <button
-                                type="button"
-                                onClick={handleUploadAttachments}
-                                disabled={isUploadingAttachments || !selectedAttachmentFiles || selectedAttachmentFiles.length === 0}
-                                className={`px-4 py-2 text-xs font-semibold rounded-lg shadow-sm whitespace-nowrap flex items-center ${
-                                    isUploadingAttachments || !selectedAttachmentFiles || selectedAttachmentFiles.length === 0
-                                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                                }`}
-                            >
-                                {isUploadingAttachments && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-                                Upload PDFs ({selectedAttachmentFiles?.length || 0})
-                            </button>
-                        </div>
-                    </div>
                 </div>
 
                 {/* Processing and Import Actions */}
@@ -1493,14 +1585,23 @@ function MigrationUploadPage() {
                     {/* 3. Skipped Records */}
                     {auditReport.skipped_records && auditReport.skipped_records.length > 0 && (
                         <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                            <div className="flex items-center gap-2 mb-1.5">
-                                <AlertCircle className="w-4 h-4 text-amber-600" />
-                                <h4 className="font-bold text-amber-800 text-sm">
-                                    Skipped — Not Audited ({auditReport.skipped_records.length})
-                                </h4>
+                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                                <div className="flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                                    <h4 className="font-bold text-amber-800 text-sm">
+                                        Skipped — Not Audited ({auditReport.skipped_records.length})
+                                    </h4>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => ensureLocalAttachmentsSynced(true)}
+                                    className="px-3 py-1 bg-amber-600 text-white rounded text-xs font-semibold hover:bg-amber-700 transition-colors"
+                                >
+                                    Locate Local Folder
+                                </button>
                             </div>
                             <p className="text-xs text-amber-700 mb-2">
-                                These records were not audited by AI because their PDF files were either not specified in the Excel file or have not been uploaded to the server yet. Use the <strong>Upload Scanned PDFs</strong> box above to upload them.
+                                These records were not audited because their local PDF files have not been read from your computer yet or no attachment path was provided.
                             </p>
                             <div className="space-y-1.5 max-h-48 overflow-y-auto pr-2">
                                 {auditReport.skipped_records.map((item, idx) => (
@@ -1544,6 +1645,7 @@ function MigrationUploadPage() {
                         getLgOperationalStatusNameById={getLgOperationalStatusNameById}
                         internalOwners={internalOwners}
                         uploadedAttachments={uploadedAttachments}
+                        onLocateFolder={() => ensureLocalAttachmentsSynced(true)}
 					/>
                 </div>
             )}
