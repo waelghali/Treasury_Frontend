@@ -102,14 +102,37 @@ const HistoryPreviewModal = ({ lgHistory, onClose }) => {
 
 // Component to display a single validation log entry as a card.
 const ValidationLogCard = ({ field, message }) => {
+    const msgStr = String(message || '');
+    const isAuditPassed = field === 'ai_audit_status' && msgStr.startsWith('AUDITED_PASSED');
+    const isAuditSkipped = field === 'ai_audit_status' && msgStr.startsWith('SKIPPED');
+
+    const borderClass = isAuditPassed
+        ? 'border-green-500'
+        : isAuditSkipped
+            ? 'border-amber-500'
+            : 'border-red-500';
+    const iconBgClass = isAuditPassed
+        ? 'bg-green-100 group-hover:bg-green-200'
+        : isAuditSkipped
+            ? 'bg-amber-100 group-hover:bg-amber-200'
+            : 'bg-red-100 group-hover:bg-red-200';
+
     return (
-        <div className="group bg-white border-l-4 border-red-500 rounded-r-lg p-3 flex items-start space-x-3 text-xs shadow-sm hover:shadow-md transition-all mb-2 border-y border-r border-gray-100">
-            <div className="bg-red-100 p-1 rounded-full group-hover:bg-red-200 transition-colors">
-                <AlertCircle className="h-3.5 w-3.5 text-red-600" />
+        <div className={`group bg-white border-l-4 ${borderClass} rounded-r-lg p-3 flex items-start space-x-3 text-xs shadow-sm hover:shadow-md transition-all mb-2 border-y border-r border-gray-100`}>
+            <div className={`${iconBgClass} p-1 rounded-full transition-colors`}>
+                {isAuditPassed ? (
+                    <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                ) : isAuditSkipped ? (
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                ) : (
+                    <AlertCircle className="h-3.5 w-3.5 text-red-600" />
+                )}
             </div>
             <div className="flex-1">
-                <p className="font-bold text-gray-700 uppercase tracking-wide text-[10px]">{field}</p>
-                <p className="text-gray-600 mt-0.5 font-medium">{message}</p>
+                <p className="font-bold text-gray-700 uppercase tracking-wide text-[10px]">
+                    {field === 'ai_audit_status' ? 'AI AUDIT STATUS' : field}
+                </p>
+                <p className="text-gray-600 mt-0.5 font-medium">{msgStr}</p>
             </div>
         </div>
     );
@@ -117,7 +140,7 @@ const ValidationLogCard = ({ field, message }) => {
 
 // Define a master list of all LG fields to ensure all columns are always rendered
 const ALL_LG_FIELDS = [
-    'lg_number', 'lg_amount', 'lg_currency_id', 'lg_payable_currency_id',
+    'lg_number', 'attachment_url', 'lg_amount', 'lg_currency_id', 'lg_payable_currency_id',
     'issuance_date', 'expiry_date', 'auto_renewal', 'lg_type_id',
     'lg_operational_status_id', 'payment_conditions', 'description_purpose',
     'issuer_name', 'issuer_id', 'beneficiary_corporate_id', 'issuing_bank_id',
@@ -129,7 +152,7 @@ const ALL_LG_FIELDS = [
 ];
 
 // UPDATED: Component to render the dynamic table of staged records with editing functionality
-const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordDelete, selectedRecords, onToggleSelect, onToggleSelectAll, currencies, getCurrencyCodeById, lgTypes, getLgTypeNameById, issuingMethods, getIssuingMethodNameById, rules, getRuleNameById, banks, getBankNameById, entities, getEntityNameById, lgCategories, getLgCategoryNameById, lgOperationalStatuses, getLgOperationalStatusNameById, internalOwners = [] }) => {
+const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordDelete, selectedRecords, onToggleSelect, onToggleSelectAll, currencies, getCurrencyCodeById, lgTypes, getLgTypeNameById, issuingMethods, getIssuingMethodNameById, rules, getRuleNameById, banks, getBankNameById, entities, getEntityNameById, lgCategories, getLgCategoryNameById, lgOperationalStatuses, getLgOperationalStatusNameById, internalOwners = [], uploadedAttachments = [] }) => {
     const [editingId, setEditingId] = useState(null);
     const [editFormData, setEditFormData] = useState({});
 
@@ -140,6 +163,7 @@ const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordD
     // Friendly names for headers
     const friendlyHeaderNames = {
         lg_number: 'LG Number',
+        attachment_url: 'Attachment (PDF)',
         lg_amount: 'Amount',
         lg_currency_id: 'Currency',
         lg_payable_currency_id: 'Payable Currency',
@@ -443,6 +467,21 @@ const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordD
                                                             </datalist>
                                                         )}
                                                     </>
+                                                ) : key === 'attachment_url' ? (
+                                                    (() => {
+                                                        const rawAtt = recordData.attachment_url || recordData.attachement || recordData.attachment || recordData.file_path || '';
+                                                        if (!rawAtt) return <span className="text-gray-400">N/A</span>;
+                                                        const baseName = String(rawAtt).replace(/\\/g, '/').split('/').pop().trim();
+                                                        const isUploaded = uploadedAttachments.some(f => f.toLowerCase() === baseName.toLowerCase());
+                                                        return (
+                                                            <div className="flex flex-col space-y-1">
+                                                                <span className="text-xs font-mono text-gray-800" title={rawAtt}>{baseName}</span>
+                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold w-max ${isUploaded ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
+                                                                    {isUploaded ? '✓ PDF Staged' : '⚠ Upload PDF Required'}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })()
                                                 ) : (
                                                     <span>{displayValue || 'N/A'}</span>
                                                 )}
@@ -504,6 +543,9 @@ function MigrationUploadPage() {
     // NEW: State for AI Audit
     const [isAuditing, setIsAuditing] = useState(false);
     const [auditReport, setAuditReport] = useState(null);
+    const [uploadedAttachments, setUploadedAttachments] = useState([]);
+    const [selectedAttachmentFiles, setSelectedAttachmentFiles] = useState([]);
+    const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
     
     // NEW: Helper function to map currency ID to ISO code for display
     const getCurrencyCodeById = (id) => {
@@ -635,11 +677,44 @@ function MigrationUploadPage() {
         }
     };
     
+    const fetchUploadedAttachments = async () => {
+        try {
+            const res = await apiRequest('/corporate-admin/migration/uploaded-attachments', 'GET');
+            if (res && Array.isArray(res.files)) {
+                setUploadedAttachments(res.files);
+            }
+        } catch (err) {
+            console.error('Failed to fetch uploaded attachments:', err);
+        }
+    };
+
+    const handleUploadAttachments = async () => {
+        if (!selectedAttachmentFiles || selectedAttachmentFiles.length === 0) return;
+        setIsUploadingAttachments(true);
+        try {
+            const formData = new FormData();
+            Array.from(selectedAttachmentFiles).forEach((file) => {
+                formData.append('files', file);
+            });
+            const res = await apiRequest('/corporate-admin/migration/upload-attachments', 'POST', formData);
+            setSelectedAttachmentFiles([]);
+            await fetchUploadedAttachments();
+            setUploadMessage(res?.message || `Uploaded ${selectedAttachmentFiles.length} PDF attachment(s) for AI Audit.`);
+            setIsSuccess(true);
+        } catch (err) {
+            setUploadMessage(`Failed to upload PDF attachments: ${err.message || 'An unexpected error occurred.'}`);
+            setIsSuccess(false);
+        } finally {
+            setIsUploadingAttachments(false);
+        }
+    };
+
     // EFFICIENT DATA FETCHING: Separate effects for static lookups and dynamic records
     useEffect(() => {
         fetchCurrencies();
         fetchLookups();
         fetchInternalOwners();
+        fetchUploadedAttachments();
     }, []); // Empty dependency array ensures this runs only once on mount.
 
     useEffect(() => {
@@ -935,12 +1010,17 @@ function MigrationUploadPage() {
             // Using the centralized apiRequest instead of raw fetch
             const result = await apiRequest('/corporate-admin/migration/staged/audit', 'POST');
             setAuditReport(result);
-          
-            // If issues found, they will be displayed in the red box
-            if (!result.audit_summary || result.audit_summary.length === 0) {
-                alert("✅ AI Audit Complete: No discrepancies found!");
-            }
+            await fetchStagedRecords();
 
+            const passedCount = result.audited_passed?.length || 0;
+            const discrepancyCount = result.audit_summary?.length || 0;
+            const skippedCount = result.skipped_records?.length || 0;
+
+            setUploadMessage(
+                result.message ||
+                `AI Audit Complete — Audited & Verified: ${passedCount}, Discrepancies: ${discrepancyCount}, Skipped: ${skippedCount}`
+            );
+            setIsSuccess(discrepancyCount === 0 && passedCount > 0);
         } catch (error) {
             console.error("Audit error:", error);
             alert(`Failed to run AI Audit: ${error.message || 'An unexpected error occurred.'}`);
@@ -1155,6 +1235,44 @@ function MigrationUploadPage() {
                         {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
                         Stage Records
                     </button>
+
+                    {/* PDF Attachment Upload for AI Audit & Migration */}
+                    <div className="mt-5 pt-4 border-t border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-semibold text-gray-800">
+                                Upload Scanned PDFs for Attachment Column
+                            </label>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-semibold">
+                                {uploadedAttachments.length} PDF(s) on Server
+                            </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-2">
+                            Select the scanned LG / amendment PDF files referenced in your Excel <code className="bg-gray-200 px-1 rounded">ATTACHMENT</code> column so AI Audit and Finalize Migration can read them.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-2 items-center">
+                            <input
+                                type="file"
+                                multiple
+                                accept=".pdf,image/*"
+                                onChange={(e) => setSelectedAttachmentFiles(e.target.files)}
+                                className={inputClassNames}
+                                disabled={isUploadingAttachments}
+                            />
+                            <button
+                                type="button"
+                                onClick={handleUploadAttachments}
+                                disabled={isUploadingAttachments || !selectedAttachmentFiles || selectedAttachmentFiles.length === 0}
+                                className={`px-4 py-2 text-xs font-semibold rounded-lg shadow-sm whitespace-nowrap flex items-center ${
+                                    isUploadingAttachments || !selectedAttachmentFiles || selectedAttachmentFiles.length === 0
+                                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                }`}
+                            >
+                                {isUploadingAttachments && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                                Upload PDFs ({selectedAttachmentFiles?.length || 0})
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Processing and Import Actions */}
@@ -1307,28 +1425,93 @@ function MigrationUploadPage() {
             </div>
             
             {/* --- AI AUDIT RESULTS SECTION --- */}
-            {auditReport && auditReport.audit_summary && auditReport.audit_summary.length > 0 && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg animate-fade-in">
-                    <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle className="w-5 h-5 text-red-600" />
-                        <h3 className="font-bold text-red-800">AI Audit Warnings</h3>
+            {auditReport && (
+                <div className="mb-6 p-5 bg-white border border-gray-200 rounded-xl shadow-sm space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+                        <div className="flex items-center gap-2">
+                            <ShieldCheck className="w-5 h-5 text-indigo-600" />
+                            <h3 className="font-bold text-gray-800 text-base">AI Document Audit Summary</h3>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                            <span className="px-3 py-1 rounded-full bg-green-100 text-green-800 border border-green-200">
+                                ✓ Audited & Verified: {auditReport.audited_passed?.length || 0}
+                            </span>
+                            <span className="px-3 py-1 rounded-full bg-red-100 text-red-800 border border-red-200">
+                                ✕ Discrepancies: {auditReport.audit_summary?.length || 0}
+                            </span>
+                            <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                                ⚠ Skipped: {auditReport.skipped_records?.length || 0}
+                            </span>
+                        </div>
                     </div>
-                    <p className="text-sm text-red-600 mb-3">
-                        The AI found discrepancies between your Excel data and the attached documents. 
-                        Please check the records below:
-                    </p>
-                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                        {auditReport.audit_summary.map((item, idx) => (
-                            <div key={idx} className="bg-white p-3 rounded border border-red-100 text-sm shadow-sm">
-                                <span className="font-bold text-gray-800">{item.lg_number}:</span>
-                                <ul className="list-disc list-inside ml-2 mt-1 text-gray-600">
-                                    {item.issues.map((issue, i) => (
-                                        <li key={i}>{issue}</li>
-                                    ))}
-                                </ul>
+
+                    {/* 1. Audited & Passed */}
+                    {auditReport.audited_passed && auditReport.audited_passed.length > 0 && (
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-center gap-2 mb-1.5">
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                                <h4 className="font-bold text-green-800 text-sm">
+                                    Audited & Verified ({auditReport.audited_passed.length})
+                                </h4>
                             </div>
-                        ))}
-                    </div>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                                {auditReport.audited_passed.map((item, idx) => (
+                                    <span key={idx} className="px-2.5 py-1 bg-white border border-green-200 rounded text-xs text-green-800 font-medium shadow-sm">
+                                        {item.lg_number} <span className="text-gray-400">({item.files_checked?.join(', ')})</span>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 2. Discrepancies Found */}
+                    {auditReport.audit_summary && auditReport.audit_summary.length > 0 && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                                <AlertTriangle className="w-4 h-4 text-red-600" />
+                                <h4 className="font-bold text-red-800 text-sm">
+                                    Discrepancies Found ({auditReport.audit_summary.length})
+                                </h4>
+                            </div>
+                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                {auditReport.audit_summary.map((item, idx) => (
+                                    <div key={idx} className="bg-white p-3 rounded border border-red-100 text-xs shadow-sm">
+                                        <span className="font-bold text-gray-800">
+                                            {item.lg_number} {item.files_checked ? `(${item.files_checked.join(', ')})` : ''}:
+                                        </span>
+                                        <ul className="list-disc list-inside ml-2 mt-1 text-red-700 space-y-0.5">
+                                            {item.issues.map((issue, i) => (
+                                                <li key={i}>{issue}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 3. Skipped Records */}
+                    {auditReport.skipped_records && auditReport.skipped_records.length > 0 && (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <div className="flex items-center gap-2 mb-1.5">
+                                <AlertCircle className="w-4 h-4 text-amber-600" />
+                                <h4 className="font-bold text-amber-800 text-sm">
+                                    Skipped — Not Audited ({auditReport.skipped_records.length})
+                                </h4>
+                            </div>
+                            <p className="text-xs text-amber-700 mb-2">
+                                These records were not audited by AI because their PDF files were either not specified in the Excel file or have not been uploaded to the server yet. Use the <strong>Upload Scanned PDFs</strong> box above to upload them.
+                            </p>
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-2">
+                                {auditReport.skipped_records.map((item, idx) => (
+                                    <div key={idx} className="bg-white px-3 py-2 rounded border border-amber-100 text-xs flex justify-between items-center">
+                                        <span className="font-bold text-gray-800">{item.lg_number}</span>
+                                        <span className="text-amber-700 font-medium">{item.reason}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
             
@@ -1360,6 +1543,7 @@ function MigrationUploadPage() {
                         lgOperationalStatuses={lgOperationalStatuses}
                         getLgOperationalStatusNameById={getLgOperationalStatusNameById}
                         internalOwners={internalOwners}
+                        uploadedAttachments={uploadedAttachments}
 					/>
                 </div>
             )}
