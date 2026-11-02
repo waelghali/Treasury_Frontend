@@ -1,12 +1,19 @@
 // src/components/CorporateMobileAlertsBanner.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { Smartphone, QrCode, Bell, CheckCircle2, X, BellOff, Sparkles } from 'lucide-react';
+import { Smartphone, QrCode, Bell, CheckCircle2, X, BellOff, Sparkles, Fingerprint } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
     getPushStatus,
     enablePush,
     disablePushOnThisDevice
 } from '../services/pushService';
+import {
+    isBiometricSupported,
+    getBiometricDisplayLabel,
+    getStoredBiometricInfo,
+    fetchBiometricRegistrationOptions,
+    enrollBiometricWithOptions,
+} from '../services/biometricService';
 import PushPairQrModal from './Modals/PushPairQrModal';
 import PushInstallGuideModal from './Modals/PushInstallGuideModal';
 
@@ -18,6 +25,8 @@ export default function CorporateMobileAlertsBanner({
 }) {
     const [status, setStatus] = useState('loading');
     const [busy, setBusy] = useState(false);
+    const [bioActive, setBioActive] = useState(() => getStoredBiometricInfo().hasBiometric);
+    const [preloadedBioRegOpts, setPreloadedBioRegOpts] = useState(null);
     const [showPairQrModal, setShowPairQrModal] = useState(false);
     const [showGuideModal, setShowGuideModal] = useState(false);
     const [isDismissed, setIsDismissed] = useState(() => {
@@ -32,6 +41,7 @@ export default function CorporateMobileAlertsBanner({
     const refreshStatus = useCallback(async () => {
         try {
             setStatus(await getPushStatus());
+            setBioActive(getStoredBiometricInfo().hasBiometric);
         } catch {
             setStatus('unsupported');
         }
@@ -39,7 +49,29 @@ export default function CorporateMobileAlertsBanner({
 
     useEffect(() => {
         refreshStatus();
+        if (isBiometricSupported() && !getStoredBiometricInfo().hasBiometric) {
+            fetchBiometricRegistrationOptions()
+                .then((opts) => setPreloadedBioRegOpts(opts))
+                .catch(() => {});
+        }
     }, [refreshStatus]);
+
+    const handleEnableBiometric = async () => {
+        setBusy(true);
+        try {
+            const opts = preloadedBioRegOpts || (await fetchBiometricRegistrationOptions());
+            await enrollBiometricWithOptions(opts);
+            setBioActive(true);
+            toast.success(`${getBiometricDisplayLabel()} login enabled on this device!`);
+        } catch (err) {
+            const isCancel = err?.name === 'NotAllowedError' || err?.name === 'AbortError';
+            if (!isCancel) {
+                toast.error(err?.response?.data?.detail || err?.message || 'Could not enable biometric login.');
+            }
+        } finally {
+            setBusy(false);
+        }
+    };
 
     const handleDismiss = () => {
         try {
@@ -145,7 +177,19 @@ export default function CorporateMobileAlertsBanner({
                 </div>
 
                 {/* Right side CTA actions */}
-                <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0 z-10 justify-end">
+                <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0 z-10 justify-end flex-wrap">
+                    {isBiometricSupported() && !bioActive && (
+                        <button
+                            type="button"
+                            onClick={handleEnableBiometric}
+                            disabled={busy}
+                            className="min-h-[38px] px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-950/40 cursor-pointer flex items-center gap-1.5"
+                            title={`Enable one-tap ${getBiometricDisplayLabel()} login on this device`}
+                        >
+                            <Fingerprint size={15} />
+                            <span>Enable {getBiometricDisplayLabel()}</span>
+                        </button>
+                    )}
                     {isEnabled ? (
                         <div className="flex items-center gap-2">
                             <button

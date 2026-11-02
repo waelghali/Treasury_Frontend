@@ -12,6 +12,7 @@ import {
     isBiometricSupported,
     getBiometricDisplayLabel,
     getStoredBiometricInfo,
+    clearStoredBiometricInfo,
     fetchBiometricRegistrationOptions,
     enrollBiometricWithOptions,
 } from '../services/biometricService';
@@ -131,24 +132,6 @@ export default function MobileAlertsControl() {
                                 <BellOff size={11} /> Turn off
                             </button>
                         )}
-                        {isBiometricSupported() && !bioActive && (
-                            <button
-                                type="button"
-                                disabled={busy}
-                                onClick={() =>
-                                    run(async () => {
-                                        const opts = preloadedBioRegOpts || (await fetchBiometricRegistrationOptions());
-                                        await enrollBiometricWithOptions(opts);
-                                        setBioActive(true);
-                                    }, `${getBiometricDisplayLabel()} enabled for instant login on this device.`)
-                                }
-                                title={`Enable ${getBiometricDisplayLabel()} for instant sign-in`}
-                                className="p-1 text-blue-600 hover:text-blue-700 dark:text-blue-400 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/60 transition-colors cursor-pointer flex items-center gap-1"
-                            >
-                                <Fingerprint size={12} />
-                                <span className="text-[10px] font-bold hidden sm:inline">Biometrics</span>
-                            </button>
-                        )}
                         <button
                             type="button"
                             onClick={() => setShowPairQrModal(true)}
@@ -176,6 +159,52 @@ export default function MobileAlertsControl() {
                         </button>
                     </div>
                 </div>
+
+                {/* Dedicated Biometric Login Row */}
+                {isBiometricSupported() && (
+                    <div className="mt-2 pt-2 border-t border-gray-200/60 dark:border-gray-700/60 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                            <Fingerprint size={13} className="text-blue-600 dark:text-blue-400" />
+                            <span>{getBiometricDisplayLabel()} Login</span>
+                            {bioActive && (
+                                <span className="text-[9px] font-bold text-blue-700 bg-blue-100 dark:bg-blue-950 dark:text-blue-300 px-1.5 py-0.2 rounded-full">
+                                    Active
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {!bioActive ? (
+                                <button
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() =>
+                                        run(async () => {
+                                            const opts = preloadedBioRegOpts || (await fetchBiometricRegistrationOptions());
+                                            await enrollBiometricWithOptions(opts);
+                                            setBioActive(true);
+                                        }, `${getBiometricDisplayLabel()} login is now active on this device.`)
+                                    }
+                                    className="text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-2.5 py-0.8 rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                                >
+                                    <Fingerprint size={11} /> Enable {getBiometricDisplayLabel()}
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => {
+                                        clearStoredBiometricInfo();
+                                        setBioActive(false);
+                                        setMessage(`${getBiometricDisplayLabel()} login turned off on this browser.`);
+                                    }}
+                                    className="text-[11px] font-medium text-gray-500 hover:text-rose-600 cursor-pointer transition-colors"
+                                >
+                                    Turn off
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {HINTS[status] && (
                     <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400 flex gap-1 leading-tight">

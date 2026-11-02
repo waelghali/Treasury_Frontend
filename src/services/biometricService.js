@@ -59,10 +59,7 @@ export const isPlatformAuthenticatorAvailable = async () => {
 
 export const getBiometricDisplayLabel = () => {
   if (isIosDevice()) return 'Face ID / Touch ID';
-  if (typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)) {
-    return 'Fingerprint / Face Unlock';
-  }
-  return 'Biometric Passkey (Fingerprint / Face ID)';
+  return 'Fingerprint / Face ID';
 };
 
 export const getStoredBiometricInfo = () => {
@@ -189,11 +186,22 @@ export const enrollBiometricWithOptions = async (regOptions, customMeta = {}) =>
 /**
  * Fetches WebAuthn registration options for an already logged-in permanent user.
  */
-export const fetchBiometricRegistrationOptions = async () => {
-  const { data } = await apiClient.post('/webauthn/register/options', {
-    rp_id: window.location.hostname,
+export const fetchBiometricRegistrationOptions = async (explicitToken = null) => {
+  const headers = { 'Content-Type': 'application/json' };
+  const token = explicitToken || localStorage.getItem('jwt_token');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const res = await fetch(`${API_BASE_URL}/webauthn/register/options`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ rp_id: window.location.hostname }),
   });
-  return data;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Could not initialize biometric activation.');
+  }
+  return await res.json();
 };
 
 /**
