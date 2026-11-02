@@ -1,15 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { setAuthToken, API_BASE_URL } from 'services/apiService';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { v4 as uuidv4 } from 'uuid'; 
-import { ArrowLeft, Loader2, Shield } from 'lucide-react';
+import { ArrowLeft, Loader2, Shield, Fingerprint, BellRing } from 'lucide-react';
 import HoneypotField from '../../components/Security/HoneypotField';
+import {
+  isBiometricSupported,
+  getBiometricDisplayLabel,
+  getStoredBiometricInfo,
+  fetchBiometricAuthOptions,
+  authenticateWithBiometric,
+} from '../../services/biometricService';
 
 function LoginPage({ onLoginSuccess }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const nextPath = searchParams.get('next');
 
-  const [email, setEmail] = useState('');
+  const storedBio = getStoredBiometricInfo();
+  const [email, setEmail] = useState(storedBio.email || '');
   const [password, setPassword] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [error, setError] = useState('');
@@ -20,6 +30,13 @@ function LoginPage({ onLoginSuccess }) {
   const [mfaSessionToken, setMfaSessionToken] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
+  // Biometric (Face ID / Touch ID / Fingerprint) state
+  const [bioAvailable, setBioAvailable] = useState(() => isBiometricSupported());
+  const [hasPairedBio, setHasPairedBio] = useState(() => storedBio.hasBiometric);
+  const [pairedBioEmail, setPairedBioEmail] = useState(() => storedBio.email || '');
+  const [preloadedBioOptions, setPreloadedBioOptions] = useState(null);
+  const [isBioLoading, setIsBioLoading] = useState(false);
+
   const getOrCreateDeviceId = () => {
     let deviceId = localStorage.getItem('device_id');
     if (!deviceId) {
@@ -28,6 +45,68 @@ function LoginPage({ onLoginSuccess }) {
     }
     return deviceId;
   };
+
+  const handleBiometricLogin = useCallback(async (optsOverride = null, silentOnCancel = false) => {
+    if (!isBiometricSupported()) return;
+    setError('');
+    setIsBioLoading(true);
+    try {
+      const data = await authenticateWithBiometric(optsOverride || preloadedBioOptions, {
+        email: email || pairedBioEmail,
+      });
+      if (data && data.access_token) {
+        setAuthToken(data.access_token);
+        onLoginSuccess(data);
+      }
+    } catch (err) {
+      const isCancel =
+        err?.name === 'NotAllowedError' ||
+        err?.name === 'AbortError' ||
+        (err?.message || '').toLowerCase().includes('cancel');
+      if (!silentOnCancel && !isCancel) {
+        setError(err?.message || 'Biometric sign-in failed. You can also sign in with your password below.');
+      }
+      // Refresh preloaded challenge token so the next tap works immediately
+      try {
+        const freshOpts = await fetchBiometricAuthOptions({ email: email || pairedBioEmail });
+        setPreloadedBioOptions(freshOpts);
+      } catch {}
+    } finally {
+      setIsBioLoading(false);
+    }
+  }, [preloadedBioOptions, email, pairedBioEmail, onLoginSuccess]);
+
+  // Pre-load WebAuthn challenge on mount & auto-prompt when arriving from a notification on a paired phone
+  useEffect(() => {
+    if (!isBiometricSupported()) {
+      setBioAvailable(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const opts = await fetchBiometricAuthOptions({ email: storedBio.email });
+        if (cancelled) return;
+        setPreloadedBioOptions(opts);
+        if (opts.has_registered_credentials) {
+          setHasPairedBio(true);
+          if (opts.user_email) {
+            setPairedBioEmail(opts.user_email);
+            setEmail((prev) => prev || opts.user_email);
+          }
+          // If opened via a notification deep-link (?next=...), attempt immediate biometric prompt
+          if (nextPath) {
+            handleBiometricLogin(opts, true);
+          }
+        }
+      } catch {
+        // Ignore background pre-fetch error; button will fetch on demand if clicked
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -225,44 +304,102 @@ function LoginPage({ onLoginSuccess }) {
           )}
 
           {!showMfa ? (
-            <form className="space-y-5" onSubmit={handleSubmit}>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  className={inputCls}
-                  placeholder="name@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
+            <div className="space-y-5">
+              {/* Biometric Quick Sign-In Card (shown prominently when phone is paired or arriving from notification) */}
+              {bioAvailable && hasPairedBio && (
+                <div className="p-4 rounded-xl bg-blue-50/80 border border-blue-200 space-y-3 shadow-xs">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
+                      {nextPath ? <BellRing className="w-4 h-4" /> : <Fingerprint className="w-5 h-5" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-gray-900">
+                        {nextPath ? 'Mobile Alert Quick Unlock' : `Fast Sign In with ${getBiometricDisplayLabel()}`}
+                      </p>
+                      <p className="text-[11px] text-gray-600 truncate">
+                        {pairedBioEmail ? `Linked to ${pairedBioEmail}` : 'Verify with your device biometrics to continue'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleBiometricLogin(preloadedBioOptions, false)}
+                    disabled={isBioLoading || isLoading}
+                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isBioLoading ? (
+                      <>
+                        <Loader2 className="animate-spin h-4 w-4" />
+                        <span>Verifying {getBiometricDisplayLabel()}...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Fingerprint className="h-4 w-4" />
+                        <span>Sign In with {getBiometricDisplayLabel()}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Password</label>
-                <input
-                  type="password"
-                  required
-                  className={inputCls}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
+              <form className="space-y-5" onSubmit={handleSubmit}>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Email Address</label>
+                  <input
+                    type="email"
+                    name="email"
+                    autoComplete="username"
+                    required
+                    className={inputCls}
+                    placeholder="name@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
 
-              <button
-                type="submit"
-                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-md transition-all disabled:opacity-50 flex items-center justify-center"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <><Loader2 className="animate-spin h-4 w-4 mr-2" /> Signing In...</>
-                ) : 'Sign In'}
-              </button>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Password</label>
+                  <input
+                    type="password"
+                    name="password"
+                    autoComplete="current-password"
+                    required
+                    className={inputCls}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
 
-              {/* Zero-friction perimeter anti-bot honeypot trap positioned after credentials to prevent autofill heuristic collisions */}
-              <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
-            </form>
+                <button
+                  type="submit"
+                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-md transition-all disabled:opacity-50 flex items-center justify-center"
+                  disabled={isLoading || isBioLoading}
+                >
+                  {isLoading ? (
+                    <><Loader2 className="animate-spin h-4 w-4 mr-2" /> Signing In...</>
+                  ) : 'Sign In'}
+                </button>
+
+                {bioAvailable && !hasPairedBio && (
+                  <button
+                    type="button"
+                    onClick={() => handleBiometricLogin(null, false)}
+                    disabled={isBioLoading || isLoading}
+                    className="w-full py-2.5 px-4 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-semibold rounded-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isBioLoading ? (
+                      <><Loader2 className="animate-spin h-3.5 w-3.5" /> Checking Passkey...</>
+                    ) : (
+                      <><Fingerprint className="h-4 w-4 text-blue-600" /> Sign In with {getBiometricDisplayLabel()}</>
+                    )}
+                  </button>
+                )}
+
+                {/* Zero-friction perimeter anti-bot honeypot trap positioned after credentials to prevent autofill heuristic collisions */}
+                <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+              </form>
+            </div>
           ) : (
             <form className="space-y-4" onSubmit={handleMfaVerify}>
               <div className="text-center">

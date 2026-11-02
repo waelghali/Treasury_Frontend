@@ -465,7 +465,8 @@ export const apiRequest = async (url, method = 'GET', data = null, contentType =
           url.includes('/verify-mfa') ||
           url.includes('/resend-mfa') ||
           url.includes('/refresh-token') ||
-          url.includes('/mobile-pair');
+          url.includes('/mobile-pair') ||
+          url.includes('/webauthn');
 
         // If the user has NOT exceeded the 20-minute inactivity limit, attempt one silent refresh/retry
         // before logging out so a transient token race never drops an active session.

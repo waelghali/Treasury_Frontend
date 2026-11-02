@@ -1,13 +1,20 @@
 // src/components/MobileAlertsControl.jsx
 // Phone alerts control & UX (Notifications Q3 + Q5).
 import React, { useCallback, useEffect, useState } from 'react';
-import { Smartphone, BellRing, BellOff, Info, Settings2, HelpCircle, AlertTriangle, QrCode } from 'lucide-react';
+import { Smartphone, BellRing, BellOff, Info, Settings2, HelpCircle, AlertTriangle, QrCode, Fingerprint } from 'lucide-react';
 import {
     disablePushOnThisDevice,
     enablePush,
     getPushStatus,
     SWITCHED_OWNER_KEY,
 } from '../services/pushService';
+import {
+    isBiometricSupported,
+    getBiometricDisplayLabel,
+    getStoredBiometricInfo,
+    fetchBiometricRegistrationOptions,
+    enrollBiometricWithOptions,
+} from '../services/biometricService';
 import PushDevicesModal from './Modals/PushDevicesModal';
 import PushInstallGuideModal from './Modals/PushInstallGuideModal';
 import PushPairQrModal from './Modals/PushPairQrModal';
@@ -26,10 +33,13 @@ export default function MobileAlertsControl() {
     const [showGuideModal, setShowGuideModal] = useState(false);
     const [showPairQrModal, setShowPairQrModal] = useState(false);
     const [switchedNotice, setSwitchedNotice] = useState(false);
+    const [bioActive, setBioActive] = useState(() => getStoredBiometricInfo().hasBiometric);
+    const [preloadedBioRegOpts, setPreloadedBioRegOpts] = useState(null);
 
     const refresh = useCallback(async () => {
         try {
             setStatus(await getPushStatus());
+            setBioActive(getStoredBiometricInfo().hasBiometric);
         } catch (e) {
             setStatus('unsupported');
         }
@@ -42,6 +52,11 @@ export default function MobileAlertsControl() {
                 setSwitchedNotice(true);
             }
         } catch {}
+        if (isBiometricSupported() && !getStoredBiometricInfo().hasBiometric) {
+            fetchBiometricRegistrationOptions()
+                .then((opts) => setPreloadedBioRegOpts(opts))
+                .catch(() => {});
+        }
     }, [refresh]);
 
     const dismissSwitchedNotice = () => {
@@ -114,6 +129,24 @@ export default function MobileAlertsControl() {
                                 className="text-[11px] font-medium text-gray-500 hover:text-rose-600 disabled:opacity-50 flex items-center gap-1 cursor-pointer transition-colors"
                             >
                                 <BellOff size={11} /> Turn off
+                            </button>
+                        )}
+                        {isBiometricSupported() && !bioActive && (
+                            <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() =>
+                                    run(async () => {
+                                        const opts = preloadedBioRegOpts || (await fetchBiometricRegistrationOptions());
+                                        await enrollBiometricWithOptions(opts);
+                                        setBioActive(true);
+                                    }, `${getBiometricDisplayLabel()} enabled for instant login on this device.`)
+                                }
+                                title={`Enable ${getBiometricDisplayLabel()} for instant sign-in`}
+                                className="p-1 text-blue-600 hover:text-blue-700 dark:text-blue-400 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/60 transition-colors cursor-pointer flex items-center gap-1"
+                            >
+                                <Fingerprint size={12} />
+                                <span className="text-[10px] font-bold hidden sm:inline">Biometrics</span>
                             </button>
                         )}
                         <button

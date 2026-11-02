@@ -193,7 +193,7 @@ export default function PushPairQrModal({ isOpen, onClose, onSuccess }) {
                                 </div>
                                 <div className="flex items-start gap-2">
                                     <span className="w-5 h-5 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center shrink-0 text-[10px]">2</span>
-                                    <span>Enter your <strong>Grow corporate password</strong> on your phone to authorize this device.</span>
+                                    <span>Enter your <strong>Grow corporate password</strong> on your phone to authorize alerts &amp; enable <strong>Face ID / Fingerprint</strong> login.</span>
                                 </div>
                             </div>
 

@@ -1,8 +1,9 @@
 // src/pages/Public/MobilePairAuthPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
-import { Smartphone, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ShieldCheck, Share2, PlusSquare, ArrowRight, RefreshCw } from 'lucide-react';
+import { Smartphone, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ShieldCheck, Share2, PlusSquare, ArrowRight, RefreshCw, Fingerprint } from 'lucide-react';
 import apiClient from '../../services/apiClient';
+import { getOrCreateDeviceId } from '../../services/apiService';
 import {
     isPushSupported,
     isIosDevice,
@@ -11,6 +12,12 @@ import {
     getVapidPublicKey,
     urlBase64ToUint8Array
 } from '../../services/pushService';
+import {
+    isBiometricSupported,
+    getBiometricDisplayLabel,
+    enrollBiometricWithOptions,
+    getStoredBiometricInfo,
+} from '../../services/biometricService';
 
 export default function MobilePairAuthPage() {
     const { token: routeToken } = useParams();
@@ -27,6 +34,10 @@ export default function MobilePairAuthPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [iosGuideNeeded, setIosGuideNeeded] = useState(false);
+    const [webauthnOptions, setWebauthnOptions] = useState(null);
+    const [enrollingBio, setEnrollingBio] = useState(false);
+    const [bioEnrolled, setBioEnrolled] = useState(() => getStoredBiometricInfo().hasBiometric);
+    const [bioError, setBioError] = useState('');
 
     useEffect(() => {
         if (!token) {
@@ -119,9 +130,20 @@ export default function MobilePairAuthPage() {
                     p256dh: json.keys?.p256dh,
                     auth: json.keys?.auth
                 },
+                device_id: getOrCreateDeviceId(),
                 device_label: deviceLabel,
-                platform
+                platform,
+                rp_id: window.location.hostname,
             });
+
+            if (res.data?.user_id) {
+                try {
+                    localStorage.setItem('push_owner_user_id', String(res.data.user_id));
+                } catch {}
+            }
+            if (res.data?.webauthn_registration) {
+                setWebauthnOptions(res.data.webauthn_registration);
+            }
 
             setIsSuccess(true);
         } catch (err) {
@@ -133,6 +155,25 @@ export default function MobilePairAuthPage() {
             setAuthError(msg);
         } finally {
             setAuthorizing(false);
+        }
+    };
+
+    const handleEnableBiometrics = async () => {
+        if (!webauthnOptions) return;
+        setEnrollingBio(true);
+        setBioError('');
+        try {
+            await enrollBiometricWithOptions(webauthnOptions);
+            setBioEnrolled(true);
+        } catch (err) {
+            console.error('Biometric enrollment failed:', err);
+            if (err?.name === 'NotAllowedError') {
+                setBioError('Biometric verification was cancelled or not allowed on this device.');
+            } else {
+                setBioError(err?.response?.data?.detail || err?.message || 'Could not enable biometric login.');
+            }
+        } finally {
+            setEnrollingBio(false);
         }
     };
 
@@ -174,15 +215,70 @@ export default function MobilePairAuthPage() {
                 )}
 
                 {!loading && !tokenError && isSuccess && (
-                    <div className="py-8 flex flex-col items-center text-center gap-3 animate-fadeIn">
+                    <div className="py-6 flex flex-col items-center text-center gap-3 animate-fadeIn">
                         <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center animate-bounce">
                             <CheckCircle2 size={36} />
                         </div>
-                        <h2 className="text-lg font-bold text-white mt-2">Device Successfully Authorized!</h2>
+                        <h2 className="text-lg font-bold text-white mt-1">Device Successfully Authorized!</h2>
                         <p className="text-xs text-slate-300 leading-relaxed max-w-xs">
                             This phone is now securely linked to <strong>{accountInfo?.email}</strong>. You will receive instant lock-screen alerts for RFQs, quotations, and approvals.
                         </p>
-                        <div className="mt-4 p-3 bg-emerald-950/40 border border-emerald-800/50 rounded-2xl text-[11px] text-emerald-300">
+
+                        {/* Biometric Enrollment Step (Face ID / Fingerprint for Notification Tap Login) */}
+                        {isBiometricSupported() && webauthnOptions && !bioEnrolled && (
+                            <div className="w-full mt-3 p-4 bg-slate-950/80 border border-blue-500/40 rounded-2xl text-left space-y-3">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                                        <Fingerprint size={20} />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-xs font-bold text-white">
+                                            Enable {getBiometricDisplayLabel()} Login
+                                        </h4>
+                                        <p className="text-[11px] text-slate-300 leading-relaxed mt-0.5">
+                                            Skip typing your email and password when you tap a mobile notification. Unlock Grow instantly with your phone&apos;s biometrics.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {bioError && (
+                                    <div className="p-2.5 bg-rose-500/15 border border-rose-500/40 rounded-xl text-[11px] text-rose-300">
+                                        {bioError}
+                                    </div>
+                                )}
+
+                                <button
+                                    type="button"
+                                    onClick={handleEnableBiometrics}
+                                    disabled={enrollingBio}
+                                    className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-950 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                                >
+                                    {enrollingBio ? (
+                                        <>
+                                            <RefreshCw size={15} className="animate-spin" />
+                                            <span>Waiting for {getBiometricDisplayLabel()}...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Fingerprint size={16} />
+                                            <span>Activate {getBiometricDisplayLabel()}</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        )}
+
+                        {bioEnrolled && (
+                            <div className="w-full mt-2 p-3.5 bg-blue-950/40 border border-blue-700/50 rounded-2xl flex items-center gap-2.5 text-left">
+                                <Fingerprint size={18} className="text-blue-400 shrink-0" />
+                                <div className="text-[11px] text-blue-200 leading-relaxed">
+                                    <strong className="text-white block">{getBiometricDisplayLabel()} Enabled</strong>
+                                    When you tap a notification on this phone, you can sign in with a single biometric scan.
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="w-full mt-2 p-3 bg-emerald-950/40 border border-emerald-800/50 rounded-2xl text-[11px] text-emerald-300">
                             You may now close this browser tab or return to your computer.
                         </div>
                     </div>

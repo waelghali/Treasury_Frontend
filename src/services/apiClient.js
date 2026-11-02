@@ -48,7 +48,8 @@ apiClient.interceptors.response.use(
         url.includes('/change-password') ||
         url.includes('/verify-mfa') ||
         url.includes('/resend-mfa') ||
-        url.includes('/refresh-token');
+        url.includes('/refresh-token') ||
+        url.includes('/webauthn');
 
       if (!isPublicOrSpecialAuth && getAuthToken()) {
         if (!originalConfig._isRetry && !isSessionIdleExpired()) {

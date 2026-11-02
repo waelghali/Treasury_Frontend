@@ -1,7 +1,7 @@
 // src/components/Modals/PushDevicesModal.jsx
 // Phase Q5: Manage Registered Mobile Alert Devices.
 import React, { useEffect, useState } from 'react';
-import { Smartphone, Trash2, X, AlertCircle, RefreshCw, CheckCircle2, Shield } from 'lucide-react';
+import { Smartphone, Trash2, X, AlertCircle, RefreshCw, CheckCircle2, Shield, Fingerprint } from 'lucide-react';
 import { listPushDevices, removePushDevice } from '../../services/pushService';
 
 export default function PushDevicesModal({ isOpen, onClose, onDeviceRemoved }) {
@@ -135,6 +135,12 @@ export default function PushDevicesModal({ isOpen, onClose, onDeviceRemoved }) {
                                             <span className="text-[10px] font-bold uppercase px-1.5 py-0.2 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                                                 {d.platform || 'web'}
                                             </span>
+                                            {d.has_biometric && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                                    <Fingerprint size={10} />
+                                                    <span>Face ID / Fingerprint</span>
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 space-y-0.5">
                                             <p>Added: {formatTimestamp(d.created_at)}</p>
