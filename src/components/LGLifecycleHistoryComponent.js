@@ -333,10 +333,13 @@ const LGLifecycleHistoryComponent = ({
         switch (actionType) {
             case 'MIGRATION_IMPORT_RECORD':
                 addPart(null, `Record imported`);
+                addPart("Instruction Serial", details.instruction_serial);
                 if (details.initial_values) {
+                    addPart("Issuance Date", formatDate(details.initial_values.issuance_date));
                     addPart("Initial Expiry", formatDate(details.initial_values.expiry_date));
                     addPart("Amount", formatAmount(details.initial_values.amount, details.initial_values.currency));
                 }
+                addPart("Details", details.reason);
                 break;
             case 'LG_CREATED':
                 addPart(null, `Created LG #${details.lg_number || ''}`);
@@ -362,7 +365,12 @@ const LGLifecycleHistoryComponent = ({
                             const oldVal = val.old ? (field.includes('date') ? formatDate(val.old) : val.old) : '—';
                             const newVal = val.new ? (field.includes('date') ? formatDate(val.new) : val.new) : '—';
                             return `${label}: ${oldVal} → ${newVal}`;
-                        } 
+                        } else if (val !== null && val !== undefined && typeof val !== 'object') {
+                            const rawOld = details.old_values ? details.old_values[field] : null;
+                            const oldVal = rawOld ? (field.includes('date') ? formatDate(rawOld) : rawOld) : '—';
+                            const newVal = field.includes('date') ? formatDate(val) : val;
+                            return rawOld !== null && rawOld !== undefined ? `${label}: ${oldVal} → ${newVal}` : `${label}: ${newVal}`;
+                        }
                         return null; 
                     }).filter(Boolean);
                     if (changeDescriptions.length > 0) addPart(null, `Changes: ${changeDescriptions.join('; ')}`);
@@ -745,6 +753,10 @@ const LGLifecycleHistoryComponent = ({
                 const deliveryDoc = lgDocuments.find(doc => doc.document_type === 'DELIVERY_PROOF' && doc.lg_instruction_id === instruction?.id);
                 const bankReplyDoc = lgDocuments.find(doc => doc.document_type === 'BANK_REPLY' && doc.lg_instruction_id === instruction?.id);
                 const rejectedReplyDoc = lgDocuments.find(doc => doc.document_type === 'REJECTED_BANK_REPLY' && doc.lg_instruction_id === instruction?.id);
+                const eventDocId = eventItem.details?.amendment_document_id || eventItem.details?.document_id || (eventItem.entity_type === 'LGDocument' ? eventItem.entity_id : null);
+                const eventAssociatedDoc = eventDocId
+                    ? lgDocuments.find(doc => !doc.is_deleted && Number(doc.id) === Number(eventDocId))
+                    : (eventItem.action_type === 'MIGRATION_IMPORT_RECORD' ? lgDocuments.find(doc => !doc.is_deleted && doc.document_type === 'ORIGINAL_LG_DOCUMENT') : null);
                 const isTermsRejectedByAdmin = instruction?.details?.bank_terms_admin_approval?.status === 'REJECTED_BY_ADMIN';
 
                 const hasDeliveryDate = instruction && (instruction.delivery_date !== null && instruction.delivery_date !== "");
@@ -819,6 +831,19 @@ const LGLifecycleHistoryComponent = ({
                             <p className={`text-sm ${isInstructionCanceled ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
                                 {formatEventDetails(eventItem.action_type, eventItem.details, eventItem.user_email)}
                             </p>
+
+                            {!instruction && eventAssociatedDoc && onViewInstructionDocument && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    <button
+                                        onClick={() => onViewInstructionDocument(eventAssociatedDoc.id)}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100"
+                                        title={`View ${eventAssociatedDoc.file_name}`}
+                                    >
+                                        <Eye className="h-4 w-4 text-blue-600 shrink-0" />
+                                        <span>View Attached Document ({eventAssociatedDoc.file_name})</span>
+                                    </button>
+                                </div>
+                            )}
 
                             {instruction && (
                                 <div className="mt-3 flex flex-wrap gap-2">
