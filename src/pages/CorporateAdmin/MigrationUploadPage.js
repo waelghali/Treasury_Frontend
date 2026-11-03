@@ -951,8 +951,34 @@ function MigrationUploadPage() {
        fetchStagedRecords();
     };
 		
+    const handleResetMigrated = async () => {
+        if (!window.confirm(
+            'This will remove previously migrated LG records (and their incomplete history) from production for this customer and reset all staged records back to Ready so you can run a clean import. Proceed?'
+        )) {
+            return;
+        }
+        setIsLoading(true);
+        setUploadMessage('');
+        try {
+            const response = await apiRequest('/corporate-admin/migration/reset-migrated', 'POST');
+            setUploadMessage(
+                response?.message ||
+                `Purged ${response?.purged_lg_count || 0} migrated LG(s) and reset ${response?.reset_staged_count || 0} staged records.`
+            );
+            setIsSuccess(true);
+            fetchStagedRecords();
+            fetchReportAndBatches();
+        } catch (err) {
+            console.error('Reset migrated records failed:', err);
+            setUploadMessage(`Failed to reset migrated records: ${err.message || 'An unexpected error occurred.'}`);
+            setIsSuccess(false);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleFinalizeMigration = async () => {
-        const eligibleStatuses = ['READY_FOR_IMPORT', 'EXPIRED', 'DUPLICATE'];
+        const eligibleStatuses = ['READY_FOR_IMPORT', 'EXPIRED', 'DUPLICATE', 'IMPORTED', 'ERROR'];
         const readyRecordsCount = stagedRecords.filter(rec => rec.record_status === 'READY_FOR_IMPORT').length;
         const lgNumbersToImport = [...new Set(
             stagedRecords
@@ -1310,10 +1336,11 @@ function MigrationUploadPage() {
     
     const hasReadyRecords = stagedRecords.some(rec => rec.record_status === 'READY_FOR_IMPORT') ||
         stagedRecords.some(rec =>
-            ['READY_FOR_IMPORT', 'EXPIRED', 'DUPLICATE'].includes(rec.record_status) &&
+            ['READY_FOR_IMPORT', 'EXPIRED', 'DUPLICATE', 'IMPORTED', 'ERROR'].includes(rec.record_status) &&
             rec.source_data_json?.lg_number &&
             stagedRecords.filter(r => r.source_data_json?.lg_number === rec.source_data_json.lg_number).length > 1
         );
+    const hasImportedOrStagedRecords = stagedRecords.length > 0 || (reportSummary?.summary_by_status?.IMPORTED > 0);
     const hasUnprocessedRecords = stagedRecords.some(rec => rec.record_status === 'PENDING' || rec.record_status === 'ERROR');
 
     const inputClassNames = "mt-1 block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none";
@@ -1514,6 +1541,18 @@ function MigrationUploadPage() {
                             <CloudUpload className="mr-2 h-5 w-5 animate-pulse" />
                             Finalize Migration & Import
                         </button>
+                        {hasImportedOrStagedRecords && (
+                            <button
+                                type="button"
+                                onClick={handleResetMigrated}
+                                disabled={isLoading}
+                                className="w-full flex items-center justify-center px-6 py-2.5 text-sm font-medium rounded-lg shadow-sm transition-all duration-200 bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100"
+                                title="Purge previously migrated LG records from production and reset staged rows to Ready for a clean import"
+                            >
+                                <RotateCcw className="w-4 h-4 mr-2" />
+                                Reset &amp; Clean Migrated LGs
+                            </button>
+                        )}
                         <button
                             onClick={handlePreviewHistory}
                             disabled={isLoading}
