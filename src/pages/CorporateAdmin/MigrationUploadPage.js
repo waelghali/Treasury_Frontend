@@ -557,6 +557,8 @@ function MigrationUploadPage() {
     const [filterStatus, setFilterStatus] = useState('');
     const [filterLGNumber, setFilterLGNumber] = useState('');
     const [filterFileName, setFilterFileName] = useState('');
+    const [pageSize, setPageSize] = useState('ALL');
+    const [currentPage, setCurrentPage] = useState(1);
     
     // NEW: State for selected records
     const [selectedRecords, setSelectedRecords] = useState([]);
@@ -638,6 +640,7 @@ function MigrationUploadPage() {
 
         const records = await apiRequest(`/corporate-admin/migration/staged?${queryParams.toString()}`, 'GET');
         setStagedRecords(records);
+        setCurrentPage(1);
         if (records.length > 0) {
           setUploadMessage(`Found ${records.length} staged records.`);
           setIsSuccess(true);
@@ -1343,6 +1346,15 @@ function MigrationUploadPage() {
     const hasImportedOrStagedRecords = stagedRecords.length > 0 || (reportSummary?.summary_by_status?.IMPORTED > 0);
     const hasUnprocessedRecords = stagedRecords.some(rec => rec.record_status === 'PENDING' || rec.record_status === 'ERROR');
 
+    // Pagination calculation
+    const totalStagedCount = stagedRecords.length;
+    const effectivePageSize = pageSize === 'ALL' ? Math.max(1, totalStagedCount) : Number(pageSize) || 100;
+    const totalPages = pageSize === 'ALL' ? 1 : Math.max(1, Math.ceil(totalStagedCount / effectivePageSize));
+    const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+    const startIndex = pageSize === 'ALL' ? 0 : (safeCurrentPage - 1) * effectivePageSize;
+    const endIndex = pageSize === 'ALL' ? totalStagedCount : Math.min(totalStagedCount, startIndex + effectivePageSize);
+    const paginatedStagedRecords = pageSize === 'ALL' ? stagedRecords : stagedRecords.slice(startIndex, endIndex);
+
     const inputClassNames = "mt-1 block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none";
 
 
@@ -1808,10 +1820,81 @@ function MigrationUploadPage() {
             )}
             
             {stagedRecords.length > 0 && (
-                <div className="mt-8">
-                    <h3 className="text-xl font-semibold text-gray-800 mb-4">Staged Records</h3>
+                <div className="mt-8 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50 p-3 rounded-xl border border-gray-200">
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <h3 className="text-lg font-semibold text-gray-800">Staged Records</h3>
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800">
+                                Showing {totalStagedCount === 0 ? 0 : startIndex + 1}–{endIndex} of {totalStagedCount}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <div className="flex items-center gap-1.5 text-xs text-gray-700">
+                                <span className="font-medium">Rows per page:</span>
+                                {[50, 100, 250, 500, 'ALL'].map((sizeOpt) => {
+                                    const isActive = String(pageSize) === String(sizeOpt);
+                                    return (
+                                        <button
+                                            key={sizeOpt}
+                                            type="button"
+                                            onClick={() => {
+                                                setPageSize(sizeOpt);
+                                                setCurrentPage(1);
+                                            }}
+                                            className={`px-2.5 py-1 rounded-md font-semibold border transition-colors ${
+                                                isActive
+                                                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                                            }`}
+                                        >
+                                            {sizeOpt === 'ALL' ? `All (${totalStagedCount})` : sizeOpt}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {pageSize !== 'ALL' && totalPages > 1 && (
+                                <div className="flex items-center gap-1 text-xs">
+                                    <button
+                                        type="button"
+                                        onClick={() => setCurrentPage(1)}
+                                        disabled={safeCurrentPage <= 1}
+                                        className="px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        « First
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                        disabled={safeCurrentPage <= 1}
+                                        className="px-2.5 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        ‹ Prev
+                                    </button>
+                                    <span className="px-2.5 py-1 font-semibold text-gray-800">
+                                        Page {safeCurrentPage} of {totalPages}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                        disabled={safeCurrentPage >= totalPages}
+                                        className="px-2.5 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        Next ›
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCurrentPage(totalPages)}
+                                        disabled={safeCurrentPage >= totalPages}
+                                        className="px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        Last »
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
 					<StagedRecordsTable 
-						records={stagedRecords} 
+						records={paginatedStagedRecords} 
 						getStatusColor={getStatusColor}
 						onRecordUpdate={handleRecordUpdate}
 						onRecordDelete={handleRecordDelete}
@@ -1839,6 +1922,50 @@ function MigrationUploadPage() {
                         onLocateFolder={() => ensureLocalAttachmentsSynced(true)}
                         onDismissAi={handleDismissAiDiscrepancy}
 					/>
+                    {pageSize !== 'ALL' && totalPages > 1 && (
+                        <div className="flex items-center justify-between bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-200 text-xs text-gray-700">
+                            <span>
+                                Showing {startIndex + 1}–{endIndex} of {totalStagedCount} staged records
+                            </span>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrentPage(1)}
+                                    disabled={safeCurrentPage <= 1}
+                                    className="px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-100 disabled:opacity-40"
+                                >
+                                    « First
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                    disabled={safeCurrentPage <= 1}
+                                    className="px-2.5 py-1 rounded border border-gray-300 bg-white hover:bg-gray-100 disabled:opacity-40"
+                                >
+                                    ‹ Prev
+                                </button>
+                                <span className="px-2.5 py-1 font-semibold">
+                                    Page {safeCurrentPage} of {totalPages}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                    disabled={safeCurrentPage >= totalPages}
+                                    className="px-2.5 py-1 rounded border border-gray-300 bg-white hover:bg-gray-100 disabled:opacity-40"
+                                >
+                                    Next ›
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrentPage(totalPages)}
+                                    disabled={safeCurrentPage >= totalPages}
+                                    className="px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-100 disabled:opacity-40"
+                                >
+                                    Last »
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
