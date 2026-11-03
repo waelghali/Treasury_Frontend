@@ -569,6 +569,12 @@ function MigrationUploadPage() {
     // NEW: State for reports and history
     const [reportSummary, setReportSummary] = useState(null);
     const [batches, setBatches] = useState([]);
+    const [resetEligibility, setResetEligibility] = useState({
+        allowed: false,
+        reason: '',
+        hours_remaining: 0,
+        migrated_count: 0,
+    });
 
     // NEW: State for the history preview modal
     const [previewModalOpen, setPreviewModalOpen] = useState(false);
@@ -660,10 +666,16 @@ function MigrationUploadPage() {
     // NEW: Fetch report summary on load and after actions
     const fetchReportAndBatches = async () => {
         try {
-            const summary = await apiRequest('/corporate-admin/migration/report', 'GET');
+            const [summary, batchesList, resetStatus] = await Promise.all([
+                apiRequest('/corporate-admin/migration/report', 'GET'),
+                apiRequest('/corporate-admin/migration/batches', 'GET'),
+                apiRequest('/corporate-admin/migration/reset-migrated-status', 'GET').catch(() => null),
+            ]);
             setReportSummary(summary);
-            const batchesList = await apiRequest('/corporate-admin/migration/batches', 'GET');
             setBatches(batchesList);
+            if (resetStatus && typeof resetStatus === 'object') {
+                setResetEligibility(resetStatus);
+            }
         } catch (err) {
             console.error('Failed to fetch reports:', err);
         }
@@ -1553,16 +1565,21 @@ function MigrationUploadPage() {
                             <CloudUpload className="mr-2 h-5 w-5 animate-pulse" />
                             Finalize Migration & Import
                         </button>
-                        {hasImportedOrStagedRecords && (
+                        {resetEligibility?.allowed && (
                             <button
                                 type="button"
                                 onClick={handleResetMigrated}
                                 disabled={isLoading}
                                 className="w-full flex items-center justify-center px-6 py-2.5 text-sm font-medium rounded-lg shadow-sm transition-all duration-200 bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100"
-                                title="Purge previously migrated LG records from production and reset staged rows to Ready for a clean import"
+                                title={resetEligibility.reason || "Purge previously migrated LG records from production and reset staged rows to Ready (auto-suspended after 48h or upon first live instruction)"}
                             >
                                 <RotateCcw className="w-4 h-4 mr-2" />
                                 Reset &amp; Clean Migrated LGs
+                                {resetEligibility.hours_remaining > 0 && (
+                                    <span className="ml-2 px-1.5 py-0.5 text-[11px] font-semibold bg-amber-200/70 text-amber-900 rounded">
+                                        {resetEligibility.hours_remaining}h left
+                                    </span>
+                                )}
                             </button>
                         )}
                         <button
