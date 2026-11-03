@@ -58,6 +58,9 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('details');
     const [isExpiredWithinGrace, setIsExpiredWithinGrace] = useState(false);
+    const [supportingDocType, setSupportingDocType] = useState('INTERNAL_SUPPORTING');
+    const [supportingFiles, setSupportingFiles] = useState([]);
+    const [isUploadingSupportingDoc, setIsUploadingSupportingDoc] = useState(false);
     const [showChangeOwnerModal, setShowChangeOwnerModal] = useState(false);
     const [showExtendModal, setShowExtendModal] = useState(false);
     const [showReleaseModal, setShowReleaseModal] = useState(false);
@@ -902,8 +905,71 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                     </div>
                 )}
 				{activeTab === 'documents' && (
-					<div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-						<p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4">Associated Documents</p>
+					<div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-4">
+						<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+							<p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Associated Documents</p>
+						</div>
+						{!isGracePeriod && (
+							<div className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col md:flex-row md:items-center gap-3">
+								<select
+									value={supportingDocType}
+									onChange={(e) => setSupportingDocType(e.target.value)}
+									className="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white text-gray-700"
+								>
+									<option value="INTERNAL_SUPPORTING">Supporting Document</option>
+									<option value="ORIGINAL_LG_DOCUMENT">Original LG Copy</option>
+									<option value="AMENDMENT_LETTER">Amendment / Extension Letter</option>
+									<option value="DELIVERY_PROOF">Delivery Proof</option>
+									<option value="BANK_REPLY">Bank Reply</option>
+								</select>
+								<input
+									type="file"
+									multiple
+									accept=".pdf,.png,.jpg,.jpeg"
+									onChange={(e) => setSupportingFiles(Array.from(e.target.files || []))}
+									className="text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 flex-1"
+								/>
+								<button
+									type="button"
+									disabled={isUploadingSupportingDoc || supportingFiles.length === 0}
+									onClick={async () => {
+										if (!supportingFiles.length) return;
+										setIsUploadingSupportingDoc(true);
+										try {
+											const formData = new FormData();
+											supportingFiles.forEach((f) => formData.append('files', f));
+											formData.append('document_type', supportingDocType);
+											await apiRequest(
+												`/end-user/lg-records/${lgRecord.id}/documents`,
+												'POST',
+												formData,
+												'multipart/form-data'
+											);
+											toast.success(`Uploaded ${supportingFiles.length} supporting document(s) successfully.`);
+											setSupportingFiles([]);
+											await fetchLgRecord(true);
+										} catch (err) {
+											toast.error(`Failed to upload document(s): ${err.message || 'Unexpected error'}`);
+										} finally {
+											setIsUploadingSupportingDoc(false);
+										}
+									}}
+									className="px-4 py-1.5 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center shrink-0"
+								>
+									{isUploadingSupportingDoc ? (
+										<>
+											<Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+											Uploading...
+										</>
+									) : (
+										<>
+											<FileText className="h-4 w-4 mr-1.5" />
+											Upload Document{supportingFiles.length > 1 ? `s (${supportingFiles.length})` : ''}
+										</>
+									)}
+								</button>
+							</div>
+						)}
 						{/* Filter out documents where is_deleted is true */}
 						{lgRecord.documents && lgRecord.documents.filter(doc => !doc.is_deleted).length > 0 ? (
 							<ul className="list-disc list-inside space-y-2">

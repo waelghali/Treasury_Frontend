@@ -148,6 +148,56 @@ const LGLifecycleHistoryComponent = ({
     });
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [selectedInstructionToCancel, setSelectedInstructionToCancel] = useState(null);
+    const [uploadingEventId, setUploadingEventId] = useState(null);
+    const eventDocInputRef = useRef(null);
+    const [pendingDocEvent, setPendingDocEvent] = useState(null);
+
+    const handleTriggerEventDocUpload = (eventItem) => {
+        if (isGracePeriod) {
+            toast.warn("This action is disabled during your subscription's grace period.");
+            return;
+        }
+        setPendingDocEvent(eventItem);
+        if (eventDocInputRef.current) {
+            eventDocInputRef.current.value = '';
+            eventDocInputRef.current.click();
+        }
+    };
+
+    const handleEventDocFileSelected = async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (!files.length || !pendingDocEvent) return;
+        const targetEvent = pendingDocEvent;
+        setPendingDocEvent(null);
+        setUploadingEventId(targetEvent.id);
+        try {
+            const formData = new FormData();
+            files.forEach(file => formData.append('files', file));
+            const defaultDocType =
+                targetEvent.action_type === 'MIGRATION_IMPORT_RECORD'
+                    ? 'ORIGINAL_LG_DOCUMENT'
+                    : 'AMENDMENT_LETTER';
+            formData.append('document_type', defaultDocType);
+            if (targetEvent.id) {
+                formData.append('audit_log_id', String(targetEvent.id));
+            }
+            await apiRequest(
+                `/end-user/lg-records/${lgRecordId}/documents`,
+                'POST',
+                formData,
+                'multipart/form-data'
+            );
+            toast.success(`Attached ${files.length} document(s) successfully.`);
+            await fetchLifecycleHistoryAndConfig(true);
+            if (onRefreshLgRecord) {
+                await onRefreshLgRecord();
+            }
+        } catch (err) {
+            toast.error(`Failed to attach document: ${err.message || 'Unexpected error'}`);
+        } finally {
+            setUploadingEventId(null);
+        }
+    };
 
     // Close filter menu when clicking outside
     useEffect(() => {
@@ -616,6 +666,14 @@ const LGLifecycleHistoryComponent = ({
 
     return (
         <div className="relative border-l-2 border-gray-200 pl-6 py-4">
+            <input
+                type="file"
+                ref={eventDocInputRef}
+                onChange={handleEventDocFileSelected}
+                accept=".pdf,.png,.jpg,.jpeg"
+                multiple
+                className="hidden"
+            />
             
             {/* --- FILTER BAR --- */}
             <div className="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
@@ -832,16 +890,40 @@ const LGLifecycleHistoryComponent = ({
                                 {formatEventDetails(eventItem.action_type, eventItem.details, eventItem.user_email)}
                             </p>
 
-                            {!instruction && eventAssociatedDoc && onViewInstructionDocument && (
+                            {!instruction && (eventAssociatedDoc || ['MIGRATION_IMPORT_RECORD', 'LG_AMENDED', 'AUDIT_ACTION_TYPE_LG_AMENDED', 'LG_CREATED'].includes(eventItem.action_type)) && (
                                 <div className="mt-3 flex flex-wrap gap-2">
-                                    <button
-                                        onClick={() => onViewInstructionDocument(eventAssociatedDoc.id)}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100"
-                                        title={`View ${eventAssociatedDoc.file_name}`}
-                                    >
-                                        <Eye className="h-4 w-4 text-blue-600 shrink-0" />
-                                        <span>View Attached Document ({eventAssociatedDoc.file_name})</span>
-                                    </button>
+                                    {eventAssociatedDoc && onViewInstructionDocument && (
+                                        <button
+                                            onClick={() => onViewInstructionDocument(eventAssociatedDoc.id)}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100"
+                                            title={`View ${eventAssociatedDoc.file_name}`}
+                                        >
+                                            <Eye className="h-4 w-4 text-blue-600 shrink-0" />
+                                            <span>View Attached Document ({eventAssociatedDoc.file_name})</span>
+                                        </button>
+                                    )}
+                                    {['MIGRATION_IMPORT_RECORD', 'LG_AMENDED', 'AUDIT_ACTION_TYPE_LG_AMENDED', 'LG_CREATED'].includes(eventItem.action_type) && !isGracePeriod && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleTriggerEventDocUpload(eventItem)}
+                                            disabled={uploadingEventId === eventItem.id}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1 border border-teal-200 text-sm font-medium rounded-md shadow-sm text-teal-700 bg-teal-50 hover:bg-teal-100 disabled:opacity-50"
+                                            title="Upload supporting PDF/image document (e.g. Original LG copy, Amendment Letter, or Bank Advice) and link it to this record"
+                                        >
+                                            {uploadingEventId === eventItem.id ? (
+                                                <Loader className="h-4 w-4 animate-spin text-teal-600 shrink-0" />
+                                            ) : (
+                                                <FileText className="h-4 w-4 text-teal-600 shrink-0" />
+                                            )}
+                                            <span>
+                                                {uploadingEventId === eventItem.id
+                                                    ? 'Uploading...'
+                                                    : eventAssociatedDoc
+                                                        ? '+ Add / Replace Document'
+                                                        : '+ Attach Supporting Document'}
+                                            </span>
+                                        </button>
+                                    )}
                                 </div>
                             )}
 
