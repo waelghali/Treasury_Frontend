@@ -182,7 +182,12 @@ export function getRfqTimingState(rfq) {
             };
         }
 
-        if (rfq.acceptance_status === 'INDICATIVE_COMPLETED') {
+        const isIndicativeOnly = rfq.acceptance_status === 'INDICATIVE_COMPLETED' || (
+            (rfq.quotation_base || '').toLowerCase() === 'indicative' &&
+            (!rfq.legs || rfq.legs.length === 0 || rfq.legs.every(l => (l.quotation_base || rfq.quotation_base || '').toLowerCase() === 'indicative'))
+        );
+
+        if (isIndicativeOnly && rfq.acceptance_status !== 'NO_QUOTES') {
             return {
                 badge: 'INDICATIVE_COMPLETED',
                 label: 'Benchmarking Concluded',
@@ -286,7 +291,12 @@ export function getRfqTimingState(rfq) {
 
     // C. Past Window: EVALUATING / AWAITING ACCEPTANCE / WINDOW CLOSED
     if (end && now > end) {
-        if (rfq.acceptance_status === 'PENDING' || rfq.status === 'EVALUATING') {
+        const timeoutSeconds = Number(rfq.acceptance_timeout_seconds) || (rfq.type === 'TBILL' ? 120 : 30);
+        const accDeadline = rfq.acceptance_deadline
+            ? new Date(rfq.acceptance_deadline).getTime()
+            : (end + timeoutSeconds * 1000);
+        const isAcceptanceStillOpen = !isNaN(accDeadline) && now <= accDeadline;
+        if ((rfq.acceptance_status === 'PENDING' || rfq.status === 'EVALUATING') && isAcceptanceStillOpen) {
             return {
                 badge: 'AWAITING_ACCEPTANCE',
                 label: 'Awaiting Acceptance',
@@ -314,5 +324,64 @@ export function getRfqTimingState(rfq) {
         style: 'bg-gray-100 text-gray-600',
         isLive: false,
         isScheduled: false
+    };
+}
+
+export function computeSidebarStatusFromRfqs(rfqList = [], pendingList = [], cancelList = []) {
+    const byId = new Map();
+    [...(rfqList || []), ...(pendingList || []), ...(cancelList || [])].forEach((r) => {
+        if (r && r.id) {
+            byId.set(String(r.id), r);
+        }
+    });
+
+    let liveCount = 0;
+    let pendingApprovalCount = 0;
+    let needsRevisionCount = 0;
+    let scheduledCount = 0;
+    let earliestStartMs = null;
+    let earliestEndMs = null;
+    const nowMs = Date.now();
+
+    byId.forEach((rfq) => {
+        const st = rfq.status || '';
+        const startMs = rfq.window_start ? new Date(rfq.window_start).getTime() : NaN;
+        const endMs = rfq.window_end ? new Date(rfq.window_end).getTime() : NaN;
+        const accDeadlineMs = rfq.acceptance_deadline ? new Date(rfq.acceptance_deadline).getTime() : NaN;
+
+        if (st === 'PENDING_APPROVAL' || st === 'CANCEL_REQUESTED') {
+            pendingApprovalCount += 1;
+        } else if (st === 'NEEDS_REVISION') {
+            needsRevisionCount += 1;
+        } else if (st === 'APPROVED_SCHEDULED') {
+            if (isNaN(endMs) || endMs > nowMs) {
+                scheduledCount += 1;
+                if (!isNaN(startMs) && startMs > nowMs) {
+                    earliestStartMs = earliestStartMs !== null ? Math.min(earliestStartMs, startMs) : startMs;
+                }
+            }
+        } else if (['PENDING', 'OPEN', 'EVALUATING'].includes(st)) {
+            const isBiddingLive = !isNaN(startMs) && !isNaN(endMs) && nowMs >= startMs && nowMs <= endMs;
+            const isAcceptanceLive = rfq.acceptance_status === 'PENDING' && !isNaN(accDeadlineMs) && nowMs < accDeadlineMs;
+            if (isBiddingLive || isAcceptanceLive) {
+                liveCount += 1;
+                const targetEndMs = (isAcceptanceLive && !isBiddingLive) ? accDeadlineMs : endMs;
+                if (!isNaN(targetEndMs) && targetEndMs > nowMs) {
+                    earliestEndMs = earliestEndMs !== null ? Math.min(earliestEndMs, targetEndMs) : targetEndMs;
+                }
+            } else if (!isNaN(startMs) && nowMs < startMs) {
+                scheduledCount += 1;
+                earliestStartMs = earliestStartMs !== null ? Math.min(earliestStartMs, startMs) : startMs;
+            }
+        }
+    });
+
+    return {
+        live_count: liveCount,
+        pending_approval_count: pendingApprovalCount,
+        needs_revision_count: needsRevisionCount,
+        scheduled_count: scheduledCount,
+        earliest_window_start: earliestStartMs ? new Date(earliestStartMs).toISOString() : null,
+        earliest_window_end: earliestEndMs ? new Date(earliestEndMs).toISOString() : null
     };
 }

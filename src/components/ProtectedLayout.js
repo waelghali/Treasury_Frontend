@@ -14,6 +14,7 @@ import ViewerLayout from './Layout/ViewerLayout';
 import { fetchActiveSystemNotifications } from '../services/notificationService';
 import apiClient from '../services/apiClient';
 import GlobalDealAcceptanceModal from './Quotations/GlobalDealAcceptanceModal';
+import { computeSidebarStatusFromRfqs } from '../utils/quotationTiming';
 
 function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, customerId, subscriptionStatus, subscriptionEndDate, hasCustodyModule, hasIssuanceModule, hasQuotationModule, hasReconciliationModule }) {
   const location = useLocation();
@@ -22,6 +23,12 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
   const [systemNotifications, setSystemNotifications] = useState([]);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [pendingDeal, setPendingDeal] = useState(null);
+  const [quotationSidebarStatus, setQuotationSidebarStatus] = useState({
+    live_count: 0,
+    pending_approval_count: 0,
+    needs_revision_count: 0,
+    scheduled_count: 0,
+  });
 
 
   // --- 1. LOGIC TO DETERMINE ACTIVE MENU ITEM & TITLE ---
@@ -155,6 +162,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
 
     let isMounted = true;
     let timerId = null;
+    let precisionTimerId = null;
     let channel = null;
 
     // BroadcastChannel: Synchronizes deal alerts across multiple tabs locally in < 1ms
@@ -170,6 +178,9 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
             } else {
               setPendingDeal(null);
             }
+            if (data.sidebarStatus) {
+              setQuotationSidebarStatus(data.sidebarStatus);
+            }
           } else if (data && data.type === 'TRIGGER_IMMEDIATE_CHECK') {
             pollActiveDeal();
           }
@@ -179,11 +190,39 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
       }
     }
 
-    const broadcastDealState = (deal) => {
+    const broadcastDealState = (deal, sidebarStatus) => {
       if (channel) {
         try {
-          channel.postMessage({ type: 'DEAL_ALERT_UPDATE', deal });
+          channel.postMessage({ type: 'DEAL_ALERT_UPDATE', deal, sidebarStatus });
         } catch (e) {}
+      }
+    };
+
+    const schedulePrecisionTransition = (sidebarStatus) => {
+      if (precisionTimerId) {
+        clearTimeout(precisionTimerId);
+        precisionTimerId = null;
+      }
+      if (!sidebarStatus) return;
+      const nowMs = Date.now();
+      let nextTransitionMs = null;
+
+      if (sidebarStatus.earliest_window_start) {
+        const startMs = new Date(sidebarStatus.earliest_window_start).getTime() - nowMs;
+        if (startMs > 0 && startMs < 3600000) {
+          nextTransitionMs = startMs + 250;
+        }
+      }
+      if (sidebarStatus.earliest_window_end) {
+        const endMs = new Date(sidebarStatus.earliest_window_end).getTime() - nowMs;
+        if (endMs > 0 && endMs < 3600000) {
+          nextTransitionMs = nextTransitionMs !== null ? Math.min(nextTransitionMs, endMs + 250) : (endMs + 250);
+        }
+      }
+      if (nextTransitionMs !== null) {
+        precisionTimerId = setTimeout(() => {
+          if (isMounted) pollActiveDeal();
+        }, nextTransitionMs);
       }
     };
 
@@ -200,30 +239,68 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
         const res = await apiClient.get(alertEndpoint);
         if (!isMounted) return;
 
+        let nextSidebarStatus = res.data?.sidebar_status;
+        if (!nextSidebarStatus) {
+          try {
+            if (userRole === 'corporate_admin') {
+              const [pendingRes, cancelRes, historyRes] = await Promise.all([
+                apiClient.get('/corporate-admin/quotations/pending-approvals').catch(() => ({ data: [] })),
+                apiClient.get('/corporate-admin/quotations/cancellation-requests').catch(() => ({ data: [] })),
+                apiClient.get('/end-user/quotations/').catch(() => ({ data: [] })),
+              ]);
+              nextSidebarStatus = computeSidebarStatusFromRfqs(
+                historyRes.data || [],
+                pendingRes.data || [],
+                cancelRes.data || []
+              );
+            } else {
+              const historyRes = await apiClient.get('/end-user/quotations/').catch(() => ({ data: [] }));
+              nextSidebarStatus = computeSidebarStatusFromRfqs(historyRes.data || []);
+            }
+          } catch {
+            nextSidebarStatus = {
+              live_count: 0,
+              pending_approval_count: 0,
+              needs_revision_count: 0,
+              scheduled_count: 0,
+            };
+          }
+        }
+        if (!isMounted) return;
+
+        setQuotationSidebarStatus(nextSidebarStatus);
+        schedulePrecisionTransition(nextSidebarStatus);
+
         if (res.data?.has_pending_deal && res.data?.deal) {
           const deal = res.data.deal;
           setPendingDeal(deal);
-          broadcastDealState(deal);
+          broadcastDealState(deal, nextSidebarStatus);
           // Crucial Acceptance Window: 500ms sync so countdown and decision state have 0 latency
           timerId = setTimeout(pollActiveDeal, 500);
         } else {
           setPendingDeal(null);
-          broadcastDealState(null);
+          broadcastDealState(null, nextSidebarStatus);
 
-          // Adaptive Cadence based on quotation context
+          // Adaptive Cadence based on quotation context & active/pending state
           const pathname = location.pathname || '';
           const isQuotationRoute = pathname.includes('/quotation');
           const isResultsView = pathname.includes('/quotations/results');
+          const hasActiveOrPendingRfqs = Boolean(
+            nextSidebarStatus.live_count > 0 ||
+            nextSidebarStatus.pending_approval_count > 0 ||
+            nextSidebarStatus.needs_revision_count > 0 ||
+            nextSidebarStatus.scheduled_count > 0
+          );
 
-          if (isResultsView) {
-            // Live tender view: poll at 5 seconds during active bidding
+          if (isResultsView || nextSidebarStatus.live_count > 0) {
+            // Live tender view or active live RFQ: poll at 5 seconds
             timerId = setTimeout(pollActiveDeal, 5000);
-          } else if (isQuotationRoute) {
-            // Other quotation pages (history/roster/create): conservative 10s polling
+          } else if (isQuotationRoute || hasActiveOrPendingRfqs) {
+            // Quotation pages or pending approval active: 10s polling
             timerId = setTimeout(pollActiveDeal, 10000);
           } else {
-            // Non-quotation corporate pages: 30s background idle check
-            timerId = setTimeout(pollActiveDeal, 30000);
+            // Non-quotation corporate pages with no active RFQs: 15s background check
+            timerId = setTimeout(pollActiveDeal, 15000);
           }
         }
       } catch (err) {
@@ -249,6 +326,17 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
       }
     };
 
+    const handleSidebarStatusUpdated = (event) => {
+      if (!isMounted || !event?.detail) return;
+      setQuotationSidebarStatus(event.detail);
+      schedulePrecisionTransition(event.detail);
+      if (channel) {
+        try {
+          channel.postMessage({ type: 'DEAL_ALERT_UPDATE', deal: null, sidebarStatus: event.detail });
+        } catch (e) {}
+      }
+    };
+
     // Instant wake-up when user switches focus to this tab
     const handleVisibilityChange = () => {
       if (typeof document !== 'undefined' && !document.hidden) {
@@ -259,11 +347,13 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
     window.addEventListener('check-deal-acceptance', handleImmediateCheck);
     window.addEventListener('quotation-window-closed', handleImmediateCheck);
     window.addEventListener('quotation-deal-resolved', handleImmediateCheck);
+    window.addEventListener('quotation-sidebar-status-updated', handleSidebarStatusUpdated);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       isMounted = false;
       if (timerId) clearTimeout(timerId);
+      if (precisionTimerId) clearTimeout(precisionTimerId);
       if (channel) {
         try {
           channel.close();
@@ -272,6 +362,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
       window.removeEventListener('check-deal-acceptance', handleImmediateCheck);
       window.removeEventListener('quotation-window-closed', handleImmediateCheck);
       window.removeEventListener('quotation-deal-resolved', handleImmediateCheck);
+      window.removeEventListener('quotation-sidebar-status-updated', handleSidebarStatusUpdated);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [hasQuotationModule, userRole, location.pathname]);
@@ -372,6 +463,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
         hasQuotationModule={hasQuotationModule}
         hasReconciliationModule={hasReconciliationModule}
         isChecker={userRole === 'checker'}
+        quotationSidebarStatus={quotationSidebarStatus}
       >
         <Outlet />
       </CorporateAdminLayout>
@@ -391,6 +483,7 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
         hasIssuanceModule={hasIssuanceModule}
         hasQuotationModule={hasQuotationModule}
         hasReconciliationModule={hasReconciliationModule}
+        quotationSidebarStatus={quotationSidebarStatus}
       >
         <Outlet />
       </EndUserLayout>

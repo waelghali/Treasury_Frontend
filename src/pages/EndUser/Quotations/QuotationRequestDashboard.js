@@ -2745,6 +2745,7 @@ export default function QuotationRequestDashboard() {
                 setShowDraftBanner(false);
                 setLastSavedTime(null);
                 toast.success(`RFQ ${sourceRfq?.ref_no || ''} revised and resubmitted for Corporate Admin approval!`);
+                window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
                 navigate('/end-user/quotations/history');
                 return;
             } catch (err) {
@@ -2814,6 +2815,7 @@ export default function QuotationRequestDashboard() {
                 toast.success(`RFQ ${res.data.ref_no} created successfully!`);
             }
             setCreatedRfq(res.data);
+            window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
         } catch (err) {
             console.error('RFQ Submission Error:', err);
             toast.error(err.response?.data?.detail || err.message || 'Submission failed');

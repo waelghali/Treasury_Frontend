@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { PlusCircle, Edit, Trash, RotateCcw, Search, Filter, Globe, ChevronUp, ChevronDown, FileText } from 'lucide-react';
+import { PlusCircle, Edit, Trash, RotateCcw, Search, Filter, Globe, ChevronUp, ChevronDown, FileText, Upload } from 'lucide-react';
 
 function TemplateList({ onLogout }) {
   const navigate = useNavigate();
@@ -122,12 +122,15 @@ function TemplateList({ onLogout }) {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-800">Templates Management</h2>
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-800">Templates Management</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Manage global and customer-specific instruction letters and email notifications.</p>
+        </div>
         <button
           onClick={() => navigate('/system-owner/global-configurations/templates/new')}
           className="inline-flex items-center px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors shadow-sm"
         >
-          <PlusCircle className="h-5 w-5 mr-2" /> Add New Template
+          <Upload className="h-4 w-4 mr-2" /> Upload / Add Template
         </button>
       </div>
 
@@ -208,7 +211,15 @@ function TemplateList({ onLogout }) {
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{template.name}</td>
                 {/* --- TEMPLATE TYPE CELL --- */}
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                  {template.template_type || 'N/A'}
+                  {template.is_notification_template ? (
+                    <span className="bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs font-medium border border-purple-100">
+                      Notification ({template.template_type || 'EMAIL'})
+                    </span>
+                  ) : (
+                    <span className="bg-amber-50 text-amber-800 px-2 py-1 rounded text-xs font-medium border border-amber-200">
+                      Instruction Letter
+                    </span>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                    <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-medium border border-blue-100">

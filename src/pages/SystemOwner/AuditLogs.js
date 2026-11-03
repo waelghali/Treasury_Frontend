@@ -101,6 +101,7 @@ function AuditLogs() {
 
   // Phase 5: Cryptographic WORM Audit Chain Verification State
   const [isVerifyingChain, setIsVerifyingChain] = useState(false);
+  const [isResealingChain, setIsResealingChain] = useState(false);
   const [chainStatus, setChainStatus] = useState(null);
 
   const handleVerifyChain = async () => {
@@ -118,6 +119,25 @@ function AuditLogs() {
       toast.error(`Verification failed: ${err.message || 'Error running check'}`);
     } finally {
       setIsVerifyingChain(false);
+    }
+  };
+
+  const handleResealChain = async () => {
+    setIsResealingChain(true);
+    try {
+      const res = await apiRequest('/system-owner/audit-logs/reseal-chain', 'POST');
+      setChainStatus(res);
+      if (res?.is_valid) {
+        toast.success(res.message || 'WORM Chain successfully re-sealed!');
+        fetchAuditLogs();
+      } else {
+        toast.error(`Re-seal aborted: ${res?.message || 'Content tampering detected!'}`);
+      }
+    } catch (err) {
+      console.error('Chain re-seal failed:', err);
+      toast.error(`Re-seal failed: ${err.message || 'Error re-sealing chain'}`);
+    } finally {
+      setIsResealingChain(false);
     }
   };
 
@@ -347,24 +367,46 @@ function AuditLogs() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleVerifyChain}
-          disabled={isVerifyingChain}
-          className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white rounded-xl text-xs font-bold shadow transition-all active:scale-95 border border-emerald-400/30 cursor-pointer flex-shrink-0"
-        >
-          {isVerifyingChain ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span>Verifying SHA-256 Chain...</span>
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
-              <span>Verify Integrity Now</span>
-            </>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {chainStatus?.is_valid === false && chainStatus?.status === 'BROKEN_CHAIN_LINK' && (
+            <button
+              type="button"
+              onClick={handleResealChain}
+              disabled={isResealingChain || isVerifyingChain}
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 text-white rounded-xl text-xs font-bold shadow transition-all active:scale-95 border border-amber-400/30 cursor-pointer"
+            >
+              {isResealingChain ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Re-sealing Chain...</span>
+                </>
+              ) : (
+                <>
+                  <Shield className="w-3.5 h-3.5 text-amber-200" />
+                  <span>Re-seal Chain Links</span>
+                </>
+              )}
+            </button>
           )}
-        </button>
+          <button
+            type="button"
+            onClick={handleVerifyChain}
+            disabled={isVerifyingChain || isResealingChain}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white rounded-xl text-xs font-bold shadow transition-all active:scale-95 border border-emerald-400/30 cursor-pointer"
+          >
+            {isVerifyingChain ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Verifying SHA-256 Chain...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
+                <span>Verify Integrity Now</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}

@@ -261,6 +261,36 @@ export default function QuotationBankOfferPage() {
     const [legLiveRanks, setLegLiveRanks] = useState({});
     const [highlightedLegId, setHighlightedLegId] = useState(null);
 
+    // 2-Minute Window Instant Guardrails & Zero-Knowledge Telemetry Refs
+    const [inlineActionHint, setInlineActionHint] = useState(null);
+    const inlineHintTimeoutRef = useRef(null);
+    const singleRateInputRef = useRef(null);
+    const legRateInputRefs = useRef({});
+    const tbillInputRefs = useRef({});
+    const takeoverBtnRef = useRef(null);
+    const telemetryStatsRef = useRef({
+        clickedLockedCommentCount: 0,
+        disabledSubmitClicks: 0,
+        spectatorLockedClicks: 0,
+        lastLatencyMs: null
+    });
+    const liveDraftStatusRef = useRef({
+        hasUnsubmittedInput: false,
+        hasUnsubmittedPass: false,
+        hasUnsubmittedUpdate: false,
+        fatFingerPrompted: false
+    });
+
+    const triggerInlineHint = useCallback((msg) => {
+        setInlineActionHint(msg);
+        if (inlineHintTimeoutRef.current) {
+            clearTimeout(inlineHintTimeoutRef.current);
+        }
+        inlineHintTimeoutRef.current = setTimeout(() => {
+            setInlineActionHint(null);
+        }, 4000);
+    }, []);
+
     // Single-Leg Convenience Helpers
     const singleLeg = (rfq?.legs && rfq.legs.length > 0) ? rfq.legs[0] : null;
     const singleLegId = singleLeg?.id || rfq?.id;
@@ -874,13 +904,28 @@ export default function QuotationBankOfferPage() {
             const nowTime = Date.now();
             if (nowTime - lastDeskSyncTimeRef.current < 1000) return;
             lastDeskSyncTimeRef.current = nowTime;
+            const pingStart = Date.now();
             try {
+                const draftStatus = liveDraftStatusRef.current || {};
+                const stats = telemetryStatsRef.current || {};
                 const res = await quotationApi.post(`/api/v1/public-quotation/${token}/desk-heartbeat`, {
                     session_token: getEffectiveSessionToken(),
                     email: authSession.email,
                     name: authSession.name || authSession.email.split('@')[0],
-                    role: authSession.role || 'EXECUTION'
+                    role: authSession.role || 'EXECUTION',
+                    has_unsubmitted_input: Boolean(draftStatus.hasUnsubmittedInput),
+                    has_unsubmitted_pass: Boolean(draftStatus.hasUnsubmittedPass),
+                    has_unsubmitted_update: Boolean(draftStatus.hasUnsubmittedUpdate),
+                    clicked_locked_comment_count: Number(stats.clickedLockedCommentCount || 0),
+                    disabled_submit_clicks: Number(stats.disabledSubmitClicks || 0),
+                    spectator_locked_clicks: Number(stats.spectatorLockedClicks || 0),
+                    fat_finger_prompted: Boolean(draftStatus.fatFingerPrompted),
+                    client_latency_ms: stats.lastLatencyMs
                 });
+                const rtt = Date.now() - pingStart;
+                if (rtt > 0 && rtt < 60000) {
+                    telemetryStatsRef.current.lastLatencyMs = rtt;
+                }
                 const data = res.data;
                 if (data.rfq_status === 'CANCELLED') {
                     setError({
@@ -1090,7 +1135,11 @@ export default function QuotationBankOfferPage() {
                 });
 
                 if (typeof document !== 'undefined') {
-                    if (diff <= 5) {
+                    const dStat = liveDraftStatusRef.current || {};
+                    const hasUnsubWork = Boolean(dStat.hasUnsubmittedInput || dStat.hasUnsubmittedPass || dStat.hasUnsubmittedUpdate);
+                    if (hasUnsubWork) {
+                        document.title = `⚠️ [UNSUBMITTED • ${diff}s] Press Submit! | Grow Treasury`;
+                    } else if (diff <= 5) {
                         document.title = `⚠️ [${diff}s] CLOSING SOON | Grow Treasury`;
                     } else if (diff <= 30) {
                         document.title = `⏱️ [${diff}s] Quote Now | Grow Treasury`;
@@ -1434,6 +1483,21 @@ export default function QuotationBankOfferPage() {
             }
         }
     }, [rfq, token]);
+
+    // 6a. Tab-close / reload guard when dealer has an unsubmitted rate or pass during an open window
+    useEffect(() => {
+        if (typeof window === 'undefined' || timeLeft.status !== 'OPEN') return;
+        const handleBeforeUnload = (e) => {
+            const d = liveDraftStatusRef.current || {};
+            if (d.hasUnsubmittedInput || d.hasUnsubmittedPass || d.hasUnsubmittedUpdate) {
+                e.preventDefault();
+                e.returnValue = '';
+                return '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [timeLeft.status]);
 
     // 6b. Persist uncommitted T-Bill draft to sessionStorage
     useEffect(() => {
@@ -2575,6 +2639,209 @@ export default function QuotationBankOfferPage() {
         }
         return null;
     })();
+
+    // --- 2-Minute Window Instant Guardrails & Unsubmitted State Detection ---
+    const isMultiLegFx = Boolean(rfq?.type !== 'TBILL' && rfq?.legs && rfq.legs.length > 1);
+
+    // A dealer has satisfied the rate/action requirement when every leg (or single-leg/T-Bill) has a valid Rate OR Pass Leg
+    const isEveryLegOrRateActioned = (() => {
+        if (!rfq) return false;
+        if (rfq.type === 'TBILL') {
+            return tbillLines.length > 0 && tbillLines.every(l =>
+                Boolean(l.discountRate && parseFloat(l.discountRate) > 0 && l.maxAmount && parseFloat(l.maxAmount) > 0)
+            );
+        }
+        if (isMultiLegFx) {
+            return rfq.legs.every(l =>
+                Boolean(passedLegs[l.id]) || Boolean(legQuotes[l.id]?.price && parseFloat(legQuotes[l.id].price) > 0)
+            );
+        }
+        return Boolean(isSinglePassed) || Boolean(price && parseFloat(price) > 0);
+    })();
+
+    // Comment box stays locked until Rate or Pass Leg is entered (unless already disabled per institution policy)
+    const isCommentLockedUntilRateOrPass = Boolean(
+        timeLeft.status === 'OPEN' &&
+        !isDeskInputsLocked &&
+        rfq?.allow_dealer_comments !== false &&
+        !isEveryLegOrRateActioned
+    );
+
+    // Detect unsubmitted rate draft, unsubmitted pass toggle, and unsaved edits to an already-submitted quote
+    const { hasUnsubmittedInput, hasUnsubmittedPass, hasUnsavedQuoteUpdate } = (() => {
+        let unsubInput = false;
+        let unsubPass = false;
+        let unsavedUpdate = false;
+
+        if (!rfq || timeLeft.status !== 'OPEN' || isDeskInputsLocked) {
+            return { hasUnsubmittedInput: false, hasUnsubmittedPass: false, hasUnsavedQuoteUpdate: false };
+        }
+
+        if (rfq.type === 'TBILL') {
+            const serverOffers = rfq.offers || [];
+            if (!submitted && serverOffers.length === 0) {
+                unsubInput = tbillLines.some(l => Boolean(l.discountRate || l.maxAmount));
+            } else {
+                if (tbillLines.length !== serverOffers.length) {
+                    unsavedUpdate = true;
+                } else {
+                    for (let i = 0; i < tbillLines.length; i++) {
+                        const localR = parseFloat(tbillLines[i]?.discountRate);
+                        const localA = parseFloat(tbillLines[i]?.maxAmount);
+                        const srvR = parseFloat(serverOffers[i]?.discount_rate);
+                        const srvA = parseFloat(serverOffers[i]?.max_amount);
+                        if (
+                            (!isNaN(localR) && (isNaN(srvR) || Math.abs(localR - srvR) > 1e-6)) ||
+                            (!isNaN(localA) && (isNaN(srvA) || Math.abs(localA - srvA) > 1e-2))
+                        ) {
+                            unsavedUpdate = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        } else if (isMultiLegFx) {
+            for (const l of (rfq.legs || [])) {
+                const srvOfferPrice = l.offers?.[0]?.price !== undefined && l.offers?.[0]?.price !== null ? parseFloat(l.offers[0].price) : null;
+                const srvPassed = Boolean(l.is_passed);
+                const locPassed = Boolean(passedLegs[l.id]);
+                const locPriceRaw = legQuotes[l.id]?.price;
+                const locPrice = (locPriceRaw !== undefined && locPriceRaw !== null && String(locPriceRaw).trim() !== '') ? parseFloat(locPriceRaw) : null;
+
+                if (srvOfferPrice === null && !srvPassed) {
+                    if (locPassed) unsubPass = true;
+                    else if (locPrice !== null && !isNaN(locPrice) && locPrice > 0) unsubInput = true;
+                } else {
+                    if (locPassed !== srvPassed) {
+                        unsavedUpdate = true;
+                    } else if (!locPassed && locPrice !== null && !isNaN(locPrice)) {
+                        if (srvOfferPrice === null || Math.abs(locPrice - srvOfferPrice) > 1e-6) {
+                            unsavedUpdate = true;
+                        }
+                    }
+                }
+            }
+        } else {
+            const srvOfferPrice = (rfq.offers?.[0]?.price !== undefined && rfq.offers?.[0]?.price !== null)
+                ? parseFloat(rfq.offers[0].price)
+                : (singleLeg?.offers?.[0]?.price !== undefined && singleLeg?.offers?.[0]?.price !== null ? parseFloat(singleLeg.offers[0].price) : null);
+            const srvPassed = Boolean(rfq.is_passed || singleLeg?.is_passed);
+            const locPassed = Boolean(isSinglePassed);
+            const locPrice = (price !== undefined && price !== null && String(price).trim() !== '') ? parseFloat(price) : null;
+
+            if (!submitted && srvOfferPrice === null && !srvPassed) {
+                if (locPassed) unsubPass = true;
+                else if (locPrice !== null && !isNaN(locPrice) && locPrice > 0) unsubInput = true;
+            } else {
+                if (locPassed !== srvPassed) {
+                    unsavedUpdate = true;
+                } else if (!locPassed && locPrice !== null && !isNaN(locPrice)) {
+                    if (srvOfferPrice === null || Math.abs(locPrice - srvOfferPrice) > 1e-6) {
+                        unsavedUpdate = true;
+                    }
+                }
+            }
+        }
+
+        return {
+            hasUnsubmittedInput: unsubInput,
+            hasUnsubmittedPass: unsubPass,
+            hasUnsavedQuoteUpdate: unsavedUpdate
+        };
+    })();
+
+    const hasAnyUnsubmittedWork = Boolean(hasUnsubmittedInput || hasUnsubmittedPass || hasUnsavedQuoteUpdate);
+
+    // Keep heartbeat ref synchronized without resetting the heartbeat timer
+    liveDraftStatusRef.current = {
+        hasUnsubmittedInput,
+        hasUnsubmittedPass,
+        hasUnsubmittedUpdate: hasUnsavedQuoteUpdate,
+        fatFingerPrompted: Boolean(fatFingerModal)
+    };
+
+    const isSubmitButtonDisabled = Boolean(
+        timeLeft.status !== 'OPEN' ||
+        isSubmitting ||
+        !authSession ||
+        (rfq.type === 'TBILL'
+            ? tbillLines.some(l => !l.discountRate || !l.maxAmount || !l.settlementDate || !l.maturityDate)
+            : isMultiLegFx
+                ? rfq.legs.some(l => !passedLegs[l.id] && (!legQuotes[l.id]?.price || parseFloat(legQuotes[l.id].price) <= 0))
+                : (!isSinglePassed && (!price || parseFloat(price) <= 0)))
+    );
+
+    // Instant Auto-Focus & 5-Word Micro-Hint when dealer clicks locked Comment box or disabled Submit button
+    const handleMissingRateOrPassNudge = (source = 'SUBMIT') => {
+        if (timeLeft.status !== 'OPEN' || isDeskInputsLocked) return;
+        if (source === 'COMMENT') {
+            telemetryStatsRef.current.clickedLockedCommentCount += 1;
+        } else if (source === 'SUBMIT') {
+            telemetryStatsRef.current.disabledSubmitClicks += 1;
+        }
+
+        if (rfq.type === 'TBILL') {
+            for (let i = 0; i < tbillLines.length; i++) {
+                const l = tbillLines[i];
+                if (!l.settlementDate) {
+                    tbillInputRefs.current[`${i}_settlementDate`]?.focus();
+                    triggerInlineHint(`⚡ Tranche #${i + 1}: Select Settlement Date first`);
+                    return;
+                }
+                if (!l.maturityDate) {
+                    tbillInputRefs.current[`${i}_maturityDate`]?.focus();
+                    triggerInlineHint(`⚡ Tranche #${i + 1}: Select Maturity Date first`);
+                    return;
+                }
+                if (!l.discountRate || parseFloat(l.discountRate) <= 0) {
+                    tbillInputRefs.current[`${i}_discountRate`]?.focus();
+                    triggerInlineHint(`⚡ Tranche #${i + 1}: Enter Discount Rate % first`);
+                    return;
+                }
+                if (!l.maxAmount || parseFloat(l.maxAmount) <= 0) {
+                    tbillInputRefs.current[`${i}_maxAmount`]?.focus();
+                    triggerInlineHint(`⚡ Tranche #${i + 1}: Enter Max Amount first`);
+                    return;
+                }
+            }
+            return;
+        }
+
+        if (isMultiLegFx) {
+            const missingIdx = rfq.legs.findIndex(l => !passedLegs[l.id] && (!legQuotes[l.id]?.price || parseFloat(legQuotes[l.id].price) <= 0));
+            if (missingIdx !== -1) {
+                const missingLeg = rfq.legs[missingIdx];
+                const pairStr = missingLeg.currency_pair || `${missingLeg.buy_currency}/${missingLeg.sell_currency}`;
+                setHighlightedLegId(missingLeg.id);
+                const cardEl = typeof document !== 'undefined' ? document.getElementById(`leg-card-${missingLeg.id}`) : null;
+                if (cardEl) {
+                    cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                setTimeout(() => {
+                    legRateInputRefs.current[missingLeg.id]?.focus();
+                }, 120);
+                triggerInlineHint(`⚡ Leg #${missingIdx + 1} (${pairStr}): Enter rate or click "Pass Leg" first`);
+                return;
+            }
+        }
+
+        singleRateInputRef.current?.focus();
+        triggerInlineHint('⚡ Enter your rate above (or click "Pass Leg") first');
+    };
+
+    const handleSpectatorLockedInputClick = () => {
+        if (timeLeft.status !== 'OPEN') return;
+        if (isSpectator || isAnotherTabActive) {
+            telemetryStatsRef.current.spectatorLockedClicks += 1;
+            takeoverBtnRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            takeoverBtnRef.current?.focus();
+            triggerInlineHint(
+                isAnotherTabActive
+                    ? '🔒 Paused — Click "⚡ Resume Quoting in This Tab" above'
+                    : '🔒 Spectator Mode — Click "⚡ Take Over Desk" above to type'
+            );
+        }
+    };
 
     return (
         <div className="relative min-h-screen bg-slate-100/60">
@@ -4084,23 +4351,35 @@ export default function QuotationBankOfferPage() {
                                     )
                                 ) : (
                                     <>
-                                        {/* Neutral Status Notification Card when Quote is Active */}
+                                        {/* Neutral Status Notification Card when Quote is Active (or Unsaved Edit Warning) */}
                                         {submitted && (
-                                            <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3 text-center flex flex-col items-center justify-center animate-fade-in shadow-2xs">
-                                                <div className="w-7 h-7 bg-slate-200/80 text-slate-700 rounded-full flex items-center justify-center mb-1">
-                                                    <CheckCircle2 size={16} className="text-slate-600" />
+                                            hasUnsavedQuoteUpdate && timeLeft.status === 'OPEN' && !isReadOnlyViewer ? (
+                                                <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-3 text-center flex flex-col items-center justify-center animate-fade-in shadow-2xs">
+                                                    <div className="w-7 h-7 bg-amber-200/80 text-amber-800 rounded-full flex items-center justify-center mb-1">
+                                                        <AlertTriangle size={16} className="text-amber-700" />
+                                                    </div>
+                                                    <h3 className="text-sm font-bold text-amber-950">⚠️ Unsaved Edit — Click &ldquo;Update Quote&rdquo; Below</h3>
+                                                    <p className="text-xs text-amber-800 mt-0.5">
+                                                        You modified your rate or pass selection. Click the update button below to transmit your changes.
+                                                    </p>
                                                 </div>
-                                                <h3 className="text-sm font-semibold text-slate-800">Quote Recorded Successfully</h3>
-                                                <p className="text-xs text-slate-500 mt-0.5">
-                                                    {isReadOnlyViewer
-                                                        ? 'Your bank’s active quotes have been successfully registered with the client.'
-                                                        : (timeLeft.status === 'OPEN'
-                                                            ? (rfq.type === 'TBILL' ? 'Your T-Bill quote lines are actively registered with the client.' : 'Your spot price is actively registered with the client.')
-                                                            : (rfq.type === 'TBILL' ? 'Your T-Bill quote lines were received for evaluation.' : 'Your spot price was received for evaluation.')
-                                                        )
-                                                    }
-                                                </p>
-                                            </div>
+                                            ) : (
+                                                <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3 text-center flex flex-col items-center justify-center animate-fade-in shadow-2xs">
+                                                    <div className="w-7 h-7 bg-slate-200/80 text-slate-700 rounded-full flex items-center justify-center mb-1">
+                                                        <CheckCircle2 size={16} className="text-slate-600" />
+                                                    </div>
+                                                    <h3 className="text-sm font-semibold text-slate-800">Quote Recorded Successfully</h3>
+                                                    <p className="text-xs text-slate-500 mt-0.5">
+                                                        {isReadOnlyViewer
+                                                            ? 'Your bank’s active quotes have been successfully registered with the client.'
+                                                            : (timeLeft.status === 'OPEN'
+                                                                ? (rfq.type === 'TBILL' ? 'Your T-Bill quote lines are actively registered with the client.' : 'Your spot price is actively registered with the client.')
+                                                                : (rfq.type === 'TBILL' ? 'Your T-Bill quote lines were received for evaluation.' : 'Your spot price was received for evaluation.')
+                                                            )
+                                                        }
+                                                    </p>
+                                                </div>
+                                            )
                                         )}
 
                                         {isApprover && rfq.approval_status === 'APPROVED' && (
@@ -4134,8 +4413,18 @@ export default function QuotationBankOfferPage() {
                                                 </div>
 
                                                 {submitted ? (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                                                        <CheckCircle2 size={13} className="text-slate-500" /> {timeLeft.status === 'OPEN' ? 'Active Quote' : 'Quote Submitted'}
+                                                    hasUnsavedQuoteUpdate && timeLeft.status === 'OPEN' && !isReadOnlyViewer ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                                                            <AlertTriangle size={13} className="text-amber-700" /> Unsaved Edit — Click Update
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                                            <CheckCircle2 size={13} className="text-slate-500" /> {timeLeft.status === 'OPEN' ? 'Active Quote' : 'Quote Submitted'}
+                                                        </span>
+                                                    )
+                                                ) : (hasUnsubmittedInput || hasUnsubmittedPass) && timeLeft.status === 'OPEN' && !isReadOnlyViewer ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                                                        ✍️ Unsubmitted — Click Submit
                                                     </span>
                                                 ) : isApproverViewer ? (
                                                     <span className="px-3 py-1 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full border border-amber-200">
@@ -4282,6 +4571,7 @@ export default function QuotationBankOfferPage() {
                                                                 </div>
                                                             </div>
                                                             <button
+                                                                ref={takeoverBtnRef}
                                                                 type="button"
                                                                 onClick={handleTakeoverDesk}
                                                                 disabled={timeLeft.status === 'CLOSED' || isTakingOver}
@@ -4317,6 +4607,7 @@ export default function QuotationBankOfferPage() {
                                                                 </div>
                                                             </div>
                                                             <button
+                                                                ref={takeoverBtnRef}
                                                                 type="button"
                                                                 onClick={handleTakeoverDesk}
                                                                 disabled={timeLeft.status === 'CLOSED' || isTakingOver}
@@ -4420,9 +4711,10 @@ export default function QuotationBankOfferPage() {
                                                                             onChange={e => updateTbillLine(index, 'maturityDate', e.target.value)}
                                                                         />
                                                                     </div>
-                                                                    <div>
+                                                                    <div onClick={() => (isSpectator || isAnotherTabActive) && handleSpectatorLockedInputClick()}>
                                                                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Discount Rate (%)</label>
                                                                         <input
+                                                                            ref={el => { tbillInputRefs.current[`rate_${index}`] = el; }}
                                                                             type="number"
                                                                             step="0.0001"
                                                                             required
@@ -4434,9 +4726,10 @@ export default function QuotationBankOfferPage() {
                                                                             onChange={e => updateTbillLine(index, 'discountRate', e.target.value)}
                                                                         />
                                                                     </div>
-                                                                    <div>
+                                                                    <div onClick={() => (isSpectator || isAnotherTabActive) && handleSpectatorLockedInputClick()}>
                                                                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Max Amount</label>
                                                                         <input
+                                                                            ref={el => { tbillInputRefs.current[`amt_${index}`] = el; }}
                                                                             type="number"
                                                                             required
                                                                             disabled={timeLeft.status !== 'OPEN' || isDeskInputsLocked}
@@ -4598,9 +4891,15 @@ export default function QuotationBankOfferPage() {
                                                                                 )}
 
                                                                                 {isPassed ? (
-                                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300">
-                                                                                        Passed (Declined to Quote)
-                                                                                    </span>
+                                                                                    timeLeft.status === 'OPEN' && !leg.is_passed ? (
+                                                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                                                                            ✍️ Draft Pass — Click Submit Below
+                                                                                        </span>
+                                                                                    ) : (
+                                                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300">
+                                                                                            ✓ Passed (Recorded)
+                                                                                        </span>
+                                                                                    )
                                                                                 ) : timeLeft.status === 'CLOSED' ? (
                                                                                     (() => {
                                                                                         const isSinglePair = !rfq.legs || rfq.legs.length <= 1;
@@ -4762,8 +5061,12 @@ export default function QuotationBankOfferPage() {
                                                                                         </span>
                                                                                     )}
                                                                                 </div>
-                                                                                <div className="relative">
+                                                                                <div
+                                                                                    className="relative"
+                                                                                    onClick={() => (isSpectator || isAnotherTabActive) && handleSpectatorLockedInputClick()}
+                                                                                >
                                                                                     <input
+                                                                                        ref={el => { legRateInputRefs.current[leg.id] = el; }}
                                                                                         type="number"
                                                                                         step="0.0001"
                                                                                         required={!isPassed}
@@ -4962,9 +5265,15 @@ export default function QuotationBankOfferPage() {
                                                                                 }
                                                                             })()
                                                                         ) : isSinglePassed ? (
-                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300 shadow-2xs">
-                                                                                Passed (Declined to Quote)
-                                                                            </span>
+                                                                            timeLeft.status === 'OPEN' && !rfq.is_passed && !singleLeg?.is_passed ? (
+                                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                                                                                    ✍️ Draft Pass — Click Submit Below
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300 shadow-2xs">
+                                                                                    ✓ Passed (Recorded)
+                                                                                </span>
+                                                                            )
                                                                         ) : rfq.is_live_ranking_enabled ? (
                                                                             liveRank?.rank === 1 ? (
                                                                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-xs animate-pulse">
@@ -5046,8 +5355,12 @@ export default function QuotationBankOfferPage() {
                                                                             </span>
                                                                         )}
                                                                     </div>
-                                                                    <div className="relative">
+                                                                    <div
+                                                                        className="relative"
+                                                                        onClick={() => (isSpectator || isAnotherTabActive) && handleSpectatorLockedInputClick()}
+                                                                    >
                                                                         <input
+                                                                            ref={singleRateInputRef}
                                                                             type="number"
                                                                             step="0.0001"
                                                                             required={!isSinglePassed}
@@ -5099,19 +5412,32 @@ export default function QuotationBankOfferPage() {
                                                 </div>
                                             )}
 
-                                                {/* Trader Comments / Notes */}
+                                                {/* Trader Comments / Notes — Locked until Rate or Pass Leg is entered */}
                                                 <div>
                                                     {(() => {
                                                         const isCommentsDisabled = rfq?.allow_dealer_comments === false;
+                                                        const isLockedForRateFirst = !isCommentsDisabled && isCommentLockedUntilRateOrPass;
                                                         return (
-                                                            <>
-                                                                <div className="flex items-center justify-between mb-1.5">
+                                                            <div
+                                                                onClick={() => {
+                                                                    if (isSpectator || isAnotherTabActive) {
+                                                                        handleSpectatorLockedInputClick();
+                                                                    } else if (isLockedForRateFirst) {
+                                                                        handleMissingRateOrPassNudge('COMMENT');
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                                                                     <label className="block text-[10px] font-bold text-gray-500 uppercase flex items-center gap-1.5">
-                                                                        <MessageSquare size={13} className={isCommentsDisabled ? "text-slate-300" : "text-gray-400"} />
+                                                                        <MessageSquare size={13} className={(isCommentsDisabled || isLockedForRateFirst) ? "text-slate-300" : "text-gray-400"} />
                                                                         Trader Comments / Execution Notes
                                                                         {isCommentsDisabled ? (
                                                                             <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md normal-case">
                                                                                 <Lock size={10} className="text-amber-600" /> Disabled per Bank Policy
+                                                                            </span>
+                                                                        ) : isLockedForRateFirst ? (
+                                                                            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-slate-700 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded-md normal-case">
+                                                                                <Lock size={10} className="text-slate-600" /> {rfq.type === 'TBILL' ? 'Enter Rate & Amount First' : 'Enter Rate or "Pass Leg" First'}
                                                                             </span>
                                                                         ) : (
                                                                             <span className="text-[10px] text-gray-400 font-normal lowercase">(Optional)</span>
@@ -5120,17 +5446,27 @@ export default function QuotationBankOfferPage() {
                                                                 </div>
                                                                 <textarea
                                                                     rows={2}
-                                                                    disabled={isCommentsDisabled || timeLeft.status !== 'OPEN' || isSubmitting || isDeskInputsLocked}
-                                                                    placeholder={isCommentsDisabled ? "Execution remarks are disabled for this institution per bank treasury desk compliance policy." : "Add any settlement notes, execution remarks, or comments for the treasury desk..."}
+                                                                    disabled={isCommentsDisabled || isLockedForRateFirst || timeLeft.status !== 'OPEN' || isSubmitting || isDeskInputsLocked}
+                                                                    placeholder={
+                                                                        isCommentsDisabled
+                                                                            ? "Execution remarks are disabled for this institution per bank treasury desk compliance policy."
+                                                                            : isLockedForRateFirst
+                                                                                ? (rfq.type === 'TBILL'
+                                                                                    ? "🔒 Enter your Discount Rate (%) and Max Amount above first to unlock comments (click here to jump to rate box)."
+                                                                                    : "🔒 Enter your binding rate (or click \"Pass Leg ✕\") above first to unlock comments (click here to jump to rate box).")
+                                                                                : "Add any settlement notes, execution remarks, or comments for the treasury desk..."
+                                                                    }
                                                                     className={`w-full rounded-2xl px-4 py-3 text-xs font-medium transition-all outline-none resize-none ${
                                                                         isCommentsDisabled 
                                                                             ? "bg-slate-100/90 border border-slate-200 text-slate-400 cursor-not-allowed opacity-75 select-none" 
-                                                                            : "bg-slate-50 border border-slate-200 text-gray-800 focus:bg-white focus:ring-2 focus:ring-black/5 disabled:bg-slate-100 disabled:text-slate-400"
+                                                                            : isLockedForRateFirst
+                                                                                ? "bg-slate-100/80 border border-dashed border-slate-300 text-slate-500 cursor-pointer select-none"
+                                                                                : "bg-slate-50 border border-slate-200 text-gray-800 focus:bg-white focus:ring-2 focus:ring-black/5 disabled:bg-slate-100 disabled:text-slate-400"
                                                                     }`}
                                                                     value={isCommentsDisabled ? '' : traderNotes}
-                                                                    onChange={(e) => !isCommentsDisabled && setTraderNotes(e.target.value)}
+                                                                    onChange={(e) => !isCommentsDisabled && !isLockedForRateFirst && setTraderNotes(e.target.value)}
                                                                 />
-                                                            </>
+                                                            </div>
                                                         );
                                                     })()}
                                                 </div>
@@ -5194,25 +5530,39 @@ export default function QuotationBankOfferPage() {
                                                             {isTakingOver ? 'Transferring Desk Control...' : '⚡ Take Over Desk to Submit Quote'}
                                                         </button>
                                                     ) : (
-                                                        <button
-                                                            type="submit"
-                                                            disabled={timeLeft.status !== 'OPEN' || isSubmitting || !authSession || (
-                                                                rfq.type === 'TBILL'
-                                                                    ? tbillLines.some(l => !l.discountRate || !l.maxAmount)
-                                                                    : (rfq.legs && rfq.legs.length > 1)
-                                                                        ? (
-                                                                            // Every leg must be either actively quoted or explicitly passed
-                                                                            rfq.legs.some(l => !passedLegs[l.id] && (!legQuotes[l.id]?.price || parseFloat(legQuotes[l.id].price) <= 0))
-                                                                        )
-                                                                        : (!isSinglePassed && !price)
-                                                            )}
-                                                            className={`w-full py-3.5 rounded-2xl font-bold text-base transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10
-                                                                    ? 'bg-gradient-to-r from-amber-600 via-rose-600 to-red-600 hover:from-amber-700 hover:to-red-700 text-white animate-pulse shadow-red-500/25 ring-2 ring-red-400/50'
-                                                                    : ((rfq.legs && rfq.legs.length > 1 && rfq.legs.every(l => passedLegs[l.id])) || isSinglePassed)
-                                                                        ? 'bg-slate-700 hover:bg-slate-800 text-white border border-slate-600'
-                                                                        : 'bg-slate-950 text-white hover:bg-slate-800'
-                                                                }`}
-                                                        >
+                                                        <div className="space-y-2">
+                                                            {inlineActionHint ? (
+                                                                <div className="px-3.5 py-2 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-extrabold text-center animate-bounce shadow-2xs">
+                                                                    {inlineActionHint}
+                                                                </div>
+                                                            ) : (timeLeft.status === 'OPEN' && !isReadOnlyViewer && !isDeskInputsLocked && hasAnyUnsubmittedWork) ? (
+                                                                <div className="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs font-extrabold text-center flex items-center justify-center gap-1.5 animate-pulse shadow-2xs">
+                                                                    <span>
+                                                                        {hasUnsavedQuoteUpdate
+                                                                            ? '⚠️ UNSAVED EDIT — Click "Update" Below'
+                                                                            : hasUnsubmittedPass && !hasUnsubmittedInput
+                                                                                ? '⚠️ DRAFT PASS — Click "Submit" Below'
+                                                                                : '⚠️ UNSUBMITTED RATE — Click "Submit" Below'}
+                                                                    </span>
+                                                                </div>
+                                                            ) : null}
+                                                            <div
+                                                                onClick={() => {
+                                                                    if (isSubmitButtonDisabled && timeLeft.status === 'OPEN' && !isSubmitting) {
+                                                                        handleMissingRateOrPassNudge('SUBMIT');
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <button
+                                                                    type="submit"
+                                                                    disabled={isSubmitButtonDisabled}
+                                                                    className={`w-full py-3.5 rounded-2xl font-bold text-base transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${timeLeft.status === 'OPEN' && timeLeft.secondsRemaining !== null && timeLeft.secondsRemaining <= 10
+                                                                            ? 'bg-gradient-to-r from-amber-600 via-rose-600 to-red-600 hover:from-amber-700 hover:to-red-700 text-white animate-pulse shadow-red-500/25 ring-2 ring-red-400/50'
+                                                                            : ((rfq.legs && rfq.legs.length > 1 && rfq.legs.every(l => passedLegs[l.id])) || isSinglePassed)
+                                                                                ? 'bg-slate-700 hover:bg-slate-800 text-white border border-slate-600'
+                                                                                : 'bg-slate-950 text-white hover:bg-slate-800'
+                                                                        }`}
+                                                                >
                                                             {isSubmitting ? (
                                                                 <>
                                                                     <Loader2 size={18} className="animate-spin text-white" />
@@ -5264,7 +5614,9 @@ export default function QuotationBankOfferPage() {
                                                                             ? (isIndicative ? 'Update Indicative Quote' : 'Update Quote')
                                                                             : (isIndicative ? 'Submit Indicative Quote' : 'Submit Binding Quote')
                                                             )}
-                                                        </button>
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </form>

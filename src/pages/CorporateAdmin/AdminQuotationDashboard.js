@@ -6,7 +6,7 @@ import ResultsView from '../EndUser/Quotations/ResultsView';
 import AdminRevisionModal from '../../components/Modals/AdminRevisionModal';
 import MarketSpreadTicker from '../../components/Quotations/MarketSpreadTicker';
 import CorporateMobileAlertsBanner from '../../components/CorporateMobileAlertsBanner';
-import { getRfqTimingState } from '../../utils/quotationTiming';
+import { getRfqTimingState, computeSidebarStatusFromRfqs } from '../../utils/quotationTiming';
 import {
     Bell, Check, X, BarChart3, Landmark, Building, History, ChevronRight, ChevronDown, Clock,
     Search, Filter, AlertCircle, TrendingUp, ArrowUpRight, ArrowDownRight, FileText, Download,
@@ -240,9 +240,16 @@ export default function AdminQuotationDashboard() {
                 apiClient.get('/corporate-admin/quotations/cancellation-requests').catch(() => ({ data: [] })),
                 apiClient.get('/end-user/quotations/').catch(() => ({ data: [] })),
             ]);
-            setPendingApprovals(pendingRes.data || []);
-            setCancellationRequests(cancelRes.data || []);
-            setHistory(historyRes.data || []);
+            const pendingData = pendingRes.data || [];
+            const cancelData = cancelRes.data || [];
+            const historyData = historyRes.data || [];
+            setPendingApprovals(pendingData);
+            setCancellationRequests(cancelData);
+            setHistory(historyData);
+            try {
+                const sidebarStatus = computeSidebarStatusFromRfqs(historyData, pendingData, cancelData);
+                window.dispatchEvent(new CustomEvent('quotation-sidebar-status-updated', { detail: sidebarStatus }));
+            } catch {}
         } catch (err) {
             console.error('Failed to fetch quotation data:', err);
         } finally {
@@ -414,6 +421,7 @@ export default function AdminQuotationDashboard() {
             toast.success(res.data?.message || "Quotation approved!");
             setApprovingRfq(null);
             fetchData();
+            window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
         } catch (err) {
             toast.error("Failed to approve: " + (err.response?.data?.detail || err.message));
         } finally {
@@ -450,6 +458,7 @@ export default function AdminQuotationDashboard() {
             });
             toast.success("Quotation released to banks immediately!");
             fetchData();
+            window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
         } catch (err) {
             toast.error("Failed to release: " + (err.response?.data?.detail || err.message));
         }
@@ -461,6 +470,7 @@ export default function AdminQuotationDashboard() {
             await apiClient.post(`/corporate-admin/quotations/${rfqId}/cancel-scheduled-release`);
             toast.success("Scheduled release cancelled. RFQ returned to pending approval.");
             fetchData();
+            window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
         } catch (err) {
             toast.error("Failed to cancel scheduled release: " + (err.response?.data?.detail || err.message));
         }
@@ -484,6 +494,7 @@ export default function AdminQuotationDashboard() {
             toast.success("Scheduled release updated successfully!");
             setRescheduleModalRfq(null);
             fetchData();
+            window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
         } catch (err) {
             toast.error("Failed to reschedule: " + (err.response?.data?.detail || err.message));
         } finally {
@@ -497,6 +508,7 @@ export default function AdminQuotationDashboard() {
             await apiClient.post(`/corporate-admin/quotations/${rfqId}/reject`);
             toast.success("Quotation rejected.");
             fetchData();
+            window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
         } catch (err) {
             toast.error("Failed to reject quotation.");
         }
@@ -509,6 +521,7 @@ export default function AdminQuotationDashboard() {
             await apiClient.post(`/corporate-admin/quotations/${rfqId}/approve-cancellation`);
             toast.success("Cancellation approved. Counterparties notified of withdrawal.");
             fetchData();
+            window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
         } catch (err) {
             toast.error("Failed to approve cancellation: " + (err.response?.data?.detail || err.message));
         }
@@ -521,6 +534,7 @@ export default function AdminQuotationDashboard() {
             await apiClient.post(`/corporate-admin/quotations/${rfqId}/reject-cancellation`, { rejection_notes: reason || undefined });
             toast.info("Cancellation request rejected. RFQ restored to active schedule.");
             fetchData();
+            window.dispatchEvent(new CustomEvent('check-deal-acceptance'));
         } catch (err) {
             toast.error("Failed to reject cancellation: " + (err.response?.data?.detail || err.message));
         }

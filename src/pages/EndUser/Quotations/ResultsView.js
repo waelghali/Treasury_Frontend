@@ -740,6 +740,119 @@ export default function ResultsView({ rfqId: propRfqId }) {
         }
     };
 
+    const renderDeskProofBadge = (result) => {
+        const dp = result?.desk_proof;
+        if (!dp || result?.is_excluded) return null;
+        const hasSubmitted = Boolean(result?.submitted_at || result?.is_passed || (result?.offers && result.offers.length > 0));
+
+        const pills = [];
+        if (dp.ever_typed_unsubmitted_rate && !hasSubmitted) {
+            pills.push({
+                key: 'unsub_rate',
+                tone: 'amber',
+                text: '✍️ Typed Rate (Did Not Click Submit)'
+            });
+        }
+        if (dp.ever_toggled_unsubmitted_pass && !hasSubmitted) {
+            pills.push({
+                key: 'unsub_pass',
+                text: '✍️ Toggled "Pass Leg" (Did Not Click Submit)',
+                tone: 'amber'
+            });
+        }
+        if (dp.ever_edited_after_submit) {
+            pills.push({
+                key: 'unsub_edit',
+                tone: 'amber',
+                text: '✏️ Edited Rate After Submit (Did Not Click Update)'
+            });
+        }
+        if (dp.clicked_locked_comment_count > 0) {
+            pills.push({
+                key: 'locked_comment',
+                tone: 'blue',
+                text: `🔒 Clicked Locked Comment First (${dp.clicked_locked_comment_count}x — Auto-Redirected to Rate)`
+            });
+        }
+        if (dp.disabled_submit_clicks > 0 && !hasSubmitted) {
+            pills.push({
+                key: 'disabled_submit',
+                tone: 'rose',
+                text: `🖱️ Clicked Disabled Submit Without Rate (${dp.disabled_submit_clicks}x)`
+            });
+        }
+        if (dp.spectator_locked_clicks > 0) {
+            pills.push({
+                key: 'spectator_click',
+                tone: 'purple',
+                text: `👥 Clicked Input While Locked in Spectator/Other Tab (${dp.spectator_locked_clicks}x)`
+            });
+        }
+        if (dp.fat_finger_prompted && !hasSubmitted) {
+            pills.push({
+                key: 'fat_finger',
+                tone: 'amber',
+                text: '⚠️ Prompted by Fat-Finger Warning (Did Not Confirm)'
+            });
+        }
+
+        // Only show if there are behavioral proof pills OR if no quote was submitted (to prove link/system health)
+        if (pills.length === 0 && hasSubmitted) return null;
+
+        const hbCount = Number(dp.total_heartbeats || 0);
+        const avgRtt = dp.avg_latency_ms ? `${dp.avg_latency_ms}ms` : null;
+        const dealerEmails = Array.isArray(dp.dealers_seen) && dp.dealers_seen.length > 0 ? dp.dealers_seen.join(', ') : null;
+
+        return (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-semibold border ${
+                        dp.portal_opened
+                            ? 'bg-slate-100 text-slate-700 border-slate-200'
+                            : dp.otp_verified_count > 0
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : dp.otp_requested_count > 0
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                    : 'bg-slate-50 text-slate-400 border-slate-200/80'
+                    }`}
+                    title="Zero-Knowledge Desk Telemetry & System Responsiveness Proof (No draft rates transmitted)"
+                >
+                    <span>🛡️ Desk Telemetry:</span>
+                    {dp.portal_opened ? (
+                        <span>
+                            Console Active ({hbCount} heartbeat{hbCount === 1 ? '' : 's'}
+                            {avgRtt ? ` • ~${avgRtt} ping` : ''}
+                            {dealerEmails ? ` • ${dealerEmails}` : ''})
+                        </span>
+                    ) : dp.otp_verified_count > 0 ? (
+                        <span>OTP Verified ({dp.otp_emails?.join(', ') || 'Dealer'})</span>
+                    ) : dp.otp_requested_count > 0 ? (
+                        <span>OTP Requested Only (Never Verified)</span>
+                    ) : (
+                        <span>Link Never Opened</span>
+                    )}
+                </span>
+
+                {pills.map(p => (
+                    <span
+                        key={p.key}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold border ${
+                            p.tone === 'amber'
+                                ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                : p.tone === 'rose'
+                                    ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                    : p.tone === 'purple'
+                                        ? 'bg-purple-50 text-purple-800 border-purple-200'
+                                        : 'bg-blue-50 text-blue-800 border-blue-200'
+                        }`}
+                    >
+                        {p.text}
+                    </span>
+                ))}
+            </div>
+        );
+    };
+
     const renderFxCounterpartyCard = (result, index, legContext = null) => {
         const targetPair = legContext ? (legContext.currency_pair || `${legContext.buy_currency}/${legContext.sell_currency}`) : `${rfq?.buy_currency}/${rfq?.sell_currency}`;
         const targetAmount = legContext ? legContext.amount : rfq?.amount;
@@ -869,6 +982,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                 <span className="leading-snug"><strong className="text-slate-900 font-semibold">Trader Notes:</strong> {result.notes}</span>
                             </div>
                         )}
+                        {renderDeskProofBadge(result)}
                         {/* Value Date & Settlement Policy Badge */}
                         {rfq?.type === 'FX_SPOT' && (
                             <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
@@ -2885,6 +2999,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                     <span className="leading-snug"><strong className="text-slate-900 font-semibold">Trader Notes:</strong> {result.notes}</span>
                                 </div>
                             )}
+                            {renderDeskProofBadge(result)}
 
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm">

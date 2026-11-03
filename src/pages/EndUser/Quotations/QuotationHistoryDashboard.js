@@ -4,7 +4,7 @@ import ResultsView from './ResultsView';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
 import MarketSpreadTicker from '../../../components/Quotations/MarketSpreadTicker';
 import CorporateMobileAlertsBanner from '../../../components/CorporateMobileAlertsBanner';
-import { getRfqTimingState } from '../../../utils/quotationTiming';
+import { getRfqTimingState, computeSidebarStatusFromRfqs } from '../../../utils/quotationTiming';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'react-toastify';
 import {
@@ -38,6 +38,81 @@ const formatAmount = (val) => {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
+};
+
+const PER_LEG_STATUS_FILTERS = ['TRADED', 'PARTIALLY_EXECUTED', 'INCONCLUSIVE', 'INDICATIVE_COMPLETED', 'REJECTED'];
+
+const getLegOutcomeCategory = (leg, rfq, timing) => {
+    if (!rfq) return 'PENDING';
+    if (['PENDING_APPROVAL', 'APPROVED_SCHEDULED', 'NEEDS_REVISION', 'CANCEL_REQUESTED', 'CANCELLED', 'EXPIRED'].includes(rfq.status)) {
+        return rfq.status;
+    }
+    if (timing?.isLive || rfq.status === 'OPEN') return 'OPEN';
+    if (rfq.acceptance_status === 'PENDING' || rfq.status === 'EVALUATING' || timing?.badge === 'AWAITING_ACCEPTANCE') {
+        return 'AWAITING_ACCEPTANCE';
+    }
+    if (rfq.status === 'PENDING' && timing?.isScheduled) return 'PENDING';
+
+    if (
+        rfq.status === 'REJECTED' ||
+        rfq.acceptance_status === 'REJECTED' ||
+        rfq.acceptance_status === 'AUTO_REJECTED' ||
+        leg?.status === 'REJECTED'
+    ) {
+        return 'REJECTED';
+    }
+
+    const legBase = (leg?.quotation_base || rfq.quotation_base || 'Execution').toLowerCase();
+    const isSingleLegFallback = !rfq.legs || rfq.legs.length <= 1;
+    const hasWinner = Boolean(
+        leg?.winner_bank_name ||
+        leg?.winner_bank_id ||
+        (isSingleLegFallback && (rfq.winner_bank_name || rfq.winner_bank_id))
+    );
+
+    if (legBase === 'indicative' || rfq.acceptance_status === 'INDICATIVE_COMPLETED') {
+        if (rfq.acceptance_status === 'NO_QUOTES' || leg?.status === 'INCONCLUSIVE') {
+            return 'INCONCLUSIVE';
+        }
+        return 'INDICATIVE_COMPLETED';
+    }
+
+    if (
+        hasWinner &&
+        leg?.status !== 'INCONCLUSIVE' &&
+        leg?.status !== 'REJECTED' &&
+        leg?.status !== 'CANCELLED' &&
+        rfq.acceptance_status !== 'NO_QUOTES'
+    ) {
+        return 'TRADED';
+    }
+
+    return 'INCONCLUSIVE';
+};
+
+const getRfqLegsMetadata = (rfq) => {
+    const timing = getRfqTimingState(rfq);
+    const rawLegs = Array.isArray(rfq?.legs) && rfq.legs.length > 0 ? rfq.legs : [];
+    const allLegsMeta = rawLegs.map((leg, idx) => ({
+        leg,
+        idx,
+        legNumber: leg.leg_index || (idx + 1),
+        category: getLegOutcomeCategory(leg, rfq, timing)
+    }));
+    const singleOutcome = allLegsMeta.length > 0
+        ? allLegsMeta[0].category
+        : getLegOutcomeCategory(null, rfq, timing);
+    return { timing, allLegsMeta, singleOutcome };
+};
+
+const getVisibleLegsMetaForFilter = (rfq, statusFilter) => {
+    const { allLegsMeta } = getRfqLegsMetadata(rfq);
+    if (allLegsMeta.length <= 1 || !PER_LEG_STATUS_FILTERS.includes(statusFilter)) {
+        return allLegsMeta;
+    }
+    const targetCategory = statusFilter === 'PARTIALLY_EXECUTED' ? 'TRADED' : statusFilter;
+    const matched = allLegsMeta.filter(m => m.category === targetCategory);
+    return matched.length > 0 ? matched : allLegsMeta;
 };
 
 let cachedDashboardHistory = null;
@@ -89,11 +164,22 @@ export default function QuotationHistoryDashboard() {
             cachedDashboardHistory = historyData;
             setHistory(historyData);
             setLoading(false); // Render history table immediately
+            try {
+                const sidebarStatus = computeSidebarStatusFromRfqs(historyData);
+                window.dispatchEvent(new CustomEvent('quotation-sidebar-status-updated', { detail: sidebarStatus }));
+            } catch {}
 
             // 2. Fetch Pending Approvals asynchronously in background for admin
             if (isAdmin) {
                 apiClient.get('/corporate-admin/quotations/pending-approvals')
-                    .then(res => setPendingApprovals(res.data || []))
+                    .then(res => {
+                        const pendingData = res.data || [];
+                        setPendingApprovals(pendingData);
+                        try {
+                            const sidebarStatus = computeSidebarStatusFromRfqs(historyData, pendingData);
+                            window.dispatchEvent(new CustomEvent('quotation-sidebar-status-updated', { detail: sidebarStatus }));
+                        } catch {}
+                    })
                     .catch(() => {});
             }
         } catch (err) {
@@ -299,11 +385,48 @@ export default function QuotationHistoryDashboard() {
         }
 
         if (statusFilter !== 'ALL') {
-            if (statusFilter === 'AWAITING_ACCEPTANCE') {
-                list = list.filter(r => r.acceptance_status === 'PENDING' || r.status === 'EVALUATING' || r.status === 'AWAITING_ACCEPTANCE');
-            } else {
-                list = list.filter(r => r.status === statusFilter);
-            }
+            list = list.filter(r => {
+                const { timing, allLegsMeta, singleOutcome } = getRfqLegsMetadata(r);
+                const hasLegs = allLegsMeta.length > 0;
+
+                switch (statusFilter) {
+                    case 'TRADED':
+                        return hasLegs
+                            ? allLegsMeta.some(m => m.category === 'TRADED')
+                            : singleOutcome === 'TRADED';
+
+                    case 'PARTIALLY_EXECUTED':
+                        return allLegsMeta.length > 1 &&
+                            allLegsMeta.some(m => m.category === 'TRADED') &&
+                            allLegsMeta.some(m => m.category !== 'TRADED');
+
+                    case 'INCONCLUSIVE':
+                        return hasLegs
+                            ? allLegsMeta.some(m => m.category === 'INCONCLUSIVE')
+                            : singleOutcome === 'INCONCLUSIVE';
+
+                    case 'INDICATIVE_COMPLETED':
+                        return hasLegs
+                            ? allLegsMeta.some(m => m.category === 'INDICATIVE_COMPLETED')
+                            : singleOutcome === 'INDICATIVE_COMPLETED';
+
+                    case 'REJECTED':
+                        return r.status === 'REJECTED' ||
+                            (hasLegs ? allLegsMeta.some(m => m.category === 'REJECTED') : singleOutcome === 'REJECTED');
+
+                    case 'AWAITING_ACCEPTANCE':
+                        return r.acceptance_status === 'PENDING' || r.status === 'EVALUATING' || r.status === 'AWAITING_ACCEPTANCE' || timing.badge === 'AWAITING_ACCEPTANCE';
+
+                    case 'OPEN':
+                        return r.status === 'OPEN' || timing.isLive;
+
+                    case 'PENDING':
+                        return r.status === 'PENDING' && !timing.isLive && timing.badge !== 'AWAITING_ACCEPTANCE';
+
+                    default:
+                        return r.status === statusFilter;
+                }
+            });
         }
 
         if (searchQuery.trim()) {
@@ -321,8 +444,11 @@ export default function QuotationHistoryDashboard() {
                 const status = (r.status || '').toLowerCase();
                 const details = (r.type === 'TBILL' ? r.direction : `${r.buy_currency}/${r.sell_currency}`) || '';
                 
-                // Multi-leg fields search
-                const legDetails = (r.legs || []).map(l => `${l.buy_currency} ${l.sell_currency} ${l.currency_pair || ''} ${l.winner_bank_name || ''} ${l.amount || ''}`).join(' ').toLowerCase();
+                // Multi-leg fields search (scoped to visible legs if a per-leg status filter is active)
+                const legsToSearch = (r.legs && r.legs.length > 1 && PER_LEG_STATUS_FILTERS.includes(statusFilter))
+                    ? getVisibleLegsMetaForFilter(r, statusFilter).map(m => m.leg)
+                    : (r.legs || []);
+                const legDetails = legsToSearch.map(l => `${l.buy_currency} ${l.sell_currency} ${l.currency_pair || ''} ${l.winner_bank_name || ''} ${l.amount || ''}`).join(' ').toLowerCase();
 
                 return refNo.includes(q) ||
                     entityName.includes(q) ||
@@ -341,6 +467,8 @@ export default function QuotationHistoryDashboard() {
 
         return [...list].sort((a, b) => {
             let valA, valB;
+            const visA = (a.legs && a.legs.length > 1) ? getVisibleLegsMetaForFilter(a, statusFilter).map(m => m.leg) : null;
+            const visB = (b.legs && b.legs.length > 1) ? getVisibleLegsMetaForFilter(b, statusFilter).map(m => m.leg) : null;
             switch (sortField) {
                 case 'ref_no':
                     valA = a.ref_no || '';
@@ -358,13 +486,13 @@ export default function QuotationHistoryDashboard() {
                     return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
 
                 case 'details':
-                    valA = a.type === 'TBILL' ? (a.direction || '') : (a.legs && a.legs.length > 1 ? a.legs.map(l => l.currency_pair || `${l.buy_currency}/${l.sell_currency}`).join(' ') : `${a.buy_currency}/${a.sell_currency}`);
-                    valB = b.type === 'TBILL' ? (b.direction || '') : (b.legs && b.legs.length > 1 ? b.legs.map(l => l.currency_pair || `${l.buy_currency}/${l.sell_currency}`).join(' ') : `${b.buy_currency}/${b.sell_currency}`);
+                    valA = a.type === 'TBILL' ? (a.direction || '') : (visA ? visA.map(l => l.currency_pair || `${l.buy_currency}/${l.sell_currency}`).join(' ') : `${a.buy_currency}/${a.sell_currency}`);
+                    valB = b.type === 'TBILL' ? (b.direction || '') : (visB ? visB.map(l => l.currency_pair || `${l.buy_currency}/${l.sell_currency}`).join(' ') : `${b.buy_currency}/${b.sell_currency}`);
                     return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
 
                 case 'amount':
-                    valA = a.legs && a.legs.length > 1 ? a.legs.reduce((acc, l) => acc + (Number(l.amount) || 0), 0) : (Number(a.amount) || 0);
-                    valB = b.legs && b.legs.length > 1 ? b.legs.reduce((acc, l) => acc + (Number(l.amount) || 0), 0) : (Number(b.amount) || 0);
+                    valA = visA ? visA.reduce((acc, l) => acc + (Number(l.amount) || 0), 0) : (Number(a.amount) || 0);
+                    valB = visB ? visB.reduce((acc, l) => acc + (Number(l.amount) || 0), 0) : (Number(b.amount) || 0);
                     return sortDirection === 'asc' ? valA - valB : valB - valA;
 
                 case 'status':
@@ -732,13 +860,16 @@ export default function QuotationHistoryDashboard() {
                             className="text-xs font-semibold bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 outline-none focus:border-blue-500 shadow-2xs cursor-pointer"
                         >
                             <option value="ALL">All Statuses</option>
-                            <option value="COMPLETED">Completed</option>
+                            <option value="TRADED">Traded / Executed</option>
+                            <option value="PARTIALLY_EXECUTED">Partially Executed</option>
+                            <option value="INCONCLUSIVE">Inconclusive (No Quotes)</option>
+                            <option value="INDICATIVE_COMPLETED">Indicative Concluded</option>
                             <option value="OPEN">Open (Bidding)</option>
                             <option value="AWAITING_ACCEPTANCE">Awaiting Acceptance</option>
                             <option value="PENDING">Pending Window</option>
                             <option value="PENDING_APPROVAL">Pending Approval</option>
                             <option value="NEEDS_REVISION">Needs Revision</option>
-                            <option value="REJECTED">Rejected</option>
+                            <option value="REJECTED">Rejected / Declined</option>
                             <option value="CANCELLED">Cancelled</option>
                         </select>
 
@@ -782,6 +913,17 @@ export default function QuotationHistoryDashboard() {
                 <div className="flex items-center justify-between text-xs text-gray-500 px-1">
                     <span>
                         Showing <strong className="text-gray-800">{displayedRfqs.length}</strong> of {baseRfqs.length} quotation{baseRfqs.length === 1 ? '' : 's'}
+                        {PER_LEG_STATUS_FILTERS.includes(statusFilter) && displayedRfqs.length > 0 && (() => {
+                            const totalVisibleLegs = displayedRfqs.reduce(
+                                (sum, r) => sum + ((r.legs && r.legs.length > 1) ? getVisibleLegsMetaForFilter(r, statusFilter).length : 1),
+                                0
+                            );
+                            return (
+                                <span className="text-emerald-700 font-semibold ml-1.5">
+                                    • {totalVisibleLegs} matching leg{totalVisibleLegs === 1 ? '' : 's'}
+                                </span>
+                            );
+                        })()}
                         {hasActiveFilters && <span className="text-blue-600 font-semibold ml-1.5">(filtered)</span>}
                     </span>
                     <span className="text-[11px] text-gray-400 hidden sm:inline">
@@ -930,7 +1072,13 @@ export default function QuotationHistoryDashboard() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    displayedRfqs.map((rfq) => (
+                                    displayedRfqs.map((rfq) => {
+                                        const visibleLegsMeta = (rfq.legs && rfq.legs.length > 1)
+                                            ? getVisibleLegsMetaForFilter(rfq, statusFilter)
+                                            : [];
+                                        const isLegFiltered = Boolean(rfq.legs && rfq.legs.length > 1 && visibleLegsMeta.length < rfq.legs.length);
+
+                                        return (
                                     <tr
                                         key={rfq.id}
                                         className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
@@ -970,8 +1118,19 @@ export default function QuotationHistoryDashboard() {
                                                     <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/70">
                                                         FX Portfolio
                                                     </span>
-                                                    <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800" title={`${rfq.legs.length} currency pairs in portfolio`}>
-                                                        {rfq.legs.length}L
+                                                    <span
+                                                        className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${
+                                                            isLegFiltered
+                                                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                                                : 'bg-indigo-100 text-indigo-800'
+                                                        }`}
+                                                        title={
+                                                            isLegFiltered
+                                                                ? `Showing ${visibleLegsMeta.length} matching leg(s) of ${rfq.legs.length} total currency pairs in portfolio`
+                                                                : `${rfq.legs.length} currency pairs in portfolio`
+                                                        }
+                                                    >
+                                                        {isLegFiltered ? `${visibleLegsMeta.length}/${rfq.legs.length}L` : `${rfq.legs.length}L`}
                                                     </span>
                                                 </div>
                                             ) : (
@@ -989,26 +1148,26 @@ export default function QuotationHistoryDashboard() {
                                             ) : rfq.legs && rfq.legs.length > 1 ? (
                                                 <div className="flex flex-col gap-1 py-0.5">
                                                     <div className="flex items-center gap-1.5 flex-wrap max-w-[240px]">
-                                                        {rfq.legs.map((leg, idx) => {
+                                                        {visibleLegsMeta.map(({ leg, legNumber }) => {
                                                             const pair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
                                                             return (
                                                                 <span 
-                                                                    key={leg.id || idx} 
+                                                                    key={leg.id || legNumber} 
                                                                     className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-800 bg-slate-100 border border-slate-200/80 px-1.5 py-0.5 rounded"
-                                                                    title={`Leg ${idx + 1}: ${pair}${leg.value_date ? ` • Val: ${formatDate(leg.value_date)}` : ''}`}
+                                                                    title={`Leg ${legNumber}: ${pair}${leg.value_date ? ` • Val: ${formatDate(leg.value_date)}` : ''}`}
                                                                 >
-                                                                    <span className="text-[9px] text-indigo-600 font-extrabold">L{idx + 1}</span>
+                                                                    <span className="text-[9px] text-indigo-600 font-extrabold">L{legNumber}</span>
                                                                     <span>{pair}</span>
                                                                 </span>
                                                             );
                                                         })}
                                                     </div>
                                                     {(() => {
-                                                        const legBases = Array.from(new Set(rfq.legs.map(l => l.quotation_base).filter(Boolean)));
-                                                        const isMixed = rfq.quotation_base === 'Mixed' || legBases.length > 1;
+                                                        const legBases = Array.from(new Set(visibleLegsMeta.map(m => m.leg.quotation_base).filter(Boolean)));
+                                                        const isMixed = (!isLegFiltered && rfq.quotation_base === 'Mixed') || legBases.length > 1;
                                                         if (isMixed) {
                                                             return <span className="text-[9px] font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.2 w-fit">⚡📊 Mixed</span>;
-                                                        } else if ((rfq.quotation_base || legBases[0] || '').toLowerCase() === 'indicative') {
+                                                        } else if ((legBases[0] || rfq.quotation_base || '').toLowerCase() === 'indicative') {
                                                             return <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.2 w-fit">📊 Indicative</span>;
                                                         }
                                                         return null;
@@ -1035,9 +1194,9 @@ export default function QuotationHistoryDashboard() {
                                                 <span className="font-semibold text-gray-900">Min: {formatAmount(rfq.min_ticket_amount || 0)}</span>
                                             ) : rfq.legs && rfq.legs.length > 1 ? (
                                                 <div className="flex flex-col gap-0.5 py-0.5 font-mono text-xs">
-                                                    {rfq.legs.map((leg, idx) => (
-                                                        <div key={leg.id || idx} className="flex items-center gap-1 whitespace-nowrap text-slate-900">
-                                                            <span className="text-[9px] text-slate-400 font-sans font-semibold">L{idx + 1}:</span>
+                                                    {visibleLegsMeta.map(({ leg, legNumber }) => (
+                                                        <div key={leg.id || legNumber} className="flex items-center gap-1 whitespace-nowrap text-slate-900">
+                                                            <span className="text-[9px] text-slate-400 font-sans font-semibold">L{legNumber}:</span>
                                                             <span className="font-bold">{formatAmount(leg.amount)}</span>
                                                             <span className="text-[10px] text-slate-500 font-semibold">{leg.buy_currency}</span>
                                                         </div>
@@ -1091,12 +1250,15 @@ export default function QuotationHistoryDashboard() {
 
                                                 // Concluded / Closed RFQ Display
                                                 if (isMultiLeg) {
-                                                    const legsWithWinner = rfq.legs.filter(l => l.winner_bank_name);
-                                                    const legsPendingApproval = rfq.status === 'PENDING_APPROVAL' ? rfq.legs.filter(l => l.status === 'PENDING_APPROVAL') : [];
+                                                    const legsWithWinner = visibleLegsMeta.filter(m => m.leg.winner_bank_name);
+                                                    const legsPendingApproval = rfq.status === 'PENDING_APPROVAL' ? visibleLegsMeta.filter(m => m.leg.status === 'PENDING_APPROVAL') : [];
                                                     const hasAnyWinner = legsWithWinner.length > 0;
 
-                                                    // If completely inconclusive / no quotes
-                                                    if (!hasAnyWinner && legsPendingApproval.length === 0) {
+                                                    // If completely inconclusive / no quotes across visible legs
+                                                    if (!hasAnyWinner && legsPendingApproval.length === 0 && !isLegFiltered) {
+                                                        if (timing.badge === 'INDICATIVE_COMPLETED') {
+                                                            return <span className="text-xs text-sky-700 font-medium">Indicative Benchmarking Finalized</span>;
+                                                        }
                                                         if (rfq.status === 'COMPLETED') {
                                                             return <span className="text-xs text-gray-400 italic">No quotes (Inconclusive)</span>;
                                                         }
@@ -1107,8 +1269,9 @@ export default function QuotationHistoryDashboard() {
                                                         );
                                                     }
 
-                                                    // All legs won by the exact same bank
-                                                    const allWonSameBank = hasAnyWinner && 
+                                                    // All legs won by the exact same bank (only when showing full portfolio)
+                                                    const allWonSameBank = !isLegFiltered &&
+                                                        hasAnyWinner && 
                                                         legsWithWinner.length === rfq.legs.length && 
                                                         rfq.legs.every(l => l.winner_bank_name && l.winner_bank_name === rfq.legs[0].winner_bank_name);
 
@@ -1133,17 +1296,19 @@ export default function QuotationHistoryDashboard() {
                                                         );
                                                     }
 
-                                                    // Multi-leg breakdown (some won, some pending, some split)
+                                                    // Multi-leg breakdown (scoped to visibleLegsMeta)
                                                     return (
                                                         <div className="flex flex-col gap-1 py-0.5">
-                                                            {rfq.legs.map((leg, idx) => {
-                                                                const isLegWin = Boolean(leg.winner_bank_name);
+                                                            {visibleLegsMeta.map(({ leg, legNumber, category }) => {
+                                                                const isLegWin = Boolean(leg.winner_bank_name) && category !== 'REJECTED';
                                                                 const isLegPending = leg.status === 'PENDING_APPROVAL' && rfq.status === 'PENDING_APPROVAL';
-                                                                const isLegInconclusive = leg.status === 'INCONCLUSIVE' || leg.is_inconclusive || (!isLegWin && (rfq.status === 'COMPLETED' || timing.badge === 'WINDOW_CLOSED'));
+                                                                const isLegDeclined = leg.status === 'REJECTED' || category === 'REJECTED';
+                                                                const isLegIndicative = category === 'INDICATIVE_COMPLETED';
+                                                                const isLegInconclusive = category === 'INCONCLUSIVE' || leg.status === 'INCONCLUSIVE' || leg.is_inconclusive || (!isLegWin && (rfq.status === 'COMPLETED' || timing.badge === 'WINDOW_CLOSED'));
 
                                                                 return (
-                                                                    <div key={leg.id || idx} className="flex items-center gap-1.5 text-xs whitespace-nowrap">
-                                                                        <span className="text-[10px] font-mono text-slate-400 font-bold">L{idx + 1}:</span>
+                                                                    <div key={leg.id || legNumber} className="flex items-center gap-1.5 text-xs whitespace-nowrap">
+                                                                        <span className="text-[10px] font-mono text-slate-400 font-bold">L{legNumber}:</span>
                                                                         {isLegWin ? (
                                                                             <div className="flex items-center gap-1">
                                                                                 <span className="inline-flex items-center gap-1 font-bold text-[11px] text-emerald-900 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 rounded-md">
@@ -1153,12 +1318,21 @@ export default function QuotationHistoryDashboard() {
                                                                                 <span className="font-mono font-bold text-slate-800 text-[11px]">
                                                                                     @{typeof leg.winner_rate === 'number' ? leg.winner_rate.toFixed(4) : leg.winner_rate}
                                                                                 </span>
+                                                                                {leg.saved_vs_avg ? (
+                                                                                    <span className="text-[9px] text-emerald-600 font-sans font-semibold">
+                                                                                        +{parseFloat(leg.saved_vs_avg).toFixed(2)}
+                                                                                    </span>
+                                                                                ) : null}
                                                                             </div>
                                                                         ) : isLegPending ? (
                                                                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded-md">
                                                                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                                                                                 Pending Approval
                                                                             </span>
+                                                                        ) : isLegDeclined ? (
+                                                                            <span className="text-[10px] text-rose-600 font-medium italic">Declined</span>
+                                                                        ) : isLegIndicative ? (
+                                                                            <span className="text-[10px] text-sky-700 font-medium">Indicative Concluded</span>
                                                                         ) : isLegInconclusive ? (
                                                                             <span className="text-[10px] text-gray-400 italic">Inconclusive</span>
                                                                         ) : (
@@ -1320,7 +1494,8 @@ export default function QuotationHistoryDashboard() {
                                             </div>
                                         </td>
                                     </tr>
-                                ))
+                                        );
+                                    })
                             )}
                             </tbody>
                         </table>

@@ -13,7 +13,7 @@ import { apiRequest } from '../../services/apiService';
 import MobileAlertsControl from '../MobileAlertsControl';
 import { parseISO } from 'date-fns';
 
-function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, headerTitle, subscriptionStatus, subscriptionEndDate, userPermissions, hasCustodyModule, hasIssuanceModule, hasQuotationModule = true, hasReconciliationModule = true }) {
+function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, headerTitle, subscriptionStatus, subscriptionEndDate, userPermissions, hasCustodyModule, hasIssuanceModule, hasQuotationModule = true, hasReconciliationModule = true, quotationSidebarStatus = null }) {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -306,43 +306,105 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
       )}
 
       {/* Quotation Module */}
-      {hasQuotationModule && (
-        <>
-          {(!isCollapsed || isDrawer) && (
-            <div className="pt-3 pb-1 px-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Quotations</p>
-            </div>
-          )}
-          <Link
-            to="/end-user/quotations/active"
-            title={isCollapsed && !isDrawer ? "Active Quotations" : ""}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-quotations-active' || activeMenuItem === 'end-user-quotations-new'
-              ? 'font-semibold'
-              : 'hover:bg-white/[0.07]'
-              }`}
-            style={activeMenuItem === 'end-user-quotations-active' || activeMenuItem === 'end-user-quotations-new'
-              ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
-              : { color: '#cbd5e1' }}
-          >
-            <TrendingUp className="h-5 w-5 flex-shrink-0" />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">New & Active Quotations</span>}
-          </Link>
-          <Link
-            to="/end-user/quotations/history"
-            title={isCollapsed && !isDrawer ? "Quotation History" : ""}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-quotations-history' || activeMenuItem === 'end-user-quotations-dashboard'
-              ? 'font-semibold'
-              : 'hover:bg-white/[0.07]'
-              }`}
-            style={activeMenuItem === 'end-user-quotations-history' || activeMenuItem === 'end-user-quotations-dashboard'
-              ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
-              : { color: '#cbd5e1' }}
-          >
-            <History className="h-5 w-5 flex-shrink-0" />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Quotation History</span>}
-          </Link>
-        </>
-      )}
+      {hasQuotationModule && (() => {
+        const qLiveCount = Number(quotationSidebarStatus?.live_count || 0);
+        const qPendingCount = Number(quotationSidebarStatus?.pending_approval_count || 0);
+        const qRevisionCount = Number(quotationSidebarStatus?.needs_revision_count || 0);
+        const qScheduledCount = Number(quotationSidebarStatus?.scheduled_count || 0);
+        const hasAnyBadge = qLiveCount > 0 || qPendingCount > 0 || qRevisionCount > 0 || qScheduledCount > 0;
+        return (
+          <>
+            {(!isCollapsed || isDrawer) && (
+              <div className="pt-3 pb-1 px-3 flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Quotations</p>
+              </div>
+            )}
+            <Link
+              to="/end-user/quotations/active"
+              title={isCollapsed && !isDrawer ? `New & Active Quotations${qLiveCount > 0 ? ` • ${qLiveCount} Live` : ''}${qPendingCount > 0 ? ` • ${qPendingCount} Pending` : ''}${qRevisionCount > 0 ? ` • ${qRevisionCount} Needs Revision` : ''}` : ""}
+              className={`relative flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-quotations-active' || activeMenuItem === 'end-user-quotations-new'
+                ? 'font-semibold'
+                : 'hover:bg-white/[0.07]'
+                }`}
+              style={activeMenuItem === 'end-user-quotations-active' || activeMenuItem === 'end-user-quotations-new'
+                ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
+                : { color: '#cbd5e1' }}
+            >
+              <div className="flex items-center min-w-0">
+                <TrendingUp className="h-5 w-5 flex-shrink-0" />
+                {(!isCollapsed || isDrawer) && <span className="ml-3 truncate">New & Active Quotations</span>}
+              </div>
+              {isCollapsed && !isDrawer && hasAnyBadge && (
+                <span
+                  className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#0f172a] ${
+                    qLiveCount > 0 ? 'bg-emerald-400 animate-pulse' : qRevisionCount > 0 ? 'bg-rose-400 animate-pulse' : qPendingCount > 0 ? 'bg-amber-400 animate-pulse' : 'bg-blue-400'
+                  }`}
+                />
+              )}
+            </Link>
+            <Link
+              to="/end-user/quotations/history"
+              title={isCollapsed && !isDrawer ? `Quotation History${qLiveCount > 0 ? ` • ${qLiveCount} Live` : ''}${qPendingCount > 0 ? ` • ${qPendingCount} Pending Approval` : ''}${qRevisionCount > 0 ? ` • ${qRevisionCount} Needs Revision` : ''}` : ""}
+              className={`relative flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-quotations-history' || activeMenuItem === 'end-user-quotations-dashboard'
+                ? 'font-semibold'
+                : 'hover:bg-white/[0.07]'
+                }`}
+              style={activeMenuItem === 'end-user-quotations-history' || activeMenuItem === 'end-user-quotations-dashboard'
+                ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
+                : { color: '#cbd5e1' }}
+            >
+              <div className="flex items-center min-w-0">
+                <History className="h-5 w-5 flex-shrink-0" />
+                {(!isCollapsed || isDrawer) && <span className="ml-3 truncate">Quotation History</span>}
+              </div>
+              {(!isCollapsed || isDrawer) && hasAnyBadge && (
+                <div className="flex items-center gap-1 ml-2 shrink-0">
+                  {qLiveCount > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[9.5px] font-extrabold uppercase tracking-wider"
+                      title={`${qLiveCount} Live Quotation${qLiveCount > 1 ? 's' : ''} in Desk Monitor`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                      <span>LIVE{qLiveCount > 1 ? ` ${qLiveCount}` : ''}</span>
+                    </span>
+                  )}
+                  {qPendingCount > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[9.5px] font-bold"
+                      title={`${qPendingCount} Quotation${qPendingCount > 1 ? 's' : ''} Pending Approval`}
+                    >
+                      <span>⏳ {qPendingCount}{(qLiveCount > 0 || qRevisionCount > 0) ? '' : ' Pending'}</span>
+                    </span>
+                  )}
+                  {qRevisionCount > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/40 text-rose-300 text-[9.5px] font-bold"
+                      title={`${qRevisionCount} Quotation${qRevisionCount > 1 ? 's' : ''} Returned for Revision`}
+                    >
+                      <span>✏️ {qRevisionCount}{(qLiveCount > 0 || qPendingCount > 0) ? '' : ' Revision'}</span>
+                    </span>
+                  )}
+                  {qScheduledCount > 0 && qLiveCount === 0 && qPendingCount === 0 && qRevisionCount === 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-300 text-[9.5px] font-bold"
+                      title={`${qScheduledCount} Scheduled Quotation${qScheduledCount > 1 ? 's' : ''}`}
+                    >
+                      <span>📅 {qScheduledCount} Sched</span>
+                    </span>
+                  )}
+                </div>
+              )}
+              {isCollapsed && !isDrawer && hasAnyBadge && (
+                <span
+                  className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#0f172a] ${
+                    qLiveCount > 0 ? 'bg-emerald-400 animate-pulse' : qRevisionCount > 0 ? 'bg-rose-400 animate-pulse' : qPendingCount > 0 ? 'bg-amber-400 animate-pulse' : 'bg-blue-400'
+                  }`}
+                />
+              )}
+            </Link>
+          </>
+        );
+      })()}
 
       {/* LG Issuance */}
       {hasIssuanceModule && (

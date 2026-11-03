@@ -2377,9 +2377,9 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                     const depositCfg = configurations.find(c => c.global_config_key === 'CBE_OVERNIGHT_DEPOSIT_RATE') || configs.find(c => c.global_config_key === 'CBE_OVERNIGHT_DEPOSIT_RATE');
                     const midCfg = configurations.find(c => c.global_config_key === 'CBE_MID_CORRIDOR_RATE') || configs.find(c => c.global_config_key === 'CBE_MID_CORRIDOR_RATE');
 
-                    const lendingNum = parseFloat(lendingCfg?.effective_value || lendingCfg?.global_value_default || 20.0);
-                    const depositNum = parseFloat(depositCfg?.effective_value || depositCfg?.global_value_default || 19.0);
-                    const midNum = parseFloat(midCfg?.effective_value || midCfg?.global_value_default || 19.5);
+                    const lendingNum = parseFloat(lendingCfg?.effective_value || lendingCfg?.global_value_default || 21.0);
+                    const depositNum = parseFloat(depositCfg?.effective_value || depositCfg?.global_value_default || 20.0);
+                    const midNum = parseFloat(midCfg?.effective_value || midCfg?.global_value_default || 20.5);
                     const spreadBps = Math.round((lendingNum - depositNum) * 100);
 
                     return (

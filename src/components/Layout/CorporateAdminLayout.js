@@ -31,7 +31,8 @@ function CorporateAdminLayout({
   hasIssuanceModule,
   hasQuotationModule = true,
   hasReconciliationModule = true,
-  isChecker = false
+  isChecker = false,
+  quotationSidebarStatus = null
 }) {
   const [pendingCount, setPendingCount] = useState(getInitialCount());
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -269,7 +270,7 @@ function CorporateAdminLayout({
 
     if (item.startsWith('issuance') || path.includes('/issuance')) {
       setExpandedSections(prev => ({ ...prev, issuance: true }));
-    } else if (item === 'lg-records' || item === 'lg-categories' || path.includes('/lg-records') || path.includes('/lg-categories')) {
+    } else if (item === 'lg-records' || item === 'lg-categories' || item === 'migration-hub' || path.includes('/lg-records') || path.includes('/lg-categories') || path === '/corporate-admin/migration-hub') {
       setExpandedSections(prev => ({ ...prev, custody: true }));
     } else if (item.includes('reconciliation') || path.includes('/reconciliation')) {
       setExpandedSections(prev => ({ ...prev, reconciliation: true }));
@@ -283,7 +284,7 @@ function CorporateAdminLayout({
     const isExpandedMode = !isCollapsed || isDrawer;
 
     const isIssuanceActive = activeMenuItem?.startsWith('issuance') || location.pathname.includes('/issuance');
-    const isCustodyActive = activeMenuItem === 'lg-records' || activeMenuItem === 'lg-categories' || (activeMenuItem === 'migration-hub' && !hasIssuanceModule);
+    const isCustodyActive = activeMenuItem === 'lg-records' || activeMenuItem === 'lg-categories' || activeMenuItem === 'migration-hub';
     const isReconActive = activeMenuItem?.includes('reconciliation') || location.pathname.includes('/reconciliation');
     const isAdminActive = ['user-management', 'module-configs', 'smart-inbox', 'audit-logs', 'reports'].includes(activeMenuItem) || ['/users', '/module-configs', '/inbox', '/audit-logs', '/reports'].some(p => location.pathname.includes(p));
 
@@ -530,7 +531,7 @@ function CorporateAdminLayout({
                     <span>LG Categories</span>
                   </Link>
                 )}
-                {!isChecker && !hasIssuanceModule && (
+                {!isChecker && (
                   <Link
                     to="/corporate-admin/migration-hub"
                     className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
@@ -620,20 +621,70 @@ function CorporateAdminLayout({
         )}
 
         {/* --- QUOTATION CONTROL --- */}
-        {hasQuotationModule && !isChecker && (
-          <Link
-            to="/corporate-admin/quotations"
-            title={!isExpandedMode ? 'RFQ Quotations' : ''}
-            className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
-              activeMenuItem === 'quotation-control'
-                ? 'font-semibold bg-blue-500/15 text-blue-400'
-                : 'text-slate-300 hover:text-white hover:bg-white/[0.07]'
-            }`}
-          >
-            <BarChart2 className={`h-5 w-5 flex-shrink-0 text-amber-400 ${!isExpandedMode ? 'mx-auto' : ''}`} />
-            {isExpandedMode && <span className="ml-3">RFQ Quotations</span>}
-          </Link>
-        )}
+        {hasQuotationModule && !isChecker && (() => {
+          const qLiveCount = Number(quotationSidebarStatus?.live_count || 0);
+          const qPendingCount = Number(quotationSidebarStatus?.pending_approval_count || 0);
+          const qScheduledCount = Number(quotationSidebarStatus?.scheduled_count || 0);
+          const hasAnyBadge = qLiveCount > 0 || qPendingCount > 0 || qScheduledCount > 0;
+          return (
+            <Link
+              to="/corporate-admin/quotations"
+              title={
+                !isExpandedMode
+                  ? `RFQ Quotations${qLiveCount > 0 ? ` • ${qLiveCount} Live` : ''}${qPendingCount > 0 ? ` • ${qPendingCount} Pending Approval` : ''}${qScheduledCount > 0 ? ` • ${qScheduledCount} Scheduled` : ''}`
+                  : ''
+              }
+              className={`relative flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+                activeMenuItem === 'quotation-control'
+                  ? 'font-semibold bg-blue-500/15 text-blue-400'
+                  : 'text-slate-300 hover:text-white hover:bg-white/[0.07]'
+              }`}
+            >
+              <div className={`flex items-center min-w-0 ${!isExpandedMode ? 'mx-auto' : ''}`}>
+                <BarChart2 className="h-5 w-5 flex-shrink-0 text-amber-400" />
+                {isExpandedMode && <span className="ml-3 truncate">RFQ Quotations</span>}
+              </div>
+
+              {isExpandedMode && hasAnyBadge && (
+                <div className="flex items-center gap-1 ml-2 shrink-0">
+                  {qLiveCount > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[9.5px] font-extrabold uppercase tracking-wider shadow-xs"
+                      title={`${qLiveCount} Live Quotation${qLiveCount > 1 ? 's' : ''} Active`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                      <span>LIVE{qLiveCount > 1 ? ` ${qLiveCount}` : ''}</span>
+                    </span>
+                  )}
+                  {qPendingCount > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[9.5px] font-bold"
+                      title={`${qPendingCount} Quotation${qPendingCount > 1 ? 's' : ''} Pending Approval`}
+                    >
+                      <span>⏳ {qPendingCount} {qLiveCount > 0 ? '' : 'Pending'}</span>
+                    </span>
+                  )}
+                  {qScheduledCount > 0 && qLiveCount === 0 && qPendingCount === 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-300 text-[9.5px] font-bold"
+                      title={`${qScheduledCount} Scheduled Quotation${qScheduledCount > 1 ? 's' : ''}`}
+                    >
+                      <span>📅 {qScheduledCount} Sched</span>
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {!isExpandedMode && hasAnyBadge && (
+                <span
+                  className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#0f172a] ${
+                    qLiveCount > 0 ? 'bg-emerald-400 animate-pulse' : qPendingCount > 0 ? 'bg-amber-400 animate-pulse' : 'bg-blue-400'
+                  }`}
+                />
+              )}
+            </Link>
+          );
+        })()}
 
         {/* --- ACCORDION 4: ADMINISTRATION & SETUP --- */}
         {!isChecker && (
