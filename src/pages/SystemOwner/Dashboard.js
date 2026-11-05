@@ -140,6 +140,7 @@ function SystemOwnerDashboard({ onLogout }) {
 
   // Cryptographic WORM Audit Chain Verification State
   const [isVerifyingWorm, setIsVerifyingWorm] = useState(false);
+  const [isResealingWorm, setIsResealingWorm] = useState(false);
   const [wormVerifyResult, setWormVerifyResult] = useState(null);
 
   const handleVerifyWormChain = async () => {
@@ -158,6 +159,24 @@ function SystemOwnerDashboard({ onLogout }) {
       });
     } finally {
       setIsVerifyingWorm(false);
+    }
+  };
+
+  const handleResealWormChain = async () => {
+    setIsResealingWorm(true);
+    try {
+      const res = await apiRequest('/system-owner/audit-logs/reseal-chain', 'POST');
+      setWormVerifyResult(res);
+      const updatedHealth = await apiRequest('/system-owner/system-health-telemetry', 'GET');
+      if (updatedHealth) setHealthData(updatedHealth);
+    } catch (err) {
+      console.error('Failed to re-seal audit chain:', err);
+      setWormVerifyResult({
+        is_valid: false,
+        message: err.message || 'Audit chain re-seal failed'
+      });
+    } finally {
+      setIsResealingWorm(false);
     }
   };
 
@@ -1050,10 +1069,30 @@ function SystemOwnerDashboard({ onLogout }) {
                 >
                   Audit Page →
                 </Link>
+                {wormVerifyResult?.is_valid === false && wormVerifyResult?.status === 'BROKEN_CHAIN_LINK' && (
+                  <button
+                    type="button"
+                    onClick={handleResealWormChain}
+                    disabled={isResealingWorm || isVerifyingWorm}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 text-white rounded-xl text-xs font-bold shadow transition-all active:scale-95 border border-amber-400/30 cursor-pointer"
+                  >
+                    {isResealingWorm ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Re-sealing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-200" />
+                        <span>Re-seal Chain Links</span>
+                      </>
+                    )}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleVerifyWormChain}
-                  disabled={isVerifyingWorm}
+                  disabled={isVerifyingWorm || isResealingWorm}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white rounded-xl text-xs font-bold shadow transition-all active:scale-95 border border-emerald-400/30 cursor-pointer"
                 >
                   {isVerifyingWorm ? (
