@@ -336,12 +336,9 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
   };
 
   const handleLogout = async () => {
-    // Explicit sign-out: stop mobile alerts on this device first, while the
-    // session token still exists. Never let this block sign-out for long.
-    await Promise.race([
-      disablePushOnThisDevice(),
-      new Promise((resolve) => setTimeout(resolve, 3000)),
-    ]);
+    // Keep background mobile push alerts active across web session sign-outs
+    // so the user continues to receive lock-screen alerts when signed out.
+    // Users can explicitly turn off alerts via the Bell menu -> "Turn off".
     logoutUser({ preserveNext: false });
     setIsAuthenticated(false);
     setShowLegalModal(false);

@@ -137,9 +137,10 @@ export const disablePushOnThisDevice = async ({ notifyServer = true } = {}) => {
 export const SWITCHED_OWNER_KEY = 'push_switched_owner_notice';
 
 /**
- * Run after login / app start. If this browser's alerts belong to another
- * user, switch them off; if they belong to the current user, refresh the
- * server copy (keys can rotate).
+ * Run after login / app start. If this browser/PWA already has an active
+ * push subscription, bind/refresh it for the currently signed-in user so
+ * switching between browser tab and installed PWA (or switching accounts)
+ * seamlessly keeps alerts active for the active session owner.
  */
 export const syncPushOwnership = async (userId) => {
   try {
@@ -147,20 +148,47 @@ export const syncPushOwnership = async (userId) => {
     const reg = await navigator.serviceWorker.getRegistration();
     const sub = reg ? await reg.pushManager.getSubscription() : null;
     if (!sub) return;
-    const owner = localStorage.getItem(OWNER_KEY);
-    if (owner && owner !== String(userId)) {
-      await sub.unsubscribe();
-      localStorage.removeItem(OWNER_KEY);
-      try {
-        sessionStorage.setItem(SWITCHED_OWNER_KEY, 'true');
-      } catch {}
-      return;
-    }
-    if (owner === String(userId)) {
-      await apiClient.post('/notifications/push/subscribe', subscriptionBody(sub));
-    }
+    await apiClient.post('/notifications/push/subscribe', subscriptionBody(sub));
+    localStorage.setItem(OWNER_KEY, String(userId));
+    try {
+      sessionStorage.removeItem(SWITCHED_OWNER_KEY);
+    } catch {}
   } catch (e) {
     console.warn('Push: ownership sync skipped', e);
+  }
+};
+
+/**
+ * Silently dismisses any OS/browser tray notifications whose in-app record
+ * has already been read, resolved, or expired.
+ */
+export const syncTrayNotifications = async (inAppNotifications = []) => {
+  try {
+    if (!('serviceWorker' in navigator)) return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg || typeof reg.getNotifications !== 'function') return;
+    const trayList = await reg.getNotifications();
+    if (!trayList || trayList.length === 0) return;
+
+    const now = Date.now();
+    const activeTags = new Set();
+    for (const n of inAppNotifications) {
+      const expired = n.expires_at && Date.parse(n.expires_at) <= now;
+      if (!n.is_read && !expired) {
+        const tag = `${(n.module || 'GROW').toLowerCase()}-${n.reference_key || n.id}`;
+        activeTags.add(tag);
+      }
+    }
+
+    for (const tn of trayList) {
+      if (tn.tag && (tn.tag.startsWith('custody-') || tn.tag.startsWith('quotation-'))) {
+        if (!activeTags.has(tn.tag)) {
+          tn.close();
+        }
+      }
+    }
+  } catch (e) {
+    // Ignore errors on browsers that restrict getNotifications
   }
 };
 

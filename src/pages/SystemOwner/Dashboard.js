@@ -5,7 +5,6 @@ import { apiRequest } from 'services/apiService.js';
 import {
   Users,
   TrendingUp,
-  DollarSign,
   Clock,
   Calendar,
   Briefcase,
@@ -23,29 +22,113 @@ import {
   UserPlus,
   ShieldCheck,
   Cpu,
-  Server,
   Database,
   CheckCircle2,
   X,
   Zap,
   Globe,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles,
+  FileSpreadsheet,
+  Award,
+  Lock
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
+
+const MODULE_STYLE_MAP = {
+  custody: {
+    icon: HardDrive,
+    color: 'text-indigo-600 dark:text-indigo-400',
+    bg: 'bg-indigo-50 dark:bg-indigo-950/50',
+    bar: 'bg-indigo-600',
+    border: 'border-indigo-200 dark:border-indigo-800/60',
+    badge: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300',
+  },
+  issuance: {
+    icon: Building,
+    color: 'text-blue-600 dark:text-blue-400',
+    bg: 'bg-blue-50 dark:bg-blue-950/50',
+    bar: 'bg-blue-600',
+    border: 'border-blue-200 dark:border-blue-800/60',
+    badge: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300',
+  },
+  quotations: {
+    icon: Globe,
+    color: 'text-emerald-600 dark:text-emerald-400',
+    bg: 'bg-emerald-50 dark:bg-emerald-950/50',
+    bar: 'bg-emerald-500',
+    border: 'border-emerald-200 dark:border-emerald-800/60',
+    badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+  },
+  reconciliation: {
+    icon: FileSpreadsheet,
+    color: 'text-amber-600 dark:text-amber-400',
+    bg: 'bg-amber-50 dark:bg-amber-950/50',
+    bar: 'bg-amber-500',
+    border: 'border-amber-200 dark:border-amber-800/60',
+    badge: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
+  },
+  inbox: {
+    icon: Mail,
+    color: 'text-purple-600 dark:text-purple-400',
+    bg: 'bg-purple-50 dark:bg-purple-950/50',
+    bar: 'bg-purple-500',
+    border: 'border-purple-200 dark:border-purple-800/60',
+    badge: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300',
+  },
+  ai_copilot: {
+    icon: Sparkles,
+    color: 'text-rose-600 dark:text-rose-400',
+    bg: 'bg-rose-50 dark:bg-rose-950/50',
+    bar: 'bg-rose-500',
+    border: 'border-rose-200 dark:border-rose-800/60',
+    badge: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300',
+  },
+};
 
 function SystemOwnerDashboard({ onLogout }) {
   const [dashboardData, setDashboardData] = useState({
     total_active_customers: 0,
-    customers_change_percent: '0%',
+    customers_change_percent: '0% (30d)',
+    customers_new_30d: 0,
+    tenant_status_breakdown: { active: 0, grace: 0, expired: 0 },
     total_active_users: 0,
-    users_change_percent: '0%',
+    users_change_percent: '0% (30d)',
+    users_new_30d: 0,
+    active_users_7d: 0,
+    active_users_30d: 0,
     total_active_lgs: '0',
-    lgs_change_percent: '0%',
-    expiring_soon_lgs: '0',
-    total_lg_value: '$0',
+    lgs_change_percent: '0% (30d)',
+    most_used_module: 'LG Custody',
+    scale_and_footprint: {
+      total_records_managed: 0,
+      records_added_30d: 0,
+      records_added_prev_30d: 0,
+      records_growth_pct: 0,
+      records_growth_label: '0% (30d)',
+      is_increasing: true,
+      momentum_status: 'GROWING',
+      db_size_mb: 0,
+      total_stored_documents: 0,
+      total_audit_blocks: 0,
+      ai_tokens_total: 0,
+      ai_pages_total: 0,
+    },
+    module_usage: [],
+    monthly_growth_trend: [],
+    performance_insights: {
+      avg_approval_hours: 0,
+      avg_bank_sla_days: 0,
+      recon_automation_rate_pct: 0,
+      promoted_collab_patterns: 0,
+      quotation_response_rate_pct: 0,
+      quotation_completion_rate_pct: 0,
+      inbox_accuracy_rate_pct: 100,
+      active_user_engagement_30d_pct: 0,
+    },
     recent_activity: [],
   });
-  const [systemUsageData, setSystemUsageData] = useState(null);
+  const [activeUsageTab, setActiveUsageTab] = useState('modules'); // 'modules' | 'growth'
   const [unreviewedFeedbackCount, setUnreviewedFeedbackCount] = useState(0);
   const [pendingTrialsCount, setPendingTrialsCount] = useState(0);
   const [healthData, setHealthData] = useState(null);
@@ -65,7 +148,6 @@ function SystemOwnerDashboard({ onLogout }) {
     try {
       const res = await apiRequest('/system-owner/audit-logs/verify-chain', 'GET');
       setWormVerifyResult(res);
-      // Refresh telemetry so counts reflect latest status
       const updatedHealth = await apiRequest('/system-owner/system-health-telemetry', 'GET');
       if (updatedHealth) setHealthData(updatedHealth);
     } catch (err) {
@@ -83,27 +165,28 @@ function SystemOwnerDashboard({ onLogout }) {
     setIsLoading(true);
     setError('');
     try {
-      const [dashboardMetrics, usageMetrics, feedbackRes, trialRes, telemetryRes] = await Promise.all([
+      const [dashboardMetrics, feedbackRes, trialRes, telemetryRes] = await Promise.all([
         apiRequest('/system-owner/dashboard-metrics', 'GET'),
-        apiRequest('/reports/system-owner/system-usage-overview', 'GET'),
         apiClient.get('/feedback/').catch(() => ({ data: [] })),
         apiRequest('/system-owner/trial/trial-registrations/?status=pending', 'GET').catch(() => []),
         apiRequest('/system-owner/system-health-telemetry', 'GET').catch(() => null)
       ]);
 
-      setDashboardData({
-        total_active_customers: dashboardMetrics.total_active_customers || 0,
-        customers_change_percent: dashboardMetrics.customers_change_percent || '0%',
-        total_active_users: dashboardMetrics.total_active_users || 0,
-        users_change_percent: dashboardMetrics.users_change_percent || '0%',
-        total_active_lgs: dashboardMetrics.total_active_lgs || '0',
-        lgs_change_percent: dashboardMetrics.lgs_change_percent || '0%',
-        expiring_soon_lgs: dashboardMetrics.expiring_soon_lgs || '0',
-        total_lg_value: dashboardMetrics.total_lg_value || '$0',
+      setDashboardData((prev) => ({
+        ...prev,
+        ...dashboardMetrics,
+        scale_and_footprint: {
+          ...prev.scale_and_footprint,
+          ...(dashboardMetrics.scale_and_footprint || {}),
+        },
+        performance_insights: {
+          ...prev.performance_insights,
+          ...(dashboardMetrics.performance_insights || {}),
+        },
+        module_usage: dashboardMetrics.module_usage || [],
+        monthly_growth_trend: dashboardMetrics.monthly_growth_trend || [],
         recent_activity: dashboardMetrics.recent_activity || [],
-      });
-
-      setSystemUsageData(usageMetrics.data);
+      }));
 
       const allFeedback = feedbackRes.data || [];
       const newCount = allFeedback.filter((f) => f.status === 'NEW').length;
@@ -139,63 +222,86 @@ function SystemOwnerDashboard({ onLogout }) {
     fetchAllDashboardData();
   }, []);
 
+  const scale = dashboardData.scale_and_footprint || {};
+  const perf = dashboardData.performance_insights || {};
+  const tenantStatus = dashboardData.tenant_status_breakdown || { active: 0, grace: 0, expired: 0 };
+
   const metricsToDisplay = [
     {
       id: 1,
-      title: 'Active Customers',
+      title: 'Active Tenants',
       value: dashboardData.total_active_customers,
       change: dashboardData.customers_change_percent,
-      icon: Users,
+      subtext: `${tenantStatus.active} Active • ${tenantStatus.grace} Grace`,
+      icon: Building,
       gradient: 'from-blue-600 to-indigo-600',
-      changeColor: dashboardData.customers_change_percent && dashboardData.customers_change_percent.startsWith('+') ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40' : 'text-rose-600 bg-rose-50 dark:bg-rose-950/40',
-      link: '/system-owner/customers'
+      changeColor:
+        dashboardData.customers_change_percent && !dashboardData.customers_change_percent.startsWith('-')
+          ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40'
+          : 'text-rose-600 bg-rose-50 dark:bg-rose-950/40',
+      link: '/system-owner/customers',
     },
     {
       id: 2,
-      title: 'Free Trial Requests',
-      value: `${pendingTrialsCount} Pending`,
-      unit: pendingTrialsCount > 0 ? 'Requires Review' : 'Queue Clear',
-      icon: UserPlus,
-      gradient: pendingTrialsCount > 0 ? 'from-amber-500 to-orange-600' : 'from-slate-600 to-slate-700',
-      changeColor: pendingTrialsCount > 0 ? 'text-amber-700 bg-amber-100 dark:bg-amber-950/60 animate-pulse' : 'text-slate-500 bg-slate-100',
-      link: '/system-owner/customers/trial-registrations',
-      isActionable: pendingTrialsCount > 0
+      title: 'Platform Users',
+      value: dashboardData.total_active_users,
+      change: dashboardData.users_change_percent,
+      subtext: `${dashboardData.active_users_7d || 0} active (7d) • ${perf.active_user_engagement_30d_pct || 0}% (30d)`,
+      icon: Users,
+      gradient: 'from-purple-600 to-violet-600',
+      changeColor:
+        dashboardData.users_change_percent && !dashboardData.users_change_percent.startsWith('-')
+          ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40'
+          : 'text-rose-600 bg-rose-50 dark:bg-rose-950/40',
+      link: '/system-owner/customers',
     },
     {
       id: 3,
-      title: 'Active Users',
-      value: dashboardData.total_active_users,
-      change: dashboardData.users_change_percent,
-      icon: Users,
-      gradient: 'from-purple-600 to-violet-600',
-      changeColor: dashboardData.users_change_percent && dashboardData.users_change_percent.startsWith('+') ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40' : 'text-rose-600 bg-rose-50 dark:bg-rose-950/40',
-      link: '/system-owner/customers'
+      title: 'Total Platform Volume',
+      value: (scale.total_records_managed || 0).toLocaleString(),
+      change: `${scale.records_growth_label || '0%'} • ${scale.momentum_status || 'STEADY'}`,
+      subtext: `+${(scale.records_added_30d || 0).toLocaleString()} records in last 30d`,
+      icon: TrendingUp,
+      gradient: 'from-emerald-600 to-teal-600',
+      changeColor: scale.is_increasing
+        ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40'
+        : 'text-amber-600 bg-amber-50 dark:bg-amber-950/40',
+      link: '/system-owner/reports/system-usage-overview',
     },
     {
       id: 4,
-      title: 'Expiring Soon (30d)',
-      value: dashboardData.expiring_soon_lgs,
-      unit: 'Upcoming Maturity',
-      icon: Clock,
-      gradient: 'from-rose-500 to-red-600',
-      changeColor: 'text-rose-600 bg-rose-50 dark:bg-rose-950/40'
+      title: 'Database & Vault Size',
+      value: scale.db_size_mb > 0 ? `${scale.db_size_mb} MB` : `${(scale.total_stored_documents || 0).toLocaleString()} Docs`,
+      unit: `${(scale.total_stored_documents || 0).toLocaleString()} Stored Files`,
+      subtext: `${(scale.total_audit_blocks || 0).toLocaleString()} WORM Audit Blocks`,
+      icon: Database,
+      gradient: 'from-indigo-600 to-cyan-600',
+      changeColor: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40',
     },
     {
       id: 5,
-      title: 'Total LG Portfolio',
-      value: dashboardData.total_lg_value,
-      change: dashboardData.lgs_change_percent,
-      icon: DollarSign,
-      gradient: 'from-emerald-600 to-teal-600',
-      changeColor: dashboardData.lgs_change_percent && dashboardData.lgs_change_percent.startsWith('+') ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40' : 'text-rose-600 bg-rose-50 dark:bg-rose-950/40'
+      title: 'Inbound Trial Queue',
+      value: `${pendingTrialsCount} Pending`,
+      unit: pendingTrialsCount > 0 ? 'Requires Review' : 'Queue Clear',
+      subtext: `Top Module: ${dashboardData.most_used_module || 'LG Custody'}`,
+      icon: UserPlus,
+      gradient: pendingTrialsCount > 0 ? 'from-amber-500 to-orange-600' : 'from-slate-600 to-slate-700',
+      changeColor:
+        pendingTrialsCount > 0
+          ? 'text-amber-700 bg-amber-100 dark:bg-amber-950/60 animate-pulse'
+          : 'text-slate-500 bg-slate-100 dark:bg-slate-800',
+      link: '/system-owner/customers/trial-registrations',
+      isActionable: pendingTrialsCount > 0,
     },
   ];
 
   const quickActions = [
     { id: 1, title: 'Add Customer', description: 'Onboard tenant', icon: Users, link: '/system-owner/customers/onboard', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/50' },
     { id: 2, title: 'Trial Queue', description: `${pendingTrialsCount} Pending Review`, icon: UserPlus, link: '/system-owner/customers/trial-registrations', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/50' },
-    { id: 3, title: 'Plans & Tiers', description: 'Billing quotas', icon: Briefcase, link: '/system-owner/subscription-plans', color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/50' },
+    { id: 3, title: 'Plans & Tiers', description: 'Module quotas', icon: Briefcase, link: '/system-owner/subscription-plans', color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/50' },
     { id: 4, title: 'Bank Forms', description: 'AI overlays', icon: FileCheck, link: '/system-owner/bank-forms', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/50' },
+    { id: 5, title: 'FX Telemetry', description: 'Bank SLA league', icon: Globe, link: '/system-owner/quotations-telemetry', color: 'text-cyan-600', bg: 'bg-cyan-50 dark:bg-cyan-950/50' },
+    { id: 6, title: 'Campaigns', description: 'Partner cashback', icon: Award, link: '/system-owner/campaigns', color: 'text-rose-600', bg: 'bg-rose-50 dark:bg-rose-950/50' },
   ];
 
   if (isLoading) {
@@ -218,13 +324,10 @@ function SystemOwnerDashboard({ onLogout }) {
     );
   }
 
-  const kpiCards = systemUsageData ? [
-    { name: "Customers", value: systemUsageData.total_customers, icon: Building, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/40' },
-    { name: "Users", value: systemUsageData.total_users, icon: Users, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/40' },
-    { name: "LGs Active", value: systemUsageData.total_lgs_managed, icon: HardDrive, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-950/40' },
-    { name: "Instructions", value: systemUsageData.total_instructions_issued, icon: BarChart, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/40' },
-    { name: "Emails Sent", value: systemUsageData.total_emails_sent, icon: Mail, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/40' },
-  ] : [];
+  const maxMonthlyTotal = Math.max(
+    1,
+    ...(dashboardData.monthly_growth_trend || []).map((m) => m.total || 0)
+  );
 
   return (
     <div className="flex flex-col h-full space-y-3 overflow-y-auto">
@@ -235,10 +338,14 @@ function SystemOwnerDashboard({ onLogout }) {
             <Activity className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-lg font-black tracking-tight text-white">
                 System Owner Executive Center
               </h1>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-200 border border-indigo-400/30">
+                <Lock className="w-2.5 h-2.5 text-indigo-300" />
+                Zero-PII Anonymized Telemetry
+              </span>
               <button
                 onClick={() => setIsHealthModalOpen(true)}
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 transition-all cursor-pointer"
@@ -249,7 +356,7 @@ function SystemOwnerDashboard({ onLogout }) {
               </button>
             </div>
             <p className="text-[11px] text-slate-300">
-              Cross-tenant telemetry, subscription governance, inbound trial queue, and microservice health.
+              Cross-module adoption rankings, database scale &amp; growth momentum, engine velocity, and microservice health.
             </p>
           </div>
         </div>
@@ -260,7 +367,7 @@ function SystemOwnerDashboard({ onLogout }) {
             className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold rounded-xl shadow transition-all active:scale-95 border border-indigo-400/30 cursor-pointer"
           >
             <Zap className="w-3.5 h-3.5 text-amber-300" />
-            <span>Health & Diagnostics</span>
+            <span>Health &amp; Diagnostics</span>
           </button>
 
           {pendingTrialsCount > 0 && (
@@ -300,18 +407,18 @@ function SystemOwnerDashboard({ onLogout }) {
         </div>
       </div>
 
-      {/* Top 5 Executive KPI Cards */}
+      {/* Top 5 Executive KPI Cards (Scale, Size & Growth) */}
       <div className="flex-shrink-0 grid grid-cols-2 sm:grid-cols-5 gap-2.5">
         {metricsToDisplay.map((metric) => {
           const CardContent = (
-            <div className="space-y-0.5">
+            <div className="space-y-0.5 min-w-0">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">
                 {metric.title}
               </span>
               <div className="text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">
                 {metric.value}
               </div>
-              <div className="text-[10px] font-semibold flex items-center">
+              <div className="text-[10px] font-semibold flex items-center gap-1 flex-wrap">
                 {metric.change ? (
                   <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded ${metric.changeColor}`}>
                     <TrendingUp className="w-2.5 h-2.5" />
@@ -323,6 +430,11 @@ function SystemOwnerDashboard({ onLogout }) {
                   </span>
                 )}
               </div>
+              {metric.subtext && (
+                <span className="text-[10px] text-slate-400 block truncate pt-0.5">
+                  {metric.subtext}
+                </span>
+              )}
             </div>
           );
 
@@ -331,7 +443,7 @@ function SystemOwnerDashboard({ onLogout }) {
               <Link
                 key={metric.id}
                 to={metric.link}
-                className={`bg-white dark:bg-slate-800 p-3 rounded-xl border transition-all shadow-xs flex items-center justify-between hover:shadow-md hover:border-indigo-300 ${
+                className={`bg-white dark:bg-slate-800 p-3 rounded-xl border transition-all shadow-xs flex items-center justify-between gap-2 hover:shadow-md hover:border-indigo-300 ${
                   metric.isActionable ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200 dark:border-slate-700'
                 }`}
               >
@@ -346,7 +458,7 @@ function SystemOwnerDashboard({ onLogout }) {
           return (
             <div
               key={metric.id}
-              className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex items-center justify-between"
+              className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex items-center justify-between gap-2"
             >
               {CardContent}
               <div className={`p-2.5 rounded-xl bg-gradient-to-br ${metric.gradient} text-white shadow-xs flex-shrink-0`}>
@@ -357,103 +469,361 @@ function SystemOwnerDashboard({ onLogout }) {
         })}
       </div>
 
-      {/* Main Viewport-Fit Lower Grid (Fills Remaining Screen Height) */}
+      {/* Main Viewport-Fit Lower Grid */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
-        {/* Left Column: System Traction Grid + Quick Actions (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col space-y-3 min-h-0">
-          {/* System Usage Traction Mini Grid */}
-          <div className="flex-shrink-0 bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <BarChart className="w-4 h-4 text-indigo-600" />
-                <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                  Cross-Tenant Usage Traction
-                </h2>
-              </div>
-              <Link
-                to="/system-owner/reports/system-usage-overview"
-                className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5"
-              >
-                <span>Full Report</span>
-                <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-5 gap-2">
-              {kpiCards.map((kpi, idx) => (
-                <div
-                  key={idx}
-                  className="bg-slate-50/80 dark:bg-slate-900/60 p-2 rounded-lg border border-slate-100 dark:border-slate-800 text-center space-y-0.5"
-                >
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">
-                    {kpi.name}
-                  </span>
-                  <span className="text-base font-black text-slate-900 dark:text-white block">
-                    {kpi.value}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick Actions Panel */}
-          <div className="flex-1 bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between min-h-0">
-            <div className="flex items-center gap-1.5 mb-2">
-              <Layers className="w-4 h-4 text-indigo-600" />
-              <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Administrative Quick Actions
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {quickActions.map((action) => (
-                <Link
-                  key={action.id}
-                  to={action.link}
-                  className="group p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 bg-slate-50/50 dark:bg-slate-900/40 hover:bg-indigo-50/50 dark:hover:bg-slate-800 transition-all flex flex-col justify-between"
-                >
-                  <div className={`p-2 rounded-lg ${action.bg} ${action.color} w-fit mb-1.5`}>
-                    <action.icon className="w-3.5 h-3.5" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block group-hover:text-indigo-600 transition-colors truncate">
-                      {action.title}
-                    </span>
-                    <span className="text-[10px] text-slate-400 block truncate">
-                      {action.description}
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            {/* Inbound Trial Approvals Banner */}
-            <div className="mt-2 bg-gradient-to-r from-slate-900 to-indigo-950 p-2.5 rounded-xl text-white flex items-center justify-between border border-slate-800">
+        {/* Left/Center Column: Diversified Module Usage + Velocity & Quick Actions (8 cols) */}
+        <div className="lg:col-span-8 flex flex-col space-y-3 min-h-0">
+          {/* Panel 1: Diversified Module Usage & Growth Trajectory */}
+          <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-amber-400" />
-                <span className="text-[11px] font-semibold text-slate-200">
-                  {pendingTrialsCount > 0 ? `${pendingTrialsCount} Inbound Free Trial Applications Awaiting Approval` : 'Self-Serve Free Trial Registrations Queue Clear'}
+                <BarChart className="w-4 h-4 text-indigo-600" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                      Diversified Module Adoption &amp; Scale
+                    </h2>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                      Most Used: {dashboardData.most_used_module || 'LG Custody'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <div className="inline-flex rounded-lg bg-slate-100 dark:bg-slate-900 p-0.5 border border-slate-200 dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setActiveUsageTab('modules')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                      activeUsageTab === 'modules'
+                        ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-2xs'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    Module Usage Ranking (6)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveUsageTab('growth')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                      activeUsageTab === 'growth'
+                        ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-2xs'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    4-Month Volume Trend
+                  </button>
+                </div>
+
+                <Link
+                  to="/system-owner/reports/system-usage-overview"
+                  className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5 ml-1"
+                >
+                  <span>Ops Report</span>
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Stacked Module Usage Share Bar */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold">
+                <span>Platform Activity Distribution by Module (Ranked by Usage)</span>
+                <span>
+                  Total Volume: <strong className="text-slate-800 dark:text-white">{(scale.total_records_managed || 0).toLocaleString()}</strong> records &amp; actions ({scale.records_growth_label})
                 </span>
               </div>
-              <Link
-                to="/system-owner/customers/trial-registrations"
-                className="text-[11px] font-bold text-amber-300 hover:text-white underline decoration-amber-400 flex items-center gap-1"
-              >
-                <span>Review Trials</span>
-                <ArrowRight className="w-3 h-3" />
-              </Link>
+              <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden flex border border-slate-200 dark:border-slate-700">
+                {(dashboardData.module_usage || []).map((mod) => {
+                  const style = MODULE_STYLE_MAP[mod.id] || MODULE_STYLE_MAP.custody;
+                  const widthPct = Math.max(mod.total_volume > 0 ? 3 : 0, mod.usage_share_pct || 0);
+                  return (
+                    <div
+                      key={mod.id}
+                      className={`${style.bar} h-full transition-all duration-500 first:rounded-l-full last:rounded-r-full`}
+                      style={{ width: `${widthPct}%` }}
+                      title={`${mod.name}: ${mod.usage_share_pct}% share (${mod.total_volume} total)`}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            {activeUsageTab === 'modules' ? (
+              /* 6-Module Diversified Cards Grid */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {(dashboardData.module_usage || []).map((mod, idx) => {
+                  const style = MODULE_STYLE_MAP[mod.id] || MODULE_STYLE_MAP.custody;
+                  const ModIcon = style.icon;
+                  const adoptionPct =
+                    mod.entitled_tenants > 0
+                      ? Math.min(100, Math.round((mod.adopted_tenants / mod.entitled_tenants) * 100))
+                      : 0;
+
+                  return (
+                    <div
+                      key={mod.id}
+                      className={`p-3 rounded-xl border ${style.border} bg-slate-50/60 dark:bg-slate-900/50 flex flex-col justify-between space-y-2.5 hover:shadow-xs transition-all`}
+                    >
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={`p-2 rounded-lg ${style.bg} ${style.color} flex-shrink-0`}>
+                            <ModIcon className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded ${style.badge}`}>
+                                #{idx + 1}
+                              </span>
+                              <h3 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                {mod.short_name}
+                              </h3>
+                            </div>
+                            <span className="text-[10px] text-slate-400 block truncate">
+                              {mod.category}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <span className="text-xs font-black text-slate-900 dark:text-white block">
+                            {mod.usage_share_pct}%
+                          </span>
+                          <span
+                            className={`text-[9px] font-bold ${
+                              mod.growth_pct >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                            }`}
+                          >
+                            {mod.growth_label}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 3 Sub-Metrics */}
+                      <div className="grid grid-cols-3 gap-1.5 bg-white dark:bg-slate-800/90 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                        {(mod.sub_metrics || []).map((sm, smIdx) => (
+                          <div key={smIdx} className="text-center">
+                            <span className="text-xs font-black text-slate-900 dark:text-white block truncate">
+                              {(sm.value || 0).toLocaleString()}
+                            </span>
+                            <span className="text-[9px] font-semibold text-slate-400 block truncate">
+                              {sm.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Tenant Adoption Footer */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-slate-500 font-medium">
+                            Tenant Adoption: <strong className="text-slate-700 dark:text-slate-200">{mod.adopted_tenants}/{mod.entitled_tenants || dashboardData.total_active_customers}</strong>
+                          </span>
+                          <span className="font-bold text-slate-600 dark:text-slate-300">
+                            +{mod.volume_30d} (30d)
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div
+                            className={`${style.bar} h-full rounded-full`}
+                            style={{ width: `${adoptionPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* 4-Month Volume Growth & Scale Trend View */
+              <div className="space-y-3 pt-1">
+                <div className="grid grid-cols-4 gap-3 items-end h-36 pt-4 px-3 bg-slate-50/70 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                  {(dashboardData.monthly_growth_trend || []).map((m, idx) => {
+                    const heightPct = Math.max(12, Math.round(((m.total || 0) / maxMonthlyTotal) * 100));
+                    return (
+                      <div key={idx} className="flex flex-col items-center h-full justify-end space-y-1.5">
+                        <span className="text-[11px] font-black text-slate-800 dark:text-white">
+                          {(m.total || 0).toLocaleString()}
+                        </span>
+                        <div
+                          className="w-full max-w-[68px] rounded-t-lg overflow-hidden flex flex-col-reverse bg-slate-200 dark:bg-slate-800 border border-slate-300/60 dark:border-slate-700 transition-all duration-500"
+                          style={{ height: `${heightPct}%` }}
+                          title={`${m.month}: ${m.total} total events`}
+                        >
+                          {m.total > 0 && (
+                            <>
+                              <div style={{ height: `${(m.custody / m.total) * 100}%` }} className="bg-indigo-600 w-full" title={`Custody: ${m.custody}`} />
+                              <div style={{ height: `${(m.issuance / m.total) * 100}%` }} className="bg-blue-500 w-full" title={`Issuance: ${m.issuance}`} />
+                              <div style={{ height: `${(m.quotations / m.total) * 100}%` }} className="bg-emerald-500 w-full" title={`Quotations: ${m.quotations}`} />
+                              <div style={{ height: `${(m.reconciliation / m.total) * 100}%` }} className="bg-amber-500 w-full" title={`Reconciliation: ${m.reconciliation}`} />
+                              <div style={{ height: `${(m.inbox / m.total) * 100}%` }} className="bg-purple-500 w-full" title={`Inbox: ${m.inbox}`} />
+                              <div style={{ height: `${(m.ai / m.total) * 100}%` }} className="bg-rose-500 w-full" title={`AI & OCR: ${m.ai}`} />
+                            </>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-500 pb-1">
+                          {m.month}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Monthly Module Breakdown Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[11px] text-left">
+                    <thead className="text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                      <tr>
+                        <th className="py-1.5 px-2">Month</th>
+                        <th className="py-1.5 px-2 text-right">Custody</th>
+                        <th className="py-1.5 px-2 text-right">Issuance</th>
+                        <th className="py-1.5 px-2 text-right">Quotations</th>
+                        <th className="py-1.5 px-2 text-right">Recon</th>
+                        <th className="py-1.5 px-2 text-right">Inbox</th>
+                        <th className="py-1.5 px-2 text-right">AI/OCR</th>
+                        <th className="py-1.5 px-2 text-right font-bold text-slate-700 dark:text-slate-200">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {(dashboardData.monthly_growth_trend || []).map((m, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
+                          <td className="py-1.5 px-2 font-bold text-slate-800 dark:text-slate-200">{m.month}</td>
+                          <td className="py-1.5 px-2 text-right font-mono">{m.custody}</td>
+                          <td className="py-1.5 px-2 text-right font-mono">{m.issuance}</td>
+                          <td className="py-1.5 px-2 text-right font-mono">{m.quotations}</td>
+                          <td className="py-1.5 px-2 text-right font-mono">{m.reconciliation}</td>
+                          <td className="py-1.5 px-2 text-right font-mono">{m.inbox}</td>
+                          <td className="py-1.5 px-2 text-right font-mono">{m.ai}</td>
+                          <td className="py-1.5 px-2 text-right font-black text-indigo-600 dark:text-indigo-400 font-mono">
+                            {m.total}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Panel 2: Performance & Operational Velocity + Quick Actions */}
+          <div className="flex-1 bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between space-y-3 min-h-0">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-indigo-600" />
+                  <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                    Performance &amp; Automation Velocity Insights
+                  </h2>
+                </div>
+                <span className="text-[10px] text-slate-400 font-semibold">
+                  Cross-Tenant Anonymized Averages
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {/* Velocity 1: Approval & Bank Turnaround */}
+                <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Approval SLA</span>
+                    <Clock className="w-3.5 h-3.5 text-indigo-500" />
+                  </div>
+                  <div className="text-base font-black text-slate-900 dark:text-white mt-0.5">
+                    {perf.avg_approval_hours > 0 ? `${perf.avg_approval_hours}h` : '< 1h'}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block truncate">
+                    Bank Reply Avg: <strong>{perf.avg_bank_sla_days || 0}d</strong>
+                  </span>
+                </div>
+
+                {/* Velocity 2: Reconciliation Automation */}
+                <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Recon Auto-Rate</span>
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-amber-500" />
+                  </div>
+                  <div className="text-base font-black text-amber-600 dark:text-amber-400 mt-0.5">
+                    {perf.recon_automation_rate_pct || 0}%
+                  </div>
+                  <span className="text-[10px] text-slate-500 block truncate">
+                    <strong>{perf.promoted_collab_patterns || 0}</strong> Collaborative Rules
+                  </span>
+                </div>
+
+                {/* Velocity 3: Quotation Desk Liquidity */}
+                <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">RFQ Deal Fill</span>
+                    <Globe className="w-3.5 h-3.5 text-emerald-500" />
+                  </div>
+                  <div className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    {perf.quotation_completion_rate_pct || 0}%
+                  </div>
+                  <span className="text-[10px] text-slate-500 block truncate">
+                    Bank Quote Rate: <strong>{perf.quotation_response_rate_pct || 0}%</strong>
+                  </span>
+                </div>
+
+                {/* Velocity 4: Smart Inbox & AI Engine */}
+                <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Inbox &amp; AI Parse</span>
+                    <Sparkles className="w-3.5 h-3.5 text-rose-500" />
+                  </div>
+                  <div className="text-base font-black text-rose-600 dark:text-rose-400 mt-0.5">
+                    {perf.inbox_accuracy_rate_pct ?? 100}%
+                  </div>
+                  <span className="text-[10px] text-slate-500 block truncate">
+                    <strong>{(scale.ai_pages_total || 0).toLocaleString()}</strong> OCR Pages
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Administrative Quick Actions */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                <h3 className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Executive Quick Actions
+                </h3>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                {quickActions.map((action) => (
+                  <Link
+                    key={action.id}
+                    to={action.link}
+                    className="group p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 bg-slate-50/50 dark:bg-slate-900/40 hover:bg-indigo-50/50 dark:hover:bg-slate-800 transition-all flex flex-col justify-between"
+                  >
+                    <div className={`p-1.5 rounded-lg ${action.bg} ${action.color} w-fit mb-1`}>
+                      <action.icon className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 block group-hover:text-indigo-600 transition-colors truncate">
+                        {action.title}
+                      </span>
+                      <span className="text-[9px] text-slate-400 block truncate">
+                        {action.description}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Right Column: Global Activity Trail (5 cols, Inner-Scrollable) */}
-        <div className="lg:col-span-5 bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col min-h-0">
+        {/* Right Column: Sanitized Zero-PII Activity Stream & WORM Integrity (4 cols) */}
+        <div className="lg:col-span-4 bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col min-h-0">
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-700 flex-shrink-0">
             <div className="flex items-center gap-1.5">
               <Activity className="w-4 h-4 text-indigo-600" />
-              <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Recent Audit Trail
-              </h2>
+              <div>
+                <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Anonymized Activity Stream
+                </h2>
+              </div>
             </div>
             <Link
               to="/system-owner/audit-logs"
@@ -472,14 +842,14 @@ function SystemOwnerDashboard({ onLogout }) {
                 WORM Chain Sealed
               </span>
               <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono">
-                ({healthData?.audit_worm?.chained_count ?? 0} chained)
+                ({healthData?.audit_worm?.chained_count ?? scale.total_audit_blocks ?? 0} blocks)
               </span>
             </div>
             <button
               onClick={() => setIsHealthModalOpen(true)}
               className="font-bold text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-white transition-colors cursor-pointer"
             >
-              Verify Health →
+              Verify →
             </button>
           </div>
 
@@ -488,21 +858,32 @@ function SystemOwnerDashboard({ onLogout }) {
               dashboardData.recent_activity.slice(0, 12).map((activity, index) => (
                 <div
                   key={activity.id || index}
-                  className="flex items-start justify-between p-2 rounded-lg bg-slate-50/70 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 text-xs"
+                  className="flex items-start justify-between p-2 rounded-lg bg-slate-50/70 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 text-xs gap-2"
                 >
-                  <div className="flex items-start gap-2 max-w-[80%]">
+                  <div className="flex items-start gap-2 min-w-0">
                     <Calendar className="w-3.5 h-3.5 text-indigo-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 line-clamp-1">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate">
                         {activity.description}
                       </p>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {activity.timestamp ? new Date(activity.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                      </span>
+                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono truncate">
+                        <span>{activity.actor || 'System'}</span>
+                        <span>•</span>
+                        <span>
+                          {activity.timestamp
+                            ? new Date(activity.timestamp).toLocaleString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : 'N/A'}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-white dark:bg-slate-800 px-1.5 py-0.2 rounded border border-slate-200 dark:border-slate-700 flex-shrink-0">
-                    Event
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-800 flex-shrink-0">
+                    {activity.module || 'Event'}
                   </span>
                 </div>
               ))
@@ -528,7 +909,7 @@ function SystemOwnerDashboard({ onLogout }) {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
-                      System Health & Performance Telemetry
+                      System Health &amp; Performance Telemetry
                     </h3>
                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
                       healthData?.status === 'ALL_SYSTEMS_OPERATIONAL' 
@@ -696,7 +1077,7 @@ function SystemOwnerDashboard({ onLogout }) {
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
                     <Cpu className="w-4 h-4 text-indigo-400" />
-                    <span className="font-bold tracking-tight">Container Memory Allocation & Peak High-Watermark</span>
+                    <span className="font-bold tracking-tight">Container Memory Allocation &amp; Peak High-Watermark</span>
                   </div>
                   <span className="font-mono text-[11px] text-slate-300">
                     {healthData.memory.current_mb} MB ({healthData.memory.current_percent}%) of {healthData.memory.limit_mb} MB Limit
@@ -763,7 +1144,7 @@ function SystemOwnerDashboard({ onLogout }) {
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <span>Process & Reboot Audit Trail</span>
+                <span>Process &amp; Reboot Audit Trail</span>
                 {healthData?.restarts_24h > 0 && (
                   <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-500 text-slate-900">
                     {healthData.restarts_24h}

@@ -3,6 +3,7 @@ import { Bell, Check, ExternalLink, X, CheckCheck, Clock, AlertTriangle, ShieldA
 import apiClient from '../services/apiClient';
 import { useNavigate } from 'react-router-dom';
 import MobileAlertsControl from './MobileAlertsControl';
+import { syncTrayNotifications } from '../services/pushService';
 
 // ─── Time-ago helper ────────────────────────────────────────────
 function timeAgo(dateStr) {
@@ -100,6 +101,7 @@ export default function NotificationCenter() {
             const data = response.data || [];
             setNotifications(data);
             setUnreadCount(data.filter(n => !n.is_read).length);
+            syncTrayNotifications(data);
         } catch (error) {
             if (error?.response?.status !== 401) {
                 console.error("Error fetching notifications:", error);
@@ -114,9 +116,20 @@ export default function NotificationCenter() {
             if (!document.hidden) fetchNotifications();
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
+        const handleSwMessage = (event) => {
+            if (event.data?.type === 'PUSH_NOTIFICATION_RECEIVED') {
+                fetchNotifications();
+            }
+        };
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', handleSwMessage);
+        }
         return () => {
             clearInterval(interval);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+            }
         };
     }, []);
 
@@ -133,7 +146,11 @@ export default function NotificationCenter() {
     const markAsRead = async (id) => {
         try {
             await apiClient.patch(`/notifications/${id}/read`, {});
-            setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+            setNotifications(prev => {
+                const updated = prev.map(n => n.id === id ? { ...n, is_read: true } : n);
+                syncTrayNotifications(updated);
+                return updated;
+            });
             setUnreadCount(prev => Math.max(0, prev - 1));
         } catch (error) {
             console.error("Error marking notification as read:", error);
@@ -143,7 +160,11 @@ export default function NotificationCenter() {
     const markAllAsRead = async () => {
         try {
             await apiClient.patch('/notifications/mark-all-read', {});
-            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+            setNotifications(prev => {
+                const updated = prev.map(n => ({ ...n, is_read: true }));
+                syncTrayNotifications(updated);
+                return updated;
+            });
             setUnreadCount(0);
         } catch (error) {
             console.error("Error marking all as read:", error);

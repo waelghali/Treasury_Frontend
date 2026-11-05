@@ -42,20 +42,29 @@ self.addEventListener('push', (event) => {
     data = { title: 'Grow Treasury', body: event.data ? event.data.text() : '' };
   }
 
-  const expired = data.expires_at && Date.parse(data.expires_at) < Date.now();
-  const title = expired ? 'Grow Treasury' : (data.title || 'Grow Treasury');
-  const options = {
-    body: expired ? 'An alert expired before it arrived. Open Grow to review.' : (data.body || ''),
-    icon: data.icon || DEFAULT_ICON,
-    badge: DEFAULT_BADGE,
-    tag: data.tag || undefined,
-    renotify: Boolean(data.tag),
-    timestamp: Date.now(),
-    data: { url: sameOriginPath(expired ? '/app' : data.url) },
-  };
+  const title = data.title || 'Grow Treasury';
 
-  event.waitUntil(
-    Promise.all([
+  event.waitUntil((async () => {
+    let isReplacement = false;
+    if (data.tag && typeof self.registration.getNotifications === 'function') {
+      try {
+        const existing = await self.registration.getNotifications({ tag: data.tag });
+        isReplacement = Array.isArray(existing) && existing.length > 0;
+      } catch (e) { /* ignore */ }
+    }
+
+    const options = {
+      body: data.body || '',
+      icon: data.icon || DEFAULT_ICON,
+      badge: DEFAULT_BADGE,
+      tag: data.tag || undefined,
+      renotify: false,
+      silent: isReplacement,
+      timestamp: Date.now(),
+      data: { url: sameOriginPath(data.url) },
+    };
+
+    await Promise.all([
       self.registration.showNotification(title, options).catch((err) => {
         console.warn('[SW] showNotification error with full options, retrying basic:', err);
         return self.registration.showNotification(title, {
@@ -73,8 +82,8 @@ self.addEventListener('push', (event) => {
           });
         })
         .catch(() => {}),
-    ])
-  );
+    ]);
+  })());
 });
 
 self.addEventListener('notificationclick', (event) => {

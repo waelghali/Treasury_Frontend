@@ -6,6 +6,7 @@ import {
     disablePushOnThisDevice,
     enablePush,
     getPushStatus,
+    listPushDevices,
     SWITCHED_OWNER_KEY,
 } from '../services/pushService';
 import {
@@ -36,10 +37,16 @@ export default function MobileAlertsControl() {
     const [switchedNotice, setSwitchedNotice] = useState(false);
     const [bioActive, setBioActive] = useState(() => getStoredBiometricInfo().hasBiometric);
     const [preloadedBioRegOpts, setPreloadedBioRegOpts] = useState(null);
+    const [pairedDevicesCount, setPairedDevicesCount] = useState(0);
 
     const refresh = useCallback(async () => {
         try {
-            setStatus(await getPushStatus());
+            const [s, devs] = await Promise.all([
+                getPushStatus(),
+                listPushDevices().catch(() => []),
+            ]);
+            setStatus(s);
+            setPairedDevicesCount(Array.isArray(devs) ? devs.length : 0);
             setBioActive(getStoredBiometricInfo().hasBiometric);
         } catch (e) {
             setStatus('unsupported');
@@ -108,7 +115,12 @@ export default function MobileAlertsControl() {
                         <Smartphone size={13} className="text-gray-500" />
                         <span>Phone alerts</span>
                         {status === 'enabled' && (
-                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-full">On</span>
+                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-full">On (This device)</span>
+                        )}
+                        {status !== 'enabled' && pairedDevicesCount > 0 && (
+                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-full">
+                                {pairedDevicesCount === 1 ? '1 Device Active' : `${pairedDevicesCount} Devices Active`}
+                            </span>
                         )}
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -119,7 +131,7 @@ export default function MobileAlertsControl() {
                                 onClick={() => run(() => enablePush(userId), 'Phone alerts are on. You will be alerted here for urgent quotation events, approvals, and critical LG Custody escalations.')}
                                 className="text-[11px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 px-2 py-0.8 rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
                             >
-                                <BellRing size={11} /> Enable
+                                <BellRing size={11} /> {pairedDevicesCount > 0 ? 'Enable here' : 'Enable'}
                             </button>
                         )}
                         {status === 'enabled' && (
