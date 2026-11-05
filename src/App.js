@@ -47,7 +47,7 @@ import {
   handleUserActivity,
   WARNING_BUFFER_MS
 } from './services/apiService';
-import { disablePushOnThisDevice, syncPushOwnership } from './services/pushService';
+import { syncPushOwnership } from './services/pushService';
 import { jwtDecode } from 'jwt-decode';
 
 import { ToastContainer, Flip } from 'react-toastify';
