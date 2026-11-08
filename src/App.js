@@ -19,6 +19,7 @@ import BankDealerAuthPage from './pages/Public/BankDealerAuthPage';
 import BankDealerDeskPage from './pages/Public/BankDealerDeskPage';
 import DealerStandingAlertSetupPage from './pages/Public/DealerStandingAlertSetupPage';
 import MobilePairAuthPage from './pages/Public/MobilePairAuthPage';
+import VerifyInstructionPage from './pages/Public/VerifyInstructionPage';
 import RenewalPage from './pages/RenewalPage';
 
 import AuthWrapper from './components/AuthWrapper';
@@ -89,7 +90,8 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
       location.pathname.includes('/public-dealer-handshake') ||
       location.pathname.includes('/public/dealer-handshake') ||
       location.pathname.startsWith('/dealer') ||
-      location.pathname.startsWith('/mobile-pair')
+      location.pathname.startsWith('/mobile-pair') ||
+      location.pathname.startsWith('/verify-instruction')
     )
   );
 
@@ -397,6 +399,8 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
           <Route path="/public/bank-handshake/:token" element={<PublicBankHandshakePage />} />
           <Route path="/public-dealer-handshake/:token" element={<PublicBankHandshakePage />} />
           <Route path="/public/dealer-handshake/:token" element={<PublicBankHandshakePage />} />
+          <Route path="/public/verify-instruction" element={<VerifyInstructionPage />} />
+          <Route path="/verify-instruction" element={<VerifyInstructionPage />} />
           <Route path="/dealer" element={<Navigate to="/dealer/desk" replace />} />
           <Route path="/dealer/login" element={<BankDealerAuthPage initialMode="login" />} />
           <Route path="/dealer/enroll" element={<BankDealerAuthPage initialMode="enroll" />} />
@@ -453,7 +457,8 @@ const isPublicPage = () => {
     p.includes('/public-dealer-handshake') ||
     p.includes('/public/dealer-handshake') ||
     p.startsWith('/dealer') ||
-    p.startsWith('/mobile-pair')
+    p.startsWith('/mobile-pair') ||
+    p.startsWith('/verify-instruction')
   );
 };
 
