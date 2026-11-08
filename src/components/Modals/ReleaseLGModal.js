@@ -1,5 +1,5 @@
 // frontend/src/components/Modals/ReleaseLGModal.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import { X, CheckCircle, FileText, AlertCircle, Loader2 } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
@@ -29,6 +29,21 @@ const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-me
 const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
     const [supportingDocument, setSupportingDocument] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDocMandatory, setIsDocMandatory] = useState(false);
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const res = await apiRequest('/end-user/customer-configurations/DOC_MANDATORY_RELEASE', 'GET');
+                if (res && res.effective_value !== undefined) {
+                    setIsDocMandatory(String(res.effective_value).toLowerCase() === 'true');
+                }
+            } catch (err) {
+                console.warn('Could not fetch DOC_MANDATORY_RELEASE config, defaulting to optional.', err);
+            }
+        };
+        fetchConfig();
+    }, []);
 
     const initialValues = {
         reason: '',
@@ -52,6 +67,12 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
     const handleSubmit = async (values, { setErrors }) => {
         if (isGracePeriod) {
             toast.warn("This action is disabled during your subscription's grace period.");
+            return;
+        }
+
+        if (isDocMandatory && !supportingDocument) {
+            toast.error("Supporting document is mandatory for LG Release as per Corporate Admin settings.");
+            setErrors({ general: "Supporting document is mandatory for LG Release." });
             return;
         }
 
@@ -169,7 +190,7 @@ const ReleaseLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                                                     </div>
                                                     <div className="border-t pt-3">
                                                         <label htmlFor="supporting-document-file" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                            Supporting Document
+                                                            Supporting Document {isDocMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
                                                         </label>
                                                         <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-2">
                                                             <input

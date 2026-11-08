@@ -37,6 +37,22 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod, a
     const [selectedDeliveryDate, setSelectedDeliveryDate] = useState(moment().format('YYYY-MM-DD'));
     const [isInspectorOpen, setIsInspectorOpen] = useState(false);
     const [previewUrl, setPreviewUrl] = useState(null);
+    const [isDocMandatory, setIsDocMandatory] = useState(false);
+
+    useEffect(() => {
+        if (apiUrl) return;
+        const fetchConfig = async () => {
+            try {
+                const res = await apiRequest('/end-user/customer-configurations/DOC_MANDATORY_RECORD_DELIVERY', 'GET');
+                if (res && res.effective_value !== undefined) {
+                    setIsDocMandatory(String(res.effective_value).toLowerCase() === 'true');
+                }
+            } catch (err) {
+                console.warn('Could not fetch DOC_MANDATORY_RECORD_DELIVERY config, defaulting to optional.', err);
+            }
+        };
+        fetchConfig();
+    }, [apiUrl]);
 
     // Explicit memory cleanup for uploaded file object URLs
     useEffect(() => {
@@ -67,6 +83,13 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod, a
     const handleSubmit = async (values, { setSubmitting, setErrors }) => {
         if (isGracePeriod) {
             toast.warn("This action is disabled during your subscription's grace period.");
+            setSubmitting(false);
+            return;
+        }
+
+        if (isDocMandatory && !deliveryFile) {
+            toast.error("Supporting delivery document is mandatory for Recording Delivery as per Corporate Admin settings.");
+            setErrors({ general: "Supporting delivery document is mandatory for Recording Delivery." });
             setSubmitting(false);
             return;
         }
@@ -294,7 +317,7 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod, a
                                                 <div className={verificationResult ? 'sm:col-span-8' : ''}>
                                                     <div className="flex items-center justify-between mb-1">
                                                         <label htmlFor="deliveryFile" className="block text-sm font-medium text-gray-700">
-                                                            Bank-Stamped Copy / Courier Slip
+                                                            Bank-Stamped Copy / Courier Slip {isDocMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
                                                         </label>
                                                         <span className="text-xs text-gray-500">Max 5MB</span>
                                                     </div>

@@ -1,5 +1,5 @@
 // frontend/src/components/Modals/LiquidateLGModal.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import { X, FileMinus, AlertCircle, FileText, Loader2, Sparkles } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
@@ -31,6 +31,21 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
     const [liquidationType, setLiquidationType] = useState('full');
     const [supportingDocument, setSupportingDocument] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false); // CRITICAL FIX: Add local state for submission status
+    const [isDocMandatory, setIsDocMandatory] = useState(false);
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const res = await apiRequest('/end-user/customer-configurations/DOC_MANDATORY_LIQUIDATION', 'GET');
+                if (res && res.effective_value !== undefined) {
+                    setIsDocMandatory(String(res.effective_value).toLowerCase() === 'true');
+                }
+            } catch (err) {
+                console.warn('Could not fetch DOC_MANDATORY_LIQUIDATION config, defaulting to optional.', err);
+            }
+        };
+        fetchConfig();
+    }, []);
 
     const initialValues = {
         liquidationType: 'full',
@@ -61,6 +76,12 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
     const handleSubmit = async (values, { setErrors }) => {
         if (isGracePeriod) {
             toast.warn("This action is disabled during your subscription's grace period.");
+            return;
+        }
+
+        if (isDocMandatory && !supportingDocument) {
+            toast.error("Supporting document is mandatory for liquidation as per Corporate Admin settings.");
+            setErrors({ general: "Supporting document is mandatory for liquidation." });
             return;
         }
 
@@ -257,7 +278,7 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
 
                                                     <div>
                                                         <label className="block text-xs sm:text-sm font-medium text-gray-700">
-                                                            Supporting Document (Optional)
+                                                            Supporting Document {isDocMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
                                                         </label>
                                                         <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-2">
                                                             <input

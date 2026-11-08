@@ -4,7 +4,7 @@ import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiServic
 import { 
     Loader2, AlertCircle, Clock, FileText, Repeat, CalendarPlus, 
     Truck, Building, Mail, Printer, CheckCircle2, ArrowRight, Eye, ChevronDown, ChevronUp,
-    ClipboardCheck, Wrench
+    ClipboardCheck, Wrench, History
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
@@ -110,6 +110,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
     const [selectedInstructionForReply, setSelectedInstructionForReply] = useState(null);
     const [showBulkRemindersModal, setShowBulkRemindersModal] = useState(false);
     const [showRunAutoRenewalModal, setShowRunAutoRenewalModal] = useState(false);
+    const [autoRenewalModalTab, setAutoRenewalModalTab] = useState('candidates');
 
     const scrollToSection = (id) => {
         const element = document.getElementById(id);
@@ -582,6 +583,20 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                 <Clock className="h-5 w-5 text-orange-600" />
             </div>
             <h2 className="text-lg font-semibold text-gray-900 flex-1">Approaching Expiry / Renewal</h2>
+            {!isCorporateAdminView && (
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setAutoRenewalModalTab('history');
+                        setShowRunAutoRenewalModal(true);
+                    }}
+                    className="inline-flex items-center justify-center px-3.5 py-2 text-sm font-medium rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 shadow-sm transition-all active:scale-95"
+                    title="View previous auto-renewal runs and re-print extension letters"
+                >
+                    <History className="h-4 w-4 mr-1.5" /> Previous Runs / Re-print
+                </button>
+            )}
         </div>
 
         {!isCorporateAdminView && (
@@ -590,6 +605,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                     <button 
                         onClick={(e) => {
                             e.stopPropagation();
+                            setAutoRenewalModalTab('candidates');
                             setShowRunAutoRenewalModal(true);
                         }}
                         disabled={isGracePeriod}
@@ -730,7 +746,22 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                                 <span className="text-sm font-bold text-gray-900">{lgNum}</span>
                                             )}
                                         </div>
-                                        <div className="text-xs text-gray-500 mt-1 ml-6">{actionLabel} {serialNum && `#${serialNum}`}</div>
+                                        <div className="text-xs text-gray-500 mt-1 ml-6 flex items-center gap-2">
+                                            <span>{actionLabel} {serialNum && `#${serialNum}`}</span>
+                                            {!isIss && inst.id && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleViewLetter(inst.id, lgNum);
+                                                    }}
+                                                    className="inline-flex items-center px-2 py-0.5 border border-indigo-200 text-[11px] font-medium rounded text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                                                    title="View / Re-print Instruction Letter"
+                                                >
+                                                    <Printer className="h-3 w-3 mr-1" /> Print Letter
+                                                </button>
+                                            )}
+                                        </div>
                                         {isIss && <span className={`inline-block mt-1 ml-6 text-[10px] px-1.5 py-0.5 rounded font-medium ${inst._source === 'issuance_maintenance' ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-700'}`}>{inst._source === 'issuance_maintenance' ? 'Maintenance' : 'Issuance'}</span>}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Created: {formatDate(issuedDate)}</td>
@@ -1092,6 +1123,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                 onClose={() => setShowExtendModal(false)}
                 onSuccess={handleActionSuccess}
                 isGracePeriod={isGracePeriod}
+                initialTab={autoRenewalModalTab}
             />
         )}
         {showRecordDeliveryModal && selectedInstructionForDelivery && (
@@ -1100,6 +1132,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                 onClose={() => setShowRecordDeliveryModal(false)}
                 onSuccess={handleActionSuccess}
                 isGracePeriod={isGracePeriod}
+                initialTab={autoRenewalModalTab}
                 apiUrl={selectedInstructionForDelivery._issuance
                     ? selectedInstructionForDelivery._source === 'issuance_maintenance'
                         ? `/issuance/lg-records/${selectedInstructionForDelivery.issued_lg_id}/record-delivery`
@@ -1113,6 +1146,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                 onClose={() => setShowRecordBankReplyModal(false)}
                 onSuccess={handleActionSuccess}
                 isGracePeriod={isGracePeriod}
+                initialTab={autoRenewalModalTab}
                 apiUrl={selectedInstructionForReply._issuance ? `/issuance/maintenance/${selectedInstructionForReply.id}/bank-reply` : undefined}
             />
         )}
@@ -1121,6 +1155,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                 onClose={() => setShowBulkRemindersModal(false)}
                 onSuccess={handleActionSuccess}
                 isGracePeriod={isGracePeriod}
+                initialTab={autoRenewalModalTab}
             />
         )}
         {showRunAutoRenewalModal && (
@@ -1128,6 +1163,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                 onClose={() => setShowRunAutoRenewalModal(false)}
                 onSuccess={handleActionSuccess}
                 isGracePeriod={isGracePeriod}
+                initialTab={autoRenewalModalTab}
             />
         )}
     </>

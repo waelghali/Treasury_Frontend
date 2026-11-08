@@ -1,7 +1,10 @@
 // frontend/src/components/Modals/RunAutoRenewalModal.js
-import React, { useState, useEffect, useMemo } from 'react';
-import { apiRequest } from '../../services/apiService';
-import { Loader2, XCircle, CheckCircle, Download, Repeat, Lock, ShieldAlert, Calendar, CheckSquare, Square, Info } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
+import {
+    Loader2, XCircle, CheckCircle, Download, Repeat, Lock, ShieldAlert,
+    Printer, History, ChevronDown, ChevronUp, ExternalLink, FileText, RefreshCw
+} from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 
@@ -22,7 +25,8 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod }) => {
+const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod, initialTab = 'candidates' }) => {
+    const [activeTab, setActiveTab] = useState(initialTab || 'candidates');
     const [isLoadingPreview, setIsLoadingPreview] = useState(true);
     const [previewData, setPreviewData] = useState(null);
     const [selectedLgIds, setSelectedLgIds] = useState({});
@@ -30,6 +34,12 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod }) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
+
+    // History state
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [historyBatches, setHistoryBatches] = useState([]);
+    const [expandedBatches, setExpandedBatches] = useState({});
+    const [reprintingBatchId, setReprintingBatchId] = useState(null);
 
     // Fetch candidate preview on modal mount
     useEffect(() => {
@@ -63,6 +73,109 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod }) => {
         fetchPreview();
         return () => { isMounted = false; };
     }, []);
+
+    const fetchHistory = useCallback(async () => {
+        setIsLoadingHistory(true);
+        try {
+            const data = await apiRequest('/end-user/lg-records/auto-renewal-history', 'GET');
+            const list = Array.isArray(data) ? data : [];
+            setHistoryBatches(list);
+            if (list.length > 0) {
+                setExpandedBatches(prev => (Object.keys(prev).length === 0 ? { [list[0].batch_id]: true } : prev));
+            }
+        } catch (err) {
+            console.error("Failed to fetch auto-renewal history:", err);
+            toast.error(`Failed to load previous renewal runs: ${err.message || 'Unexpected error'}`);
+        } finally {
+            setIsLoadingHistory(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === 'history') {
+            fetchHistory();
+        }
+    }, [activeTab, fetchHistory]);
+
+    const openBase64PdfInNewTab = (base64Str) => {
+        try {
+            const byteCharacters = atob(base64Str);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'application/pdf' });
+            const fileURL = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = fileURL;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(fileURL), 5000);
+            toast.info("Consolidated instruction letter opened in a new tab for printing.");
+        } catch (blobError) {
+            console.error("Error opening PDF:", blobError);
+            toast.error("Failed to open PDF automatically. Please use the download button.");
+        }
+    };
+
+    const downloadBase64Pdf = (base64Str, fileNamePrefix = 'bulk_lg_renewal') => {
+        const link = document.createElement('a');
+        link.href = `data:application/pdf;base64,${base64Str}`;
+        link.download = `${fileNamePrefix}_${moment().format('YYYYMMDD_HHmmss')}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.info("Consolidated PDF download initiated.");
+    };
+
+    const handlePrintSingleInstruction = (instructionId, lgNumber = 'N/A') => {
+        if (!instructionId) {
+            toast.error("Instruction ID is not available.");
+            return;
+        }
+        const authToken = getAuthToken();
+        let letterUrl = `${API_BASE_URL}/end-user/lg-records/instructions/${instructionId}/view-letter`;
+        if (authToken) {
+            letterUrl += `?token=${authToken}&print=true`;
+        }
+        window.open(letterUrl, '_blank');
+        toast.info(`Opening extension instruction letter for LG ${lgNumber}...`);
+    };
+
+    const handleReprintBatch = async (batch, mode = 'open') => {
+        const instructionIds = (batch.items || [])
+            .map(item => item.instruction_id)
+            .filter(Boolean);
+
+        if (instructionIds.length === 0) {
+            toast.warn("No instruction letters found in this batch to reprint.");
+            return;
+        }
+
+        setReprintingBatchId(`${batch.batch_id}-${mode}`);
+        try {
+            const response = await apiRequest('/end-user/lg-records/auto-renewal-reprint', 'POST', {
+                instruction_ids: instructionIds,
+            });
+            if (response?.combined_pdf_base64) {
+                if (mode === 'download') {
+                    downloadBase64Pdf(response.combined_pdf_base64, `reprint_${batch.batch_id}`);
+                } else {
+                    openBase64PdfInNewTab(response.combined_pdf_base64);
+                }
+            } else {
+                toast.warn("No PDF content returned from server.");
+            }
+        } catch (err) {
+            console.error("Failed to reprint batch:", err);
+            toast.error(`Failed to regenerate batch PDF: ${err.message || 'Unexpected error'}`);
+        } finally {
+            setReprintingBatchId(null);
+        }
+    };
 
     // Toggle individual non-forced candidate
     const handleToggleCandidate = (candidate) => {
@@ -160,29 +273,7 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod }) => {
             if (onSuccess) onSuccess();
 
             if (response.combined_pdf_base64) {
-                try {
-                    const byteCharacters = atob(response.combined_pdf_base64);
-                    const byteNumbers = new Array(byteCharacters.length);
-                    for (let i = 0; i < byteCharacters.length; i++) {
-                        byteNumbers[i] = byteCharacters.charCodeAt(i);
-                    }
-                    const byteArray = new Uint8Array(byteNumbers);
-                    const blob = new Blob([byteArray], { type: 'application/pdf' });
-
-                    const fileURL = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = fileURL;
-                    link.target = '_blank';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-
-                    setTimeout(() => URL.revokeObjectURL(fileURL), 100);
-                    toast.info("Consolidated instruction letter opened in a new tab for printing.");
-                } catch (blobError) {
-                    console.error("Error opening PDF:", blobError);
-                    toast.error("Failed to open PDF automatically. Please use the download button.");
-                }
+                openBase64PdfInNewTab(response.combined_pdf_base64);
             }
         } catch (err) {
             console.error("Failed to run renewal:", err);
@@ -195,16 +286,17 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod }) => {
 
     const handleDownloadPdf = () => {
         if (result && result.combined_pdf_base64) {
-            const link = document.createElement('a');
-            link.href = `data:application/pdf;base64,${result.combined_pdf_base64}`;
-            link.download = `bulk_lg_renewal_${moment().format('YYYYMMDD_HHmmss')}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            toast.info("Consolidated PDF download initiated.");
+            downloadBase64Pdf(result.combined_pdf_base64, result.batch_id || 'bulk_lg_renewal');
         } else {
             toast.warn("No PDF available for download.");
         }
+    };
+
+    const toggleExpandBatch = (batchId) => {
+        setExpandedBatches(prev => ({
+            ...prev,
+            [batchId]: !prev[batchId]
+        }));
     };
 
     return (
@@ -218,8 +310,8 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod }) => {
                             <Repeat className="h-5 w-5" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-gray-900">Run Auto / Forced LG Renewal</h2>
-                            <p className="text-xs text-gray-500 mt-0.5">Review candidate LGs, verify forced risk cutoffs, and customize new extension dates.</p>
+                            <h2 className="text-xl font-bold text-gray-900">Auto / Forced LG Renewal & Batch History</h2>
+                            <p className="text-xs text-gray-500 mt-0.5">Extend eligible LGs or view & re-print extension letters from previous auto-renewal runs.</p>
                         </div>
                     </div>
                     <button
@@ -231,48 +323,350 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod }) => {
                     </button>
                 </div>
 
+                {/* Top Tabs */}
+                <div className="px-6 pt-2 border-b border-gray-200 bg-gray-50/60 flex items-center justify-between">
+                    <div className="flex space-x-6">
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('candidates')}
+                            className={`pb-3 pt-2 text-sm font-semibold border-b-2 flex items-center space-x-2 transition-colors ${
+                                activeTab === 'candidates'
+                                    ? 'border-orange-600 text-orange-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                            }`}
+                        >
+                            <Repeat className="h-4 w-4" />
+                            <span>New Renewal Run</span>
+                            {previewData?.candidates?.length > 0 && (
+                                <span className="ml-1.5 px-2 py-0.5 text-xs rounded-full bg-orange-100 text-orange-700 font-bold">
+                                    {previewData.candidates.length}
+                                </span>
+                            )}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('history')}
+                            className={`pb-3 pt-2 text-sm font-semibold border-b-2 flex items-center space-x-2 transition-colors ${
+                                activeTab === 'history'
+                                    ? 'border-indigo-600 text-indigo-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                            }`}
+                        >
+                            <History className="h-4 w-4" />
+                            <span>Previous Auto-Renewal Runs (Re-print Letters)</span>
+                        </button>
+                    </div>
+                    {activeTab === 'history' && (
+                        <button
+                            type="button"
+                            onClick={fetchHistory}
+                            disabled={isLoadingHistory}
+                            className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 mb-1"
+                        >
+                            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isLoadingHistory ? 'animate-spin' : ''}`} />
+                            Refresh
+                        </button>
+                    )}
+                </div>
+
                 {/* Modal Body */}
                 <div className="p-6 overflow-y-auto flex-1 space-y-4">
                     
-                    {error && (
+                    {error && activeTab === 'candidates' && (
                         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center space-x-3" role="alert">
                             <XCircle className="h-5 w-5 flex-shrink-0 text-red-500" />
                             <span className="text-sm font-medium">{error}</span>
                         </div>
                     )}
 
-                    {/* Result View */}
-                    {result ? (
-                        <div className="text-center py-8 px-4">
-                            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                                <CheckCircle className="h-8 w-8" />
+                    {activeTab === 'history' ? (
+                        /* PREVIOUS AUTO-RENEWAL RUNS TAB */
+                        isLoadingHistory ? (
+                            <div className="py-16 text-center space-y-4">
+                                <Loader2 className="h-10 w-10 text-indigo-500 animate-spin mx-auto" />
+                                <p className="text-sm font-medium text-gray-600">Loading previous auto-renewal batches...</p>
                             </div>
-                            <h3 className="text-2xl font-bold text-gray-900 mb-2">Renewal Process Completed</h3>
-                            <p className="text-gray-600 max-w-md mx-auto mb-6 text-sm">{result.message}</p>
-
-                            <div className="inline-flex items-center space-x-2 bg-gray-50 border border-gray-200 px-4 py-2 rounded-xl text-sm text-gray-700 mb-8">
-                                <span>Successfully Extended:</span>
-                                <span className="font-bold text-gray-900 bg-white px-2 py-0.5 rounded-md border border-gray-200">{result.renewed_count} LG(s)</span>
+                        ) : historyBatches.length === 0 ? (
+                            <div className="py-12 text-center space-y-3">
+                                <div className="w-14 h-14 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mx-auto">
+                                    <History className="h-7 w-7 text-gray-400" />
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-800">No Previous Bulk Renewal Runs Found</h3>
+                                <p className="text-sm text-gray-500 max-w-md mx-auto">
+                                    Once you run an Auto / Forced Renewal batch, the full list of extended LGs and their combined or individual instruction letters will appear here for easy re-printing at any time.
+                                </p>
                             </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3.5 text-xs text-indigo-900 flex items-center justify-between">
+                                    <span>
+                                        Need to re-print extension letters after closing the window? Expand any batch below to <strong>re-open/download the combined PDF</strong> or <strong>print individual LG extension letters</strong>.
+                                    </span>
+                                </div>
 
-                            <div className="flex justify-center space-x-3">
-                                {result.combined_pdf_base64 && (
+                                {historyBatches.map(batch => {
+                                    const isExpanded = !!expandedBatches[batch.batch_id];
+                                    const isOpeningBatch = reprintingBatchId === `${batch.batch_id}-open`;
+                                    const isDownloadingBatch = reprintingBatchId === `${batch.batch_id}-download`;
+
+                                    return (
+                                        <div key={batch.batch_id} className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+                                            {/* Batch Header */}
+                                            <div
+                                                onClick={() => toggleExpandBatch(batch.batch_id)}
+                                                className="px-4 py-3.5 bg-gray-50/80 hover:bg-gray-100/70 cursor-pointer flex flex-wrap items-center justify-between gap-3 border-b border-gray-100"
+                                            >
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg">
+                                                        <FileText className="h-4 w-4" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <span className="font-bold text-sm text-gray-900">
+                                                                {moment(batch.created_at).format('DD-MMM-YYYY hh:mm A')}
+                                                            </span>
+                                                            <span className="text-xs font-mono bg-white border border-gray-200 text-gray-600 px-2 py-0.5 rounded">
+                                                                {batch.batch_id}
+                                                            </span>
+                                                            <span className="text-xs font-semibold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full">
+                                                                {batch.renewed_count} LG(s) Extended
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 mt-0.5">
+                                                            Run by: <strong className="text-gray-700">{batch.triggered_by_email || 'System / Authorized User'}</strong>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center space-x-2" onClick={e => e.stopPropagation()}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleReprintBatch(batch, 'open')}
+                                                        disabled={isOpeningBatch || isDownloadingBatch || (batch.items || []).length === 0}
+                                                        className="inline-flex items-center px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors disabled:opacity-50"
+                                                    >
+                                                        {isOpeningBatch ? (
+                                                            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                                        ) : (
+                                                            <Printer className="h-3.5 w-3.5 mr-1.5" />
+                                                        )}
+                                                        Re-Print Combined PDF
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleReprintBatch(batch, 'download')}
+                                                        disabled={isOpeningBatch || isDownloadingBatch || (batch.items || []).length === 0}
+                                                        className="inline-flex items-center px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 text-xs font-semibold rounded-lg shadow-sm transition-colors disabled:opacity-50"
+                                                    >
+                                                        {isDownloadingBatch ? (
+                                                            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                                        ) : (
+                                                            <Download className="h-3.5 w-3.5 mr-1.5" />
+                                                        )}
+                                                        Download All
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleExpandBatch(batch.batch_id)}
+                                                        className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg"
+                                                    >
+                                                        {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Batch Items Table */}
+                                            {isExpanded && (
+                                                <div className="overflow-x-auto">
+                                                    {(batch.items || []).length === 0 ? (
+                                                        <div className="p-4 text-xs text-gray-500 text-center">
+                                                            Detailed instruction records are not available for this run.
+                                                        </div>
+                                                    ) : (
+                                                        <table className="min-w-full divide-y divide-gray-100 text-left text-xs">
+                                                            <thead className="bg-gray-50/60 text-gray-500 uppercase font-semibold">
+                                                                <tr>
+                                                                    <th className="px-4 py-2.5">LG Number & Counterparty</th>
+                                                                    <th className="px-4 py-2.5">Amount</th>
+                                                                    <th className="px-4 py-2.5">Expiry Extension</th>
+                                                                    <th className="px-4 py-2.5">Instruction Serial & Status</th>
+                                                                    <th className="px-4 py-2.5 text-right">Letter Action</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-gray-100 bg-white">
+                                                                {batch.items.map((item, idx) => (
+                                                                    <tr key={`${batch.batch_id}-${item.instruction_id || idx}`} className="hover:bg-gray-50/80">
+                                                                        <td className="px-4 py-3">
+                                                                            <div className="font-bold text-gray-900 text-sm">{item.lg_number}</div>
+                                                                            <div className="text-gray-500 mt-0.5">
+                                                                                {item.beneficiary_name || 'N/A'} • {item.bank_name || 'N/A'}
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-gray-800">
+                                                                            {item.amount != null
+                                                                                ? `${item.currency_code || ''} ${Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                                                                : '—'}
+                                                                        </td>
+                                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                                            <div className="flex items-center space-x-1.5">
+                                                                                <span className="text-gray-500 line-through">
+                                                                                    {item.old_expiry_date ? moment(item.old_expiry_date).format('DD-MMM-YYYY') : '—'}
+                                                                                </span>
+                                                                                <span className="text-gray-400">→</span>
+                                                                                <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                                                                    {item.new_expiry_date ? moment(item.new_expiry_date).format('DD-MMM-YYYY') : '—'}
+                                                                                </span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                                            <div className="font-mono font-semibold text-gray-800">
+                                                                                {item.instruction_serial || `INST-${item.instruction_id}`}
+                                                                            </div>
+                                                                            <div className="mt-0.5 flex items-center gap-1.5">
+                                                                                {item.bank_reply_date ? (
+                                                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                                                                                        Bank Replied ({moment(item.bank_reply_date).format('DD-MMM')})
+                                                                                    </span>
+                                                                                ) : item.delivery_date ? (
+                                                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800">
+                                                                                        Delivered ({moment(item.delivery_date).format('DD-MMM')})
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800">
+                                                                                        Awaiting Delivery
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-4 py-3 whitespace-nowrap text-right">
+                                                                            {item.instruction_id && (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handlePrintSingleInstruction(item.instruction_id, item.lg_number)}
+                                                                                    className="inline-flex items-center px-2.5 py-1.5 border border-indigo-200 text-xs font-semibold rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                                                                                >
+                                                                                    <Printer className="h-3.5 w-3.5 mr-1" />
+                                                                                    Print Letter
+                                                                                </button>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )
+                    ) : result ? (
+                        /* Result View after Running Renewal */
+                        <div className="py-4 px-2 space-y-6">
+                            <div className="text-center">
+                                <div className="w-14 h-14 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
+                                    <CheckCircle className="h-8 w-8" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-gray-900 mb-1">Renewal Process Completed</h3>
+                                <p className="text-gray-600 max-w-lg mx-auto mb-4 text-sm">{result.message}</p>
+
+                                <div className="inline-flex flex-wrap items-center justify-center gap-2 bg-gray-50 border border-gray-200 px-4 py-2 rounded-xl text-sm text-gray-700 mb-5">
+                                    <span>Successfully Extended:</span>
+                                    <span className="font-bold text-gray-900 bg-white px-2.5 py-0.5 rounded-md border border-gray-200">{result.renewed_count} LG(s)</span>
+                                    {result.batch_id && (
+                                        <>
+                                            <span className="text-gray-300">|</span>
+                                            <span>Batch: <strong className="font-mono text-xs text-indigo-700">{result.batch_id}</strong></span>
+                                        </>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-wrap justify-center gap-3">
+                                    {result.combined_pdf_base64 && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => openBase64PdfInNewTab(result.combined_pdf_base64)}
+                                                className="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-all"
+                                            >
+                                                <ExternalLink className="h-4 w-4 mr-2" /> Open & Print Combined PDF
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleDownloadPdf}
+                                                className="inline-flex items-center px-4 py-2.5 bg-white hover:bg-gray-50 text-indigo-700 border border-indigo-200 text-sm font-semibold rounded-xl shadow-sm transition-all"
+                                            >
+                                                <Download className="h-4 w-4 mr-2" /> Download Combined PDF
+                                            </button>
+                                        </>
+                                    )}
                                     <button
                                         type="button"
-                                        onClick={handleDownloadPdf}
-                                        className="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl shadow-sm transition-all"
+                                        onClick={() => setActiveTab('history')}
+                                        className="inline-flex items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 shadow-sm transition-all"
                                     >
-                                        <Download className="h-4 w-4 mr-2" /> Download Instruction Letter
+                                        <History className="h-4 w-4 mr-2" /> View All Previous Runs
                                     </button>
-                                )}
-                                <button
-                                    type="button"
-                                    onClick={onClose}
-                                    className="inline-flex items-center px-5 py-2.5 border border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 shadow-sm transition-all"
-                                >
-                                    Close
-                                </button>
+                                </div>
                             </div>
+
+                            {/* Table of Renewed LGs in this batch so user can see and print each individually */}
+                            {Array.isArray(result.renewed_items) && result.renewed_items.length > 0 && (
+                                <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                                    <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                                        <span className="text-xs font-bold uppercase tracking-wider text-gray-700">
+                                            Extended LGs in This Run ({result.renewed_items.length})
+                                        </span>
+                                        <span className="text-xs text-gray-500">
+                                            This batch is saved under "Previous Auto-Renewal Runs" for future re-printing.
+                                        </span>
+                                    </div>
+                                    <table className="min-w-full divide-y divide-gray-200 text-left text-xs">
+                                        <thead className="bg-gray-50/60 text-gray-500 uppercase font-semibold">
+                                            <tr>
+                                                <th className="px-4 py-2.5">LG Number</th>
+                                                <th className="px-4 py-2.5">Bank / Beneficiary</th>
+                                                <th className="px-4 py-2.5">Expiry Extension</th>
+                                                <th className="px-4 py-2.5">Instruction Serial</th>
+                                                <th className="px-4 py-2.5 text-right">Individual Letter</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-100">
+                                            {result.renewed_items.map((item, idx) => (
+                                                <tr key={item.instruction_id || idx} className="hover:bg-gray-50">
+                                                    <td className="px-4 py-2.5 font-bold text-gray-900 text-sm">{item.lg_number}</td>
+                                                    <td className="px-4 py-2.5 text-gray-600">
+                                                        {item.bank_name || 'N/A'} • {item.beneficiary_name || 'N/A'}
+                                                    </td>
+                                                    <td className="px-4 py-2.5 whitespace-nowrap">
+                                                        <span className="text-gray-500 line-through mr-1.5">
+                                                            {item.old_expiry_date ? moment(item.old_expiry_date).format('DD-MMM-YYYY') : '—'}
+                                                        </span>
+                                                        →
+                                                        <span className="ml-1.5 font-bold text-emerald-700">
+                                                            {item.new_expiry_date ? moment(item.new_expiry_date).format('DD-MMM-YYYY') : '—'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-2.5 font-mono text-gray-800">{item.instruction_serial || '—'}</td>
+                                                    <td className="px-4 py-2.5 text-right">
+                                                        {item.instruction_id && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handlePrintSingleInstruction(item.instruction_id, item.lg_number)}
+                                                                className="inline-flex items-center px-2.5 py-1 border border-indigo-200 text-xs font-semibold rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                                                            >
+                                                                <Printer className="h-3.5 w-3.5 mr-1" /> Print Letter
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     ) : isLoadingPreview ? (
                         /* Loading Skeleton */
@@ -290,6 +684,16 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod }) => {
                             <p className="text-sm text-gray-500 max-w-md mx-auto">
                                 There are currently no Letters of Guarantee approaching the critical forced cutoff ({previewData?.forced_renew_days_threshold || 15} days) or marked for proactive auto-renewal ({previewData?.auto_renewal_days_threshold || 30} days).
                             </p>
+                            <div className="pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('history')}
+                                    className="inline-flex items-center px-4 py-2 text-xs font-semibold rounded-xl text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors"
+                                >
+                                    <History className="h-4 w-4 mr-1.5" />
+                                    View Previous Auto-Renewal Runs & Re-print Letters
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         /* Candidate Review Table */
@@ -300,7 +704,7 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod }) => {
                                     This process will identify all your eligible Letters of Guarantee for <strong>auto-renewal</strong> and for <strong>forced renewal</strong>.
                                 </p>
                                 <p className="text-gray-500 text-xs">
-                                    For each eligible LG, the system will automatically extend its expiry date, generate an individual instruction letter, and send an individual email notification. A single, combined PDF containing all generated instruction letters will be provided for download and printing.
+                                    For each eligible LG, the system will automatically extend its expiry date, generate an individual instruction letter, and send an individual email notification. A single, combined PDF containing all generated instruction letters will be provided for download and printing, and saved under <strong>Previous Auto-Renewal Runs</strong>.
                                 </p>
                             </div>
 
@@ -485,10 +889,10 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod }) => {
                         disabled={isProcessing}
                         className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 transition-all"
                     >
-                        Cancel
+                        Close
                     </button>
 
-                    {!result && (
+                    {activeTab === 'candidates' && !result && (
                         <div className="flex items-center space-x-3">
                             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                 <button

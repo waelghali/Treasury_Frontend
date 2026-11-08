@@ -1,5 +1,5 @@
 // frontend/src/components/Modals/DecreaseAmountModal.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import { X, MinusCircle, AlertCircle, FileText, Loader2 } from 'lucide-react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
@@ -38,6 +38,21 @@ const formatCurrency = (amount, currencyCode) => {
 const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
     const [supportingDocument, setSupportingDocument] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDocMandatory, setIsDocMandatory] = useState(false);
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const res = await apiRequest('/end-user/customer-configurations/DOC_MANDATORY_DECREASE_AMOUNT', 'GET');
+                if (res && res.effective_value !== undefined) {
+                    setIsDocMandatory(String(res.effective_value).toLowerCase() === 'true');
+                }
+            } catch (err) {
+                console.warn('Could not fetch DOC_MANDATORY_DECREASE_AMOUNT config, defaulting to optional.', err);
+            }
+        };
+        fetchConfig();
+    }, []);
 
     const initialValues = {
         decreaseAmount: '',
@@ -63,6 +78,12 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
     const handleSubmit = async (values, { setErrors }) => {
         if (isGracePeriod) {
             toast.warn("This action is disabled during your subscription's grace period.");
+            return;
+        }
+
+        if (isDocMandatory && !supportingDocument) {
+            toast.error("Supporting document is mandatory for Decreasing Amount as per Corporate Admin settings.");
+            setErrors({ general: "Supporting document is mandatory for Decreasing Amount." });
             return;
         }
 
@@ -220,7 +241,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
 
                                                         <div className="border-t pt-3">
                                                             <label htmlFor="supporting-document-file" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                                Supporting Document (Optional)
+                                                                Supporting Document {isDocMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
                                                             </label>
                                                             <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-2">
                                                                 <input

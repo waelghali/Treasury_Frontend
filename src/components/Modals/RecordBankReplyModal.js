@@ -47,6 +47,22 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
     const [selectedReplyDetails, setSelectedReplyDetails] = useState('');
     const [isInspectorOpen, setIsInspectorOpen] = useState(false);
     const [previewUrl, setPreviewUrl] = useState(null);
+    const [isDocMandatory, setIsDocMandatory] = useState(false);
+
+    useEffect(() => {
+        if (apiUrl) return;
+        const fetchConfig = async () => {
+            try {
+                const res = await apiRequest('/end-user/customer-configurations/DOC_MANDATORY_RECORD_BANK_REPLY', 'GET');
+                if (res && res.effective_value !== undefined) {
+                    setIsDocMandatory(String(res.effective_value).toLowerCase() === 'true');
+                }
+            } catch (err) {
+                console.warn('Could not fetch DOC_MANDATORY_RECORD_BANK_REPLY config, defaulting to optional.', err);
+            }
+        };
+        fetchConfig();
+    }, [apiUrl]);
 
     useEffect(() => {
         if (replyFile) {
@@ -91,6 +107,13 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
 
         if (isCancelLiquidation && !confirmOriginalReturned) {
             toast.error("You must confirm that the original physical LG document has been retrieved/received back from the bank before completing this action.");
+            setSubmitting(false);
+            return;
+        }
+
+        if (isDocMandatory && !replyFile) {
+            toast.error("Supporting bank reply document is mandatory for Recording Bank Reply as per Corporate Admin settings.");
+            setErrors({ general: "Supporting bank reply document is mandatory for Recording Bank Reply." });
             setSubmitting(false);
             return;
         }
@@ -461,7 +484,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
                                                 <div className={verificationResult ? 'sm:col-span-5' : ''}>
                                                     <div className="flex items-center justify-between mb-1">
                                                         <label htmlFor="replyFile" className="block text-sm font-medium text-gray-700">
-                                                            Bank Reply Document (Optional)
+                                                            Bank Reply Document {isDocMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
                                                         </label>
                                                         <span className="text-xs text-gray-500">Max 5MB</span>
                                                     </div>

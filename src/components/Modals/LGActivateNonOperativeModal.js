@@ -26,6 +26,21 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeri
         banks: [],
     });
     const [error, setError] = useState('');
+    const [isDocMandatory, setIsDocMandatory] = useState(false);
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const res = await apiRequest('/end-user/customer-configurations/DOC_MANDATORY_ACTIVATE', 'GET');
+                if (res && res.effective_value !== undefined) {
+                    setIsDocMandatory(String(res.effective_value).toLowerCase() === 'true');
+                }
+            } catch (err) {
+                console.warn('Could not fetch DOC_MANDATORY_ACTIVATE config, defaulting to optional.', err);
+            }
+        };
+        fetchConfig();
+    }, []);
 
     useEffect(() => {
         const fetchDropdownData = async () => {
@@ -77,6 +92,12 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeri
         }
 
         setError('');
+        if (isDocMandatory && !supportingDocument) {
+            setError('Supporting document is mandatory for LG Activation as per Corporate Admin settings.');
+            toast.error('Supporting document is mandatory for LG Activation as per Corporate Admin settings.');
+            return;
+        }
+
         setIsProcessing(true);
 
         const requiredFields = ['amount', 'payment_method', 'payment_date', 'currency_id', 'issuing_bank_id', 'payment_reference'];
@@ -129,7 +150,8 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeri
         paymentDetails.currency_id &&
         paymentDetails.issuing_bank_id &&
         paymentDetails.payment_reference &&
-        String(paymentDetails.payment_reference).trim() !== ''
+        String(paymentDetails.payment_reference).trim() !== '' &&
+        (!isDocMandatory || Boolean(supportingDocument))
     );
 
     return (
@@ -314,7 +336,7 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeri
 
                                                 <div className="border-t pt-3">
                                                     <label htmlFor="supporting-document-file" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                        Supporting Document
+                                                        Supporting Document {isDocMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
                                                     </label>
                                                     <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-2">
                                                         <input
