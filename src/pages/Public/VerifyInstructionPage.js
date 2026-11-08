@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { ShieldCheck, ShieldAlert, Lock, CheckCircle2, XCircle, Building2, FileText, ArrowRight, RefreshCw } from 'lucide-react';
 import { publicApiRequest } from '../../services/apiService';
@@ -10,6 +10,8 @@ export default function VerifyInstructionPage() {
   const [inspectLoading, setInspectLoading] = useState(true);
   const [tokenInfo, setTokenInfo] = useState(null);
   const [securityCode, setSecurityCode] = useState('');
+  const [bankBranchCode, setBankBranchCode] = useState(''); // Decoy honeypot field
+  const pageLoadedAt = useRef(Date.now());
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState('');
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
@@ -47,6 +49,7 @@ export default function VerifyInstructionPage() {
         setInspectLoading(true);
         const res = await publicApiRequest(`/public/verify-instruction/inspect?t=${encodeURIComponent(token)}`, 'GET');
         if (isMounted) {
+          pageLoadedAt.current = Date.now();
           setTokenInfo(res);
           if (res?.cooldown_seconds && res.cooldown_seconds > 0) {
             setCooldownSeconds(res.cooldown_seconds);
@@ -97,6 +100,8 @@ export default function VerifyInstructionPage() {
       const res = await publicApiRequest('/public/verify-instruction/confirm', 'POST', {
         token,
         code: cleanDigits,
+        bank_branch_code: bankBranchCode,
+        elapsed_ms: Math.max(0, Date.now() - pageLoadedAt.current),
       });
       if (res && res.verified) {
         setCooldownSeconds(0);
@@ -188,7 +193,33 @@ export default function VerifyInstructionPage() {
                 </span>
               </div>
 
-              <form onSubmit={handleVerifySubmit} className="mt-6">
+              <form onSubmit={handleVerifySubmit} className="mt-6 relative">
+                {/* Invisible Honeypot Field for Automated Bot Detection */}
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    left: '-9999px',
+                    top: '-9999px',
+                    width: '1px',
+                    height: '1px',
+                    overflow: 'hidden',
+                    opacity: 0,
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <label htmlFor="bank_branch_code">Bank Branch Verification Reference</label>
+                  <input
+                    id="bank_branch_code"
+                    name="bank_branch_code"
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={bankBranchCode}
+                    onChange={(e) => setBankBranchCode(e.target.value)}
+                  />
+                </div>
+
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
                   6-Digit Document Security Code
                 </label>
