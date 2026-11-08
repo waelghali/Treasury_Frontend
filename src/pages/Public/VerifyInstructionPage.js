@@ -278,7 +278,7 @@ export default function VerifyInstructionPage() {
                     </span>
                   </div>
                   <div className="py-2.5 flex justify-between gap-4">
-                    <span className="text-slate-400">System Issuance Timestamp</span>
+                    <span className="text-slate-400">Instruction Date</span>
                     <span className="font-mono text-slate-200 text-right">{verifiedData.issue_date}</span>
                   </div>
                 </div>
