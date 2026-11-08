@@ -12,7 +12,28 @@ export default function VerifyInstructionPage() {
   const [securityCode, setSecurityCode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState('');
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [verifiedData, setVerifiedData] = useState(null);
+
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return undefined;
+    const timer = setInterval(() => {
+      setCooldownSeconds((prev) => {
+        if (prev <= 1) {
+          setVerifyError('');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
+
+  const formatCountdown = (sec) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -27,6 +48,9 @@ export default function VerifyInstructionPage() {
         const res = await publicApiRequest(`/public/verify-instruction/inspect?t=${encodeURIComponent(token)}`, 'GET');
         if (isMounted) {
           setTokenInfo(res);
+          if (res?.cooldown_seconds && res.cooldown_seconds > 0) {
+            setCooldownSeconds(res.cooldown_seconds);
+          }
         }
       } catch (err) {
         if (isMounted) {
@@ -54,11 +78,14 @@ export default function VerifyInstructionPage() {
     } else {
       setSecurityCode(digitsOnly);
     }
-    setVerifyError('');
+    if (cooldownSeconds <= 0) {
+      setVerifyError('');
+    }
   };
 
   const handleVerifySubmit = async (e) => {
     e.preventDefault();
+    if (cooldownSeconds > 0) return;
     const cleanDigits = securityCode.replace(/[^0-9]/g, '');
     if (cleanDigits.length !== 6) {
       setVerifyError('Please enter all 6 digits of the Security Code printed in the letter footer.');
@@ -72,8 +99,12 @@ export default function VerifyInstructionPage() {
         code: cleanDigits,
       });
       if (res && res.verified) {
+        setCooldownSeconds(0);
         setVerifiedData(res);
       } else {
+        if (res?.cooldown_seconds && res.cooldown_seconds > 0) {
+          setCooldownSeconds(res.cooldown_seconds);
+        }
         setVerifyError(res?.reason || 'Verification failed. The Security Code does not match this instruction.');
       }
     } catch (err) {
@@ -166,12 +197,28 @@ export default function VerifyInstructionPage() {
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   placeholder="000-000"
+                  disabled={cooldownSeconds > 0}
                   value={securityCode}
                   onChange={handleCodeChange}
-                  className="w-full text-center font-mono text-2xl font-bold tracking-[0.25em] py-3.5 px-4 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
+                  className="w-full text-center font-mono text-2xl font-bold tracking-[0.25em] py-3.5 px-4 rounded-xl bg-slate-950 border border-slate-700 text-white disabled:opacity-50 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
                 />
 
-                {verifyError && (
+                {cooldownSeconds > 0 && (
+                  <div className="mt-3 p-3.5 rounded-xl bg-amber-950/60 border border-amber-500/40 flex items-center justify-between gap-3 text-xs text-amber-200">
+                    <div className="flex items-start gap-2">
+                      <Lock className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                      <span>
+                        {verifyError ||
+                          'Temporary security cooldown active due to repeated failed attempts from your connection.'}
+                      </span>
+                    </div>
+                    <span className="font-mono font-bold text-sm px-2.5 py-1 rounded-lg bg-slate-950 border border-amber-500/40 text-amber-300 shrink-0">
+                      {formatCountdown(cooldownSeconds)}
+                    </span>
+                  </div>
+                )}
+
+                {verifyError && cooldownSeconds <= 0 && (
                   <div className="mt-3 p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 flex items-start gap-2 text-xs text-rose-200">
                     <XCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
                     <span>{verifyError}</span>
@@ -180,10 +227,14 @@ export default function VerifyInstructionPage() {
 
                 <button
                   type="submit"
-                  disabled={verifying}
+                  disabled={verifying || cooldownSeconds > 0}
                   className="mt-5 w-full py-3.5 px-5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10"
                 >
-                  {verifying ? (
+                  {cooldownSeconds > 0 ? (
+                    <>
+                      <Lock className="h-4 w-4" /> Retry Available in {formatCountdown(cooldownSeconds)}
+                    </>
+                  ) : verifying ? (
                     <>
                       <RefreshCw className="h-4 w-4 animate-spin" /> Verifying Authenticity...
                     </>
