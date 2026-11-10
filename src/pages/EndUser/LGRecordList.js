@@ -85,7 +85,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   const [showRecordFundsModal, setShowRecordFundsModal] = useState(false);
   const [selectedLgForRecordFunds, setSelectedLgForRecordFunds] = useState(null);
 
-  const [sortColumn, setSortColumn] = useState('expiry_date');
+  const [sortColumn, setSortColumn] = useState('custody_serial');
   const [sortDirection, setSortDirection] = useState('asc');
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -340,6 +340,12 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     return moment(dateString).format('DD-MMM-YYYY');
   };
 
+  const formatCustodySerial = (record) => {
+    if (record?.custody_serial) return record.custody_serial;
+    const seq = record?.lg_sequence_number || 1;
+    return `01-${String(seq).padStart(4, '0')}`;
+  };
+
   const handleSort = (column) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -383,6 +389,8 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
 
     const filteredRecords = lgRecords.filter(record => {
         const matchesSearchTerm = !trimmedSearchTerm || (
+          formatCustodySerial(record).toLowerCase().includes(trimmedSearchTerm) ||
+          formatCustodySerial(record).replace('-', '').toLowerCase().includes(trimmedSearchTerm) ||
           (record.lg_number || '').toLowerCase().includes(trimmedSearchTerm) ||
           (record.issuer_name || '').toLowerCase().includes(trimmedSearchTerm) || 
           (record.beneficiary_corporate?.entity_name || '').toLowerCase().includes(trimmedSearchTerm) ||
@@ -414,6 +422,10 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
       let bValue;
 
       switch (sortColumn) {
+        case 'custody_serial':
+          aValue = formatCustodySerial(a);
+          bValue = formatCustodySerial(b);
+          break;
         case 'lg_number':
           aValue = a.lg_number;
           bValue = b.lg_number;
@@ -483,6 +495,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
 
       return {
         // --- Core Information ---
+        'SN': formatCustodySerial(record),
         'LG Number': record.lg_number,
         'Issuer Name': record.issuer_name || 'N/A',
         'Beneficiary': record.beneficiary_corporate?.entity_name || 'N/A',
@@ -802,7 +815,10 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                       onClick={() => handleViewDetails(record.id)}
                       className="font-bold text-base text-blue-600 hover:text-blue-800 text-left truncate"
                     >
-                      {record.lg_number}
+                      <span className="inline-flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 text-[11px] font-mono font-semibold bg-slate-100 text-slate-600 rounded border border-slate-200">{formatCustodySerial(record)}</span>
+                        <span>{record.lg_number}</span>
+                      </span>
                     </button>
                     <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${
                       record.lg_status?.name === 'Valid' ? 'bg-green-100 text-green-800' :
@@ -895,6 +911,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
               <thead className="bg-gray-50">
                 <tr>
                   {[
+                      { key: 'custody_serial', label: 'SN' },
                       { key: 'lg_number', label: 'LG Number' },
                       { key: 'issuer_name', label: 'Issuer Name' },
                       { key: 'beneficiary_corporate', label: 'Beneficiary' },
@@ -931,6 +948,9 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                       className={`group hover:bg-blue-50 transition-colors cursor-pointer ${record.is_deleted ? 'bg-gray-50 opacity-60' : ''}`}
                       onClick={() => handleViewDetails(record.id)}
                   >
+                    <td className="px-3 py-3 whitespace-nowrap text-xs font-mono font-semibold text-slate-500">
+                      {formatCustodySerial(record)}
+                    </td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-blue-600">
                       {record.lg_number}
                     </td>

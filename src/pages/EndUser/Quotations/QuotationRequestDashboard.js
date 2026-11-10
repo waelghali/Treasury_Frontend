@@ -652,7 +652,17 @@ export default function QuotationRequestDashboard() {
     // Smart Cross-Entity Bank Partitioning
     const directBanks = React.useMemo(() => (banks || []).filter(b => !b.is_cross_entity), [banks]);
     const crossEntityBanks = React.useMemo(() => (banks || []).filter(b => b.is_cross_entity), [banks]);
-    const displayedBanks = includeCrossEntityBanks ? banks : directBanks;
+    const manualEnabledBanks = React.useMemo(
+        () => (banks || []).filter(b => b.allow_manual_recording || b.bank?.allow_manual_recording),
+        [banks]
+    );
+    const [isManualDealMode, setIsManualDealMode] = useState(false);
+    const [manualRatesByPair, setManualRatesByPair] = useState({});
+    const [manualTbillRate, setManualTbillRate] = useState('');
+    const [manualDealReference, setManualDealReference] = useState('');
+    const displayedBanks = isManualDealMode
+        ? manualEnabledBanks
+        : (includeCrossEntityBanks ? banks : directBanks);
 
     // Automatically enable cross-entity toggle if any selected bank is cross-entity
     useEffect(() => {
@@ -717,6 +727,10 @@ export default function QuotationRequestDashboard() {
         setCreatedRfq(null);
         setLegalAcknowledged(false);
         setCopiedToken(null);
+        setIsManualDealMode(false);
+        setManualRatesByPair({});
+        setManualTbillRate('');
+        setManualDealReference('');
         toast.info('Quotation form reset to original state.');
     };
 
@@ -1782,29 +1796,36 @@ export default function QuotationRequestDashboard() {
                 };
             });
 
-            setSelectedBanks(prev => [
-                ...prev.filter(b => String(b.id) !== String(bankId)), 
-                { 
-                    id: bank.bank_id, 
-                    name: bank.bank?.name || `Bank ${bank.bank_id}`, 
-                    emails: bank.emails, 
-                    contacts: bank.contacts || [],
-                    costMin: 0, 
-                    costPercent: 0, 
-                    costMax: 0, 
-                    costFlat: 0,
-                    quotationBase: curPairBase,
-                    isDocumentVisible: isCross ? false : (curPairBase === 'Execution'),
-                    valueDate: curPairDate,
-                    allowAlternativeValueDate: curPairAlt,
-                    _baseCustomized: false,
-                    _altCustomized: false,
-                    _dateCustomized: false,
-                    _docCustomized: false,
-                    is_cross_entity: isCross,
-                    pairConfigs: initialPairConfigs
-                }
-            ]);
+            const newBankEntry = { 
+                id: bank.bank_id, 
+                name: bank.bank?.name || `Bank ${bank.bank_id}`, 
+                emails: bank.emails, 
+                contacts: bank.contacts || [],
+                allow_manual_recording: Boolean(bank.allow_manual_recording || bank.bank?.allow_manual_recording),
+                costMin: 0, 
+                costPercent: 0, 
+                costMax: 0, 
+                costFlat: 0,
+                quotationBase: isManualDealMode ? 'Execution' : curPairBase,
+                isDocumentVisible: isCross ? false : (curPairBase === 'Execution'),
+                valueDate: curPairDate,
+                allowAlternativeValueDate: curPairAlt,
+                _baseCustomized: false,
+                _altCustomized: false,
+                _dateCustomized: false,
+                _docCustomized: false,
+                is_cross_entity: isCross,
+                pairConfigs: initialPairConfigs
+            };
+
+            if (isManualDealMode) {
+                setSelectedBanks([newBankEntry]);
+            } else {
+                setSelectedBanks(prev => [
+                    ...prev.filter(b => String(b.id) !== String(bankId)), 
+                    newBankEntry
+                ]);
+            }
         }
     };
 
@@ -2338,6 +2359,135 @@ export default function QuotationRequestDashboard() {
             return;
         }
 
+        if (isManualDealMode) {
+            if (selectedBanks.length !== 1) {
+                toast.error("Please select the counterparty bank with which the offline deal was executed.");
+                setIsSubmitting(false);
+                return;
+            }
+            const targetBank = selectedBanks[0];
+            if (formData.type === 'FX_SPOT') {
+                for (let i = 0; i < pairs.length; i++) {
+                    const p = pairs[i];
+                    if (!p.amount || parseFloat(p.amount) <= 0) {
+                        toast.error(`Please enter a valid positive amount for Pair #${i + 1} (${p.buyCurrency}/${p.sellCurrency}).`);
+                        setIsSubmitting(false);
+                        return;
+                    }
+                    const rateVal = parseFloat(manualRatesByPair[p.id]);
+                    if (!rateVal || rateVal <= 0) {
+                        toast.error(`Please enter the executed rate for Pair #${i + 1} (${p.buyCurrency}/${p.sellCurrency}).`);
+                        setIsSubmitting(false);
+                        return;
+                    }
+                }
+            } else {
+                if (!formData.amount || parseFloat(formData.amount) <= 0) {
+                    toast.error("Please enter a valid positive T-Bill amount.");
+                    setIsSubmitting(false);
+                    return;
+                }
+                const tbRate = parseFloat(manualTbillRate);
+                if (!tbRate || tbRate <= 0) {
+                    toast.error("Please enter the executed T-Bill discount rate (%).");
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
+            let uploadedDocs = [];
+            if (files && files.length > 0) {
+                try {
+                    const uploadData = new FormData();
+                    files.forEach(f => uploadData.append('files', f));
+                    const uploadRes = await apiClient.post('/end-user/quotations/upload-documents', uploadData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    if (uploadRes.data && uploadRes.data.documents) {
+                        uploadedDocs = uploadRes.data.documents;
+                    }
+                } catch (uploadErr) {
+                    console.error('Document upload failed:', uploadErr);
+                }
+            }
+
+            const manualCombinedDocs = [
+                ...existingDocs,
+                ...uploadedDocs.map((d, i) => ({
+                    id: `doc_new_${Math.random().toString(36).substring(2, 9)}`,
+                    name: d.name,
+                    path: d.path,
+                    scope: 'INTERNAL_ONLY',
+                    is_internal_only: true
+                }))
+            ];
+            const manualDocPath = manualCombinedDocs.length > 0
+                ? JSON.stringify({ release_to_winner_only: false, documents: manualCombinedDocs })
+                : null;
+
+            const manualLegs = formData.type === 'TBILL'
+                ? [{
+                    direction: formData.direction || 'Buy',
+                    buy_currency: 'EGP',
+                    sell_currency: 'EGP',
+                    amount: parseFloat(formData.amount),
+                    value_date: formData.settlementDateStart || todayStr,
+                    settlement_date: formData.settlementDateStart || todayStr,
+                    maturity_date: formData.maturityDateStart || todayStr,
+                    executed_rate: parseFloat(manualTbillRate),
+                    notes: manualDealReference || undefined,
+                    cost_min: targetBank.costMin ?? 0,
+                    cost_percent: targetBank.costPercent ?? 0,
+                    cost_max: targetBank.costMax ?? 0,
+                    cost_flat: targetBank.costFlat ?? 0
+                }]
+                : pairs.map(p => {
+                    const cfg = (targetBank.customPairTariffs && targetBank.pairConfigs && targetBank.pairConfigs[p.id])
+                        ? targetBank.pairConfigs[p.id]
+                        : targetBank;
+                    return {
+                        direction: p.direction || 'Buy',
+                        buy_currency: p.buyCurrency || 'USD',
+                        sell_currency: p.sellCurrency || 'EGP',
+                        amount: parseFloat(p.amount),
+                        value_date: p.valueDate || formData.valueDate || todayStr,
+                        executed_rate: parseFloat(manualRatesByPair[p.id]),
+                        notes: manualDealReference || undefined,
+                        cost_min: cfg?.costMin ?? targetBank.costMin ?? 0,
+                        cost_percent: cfg?.costPercent ?? targetBank.costPercent ?? 0,
+                        cost_max: cfg?.costMax ?? targetBank.costMax ?? 0,
+                        cost_flat: cfg?.costFlat ?? targetBank.costFlat ?? 0
+                    };
+                });
+
+            try {
+                const res = await apiClient.post('/end-user/quotations/manual-deal', {
+                    entity_id: formData.entityId ? parseInt(formData.entityId, 10) : undefined,
+                    type: formData.type,
+                    bank_id: targetBank.id,
+                    deal_reference: (manualDealReference || '').trim() || undefined,
+                    internal_notes: (formData.internalNotes || '').trim() || undefined,
+                    document_path: manualDocPath,
+                    eval_rate: formData.evalRate ? parseFloat(formData.evalRate) : undefined,
+                    legs: manualLegs
+                });
+                toast.success(`Manual deal ${res.data.ref_no} recorded with ${res.data.winner_bank_name}!`);
+                setCreatedRfq({
+                    rfq_id: res.data.rfq_id,
+                    ref_no: res.data.ref_no,
+                    assignments: [],
+                    is_manual_deal: true,
+                    winner_bank_name: res.data.winner_bank_name
+                });
+            } catch (err) {
+                console.error('Manual deal recording error:', err);
+                toast.error(err.response?.data?.detail || err.message || 'Failed to record manual deal');
+            } finally {
+                setIsSubmitting(false);
+            }
+            return;
+        }
+
         if (selectedBanks.length === 1) {
             if (!window.confirm("You have only selected 1 bank. It is recommended to select multiple banks for competitive pricing. Do you want to proceed?")) {
                 setIsSubmitting(false);
@@ -2832,94 +2982,116 @@ export default function QuotationRequestDashboard() {
                         className="lg:col-span-1 bg-white p-6 sm:p-8 rounded-xl border border-gray-100 h-fit lg:sticky lg:top-6 transition-all duration-500 ease-out transform translate-y-0 opacity-100"
                     >
                         <div className="flex items-center gap-4 mb-6">
-                            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${createdRfq.is_manual_deal ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-600'}`}>
                                 <CheckCircle2 size={24} />
                             </div>
-                            <h2 className="text-xl sm:text-2xl font-semibold">RFQ Active</h2>
+                            <div>
+                                <h2 className="text-xl sm:text-2xl font-semibold">
+                                    {createdRfq.is_manual_deal ? 'Manual Deal Recorded' : 'RFQ Active'}
+                                </h2>
+                                {createdRfq.is_manual_deal && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 mt-1">
+                                        📞 Offline / Manual Record
+                                    </span>
+                                )}
+                            </div>
                         </div>
                         <div className="mb-6 p-3 bg-gray-50 rounded-xl border border-gray-100">
                             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Reference Number</label>
                             <p className="text-base sm:text-lg font-mono font-bold text-black break-all">{createdRfq.ref_no || 'Generating...'}</p>
                         </div>
 
-                        {createdRfq.bank_email_dispatched === false && createdRfq.bank_dispatch_status === 'SUPPRESSED_NO_SMTP' && (
-                            <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 animate-fade-in shadow-xs">
-                                <div className="flex items-start gap-3">
-                                    <AlertTriangle className="shrink-0 text-amber-600 mt-0.5" size={20} />
-                                    <div className="text-xs leading-relaxed">
-                                        <p className="font-bold text-amber-950 text-sm mb-1">Bank Invitations Not Emailed</p>
-                                        <p className="text-amber-800">
-                                            Your organization does not have a verified <strong>Custom SMTP</strong> server configured. To prevent domain spoofing, automatic emails to external banks are disabled.
-                                        </p>
-                                        <div className="mt-2.5 p-2 bg-amber-100/70 rounded-lg font-medium text-amber-950">
-                                            👉 <strong>Action Required:</strong> Please copy the secure bank links below and forward them directly to your bank dealers.
+                        {createdRfq.is_manual_deal ? (
+                            <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-xs space-y-2">
+                                <p className="font-bold text-sm">
+                                    Awarded Counterparty: {createdRfq.winner_bank_name || selectedBanks[0]?.name || 'Counterparty Bank'}
+                                </p>
+                                <p className="text-amber-800 leading-relaxed">
+                                    This offline deal has been recorded directly with a frozen CBE / Interbank market benchmark snapshot for your treasury analytics. Zero emails or portal links were dispatched to the bank.
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                {createdRfq.bank_email_dispatched === false && createdRfq.bank_dispatch_status === 'SUPPRESSED_NO_SMTP' && (
+                                    <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 animate-fade-in shadow-xs">
+                                        <div className="flex items-start gap-3">
+                                            <AlertTriangle className="shrink-0 text-amber-600 mt-0.5" size={20} />
+                                            <div className="text-xs leading-relaxed">
+                                                <p className="font-bold text-amber-950 text-sm mb-1">Bank Invitations Not Emailed</p>
+                                                <p className="text-amber-800">
+                                                    Your organization does not have a verified <strong>Custom SMTP</strong> server configured. To prevent domain spoofing, automatic emails to external banks are disabled.
+                                                </p>
+                                                <div className="mt-2.5 p-2 bg-amber-100/70 rounded-lg font-medium text-amber-950">
+                                                    👉 <strong>Action Required:</strong> Please copy the secure bank links below and forward them directly to your bank dealers.
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
+                                )}
+
+                                {createdRfq.bank_email_dispatched === true && (
+                                    <div className="mb-6 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5 animate-fade-in">
+                                        <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                                        <span>Invitations successfully emailed to all selected bank contacts via your company's email server.</span>
+                                    </div>
+                                )}
+
+                                <p className="text-gray-600 mb-5 text-sm">
+                                    Secure tokens generated for {selectedBanks.length} banks. Monitoring submissions in real-time.
+                                </p>
+                                <div className="space-y-3.5 max-h-none lg:max-h-[82vh] overflow-y-auto pr-1">
+                                    {createdRfq.assignments?.map((a) => {
+                                        const bank = selectedBanks.find(b => b.id === a.bankId);
+                                        // Adjusting link to point to the public portal segment
+                                        const publicRoute = window.location.origin.includes('localhost') ? 'http://localhost:3000' : window.location.origin;
+                                        const link = `${publicRoute}/public-quotation/${a.token}`;
+                                        return (
+                                            <div key={a.token} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                                <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
+                                                    <span className="font-medium text-sm text-gray-800">{bank?.name || `Bank ${a.bankId}`}</span>
+                                                    {createdRfq.bank_email_dispatched === false && createdRfq.bank_dispatch_status === 'SUPPRESSED_NO_SMTP' && (
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200">
+                                                            Manual Link Delivery
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        readOnly
+                                                        value={link}
+                                                        className="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-[10px] sm:text-xs font-mono text-gray-400 truncate"
+                                                    />
+                                                    <button
+                                                        onClick={() => window.open(link, '_blank')}
+                                                        title="Open Link"
+                                                        className="p-2 sm:px-3 sm:py-1.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors shrink-0"
+                                                    >
+                                                        <ExternalLink size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(link);
+                                                            setCopiedToken(a.token);
+                                                            toast.success('Link copied to clipboard!');
+                                                            setTimeout(() => setCopiedToken(null), 2000);
+                                                        }}
+                                                        title={copiedToken === a.token ? "Copied!" : "Copy Link"}
+                                                        className={`p-2 sm:px-3 sm:py-1.5 rounded-lg transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
+                                                            copiedToken === a.token 
+                                                                ? 'bg-emerald-600 text-white shadow-xs' 
+                                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                                        }`}
+                                                    >
+                                                        {copiedToken === a.token ? <Check size={16} /> : <Copy size={16} />}
+                                                        {copiedToken === a.token && <span className="text-[10px] sm:text-xs font-semibold">Copied</span>}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                            </div>
+                            </>
                         )}
-
-                        {createdRfq.bank_email_dispatched === true && (
-                            <div className="mb-6 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5 animate-fade-in">
-                                <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
-                                <span>Invitations successfully emailed to all selected bank contacts via your company's email server.</span>
-                            </div>
-                        )}
-
-                        <p className="text-gray-600 mb-5 text-sm">
-                            Secure tokens generated for {selectedBanks.length} banks. Monitoring submissions in real-time.
-                        </p>
-                        <div className="space-y-3.5 max-h-none lg:max-h-[82vh] overflow-y-auto pr-1">
-                            {createdRfq.assignments?.map((a) => {
-                                const bank = selectedBanks.find(b => b.id === a.bankId);
-                                // Adjusting link to point to the public portal segment
-                                const publicRoute = window.location.origin.includes('localhost') ? 'http://localhost:3000' : window.location.origin;
-                                const link = `${publicRoute}/public-quotation/${a.token}`;
-                                return (
-                                    <div key={a.token} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                                        <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
-                                            <span className="font-medium text-sm text-gray-800">{bank?.name || `Bank ${a.bankId}`}</span>
-                                            {createdRfq.bank_email_dispatched === false && createdRfq.bank_dispatch_status === 'SUPPRESSED_NO_SMTP' && (
-                                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200">
-                                                    Manual Link Delivery
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                readOnly
-                                                value={link}
-                                                className="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-[10px] sm:text-xs font-mono text-gray-400 truncate"
-                                            />
-                                            <button
-                                                onClick={() => window.open(link, '_blank')}
-                                                title="Open Link"
-                                                className="p-2 sm:px-3 sm:py-1.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors shrink-0"
-                                            >
-                                                <ExternalLink size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(link);
-                                                    setCopiedToken(a.token);
-                                                    toast.success('Link copied to clipboard!');
-                                                    setTimeout(() => setCopiedToken(null), 2000);
-                                                }}
-                                                title={copiedToken === a.token ? "Copied!" : "Copy Link"}
-                                                className={`p-2 sm:px-3 sm:py-1.5 rounded-lg transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
-                                                    copiedToken === a.token 
-                                                        ? 'bg-emerald-600 text-white shadow-xs' 
-                                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                                }`}
-                                            >
-                                                {copiedToken === a.token ? <Check size={16} /> : <Copy size={16} />}
-                                                {copiedToken === a.token && <span className="text-[10px] sm:text-xs font-semibold">Copied</span>}
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
                         <button
                             onClick={handleReset}
                             className="mt-6 w-full py-3 sm:py-4 border-2 border-black rounded-2xl font-medium hover:bg-black hover:text-white transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
@@ -3186,6 +3358,71 @@ export default function QuotationRequestDashboard() {
                             {type === 'FX_SPOT' ? 'FX Spot' : 'Treasury Bills (T-Bills)'}
                         </button>
                     ))}
+                    {manualEnabledBanks.length > 0 && !revisionRfqId && !isRetrade && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const nextMode = !isManualDealMode;
+                                setIsManualDealMode(nextMode);
+                                if (nextMode) {
+                                    const currentManualSelected = selectedBanks.filter(sb =>
+                                        manualEnabledBanks.some(mb => String(mb.bank_id) === String(sb.id))
+                                    );
+                                    if (currentManualSelected.length >= 1) {
+                                        setSelectedBanks([currentManualSelected[0]]);
+                                    } else if (manualEnabledBanks.length === 1) {
+                                        const onlyBank = manualEnabledBanks[0];
+                                        const curPairDate = pairs[activePairIndex]?.valueDate || formData.valueDate || todayStr;
+                                        const initialPairConfigs = {};
+                                        pairs.forEach(p => {
+                                            initialPairConfigs[p.id] = {
+                                                costMin: 0,
+                                                costPercent: 0,
+                                                costMax: 0,
+                                                costFlat: 0,
+                                                quotationBase: 'Execution',
+                                                isDocumentVisible: true,
+                                                valueDate: p.valueDate || curPairDate,
+                                                allowAlternativeValueDate: false,
+                                                _baseCustomized: false,
+                                                _altCustomized: false,
+                                                _dateCustomized: false,
+                                                _docCustomized: false
+                                            };
+                                        });
+                                        setSelectedBanks([{
+                                            id: onlyBank.bank_id,
+                                            name: onlyBank.bank?.name || `Bank ${onlyBank.bank_id}`,
+                                            emails: onlyBank.emails,
+                                            contacts: onlyBank.contacts || [],
+                                            allow_manual_recording: true,
+                                            costMin: 0,
+                                            costPercent: 0,
+                                            costMax: 0,
+                                            costFlat: 0,
+                                            quotationBase: 'Execution',
+                                            isDocumentVisible: true,
+                                            valueDate: curPairDate,
+                                            allowAlternativeValueDate: false,
+                                            is_cross_entity: false,
+                                            pairConfigs: initialPairConfigs
+                                        }]);
+                                    } else {
+                                        setSelectedBanks([]);
+                                    }
+                                }
+                            }}
+                            className={`px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all border-2 flex items-center gap-2 cursor-pointer ml-auto ${
+                                isManualDealMode
+                                    ? 'bg-amber-600 border-amber-600 text-white shadow-md shadow-amber-500/20'
+                                    : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
+                            }`}
+                            title="Log a completed offline / phone deal directly with a bank enabled for manual recording (zero emails sent to bank)"
+                        >
+                            <span>📞</span>
+                            <span>{isManualDealMode ? 'Manual / Offline Deal Mode (Active)' : 'Record Manual / Offline Deal'}</span>
+                        </button>
+                    )}
                     {isRetrade && (
                         <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2.5 py-1 rounded-xl flex items-center gap-1.5 self-center">
                             <Lock size={12} className="text-indigo-600" /> Structure Locked
@@ -4554,12 +4791,86 @@ export default function QuotationRequestDashboard() {
                             </div>
                         )}
 
+                        {/* Offline Deal Executed Rate(s) & Reference Card (Manual Deal Mode) */}
+                        {isManualDealMode && (
+                            <div className="mb-5 p-4 sm:p-5 rounded-2xl bg-amber-50/90 border-2 border-amber-300 text-amber-950 space-y-4 shadow-sm animate-fade-in">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900 mb-1">
+                                            📞 Direct Offline Deal Recording
+                                        </span>
+                                        <h4 className="text-sm font-bold text-amber-950">
+                                            Executed Rate(s) & Bank Deal Reference
+                                        </h4>
+                                        <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                                            Select one manual-recording bank below and enter the executed rate(s) agreed offline. The deal will be logged as completed with a frozen CBE / Interbank market benchmark snapshot and zero emails sent to the bank.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsManualDealMode(false)}
+                                        className="text-[11px] font-bold text-amber-800 hover:text-amber-950 bg-white border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 cursor-pointer"
+                                    >
+                                        Exit Manual Mode
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                                    {formData.type === 'FX_SPOT' ? (
+                                        pairs.map((p, idx) => (
+                                            <div key={p.id} className="bg-white p-3 rounded-xl border border-amber-200">
+                                                <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
+                                                    Executed Rate — Leg #{idx + 1} ({p.direction || 'Buy'} {p.buyCurrency}/{p.sellCurrency}) <span className="text-rose-600">*</span>
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    step="0.0001"
+                                                    placeholder="e.g. 48.5500"
+                                                    value={manualRatesByPair[p.id] || ''}
+                                                    onChange={(e) => setManualRatesByPair(prev => ({ ...prev, [p.id]: e.target.value }))}
+                                                    className="w-full h-9 bg-amber-50/40 border border-amber-300 rounded-lg px-3 text-sm font-mono font-bold text-gray-900 focus:outline-none focus:border-amber-600"
+                                                />
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="bg-white p-3 rounded-xl border border-amber-200">
+                                            <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
+                                                Executed T-Bill Yield / Rate (%) <span className="text-rose-600">*</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                step="0.0001"
+                                                placeholder="e.g. 26.4500"
+                                                value={manualTbillRate}
+                                                onChange={(e) => setManualTbillRate(e.target.value)}
+                                                className="w-full h-9 bg-amber-50/40 border border-amber-300 rounded-lg px-3 text-sm font-mono font-bold text-gray-900 focus:outline-none focus:border-amber-600"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="bg-white p-3 rounded-xl border border-amber-200">
+                                        <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
+                                            Bank Deal Reference / Ticket # (Optional)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. FX-2026-99412 or Phone Dealer Name"
+                                            value={manualDealReference}
+                                            onChange={(e) => setManualDealReference(e.target.value)}
+                                            className="w-full h-9 bg-amber-50/40 border border-amber-300 rounded-lg px-3 text-xs font-medium text-gray-900 focus:outline-none focus:border-amber-600"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex flex-col gap-3.5 flex-1 relative z-10">
                             {displayedBanks.map(bank => {
                                 const isSelected = selectedBanks.find(b => b.id === bank.bank_id);
                                 const rec = recommendations.find(r => r.bank_id === bank.bank_id);
                                 const analytics = bankAnalytics[bank.bank_id] || rec;
                                 const hasApprover = bank.contacts?.some(c => c.role === 'APPROVER');
+                                const isManualBank = Boolean(bank.allow_manual_recording || bank.bank?.allow_manual_recording);
                                 return (
                                     <div
                                         key={bank.id}
@@ -4579,13 +4890,21 @@ export default function QuotationRequestDashboard() {
                                                         <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate leading-snug">
                                                             {bank.bank?.name || `Bank ${bank.bank_id}`}
                                                         </h4>
+                                                        {isManualBank && (
+                                                            <span
+                                                                className="inline-flex items-center gap-1 text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded-full uppercase tracking-wider"
+                                                                title="System Owner enabled Manual / Offline Recording for this bank. Zero emails are sent to this bank."
+                                                            >
+                                                                📞 Manual / Offline Recording
+                                                            </span>
+                                                        )}
                                                         {analytics?.is_top_recommended && (
                                                             <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-blue-800 bg-blue-100/90 border border-blue-300 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
                                                                 <Sparkles size={10} className="text-blue-600 shrink-0" />
                                                                 Top Pick
                                                             </span>
                                                         )}
-                                                        {hasApprover && (
+                                                        {hasApprover && !isManualBank && (
                                                             <span className="text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wider" title="Counterparty has internal bank approver contact configured">
                                                                 Approver Layer
                                                             </span>
@@ -4597,7 +4916,9 @@ export default function QuotationRequestDashboard() {
                                                         )}
                                                     </div>
                                                     <p className="text-[10px] text-slate-400 truncate mt-0.5" title={bank.emails}>
-                                                        {bank.emails || 'No contact email configured'}
+                                                        {isManualBank
+                                                            ? (bank.emails ? `${bank.emails} (Emails Air-Gapped)` : 'Offline / Phone Execution Enabled (Emails Air-Gapped)')
+                                                            : (bank.emails || 'No contact email configured')}
                                                     </p>
                                                     {analytics?.badges && analytics.badges.length > 0 ? (
                                                         <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
@@ -5090,7 +5411,7 @@ export default function QuotationRequestDashboard() {
                             )}
                         </div>
 
-                        {hasDateDiscrepancy && (
+                        {!isManualDealMode && hasDateDiscrepancy && (
                             <div className="mt-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-3">
                                 <AlertCircle size={18} className="text-rose-600 shrink-0" />
                                 <div>
@@ -5104,7 +5425,7 @@ export default function QuotationRequestDashboard() {
                             </div>
                         )}
 
-                        {bankConflict && (
+                        {!isManualDealMode && bankConflict && (
                             <div className="mt-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-3">
                                 <AlertTriangle size={18} className="text-rose-600 shrink-0" />
                                 <div>
@@ -5117,7 +5438,7 @@ export default function QuotationRequestDashboard() {
                         )}
 
                         {/* Mandatory Legal & Execution Acknowledgment Checkbox (for Execution RFQs) */}
-                        {hasExecutionBanks && (
+                        {hasExecutionBanks && !isManualDealMode && (
                             <div className="mt-6 p-4 sm:p-5 rounded-2xl bg-amber-50/90 border-2 border-amber-300 text-xs text-amber-950 space-y-2 shadow-sm animate-fade-in-up relative z-0">
                                 <div className="flex items-start gap-3">
                                     <input
@@ -5154,13 +5475,19 @@ export default function QuotationRequestDashboard() {
                                     isSubmitting ||
                                     requiresEntitySelection ||
                                     selectedBanks.length === 0 ||
-                                    hasDateDiscrepancy ||
-                                    Boolean(bankConflict) ||
-                                    (hasExecutionBanks && !legalAcknowledged) ||
+                                    (!isManualDealMode && (hasDateDiscrepancy || Boolean(bankConflict) || (hasExecutionBanks && !legalAcknowledged))) ||
+                                    (isManualDealMode && (
+                                        selectedBanks.length !== 1 ||
+                                        (formData.type === 'FX_SPOT'
+                                            ? pairs.some(p => !manualRatesByPair[p.id] || parseFloat(manualRatesByPair[p.id]) <= 0)
+                                            : (!manualTbillRate || parseFloat(manualTbillRate) <= 0))
+                                    )) ||
                                     (formData.type === 'FX_SPOT' ? pairs.some(p => !p.amount || parseFloat(p.amount) <= 0) : (!formData.amount || parseFloat(formData.amount) <= 0))
                                 }
                                 className={`w-full flex-1 py-3.5 sm:py-5 rounded-2xl sm:rounded-3xl font-semibold text-sm sm:text-lg flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-xl disabled:opacity-30 disabled:cursor-not-allowed shrink-0 cursor-pointer ${
-                                    revisionRfqId
+                                    isManualDealMode
+                                        ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20'
+                                        : revisionRfqId
                                         ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20'
                                         : retradeRfqId
                                         ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20'
@@ -5169,10 +5496,10 @@ export default function QuotationRequestDashboard() {
                                         : 'bg-black hover:bg-gray-800 text-white shadow-black/10'
                                 }`}
                             >
-                                {revisionRfqId ? <Undo2 size={18} /> : retradeRfqId ? <RefreshCw size={18} /> : cloneRfqId ? <Copy size={18} /> : <Send size={18} />}
+                                {isManualDealMode ? <CheckCircle2 size={18} /> : revisionRfqId ? <Undo2 size={18} /> : retradeRfqId ? <RefreshCw size={18} /> : cloneRfqId ? <Copy size={18} /> : <Send size={18} />}
                                 {isSubmitting
-                                    ? (revisionRfqId ? 'Resubmitting for Approval...' : retradeRfqId ? 'Launching Re-Trade...' : cloneRfqId ? 'Launching Cloned RFQ...' : 'Processing...')
-                                    : (revisionRfqId ? 'Resubmit Quotation for Approval' : retradeRfqId ? 'Launch Re-Trade Quotation' : cloneRfqId ? 'Launch Cloned Quotation' : 'Submit Request for Quotation')}
+                                    ? (isManualDealMode ? 'Recording Manual Deal...' : revisionRfqId ? 'Resubmitting for Approval...' : retradeRfqId ? 'Launching Re-Trade...' : cloneRfqId ? 'Launching Cloned RFQ...' : 'Processing...')
+                                    : (isManualDealMode ? 'Record Completed Manual Deal' : revisionRfqId ? 'Resubmit Quotation for Approval' : retradeRfqId ? 'Launch Re-Trade Quotation' : cloneRfqId ? 'Launch Cloned Quotation' : 'Submit Request for Quotation')}
                             </button>
                         </div>
                     </section>

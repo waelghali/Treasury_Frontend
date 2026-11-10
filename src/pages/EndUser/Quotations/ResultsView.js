@@ -278,6 +278,113 @@ export default function ResultsView({ rfqId: propRfqId }) {
     const [declineReason, setDeclineReason] = useState('Price exceeded internal budget / market volatility');
     const [selectedLegDecisions, setSelectedLegDecisions] = useState({});
 
+    // Manual / Offline Proxy Quote Modal State
+    const [manualQuoteModalBank, setManualQuoteModalBank] = useState(null);
+    const [manualQuoteRates, setManualQuoteRates] = useState({});
+    const [manualQuoteNotes, setManualQuoteNotes] = useState('');
+    const [submittingManualQuote, setSubmittingManualQuote] = useState(false);
+
+    const handleOpenManualQuoteModal = (result, legContext = null) => {
+        const bankId = result.bank_id;
+        const bankName = result.bank_name;
+        const initialRates = {};
+        if (rfq?.type === 'TBILL') {
+            const firstOffer = result.offers && result.offers.length > 0 ? result.offers[0] : null;
+            initialRates['TBILL'] = firstOffer?.discount_rate ? String(firstOffer.discount_rate) : '';
+        } else if (legs && legs.length > 0) {
+            legs.forEach((l) => {
+                const lId = l.leg_id || l.id;
+                const legRes = (l.results || []).find(r => Number(r.bank_id) === Number(bankId));
+                initialRates[lId] = legRes?.price ? String(legRes.price) : '';
+            });
+        } else {
+            initialRates['SINGLE'] = result.price ? String(result.price) : '';
+        }
+        setManualQuoteRates(initialRates);
+        setManualQuoteNotes(result.notes || '');
+        setManualQuoteModalBank({
+            bank_id: bankId,
+            bank_name: bankName,
+            focused_leg_id: legContext ? (legContext.leg_id || legContext.id) : null
+        });
+    };
+
+    const handleSubmitManualQuote = async (e) => {
+        if (e) e.preventDefault();
+        if (!manualQuoteModalBank || !rfq?.id) return;
+
+        const quotes = [];
+        if (rfq?.type === 'TBILL') {
+            const rVal = parseFloat(manualQuoteRates['TBILL']);
+            if (!rVal || rVal <= 0) {
+                toast.error('Please enter a valid positive T-Bill discount rate (%).');
+                return;
+            }
+            quotes.push({
+                price: rVal,
+                rate: rVal,
+                discount_rate: rVal,
+                settlement_date: rfq.settlement_date_start || rfq.value_date,
+                maturity_date: rfq.maturity_date_start || rfq.value_date,
+                max_amount: Number(rfq.amount || 0),
+                notes: (manualQuoteNotes || '').trim() || undefined
+            });
+        } else if (legs && legs.length > 0) {
+            legs.forEach((l) => {
+                const lId = l.leg_id || l.id;
+                const rawVal = manualQuoteRates[lId];
+                if (rawVal !== undefined && rawVal !== '' && parseFloat(rawVal) > 0) {
+                    const numRate = parseFloat(rawVal);
+                    quotes.push({
+                        leg_id: String(lId),
+                        price: numRate,
+                        rate: numRate,
+                        offered_value_date: l.value_date || rfq.value_date,
+                        notes: (manualQuoteNotes || '').trim() || undefined
+                    });
+                }
+            });
+            if (quotes.length === 0) {
+                toast.error('Please enter an offline rate for at least one currency pair.');
+                return;
+            }
+        } else {
+            const rVal = parseFloat(manualQuoteRates['SINGLE']);
+            if (!rVal || rVal <= 0) {
+                toast.error('Please enter a valid positive offline rate.');
+                return;
+            }
+            quotes.push({
+                price: rVal,
+                rate: rVal,
+                offered_value_date: rfq.value_date,
+                notes: (manualQuoteNotes || '').trim() || undefined
+            });
+        }
+
+        try {
+            setSubmittingManualQuote(true);
+            await apiClient.post(`/end-user/quotations/${rfq.id}/manual-quote`, {
+                bank_id: Number(manualQuoteModalBank.bank_id),
+                quotes
+            });
+            toast.success(`Offline quote recorded for ${manualQuoteModalBank.bank_name}.`);
+            setManualQuoteModalBank(null);
+            fetchResults();
+        } catch (err) {
+            console.error('Failed to submit manual proxy quote:', err);
+            const detail = err.response?.data?.detail;
+            const errMsg = typeof detail === 'string'
+                ? detail
+                : Array.isArray(detail)
+                ? detail.map(d => d.msg || JSON.stringify(d)).join(', ')
+                : (err.message || 'Failed to record offline quote.');
+            toast.error(errMsg);
+        } finally {
+            setSubmittingManualQuote(false);
+        }
+    };
+
     // Reset selection when switching RFQs
     useEffect(() => {
         setSelectedLegDecisions({});
@@ -868,6 +975,13 @@ export default function ResultsView({ rfqId: propRfqId }) {
             result.is_alternative_value_date ||
             (effectiveValueDate && targetValueDate && String(effectiveValueDate).split('T')[0] !== String(targetValueDate).split('T')[0])
         );
+        const canEnterManualQuote = Boolean(
+            result.allow_manual_recording &&
+            !result.is_excluded &&
+            canAcceptOrDecline &&
+            !['CANCELLED', 'REJECTED', 'PENDING_APPROVAL'].includes(rfq?.status) &&
+            !['ACCEPTED', 'AUTO_ACCEPTED', 'REJECTED', 'AUTO_REJECTED'].includes(rfq?.acceptance_status)
+        );
 
         return (
             <div
@@ -893,6 +1007,21 @@ export default function ResultsView({ rfqId: propRfqId }) {
                             {isWinner && (
                                 <span className="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded uppercase tracking-wider">Winner</span>
                             )}
+                            {result.is_manual_quote ? (
+                                <span
+                                    className="text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded uppercase tracking-wider inline-flex items-center gap-1"
+                                    title="Offline quote entered manually by authorized corporate treasury user (air-gapped from bank emails)"
+                                >
+                                    📞 Manual / Offline Quote
+                                </span>
+                            ) : result.allow_manual_recording ? (
+                                <span
+                                    className="text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded uppercase tracking-wider inline-flex items-center gap-1"
+                                    title="Manual / Offline Recording enabled by System Owner (zero emails sent to bank)"
+                                >
+                                    📞 Offline Mode (Air-Gapped)
+                                </span>
+                            ) : null}
                             {result.is_cross_entity && (
                                 <span className="text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1" title="Group Counterparty Benchmark (Indicative Reference Only)">
                                     🌐 Group Benchmark
@@ -926,10 +1055,11 @@ export default function ResultsView({ rfqId: propRfqId }) {
                         <div className="flex items-center gap-3 mt-1 flex-wrap">
                             {result.submitted_at ? (
                                 <p className="text-xs text-gray-400">
-                                    Submitted at {new Date(result.submitted_at).toLocaleTimeString()}
+                                    {result.is_manual_quote ? 'Recorded at ' : 'Submitted at '}
+                                    {new Date(result.submitted_at).toLocaleTimeString()}
                                     {result.submitted_by_email && (
                                         <span className="ml-2 font-mono text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                            by {result.submitted_by_email}
+                                            {result.is_manual_quote ? '📞 Manual Proxy Entry' : `by ${result.submitted_by_email}`}
                                         </span>
                                     )}
                                 </p>
@@ -944,9 +1074,11 @@ export default function ResultsView({ rfqId: propRfqId }) {
                             ) : isWindowClosed ? (
                                 <p className="text-xs text-slate-400 font-medium">Window closed &bull; No quote submitted</p>
                             ) : (
-                                <p className="text-xs text-amber-500 font-medium">No quote submitted</p>
+                                <p className="text-xs text-amber-500 font-medium">
+                                    {result.allow_manual_recording ? 'Awaiting offline phone quote entry' : 'No quote submitted'}
+                                </p>
                             )}
-                            {!result.is_excluded && result.token && rfq?.status !== 'REJECTED' && rfq?.status !== 'CANCELLED' && (
+                            {!result.is_excluded && !result.allow_manual_recording && result.token && rfq?.status !== 'REJECTED' && rfq?.status !== 'CANCELLED' && (
                                 <button
                                     onClick={() => handleCopyBiddingLink(result.token)}
                                     className={`text-[10px] flex items-center gap-1 font-medium transition-colors cursor-pointer ${
@@ -960,13 +1092,24 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                     {copiedToken === result.token ? 'Copied!' : 'Link'}
                                 </button>
                             )}
-                            {!result.is_excluded && result.quotation_bank_id && rfq?.status !== 'REJECTED' && rfq?.status !== 'CANCELLED' && (
+                            {!result.is_excluded && !result.allow_manual_recording && result.quotation_bank_id && rfq?.status !== 'REJECTED' && rfq?.status !== 'CANCELLED' && (
                                 <button
                                     onClick={() => handleResendInvite(result.quotation_bank_id, result.bank_name)}
                                     className="text-[10px] text-emerald-600 hover:underline flex items-center gap-1 font-medium"
                                     title="Resend invitation email to this bank"
                                 >
                                     <Mail size={10} /> Resend Invite
+                                </button>
+                            )}
+                            {canEnterManualQuote && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleOpenManualQuoteModal(result, legContext)}
+                                    className="text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1 rounded-lg transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                                    title="Enter or update this bank's phone / offline quote for head-to-head comparison"
+                                >
+                                    <span>📞</span>
+                                    <span>{result.price ? 'Update Offline Quote' : 'Enter Offline Quote'}</span>
                                 </button>
                             )}
                         </div>
@@ -1136,7 +1279,19 @@ export default function ResultsView({ rfqId: propRfqId }) {
                     <h3 className="text-xs font-bold uppercase tracking-widest text-blue-600 flex items-center gap-2 mb-1">
                         <Trophy size={14} /> Quotation Results
                     </h3>
-                    {rfq && <p className="text-sm font-mono font-bold text-gray-600">{rfq.ref_no}</p>}
+                    {rfq && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-mono font-bold text-gray-600">{rfq.ref_no}</p>
+                            {rfq.is_manual_deal && (
+                                <span
+                                    className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300"
+                                    title="Recorded manually / offline with a bank enabled for manual recording (zero bank emails sent)"
+                                >
+                                    📞 Manual / Offline Deal
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-3 mt-2 sm:mt-0 flex-wrap">
                     {!isCorporateAdmin && (rfq?.status === 'NEEDS_REVISION' || rfq?.status === 'PENDING_APPROVAL') && (
@@ -2912,6 +3067,15 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <h4 className="font-bold text-lg">{result.bank_name}</h4>
                                             {index === 0 && result.best_score && <span className="text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded uppercase tracking-wider">Winner</span>}
+                                            {result.is_manual_quote ? (
+                                                <span className="text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded uppercase tracking-wider inline-flex items-center gap-1">
+                                                    📞 Manual / Offline Quote
+                                                </span>
+                                            ) : result.allow_manual_recording ? (
+                                                <span className="text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded uppercase tracking-wider inline-flex items-center gap-1">
+                                                    📞 Offline Mode (Air-Gapped)
+                                                </span>
+                                            ) : null}
                                             {result.is_cross_entity && (
                                                 <span className="text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1" title="Group Counterparty Benchmark (Indicative Reference Only)">
                                                     🌐 Group Benchmark
@@ -2947,17 +3111,21 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                                 <span className="text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded uppercase">Doc Hidden</span>
                                             )}
                                         </div>
-                                        <p className="text-xs text-gray-400">{result.bank_emails}</p>
+                                        <p className="text-xs text-gray-400">
+                                            {result.allow_manual_recording
+                                                ? (result.bank_emails ? `${result.bank_emails} (Emails Air-Gapped)` : 'Offline / Phone Execution Enabled (Emails Air-Gapped)')
+                                                : result.bank_emails}
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="text-right flex items-center gap-3">
+                                <div className="text-right flex items-center gap-3 flex-wrap">
                                     {result.best_score && (
                                         <div className="text-right mr-3">
                                             <p className="text-[9px] font-bold text-gray-400 uppercase">Best Score</p>
                                             <p className="text-sm font-mono font-bold text-emerald-600">{result.best_score.toFixed(6)}</p>
                                         </div>
                                     )}
-                                    {result.token && rfq?.status !== 'REJECTED' && rfq?.status !== 'CANCELLED' && (
+                                    {!result.allow_manual_recording && result.token && rfq?.status !== 'REJECTED' && rfq?.status !== 'CANCELLED' && (
                                         <button
                                             onClick={() => handleCopyBiddingLink(result.token)}
                                             className={`text-[10px] font-bold px-3 py-1.5 rounded uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer ${
@@ -2971,13 +3139,23 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                             {copiedToken === result.token ? 'Copied' : 'Bidding Link'}
                                         </button>
                                     )}
-                                    {result.quotation_bank_id && rfq?.status !== 'REJECTED' && rfq?.status !== 'CANCELLED' && (
+                                    {!result.allow_manual_recording && result.quotation_bank_id && rfq?.status !== 'REJECTED' && rfq?.status !== 'CANCELLED' && (
                                         <button
                                             onClick={() => handleResendInvite(result.quotation_bank_id, result.bank_name)}
                                             className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded uppercase tracking-wider hover:bg-emerald-100 transition-colors flex items-center gap-1"
                                             title="Resend invitation email to this bank"
                                         >
                                             <Mail size={12} /> Resend Invite
+                                        </button>
+                                    )}
+                                    {result.allow_manual_recording && canAcceptOrDecline && !['CANCELLED', 'REJECTED', 'PENDING_APPROVAL'].includes(rfq?.status) && !['ACCEPTED', 'AUTO_ACCEPTED', 'REJECTED', 'AUTO_REJECTED'].includes(rfq?.acceptance_status) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleOpenManualQuoteModal(result)}
+                                            className="text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                                        >
+                                            <span>📞</span>
+                                            <span>{result.offers?.length > 0 ? 'Update Offline Quote' : 'Enter Offline Quote'}</span>
                                         </button>
                                     )}
                                     <span className="text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-1 rounded uppercase tracking-wider">
@@ -3958,6 +4136,136 @@ export default function ResultsView({ rfqId: propRfqId }) {
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Offline / Manual Proxy Quote Modal */}
+            {manualQuoteModalBank && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+                >
+                    <form
+                        onSubmit={handleSubmitManualQuote}
+                        className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-amber-200 animate-in zoom-in-95 duration-150"
+                    >
+                        <div className="p-5 bg-gradient-to-r from-amber-600 to-amber-700 text-white flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-white/15 rounded-xl border border-white/20 text-lg leading-none">
+                                    📞
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-base leading-snug">
+                                        Enter Offline Quote — {manualQuoteModalBank.bank_name}
+                                    </h3>
+                                    <p className="text-xs text-amber-100 font-mono">
+                                        RFQ #{rfq?.ref_no || rfqId} &bull; Zero Bank Emails Sent
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setManualQuoteModalBank(null)}
+                                disabled={submittingManualQuote}
+                                className="p-1.5 rounded-xl text-amber-100 hover:text-white hover:bg-amber-800/60 transition-colors cursor-pointer"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-950 leading-relaxed">
+                                Enter the phone / offline quote received from <strong>{manualQuoteModalBank.bank_name}</strong>. It will be evaluated head-to-head against live quotes and benchmarked against CBE / Interbank reference rates without sending any emails to the bank.
+                            </div>
+
+                            {rfq?.type === 'TBILL' ? (
+                                <div>
+                                    <label className="text-xs font-bold text-slate-700 block mb-1.5 uppercase tracking-wide">
+                                        Quoted T-Bill Discount Rate (%) <span className="text-rose-600">*</span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.0001"
+                                        required
+                                        placeholder="e.g. 26.4500"
+                                        value={manualQuoteRates['TBILL'] || ''}
+                                        onChange={(e) => setManualQuoteRates(prev => ({ ...prev, TBILL: e.target.value }))}
+                                        className="w-full h-10 px-3.5 rounded-xl border border-slate-300 font-mono font-bold text-sm text-slate-900 focus:outline-none focus:border-amber-600"
+                                    />
+                                </div>
+                            ) : legs && legs.length > 0 ? (
+                                <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                                    {legs.map((l, idx) => {
+                                        const lId = l.leg_id || l.id;
+                                        const pairLabel = l.currency_pair || `${l.buy_currency}/${l.sell_currency}`;
+                                        return (
+                                            <div key={lId} className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                                <label className="text-xs font-bold text-slate-800 block mb-1">
+                                                    Leg #{idx + 1}: {l.direction || 'BUY'} {formatAmount(l.amount)} {pairLabel}
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    step="0.0001"
+                                                    placeholder={`Enter offline rate for ${pairLabel} (leave blank if passed)`}
+                                                    value={manualQuoteRates[lId] || ''}
+                                                    onChange={(e) => setManualQuoteRates(prev => ({ ...prev, [lId]: e.target.value }))}
+                                                    className="w-full h-9 px-3 rounded-lg bg-white border border-slate-300 font-mono font-bold text-sm text-slate-900 focus:outline-none focus:border-amber-600"
+                                                />
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="text-xs font-bold text-slate-700 block mb-1.5 uppercase tracking-wide">
+                                        Offline Quoted Rate ({rfq?.buy_currency}/{rfq?.sell_currency}) <span className="text-rose-600">*</span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.0001"
+                                        required
+                                        placeholder="e.g. 48.5500"
+                                        value={manualQuoteRates['SINGLE'] || ''}
+                                        onChange={(e) => setManualQuoteRates(prev => ({ ...prev, SINGLE: e.target.value }))}
+                                        className="w-full h-10 px-3.5 rounded-xl border border-slate-300 font-mono font-bold text-sm text-slate-900 focus:outline-none focus:border-amber-600"
+                                    />
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 block mb-1.5 uppercase tracking-wide">
+                                    Bank Deal Reference / Dealer Note (Optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Quoted by phone dealer / Ticket #99412"
+                                    value={manualQuoteNotes}
+                                    onChange={(e) => setManualQuoteNotes(e.target.value)}
+                                    className="w-full h-9 px-3.5 rounded-xl border border-slate-300 text-xs font-medium text-slate-900 focus:outline-none focus:border-amber-600"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2.5">
+                            <button
+                                type="button"
+                                onClick={() => setManualQuoteModalBank(null)}
+                                disabled={submittingManualQuote}
+                                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={submittingManualQuote}
+                                className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-amber-500/20 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                            >
+                                {submittingManualQuote ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                                <span>{submittingManualQuote ? 'Saving Quote...' : 'Save Offline Quote'}</span>
+                            </button>
+                        </div>
+                    </form>
                 </div>
             )}
         </div>

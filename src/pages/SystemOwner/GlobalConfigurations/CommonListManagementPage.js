@@ -69,6 +69,7 @@ const formatFieldLabel = (field) => {
     allow_dealer_comments: 'Trader Comments',
     allow_dealer_feedback: 'Trader Feedback',
     allow_dealer_mobile_alerts: 'Mobile Alerts',
+    allow_manual_recording: 'Manual Recording (Offline)',
     is_mandatory: 'Mandatory',
     is_active: 'Active',
     is_global: 'Universal Global',
@@ -135,6 +136,7 @@ function CommonListManagementPage({ onLogout }) {
   const [togglingCommentsBankId, setTogglingCommentsBankId] = useState(null);
   const [togglingFeedbackBankId, setTogglingFeedbackBankId] = useState(null);
   const [togglingMobileAlertsBankId, setTogglingMobileAlertsBankId] = useState(null);
+  const [togglingManualRecordingBankId, setTogglingManualRecordingBankId] = useState(null);
   const [resettingDealerId, setResettingDealerId] = useState(null);
   const [unlockingDealerId, setUnlockingDealerId] = useState(null);
 
@@ -186,7 +188,7 @@ function CommonListManagementPage({ onLogout }) {
       case 'banks': return {
         endpoint: '/system-owner/banks',
         title: 'Banks',
-        fields: ['name', 'short_name', 'swift_code', 'email_domain', 'portal_access_enabled', 'allow_dealer_comments', 'allow_dealer_feedback', 'allow_dealer_mobile_alerts', 'phone_number', 'fax', 'address', 'former_names'],
+        fields: ['name', 'short_name', 'swift_code', 'email_domain', 'portal_access_enabled', 'allow_manual_recording', 'allow_dealer_comments', 'allow_dealer_feedback', 'allow_dealer_mobile_alerts', 'phone_number', 'fax', 'address', 'former_names'],
         uniqueField: 'name',
         icon: Building2
       };
@@ -416,6 +418,25 @@ function CommonListManagementPage({ onLogout }) {
       toast.error('Failed to update mobile alerts setting: ' + (err.message || 'Error'));
     } finally {
       setTogglingMobileAlertsBankId(null);
+    }
+  };
+
+  // Toggle Manual / Offline Recording for entire bank (when bank has not approved platform usage)
+  const handleToggleBankManualRecording = async (bank) => {
+    const currentStatus = Boolean(bank.allow_manual_recording);
+    const nextStatus = !currentStatus;
+    setTogglingManualRecordingBankId(bank.id);
+    try {
+      await apiRequest(`/system-owner/banks/${bank.id}/manual-recording`, 'PUT', { allow_manual_recording: nextStatus });
+      setItems(prev => prev.map(b => b.id === bank.id ? { ...b, allow_manual_recording: nextStatus } : b));
+      if (dealersModalBank && dealersModalBank.id === bank.id) {
+        setDealersModalBank(prev => ({ ...prev, allow_manual_recording: nextStatus }));
+      }
+      toast.success(`Manual / offline deal recording ${nextStatus ? 'enabled (platform emails suppressed)' : 'disabled'} for ${bank.name}.`);
+    } catch (err) {
+      toast.error('Failed to update manual recording setting: ' + (err.message || 'Error'));
+    } finally {
+      setTogglingManualRecordingBankId(null);
     }
   };
 
@@ -680,7 +701,7 @@ function CommonListManagementPage({ onLogout }) {
               {effectiveFields.map((field) => {
                 const isDescriptionOrAddress = ['description', 'address', 'notes', 'content'].includes(field);
                 const isArrayField = ['communication_list', 'former_names', 'tags'].includes(field);
-                const isBooleanField = ['is_mandatory', 'is_active', 'is_global', 'is_default'].includes(field) || field.startsWith('is_');
+                const isBooleanField = ['is_mandatory', 'is_active', 'is_global', 'is_default', 'portal_access_enabled', 'allow_manual_recording', 'allow_dealer_comments', 'allow_dealer_feedback', 'allow_dealer_mobile_alerts'].includes(field) || field.startsWith('is_');
                 const isEmailDomain = field === 'email_domain';
                 const isSwift = field === 'swift_code' || field === 'swift';
 
@@ -912,6 +933,30 @@ function CommonListManagementPage({ onLogout }) {
                               </label>
                               <span className={`text-[11px] font-bold ${isEnabled ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'}`}>
                                 {isToggling ? 'Updating...' : (isEnabled ? 'Active' : 'Disabled')}
+                              </span>
+                            </div>
+                          </td>
+                        );
+                      }
+
+                      if (field === 'allow_manual_recording') {
+                        const isEnabled = Boolean(val);
+                        const isToggling = togglingManualRecordingBankId === item.id;
+                        return (
+                          <td key={field} className="py-3 px-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2" title="When enabled, corporate users can record offline quotes/deals for this bank without dealer emails or platform handshakes, and all outbound bank emails are suppressed.">
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isEnabled}
+                                  disabled={isToggling || item.is_deleted}
+                                  onChange={() => handleToggleBankManualRecording(item)}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-amber-600 disabled:opacity-50"></div>
+                              </label>
+                              <span className={`text-[11px] font-bold ${isEnabled ? 'text-amber-700 dark:text-amber-400' : 'text-slate-400'}`}>
+                                {isToggling ? 'Updating...' : (isEnabled ? 'Manual Enabled' : 'Standard')}
                               </span>
                             </div>
                           </td>

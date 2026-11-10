@@ -29,7 +29,8 @@ import {
   Layers,
   FileCheck,
   Gift,
-  Activity
+  Activity,
+  Mail
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 
@@ -282,6 +283,17 @@ function SidebarLayout({ onLogout, headerTitle }) {
           <span className="flex items-center gap-2.5">
             <Bell className="w-4 h-4" />
             System Notifications
+          </span>
+        </Link>
+
+        <Link
+          to="/system-owner/compose-email"
+          onClick={() => setMobileMenuOpen(false)}
+          className={navItemClass(isLinkActive('/system-owner/compose-email'))}
+        >
+          <span className="flex items-center gap-2.5">
+            <Mail className="w-4 h-4 text-sky-400" />
+            Compose Email
           </span>
         </Link>
 

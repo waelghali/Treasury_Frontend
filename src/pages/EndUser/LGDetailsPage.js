@@ -584,6 +584,9 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                     <span className="text-sm font-medium">Back to LG Records</span>
                 </button>
                 <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex-grow text-center flex items-center justify-center gap-3">
+					<span className="px-2.5 py-0.5 text-sm font-mono font-semibold bg-slate-100 text-slate-600 rounded-md border border-slate-200">
+						{lgRecord.custody_serial || `01-${String(lgRecord.lg_sequence_number || 1).padStart(4, '0')}`}
+					</span>
 					LG Record: {lgRecord.lg_number}
 					<CopyBadge text={lgRecord.lg_number} variant="icon" size="lg" />
 				</h1>
@@ -739,6 +742,10 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-gray-700">
                         <div className="col-span-1 md:col-span-2 border-b border-gray-100 pb-2">
                             <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">LG Core Information</p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
+                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Custody Serial:</span>
+                            <span className="text-slate-700 text-sm font-mono font-semibold">{lgRecord.custody_serial || `01-${String(lgRecord.lg_sequence_number || 1).padStart(4, '0')}`}</span>
                         </div>
                         <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
                             <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">LG Number:</span>

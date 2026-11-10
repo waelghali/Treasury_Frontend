@@ -385,17 +385,24 @@ export default function QuotationBanksModal({ onClose }) {
             inv => inv.status !== 'REVOKED' && inv.status !== 'LOCKED'
         );
         const combinedContacts = [...validContacts, ...activePendingInvitations];
+        const isManualRecordingBank = Boolean(
+            selectedSystemBank?.allow_manual_recording ||
+            banks.find(x => x.bank_id === parseInt(formData.bank_id))?.allow_manual_recording ||
+            banks.find(x => x.bank_id === parseInt(formData.bank_id))?.bank?.allow_manual_recording
+        );
 
-        if (combinedContacts.length === 0) {
-            alert('Please add at least one contact email address.');
-            return;
-        }
+        if (!isManualRecordingBank) {
+            if (combinedContacts.length === 0) {
+                alert('Please add at least one contact email address.');
+                return;
+            }
 
-        // Enforce: At least 1 Execution Dealer or Approver (across active contacts or pending invitations)
-        const hasExecutionOrApprover = combinedContacts.some(c => c.role === 'EXECUTION' || c.role === 'APPROVER');
-        if (!hasExecutionOrApprover) {
-            alert('Counterparty configuration requires at least one contact with an Execution Dealer (⚡) or Approver (🛡️) role. View-Only contacts alone cannot execute trades.');
-            return;
+            // Enforce: At least 1 Execution Dealer or Approver (across active contacts or pending invitations)
+            const hasExecutionOrApprover = combinedContacts.some(c => c.role === 'EXECUTION' || c.role === 'APPROVER');
+            if (!hasExecutionOrApprover) {
+                alert('Counterparty configuration requires at least one contact with an Execution Dealer (⚡) or Approver (🛡️) role. View-Only contacts alone cannot execute trades.');
+                return;
+            }
         }
 
         if (formData.entity_scope === 'SPECIFIC_ENTITIES' && (!formData.entity_ids || formData.entity_ids.length === 0)) {
@@ -704,6 +711,11 @@ export default function QuotationBanksModal({ onClose }) {
                                                             <td className="py-3.5 px-4 align-top">
                                                                 <div className="font-bold text-gray-900 text-sm flex items-center gap-1.5 flex-wrap">
                                                                     <span>{bank.bank?.name || `Bank #${bank.bank_id}`}</span>
+                                                                    {(bank.allow_manual_recording || bank.bank?.allow_manual_recording) && (
+                                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded" title="System Owner has enabled Manual / Offline Deal Recording for this bank. Zero outbound emails are sent to this bank.">
+                                                                            📞 Manual / Offline Recording
+                                                                        </span>
+                                                                    )}
                                                                     {bank.bank?.allow_dealer_comments === false && (
                                                                         <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded" title="Trader execution comments are dimmed on the quotation portal per this bank's institutional policy">
                                                                             <Lock size={9} className="text-slate-400" /> Comments Dimmed
@@ -802,7 +814,11 @@ export default function QuotationBanksModal({ onClose }) {
                                                                 </div>
                                                                 <div className="text-[11px] text-slate-400 mt-1.5 font-medium flex flex-wrap items-center gap-2">
                                                                     <span>{execCount} Execution &bull; {viewCount} View-Only{approverCount > 0 ? ` \u2022 ${approverCount} Approver` : ''}</span>
-                                                                    {bank.all_contacts_pending && (
+                                                                    {(bank.allow_manual_recording || bank.bank?.allow_manual_recording) ? (
+                                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
+                                                                            📞 Offline / Proxy Deal Entry Active (No Dealer Handshake Required &bull; Emails Air-Gapped)
+                                                                        </span>
+                                                                    ) : bank.all_contacts_pending && (
                                                                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
                                                                             <Clock size={11} className="text-amber-600" />
                                                                             All contacts pending handshake (Bank inactive in Quotation Builder)
@@ -1107,6 +1123,17 @@ export default function QuotationBanksModal({ onClose }) {
                                 )}
 
                                 {/* Desk Contacts & Role Permissions */}
+                                {selectedSystemBank?.allow_manual_recording && (
+                                    <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 flex items-start gap-2.5">
+                                        <Shield className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                                        <div>
+                                            <div className="font-bold">📞 Manual / Offline Deal Recording Enabled by System Owner</div>
+                                            <div className="text-[11px] text-indigo-700 mt-0.5">
+                                                This bank is configured for offline/manual recording. You can save this bank without adding dealer email contacts, and all outbound system emails to this bank are strictly suppressed.
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/60 space-y-2.5">
                                     <div className="flex items-center justify-between">
                                         <div>

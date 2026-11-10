@@ -1085,7 +1085,17 @@ export default function QuotationHistoryDashboard() {
                                         onClick={() => setSelectedRfqId(rfq.id)}
                                     >
                                         <td className="px-3.5 py-3 whitespace-nowrap">
-                                            <div className="font-mono text-xs sm:text-sm font-bold text-gray-900 whitespace-nowrap">{rfq.ref_no}</div>
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                <div className="font-mono text-xs sm:text-sm font-bold text-gray-900 whitespace-nowrap">{rfq.ref_no}</div>
+                                                {(rfq.is_manual_deal || rfq.legs?.some(l => l.is_manual_deal)) && (
+                                                    <span
+                                                        className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300"
+                                                        title="Recorded manually / offline with a bank enabled for manual recording (zero bank emails sent)"
+                                                    >
+                                                        📞 Manual / Offline
+                                                    </span>
+                                                )}
+                                            </div>
                                             {rfq.parent_rfq_ref && (
                                                 <div className="text-[10px] text-indigo-600 font-mono flex items-center gap-1 mt-0.5 whitespace-nowrap" title={`Re-tendered from ${rfq.parent_rfq_ref}`}>
                                                     <RefreshCw size={10} /> ↳ from {rfq.parent_rfq_ref}

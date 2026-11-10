@@ -27,6 +27,7 @@ import SystemNotificationList from 'pages/SystemOwner/SystemNotifications/System
 import SystemNotificationForm from 'pages/SystemOwner/SystemNotifications/SystemNotificationForm';
 import QuotationTelemetryDashboard from 'pages/SystemOwner/QuotationTelemetryDashboard';
 import QuotationLiveRankingManagement from 'pages/SystemOwner/QuotationLiveRankingManagement';
+import ComposeEmailPage from 'pages/SystemOwner/ComposeEmailPage';
 
 // NEW: Import LG Category management components from the Corporate Admin folder
 import LGCategoryList from 'pages/CorporateAdmin/LGCategoryList';
@@ -91,6 +92,9 @@ function SystemOwnerRoutes({ onLogout }) {
       <Route path="system-notifications" element={<SystemNotificationList onLogout={onLogout} />} />
       <Route path="system-notifications/new" element={<SystemNotificationForm onLogout={onLogout} />} />
       <Route path="system-notifications/edit/:id" element={<SystemNotificationForm onLogout={onLogout} />} />
+
+      {/* Direct Executive Email Composer */}
+      <Route path="compose-email" element={<ComposeEmailPage onLogout={onLogout} />} />
 
       {/* Audit Logs */}
       <Route path="audit-logs" element={<AuditLogs onLogout={onLogout} />} />
