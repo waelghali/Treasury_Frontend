@@ -4,13 +4,14 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { publicApiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 import { Helmet } from 'react-helmet-async';
-import { Loader2, Shield, Zap, Globe, Building2, UserCircle, Package, AlertCircle, ArrowRight, Upload } from 'lucide-react';
+import { Loader2, Shield, Zap, Globe, Lock, Building2, UserCircle, Package, AlertCircle, ArrowRight, Upload } from 'lucide-react';
 import HoneypotField from '../../components/Security/HoneypotField';
 
 const benefits = [
-  { icon: Shield, title: "Audit-Ready Controls", description: "Complete immutable audit trails and role-based maker-checker approvals." },
-  { icon: Zap, title: "Automated Operations", description: "Fast document parsing, auto-filling, and proactive schedule alerts." },
-  { icon: Globe, title: "Multi-Bank Connectivity", description: "Standardized multi-bank formats, statements, and electronic bidding." },
+  { icon: Shield, title: "Tamper-Evident Controls", description: "Sequential SHA-256 audit trails and strict maker-checker approvals." },
+  { icon: Zap, title: "Smart Automation", description: "AI document extraction, PDF bank form filling, and schedule alerts." },
+  { icon: Globe, title: "Multi-Bank Workflows", description: "Manage LGs, FX & T-Bill RFQs, and statement matching across banks." },
+  { icon: Lock, title: "Per-Company Confidentiality", description: "Dedicated AES-256 encryption, AI privacy masking, and biometric login." },
 ];
 
 function FreeTrialRegistration() {
@@ -144,23 +145,22 @@ function FreeTrialRegistration() {
   return (
     <div className="min-h-screen flex flex-col" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
       <Helmet>
-        <title>Start Free Trial — Grow LG Management Platform</title>
-        <meta name="description" content="Sign up for a free trial of Grow's LG management platform. Choose LG Custody, LG Issuance, or both — no credit card required. AI-powered document capture, automated alerts, and maker-checker workflows." />
-        <meta property="og:title" content="Free Trial — Grow LG Management" />
-        <meta property="og:description" content="Try the LG management platform built for treasurers. Choose your modules and get started in minutes." />
+        <title>Start Free Trial — Grow Corporate Treasury Platform</title>
+        <meta name="description" content="Sign up for a free trial of Grow's modular treasury platform. Select LG Custody, LG Issuance, FX & T-Bill Quotations, Bank Auto-Reconciliation, or any combination — no credit card required." />
+        <meta property="og:title" content="Free Trial — Grow Corporate Treasury Platform" />
+        <meta property="og:description" content="Try the modular treasury platform built by treasurers. Choose your modules and get started." />
         <meta property="og:type" content="website" />
       </Helmet>
 
       {/* Top Navigation Bar — Fixed */}
       <header className="fixed top-0 left-0 right-0 z-50" style={{ backgroundColor: '#1e2a4a' }}>
         <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <Link to="/" className="flex items-center space-x-2 hover:opacity-90 transition-opacity">
             <span className="text-lg font-bold text-white tracking-tight">Grow</span>
             <span className="text-xs text-blue-400 font-medium hidden sm:inline">Business Development</span>
-          </div>
+          </Link>
           <nav className="flex items-center space-x-6">
-            <Link to="/" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Home</Link>
-            <Link to="/know-more" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Know More</Link>
+            <Link to="/know-more" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Platform Overview</Link>
             <Link 
               to="/login" 
               className="px-4 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
@@ -185,11 +185,11 @@ function FreeTrialRegistration() {
 
           <div className="relative z-10">
             <h1 className="text-2xl xl:text-3xl font-bold text-white leading-tight mb-3">
-              LG Management,<br />
+              Treasury Operations,<br />
               <span style={{ color: '#60a5fa' }}>Simplified.</span>
             </h1>
             <p className="text-gray-400 text-xs leading-relaxed mb-6 max-w-sm">
-              Join enterprises managing their digital guarantees and credit facilities on a single, secure platform. Start your free trial today.
+              Join organizations managing Letters of Guarantee, competitive FX &amp; T-Bill bidding, and bank statement reconciliation on one secure platform.
             </p>
 
             {/* Feature Cards */}

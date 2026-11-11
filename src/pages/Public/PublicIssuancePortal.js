@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Loader2, Mail, KeyRound, ShieldCheck, ArrowRight, ArrowLeft, Send } from 'lucide-react';
+import { Loader2, Mail, KeyRound, ShieldCheck, ArrowRight, Send } from 'lucide-react';
 import { API_BASE_URL } from 'services/apiService';
 import { toast } from 'react-toastify';
 import { Helmet } from 'react-helmet-async';
@@ -91,10 +91,10 @@ export default function PublicIssuancePortal() {
         <div className="absolute top-1/2 right-1/4 w-32 h-32 rounded-full opacity-[0.03] bg-blue-400" />
 
         <div>
-          <div className="flex items-center space-x-2 mb-16">
+          <Link to="/" className="inline-flex items-center space-x-2 mb-16 hover:opacity-90 transition-opacity">
             <span className="text-xl font-bold text-white tracking-tight">Grow</span>
             <span className="text-xs text-blue-400 font-medium">Business Development</span>
-          </div>
+          </Link>
 
           <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium mb-6" style={{ backgroundColor: 'rgba(96,165,250,0.15)', color: '#93bbfc' }}>
             <Send className="w-3 h-3 mr-1.5" />
@@ -133,8 +133,10 @@ export default function PublicIssuancePortal() {
 
           {/* Mobile-only logo */}
           <div className="lg:hidden text-center mb-8">
-            <span className="text-2xl font-bold text-gray-900">Grow</span>
-            <span className="text-sm text-blue-600 font-medium ml-2">Business Development</span>
+            <Link to="/" className="inline-flex items-baseline hover:opacity-90 transition-opacity">
+              <span className="text-2xl font-bold text-gray-900">Grow</span>
+              <span className="text-sm text-blue-600 font-medium ml-2">Business Development</span>
+            </Link>
           </div>
 
           {/* Step 1: Email */}
@@ -179,13 +181,9 @@ export default function PublicIssuancePortal() {
                 </button>
               </form>
 
-              <div className="pt-5 border-t border-gray-200 flex items-center justify-center space-x-4 text-sm">
-                <Link to="/" className="inline-flex items-center text-gray-400 hover:text-gray-800 transition-colors">
-                  <ArrowLeft className="w-3 h-3 mr-1" /> Home
-                </Link>
-                <span className="text-gray-200">|</span>
+              <div className="pt-5 border-t border-gray-200 flex items-center justify-center text-sm">
                 <Link to="/login" className="text-gray-400 hover:text-blue-600 transition-colors">
-                  Sign In
+                  Sign In to Platform
                 </Link>
               </div>
             </div>

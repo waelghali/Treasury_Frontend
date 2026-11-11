@@ -14,8 +14,8 @@ function RenewalPage() {
         </div>
         <div className="mt-6">
           <h2 className="text-xl font-bold text-gray-700">Contact Information</h2>
-          <p className="mt-2 text-gray-500">Email: lg_custody@growbusinessdevelopment.com</p>
-          <p className="text-gray-500">Phone: +20 (012) 0099-0030</p>
+          <p className="mt-2 text-gray-500">Email: info@growbusinessdevelopment.com</p>
+          <p className="text-gray-500">Phone: +20 120 055 7551</p>
         </div>
         <div className="mt-8">
           <button

@@ -1,20 +1,29 @@
 // frontend/src/pages/LandingPage.js
-import React, { useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useRef, useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { 
-  Shield, Zap, Globe, ArrowRight, CheckCircle, 
-  FileCheck, Bell, BarChart3, Layers, Lock, 
+  Shield, Zap, ArrowRight, CheckCircle, 
+  FileCheck, Bell, Layers, Lock, 
   Send, Building2, Briefcase, ChevronRight,
-  Clock, Users, BookOpen, TrendingUp, FileSpreadsheet
+  Clock, Users, BookOpen, TrendingUp, FileSpreadsheet,
+  KeyRound, Fingerprint, ShieldCheck
 } from 'lucide-react';
 import HoneypotField from '../components/Security/HoneypotField';
 
 function LandingPage() {
   const demoFormRef = useRef(null);
+  const { hash } = useLocation();
   const [formData, setFormData] = useState({ name: '', company: '', email: '', phone: '', message: '', website_url: '' });
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    if (hash) {
+      const el = document.querySelector(hash);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [hash]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -80,26 +89,32 @@ function LandingPage() {
   return (
     <div style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
       <Helmet>
-        <title>Grow Business Development — LG Management Platform for Treasury Teams</title>
-        <meta name="description" content="The modular LG management platform that automates custody tracking, issuance workflows, and bank communication. AI-powered document capture, proactive alerts, and maker-checker approvals. Start your free trial today." />
-        <meta property="og:title" content="Grow — LG Management Platform" />
-        <meta property="og:description" content="Track custody, automate issuance, and stay in control. The LG platform built by treasurers, for treasurers." />
+        <title>Grow Business Development — Modular Corporate Treasury Platform</title>
+        <meta name="description" content="The modular corporate treasury platform covering LG Custody, LG Issuance, FX & T-Bill Quotations, and Bank Auto-Reconciliation — with per-company encryption and maker-checker governance." />
+        <meta property="og:title" content="Grow — Modular Corporate Treasury Platform" />
+        <meta property="og:description" content="Manage LG custody, automate issuance, run competitive FX & T-Bill bidding, and reconcile bank statements on one secure platform." />
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Grow — LG Management Platform" />
-        <meta name="twitter:description" content="Track custody, automate issuance, and stay in control — all on one unified platform." />
+        <meta name="twitter:title" content="Grow — Modular Corporate Treasury Platform" />
+        <meta name="twitter:description" content="LG Custody, LG Issuance, FX & T-Bill Quotations, and Bank Auto-Reconciliation — built by treasurers, for treasurers." />
       </Helmet>
 
       {/* ═══════ HEADER ═══════ */}
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-gray-800/30" style={{ backgroundColor: '#1e2a4a' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <Link
+            to="/"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="flex items-center space-x-2 hover:opacity-90 transition-opacity"
+          >
             <span className="text-lg font-bold text-white tracking-tight">Grow</span>
             <span className="text-xs text-blue-400 font-medium hidden sm:inline">Business Development</span>
-          </div>
+          </Link>
           
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center space-x-4">
+            <Link to="/know-more" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Platform Overview</Link>
+            <a href="#security" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Security</a>
             <Link to="/portal/issuance" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Issuance Portal</Link>
             <button onClick={scrollToDemoForm} className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Book a Demo</button>
             <button onClick={handleDownload} className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Brochure</button>
@@ -166,6 +181,13 @@ function LandingPage() {
             >
               Platform Overview
             </Link>
+            <a
+              href="#security"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              Security &amp; Confidentiality
+            </a>
           </div>
         )}
       </header>
@@ -181,14 +203,14 @@ function LandingPage() {
           <div className="max-w-3xl">
             <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium mb-6" style={{ backgroundColor: 'rgba(96,165,250,0.15)', color: '#93bbfc' }}>
               <Layers className="w-3 h-3 mr-1.5" />
-              LG Custody · LG Issuance · FX Quotations · Bank Reconciliation
+              LG Custody · LG Issuance · FX &amp; T-Bill Quotations · Bank Reconciliation
             </div>
             <h1 className="text-4xl lg:text-5xl xl:text-6xl font-extrabold text-white leading-[1.1] mb-5 tracking-tight">
               The Treasury Platform That<br />
               <span style={{ color: '#60a5fa' }}>Works Like Your Smartest Team Member</span>
             </h1>
             <p className="text-lg text-gray-400 max-w-2xl mb-8 leading-relaxed">
-              Never miss an expiry. Never lose a reply. Track custody, automate issuance, run competitive FX bidding, and reconcile bank statements — all on one unified platform.
+              Never miss an expiry. Never lose a reply. Track received guarantees, automate bank issuance, run competitive FX &amp; T-Bill bidding, and reconcile bank statements — all on one unified platform.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
@@ -207,7 +229,7 @@ function LandingPage() {
                 to="/know-more"
                 className="inline-flex items-center px-6 py-3 text-sm font-semibold text-gray-300 border border-gray-500 rounded-lg hover:bg-white/10 transition-all"
               >
-                Learn More
+                Explore All Modules
               </Link>
             </div>
           </div>
@@ -215,10 +237,10 @@ function LandingPage() {
           {/* Stats Row */}
           <div className="flex flex-wrap gap-8 mt-14 pt-8 border-t border-white/10">
             {[
+              { value: '4 Modules', label: 'Unified treasury suite' },
               { value: '< 1 min', label: 'AI document capture' },
-              { value: '140+', label: 'Correspondent banks' },
-              { value: '100%', label: 'Audit trail coverage' },
-              { value: '24/7', label: 'Proactive alerts' },
+              { value: '100%', label: 'Tamper-evident audit trail' },
+              { value: '24/7', label: 'Automated schedule alerts' },
             ].map((stat, i) => (
               <div key={i}>
                 <p className="text-2xl font-bold text-white">{stat.value}</p>
@@ -235,7 +257,7 @@ function LandingPage() {
           <div className="text-center mb-14">
             <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">Modular by Design</p>
             <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">Choose Only What You Need</h2>
-            <p className="text-gray-500 mt-3 max-w-xl mx-auto">Four powerful modules that work independently or together. Start with one, expand when you're ready.</p>
+            <p className="text-gray-500 mt-3 max-w-xl mx-auto">Four focused modules that work independently or together. Start with one, expand whenever you're ready.</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
@@ -254,9 +276,9 @@ function LandingPage() {
                 {[
                   'Centralized LG portfolio with full lifecycle tracking',
                   'AI-powered document capture in under 60 seconds',
-                  'Automated expiry, renewal & claim reminders',
-                  'Multi-entity management with role-based access',
-                  'Complete audit trail and compliance reporting',
+                  'Proactive expiry, auto-renewal & bank reply reminders',
+                  'QR & security-code verified bank instruction letters',
+                  'Multi-entity management with maker-checker controls',
                 ].map((item, i) => (
                   <li key={i} className="flex items-start text-sm text-gray-600">
                     <CheckCircle className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
@@ -264,9 +286,14 @@ function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link to="/free-trial-register?module=custody" className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors group-hover:translate-x-1 duration-200">
-                Try LG Custody <ChevronRight className="w-4 h-4 ml-1" />
-              </Link>
+              <div className="flex items-center space-x-5">
+                <Link to="/free-trial-register?module=custody" className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors group-hover:translate-x-1 duration-200">
+                  Try LG Custody <ChevronRight className="w-4 h-4 ml-1" />
+                </Link>
+                <Link to="/know-more#custody" className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors">
+                  How it works
+                </Link>
+              </div>
             </div>
 
             {/* Module 2: LG Issuance */}
@@ -282,11 +309,11 @@ function LandingPage() {
               </div>
               <ul className="space-y-3 mb-6">
                 {[
-                  '3-step issuance wizard with smart form auto-filling',
-                  'Multi-bank facility limit tracking and allocation',
-                  'Built-in maker-checker approval workflows',
-                  'AI-powered bank form analysis and filling',
-                  'Full issuance lifecycle from request to delivery',
+                  '3-step issuance wizard & OTP department requestor portal',
+                  'Multi-bank facility limits, margin & SLA scoring',
+                  'AI-powered bank PDF form filling in Arabic & English',
+                  'Configurable multi-level maker-checker approval matrix',
+                  'Post-issuance tracking & bank position reconciliation',
                 ].map((item, i) => (
                   <li key={i} className="flex items-start text-sm text-gray-600">
                     <CheckCircle className="w-4 h-4 text-purple-500 mr-2 mt-0.5 flex-shrink-0" />
@@ -294,9 +321,14 @@ function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link to="/free-trial-register?module=issuance" className="inline-flex items-center text-sm font-semibold text-purple-600 hover:text-purple-800 transition-colors group-hover:translate-x-1 duration-200">
-                Try LG Issuance <ChevronRight className="w-4 h-4 ml-1" />
-              </Link>
+              <div className="flex items-center space-x-5">
+                <Link to="/free-trial-register?module=issuance" className="inline-flex items-center text-sm font-semibold text-purple-600 hover:text-purple-800 transition-colors group-hover:translate-x-1 duration-200">
+                  Try LG Issuance <ChevronRight className="w-4 h-4 ml-1" />
+                </Link>
+                <Link to="/know-more#issuance" className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors">
+                  How it works
+                </Link>
+              </div>
             </div>
 
             {/* Module 3: FX & T-Bill Quotations */}
@@ -306,17 +338,17 @@ function LandingPage() {
                   <TrendingUp className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900">FX & T-Bill Quotations</h3>
+                  <h3 className="text-xl font-bold text-gray-900">FX &amp; T-Bill Quotations</h3>
                   <p className="text-xs text-gray-500">For competitive multi-bank price discovery and bidding</p>
                 </div>
               </div>
               <ul className="space-y-3 mb-6">
                 {[
-                  'Competitive FX spot and T-bill electronic bidding requests',
-                  'Central Bank corridor benchmark rate tracking',
-                  'Real-time rate checks for inversions and dealer typos',
-                  'Side-by-side bank ranking and ticket splitting',
-                  'Maker-checker approval workflow for deal execution',
+                  'Multi-bank electronic RFQs for FX Spot and T-Bills',
+                  'Multi-leg currency baskets & multi-bank ticket splitting',
+                  'True net-cost ranking after bank fees & withholding tax',
+                  'Central Bank benchmark & dealer typo/inversion guardrails',
+                  'Synchronized countdown execution & signed deal receipts',
                 ].map((item, i) => (
                   <li key={i} className="flex items-start text-sm text-gray-600">
                     <CheckCircle className="w-4 h-4 text-emerald-500 mr-2 mt-0.5 flex-shrink-0" />
@@ -324,9 +356,14 @@ function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link to="/free-trial-register?module=quotations" className="inline-flex items-center text-sm font-semibold text-emerald-600 hover:text-emerald-800 transition-colors group-hover:translate-x-1 duration-200">
-                Try FX Quotations <ChevronRight className="w-4 h-4 ml-1" />
-              </Link>
+              <div className="flex items-center space-x-5">
+                <Link to="/free-trial-register?module=quotations" className="inline-flex items-center text-sm font-semibold text-emerald-600 hover:text-emerald-800 transition-colors group-hover:translate-x-1 duration-200">
+                  Try FX Quotations <ChevronRight className="w-4 h-4 ml-1" />
+                </Link>
+                <Link to="/know-more#quotations" className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors">
+                  How it works
+                </Link>
+              </div>
             </div>
 
             {/* Module 4: Bank Auto-Reconciliation */}
@@ -342,11 +379,11 @@ function LandingPage() {
               </div>
               <ul className="space-y-3 mb-6">
                 {[
-                  'Multi-bank statement import for Excel, CSV, and MT940',
-                  'Automatic fee, tax, and interest classification',
-                  'Internal sweep and liquidity transfer pairing',
-                  'Dual-pane matching against internal ERP & ledger records',
-                  'Exception reporting and audit-ready reconciliation logs',
+                  'Smart Excel & CSV statement import (Arabic & English)',
+                  'Zero-setup fee, tax, stamp duty, interest & payroll rules',
+                  'Inter-account liquidity sweep & wire-fee variance pairing',
+                  'Dual-pane matching against internal ERP ledger records',
+                  'Custom CSV/Excel layouts & double-entry GL journal export',
                 ].map((item, i) => (
                   <li key={i} className="flex items-start text-sm text-gray-600">
                     <CheckCircle className="w-4 h-4 text-amber-500 mr-2 mt-0.5 flex-shrink-0" />
@@ -354,9 +391,14 @@ function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link to="/free-trial-register?module=reconciliation" className="inline-flex items-center text-sm font-semibold text-amber-600 hover:text-amber-800 transition-colors group-hover:translate-x-1 duration-200">
-                Try Auto-Reconciliation <ChevronRight className="w-4 h-4 ml-1" />
-              </Link>
+              <div className="flex items-center space-x-5">
+                <Link to="/free-trial-register?module=reconciliation" className="inline-flex items-center text-sm font-semibold text-amber-600 hover:text-amber-800 transition-colors group-hover:translate-x-1 duration-200">
+                  Try Auto-Reconciliation <ChevronRight className="w-4 h-4 ml-1" />
+                </Link>
+                <Link to="/know-more#reconciliation" className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors">
+                  How it works
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -367,14 +409,14 @@ function LandingPage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-14">
             <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">The Challenge</p>
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">The Daily Struggles With LGs</h2>
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">The Daily Treasury Bottlenecks</h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: Clock, title: 'Expiries Missed', desc: 'Manual tracking leads to last-minute scrambles and potential financial risk.' },
-              { icon: Send, title: 'Bank Replies Lost', desc: 'Tracking communication across channels is a constant challenge.' },
-              { icon: Layers, title: 'Scattered Files', desc: 'LG documents and statuses spread across emails and spreadsheets.' },
-              { icon: BarChart3, title: 'Audit Stress', desc: 'Producing reports for audits is a time-consuming manual process.' },
+              { icon: Clock, title: 'Missed Expiries & Delays', desc: 'Spreadsheet tracking and paper bank forms lead to last-minute guarantee scrambles and facility delays.' },
+              { icon: Send, title: 'Scattered Bank Replies', desc: 'Chasing extensions, releases, and issuance confirmations across emails leaves risky blind spots.' },
+              { icon: TrendingUp, title: 'Fragmented Rate Quotes', desc: 'Collecting FX and T-Bill quotes over phone and chat makes net-cost comparison and auditability hard.' },
+              { icon: FileSpreadsheet, title: 'Manual Reconciliations', desc: 'Matching multi-bank statements, cash sweeps, bank charges, and ERP ledgers eats up days every month.' },
             ].map((item, i) => (
               <div key={i} className="bg-white rounded-xl p-6 border border-gray-100 hover:shadow-lg transition-shadow duration-300">
                 <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center mb-4">
@@ -393,16 +435,16 @@ function LandingPage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-14">
             <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">How We Help</p>
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">Your Assistant for LG Management</h2>
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">One Assistant Across Your Treasury</h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { icon: FileCheck, title: 'End-to-End Tracking', desc: 'All LGs in one place — clear, organized, and always updated across custody and issuance.' },
-              { icon: Bell, title: 'Proactive Alerts', desc: 'Automatic reminders for expiries, renewals, overdue replies, and approval deadlines.' },
-              { icon: Lock, title: 'Maker-Checker Approvals', desc: 'Built-in approval workflows with configurable checker groups and escalation paths.' },
-              { icon: Zap, title: 'AI-Powered Capture', desc: 'Upload any LG document and let AI extract all details in under 60 seconds.' },
-              { icon: Globe, title: 'Multi-Entity, Multi-Bank', desc: 'Manage multiple subsidiaries and bank relationships from a centralized dashboard.' },
-              { icon: BarChart3, title: 'Data Insights', desc: 'Your data organized into dashboards showing renewal cycles, delays, and portfolio trends.' },
+              { icon: FileCheck, title: 'End-to-End LG Control', desc: 'Manage both received custody LGs and outgoing issuance requests with QR-verified bank letters.' },
+              { icon: Zap, title: 'AI Document & Form Capture', desc: 'Extract LG fields in under 60 seconds and auto-fill bank PDF applications in Arabic and English.' },
+              { icon: TrendingUp, title: 'Competitive Multi-Bank Bidding', desc: 'Run structured FX Spot and T-Bill RFQs with dealer typo checks, net-fee ranking, and signed deal receipts.' },
+              { icon: FileSpreadsheet, title: 'Automated Statement Matching', desc: 'Auto-classify bank fees and taxes, pair inter-account sweeps, and match statements with ERP ledgers.' },
+              { icon: Bell, title: 'Proactive Schedule & Push Alerts', desc: 'Automatic web and mobile reminders for expiries, overdue bank replies, approvals, and live bidding windows.' },
+              { icon: Lock, title: 'Maker-Checker & Multi-Entity', desc: 'Role-based dual control across subsidiaries with self-approval strictly blocked by system guardrails.' },
             ].map((item, i) => (
               <div key={i} className="flex items-start space-x-4 p-5 rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all duration-300">
                 <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(37,99,235,0.08)' }}>
@@ -411,6 +453,54 @@ function LandingPage() {
                 <div>
                   <h4 className="text-sm font-semibold text-gray-900 mb-1">{item.title}</h4>
                   <p className="text-sm text-gray-500 leading-relaxed">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════ SECURITY & CONFIDENTIALITY (DEDICATED SECTION) ═══════ */}
+      <section id="security" className="py-20 lg:py-24 scroll-mt-14" style={{ backgroundColor: '#f8fafc' }}>
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-14">
+            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">Security &amp; Confidentiality</p>
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">Protected by Design, Clear in Plain Words</h2>
+            <p className="text-gray-500 mt-3 max-w-2xl mx-auto text-sm leading-relaxed">
+              Your financial records, bank rates, and uploaded documents stay confidential and isolated at every step.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+            {[
+              {
+                icon: KeyRound,
+                title: 'Private Encryption Key for Every Company',
+                desc: 'Each organization has its own dedicated AES-256 encryption key. Sensitive dealer quotes, bank statement details, counterparties, and uploaded files are encrypted at rest and completely isolated.'
+              },
+              {
+                icon: Shield,
+                title: 'Automatic Privacy Shield for AI & Smart Rules',
+                desc: 'Company names, account numbers, IBANs, and LG numbers are automatically masked with anonymous tokens before the AI assistant or smart classification engine ever processes them.'
+              },
+              {
+                icon: ShieldCheck,
+                title: 'Tamper-Evident Audit Log & QR Letter Seals',
+                desc: 'Every action is permanently sealed in a sequential SHA-256 chain where any modification is immediately detected. Printed bank instructions include a QR code and 6-digit security code for instant verification.'
+              },
+              {
+                icon: Fingerprint,
+                title: 'Biometric Sign-In, MFA & Private Cloud Storage',
+                desc: 'Sign in with Face ID, Touch ID, or email verification codes alongside automatic idle-session timeouts. Enterprises can also connect their own private Google Cloud Storage bucket.'
+              },
+            ].map((item, i) => (
+              <div key={i} className="flex items-start space-x-4 p-6 rounded-2xl bg-white border border-gray-200/80 hover:shadow-lg transition-all duration-300">
+                <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                  <item.icon className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 mb-1.5">{item.title}</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -427,10 +517,10 @@ function LandingPage() {
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: Briefcase, title: 'Real Operational DNA', desc: 'Designed from years of real treasury operations — not from a textbook.' },
-              { icon: Lock, title: 'Your Data, Your Control', desc: 'Enterprise-grade security. Your data stays private and protected.' },
-              { icon: Users, title: 'Team-First Design', desc: 'Role-based access, approval workflows, and collaboration built in.' },
-              { icon: Layers, title: 'Scales With You', desc: 'Start with one module, expand into a full treasury platform as you grow.' },
+              { icon: Briefcase, title: 'Real Operational DNA', desc: 'Designed from years of hands-on corporate treasury operations — not from a textbook.' },
+              { icon: Lock, title: 'Your Data, Your Control', desc: 'Per-company encryption, strict tenant isolation, and optional dedicated cloud storage.' },
+              { icon: Users, title: 'Team-First Governance', desc: 'Role-based permissions, maker-checker approvals, and audit trails built into every workflow.' },
+              { icon: Layers, title: 'Scales With You', desc: 'Start with a single module today and activate the full treasury suite as your needs grow.' },
             ].map((item, i) => (
               <div key={i} className="text-center p-6 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <div className="w-12 h-12 rounded-xl mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}>
@@ -461,12 +551,12 @@ function LandingPage() {
               <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">See It in Action</p>
               <h2 className="text-3xl font-bold text-gray-900 mb-4">Request a Personalized Demo</h2>
               <p className="text-gray-500 mb-6 leading-relaxed">
-                See how our platform can transform your LG operations. Our team will walk you through the modules most relevant to your business.
+                See how Grow can streamline your treasury operations. Our team will walk you through the modules most relevant to your organization.
               </p>
               <div className="space-y-4">
                 {[
                   { icon: Clock, text: '30-minute guided walkthrough' },
-                  { icon: Building2, text: 'Tailored to your industry and use case' },
+                  { icon: Building2, text: 'Tailored to your banks, entities, and workflows' },
                   { icon: BookOpen, text: 'Free brochure included after the call' },
                 ].map((perk, i) => (
                   <div key={i} className="flex items-center text-sm text-gray-600">
@@ -528,8 +618,8 @@ function LandingPage() {
       {/* ═══════ FINAL CTA ═══════ */}
       <section className="bg-blue-600 py-16">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-3xl font-bold text-white mb-3">Ready to take control of your LGs?</h2>
-          <p className="text-blue-200 mb-8 text-sm">Join enterprises who've automated their LG operations with Grow.</p>
+          <h2 className="text-3xl font-bold text-white mb-3">Ready to take control of your treasury operations?</h2>
+          <p className="text-blue-200 mb-8 text-sm">Join organizations automating guarantees, FX &amp; T-Bill bidding, and bank reconciliations with Grow.</p>
           <div className="flex flex-wrap justify-center gap-3">
             <Link to="/free-trial-register" className="px-6 py-2.5 text-sm font-semibold text-blue-600 bg-white rounded-lg hover:bg-gray-100 transition-colors shadow-md">
               Start Free Trial
@@ -548,11 +638,15 @@ function LandingPage() {
       <footer style={{ backgroundColor: '#111827' }} className="text-gray-400 py-12">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
-            <div className="flex items-center space-x-2 mb-4">
+            <Link
+              to="/"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="inline-flex items-center space-x-2 mb-4 hover:opacity-90 transition-opacity"
+            >
               <span className="text-lg font-bold text-white">Grow</span>
               <span className="text-xs text-blue-400 font-medium">Business Development</span>
-            </div>
-            <p className="text-sm leading-relaxed">The modular LG management platform designed to empower your treasury operations — from custody to issuance.</p>
+            </Link>
+            <p className="text-sm leading-relaxed">The modular corporate treasury platform — uniting LG Custody, LG Issuance, FX &amp; T-Bill Quotations, and Bank Auto-Reconciliation.</p>
           </div>
           <div>
             <h4 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Contact Info</h4>

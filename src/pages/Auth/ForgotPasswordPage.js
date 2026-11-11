@@ -95,7 +95,7 @@ function ForgotPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif", backgroundColor: '#1e2a4a' }}>
       <Helmet>
-        <title>Forgot Password — Grow LG Management Platform</title>
+        <title>Forgot Password — Grow Corporate Treasury Platform</title>
         <meta name="description" content="Reset your Grow account password. Enter your email to receive a password reset link." />
       </Helmet>
 
@@ -106,10 +106,10 @@ function ForgotPasswordPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center space-x-2 mb-6">
+          <Link to="/" className="inline-flex items-center justify-center space-x-2 mb-6 hover:opacity-90 transition-opacity">
             <span className="text-xl font-bold text-white tracking-tight">Grow</span>
             <span className="text-xs text-blue-400 font-medium">Business Development</span>
-          </div>
+          </Link>
         </div>
 
         {/* Card */}

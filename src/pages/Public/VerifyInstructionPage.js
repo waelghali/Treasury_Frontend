@@ -126,7 +126,7 @@ export default function VerifyInstructionPage() {
       {/* Top Brand Header */}
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
             <div className="h-9 w-9 rounded-lg bg-amber-500/15 border border-amber-500/40 flex items-center justify-center">
               <ShieldCheck className="h-5 w-5 text-amber-400" />
             </div>
@@ -138,7 +138,7 @@ export default function VerifyInstructionPage() {
                 Corporate Banking Instruction Authenticity Portal
               </div>
             </div>
-          </div>
+          </Link>
           <Link
             to="/"
             className="text-xs font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1"

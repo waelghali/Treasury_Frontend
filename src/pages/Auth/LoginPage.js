@@ -3,7 +3,7 @@ import { setAuthToken, API_BASE_URL } from 'services/apiService';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { v4 as uuidv4 } from 'uuid'; 
-import { ArrowLeft, Loader2, Shield, Fingerprint, BellRing, KeyRound, CheckCircle2 } from 'lucide-react';
+import { Loader2, Shield, Fingerprint, BellRing, KeyRound, CheckCircle2 } from 'lucide-react';
 import HoneypotField from '../../components/Security/HoneypotField';
 import {
   isBiometricSupported,
@@ -302,8 +302,8 @@ function LoginPage({ onLoginSuccess }) {
   return (
     <div className="min-h-screen flex" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
       <Helmet>
-        <title>Sign In — Grow LG Management Platform</title>
-        <meta name="description" content="Sign in to your Grow account to manage LG custody, issuance workflows, and treasury operations." />
+        <title>Sign In — Grow Corporate Treasury Platform</title>
+        <meta name="description" content="Sign in to your Grow account to manage LG custody, LG issuance, FX & T-Bill quotations, and bank statement reconciliation." />
       </Helmet>
 
       {/* Left Branding Panel */}
@@ -314,25 +314,25 @@ function LoginPage({ onLoginSuccess }) {
         <div className="absolute top-1/2 right-1/4 w-32 h-32 rounded-full opacity-[0.03] bg-blue-400" />
 
         <div>
-          <div className="flex items-center space-x-2 mb-16">
+          <Link to="/" className="inline-flex items-center space-x-2 mb-16 hover:opacity-90 transition-opacity">
             <span className="text-xl font-bold text-white tracking-tight">Grow</span>
             <span className="text-xs text-blue-400 font-medium">Business Development</span>
-          </div>
+          </Link>
           
           <h1 className="text-3xl xl:text-4xl font-extrabold text-white leading-[1.15] mb-4">
             Welcome Back to<br />
-            <span style={{ color: '#60a5fa' }}>Your LG Command Center</span>
+            <span style={{ color: '#60a5fa' }}>Your Treasury Command Center</span>
           </h1>
           <p className="text-gray-400 text-sm leading-relaxed max-w-sm">
-            Track custody, automate issuance, and stay in control — all on one unified platform built by treasurers.
+            Manage LG custody, automate issuance, run competitive FX &amp; T-Bill bidding, and reconcile bank statements — all on one unified platform.
           </p>
         </div>
 
         <div className="space-y-4">
           {[
-            { title: 'Bank-Grade Security', desc: 'ISO 27001 certified vault for sensitive documents.' },
-            { title: 'AI-Powered Extraction', desc: 'Capture LG details from any document in seconds.' },
-            { title: 'Always in Control', desc: 'Proactive alerts and full audit trail coverage.' },
+            { title: 'Per-Company Confidentiality', desc: 'Dedicated AES-256 encryption, AI privacy masking, and biometric login.' },
+            { title: 'Smart Treasury Automation', desc: 'AI document capture, multi-bank RFQs, and statement auto-matching.' },
+            { title: 'Tamper-Evident Governance', desc: 'Maker-checker controls, proactive alerts, and SHA-256 audit trails.' },
           ].map((item, i) => (
             <div key={i} className="flex items-start space-x-3 p-3 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
               <Shield className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#60a5fa' }} />
@@ -351,8 +351,10 @@ function LoginPage({ onLoginSuccess }) {
           
           {/* Mobile-only logo */}
           <div className="lg:hidden text-center mb-4">
-            <span className="text-2xl font-bold text-gray-900">Grow</span>
-            <span className="text-sm text-blue-600 font-medium ml-2">Business Development</span>
+            <Link to="/" className="inline-flex items-baseline hover:opacity-90 transition-opacity">
+              <span className="text-2xl font-bold text-gray-900">Grow</span>
+              <span className="text-sm text-blue-600 font-medium ml-2">Business Development</span>
+            </Link>
           </div>
 
           <div className="text-center lg:text-left">
@@ -605,12 +607,9 @@ function LoginPage({ onLoginSuccess }) {
             </form>
           )}
 
-          <div className="pt-5 border-t border-gray-200 flex flex-col items-center space-y-3">
+          <div className="pt-5 border-t border-gray-200 flex flex-col items-center">
             <Link to="/forgot-password" className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">
               Forgot Password?
-            </Link>
-            <Link to="/" className="inline-flex items-center text-xs font-medium text-gray-400 hover:text-gray-800 transition-colors">
-              <ArrowLeft className="w-3 h-3 mr-1" /> Back to Home
             </Link>
           </div>
         </div>
