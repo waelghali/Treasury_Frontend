@@ -9,13 +9,22 @@ export default function VerifyInstructionPage() {
 
   const [inspectLoading, setInspectLoading] = useState(true);
   const [tokenInfo, setTokenInfo] = useState(null);
+  const [lgTail, setLgTail] = useState('');
   const [securityCode, setSecurityCode] = useState('');
   const [bankBranchCode, setBankBranchCode] = useState(''); // Decoy honeypot field
   const pageLoadedAt = useRef(Date.now());
+  const codeInputRef = useRef(null);
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState('');
+  const [tamperAlert, setTamperAlert] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [verifiedData, setVerifiedData] = useState(null);
+
+  const isV2 =
+    tokenInfo?.version === 2 ||
+    token.startsWith('I2.') ||
+    token.startsWith('M2.') ||
+    token.startsWith('P2.');
 
   useEffect(() => {
     if (cooldownSeconds <= 0) return undefined;
@@ -74,15 +83,29 @@ export default function VerifyInstructionPage() {
     };
   }, [token]);
 
+  const handleLgTailChange = (e) => {
+    const val = e.target.value.replace(/\s+/g, '').toUpperCase().slice(0, 2);
+    setLgTail(val);
+    if (cooldownSeconds <= 0) {
+      setVerifyError('');
+      setTamperAlert(false);
+    }
+    if (val.length === 2 && codeInputRef.current) {
+      codeInputRef.current.focus();
+    }
+  };
+
   const handleCodeChange = (e) => {
-    const digitsOnly = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
-    if (digitsOnly.length > 3) {
+    const maxDigits = isV2 ? 4 : 6;
+    const digitsOnly = e.target.value.replace(/[^0-9]/g, '').slice(0, maxDigits);
+    if (!isV2 && digitsOnly.length > 3) {
       setSecurityCode(`${digitsOnly.slice(0, 3)}-${digitsOnly.slice(3)}`);
     } else {
       setSecurityCode(digitsOnly);
     }
     if (cooldownSeconds <= 0) {
       setVerifyError('');
+      setTamperAlert(false);
     }
   };
 
@@ -90,26 +113,39 @@ export default function VerifyInstructionPage() {
     e.preventDefault();
     if (cooldownSeconds > 0) return;
     const cleanDigits = securityCode.replace(/[^0-9]/g, '');
-    if (cleanDigits.length !== 6) {
+    if (isV2) {
+      if (lgTail.trim().length < 2) {
+        setVerifyError('Please enter the last 2 characters of the LG Number printed in the upper body of the letter.');
+        return;
+      }
+      if (cleanDigits.length !== 4) {
+        setVerifyError('Please enter the 4-digit Security Code printed in the bottom footer of the letter.');
+        return;
+      }
+    } else if (cleanDigits.length !== 6) {
       setVerifyError('Please enter all 6 digits of the Security Code printed in the letter footer.');
       return;
     }
     try {
       setVerifying(true);
       setVerifyError('');
+      setTamperAlert(false);
       const res = await publicApiRequest('/public/verify-instruction/confirm', 'POST', {
         token,
         code: cleanDigits,
+        lg_tail: isV2 ? lgTail.trim().toUpperCase() : '',
         bank_branch_code: bankBranchCode,
         elapsed_ms: Math.max(0, Date.now() - pageLoadedAt.current),
       });
       if (res && res.verified) {
         setCooldownSeconds(0);
+        setTamperAlert(false);
         setVerifiedData(res);
       } else {
         if (res?.cooldown_seconds && res.cooldown_seconds > 0) {
           setCooldownSeconds(res.cooldown_seconds);
         }
+        setTamperAlert(Boolean(res?.tamper_alert));
         setVerifyError(res?.reason || 'Verification failed. The Security Code does not match this instruction.');
       }
     } catch (err) {
@@ -182,8 +218,18 @@ export default function VerifyInstructionPage() {
 
               <h1 className="text-xl font-bold text-white">Verify Physical Document</h1>
               <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
-                To confirm that this QR code belongs to the physical instruction letter in your hand, enter the{' '}
-                <strong className="text-white">6-digit Security Code</strong> printed in the footer next to the QR code.
+                {isV2 ? (
+                  <>
+                    To confirm that the footer and body belong to the same genuine instruction, enter the{' '}
+                    <strong className="text-white">last 2 characters of the LG Number</strong> (from the letter body) and the{' '}
+                    <strong className="text-white">4-digit Security Code</strong> (from the bottom footer).
+                  </>
+                ) : (
+                  <>
+                    To confirm that this QR code belongs to the physical instruction letter in your hand, enter the{' '}
+                    <strong className="text-white">6-digit Security Code</strong> printed in the footer next to the QR code.
+                  </>
+                )}
               </p>
 
               <div className="mt-4 p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
@@ -220,19 +266,58 @@ export default function VerifyInstructionPage() {
                   />
                 </div>
 
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                  6-Digit Document Security Code
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="000-000"
-                  disabled={cooldownSeconds > 0}
-                  value={securityCode}
-                  onChange={handleCodeChange}
-                  className="w-full text-center font-mono text-2xl font-bold tracking-[0.25em] py-3.5 px-4 rounded-xl bg-slate-950 border border-slate-700 text-white disabled:opacity-50 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
-                />
+                {isV2 ? (
+                  <div className="grid grid-cols-12 gap-3">
+                    <div className="col-span-5">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                        1. Last 2 of LG # <span className="text-slate-500 font-normal">(Top Body)</span>
+                      </label>
+                      <input
+                        type="text"
+                        autoComplete="off"
+                        placeholder="e.g. 45"
+                        maxLength={2}
+                        disabled={cooldownSeconds > 0}
+                        value={lgTail}
+                        onChange={handleLgTailChange}
+                        className="w-full text-center font-mono text-2xl font-bold tracking-[0.2em] py-3.5 px-3 rounded-xl bg-slate-950 border border-slate-700 text-amber-300 disabled:opacity-50 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
+                      />
+                    </div>
+                    <div className="col-span-7">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                        2. 4-Digit Code <span className="text-slate-500 font-normal">(Footer)</span>
+                      </label>
+                      <input
+                        ref={codeInputRef}
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        placeholder="0000"
+                        maxLength={4}
+                        disabled={cooldownSeconds > 0}
+                        value={securityCode}
+                        onChange={handleCodeChange}
+                        className="w-full text-center font-mono text-2xl font-bold tracking-[0.25em] py-3.5 px-4 rounded-xl bg-slate-950 border border-slate-700 text-white disabled:opacity-50 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                      6-Digit Document Security Code
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      placeholder="000-000"
+                      disabled={cooldownSeconds > 0}
+                      value={securityCode}
+                      onChange={handleCodeChange}
+                      className="w-full text-center font-mono text-2xl font-bold tracking-[0.25em] py-3.5 px-4 rounded-xl bg-slate-950 border border-slate-700 text-white disabled:opacity-50 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
+                    />
+                  </>
+                )}
 
                 {cooldownSeconds > 0 && (
                   <div className="mt-3 p-3.5 rounded-xl bg-amber-950/60 border border-amber-500/40 flex items-center justify-between gap-3 text-xs text-amber-200">
@@ -250,8 +335,18 @@ export default function VerifyInstructionPage() {
                 )}
 
                 {verifyError && cooldownSeconds <= 0 && (
-                  <div className="mt-3 p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 flex items-start gap-2 text-xs text-rose-200">
-                    <XCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                  <div
+                    className={`mt-3 p-3.5 rounded-xl flex items-start gap-2.5 text-xs ${
+                      tamperAlert
+                        ? 'bg-rose-950/90 border-2 border-rose-500 text-rose-100 shadow-lg shadow-rose-950/50'
+                        : 'bg-rose-950/60 border border-rose-500/40 text-rose-200'
+                    }`}
+                  >
+                    {tamperAlert ? (
+                      <ShieldAlert className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                    )}
                     <span>{verifyError}</span>
                   </div>
                 )}
