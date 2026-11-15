@@ -7,22 +7,29 @@ import {
   FileCheck, Bell, Layers, Lock, 
   Send, Building2, Briefcase, ChevronRight,
   Clock, Users, BookOpen, TrendingUp, FileSpreadsheet,
-  KeyRound, Fingerprint, ShieldCheck
+  KeyRound, Fingerprint, ShieldCheck, Play
 } from 'lucide-react';
 import HoneypotField from '../components/Security/HoneypotField';
 
 function LandingPage() {
-  const demoFormRef = useRef(null);
+  const meetingFormRef = useRef(null);
   const { hash } = useLocation();
   const [formData, setFormData] = useState({ name: '', company: '', email: '', phone: '', message: '', website_url: '' });
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
-    if (hash) {
+    if (!hash) return;
+    const scrollTarget = () => {
+      if ((hash === '#book-meeting' || hash === '#demo-form') && meetingFormRef.current) {
+        meetingFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
       const el = document.querySelector(hash);
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    const timer = setTimeout(scrollTarget, 60);
+    return () => clearTimeout(timer);
   }, [hash]);
 
   const handleInputChange = (e) => {
@@ -30,7 +37,7 @@ function LandingPage() {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleDemoSubmit = async (e) => {
+  const handleMeetingSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
 
@@ -69,8 +76,8 @@ function LandingPage() {
     }
   };
 
-  const scrollToDemoForm = () => {
-    if (demoFormRef.current) demoFormRef.current.scrollIntoView({ behavior: 'smooth' });
+  const scrollToMeetingForm = () => {
+    if (meetingFormRef.current) meetingFormRef.current.scrollIntoView({ behavior: 'smooth' });
   };
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -113,11 +120,15 @@ function LandingPage() {
           
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center space-x-4">
+            <Link to="/demo" className="inline-flex items-center text-sm font-semibold text-blue-300 hover:text-white transition-colors">
+              <Play className="w-3.5 h-3.5 mr-1.5 fill-current" />
+              Interactive Demo
+            </Link>
             <Link to="/know-more" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Platform Overview</Link>
             <a href="#security" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Security</a>
             <Link to="/portal/issuance" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Issuance Portal</Link>
-            <button onClick={scrollToDemoForm} className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Book a Demo</button>
-            <button onClick={handleDownload} className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Brochure</button>
+            <button onClick={scrollToMeetingForm} className="text-sm font-medium text-gray-300 hover:text-white transition-colors cursor-pointer">Book a Meeting</button>
+            <button onClick={handleDownload} className="text-sm font-medium text-gray-300 hover:text-white transition-colors cursor-pointer">Brochure</button>
             <Link to="/free-trial-register" className="px-4 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
               Free Trial
             </Link>
@@ -156,6 +167,14 @@ function LandingPage() {
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-gray-700/50 bg-[#162038] px-4 py-3 space-y-2 shadow-2xl animate-fade-in-up">
             <Link
+              to="/demo"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center px-3 py-2 rounded-lg text-sm font-semibold text-blue-300 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <Play className="w-3.5 h-3.5 mr-2 fill-current" />
+              Interactive Demo
+            </Link>
+            <Link
               to="/portal/issuance"
               onClick={() => setMobileMenuOpen(false)}
               className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
@@ -163,10 +182,10 @@ function LandingPage() {
               Issuance Portal
             </Link>
             <button
-              onClick={() => { scrollToDemoForm(); setMobileMenuOpen(false); }}
+              onClick={() => { scrollToMeetingForm(); setMobileMenuOpen(false); }}
               className="w-full text-left block px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
             >
-              Book a Demo
+              Book a Meeting
             </button>
             <button
               onClick={() => { handleDownload(); setMobileMenuOpen(false); }}
@@ -219,11 +238,18 @@ function LandingPage() {
               >
                 Start Free Trial <ArrowRight className="ml-2 w-4 h-4" />
               </Link>
-              <button
-                onClick={scrollToDemoForm}
-                className="inline-flex items-center px-6 py-3 text-sm font-semibold text-gray-300 border border-gray-500 rounded-lg hover:bg-white/10 transition-all"
+              <Link
+                to="/demo"
+                className="inline-flex items-center px-6 py-3 text-sm font-semibold text-white bg-white/10 border border-blue-400/50 rounded-lg hover:bg-white/20 transition-all"
               >
-                Book a Demo
+                <Play className="mr-2 w-4 h-4 fill-current text-blue-300" />
+                Interactive Demo
+              </Link>
+              <button
+                onClick={scrollToMeetingForm}
+                className="inline-flex items-center px-6 py-3 text-sm font-semibold text-gray-300 border border-gray-500 rounded-lg hover:bg-white/10 transition-all cursor-pointer"
+              >
+                Book a Meeting
               </button>
               <Link
                 to="/know-more"
@@ -290,6 +316,9 @@ function LandingPage() {
                 <Link to="/free-trial-register?module=custody" className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors group-hover:translate-x-1 duration-200">
                   Try LG Custody <ChevronRight className="w-4 h-4 ml-1" />
                 </Link>
+                <Link to="/demo" className="text-xs font-semibold text-blue-600/80 hover:text-blue-800 transition-colors">
+                  Interactive Demo
+                </Link>
                 <Link to="/know-more#custody" className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors">
                   How it works
                 </Link>
@@ -325,6 +354,9 @@ function LandingPage() {
                 <Link to="/free-trial-register?module=issuance" className="inline-flex items-center text-sm font-semibold text-purple-600 hover:text-purple-800 transition-colors group-hover:translate-x-1 duration-200">
                   Try LG Issuance <ChevronRight className="w-4 h-4 ml-1" />
                 </Link>
+                <Link to="/demo" className="text-xs font-semibold text-purple-600/80 hover:text-purple-800 transition-colors">
+                  Interactive Demo
+                </Link>
                 <Link to="/know-more#issuance" className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors">
                   How it works
                 </Link>
@@ -344,7 +376,7 @@ function LandingPage() {
               </div>
               <ul className="space-y-3 mb-6">
                 {[
-                  'Multi-bank electronic RFQs for FX Spot and T-Bills',
+                  'Multi-bank electronic RFQs for FX Spot, Forward & T-Bills',
                   'Multi-leg currency baskets & multi-bank ticket splitting',
                   'True net-cost ranking after bank fees & withholding tax',
                   'Central Bank benchmark & dealer typo/inversion guardrails',
@@ -359,6 +391,9 @@ function LandingPage() {
               <div className="flex items-center space-x-5">
                 <Link to="/free-trial-register?module=quotations" className="inline-flex items-center text-sm font-semibold text-emerald-600 hover:text-emerald-800 transition-colors group-hover:translate-x-1 duration-200">
                   Try FX Quotations <ChevronRight className="w-4 h-4 ml-1" />
+                </Link>
+                <Link to="/demo" className="text-xs font-semibold text-emerald-600/80 hover:text-emerald-800 transition-colors">
+                  Interactive Demo
                 </Link>
                 <Link to="/know-more#quotations" className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors">
                   How it works
@@ -394,6 +429,9 @@ function LandingPage() {
               <div className="flex items-center space-x-5">
                 <Link to="/free-trial-register?module=reconciliation" className="inline-flex items-center text-sm font-semibold text-amber-600 hover:text-amber-800 transition-colors group-hover:translate-x-1 duration-200">
                   Try Auto-Reconciliation <ChevronRight className="w-4 h-4 ml-1" />
+                </Link>
+                <Link to="/demo" className="text-xs font-semibold text-amber-600/80 hover:text-amber-800 transition-colors">
+                  Interactive Demo
                 </Link>
                 <Link to="/know-more#reconciliation" className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors">
                   How it works
@@ -486,7 +524,7 @@ function LandingPage() {
               {
                 icon: ShieldCheck,
                 title: 'Tamper-Evident Audit Log & QR Letter Seals',
-                desc: 'Every action is permanently sealed in a sequential SHA-256 chain where any modification is immediately detected. Printed bank instructions include a QR code and 6-digit security code for instant verification.'
+                desc: 'Every action is permanently sealed in a sequential SHA-256 chain where any modification is immediately detected. Printed bank instructions include a QR code and security code for instant verification.'
               },
               {
                 icon: Fingerprint,
@@ -541,29 +579,36 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* ═══════ DEMO REQUEST FORM ═══════ */}
-      <section ref={demoFormRef} id="demo-form" className="bg-white py-20 lg:py-24">
+      {/* ═══════ MEETING REQUEST FORM ═══════ */}
+      <section ref={meetingFormRef} id="book-meeting" className="bg-white py-20 lg:py-24 scroll-mt-14">
         <div className="max-w-5xl mx-auto px-6">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             
             {/* Left: Info */}
             <div>
-              <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">See It in Action</p>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">Request a Personalized Demo</h2>
+              <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">Talk to Our Team</p>
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Book a Personalized Meeting</h2>
               <p className="text-gray-500 mb-6 leading-relaxed">
-                See how Grow can streamline your treasury operations. Our team will walk you through the modules most relevant to your organization.
+                Discuss how Grow fits your treasury operations. Our team will walk through the modules, bank workflows, and governance setup most relevant to your organization.
               </p>
               <div className="space-y-4">
                 {[
-                  { icon: Clock, text: '30-minute guided walkthrough' },
+                  { icon: Clock, text: '30-minute consultation with treasury specialists' },
                   { icon: Building2, text: 'Tailored to your banks, entities, and workflows' },
-                  { icon: BookOpen, text: 'Free brochure included after the call' },
+                  { icon: BookOpen, text: 'Free brochure included after the meeting' },
                 ].map((perk, i) => (
                   <div key={i} className="flex items-center text-sm text-gray-600">
                     <perk.icon className="w-4 h-4 text-blue-500 mr-3 flex-shrink-0" />
                     {perk.text}
                   </div>
                 ))}
+              </div>
+              <div className="mt-6 pt-5 border-t border-gray-100">
+                <p className="text-xs text-gray-500 mb-1.5">Want to explore the platform right now at your own pace?</p>
+                <Link to="/demo" className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">
+                  <Play className="w-3.5 h-3.5 mr-1.5 fill-current" />
+                  Explore the Interactive Demo <ArrowRight className="ml-1.5 w-3.5 h-3.5" />
+                </Link>
               </div>
             </div>
 
@@ -573,10 +618,10 @@ function LandingPage() {
                 <div className="text-center p-8">
                   <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
                   <p className="text-lg font-semibold text-green-700">Thank you!</p>
-                  <p className="text-sm text-gray-500 mt-1">We'll be in touch shortly to schedule your demo.</p>
+                  <p className="text-sm text-gray-500 mt-1">We'll be in touch shortly to schedule your meeting.</p>
                 </div>
               ) : (
-                <form onSubmit={handleDemoSubmit} className="space-y-4">
+                <form onSubmit={handleMeetingSubmit} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="name" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Name *</label>
@@ -602,8 +647,8 @@ function LandingPage() {
                   {formError && (
                     <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-100">{formError}</div>
                   )}
-                  <button type="submit" className="w-full flex items-center justify-center py-2.5 px-4 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md">
-                    Request Demo <ArrowRight className="ml-2 w-4 h-4" />
+                  <button type="submit" className="w-full flex items-center justify-center py-2.5 px-4 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md cursor-pointer">
+                    Book a Meeting <ArrowRight className="ml-2 w-4 h-4" />
                   </button>
 
                   {/* Zero-friction perimeter anti-bot honeypot trap positioned after form fields to prevent autofill heuristic collisions */}
@@ -624,8 +669,12 @@ function LandingPage() {
             <Link to="/free-trial-register" className="px-6 py-2.5 text-sm font-semibold text-blue-600 bg-white rounded-lg hover:bg-gray-100 transition-colors shadow-md">
               Start Free Trial
             </Link>
-            <button onClick={scrollToDemoForm} className="px-6 py-2.5 text-sm font-semibold text-white border-2 border-white/70 rounded-lg hover:bg-white/10 transition-colors">
-              Book a Demo
+            <Link to="/demo" className="inline-flex items-center px-6 py-2.5 text-sm font-semibold text-white bg-blue-700/60 border-2 border-white/80 rounded-lg hover:bg-blue-700 transition-colors">
+              <Play className="w-3.5 h-3.5 mr-1.5 fill-current" />
+              Interactive Demo
+            </Link>
+            <button onClick={scrollToMeetingForm} className="px-6 py-2.5 text-sm font-semibold text-white border-2 border-white/70 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+              Book a Meeting
             </button>
             <Link to="/login" className="px-6 py-2.5 text-sm font-semibold text-white border-2 border-white/70 rounded-lg hover:bg-white/10 transition-colors">
               Login to Your Account
@@ -660,7 +709,9 @@ function LandingPage() {
           <div>
             <h4 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Quick Links</h4>
             <ul className="space-y-2 text-sm">
+              <li><Link to="/demo" className="hover:text-white transition-colors">Interactive Demo</Link></li>
               <li><Link to="/know-more" className="hover:text-white transition-colors">About the Platform</Link></li>
+              <li><button onClick={scrollToMeetingForm} className="hover:text-white transition-colors cursor-pointer">Book a Meeting</button></li>
               <li><Link to="/free-trial-register" className="hover:text-white transition-colors">Start Free Trial</Link></li>
               <li><Link to="/portal/issuance" className="hover:text-white transition-colors">Public Issuance Portal</Link></li>
               <li><Link to="/login" className="hover:text-white transition-colors">Login</Link></li>

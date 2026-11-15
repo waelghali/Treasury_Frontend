@@ -259,7 +259,7 @@ export default function IssuanceFormConfigPage() {
     if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600 w-8 h-8" /></div>;
 
     return (
-        <div className="max-w-5xl mx-auto p-6 space-y-6">
+        <div className="w-full min-w-0 space-y-6">
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

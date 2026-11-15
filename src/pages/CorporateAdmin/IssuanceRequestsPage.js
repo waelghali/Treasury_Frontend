@@ -370,13 +370,21 @@ export default function IssuanceRequestsPage() {
                       <div className="text-xs text-gray-500">{req.requestor_name || "Treasury"}</div>
                       <div className="text-xs text-blue-600">{req.business_details?.department}</div>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4 min-w-[160px]">
                       <div className="text-sm text-gray-900 font-medium">{req.beneficiary_name}</div>
-                      <div className="text-xs text-gray-500 truncate max-w-xs">{req.business_details?.project_name}</div>
+                      {req.business_details?.project_name && (
+                        <div className="cell-truncate">
+                          <div className="text-xs text-gray-500 truncate" title={req.business_details.project_name}>{req.business_details.project_name}</div>
+                        </div>
+                      )}
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4 min-w-[140px]">
                       <div className="text-sm font-bold text-gray-900">{req.lg_type?.name || '—'}</div>
-                      <div className="text-xs text-gray-500 truncate max-w-[120px]" title={req.lg_purpose}>{req.lg_purpose || ''}</div>
+                      {req.lg_purpose && (
+                        <div className="cell-truncate">
+                          <div className="text-xs text-gray-500 truncate" title={req.lg_purpose}>{req.lg_purpose}</div>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm font-bold text-gray-900">

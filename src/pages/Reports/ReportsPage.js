@@ -20,7 +20,7 @@ function ReportsPage({ reports }) {
   // If no reports are passed, show a message or redirect.
   if (!reports || reports.length === 0) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="w-full min-w-0">
         <h2 className="text-3xl font-bold text-gray-800 mb-6">Reports Dashboard</h2>
         <p className="text-gray-600 mb-8">No reports available for your role.</p>
       </div>
@@ -31,7 +31,7 @@ function ReportsPage({ reports }) {
   // This removes the need for a report selection page
   if (reports.length === 1) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="w-full min-w-0">
         <Outlet />
       </div>
     );
@@ -40,7 +40,7 @@ function ReportsPage({ reports }) {
   // If there's more than one report (e.g., for System Owner in the future),
   // render the grid for selection.
   return (
-    <div className="container mx-auto p-4">
+    <div className="w-full min-w-0">
       <h2 className="text-3xl font-bold text-gray-800 mb-6">Reports Dashboard</h2>
       <p className="text-gray-600 mb-8">Select a report to view detailed insights.</p>
 

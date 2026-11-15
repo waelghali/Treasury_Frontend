@@ -1371,7 +1371,7 @@ function MigrationUploadPage() {
 
 
     return (
-        <div className="bg-white p-6 md:p-4 rounded-xl shadow-2xl max-w-full mx-auto my-6 font-sans overflow-x-auto">
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 w-full min-w-0 font-sans overflow-x-auto">
             <input
                 type="file"
                 ref={folderInputRef}

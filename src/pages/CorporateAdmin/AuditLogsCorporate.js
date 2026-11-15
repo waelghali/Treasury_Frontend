@@ -511,12 +511,14 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) {
                     </td>
 
                     {/* User */}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="font-semibold text-slate-900 truncate max-w-[200px]" title={log.user_name}>
-                          {log.user_name || (log.user_id ? `User #${log.user_id}` : 'System')}
-                        </span>
+                    <td className="px-4 py-3 min-w-[150px]">
+                      <div className="cell-truncate">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="font-semibold text-slate-900 truncate" title={log.user_name}>
+                            {log.user_name || (log.user_id ? `User #${log.user_id}` : 'System')}
+                          </span>
+                        </div>
                       </div>
                     </td>
 

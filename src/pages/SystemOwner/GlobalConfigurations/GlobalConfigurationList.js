@@ -433,6 +433,7 @@ function GlobalConfigurationList({ onLogout }) {
                             { label: 'SLA', color: '#f59e0b', key: 'FACILITY_SCORE_WEIGHT_SLA', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_SLA' },
                             { label: 'Capacity', color: '#10b981', key: 'FACILITY_SCORE_WEIGHT_CAPACITY', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_CAPACITY' },
                             { label: 'Currency', color: '#ec4899', key: 'FACILITY_SCORE_WEIGHT_CURRENCY_MATCH', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_CURRENCY_MATCH' },
+                            { label: 'Rarity', color: '#06b6d4', key: 'FACILITY_SCORE_WEIGHT_RARITY', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_RARITY' },
                           ];
 
                           const getConfig = (cfgKey) => configsInGroup.find(x => x.key === cfgKey);
@@ -447,9 +448,9 @@ function GlobalConfigurationList({ onLogout }) {
                                   ...w,
                                   configId: c?.id,
                                   configKey: w[keyProp],
-                                  min: parseInt(c?.value_min || 0),
-                                  max: parseInt(c?.value_max || 100),
-                                  def: parseInt(c?.value_default || 20),
+                                  min: c ? parseInt(c.value_min ?? 0, 10) : 0,
+                                  max: c ? parseInt(c.value_max ?? 100, 10) : 100,
+                                  def: c ? parseInt(c.value_default ?? 0, 10) : 0,
                                 };
                               })
                             );
@@ -462,9 +463,9 @@ function GlobalConfigurationList({ onLogout }) {
                                     ...w,
                                     configId: c?.id,
                                     configKey: w[keyProp],
-                                    min: parseInt(c?.value_min || 0),
-                                    max: parseInt(c?.value_max || 100),
-                                    def: parseInt(c?.value_default || 20),
+                                    min: c ? parseInt(c.value_min ?? 0, 10) : 0,
+                                    max: c ? parseInt(c.value_max ?? 100, 10) : 100,
+                                    def: c ? parseInt(c.value_default ?? 0, 10) : 0,
                                   };
                                 }));
                               }
@@ -481,7 +482,8 @@ function GlobalConfigurationList({ onLogout }) {
 
                             const handleBalance = () => {
                               if (defaultTotal === 0) {
-                                setRows(prev => prev.map(r => ({ ...r, def: 20 })));
+                                const equalDefaults = [25, 15, 15, 15, 15, 15];
+                                setRows(prev => prev.map((r, idx) => ({ ...r, def: equalDefaults[idx] ?? 15 })));
                                 return;
                               }
                               const scale = 100 / defaultTotal;
@@ -513,6 +515,7 @@ function GlobalConfigurationList({ onLogout }) {
                               setSaving(true);
                               try {
                                 for (const r of rows) {
+                                  if (!r.configId) continue;
                                   await apiRequest(`/system-owner/global-configurations/${r.configId}`, 'PUT', {
                                     key: r.configKey,
                                     value_min: String(r.min),
@@ -539,9 +542,9 @@ function GlobalConfigurationList({ onLogout }) {
                                   ...w,
                                   configId: c?.id,
                                   configKey: w[keyProp],
-                                  min: parseInt(c?.value_min || 0),
-                                  max: parseInt(c?.value_max || 100),
-                                  def: parseInt(c?.value_default || 20),
+                                  min: c ? parseInt(c.value_min ?? 0, 10) : 0,
+                                  max: c ? parseInt(c.value_max ?? 100, 10) : 100,
+                                  def: c ? parseInt(c.value_default ?? 0, 10) : 0,
                                 };
                               }));
                               setEditing(true);
@@ -550,7 +553,7 @@ function GlobalConfigurationList({ onLogout }) {
                             const handleCancel = () => {
                               setRows(WEIGHT_DEFS.map(w => {
                                 const c = getConfig(w[keyProp]);
-                                return { ...w, configId: c?.id, configKey: w[keyProp], min: parseInt(c?.value_min || 0), max: parseInt(c?.value_max || 100), def: parseInt(c?.value_default || 20) };
+                                return { ...w, configId: c?.id, configKey: w[keyProp], min: c ? parseInt(c.value_min ?? 0, 10) : 0, max: c ? parseInt(c.value_max ?? 100, 10) : 100, def: c ? parseInt(c.value_default ?? 0, 10) : 0 };
                               }));
                               setEditing(false);
                             };

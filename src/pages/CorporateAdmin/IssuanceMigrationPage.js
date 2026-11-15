@@ -254,7 +254,7 @@ export default function IssuanceMigrationPage() {
   const importableCount = (report.READY_FOR_IMPORT || 0) + (report.NEEDS_REVIEW || 0) + (report.EXPIRED || 0);
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: 1400, margin: '0 auto' }}>
+    <div style={{ width: '100%', minWidth: 0 }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>

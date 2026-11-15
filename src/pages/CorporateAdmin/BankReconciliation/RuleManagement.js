@@ -211,6 +211,17 @@ const RuleManagement = () => {
         }
     };
 
+    const handleToggleRuleLifecycle = async (rule) => {
+        const nextState = rule.lifecycle_state === 'SUGGESTED' ? 'AUTO_CONFIRMED' : 'SUGGESTED';
+        try {
+            await apiRequest(`/reconciliation/rules/${rule.id}/promote?lifecycle_state=${nextState}`, 'POST');
+            fetchRules();
+        } catch (err) {
+            console.error("Failed to update rule lifecycle", err);
+            alert("Failed to update rule status.");
+        }
+    };
+
     const handleAddCondition = () => {
         setConditions(prev => [
             ...prev,
@@ -527,23 +538,63 @@ const RuleManagement = () => {
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="border-b border-gray-100 uppercase text-[10px] text-gray-400 font-bold tracking-widest bg-gray-50/50">
-                                        <th className="px-6 py-4">Rule Name</th>
-                                        <th className="px-6 py-4">Priority</th>
-                                        <th className="px-6 py-4">Assigned GL Account</th>
-                                        <th className="px-6 py-4">Logic Flow</th>
-                                        <th className="px-6 py-4">Usage Hits</th>
+                                        <th className="px-6 py-4">Rule Name & Origin</th>
+                                        <th className="px-6 py-4">Status / Precision</th>
+                                        <th className="px-6 py-4">Assigned GL / Category</th>
+                                        <th className="px-6 py-4">Learned & Custom Logic Flow</th>
+                                        <th className="px-6 py-4">Confirmations</th>
                                         <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
                                     {rules.map(rule => (
                                         <tr key={rule.id} className="hover:bg-gray-50 transition-colors group text-sm">
-                                            <td className="px-6 py-4 font-semibold text-gray-900">{rule.rule_name || '-'}</td>
-                                            <td className="px-6 py-4 text-xs font-mono text-gray-400">P{rule.priority}</td>
-                                            <td className="px-6 py-4 font-semibold text-blue-600">{rule.assigned_gl_account}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="font-semibold text-gray-900">{rule.rule_name || '-'}</div>
+                                                <div className="flex items-center gap-1.5 mt-1">
+                                                    <span className="text-[10px] font-mono text-gray-400">P{rule.priority}</span>
+                                                    {rule.rule_origin === 'LEARNED_ONLINE' && (
+                                                        <span className="px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-full text-[10px] font-bold">
+                                                            Online Learned
+                                                        </span>
+                                                    )}
+                                                    {rule.rule_origin === 'SYSTEM_ADAPTED' && (
+                                                        <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">
+                                                            Self-Healed
+                                                        </span>
+                                                    )}
+                                                    {(!rule.rule_origin || rule.rule_origin === 'MANUAL') && (
+                                                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[10px] font-bold">
+                                                            Manual Rule
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col gap-1">
+                                                    {rule.lifecycle_state === 'SUGGESTED' ? (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 w-fit">
+                                                            Incubating (Suggested)
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 w-fit">
+                                                            Auto-Confirmed
+                                                        </span>
+                                                    )}
+                                                    <span className="text-[11px] text-gray-500">
+                                                        {rule.empirical_precision ?? 100}% precision · {rule.calibrated_confidence ?? 85}% conf
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="font-semibold text-blue-600">{rule.assigned_gl_account}</div>
+                                                {rule.assigned_category && rule.assigned_category !== rule.assigned_gl_account && (
+                                                    <div className="text-xs text-gray-500">{rule.assigned_category}</div>
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-wrap items-center gap-1">
-                                                    {rule.conditions_json.conditions?.map((c, i) => (
+                                                    {rule.conditions_json?.conditions?.map((c, i) => (
                                                         <React.Fragment key={i}>
                                                             {i > 0 && <span className={`text-[9px] font-black px-1 ${c.joiner === 'OR' ? 'text-orange-500' : 'text-blue-500'}`}>{c.joiner}</span>}
                                                             <span className="px-2 py-0.5 bg-white border border-gray-200 rounded text-[10px] text-gray-600 shadow-sm">
@@ -552,11 +603,36 @@ const RuleManagement = () => {
                                                             </span>
                                                         </React.Fragment>
                                                     ))}
+                                                    {rule.conditions_json?.exclude_tokens?.length > 0 && (
+                                                        <span className="px-2 py-0.5 bg-red-50 border border-red-200 rounded text-[10px] text-red-700 font-semibold">
+                                                            Excludes: {rule.conditions_json.exclude_tokens.join(', ')}
+                                                        </span>
+                                                    )}
+                                                    {rule.conditions_json?.amount_max && (
+                                                        <span className="px-2 py-0.5 bg-gray-100 border border-gray-200 rounded text-[10px] text-gray-700">
+                                                            Max Amt: {rule.conditions_json.amount_max}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-gray-500 text-xs">{rule.usage_count || 0} hits</td>
+                                            <td className="px-6 py-4 text-gray-500 text-xs">
+                                                <div>{rule.confirmations_count || 1} confirmed</div>
+                                                {rule.overrides_count > 0 && (
+                                                    <div className="text-red-500 text-[10px]">{rule.overrides_count} overrides</div>
+                                                )}
+                                                <div className="text-[10px] text-gray-400">{rule.usage_count || 0} hits</div>
+                                            </td>
                                             <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end space-x-2">
+                                                <div className="flex justify-end items-center space-x-2">
+                                                    {rule.lifecycle_state === 'SUGGESTED' && (
+                                                        <button
+                                                            onClick={() => handleToggleRuleLifecycle(rule)}
+                                                            className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors"
+                                                            title="Promote to Auto-Confirmed Rule"
+                                                        >
+                                                            Promote
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={() => handleEditRule(rule)}
                                                         className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -1060,8 +1136,10 @@ const RuleManagement = () => {
                                                                         {sub.direction}
                                                                     </span>
                                                                 </td>
-                                                                <td className="px-4 py-2.5 text-gray-500 max-w-xs truncate" title={sub.description || ''}>
-                                                                    {sub.description || '-'}
+                                                                <td className="px-4 py-2.5 text-gray-500 min-w-[160px]" title={sub.description || ''}>
+                                                                    <div className="cell-truncate">
+                                                                        <span className="truncate">{sub.description || '-'}</span>
+                                                                    </div>
                                                                 </td>
                                                                 <td className="px-4 py-2.5 text-right">
                                                                     <div className="flex items-center justify-end space-x-1">

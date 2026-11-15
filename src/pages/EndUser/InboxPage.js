@@ -408,7 +408,7 @@ export default function InboxPage() {
     };
 
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-6">
+        <div className="w-full min-w-0 space-y-6">
             {/* ─── Top Header & Primary Actions ─── */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                 <div className="flex items-center gap-3">
@@ -776,10 +776,10 @@ export default function InboxPage() {
 
                                         {/* Primary Attachment Chip */}
                                         {item.has_attachment && item.primary_attachment_name && (
-                                            <div className="flex items-center gap-2 p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs">
-                                                <Paperclip className="w-4 h-4 text-gray-500" />
-                                                <div className="max-w-[180px] truncate">
-                                                    <div className="font-medium text-gray-800 truncate">{item.primary_attachment_name}</div>
+                                            <div className="flex items-center gap-2 p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs max-w-full sm:max-w-sm">
+                                                <Paperclip className="w-4 h-4 text-gray-500 shrink-0" />
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="font-medium text-gray-800 truncate" title={item.primary_attachment_name}>{item.primary_attachment_name}</div>
                                                     <div className="text-gray-400 uppercase">{item.primary_attachment_type || 'FILE'}</div>
                                                 </div>
                                                 <button

@@ -2976,7 +2976,7 @@ export default function QuotationRequestDashboard() {
 
     if (createdRfq) {
         return (
-            <div className="w-full max-w-[1400px] mx-auto p-4 sm:p-8">
+            <div className="w-full min-w-0">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div
                         className="lg:col-span-1 bg-white p-6 sm:p-8 rounded-xl border border-gray-100 h-fit lg:sticky lg:top-6 transition-all duration-500 ease-out transform translate-y-0 opacity-100"
@@ -3114,7 +3114,7 @@ export default function QuotationRequestDashboard() {
     const selectedEntityName = selectedEntity ? `${selectedEntity.code ? `[${selectedEntity.code}] ` : ''}${selectedEntity.name}` : 'Your Legal Entity';
 
     return (
-        <div className="w-full max-w-[1400px] mx-auto p-4 sm:p-8">
+        <div className="w-full min-w-0">
             {/* Corporate Quotation Mobile Alerts Banner */}
             <CorporateMobileAlertsBanner
                 title="Quotation Mobile Alerts"

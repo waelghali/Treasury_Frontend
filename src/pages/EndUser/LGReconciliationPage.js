@@ -212,7 +212,7 @@ export default function LGReconciliationPage() {
     } : {};
 
     return (
-        <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
+        <div style={{ width: '100%', minWidth: 0 }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                 <div>
@@ -240,7 +240,7 @@ export default function LGReconciliationPage() {
 
             {/* ═══ Upload Tab ═══ */}
             {activeTab === 'upload' && (
-                <div style={{ background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', maxWidth: 700 }}>
+                <div style={{ background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', width: '100%' }}>
                     <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24, color: '#0f172a' }}>
                         ⬆️ Upload Bank Position Report
                     </h2>

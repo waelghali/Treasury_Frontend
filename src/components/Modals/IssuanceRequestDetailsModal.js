@@ -37,6 +37,10 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
     const [loadingNearMatch, setLoadingNearMatch] = useState(false);
     const [docAnalysis, setDocAnalysis] = useState(null);
     const [analyzingDocId, setAnalyzingDocId] = useState(null);
+    const [wordingScan, setWordingScan] = useState(requestProp?.metadata_json?.special_wording_analysis || null);
+    const [scanningWording, setScanningWording] = useState(false);
+    const [showPasteWording, setShowPasteWording] = useState(false);
+    const [draftWordingText, setDraftWordingText] = useState('');
 
     // Use fullRequest as the canonical request object (keeps prop as fallback)
     const request = fullRequest || requestProp;
@@ -47,7 +51,12 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
         setLoadingFullRequest(true);
         apiRequest(`/issuance/requests/${requestProp.id}`, 'GET')
             .then(data => {
-                if (data) setFullRequest(data);
+                if (data) {
+                    setFullRequest(data);
+                    if (data?.metadata_json?.special_wording_analysis) {
+                        setWordingScan(data.metadata_json.special_wording_analysis);
+                    }
+                }
             })
             .catch(err => {
                 console.warn('Could not fetch full request details, using list data:', err);
@@ -182,6 +191,30 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
     };
 
 
+    const handleScanSpecialWording = async ({ docId = null, customText = null } = {}) => {
+        setScanningWording(true);
+        try {
+            const formData = new FormData();
+            if (docId) formData.append('document_id', docId);
+            if (customText && customText.trim()) formData.append('wording_text', customText.trim());
+
+            const result = await apiRequest(`/issuance/requests/${request.id}/analyze-special-wording`, 'POST', formData, true);
+            setWordingScan(result);
+            if (result?.status === 'OK') {
+                setShowPasteWording(false);
+                toast.success('Special-wording risk scan completed');
+                try {
+                    const refreshed = await apiRequest(`/issuance/requests/${request.id}/documents`, 'GET');
+                    setDocuments(refreshed || []);
+                } catch (_) { /* non-critical */ }
+            }
+        } catch (err) {
+            toast.error(err?.message || 'Could not scan special wording');
+        } finally {
+            setScanningWording(false);
+        }
+    };
+
     const fetchMatchingFacilities = async () => {
         try {
             setLoadingFacilities(true);
@@ -194,6 +227,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                 facility_name: f.sub_limit_name,
                 reference_number: `Sub-Limit #${f.sub_limit_id}`,
                 currency: request?.currency?.iso_code || request?.currency?.code || '',
+                facility_currency_code: f.facility_currency_code || '',
                 available_limit: f.limit_available,
                 availableFormatted: parseFloat(f.limit_available).toLocaleString(),
                 isRecommended: f.has_sufficient_limit,
@@ -213,6 +247,9 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                 real_net_headroom: f.real_net_headroom,
                 post_issuance_headroom: f.post_issuance_headroom,
                 headroom_status: f.headroom_status,
+                // Additive: Rarity & Capability Preservation fields
+                rarity_score: f.rarity_score,
+                saved_capabilities: f.saved_capabilities || [],
             }));
             setFacilities(mapped);
         } catch (err) {
@@ -728,14 +765,171 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                             </div>
                         )}
 
-                        {/* Special Wording */}
-                        {request.requires_special_wording && (
-                            <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                                <h4 className="text-xs font-bold text-purple-800 uppercase tracking-wider flex items-center gap-1">
-                                    <FileWarning className="w-4 h-4" /> Requires Special Wording
-                                </h4>
+                        {/* Special Wording & Trap Detector (Arabic / English) */}
+                        {!(request.requires_special_wording || request.other_conditions || wordingScan || showPasteWording || documents.some(d => ['SPECIAL_WORDING', 'BANK_LG_COPY'].includes(d.document_type))) && (
+                            <div className="flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPasteWording(true)}
+                                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 py-1.5 rounded-lg transition"
+                                >
+                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                    Scan Draft Special Wording Traps (AR / EN)
+                                </button>
                             </div>
                         )}
+                        {(request.requires_special_wording || request.other_conditions || wordingScan || showPasteWording || documents.some(d => ['SPECIAL_WORDING', 'BANK_LG_COPY'].includes(d.document_type))) && (() => {
+                            const specialDoc = documents.find(d => d.document_type === 'SPECIAL_WORDING') || documents.find(d => d.document_type === 'BANK_LG_COPY');
+                            const canAutoScan = Boolean(specialDoc || request.other_conditions);
+                            const levelStyles = {
+                                GREEN: { box: 'bg-emerald-50/80 border-emerald-200', pill: 'bg-emerald-600 text-white', text: 'text-emerald-900' },
+                                AMBER: { box: 'bg-amber-50/80 border-amber-200', pill: 'bg-amber-500 text-white', text: 'text-amber-900' },
+                                RED: { box: 'bg-rose-50/80 border-rose-200', pill: 'bg-rose-600 text-white', text: 'text-rose-900' },
+                            };
+                            const curStyle = levelStyles[wordingScan?.risk_level] || { box: 'bg-purple-50 border-purple-200', pill: 'bg-purple-600 text-white', text: 'text-purple-900' };
+
+                            return (
+                                <div className={`p-4 rounded-xl border space-y-3 ${wordingScan?.status === 'OK' ? curStyle.box : 'bg-purple-50 border-purple-200'}`}>
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                        <h4 className="text-xs font-bold text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
+                                            <FileWarning className="w-4 h-4 text-purple-700" />
+                                            {request.requires_special_wording ? 'Requires Special Wording — Trap Detector (AR / EN)' : 'Guarantee Wording Trap Detector (AR / EN)'}
+                                        </h4>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            {canAutoScan && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleScanSpecialWording({ docId: specialDoc?.id || null })}
+                                                    disabled={scanningWording}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-[11px] font-bold shadow-xs disabled:opacity-50 transition"
+                                                >
+                                                    {scanningWording ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                                                    {wordingScan?.status === 'OK' ? 'Re-Scan Wording' : (specialDoc ? 'Scan Attached Wording' : 'Scan Conditions Text')}
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPasteWording(v => !v)}
+                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-purple-100 text-purple-800 border border-purple-300 text-[11px] font-semibold transition"
+                                            >
+                                                <FileSearch className="w-3.5 h-3.5" />
+                                                {showPasteWording ? 'Hide Text Box' : 'Paste AR/EN Text'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {showPasteWording && (
+                                        <div className="bg-white p-3 rounded-lg border border-purple-200 space-y-2">
+                                            <label className="block text-[11px] font-semibold text-slate-600">
+                                                Paste draft Arabic or English guarantee wording to check for legal/financial traps:
+                                            </label>
+                                            <textarea
+                                                dir="auto"
+                                                rows={4}
+                                                value={draftWordingText}
+                                                onChange={e => setDraftWordingText(e.target.value)}
+                                                placeholder="Paste beneficiary guarantee wording (نص خطاب الضمان أو الصيغة الخاصة)..."
+                                                className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                                            />
+                                            <div className="flex justify-end">
+                                                <button
+                                                    type="button"
+                                                    disabled={scanningWording || !draftWordingText.trim()}
+                                                    onClick={() => handleScanSpecialWording({ customText: draftWordingText })}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold disabled:opacity-50 transition"
+                                                >
+                                                    {scanningWording ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                                                    Run Trap Scan
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {wordingScan?.status === 'TOO_LARGE' && (
+                                        <div className="p-2.5 rounded-lg bg-amber-100 text-amber-900 text-xs font-medium">
+                                            {wordingScan.message}
+                                        </div>
+                                    )}
+
+                                    {wordingScan?.status === 'OK' && (
+                                        <div className="bg-white/95 rounded-xl p-3.5 border border-slate-200 space-y-3">
+                                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase ${curStyle.pill}`}>
+                                                        {wordingScan.risk_level === 'RED' ? '🔴 High Risk' : wordingScan.risk_level === 'AMBER' ? '🟡 Caution' : '🟢 Low Risk'}
+                                                    </span>
+                                                    <span className={`text-xs font-bold ${curStyle.text}`}>
+                                                        {wordingScan.risk_label}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                                                    {wordingScan.detected_language && (
+                                                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 uppercase">
+                                                            {wordingScan.detected_language}
+                                                        </span>
+                                                    )}
+                                                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                                                        Risk Score: {wordingScan.risk_score ?? 0}/100
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {wordingScan.executive_summary && (
+                                                <p className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                                    {wordingScan.executive_summary}
+                                                </p>
+                                            )}
+
+                                            {wordingScan.findings?.length > 0 && (
+                                                <div className="space-y-2">
+                                                    {wordingScan.findings.map((f, idx) => (
+                                                        <div key={idx} className={`p-3 rounded-lg border space-y-1.5 ${f.severity === 'RED' ? 'bg-rose-50/70 border-rose-200' : 'bg-amber-50/70 border-amber-200'}`}>
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                                                    <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${f.severity === 'RED' ? 'text-rose-600' : 'text-amber-600'}`} />
+                                                                    {f.title}
+                                                                </span>
+                                                                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase ${f.severity === 'RED' ? 'bg-rose-600 text-white' : 'bg-amber-500 text-white'}`}>
+                                                                    {f.severity}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-xs text-slate-700">{f.plain_explanation}</p>
+                                                            {f.quoted_excerpt && (
+                                                                <div dir="auto" className="text-[11px] text-slate-800 bg-white/90 px-2.5 py-1.5 rounded border border-slate-200 italic">
+                                                                    "{f.quoted_excerpt}"
+                                                                </div>
+                                                            )}
+                                                            {f.suggested_protective_rewording && (
+                                                                <div dir="auto" className="text-[11px] text-emerald-900 bg-emerald-50/90 px-2.5 py-1.5 rounded border border-emerald-200">
+                                                                    <strong className="font-bold">Protective Rewording: </strong>
+                                                                    {f.suggested_protective_rewording}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {wordingScan.positive_protections?.length > 0 && (
+                                                <div className="pt-1 space-y-1">
+                                                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Protective Clauses Present</p>
+                                                    {wordingScan.positive_protections.map((p, idx) => (
+                                                        <div key={idx} className="flex items-start gap-1.5 text-xs text-emerald-800">
+                                                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
+                                                            <span>{p}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            <p className="text-[10px] text-slate-400 italic">
+                                                Advisory risk check only — does not block approval, facility reservation, or issuance.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
 
                         {/* Other Conditions */}
                         {request.other_conditions && (
@@ -848,6 +1042,36 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                                 >
                                                     <Download className="w-4 h-4" />
                                                 </button>
+                                                {['SPECIAL_WORDING', 'BANK_LG_COPY'].includes(doc.document_type) && (
+                                                    doc.ai_verification_result?.wording_trap_analysis?.status === 'OK' ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setWordingScan(doc.ai_verification_result.wording_trap_analysis)}
+                                                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold cursor-pointer hover:opacity-80 transition-opacity ${
+                                                                doc.ai_verification_result.wording_trap_analysis.risk_level === 'RED'
+                                                                    ? 'bg-rose-100 text-rose-700'
+                                                                    : doc.ai_verification_result.wording_trap_analysis.risk_level === 'AMBER'
+                                                                    ? 'bg-amber-100 text-amber-700'
+                                                                    : 'bg-emerald-100 text-emerald-700'
+                                                            }`}
+                                                            title="Click to view Special-Wording Trap Scorecard"
+                                                        >
+                                                            <ShieldCheck className="w-3 h-3" />
+                                                            {doc.ai_verification_result.wording_trap_analysis.risk_level}
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleScanSpecialWording({ docId: doc.id })}
+                                                            disabled={scanningWording}
+                                                            className="text-purple-600 hover:text-purple-800 transition px-2 py-1 rounded hover:bg-purple-50 text-[10px] font-bold inline-flex items-center gap-1"
+                                                            title="Scan Guarantee Wording Traps (Arabic / English)"
+                                                        >
+                                                            {scanningWording ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                                                            Scan Traps
+                                                        </button>
+                                                    )
+                                                )}
                                                 {['CONTRACT', 'PURCHASE_ORDER', 'FORMAL_REQUEST'].includes(doc.document_type) && doc.file_name?.toLowerCase().endsWith('.pdf') && (
                                                     doc.ai_verification_result?.status === 'OK' ? (
                                                         <button
@@ -1137,6 +1361,13 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                                         <p className="font-bold text-gray-900">{f.bank?.name}</p>
                                                         <div className="flex gap-1 flex-wrap justify-end">
                                                             {f.tags?.includes('BEST_OVERALL') && <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-bold">★ Recommended</span>}
+                                                            {f.tags?.includes('DEDICATED') && <span className="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-bold" title="Project-dedicated line — using this saves general credit lines">🎯 Project Line</span>}
+                                                            {f.tags?.includes('COMMON_FIT') && <span className="bg-cyan-600 text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-bold" title="Standard line fit — preserves rare facilities for specialized requests">Preserves Rare Lines</span>}
+                                                            {f.tags?.includes('RARE_LINE_SAVE') && (
+                                                                <span className="bg-cyan-100 text-cyan-800 border border-cyan-300 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold" title={`Rare perks on this line: ${(f.saved_capabilities || []).join(', ')}. Still 100% selectable.`}>
+                                                                    💎 Rare Line{f.saved_capabilities?.length ? ` (${f.saved_capabilities.slice(0, 2).join(', ')})` : ''}
+                                                                </span>
+                                                            )}
                                                             {f.tags?.includes('BEST_PRICE') && <span className="bg-green-600 text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-bold">Best Price</span>}
                                                             {f.tags?.includes('FAST_TRACK') && <span className="bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-bold">Fast Track</span>}
                                                             {f.tags?.includes('NO_MARGIN') && <span className="bg-teal-500 text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-bold">No Margin</span>}
@@ -1180,7 +1411,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                                     <div className="flex justify-between items-center bg-white p-2 rounded border">
                                                         <span className="text-xs text-gray-500">Available</span>
                                                         <span className={`font-bold ${f.isRecommended ? 'text-green-700' : 'text-red-600'}`}>
-                                                            {f.currency} {f.availableFormatted}
+                                                            {f.facility_currency_code || f.currency} {f.availableFormatted}
                                                         </span>
                                                     </div>
                                                 </div>

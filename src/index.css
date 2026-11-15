@@ -22,6 +22,14 @@ input[class*="pl-10"],
   padding-left: 2.5rem !important;
 }
 
+/* Fluid single-line truncation inside auto-layout table cells:
+   Expands dynamically when extra horizontal space is available (e.g. sidebar collapsed),
+   while shrinking cleanly down to the cell's min-width on smaller viewports or higher zoom. */
+.cell-truncate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
 /* Custom component styles */
 @layer components {
   .card {

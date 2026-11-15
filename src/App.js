@@ -9,6 +9,7 @@ import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/Auth/ResetPasswordPage';
 import LandingPage from './pages/LandingPage';
 import KnowMorePage from './pages/KnowMorePage';
+import InteractiveDemoPage from './pages/Public/InteractiveDemoPage';
 import FreeTrialRegistration from './pages/Public/FreeTrialRegistration';
 import PublicIssuancePortal from './pages/Public/PublicIssuancePortal';
 import PublicIssuanceForm from './pages/Public/PublicIssuanceForm';
@@ -46,12 +47,17 @@ import {
   extendSession,
   logoutUser,
   handleUserActivity,
+  TOTAL_SESSION_MS,
   WARNING_BUFFER_MS
 } from './services/apiService';
 import { syncPushOwnership } from './services/pushService';
+import {
+  resolvePostLoginTarget,
+  recordExpiredSessionBeforeClear,
+} from './utils/smartNavigation';
 import { jwtDecode } from 'jwt-decode';
 
-import { ToastContainer, Flip } from 'react-toastify';
+import { ToastContainer, Flip, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './ToastAnimations.css';
 
@@ -83,6 +89,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
   const isPublicRoute = Boolean(
     location.pathname && (
       location.pathname.startsWith('/public') ||
+      location.pathname.startsWith('/demo') ||
       location.pathname.includes('/public-quotation') ||
       location.pathname.includes('/public/quotation') ||
       location.pathname.includes('/public-bank-handshake') ||
@@ -137,6 +144,14 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     if (token) {
       try {
         if (checkExpiry && (!isTokenValid(token) || isSessionIdleExpired())) {
+          let prevUserId = null;
+          let lastAct = 0;
+          try {
+            prevUserId = localStorage.getItem('user_id');
+            lastAct = Number(localStorage.getItem('last_activity_at')) || 0;
+          } catch {}
+          const expiredAt = lastAct > 0 ? Math.min(Date.now(), lastAct + TOTAL_SESSION_MS) : Date.now();
+          recordExpiredSessionBeforeClear(expiredAt, prevUserId);
           setAuthToken(null);
           setIsAuthenticated(false);
           setUserRole(null);
@@ -177,6 +192,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
         setHasReconciliationModule(decodedReconciliation);
         return {
           isAuthenticated: true,
+          userId: decoded.user_id,
           userRole: decoded.role,
           mustChangePassword: decoded.must_change_password || false,
           mustAcceptPolicies: decoded.must_accept_policies || false,
@@ -291,24 +307,22 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     };
   }, [isAuthenticated, isPublicRoute, onIdleWarning]);
 
-  const isNextPathAllowedForRole = (nextPath, role) => {
-    if (!nextPath || !nextPath.startsWith('/') || nextPath.startsWith('/login') || nextPath === '/app') return false;
-    if (role === 'system_owner') return nextPath.startsWith('/system-owner');
-    if (role === 'corporate_admin') return nextPath.startsWith('/corporate-admin') || nextPath.startsWith('/lg-records') || nextPath.startsWith('/issuance');
-    if (role === 'checker') return nextPath.startsWith('/checker');
-    if (role === 'end_user' || role === 'viewer') return nextPath.startsWith('/end-user') || nextPath.startsWith('/lg-records') || nextPath.startsWith('/issuance');
-    return false;
-  };
-
-  const getPostLoginTarget = (role, moduleState = null) => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const next = params.get('next');
-      if (isNextPathAllowedForRole(next, role)) {
-        return next;
-      }
-    } catch {}
-    return getDefaultRedirectPath(role, moduleState);
+  const navigatePostLogin = (state) => {
+    const defaultPath = getDefaultRedirectPath(state.userRole, state);
+    const { path, changedHubLabel } = resolvePostLoginTarget({
+      userId: state.userId || userId,
+      role: state.userRole,
+      moduleState: state,
+      defaultPath,
+      search: typeof window !== 'undefined' ? window.location.search : '',
+    });
+    navigate(path, { replace: true });
+    if (changedHubLabel) {
+      toast.info(`Opened ${changedHubLabel} based on your recent activity.`, {
+        toastId: 'smart-nav-shift',
+        autoClose: 3500,
+      });
+    }
   };
 
   const handleLoginSuccess = (response) => {
@@ -321,7 +335,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     else if (state.subscriptionStatus === 'expired') navigate("/renewal", { replace: true });
     else {
       initTrackers(state, true);
-      navigate(getPostLoginTarget(state.userRole, state), { replace: true });
+      navigatePostLogin(state);
     }
   };
 
@@ -333,7 +347,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     else if (state.subscriptionStatus === 'expired') navigate("/renewal", { replace: true });
     else {
       initTrackers(state, true);
-      navigate(getPostLoginTarget(state.userRole, state), { replace: true });
+      navigatePostLogin(state);
     }
   };
 
@@ -389,6 +403,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/know-more" element={<KnowMorePage />} />
+          <Route path="/demo" element={<InteractiveDemoPage />} />
           <Route path="/free-trial-register" element={<FreeTrialRegistration />} />
           <Route path="/portal/issuance" element={<PublicIssuancePortal />} />
           <Route path="/public-issuance/dashboard" element={<RequestorDashboard />} />
@@ -418,7 +433,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
             {mustChangePassword ? (
               <Route path="*" element={<Navigate to="/force-password-change" replace />} />
             ) : (
-              <Route path="/*" element={<ProtectedLayout onLogout={handleLogout} userRole={userRole} userPermissions={userPermissions} customerName={customerName} customerId={customerId} subscriptionStatus={subscriptionStatus} subscriptionEndDate={subscriptionEndDate} hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} hasQuotationModule={hasQuotationModule} hasReconciliationModule={hasReconciliationModule} />}>
+              <Route path="/*" element={<ProtectedLayout onLogout={handleLogout} userId={userId} userRole={userRole} userPermissions={userPermissions} customerName={customerName} customerId={customerId} subscriptionStatus={subscriptionStatus} subscriptionEndDate={subscriptionEndDate} hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} hasQuotationModule={hasQuotationModule} hasReconciliationModule={hasReconciliationModule} />}>
                 <Route path="system-owner/*" element={<SystemOwnerRoutes onLogout={handleLogout} />} />
                 <Route path="corporate-admin/*" element={<CorporateAdminRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} hasIssuanceModule={hasIssuanceModule} hasCustodyModule={hasCustodyModule} hasQuotationModule={hasQuotationModule} hasReconciliationModule={hasReconciliationModule} />} />
                 <Route path="checker/*" element={<CheckerRoutes />} />
@@ -450,6 +465,7 @@ const isPublicPage = () => {
   const p = (window.location.pathname || '').toLowerCase();
   return (
     p.startsWith('/public') ||
+    p.startsWith('/demo') ||
     p.includes('/public-quotation') ||
     p.includes('/public/quotation') ||
     p.includes('/public-bank-handshake') ||

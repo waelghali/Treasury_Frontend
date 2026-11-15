@@ -622,6 +622,13 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                                                             </span>
                                                         )}
                                                         {f.tags?.includes('BEST_OVERALL') && <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">★ Best</span>}
+                                                        {f.tags?.includes('DEDICATED') && <span className="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold" title="Project-dedicated line — using this saves general credit lines">🎯 Project Line</span>}
+                                                        {f.tags?.includes('COMMON_FIT') && <span className="bg-cyan-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold" title="Standard line fit — preserves rare facilities for specialized requests">Preserves Rare Lines</span>}
+                                                        {f.tags?.includes('RARE_LINE_SAVE') && (
+                                                            <span className="bg-cyan-100 text-cyan-800 border border-cyan-300 text-[10px] px-2 py-0.5 rounded-full font-bold" title={`Rare perks on this line: ${(f.saved_capabilities || []).join(', ')}. Still selectable anytime.`}>
+                                                                💎 Rare Line{f.saved_capabilities?.length ? ` (${f.saved_capabilities.slice(0, 2).join(', ')})` : ''}
+                                                            </span>
+                                                        )}
                                                         {f.tags?.includes('BEST_PRICE') && <span className="bg-green-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">Low Cost</span>}
                                                         {!f.isRecommended && <span className="bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">Insufficient</span>}
                                                     </div>

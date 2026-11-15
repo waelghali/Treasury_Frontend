@@ -1110,11 +1110,13 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                     <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${row._displaySource === 'lg_cancel' ? 'text-red-700' : row._displaySource === 'maintenance' ? 'text-teal-700' : row._displaySource === 'issuance' ? 'text-indigo-700' : 'text-blue-600'}`}>
                                         {row.lgNumber}
                                     </td>
-                                    <td className="px-4 py-4 text-sm text-gray-500">
+                                    <td className="px-4 py-4 text-sm text-gray-500 min-w-[160px]">
                                         <div>{row.actionType}</div>
                                         {row._displaySource === 'lg_cancel' && row.cancelReason && (
-                                            <div className="text-xs text-red-500 mt-0.5 max-w-[200px] truncate" title={row.cancelReason}>
-                                                Reason: {row.cancelReason}
+                                            <div className="cell-truncate mt-0.5">
+                                                <div className="text-xs text-red-500 truncate" title={row.cancelReason}>
+                                                    Reason: {row.cancelReason}
+                                                </div>
                                             </div>
                                         )}
                                     </td>
@@ -2144,15 +2146,15 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                                             {step.condition_value ? ` (${step.condition_value})` : ''}
                                                                         </span>
                                                                     </div>
-                                                                    <div className="flex items-center gap-2 text-gray-500 text-right">
-                                                                        <span>{step.approver_type === 'GROUP' ? '👥 Group' : step.approver_type === 'ROLE' ? '🔑 Role' : step.approver_type || '—'}</span>
+                                                                    <div className="flex items-center gap-2 text-gray-500 text-right min-w-0">
+                                                                        <span className="shrink-0">{step.approver_type === 'GROUP' ? '👥 Group' : step.approver_type === 'ROLE' ? '🔑 Role' : step.approver_type || '—'}</span>
                                                                         {step.approver_values && step.approver_values.length > 0 && (
-                                                                            <span className="text-gray-700 font-medium truncate max-w-[200px]" title={step.approver_values.join(', ')}>
+                                                                            <span className="text-gray-700 font-medium truncate" title={step.approver_values.join(', ')}>
                                                                                 {step.approver_values.join(', ')}
                                                                             </span>
                                                                         )}
-                                                                        <span className="font-semibold text-gray-700">{step.required_signatures || 1} sig(s)</span>
-                                                                        {step.is_active === false && <span className="text-red-400 text-[10px]">(Inactive)</span>}
+                                                                        <span className="font-semibold text-gray-700 shrink-0">{step.required_signatures || 1} sig(s)</span>
+                                                                        {step.is_active === false && <span className="text-red-400 text-[10px] shrink-0">(Inactive)</span>}
                                                                     </div>
                                                                 </div>
                                                             ))}
@@ -2167,9 +2169,9 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                 return (
                                                     <div className="space-y-1.5">
                                                         {allEntries.slice(0, 10).map(([key, val]) => (
-                                                            <div key={key} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-1.5 border border-gray-100">
-                                                                <span className="font-medium text-gray-700 capitalize">{key.replace(/_/g, ' ')}</span>
-                                                                <span className="text-gray-900 font-semibold truncate max-w-[200px]">
+                                                            <div key={key} className="flex items-center justify-between gap-4 text-xs bg-gray-50 rounded px-3 py-1.5 border border-gray-100">
+                                                                <span className="font-medium text-gray-700 capitalize shrink-0">{key.replace(/_/g, ' ')}</span>
+                                                                <span className="text-gray-900 font-semibold truncate">
                                                                     {typeof val === 'object' ? (Array.isArray(val) ? `${val.length} item(s)` : `${Object.keys(val).length} key(s)`) : String(val)}
                                                                 </span>
                                                             </div>
@@ -2202,9 +2204,9 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Change Details</h4>
                                                 <div className="grid gap-1">
                                                     {Object.entries(payload).slice(0, 12).map(([key, val]) => (
-                                                        <div key={key} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-1.5 border border-gray-100">
-                                                            <span className="font-medium text-gray-700 capitalize">{key.replace(/_/g, ' ')}</span>
-                                                            <span className="text-gray-900 font-semibold truncate max-w-[250px]">
+                                                        <div key={key} className="flex items-center justify-between gap-4 text-xs bg-gray-50 rounded px-3 py-1.5 border border-gray-100">
+                                                            <span className="font-medium text-gray-700 capitalize shrink-0">{key.replace(/_/g, ' ')}</span>
+                                                            <span className="text-gray-900 font-semibold truncate">
                                                                 {val === null || val === undefined ? '—' :
                                                                  typeof val === 'object' ? (Array.isArray(val) ? `${val.length} item(s)` : `${Object.keys(val).length} key(s)`) :
                                                                  typeof val === 'boolean' ? (val ? 'Yes' : 'No') :

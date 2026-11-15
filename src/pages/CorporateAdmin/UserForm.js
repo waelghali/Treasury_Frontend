@@ -171,7 +171,7 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
   }
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="w-full min-w-0">
       <h1 className="text-2xl font-semibold text-gray-800 mb-6">{formTitle}</h1>
 
       {error && (

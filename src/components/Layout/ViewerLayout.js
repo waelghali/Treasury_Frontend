@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { Home, LogOut, FolderKanban, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
@@ -7,7 +7,23 @@ import SubscriptionBanner from '../SubscriptionBanner';
 function ViewerLayout({ onLogout, activeMenuItem, customerName, headerTitle, systemNotifications, subscriptionStatus, subscriptionEndDate }) {
   const isDashboard = activeMenuItem === 'end-user-dashboard';
   const isGracePeriod = subscriptionStatus === 'grace';
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sidebar_collapsed', String(isCollapsed));
+    } catch {}
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 320);
+    return () => clearTimeout(timer);
+  }, [isCollapsed]);
 
   return (
     <div className="relative flex h-screen bg-[#f8fafc] overflow-hidden" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
@@ -102,16 +118,18 @@ function ViewerLayout({ onLogout, activeMenuItem, customerName, headerTitle, sys
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 pb-24 overflow-y-auto relative z-10">
+      <main className="flex-1 pb-24 overflow-y-auto relative z-10 flex flex-col min-w-0">
         {isGracePeriod && (
           <div className="sticky top-0 z-20">
             <SubscriptionBanner subscriptionEndDate={subscriptionEndDate} />
           </div>
         )}
 
-        <div className="p-8">
+        <div className="p-3.5 sm:p-5 md:p-6 flex-1 min-w-0">
           {isDashboard && <NotificationBanner notifications={systemNotifications} />}
-          <Outlet />
+          <div className="w-full min-w-0">
+            <Outlet />
+          </div>
         </div>
       </main>
 

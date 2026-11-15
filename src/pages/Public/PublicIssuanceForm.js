@@ -2218,7 +2218,7 @@ export default function IssuanceRequestForm() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/50">
+        <div className={isPublic ? "min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/50" : "w-full min-w-0"}>
             <style>{`
                 @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -2226,7 +2226,7 @@ export default function IssuanceRequestForm() {
                 .animate-fadeIn { animation: fadeIn 0.2s ease-out both; }
             `}</style>
 
-            <div className="max-w-4xl mx-auto px-3.5 py-4 sm:px-6 sm:py-8">
+            <div className={isPublic ? "max-w-4xl mx-auto px-3.5 py-4 sm:px-6 sm:py-8" : "w-full min-w-0"}>
                 {/* Header */}
                 <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>

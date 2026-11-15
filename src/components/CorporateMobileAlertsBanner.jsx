@@ -1,11 +1,11 @@
 // src/components/CorporateMobileAlertsBanner.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { Smartphone, QrCode, Bell, CheckCircle2, X, BellOff, Sparkles, Fingerprint } from 'lucide-react';
+import { Smartphone, QrCode, Bell, X, Sparkles, Fingerprint } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
     getPushStatus,
     enablePush,
-    disablePushOnThisDevice
+    listPushDevices,
 } from '../services/pushService';
 import {
     isBiometricSupported,
@@ -17,6 +17,32 @@ import {
 import PushPairQrModal from './Modals/PushPairQrModal';
 import PushInstallGuideModal from './Modals/PushInstallGuideModal';
 
+export const ALERTS_BANNER_SYNC_EVENT = 'grow-push-alerts-updated';
+
+const getUnifiedDismissKey = () => {
+    try {
+        const uid = localStorage.getItem('user_id') || 'default';
+        return `grow_mobile_alerts_banner_snoozed_${uid}`;
+    } catch {
+        return 'grow_mobile_alerts_banner_snoozed_default';
+    }
+};
+
+const readIsDismissed = (legacyKey) => {
+    try {
+        const now = Date.now();
+        const unifiedUntil = Number(localStorage.getItem(getUnifiedDismissKey()) || 0);
+        if (unifiedUntil && now < unifiedUntil) return true;
+        if (legacyKey) {
+            const legacyUntil = Number(localStorage.getItem(legacyKey) || 0);
+            if (legacyUntil && now < legacyUntil) return true;
+        }
+        return false;
+    } catch {
+        return false;
+    }
+};
+
 export default function CorporateMobileAlertsBanner({
     title = 'Stay Ahead with Instant Mobile Alerts',
     description = 'Receive real-time lock-screen notifications for incoming bank quotations, RFQ approval requests, and countdown timeouts — even when your laptop is closed.',
@@ -24,28 +50,29 @@ export default function CorporateMobileAlertsBanner({
     className = 'mb-6'
 }) {
     const [status, setStatus] = useState('loading');
+    const [pairedDevicesCount, setPairedDevicesCount] = useState(0);
     const [busy, setBusy] = useState(false);
+    const [bioBusy, setBioBusy] = useState(false);
     const [bioActive, setBioActive] = useState(() => getStoredBiometricInfo().hasBiometric);
     const [preloadedBioRegOpts, setPreloadedBioRegOpts] = useState(null);
     const [showPairQrModal, setShowPairQrModal] = useState(false);
     const [showGuideModal, setShowGuideModal] = useState(false);
-    const [isDismissed, setIsDismissed] = useState(() => {
-        try {
-            const until = localStorage.getItem(dismissKey);
-            return Boolean(until && Date.now() < Number(until));
-        } catch {
-            return false;
-        }
-    });
+    const [isDismissed, setIsDismissed] = useState(() => readIsDismissed(dismissKey));
 
     const refreshStatus = useCallback(async () => {
         try {
-            setStatus(await getPushStatus());
+            const [pushState, devices] = await Promise.all([
+                getPushStatus().catch(() => 'unsupported'),
+                listPushDevices().catch(() => []),
+            ]);
+            setStatus(pushState);
+            setPairedDevicesCount(Array.isArray(devices) ? devices.length : 0);
             setBioActive(getStoredBiometricInfo().hasBiometric);
+            setIsDismissed(readIsDismissed(dismissKey));
         } catch {
             setStatus('unsupported');
         }
-    }, []);
+    }, [dismissKey]);
 
     useEffect(() => {
         refreshStatus();
@@ -54,34 +81,48 @@ export default function CorporateMobileAlertsBanner({
                 .then((opts) => setPreloadedBioRegOpts(opts))
                 .catch(() => {});
         }
+
+        const handleSync = () => {
+            refreshStatus();
+        };
+        window.addEventListener(ALERTS_BANNER_SYNC_EVENT, handleSync);
+        window.addEventListener('focus', handleSync);
+        return () => {
+            window.removeEventListener(ALERTS_BANNER_SYNC_EVENT, handleSync);
+            window.removeEventListener('focus', handleSync);
+        };
     }, [refreshStatus]);
 
     const handleEnableBiometric = async () => {
-        setBusy(true);
+        setBioBusy(true);
         try {
             const opts = preloadedBioRegOpts || (await fetchBiometricRegistrationOptions());
             await enrollBiometricWithOptions(opts);
             setBioActive(true);
             toast.success(`${getBiometricDisplayLabel()} login enabled on this device!`);
+            window.dispatchEvent(new Event(ALERTS_BANNER_SYNC_EVENT));
         } catch (err) {
             const isCancel = err?.name === 'NotAllowedError' || err?.name === 'AbortError';
             if (!isCancel) {
                 toast.error(err?.response?.data?.detail || err?.message || 'Could not enable biometric login.');
             }
         } finally {
-            setBusy(false);
+            setBioBusy(false);
         }
     };
 
     const handleDismiss = () => {
         try {
-            const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
-            localStorage.setItem(dismissKey, String(Date.now() + fourteenDaysMs));
-            setIsDismissed(true);
+            const fourteenDaysUntil = String(Date.now() + 14 * 24 * 60 * 60 * 1000);
+            localStorage.setItem(getUnifiedDismissKey(), fourteenDaysUntil);
+            if (dismissKey) {
+                localStorage.setItem(dismissKey, fourteenDaysUntil);
+            }
         } catch (e) {
-            console.warn('Could not store touchpoint dismissal:', e);
-            setIsDismissed(true);
+            console.warn('Could not store banner dismissal:', e);
         }
+        setIsDismissed(true);
+        window.dispatchEvent(new Event(ALERTS_BANNER_SYNC_EVENT));
     };
 
     const handleEnableBrowser = async () => {
@@ -97,8 +138,9 @@ export default function CorporateMobileAlertsBanner({
         try {
             const userId = localStorage.getItem('user_id');
             await enablePush(userId);
-            toast.success('Mobile alerts enabled for this browser!');
-            refreshStatus();
+            toast.success('Alerts enabled for this browser!');
+            await refreshStatus();
+            window.dispatchEvent(new Event(ALERTS_BANNER_SYNC_EVENT));
         } catch (err) {
             toast.error(err?.response?.data?.detail || err?.message || 'Could not enable alerts.');
         } finally {
@@ -106,139 +148,119 @@ export default function CorporateMobileAlertsBanner({
         }
     };
 
-    const handleTurnOffBrowser = async () => {
-        if (!window.confirm('Turn off phone alerts on this device?')) return;
-        setBusy(true);
-        try {
-            await disablePushOnThisDevice();
-            toast.info('Alerts turned off for this browser.');
-            refreshStatus();
-        } catch (err) {
-            toast.error('Failed to turn off alerts.');
-        } finally {
-            setBusy(false);
-        }
-    };
-
-    // If dismissed and not active on this device, hide the banner
-    if (isDismissed && status !== 'enabled') {
+    // Wait for status check so the bar never flashes on screen when already active
+    if (status === 'loading') {
         return null;
     }
 
-    const isEnabled = status === 'enabled';
+    const hasActiveAlerts = status === 'enabled' || pairedDevicesCount > 0;
+
+    // Auto-hide once alerts are active (on browser or paired phone) or when dismissed,
+    // while keeping modals mounted if a pairing celebration is currently visible
+    if ((isDismissed || hasActiveAlerts) && !showPairQrModal && !showGuideModal) {
+        return null;
+    }
+
+    const showBiometricOption = isBiometricSupported() && !bioActive;
+    const showBrowserOption = status === 'available' || status === 'needs-install';
 
     return (
         <>
-            <div className={`relative bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-4 sm:p-5 shadow-lg border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in duration-200 overflow-hidden ${className}`}>
-                {/* Background ambient decorative glow */}
-                <div className="absolute -right-16 -top-16 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute -left-16 -bottom-16 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+            {!isDismissed && !hasActiveAlerts && (
+                <div className={`relative bg-gradient-to-r from-slate-900 via-[#16203b] to-slate-900 text-white rounded-2xl px-4 py-3.5 sm:px-5 shadow-md border border-slate-800/90 flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 overflow-hidden ${className}`}>
+                    {/* Subtle ambient glow */}
+                    <div className="absolute -right-16 -top-16 w-44 h-44 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -left-16 -bottom-16 w-44 h-44 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
-                {/* Dismiss Button */}
-                {!isEnabled && (
-                    <button
-                        type="button"
-                        onClick={handleDismiss}
-                        className="absolute top-3 right-3 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                        title="Dismiss for 14 days"
-                        aria-label="Dismiss banner"
-                    >
-                        <X size={15} />
-                    </button>
-                )}
-
-                {/* Left side content */}
-                <div className="flex items-start sm:items-center gap-3.5 pr-6 md:pr-0 z-10">
-                    <div className={`p-3 rounded-2xl border shrink-0 ${
-                        isEnabled 
-                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
-                            : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 shadow-inner'
-                    }`}>
-                        {isEnabled ? <CheckCircle2 size={22} /> : <Smartphone size={22} />}
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-bold uppercase tracking-wider text-emerald-300 flex items-center gap-1">
-                                <Sparkles size={12} className="text-emerald-400" />
-                                {title}
-                            </span>
-                            {isEnabled && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Active on this device
-                                </span>
-                            )}
+                    {/* Top / Left section: Icon + Message + Mobile/Compact Dismiss */}
+                    <div className="flex items-start justify-between gap-3 flex-1 min-w-0 z-10">
+                        <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                            <div className="p-2.5 rounded-xl border bg-emerald-500/15 text-emerald-400 border-emerald-500/30 shrink-0">
+                                <Smartphone size={20} />
+                            </div>
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-300 flex items-center gap-1">
+                                        <Sparkles size={12} className="text-emerald-400 shrink-0" />
+                                        {title}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
+                                    {description}
+                                </p>
+                            </div>
                         </div>
-                        <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
-                            {isEnabled
-                                ? 'Your device is actively receiving real-time lock-screen alerts. RFQ details and trade amounts are strictly redacted for privacy.'
-                                : description}
-                        </p>
-                    </div>
-                </div>
 
-                {/* Right side CTA actions */}
-                <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0 z-10 justify-end flex-wrap">
-                    {isBiometricSupported() && !bioActive && (
+                        {/* Dismiss button on stacked (< xl) viewports — dedicated slot, never overlaps buttons */}
                         <button
                             type="button"
-                            onClick={handleEnableBiometric}
-                            disabled={busy}
-                            className="min-h-[38px] px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-950/40 cursor-pointer flex items-center gap-1.5"
-                            title={`Enable one-tap ${getBiometricDisplayLabel()} login on this device`}
+                            onClick={handleDismiss}
+                            className="xl:hidden shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.07] hover:bg-white/[0.15] text-slate-300 hover:text-white border border-white/10 text-[11px] font-medium transition-colors cursor-pointer"
+                            title="Hide for 14 days"
+                            aria-label="Dismiss banner"
                         >
-                            <Fingerprint size={15} />
-                            <span>Enable {getBiometricDisplayLabel()}</span>
+                            <X size={13} />
+                            <span className="hidden sm:inline">Dismiss</span>
                         </button>
-                    )}
-                    {isEnabled ? (
-                        <div className="flex items-center gap-2">
+                    </div>
+
+                    {/* Bottom / Right section: Balanced Action Buttons + Desktop Dismiss */}
+                    <div className="flex items-center gap-2 flex-wrap sm:pl-[46px] xl:pl-0 shrink-0 z-10">
+                        {/* Primary recommended action */}
+                        <button
+                            type="button"
+                            onClick={() => setShowPairQrModal(true)}
+                            className="h-9 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer inline-flex items-center gap-1.5"
+                            title="Scan with your phone camera to receive lock-screen alerts"
+                        >
+                            <QrCode size={14} className="shrink-0" />
+                            <span>Pair Phone via QR</span>
+                        </button>
+
+                        {/* Secondary alert action */}
+                        {showBrowserOption && (
                             <button
                                 type="button"
-                                onClick={() => setShowPairQrModal(true)}
-                                className="min-h-[38px] px-3.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
-                                title="Pair an additional smartphone"
-                            >
-                                <QrCode size={13} className="text-emerald-400" />
-                                <span>Pair Another Phone</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleTurnOffBrowser}
+                                onClick={handleEnableBrowser}
                                 disabled={busy}
-                                className="min-h-[38px] px-3 py-1.5 bg-slate-900/60 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 border border-slate-800 hover:border-rose-800/50 rounded-xl text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5"
-                                title="Turn off alerts on this browser"
+                                className="h-9 px-3 bg-white/[0.07] hover:bg-white/[0.14] text-slate-200 hover:text-white border border-white/15 rounded-xl text-xs font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
+                                title="Enable notifications directly on this browser"
                             >
-                                <BellOff size={13} />
-                                <span className="hidden sm:inline">Turn Off</span>
+                                <Bell size={13} className="text-slate-300 shrink-0" />
+                                <span>{busy ? 'Enabling...' : status === 'needs-install' ? 'Enable on iPhone' : 'Alert this Browser'}</span>
                             </button>
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+                        )}
+
+                        {/* Secondary quick-login option — visually calm & distinct, kept accessible */}
+                        {showBiometricOption && (
                             <button
                                 type="button"
-                                onClick={() => setShowPairQrModal(true)}
-                                className="min-h-[38px] px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-950/40 cursor-pointer flex items-center gap-2 active:scale-98"
-                                title="Scan with your phone camera to pair your smartphone"
+                                onClick={handleEnableBiometric}
+                                disabled={bioBusy}
+                                className="h-9 px-3 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 hover:text-white border border-indigo-400/30 rounded-xl text-xs font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
+                                title={`Enable one-tap ${getBiometricDisplayLabel()} sign-in on this device`}
                             >
-                                <QrCode size={15} />
-                                <span>Pair Phone via QR</span>
+                                <Fingerprint size={14} className="text-indigo-300 shrink-0" />
+                                <span>{bioBusy ? 'Setting up...' : `Enable ${getBiometricDisplayLabel()}`}</span>
                             </button>
-                            {status === 'available' && (
-                                <button
-                                    type="button"
-                                    onClick={handleEnableBrowser}
-                                    disabled={busy}
-                                    className="min-h-[38px] px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5"
-                                    title="Enable notifications directly on this computer"
-                                >
-                                    <Bell size={13} />
-                                    <span className="hidden lg:inline">{busy ? 'Enabling...' : 'Alert this Browser'}</span>
-                                </button>
-                            )}
+                        )}
+
+                        {/* Dedicated Desktop Dismiss slot (xl+) — separated by divider so it never touches buttons */}
+                        <div className="hidden xl:flex items-center pl-1.5 ml-0.5 border-l border-white/10">
+                            <button
+                                type="button"
+                                onClick={handleDismiss}
+                                className="h-9 px-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.14] text-slate-300 hover:text-white border border-white/10 text-xs font-medium transition-colors cursor-pointer inline-flex items-center gap-1"
+                                title="Hide for 14 days"
+                                aria-label="Dismiss banner"
+                            >
+                                <X size={14} />
+                                <span>Dismiss</span>
+                            </button>
                         </div>
-                    )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Desktop QR Modal */}
             <PushPairQrModal
@@ -246,6 +268,7 @@ export default function CorporateMobileAlertsBanner({
                 onClose={() => setShowPairQrModal(false)}
                 onSuccess={() => {
                     refreshStatus();
+                    window.dispatchEvent(new Event(ALERTS_BANNER_SYNC_EVENT));
                     toast.success('Smartphone linked successfully! Lock-screen alerts are now active.');
                 }}
             />

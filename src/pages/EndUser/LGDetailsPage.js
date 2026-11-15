@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
-import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, CheckCircle, MinusCircle, Eye, Edit, PlayCircle, Copy, Sparkles, Clock, Truck, Building, FileText } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, CheckCircle, MinusCircle, Eye, Edit, PlayCircle, Copy, Sparkles, Clock, Truck, Building, FileText, ShieldCheck } from 'lucide-react';
 import moment from 'moment';
 import LGLifecycleHistoryComponent from '../../components/LGLifecycleHistoryComponent';
 import ChangeLGOwnerModal from '../../components/Modals/ChangeLGOwnerModal';
@@ -74,6 +74,35 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 
     // NEW: State for all banks
     const [allBanks, setAllBanks] = useState([]);
+    const [custodyWordingScan, setCustodyWordingScan] = useState(null);
+    const [scanningCustodyDocId, setScanningCustodyDocId] = useState(null);
+    const [showPasteVendorWording, setShowPasteVendorWording] = useState(false);
+    const [pastedVendorWording, setPastedVendorWording] = useState('');
+
+    const handleScanCustodyWording = async (docIdOrMode = null, textOverride = null) => {
+        if (!lgRecord?.id) return;
+        const isNumericDoc = typeof docIdOrMode === 'number';
+        setScanningCustodyDocId(docIdOrMode || 'CONDITIONS');
+        try {
+            const formData = new FormData();
+            if (isNumericDoc) formData.append('document_id', docIdOrMode);
+            if (textOverride && textOverride.trim()) {
+                formData.append('wording_text', textOverride.trim());
+            }
+            const res = await apiRequest(`/end-user/lg-records/${lgRecord.id}/analyze-special-wording`, 'POST', formData, true);
+            setCustodyWordingScan(res);
+            if (res?.status === 'OK') {
+                toast.success('Beneficiary Protection Check complete');
+                setShowPasteVendorWording(false);
+            } else if (res?.message) {
+                toast.warning(res.message);
+            }
+        } catch (err) {
+            toast.error(err?.message || 'Could not run Beneficiary Protection Check');
+        } finally {
+            setScanningCustodyDocId(null);
+        }
+    };
 
     const fetchLgRecord = useCallback(async (isBackgroundRefresh = false) => {
         if (!isBackgroundRefresh) {
@@ -472,7 +501,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 		};
 
     return (
-        <div className="container mx-auto p-6 bg-white rounded-xl border border-gray-100 my-8 relative">
+        <div className="w-full min-w-0 p-4 sm:p-6 bg-white rounded-xl border border-gray-100 relative">
             {isRefreshing && (
                 <div className="absolute inset-x-0 top-0 flex items-center justify-center py-1 bg-blue-100 text-blue-700 text-sm font-medium z-10 rounded-t-xl">
                     <Loader2 className="animate-spin h-4 w-4 mr-2" /> Refreshing data...
@@ -914,8 +943,70 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 				{activeTab === 'documents' && (
 					<div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-4">
 						<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-							<p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Associated Documents</p>
+							<div>
+								<p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Associated Documents &amp; Beneficiary Protection Check</p>
+								<p className="text-[11px] text-gray-500 mt-0.5">
+									Check incoming vendor guarantee wording (Arabic / English) for hidden conditions that could block or delay your right to claim.
+								</p>
+							</div>
+							<div className="flex items-center flex-wrap gap-2">
+								{(lgRecord.payment_conditions || lgRecord.other_conditions || lgRecord.mandatory_claim_statement) && (
+									<button
+										type="button"
+										onClick={() => handleScanCustodyWording('CONDITIONS')}
+										disabled={scanningCustodyDocId !== null}
+										className="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center"
+										title="Run Beneficiary Protection Check on recorded payment & claim conditions"
+									>
+										{scanningCustodyDocId === 'CONDITIONS' ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5 mr-1" />}
+										Check Recorded Conditions
+									</button>
+								)}
+								<button
+									type="button"
+									onClick={() => setShowPasteVendorWording((prev) => !prev)}
+									className="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center"
+								>
+									<Sparkles className="h-3.5 w-3.5 mr-1" />
+									{showPasteVendorWording ? 'Hide Text Box' : 'Paste Vendor LG Text (AR/EN)'}
+								</button>
+							</div>
 						</div>
+
+						{showPasteVendorWording && (
+							<div className="p-3 bg-white rounded-lg border border-indigo-200 shadow-sm space-y-2">
+								<label className="block text-xs font-semibold text-slate-700">
+									Paste Incoming Vendor / Bank Guarantee Wording (Arabic or English)
+								</label>
+								<textarea
+									dir="auto"
+									rows={4}
+									value={pastedVendorWording}
+									onChange={(e) => setPastedVendorWording(e.target.value)}
+									placeholder="Paste draft or issued vendor LG wording here (e.g. 'نتعهد بأن ندفع لكم بمجرد أول طلب...' or 'We undertake to pay upon your first written demand...')..."
+									className="w-full text-xs border border-slate-300 rounded-md p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+								/>
+								<div className="flex justify-end gap-2">
+									<button
+										type="button"
+										onClick={() => setShowPasteVendorWording(false)}
+										className="px-3 py-1 text-xs text-slate-600 hover:text-slate-800"
+									>
+										Cancel
+									</button>
+									<button
+										type="button"
+										disabled={!pastedVendorWording.trim() || scanningCustodyDocId !== null}
+										onClick={() => handleScanCustodyWording('PASTE', pastedVendorWording)}
+										className="px-3 py-1.5 text-xs font-semibold rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 flex items-center"
+									>
+										{scanningCustodyDocId === 'PASTE' ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5 mr-1" />}
+										Run Beneficiary Protection Check
+									</button>
+								</div>
+							</div>
+						)}
+
 						{!isGracePeriod && (
 							<div className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col md:flex-row md:items-center gap-3">
 								<select
@@ -983,23 +1074,99 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 								{lgRecord.documents
 									.filter(doc => !doc.is_deleted) // Apply the filter here
 									.map(doc => (
-										<li key={doc.id} className="text-gray-700 flex items-center justify-between">
+										<li key={doc.id} className="text-gray-700 flex items-center justify-between flex-wrap gap-2">
 											<span>
 												{doc.file_name} ({doc.document_type})
 											</span>
-											<button
-												onClick={() => handleViewInstructionDocument(doc.id)}
-												className="ml-4 px-3 py-1 text-sm font-medium rounded-md shadow-sm text-blue-600 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center"
-												title="View Document Securely"
-											>
-												<Eye className="h-4 w-4 mr-1" /> View
-											</button>
+											<div className="flex items-center gap-2 ml-4">
+												<button
+													type="button"
+													onClick={() => handleScanCustodyWording(doc.id)}
+													disabled={scanningCustodyDocId !== null}
+													className="px-3 py-1 text-sm font-medium rounded-md shadow-sm text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 focus:outline-none flex items-center"
+													title="Beneficiary Protection Check — inspect this incoming LG for claim hurdles (Arabic / English)"
+												>
+													{scanningCustodyDocId === doc.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-1" />}
+													Beneficiary Protection Check
+												</button>
+												<button
+													onClick={() => handleViewInstructionDocument(doc.id)}
+													className="px-3 py-1 text-sm font-medium rounded-md shadow-sm text-blue-600 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center"
+													title="View Document Securely"
+												>
+													<Eye className="h-4 w-4 mr-1" /> View
+												</button>
+											</div>
 										</li>
 									))
 								}
 							</ul>
 						) : (
 							<p className="text-gray-500">No documents associated with this LG record.</p>
+						)}
+
+						{custodyWordingScan?.status === 'OK' && (
+							<div className={`mt-4 p-4 rounded-xl border space-y-3 ${
+								custodyWordingScan.risk_level === 'RED' ? 'bg-rose-50/70 border-rose-200' :
+								custodyWordingScan.risk_level === 'AMBER' ? 'bg-amber-50/70 border-amber-200' :
+								'bg-emerald-50/70 border-emerald-200'
+							}`}>
+								<div className="flex items-center justify-between flex-wrap gap-2">
+									<div className="flex items-center flex-wrap gap-2">
+										<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-800 text-white">
+											<ShieldCheck className="h-3.5 w-3.5" />
+											Beneficiary Protection Check (Incoming LG)
+										</span>
+										<span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase text-white ${
+											custodyWordingScan.risk_level === 'RED' ? 'bg-rose-600' :
+											custodyWordingScan.risk_level === 'AMBER' ? 'bg-amber-500' :
+											'bg-emerald-600'
+										}`}>
+											{custodyWordingScan.risk_level}
+										</span>
+										<span className="text-sm font-bold text-slate-900">{custodyWordingScan.risk_label}</span>
+										{custodyWordingScan.detected_language && (
+											<span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-white/90 border border-slate-200 text-slate-600">
+												{custodyWordingScan.detected_language}
+											</span>
+										)}
+									</div>
+									<button type="button" onClick={() => setCustodyWordingScan(null)} className="text-xs text-slate-500 hover:text-slate-800">Dismiss</button>
+								</div>
+								{custodyWordingScan.executive_summary && (
+									<p className="text-xs text-slate-700 bg-white/90 p-2.5 rounded-lg border border-slate-200">{custodyWordingScan.executive_summary}</p>
+								)}
+								{custodyWordingScan.positive_protections?.length > 0 && (
+									<div className="p-2.5 rounded-lg bg-emerald-50/90 border border-emerald-200 space-y-1">
+										<p className="text-[11px] font-bold text-emerald-900 uppercase tracking-wide">Confirmed Beneficiary Protections</p>
+										<ul className="space-y-0.5">
+											{custodyWordingScan.positive_protections.map((p, pIdx) => (
+												<li key={pIdx} className="text-xs text-emerald-900 flex items-start gap-1.5">
+													<CheckCircle className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+													<span>{p}</span>
+												</li>
+											))}
+										</ul>
+									</div>
+								)}
+								{custodyWordingScan.findings?.map((f, idx) => (
+									<div key={idx} className="p-3 rounded-lg bg-white border border-slate-200 space-y-1">
+										<div className="flex items-center justify-between">
+											<span className="text-xs font-bold text-slate-900">{f.title}</span>
+											<span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${f.severity === 'RED' ? 'bg-rose-600' : 'bg-amber-500'}`}>{f.severity}</span>
+										</div>
+										<p className="text-xs text-slate-700">{f.plain_explanation}</p>
+										{f.quoted_excerpt && <div dir="auto" className="text-[11px] italic text-slate-600 bg-slate-50 p-2 rounded">"{f.quoted_excerpt}"</div>}
+										{f.suggested_protective_rewording && (
+											<div dir="auto" className="text-[11px] text-emerald-900 bg-emerald-50 p-2 rounded">
+												<strong>Amendment to Request from Vendor / Issuing Bank: </strong>
+												{f.suggested_protective_rewording}
+											</div>
+										)}
+									</div>
+								))}
+								<p className="text-[10px] text-slate-400 italic">Advisory check only — evaluates your company&apos;s right to claim as Beneficiary without altering LG custody status.</p>
+							</div>
 						)}
 					</div>
 				)}

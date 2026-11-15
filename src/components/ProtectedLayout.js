@@ -15,8 +15,15 @@ import { fetchActiveSystemNotifications } from '../services/notificationService'
 import apiClient from '../services/apiClient';
 import GlobalDealAcceptanceModal from './Quotations/GlobalDealAcceptanceModal';
 import { computeSidebarStatusFromRfqs } from '../utils/quotationTiming';
+import {
+  SETTLE_DWELL_MS,
+  normalizeToHub,
+  getActiveOrientation,
+  recordSettledHub,
+  trackAuthenticatedRoute,
+} from '../utils/smartNavigation';
 
-function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, customerId, subscriptionStatus, subscriptionEndDate, hasCustodyModule, hasIssuanceModule, hasQuotationModule, hasReconciliationModule }) {
+function ProtectedLayout({ onLogout, userId, userRole, userPermissions, customerName, customerId, subscriptionStatus, subscriptionEndDate, hasCustodyModule, hasIssuanceModule, hasQuotationModule, hasReconciliationModule }) {
   const location = useLocation();
   const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [headerTitle, setHeaderTitle] = useState('');
@@ -111,6 +118,84 @@ function ProtectedLayout({ onLogout, userRole, userPermissions, customerName, cu
       document.title = `${title} — Grow Treasury`;
     }
   }, [location.pathname, userRole]);
+
+  // --- 1b. POST-LOGIN HABIT SETTLE OBSERVER (Runs once per login, then turns off) ---
+  useEffect(() => {
+    let effectiveUserId = userId;
+    if (!effectiveUserId) {
+      try {
+        effectiveUserId = localStorage.getItem('user_id');
+      } catch {}
+    }
+
+    const fullPath = `${location.pathname || ''}${location.search || ''}${location.hash || ''}`;
+    trackAuthenticatedRoute(fullPath, effectiveUserId);
+
+    if (!getActiveOrientation(effectiveUserId)) return undefined;
+
+    const hub = normalizeToHub(location.pathname, userRole, {
+      hasCustodyModule,
+      hasIssuanceModule,
+      hasQuotationModule,
+      hasReconciliationModule,
+    });
+    if (!hub) return undefined;
+
+    let remainingMs = SETTLE_DWELL_MS;
+    let activeStart = (typeof document === 'undefined' || !document.hidden) ? Date.now() : null;
+    let timerId = null;
+
+    const scheduleSettle = () => {
+      if (timerId) clearTimeout(timerId);
+      timerId = setTimeout(() => {
+        if (getActiveOrientation(effectiveUserId)) {
+          recordSettledHub(effectiveUserId, hub.path);
+        }
+      }, remainingMs);
+    };
+
+    if (activeStart !== null) {
+      scheduleSettle();
+    }
+
+    const handleVisibility = () => {
+      if (typeof document === 'undefined') return;
+      if (document.hidden) {
+        if (timerId) {
+          clearTimeout(timerId);
+          timerId = null;
+        }
+        if (activeStart !== null) {
+          remainingMs = Math.max(1000, remainingMs - (Date.now() - activeStart));
+          activeStart = null;
+        }
+      } else if (activeStart === null && getActiveOrientation(effectiveUserId)) {
+        activeStart = Date.now();
+        scheduleSettle();
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibility);
+    }
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
+    };
+  }, [
+    location.pathname,
+    location.search,
+    location.hash,
+    userId,
+    userRole,
+    hasCustodyModule,
+    hasIssuanceModule,
+    hasQuotationModule,
+    hasReconciliationModule,
+  ]);
 
   // --- 2. NOTIFICATIONS LOGIC ---
   useEffect(() => {

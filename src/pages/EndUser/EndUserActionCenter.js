@@ -372,7 +372,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
     // --- RENDER ---
 
     return (
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-7xl">
+        <div className="w-full min-w-0">
             
             {/* Header Section */}
             <div className="mb-8">

@@ -324,11 +324,19 @@ function EndUserDashboard({ isGracePeriod }) { // NEW: Accept isGracePeriod prop
                           <p className="font-bold text-gray-900">{action.lg_ref || '—'}</p>
                           {action.letter_serial_number && <p className="text-[10px] text-gray-400">{action.letter_serial_number}</p>}
                         </td>
-                        <td className="px-4 py-3 text-gray-700 max-w-[150px] truncate">{action.lg_beneficiary || '—'}</td>
-                        <td className="px-4 py-3 text-gray-600 max-w-[180px]">
+                        <td className="px-4 py-3 text-gray-700 min-w-[140px]">
+                          <div className="cell-truncate">
+                            <span className="truncate" title={action.lg_beneficiary || ''}>{action.lg_beneficiary || '—'}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 min-w-[160px]">
                           {details.length > 0 ? (
                             <div className="space-y-0.5">
-                              {details.map((d, i) => <p key={i} className="truncate text-[11px]">{d}</p>)}
+                              {details.map((d, i) => (
+                                <div key={i} className="cell-truncate">
+                                  <p className="truncate text-[11px]" title={d}>{d}</p>
+                                </div>
+                              ))}
                             </div>
                           ) : '—'}
                         </td>

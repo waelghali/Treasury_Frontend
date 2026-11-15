@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
+import { buildUnauthenticatedLoginTarget } from '../utils/smartNavigation';
 
 /**
  * AuthWrapper component checks if the user is authenticated based on props.
@@ -17,9 +18,7 @@ function AuthWrapper({ isAuthenticated, userRole, onLogout }) { // Receive state
   // If not authenticated, redirect to login page with preserved target URL
   if (!isAuthenticated) {
     const current = window.location.pathname + window.location.search + window.location.hash;
-    const loginTarget = current && current !== '/' && current !== '/app' && !current.startsWith('/login')
-      ? `/login?next=${encodeURIComponent(current)}`
-      : '/login';
+    const loginTarget = buildUnauthenticatedLoginTarget(current);
     console.log(`AuthWrapper: User is NOT authenticated. Redirecting to ${loginTarget}`);
     return <Navigate to={loginTarget} replace />;
   }

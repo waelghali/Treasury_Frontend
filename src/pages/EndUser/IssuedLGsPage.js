@@ -2288,13 +2288,19 @@ export default function IssuedLGsPage() {
                                                                 {statusLabels[r.status] || r.status?.replace(/_/g, ' ')}
                                                             </span>
                                                         </td>
-                                                        <td className="px-4 py-3">
-                                                            <div className="font-bold text-slate-700 truncate max-w-[150px]" title={r.request?.lg_type || 'Unknown'}>
-                                                                {r.request?.lg_type || '—'}
+                                                        <td className="px-4 py-3 min-w-[150px]">
+                                                            <div className="cell-truncate">
+                                                                <div className="font-bold text-slate-700 truncate" title={r.request?.lg_type || 'Unknown'}>
+                                                                    {r.request?.lg_type || '—'}
+                                                                </div>
                                                             </div>
-                                                            <div className="text-[10px] text-slate-500 truncate max-w-[150px]" title={r.request?.lg_purpose || ''}>
-                                                                {r.request?.lg_purpose || ''}
-                                                            </div>
+                                                            {r.request?.lg_purpose && (
+                                                                <div className="cell-truncate">
+                                                                    <div className="text-[10px] text-slate-500 truncate" title={r.request?.lg_purpose}>
+                                                                        {r.request.lg_purpose}
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </td>
                                                         <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
                                                             {r.currency_code} {r.current_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}

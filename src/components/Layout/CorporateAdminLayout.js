@@ -35,8 +35,25 @@ function CorporateAdminLayout({
   quotationSidebarStatus = null
 }) {
   const [pendingCount, setPendingCount] = useState(getInitialCount());
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Persist sidebar wrap state & notify charts/tables after width transition completes
+  useEffect(() => {
+    try {
+      localStorage.setItem('sidebar_collapsed', String(isCollapsed));
+    } catch {}
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 320);
+    return () => clearTimeout(timer);
+  }, [isCollapsed]);
   const [notifications, setNotifications] = useState([]);
   const [isLoadingNotifs, setIsLoadingNotifs] = useState(true);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
@@ -1013,7 +1030,7 @@ function CorporateAdminLayout({
           </div>
         )}
 
-        <div className="p-3.5 sm:p-5 md:p-8 flex-1">
+        <div className="p-3.5 sm:p-5 md:p-6 flex-1 min-w-0">
           {!isLoadingNotifs && notifications.length > 0 && (
             <div className="mb-4">
               <NotificationBanner notifications={notifications} />
@@ -1026,7 +1043,7 @@ function CorporateAdminLayout({
               <p className="text-gray-600">Your subscription has expired. Please renew to restore full access.</p>
             </div>
           ) : (
-            <div className="max-w-7xl mx-auto w-full">
+            <div className="w-full min-w-0">
               <Outlet />
             </div>
           )}

@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { publicApiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 import { Helmet } from 'react-helmet-async';
-import { Loader2, Shield, Zap, Globe, Lock, Building2, UserCircle, Package, AlertCircle, ArrowRight, Upload } from 'lucide-react';
+import { Loader2, Shield, Zap, Globe, Lock, Building2, UserCircle, Package, AlertCircle, ArrowRight, Upload, Play } from 'lucide-react';
 import HoneypotField from '../../components/Security/HoneypotField';
 
 const benefits = [
@@ -159,8 +159,13 @@ function FreeTrialRegistration() {
             <span className="text-lg font-bold text-white tracking-tight">Grow</span>
             <span className="text-xs text-blue-400 font-medium hidden sm:inline">Business Development</span>
           </Link>
-          <nav className="flex items-center space-x-6">
-            <Link to="/know-more" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Platform Overview</Link>
+          <nav className="flex items-center space-x-4 sm:space-x-6">
+            <Link to="/demo" className="inline-flex items-center text-xs sm:text-sm font-semibold text-blue-300 hover:text-white transition-colors">
+              <Play className="w-3.5 h-3.5 mr-1.5 fill-current" />
+              Interactive Demo
+            </Link>
+            <Link to="/know-more" className="text-sm font-medium text-gray-300 hover:text-white transition-colors hidden sm:inline">Platform Overview</Link>
+            <Link to="/#book-meeting" className="text-xs sm:text-sm font-medium text-gray-300 hover:text-white transition-colors hidden md:inline">Book a Meeting</Link>
             <Link 
               to="/login" 
               className="px-4 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"

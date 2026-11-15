@@ -349,7 +349,7 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
   );
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="w-full min-w-0">
       <div className="flex justify-between items-center mb-2">
         <h1 className="text-2xl font-semibold text-gray-800">Organization & Teams</h1>
 
@@ -390,7 +390,7 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div>
       ) : (
-        <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-x-auto">
 
           {/* USERS TAB */}
           {activeTab === 'users' && (

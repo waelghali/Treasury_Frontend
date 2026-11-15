@@ -85,7 +85,8 @@ export default function MobileAlertsControl() {
             setMessage(e?.response?.data?.detail || e?.message || 'Something went wrong.');
         } finally {
             setBusy(false);
-            refresh();
+            await refresh();
+            window.dispatchEvent(new Event('grow-push-alerts-updated'));
         }
     };
 
@@ -208,6 +209,7 @@ export default function MobileAlertsControl() {
                                         clearStoredBiometricInfo();
                                         setBioActive(false);
                                         setMessage(`${getBiometricDisplayLabel()} login turned off on this browser.`);
+                                        window.dispatchEvent(new Event('grow-push-alerts-updated'));
                                     }}
                                     className="text-[11px] font-medium text-gray-500 hover:text-rose-600 cursor-pointer transition-colors"
                                 >
@@ -231,15 +233,22 @@ export default function MobileAlertsControl() {
             <PushPairQrModal
                 isOpen={showPairQrModal}
                 onClose={() => setShowPairQrModal(false)}
-                onSuccess={() => refresh()}
+                onSuccess={() => {
+                    refresh();
+                    window.dispatchEvent(new Event('grow-push-alerts-updated'));
+                }}
             />
             <PushDevicesModal
                 isOpen={showDevicesModal}
                 onClose={() => {
                     setShowDevicesModal(false);
                     refresh();
+                    window.dispatchEvent(new Event('grow-push-alerts-updated'));
                 }}
-                onDeviceRemoved={() => refresh()}
+                onDeviceRemoved={() => {
+                    refresh();
+                    window.dispatchEvent(new Event('grow-push-alerts-updated'));
+                }}
             />
             <PushInstallGuideModal
                 isOpen={showGuideModal}

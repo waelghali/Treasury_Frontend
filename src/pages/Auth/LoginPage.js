@@ -108,7 +108,7 @@ function LoginPage({ onLoginSuccess }) {
             setEmail((prev) => prev || opts.user_email);
           }
           // If opened via a notification deep-link (?next=...), attempt immediate biometric prompt
-          if (nextPath) {
+          if (nextPath && !searchParams.get('idle')) {
             handleBiometricLogin(opts, true);
           }
         }

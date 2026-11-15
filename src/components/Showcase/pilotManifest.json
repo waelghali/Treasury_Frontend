@@ -1,0 +1,1214 @@
+{
+  "generatedAt": "2026-11-15T04:01:54.393737+00:00",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "document": {
+    "pdfUrl": "/demo/docs/FNCB_Performance_LG_8840.pdf",
+    "previewImageUrl": "/demo/docs/FNCB_Performance_LG_8840_preview.png",
+    "lgNumber": "LG-FNCB-2026-8840",
+    "bank": "First National Corporate Bank (FNCB)",
+    "amount": "EGP 4,500,000.00",
+    "applicant": "NorthStar Electromechanical Co. SAE",
+    "beneficiary": "Apex Global Engineering SAE (HQ)",
+    "expiryDate": "01-Nov-2027"
+  },
+  "capturedSteps": [
+    {
+      "step": 1,
+      "image": "/demo/shots/custody_scan/step1_upload_zone.png",
+      "hotspot": {
+        "xPct": 49.51,
+        "yPct": 46.89,
+        "wPct": 11.28,
+        "hPct": 4.44
+      },
+      "url": "app.growbusinessdevelopment.com/end-user/lg-records/new"
+    },
+    {
+      "step": 2,
+      "image": "/demo/shots/custody_scan/step2_file_ready.png",
+      "hotspot": {
+        "xPct": 50.76,
+        "yPct": 43.33,
+        "wPct": 9.18,
+        "hPct": 4.44
+      },
+      "url": "app.growbusinessdevelopment.com/end-user/lg-records/new"
+    },
+    {
+      "step": 3,
+      "image": "/demo/shots/custody_scan/step3_ai_extracted_main.png",
+      "hotspot": {
+        "xPct": 23.47,
+        "yPct": 87.22,
+        "wPct": 73.06,
+        "hPct": 7.56
+      },
+      "url": "app.growbusinessdevelopment.com/end-user/lg-records/new#main-lg-data"
+    },
+    {
+      "step": 4,
+      "image": "/demo/shots/custody_scan/step4_bank_smart_claim.png",
+      "hotspot": {
+        "xPct": 23.47,
+        "yPct": 81.06,
+        "wPct": 73.06,
+        "hPct": 7.56
+      },
+      "url": "app.growbusinessdevelopment.com/end-user/lg-records/new#bank-data"
+    },
+    {
+      "step": 5,
+      "image": "/demo/shots/custody_scan/step5_internal_governance.png",
+      "hotspot": {
+        "xPct": 84.06,
+        "yPct": 85.56,
+        "wPct": 12.54,
+        "hPct": 4.67
+      },
+      "url": "app.growbusinessdevelopment.com/end-user/lg-records/new#internal-data"
+    },
+    {
+      "step": 6,
+      "image": "/demo/shots/custody_scan/step6_custody_register.png",
+      "hotspot": {
+        "xPct": 93.54,
+        "yPct": 28.72,
+        "wPct": 1.94,
+        "hPct": 3.11
+      },
+      "url": "app.growbusinessdevelopment.com/end-user/lg-records"
+    },
+    {
+      "step": 7,
+      "image": "/demo/shots/custody_scan/step7_lg_cockpit.png",
+      "hotspot": {
+        "xPct": 24.31,
+        "yPct": 6.89,
+        "wPct": 23.43,
+        "hPct": 4.0
+      },
+      "url": "app.growbusinessdevelopment.com/end-user/lg-records/details"
+    }
+  ],
+  "branches": {
+    "custody-scan-record": {
+      "audioDir": "custody_scan",
+      "document": {
+        "tabLabelEn": "Bank LG PDF",
+        "tabLabelAr": "أصل الضمان",
+        "badgeEn": "Sample Bank Guarantee Input",
+        "badgeAr": "نموذج خطاب الضمان للتجربة",
+        "titleEn": "FNCB Performance LG · EGP 4,500,000",
+        "titleAr": "خطاب ضمان حسن تنفيذ FNCB · ٤.٥ مليون ج.م",
+        "pdfUrl": "/demo/docs/FNCB_Performance_LG_8840.pdf",
+        "previewImageUrl": "/demo/docs/FNCB_Performance_LG_8840_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "image": "/demo/shots/custody_scan/step1_upload_zone.png",
+          "hotspot": {
+            "xPct": 49.51,
+            "yPct": 46.89,
+            "wPct": 11.28,
+            "hPct": 4.44
+          },
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/new"
+        },
+        {
+          "step": 2,
+          "image": "/demo/shots/custody_scan/step2_file_ready.png",
+          "hotspot": {
+            "xPct": 50.76,
+            "yPct": 43.33,
+            "wPct": 9.18,
+            "hPct": 4.44
+          },
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/new"
+        },
+        {
+          "step": 3,
+          "image": "/demo/shots/custody_scan/step3_ai_extracted_main.png",
+          "hotspot": {
+            "xPct": 23.47,
+            "yPct": 87.22,
+            "wPct": 73.06,
+            "hPct": 7.56
+          },
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/new#main-lg-data"
+        },
+        {
+          "step": 4,
+          "image": "/demo/shots/custody_scan/step4_bank_smart_claim.png",
+          "hotspot": {
+            "xPct": 23.47,
+            "yPct": 81.06,
+            "wPct": 73.06,
+            "hPct": 7.56
+          },
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/new#bank-data"
+        },
+        {
+          "step": 5,
+          "image": "/demo/shots/custody_scan/step5_internal_governance.png",
+          "hotspot": {
+            "xPct": 84.06,
+            "yPct": 85.56,
+            "wPct": 12.54,
+            "hPct": 4.67
+          },
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/new#internal-data"
+        },
+        {
+          "step": 6,
+          "image": "/demo/shots/custody_scan/step6_custody_register.png",
+          "hotspot": {
+            "xPct": 93.54,
+            "yPct": 28.72,
+            "wPct": 1.94,
+            "hPct": 3.11
+          },
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records"
+        },
+        {
+          "step": 7,
+          "image": "/demo/shots/custody_scan/step7_lg_cockpit.png",
+          "hotspot": {
+            "xPct": 24.31,
+            "yPct": 6.89,
+            "wPct": 23.43,
+            "hPct": 4.0
+          },
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/details"
+        }
+      ]
+    },
+    "custody-action-center": {
+      "audioDir": "custody_action_center",
+      "document": {
+        "tabLabelEn": "Extension PDF",
+        "tabLabelAr": "خطاب التمديد",
+        "badgeEn": "Generated Protective Extension Letter",
+        "badgeAr": "نموذج خطاب التمديد البنكي الموثق",
+        "titleEn": "FNCB Extension Instruction · QR Sealed",
+        "titleAr": "خطاب تمديد ضمان FNCB · موثق برمز QR",
+        "pdfUrl": "/demo/docs/FNCB_Extension_Instruction_8841.pdf",
+        "previewImageUrl": "/demo/docs/FNCB_Extension_Instruction_8841_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "url": "app.growbusinessdevelopment.com/end-user/action-center",
+          "image": "/demo/shots/custody_action_center/step1_action_center_radar.png",
+          "hotspot": {
+            "xPct": 83.56,
+            "yPct": 69.22,
+            "wPct": 10.26,
+            "hPct": 4.0
+          }
+        },
+        {
+          "step": 2,
+          "url": "app.growbusinessdevelopment.com/end-user/action-center#auto-renewal",
+          "image": "/demo/shots/custody_action_center/step2_bulk_auto_renewal.png",
+          "hotspot": {
+            "xPct": 67.56,
+            "yPct": 88.43,
+            "wPct": 16.26,
+            "hPct": 4.44
+          }
+        },
+        {
+          "step": 3,
+          "url": "app.growbusinessdevelopment.com/end-user/action-center#direct-extend",
+          "image": "/demo/shots/custody_action_center/step3_direct_extension_modal.png",
+          "hotspot": {
+            "xPct": 57.49,
+            "yPct": 71.22,
+            "wPct": 8.62,
+            "hPct": 4.44
+          }
+        },
+        {
+          "step": 4,
+          "url": "app.growbusinessdevelopment.com/end-user/action-center#bank-replies",
+          "image": "/demo/shots/custody_action_center/step4_delivery_and_reply_radar.png",
+          "hotspot": {
+            "xPct": 82.57,
+            "yPct": 60.0,
+            "wPct": 11.25,
+            "hPct": 4.22
+          }
+        },
+        {
+          "step": 5,
+          "url": "app.growbusinessdevelopment.com/end-user/action-center#bulk-reminders",
+          "image": "/demo/shots/custody_action_center/step5_bulk_bank_reminders.png",
+          "hotspot": {
+            "xPct": 56.36,
+            "yPct": 64.39,
+            "wPct": 16.97,
+            "hPct": 4.22
+          }
+        }
+      ]
+    },
+    "custody-lifecycle-letter": {
+      "audioDir": "custody_lifecycle",
+      "document": {
+        "tabLabelEn": "QR Letter PDF",
+        "tabLabelAr": "خطاب البنك الموثق",
+        "badgeEn": "QR + Split Security Code Bank Letter",
+        "badgeAr": "خطاب تعليمات بنكية بختم QR وكود الأمان",
+        "titleEn": "FNCB Amount Reduction Letter · EGP 3.0M",
+        "titleAr": "خطاب تخفيض ضمان FNCB إلى ٣.٠ مليون ج.م",
+        "pdfUrl": "/demo/docs/FNCB_Decrease_Instruction_8840.pdf",
+        "previewImageUrl": "/demo/docs/FNCB_Decrease_Instruction_8840_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/details#protection-check",
+          "image": "/demo/shots/custody_lifecycle/step1_cockpit_and_protection_check.png",
+          "hotspot": {
+            "xPct": 72.27,
+            "yPct": 6.89,
+            "wPct": 23.43,
+            "hPct": 4.0
+          }
+        },
+        {
+          "step": 2,
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/details#decrease-amount",
+          "image": "/demo/shots/custody_lifecycle/step2_decrease_amount_modal.png",
+          "hotspot": {
+            "xPct": 49.95,
+            "yPct": 80.94,
+            "wPct": 16.16,
+            "hPct": 4.44
+          }
+        },
+        {
+          "step": 3,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/approval-requests",
+          "image": "/demo/shots/custody_lifecycle/step3_admin_pending_approvals.png",
+          "hotspot": {
+            "xPct": 88.61,
+            "yPct": 34.0,
+            "wPct": 1.94,
+            "hPct": 3.11
+          }
+        },
+        {
+          "step": 4,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/approval-requests#review",
+          "image": "/demo/shots/custody_lifecycle/step4_approval_snapshot_diff.png",
+          "hotspot": {
+            "xPct": 75.93,
+            "yPct": 86.0,
+            "wPct": 8.23,
+            "hPct": 3.56
+          }
+        },
+        {
+          "step": 5,
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/instructions/view-letter",
+          "image": "/demo/shots/custody_lifecycle/step5_qr_bank_instruction_letter.png",
+          "hotspot": {
+            "xPct": 31.92,
+            "yPct": 86.18,
+            "wPct": 36.15,
+            "hPct": 10.0
+          }
+        },
+        {
+          "step": 6,
+          "url": "app.growbusinessdevelopment.com/public/verify-instruction",
+          "image": "/demo/shots/custody_lifecycle/step6_public_qr_verified_portal.png",
+          "hotspot": {
+            "xPct": 36.46,
+            "yPct": 23.32,
+            "wPct": 20.29,
+            "hPct": 1.78
+          }
+        }
+      ]
+    },
+    "custody-delivery-reply": {
+      "audioDir": "custody_delivery_reply",
+      "document": {
+        "tabLabelEn": "Bank Reply PDF",
+        "tabLabelAr": "رد البنك الرسمي",
+        "badgeEn": "Sample Bank Amendment Advice",
+        "badgeAr": "نموذج إشعار البنك الرسمي بالتمديد",
+        "titleEn": "FNCB Official Extension Advice · LG-8841",
+        "titleAr": "إشعار البنك الرسمي بتمديد الضمان · LG-8841",
+        "pdfUrl": "/demo/docs/FNCB_Official_Bank_Advice_8841.pdf",
+        "previewImageUrl": "/demo/docs/FNCB_Official_Bank_Advice_8841_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/details#in-flight",
+          "image": "/demo/shots/custody_delivery_reply/step1_inflight_awaiting_delivery.png",
+          "hotspot": {
+            "xPct": 85.62,
+            "yPct": 44.33,
+            "wPct": 9.03,
+            "hPct": 2.67
+          }
+        },
+        {
+          "step": 2,
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/details#delivery-ai",
+          "image": "/demo/shots/custody_delivery_reply/step2_ai_delivery_stamp_verification.png",
+          "hotspot": {
+            "xPct": 64.91,
+            "yPct": 47.22,
+            "wPct": 13.0,
+            "hPct": 2.67
+          }
+        },
+        {
+          "step": 3,
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/details#awaiting-reply",
+          "image": "/demo/shots/custody_delivery_reply/step3_delivered_awaiting_bank_reply.png",
+          "hotspot": {
+            "xPct": 84.47,
+            "yPct": 44.33,
+            "wPct": 10.18,
+            "hPct": 2.67
+          }
+        },
+        {
+          "step": 4,
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/details#bank-reply-ai",
+          "image": "/demo/shots/custody_delivery_reply/step4_ai_bank_reply_verification.png",
+          "hotspot": {
+            "xPct": 21.53,
+            "yPct": 75.36,
+            "wPct": 9.77,
+            "hPct": 3.33
+          }
+        },
+        {
+          "step": 5,
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/details#ai-inspector",
+          "image": "/demo/shots/custody_delivery_reply/step5_split_document_ai_inspector.png",
+          "hotspot": {
+            "xPct": 12.08,
+            "yPct": 29.0,
+            "wPct": 22.52,
+            "hPct": 3.11
+          }
+        },
+        {
+          "step": 6,
+          "url": "app.growbusinessdevelopment.com/end-user/lg-records/details#lifecycle-history",
+          "image": "/demo/shots/custody_delivery_reply/step6_closed_loop_lifecycle_history.png",
+          "hotspot": {
+            "xPct": 23.4,
+            "yPct": 20.56,
+            "wPct": 10.72,
+            "hPct": 2.22
+          }
+        }
+      ]
+    },
+    "issuance-intake": {
+      "audioDir": "issuance_intake",
+      "document": {
+        "tabLabelEn": "Contract PDF",
+        "tabLabelAr": "عقد الترسية",
+        "badgeEn": "Underlying Contract Award & LG Mandate",
+        "badgeAr": "مستند الترسية وطلب إصدار خطاب الضمان",
+        "titleEn": "Contract Award & Outgoing LG Mandate",
+        "titleAr": "خطاب الترسية وطلب إصدار الضمان الصادر",
+        "pdfUrl": "/demo/docs/Apex_Contract_Award_NAUUA_2026.pdf",
+        "previewImageUrl": "/demo/docs/Apex_Contract_Award_NAUUA_2026_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "url": "app.growbusinessdevelopment.com/public-issuance/dashboard",
+          "image": "/demo/shots/issuance_2_1/step_01_department_portal.png",
+          "hotspot": {
+            "xPct": 77.53,
+            "yPct": 1.11,
+            "wPct": 11.36,
+            "hPct": 6.22
+          }
+        },
+        {
+          "step": 2,
+          "url": "app.growbusinessdevelopment.com/public-issuance/form",
+          "image": "/demo/shots/issuance_2_1/step_02_request_wizard.png",
+          "hotspot": {
+            "xPct": 70.61,
+            "yPct": 93.39,
+            "wPct": 8.21,
+            "hPct": 6.61
+          }
+        },
+        {
+          "step": 3,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/requests#ai-doc-verify",
+          "image": "/demo/shots/issuance_2_1/step_03_ai_contract_verify.png",
+          "hotspot": {
+            "xPct": 55.6,
+            "yPct": 86.0,
+            "wPct": 5.74,
+            "hPct": 3.89
+          }
+        },
+        {
+          "step": 4,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/requests#duplicate-check",
+          "image": "/demo/shots/issuance_2_1/step_04_duplicate_guardrail.png",
+          "hotspot": {
+            "xPct": 63.0,
+            "yPct": 48.0,
+            "wPct": 29.0,
+            "hPct": 28.0
+          }
+        },
+        {
+          "step": 5,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/requests#wording-trap-scan",
+          "image": "/demo/shots/issuance_2_1/step_05_applicant_trap_scan.png",
+          "hotspot": {
+            "xPct": 7.99,
+            "yPct": 51.33,
+            "wPct": 54.4,
+            "hPct": 4.28
+          }
+        },
+        {
+          "step": 6,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/approval-requests",
+          "image": "/demo/shots/issuance_2_1/step_06_credit_approval_matrix.png",
+          "hotspot": {
+            "xPct": 49.28,
+            "yPct": 20.78,
+            "wPct": 6.66,
+            "hPct": 4.89
+          }
+        }
+      ]
+    },
+    "issuance-facility-scoring": {
+      "audioDir": "issuance_scoring",
+      "document": {
+        "tabLabelEn": "Facility PDF",
+        "tabLabelAr": "عقد التسهيل",
+        "badgeEn": "Multi-Bank Credit Facility Schedule",
+        "badgeAr": "اتفاقية التسهيلات الائتمانية البنكية",
+        "titleEn": "FNCB Credit Facility Agreement",
+        "titleAr": "عقد التسهيلات الائتمانية مع بنك FNCB",
+        "pdfUrl": "/demo/docs/FNCB_Credit_Facility_Agreement_2026.pdf",
+        "previewImageUrl": "/demo/docs/FNCB_Credit_Facility_Agreement_2026_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/issuance/facilities",
+          "image": "/demo/shots/issuance_2_2/step_01_multi_bank_facilities.png",
+          "hotspot": {
+            "xPct": 27.92,
+            "yPct": 41.78,
+            "wPct": 8.95,
+            "hPct": 21.39
+          }
+        },
+        {
+          "step": 2,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/issuance/facilities#ai-agreement-audit",
+          "image": "/demo/shots/issuance_2_2/step_02_ai_agreement_verify.png",
+          "hotspot": {
+            "xPct": 33.47,
+            "yPct": 14.56,
+            "wPct": 33.06,
+            "hPct": 4.44
+          }
+        },
+        {
+          "step": 3,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/requests#facility-scoring",
+          "image": "/demo/shots/issuance_2_2/step_03_smart_facility_scoring.png",
+          "hotspot": {
+            "xPct": 65.5,
+            "yPct": 44.0,
+            "wPct": 26.5,
+            "hPct": 34.0
+          }
+        },
+        {
+          "step": 4,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/requests#wizard-select-bank",
+          "image": "/demo/shots/issuance_2_2/step_04_pipeline_headroom_reserve.png",
+          "hotspot": {
+            "xPct": 69.57,
+            "yPct": 92.78,
+            "wPct": 12.49,
+            "hPct": 6.0
+          }
+        },
+        {
+          "step": 5,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/requests#facility-reserved",
+          "image": "/demo/shots/issuance_2_2/step_05_facility_reserved_lock.png",
+          "hotspot": {
+            "xPct": 49.86,
+            "yPct": 20.67,
+            "wPct": 12.38,
+            "hPct": 4.89
+          }
+        }
+      ]
+    },
+    "issuance-bank-form": {
+      "audioDir": "issuance_bank_form",
+      "document": {
+        "tabLabelEn": "Bank Form PDF",
+        "tabLabelAr": "استمارة البنك",
+        "badgeEn": "Auto-Filled Official FNCB Application",
+        "badgeAr": "استمارة إصدار خطاب الضمان المعبأة آلياً",
+        "titleEn": "Auto-Filled FNCB Official Form",
+        "titleAr": "استمارة بنك FNCB المعبأة تلقائياً",
+        "pdfUrl": "/demo/docs/FNCB_AutoFilled_LG_Application_2026.pdf",
+        "previewImageUrl": "/demo/docs/FNCB_AutoFilled_LG_Application_2026_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/requests#choose-method",
+          "image": "/demo/shots/issuance_2_3/step_01_choose_bank_form_method.png",
+          "hotspot": {
+            "xPct": 27.78,
+            "yPct": 41.17,
+            "wPct": 44.44,
+            "hPct": 10.44
+          }
+        },
+        {
+          "step": 2,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/requests#confirm-bank-form",
+          "image": "/demo/shots/issuance_2_3/step_02_autofill_confirm_issue.png",
+          "hotspot": {
+            "xPct": 58.58,
+            "yPct": 88.61,
+            "wPct": 13.64,
+            "hPct": 6.22
+          }
+        },
+        {
+          "step": 3,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/issued-lgs#delivery-tracking",
+          "image": "/demo/shots/issuance_2_3/step_03_post_issuance_delivery.png",
+          "hotspot": {
+            "xPct": 11.81,
+            "yPct": 94.11,
+            "wPct": 12.46,
+            "hPct": 5.78
+          }
+        },
+        {
+          "step": 4,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/issued-lgs#ai-copy-verification",
+          "image": "/demo/shots/issuance_2_3/step_04_ai_issued_copy_verify.png",
+          "hotspot": {
+            "xPct": 48.0,
+            "yPct": 35.0,
+            "wPct": 44.0,
+            "hPct": 46.0
+          }
+        },
+        {
+          "step": 5,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/issued-lgs",
+          "image": "/demo/shots/issuance_2_3/step_05_active_issued_portfolio.png",
+          "hotspot": {
+            "xPct": 21.32,
+            "yPct": 46.94,
+            "wPct": 77.36,
+            "hPct": 13.0
+          }
+        }
+      ]
+    },
+    "issuance-position-recon": {
+      "audioDir": "issuance_recon",
+      "document": {
+        "tabLabelEn": "Position PDF",
+        "tabLabelAr": "كشف المراكز",
+        "badgeEn": "Monthly Bank Outgoing LG Position Report",
+        "badgeAr": "كشف مراكز خطابات الضمان الصادرة الشهري",
+        "titleEn": "FNCB LG Position Statement",
+        "titleAr": "كشف مراكز خطابات الضمان ببنك FNCB",
+        "pdfUrl": "/demo/docs/FNCB_LG_Position_Statement_Nov2026.pdf",
+        "previewImageUrl": "/demo/docs/FNCB_LG_Position_Statement_Nov2026_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/issued-lgs#maintenance",
+          "image": "/demo/shots/issuance_2_4/step_01_outgoing_maintenance_governance.png",
+          "hotspot": {
+            "xPct": 7.92,
+            "yPct": 30.0,
+            "wPct": 21.46,
+            "hPct": 5.78
+          }
+        },
+        {
+          "step": 2,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/reconciliation#upload",
+          "image": "/demo/shots/issuance_2_4/step_02_upload_position_statement.png",
+          "hotspot": {
+            "xPct": 23.33,
+            "yPct": 74.56,
+            "wPct": 73.33,
+            "hPct": 6.33
+          }
+        },
+        {
+          "step": 3,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/reconciliation#session-results",
+          "image": "/demo/shots/issuance_2_4/step_03_position_variance_matrix.png",
+          "hotspot": {
+            "xPct": 21.0,
+            "yPct": 44.0,
+            "wPct": 76.0,
+            "hPct": 24.0
+          }
+        },
+        {
+          "step": 4,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/reconciliation#variance-governance",
+          "image": "/demo/shots/issuance_2_4/step_04_anti_bypass_resolution.png",
+          "hotspot": {
+            "xPct": 22.57,
+            "yPct": 78.44,
+            "wPct": 74.86,
+            "hPct": 8.33
+          }
+        },
+        {
+          "step": 5,
+          "url": "app.growbusinessdevelopment.com/end-user/issuance/reconciliation",
+          "image": "/demo/shots/issuance_2_4/step_05_completed_recon_sessions.png",
+          "hotspot": {
+            "xPct": 21.0,
+            "yPct": 16.0,
+            "wPct": 76.0,
+            "hPct": 14.0
+          }
+        }
+      ]
+    },
+    "quotations-rfq-broadcast": {
+      "audioDir": "quotations_rfq",
+      "document": {
+        "tabLabelEn": "RFQ Mandate",
+        "tabLabelAr": "مذكرة الطرح",
+        "badgeEn": "Multi-Currency FX & T-Bill Tender Mandate",
+        "badgeAr": "مذكرة طرح عروض العملات وأذون الخزانة",
+        "titleEn": "Multi-Currency FX & T-Bill Mandate",
+        "titleAr": "مذكرة طرح عروض العملات وأذون الخزانة",
+        "pdfUrl": "/demo/docs/Apex_FX_TBill_RFQ_Mandate_2026.pdf",
+        "previewImageUrl": "/demo/docs/Apex_FX_TBill_RFQ_Mandate_2026_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "url": "app.growbusinessdevelopment.com/end-user/quotations/active",
+          "image": "/demo/shots/quotations_3_1/step_01_multi_pair_fx_builder.png",
+          "hotspot": {
+            "xPct": 43.77,
+            "yPct": 50.5,
+            "wPct": 7.53,
+            "hPct": 4.89
+          }
+        },
+        {
+          "step": 2,
+          "url": "app.growbusinessdevelopment.com/end-user/quotations/active#bank-tariffs-tvm",
+          "image": "/demo/shots/quotations_3_1/step_02_tariff_and_tvm_matrix.png",
+          "hotspot": {
+            "xPct": 56.16,
+            "yPct": 0.0,
+            "wPct": 40.44,
+            "hPct": 100.0
+          }
+        },
+        {
+          "step": 3,
+          "url": "app.growbusinessdevelopment.com/end-user/quotations/active#tbill-mode",
+          "image": "/demo/shots/quotations_3_1/step_03_tbill_auction_mode.png",
+          "hotspot": {
+            "xPct": 29.55,
+            "yPct": 22.61,
+            "wPct": 15.19,
+            "hPct": 6.22
+          }
+        },
+        {
+          "step": 4,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/quotations/results#release-approval",
+          "image": "/demo/shots/quotations_3_1/step_04_pre_broadcast_approval.png",
+          "hotspot": {
+            "xPct": 82.0,
+            "yPct": 14.5,
+            "wPct": 15.0,
+            "hPct": 5.5
+          }
+        },
+        {
+          "step": 5,
+          "url": "app.growbusinessdevelopment.com/end-user/quotations/results#live-telemetry",
+          "image": "/demo/shots/quotations_3_1/step_05_blind_live_floor.png",
+          "hotspot": {
+            "xPct": 21.25,
+            "yPct": 10.0,
+            "wPct": 77.5,
+            "hPct": 9.5
+          }
+        }
+      ]
+    },
+    "quotations-dealer-desk": {
+      "audioDir": "quotations_dealer",
+      "document": {
+        "tabLabelEn": "Dealer Invite",
+        "tabLabelAr": "دعوة التداول",
+        "badgeEn": "Zero-Password Bank Dealer Dispatch Notice",
+        "badgeAr": "إشعار دعوة غرفة التداول البنكية المشفرة",
+        "titleEn": "Zero-Password Dealer RFQ Invitation",
+        "titleAr": "دعوة غرفة التداول البنكية بدون كلمة مرور",
+        "pdfUrl": "/demo/docs/FNCB_Dealer_RFQ_Invitation_Notice_2026.pdf",
+        "previewImageUrl": "/demo/docs/FNCB_Dealer_RFQ_Invitation_Notice_2026_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "url": "app.growbusinessdevelopment.com/public-quotation/fncb-desk#otp-gate",
+          "image": "/demo/shots/quotations_3_2/step_01_dealer_zero_password_gate.png",
+          "hotspot": {
+            "xPct": 36.18,
+            "yPct": 55.06,
+            "wPct": 27.64,
+            "hPct": 16.06
+          }
+        },
+        {
+          "step": 2,
+          "url": "app.growbusinessdevelopment.com/public-quotation/fncb-desk#live-console",
+          "image": "/demo/shots/quotations_3_2/step_02_authenticated_dealer_console.png",
+          "hotspot": {
+            "xPct": 53.12,
+            "yPct": 60.86,
+            "wPct": 24.46,
+            "hPct": 7.78
+          }
+        },
+        {
+          "step": 3,
+          "url": "app.growbusinessdevelopment.com/public-quotation/fncb-desk#rate-guardrail",
+          "image": "/demo/shots/quotations_3_2/step_03_fat_finger_guardrail.png",
+          "hotspot": {
+            "xPct": 28.0,
+            "yPct": 24.0,
+            "wPct": 44.0,
+            "hPct": 48.0
+          }
+        },
+        {
+          "step": 4,
+          "url": "app.growbusinessdevelopment.com/public-quotation/fncb-desk#blind-rank-2",
+          "image": "/demo/shots/quotations_3_2/step_04_blind_live_rank_hud.png",
+          "hotspot": {
+            "xPct": 52.0,
+            "yPct": 51.5,
+            "wPct": 43.0,
+            "hPct": 12.0
+          }
+        },
+        {
+          "step": 5,
+          "url": "app.growbusinessdevelopment.com/public-quotation/fncb-desk#leading-quote",
+          "image": "/demo/shots/quotations_3_2/step_05_sharpen_to_rank_one.png",
+          "hotspot": {
+            "xPct": 52.0,
+            "yPct": 51.5,
+            "wPct": 43.0,
+            "hPct": 12.0
+          }
+        }
+      ]
+    },
+    "quotations-net-award": {
+      "audioDir": "quotations_award",
+      "document": {
+        "tabLabelEn": "Audit Pack PDF",
+        "tabLabelAr": "شهادة التدقيق",
+        "badgeEn": "Certified Best Execution Audit Certificate",
+        "badgeAr": "شهادة التدقيق المعتمدة لأفضل تنفيذ سعري",
+        "titleEn": "Best Execution Audit Certificate",
+        "titleAr": "شهادة التدقيق لأفضل تنفيذ سعري",
+        "pdfUrl": "/demo/docs/Apex_Best_Execution_Audit_Certificate_2026.pdf",
+        "previewImageUrl": "/demo/docs/Apex_Best_Execution_Audit_Certificate_2026_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "url": "app.growbusinessdevelopment.com/end-user/quotations/results#net-standings",
+          "image": "/demo/shots/quotations_3_3/step_01_provisional_net_standings.png",
+          "hotspot": {
+            "xPct": 5.5,
+            "yPct": 18.0,
+            "wPct": 89.0,
+            "hPct": 64.0
+          }
+        },
+        {
+          "step": 2,
+          "url": "app.growbusinessdevelopment.com/end-user/quotations/results#cherry-pick-award",
+          "image": "/demo/shots/quotations_3_3/step_02_multi_leg_cherry_pick.png",
+          "hotspot": {
+            "xPct": 75.0,
+            "yPct": 75.0,
+            "wPct": 18.0,
+            "hPct": 5.8
+          }
+        },
+        {
+          "step": 3,
+          "url": "app.growbusinessdevelopment.com/end-user/quotations/results#cbe-rate-triangulation",
+          "image": "/demo/shots/quotations_3_3/step_03_rate_reference_audit.png",
+          "hotspot": {
+            "xPct": 21.5,
+            "yPct": 27.5,
+            "wPct": 76.5,
+            "hPct": 27.0
+          }
+        },
+        {
+          "step": 4,
+          "url": "app.growbusinessdevelopment.com/end-user/quotations/results#audit-certificate",
+          "image": "/demo/shots/quotations_3_3/step_04_best_execution_audit_pack.png",
+          "hotspot": {
+            "xPct": 18.61,
+            "yPct": 3.56,
+            "wPct": 62.78,
+            "hPct": 92.89
+          }
+        },
+        {
+          "step": 5,
+          "url": "app.growbusinessdevelopment.com/public-quotation/fncb-desk#hmac-execution-receipt",
+          "image": "/demo/shots/quotations_3_3/step_05_scoped_hmac_deal_receipt.png",
+          "hotspot": {
+            "xPct": 27.15,
+            "yPct": 31.83,
+            "wPct": 45.69,
+            "hPct": 12.1
+          }
+        },
+        {
+          "step": 6,
+          "url": "app.growbusinessdevelopment.com/end-user/quotations/history",
+          "image": "/demo/shots/quotations_3_3/step_06_quotation_history_analytics.png",
+          "hotspot": {
+            "xPct": 21.5,
+            "yPct": 26.0,
+            "wPct": 76.5,
+            "hPct": 22.5
+          }
+        }
+      ]
+    },
+    "recon-zero-config": {
+      "audioDir": "recon_import",
+      "document": {
+        "tabLabelEn": "Statement PDF",
+        "tabLabelAr": "كشف الحساب",
+        "badgeEn": "Sample Bank Operating Statement Extract",
+        "badgeAr": "نموذج كشف الحساب البنكي التشغيلي",
+        "titleEn": "FNCB Account Statement Extract",
+        "titleAr": "كشف حساب بنك FNCB التشغيلي",
+        "pdfUrl": "/demo/docs/FNCB_Corporate_Operating_Nov2026.pdf",
+        "previewImageUrl": "/demo/docs/FNCB_Corporate_Operating_Nov2026_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation",
+          "image": "/demo/shots/recon_4_1/step_01_smart_import_hub.png",
+          "hotspot": {
+            "xPct": 22.71,
+            "yPct": 20.33,
+            "wPct": 21.99,
+            "hPct": 40.44
+          }
+        },
+        {
+          "step": 2,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation#validated",
+          "image": "/demo/shots/recon_4_1/step_02_continuity_validated_statements.png",
+          "hotspot": {
+            "xPct": 47.41,
+            "yPct": 12.0,
+            "wPct": 50.59,
+            "hPct": 41.78
+          }
+        },
+        {
+          "step": 3,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/workspace/21",
+          "image": "/demo/shots/recon_4_1/step_03_statement_lines_workspace.png",
+          "hotspot": {
+            "xPct": 87.28,
+            "yPct": 3.78,
+            "wPct": 10.02,
+            "hPct": 4.89
+          }
+        },
+        {
+          "step": 4,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/workspace/21#classified",
+          "image": "/demo/shots/recon_4_1/step_04_multitier_ai_badges.png",
+          "hotspot": {
+            "xPct": 21.88,
+            "yPct": 22.06,
+            "wPct": 76.12,
+            "hPct": 46.06
+          }
+        },
+        {
+          "step": 5,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/workspace/21#audit-drawer",
+          "image": "/demo/shots/recon_4_1/step_05_deep_dive_audit_drawer.png",
+          "hotspot": {
+            "xPct": 63.61,
+            "yPct": 0.5,
+            "wPct": 34.39,
+            "hPct": 97.5
+          }
+        }
+      ]
+    },
+    "recon-sweeps-reversals": {
+      "audioDir": "recon_sweeps",
+      "document": {
+        "tabLabelEn": "Sweep Advice",
+        "tabLabelAr": "إشعار التحويل",
+        "badgeEn": "Inter-Bank Liquidity Sweep & ERP Clearing",
+        "badgeAr": "إشعار التحويل البيني ومطابقة السيولة",
+        "titleEn": "Cross-Bank Sweep & Clearing Advice",
+        "titleAr": "إشعار التحويل البيني ومطابقة ERP",
+        "pdfUrl": "/demo/docs/Apex_InterBank_Sweep_Advice_Nov2026.pdf",
+        "previewImageUrl": "/demo/docs/Apex_InterBank_Sweep_Advice_Nov2026_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/workspace#sweeps",
+          "image": "/demo/shots/recon_4_2/step_01_unified_ledger_sweeps.png",
+          "hotspot": {
+            "xPct": 21.88,
+            "yPct": 34.28,
+            "wPct": 76.12,
+            "hPct": 6.33
+          }
+        },
+        {
+          "step": 2,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/workspace#verify-sweep",
+          "image": "/demo/shots/recon_4_2/step_02_sweep_pair_verification_modal.png",
+          "hotspot": {
+            "xPct": 18.47,
+            "yPct": 13.47,
+            "wPct": 63.06,
+            "hPct": 73.94
+          }
+        },
+        {
+          "step": 3,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/workspace#reversals",
+          "image": "/demo/shots/recon_4_2/step_03_returned_wire_reversal_netting.png",
+          "hotspot": {
+            "xPct": 21.74,
+            "yPct": 58.72,
+            "wPct": 76.26,
+            "hPct": 9.22
+          }
+        },
+        {
+          "step": 4,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/workspace#split-match",
+          "image": "/demo/shots/recon_4_2/step_04_split_pane_erp_match.png",
+          "hotspot": {
+            "xPct": 85.36,
+            "yPct": 4.67,
+            "wPct": 12.33,
+            "hPct": 4.89
+          }
+        },
+        {
+          "step": 5,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/workspace#matched",
+          "image": "/demo/shots/recon_4_2/step_05_tolerance_match_confirmed.png",
+          "hotspot": {
+            "xPct": 21.88,
+            "yPct": 74.39,
+            "wPct": 65.19,
+            "hPct": 9.17
+          }
+        }
+      ]
+    },
+    "recon-rules-privacy": {
+      "audioDir": "recon_rules",
+      "document": {
+        "tabLabelEn": "Privacy Brief",
+        "tabLabelAr": "مذكرة الخصوصية",
+        "badgeEn": "Zero-PII Federated AI Security Brief",
+        "badgeAr": "مذكرة حماية الخصوصية والتعلم الفيدرالي",
+        "titleEn": "Zero-PII Federated AI Architecture Brief",
+        "titleAr": "مذكرة حماية الخصوصية والتعلم المشترك",
+        "pdfUrl": "/demo/docs/Grow_ZeroPII_Privacy_Architecture_Brief.pdf",
+        "previewImageUrl": "/demo/docs/Grow_ZeroPII_Privacy_Architecture_Brief_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/workspace/21#classify",
+          "image": "/demo/shots/recon_4_3/step_01_inline_classify_remember_counterparty.png",
+          "hotspot": {
+            "xPct": 31.81,
+            "yPct": 19.28,
+            "wPct": 36.39,
+            "hPct": 62.33
+          }
+        },
+        {
+          "step": 2,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/rules#custom-rules",
+          "image": "/demo/shots/recon_4_3/step_02_online_learned_self_healed_rules.png",
+          "hotspot": {
+            "xPct": 21.18,
+            "yPct": 20.67,
+            "wPct": 76.82,
+            "hPct": 55.67
+          }
+        },
+        {
+          "step": 3,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/rules#counterparties",
+          "image": "/demo/shots/recon_4_3/step_03_encrypted_counterparty_registry.png",
+          "hotspot": {
+            "xPct": 21.18,
+            "yPct": 24.33,
+            "wPct": 76.82,
+            "hPct": 51.78
+          }
+        },
+        {
+          "step": 4,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/rules#collaborative-brain",
+          "image": "/demo/shots/recon_4_3/step_04_zero_pii_collaborative_brain.png",
+          "hotspot": {
+            "xPct": 21.11,
+            "yPct": 14.78,
+            "wPct": 76.89,
+            "hPct": 17.61
+          }
+        },
+        {
+          "step": 5,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/rules#taxonomy",
+          "image": "/demo/shots/recon_4_3/step_05_bilingual_gl_taxonomy.png",
+          "hotspot": {
+            "xPct": 21.18,
+            "yPct": 67.44,
+            "wPct": 76.82,
+            "hPct": 10.33
+          }
+        }
+      ]
+    },
+    "recon-erp-export": {
+      "audioDir": "recon_export",
+      "document": {
+        "tabLabelEn": "GL Journal PDF",
+        "tabLabelAr": "قيود اليومية",
+        "badgeEn": "SAP Double-Entry Balanced GL Journal Pack",
+        "badgeAr": "حزمة قيود اليومية المزدوجة لنظام ERP",
+        "titleEn": "SAP Double-Entry GL Journal Pack",
+        "titleAr": "حزمة قيود اليومية المزدوجة لنظام ERP",
+        "pdfUrl": "/demo/docs/Apex_SAP_DoubleEntry_GL_Journal_Nov2026.pdf",
+        "previewImageUrl": "/demo/docs/Apex_SAP_DoubleEntry_GL_Journal_Nov2026_preview.png"
+      },
+      "capturedSteps": [
+        {
+          "step": 1,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/export",
+          "image": "/demo/shots/recon_4_4/step_01_export_readiness_kpis.png",
+          "hotspot": {
+            "xPct": 21.11,
+            "yPct": 13.78,
+            "wPct": 76.89,
+            "hPct": 15.33
+          }
+        },
+        {
+          "step": 2,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/export#layout-builder",
+          "image": "/demo/shots/recon_4_4/step_02_sap_profile_column_builder.png",
+          "hotspot": {
+            "xPct": 22.71,
+            "yPct": 32.56,
+            "wPct": 15.64,
+            "hPct": 8.67
+          }
+        },
+        {
+          "step": 3,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/export#double-entry",
+          "image": "/demo/shots/recon_4_4/step_03_double_entry_gl_expansion.png",
+          "hotspot": {
+            "xPct": 23.89,
+            "yPct": 45.78,
+            "wPct": 35.3,
+            "hPct": 4.44
+          }
+        },
+        {
+          "step": 4,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/export#preview",
+          "image": "/demo/shots/recon_4_4/step_04_live_balanced_journal_preview.png",
+          "hotspot": {
+            "xPct": 21.25,
+            "yPct": 30.22,
+            "wPct": 76.75,
+            "hPct": 46.56
+          }
+        },
+        {
+          "step": 5,
+          "url": "app.growbusinessdevelopment.com/corporate-admin/reconciliation/export#locked-export",
+          "image": "/demo/shots/recon_4_4/step_05_lock_and_download_xlsx.png",
+          "hotspot": {
+            "xPct": 86.9,
+            "yPct": 3.11,
+            "wPct": 11.1,
+            "hPct": 8.44
+          }
+        }
+      ]
+    }
+  }
+}

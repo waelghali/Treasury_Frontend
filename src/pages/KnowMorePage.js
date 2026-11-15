@@ -7,7 +7,7 @@ import {
   Lock, BarChart3, Users, Layers,
   Upload, Eye, Settings, Send, ClipboardCheck,
   RefreshCw, FileText, Workflow, TrendingUp, FileSpreadsheet,
-  KeyRound, Fingerprint, ShieldCheck, ArrowLeftRight, Split, Timer
+  KeyRound, Fingerprint, ShieldCheck, ArrowLeftRight, Split, Timer, Play
 } from 'lucide-react';
 
 function KnowMorePage() {
@@ -45,8 +45,13 @@ function KnowMorePage() {
           
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center space-x-4">
+            <Link to="/demo" className="inline-flex items-center text-sm font-semibold text-blue-300 hover:text-white transition-colors">
+              <Play className="w-3.5 h-3.5 mr-1.5 fill-current" />
+              Interactive Demo
+            </Link>
             <a href="#security" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Security</a>
             <Link to="/portal/issuance" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Issuance Portal</Link>
+            <Link to="/#book-meeting" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Book a Meeting</Link>
             <a href="/grow_brochure.pdf" download="Grow-Brochure.pdf" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Brochure</a>
             <Link to="/free-trial-register" className="px-4 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
               Free Trial
@@ -85,6 +90,14 @@ function KnowMorePage() {
         {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-gray-700/50 bg-[#162038] px-4 py-3 space-y-2 shadow-2xl animate-fade-in-up">
+            <Link
+              to="/demo"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center px-3 py-2 rounded-lg text-sm font-semibold text-blue-300 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <Play className="w-3.5 h-3.5 mr-2 fill-current" />
+              Interactive Demo
+            </Link>
             <a
               href="#security"
               onClick={() => setMobileMenuOpen(false)}
@@ -108,11 +121,11 @@ function KnowMorePage() {
               Brochure
             </a>
             <Link
-              to="/#demo-form"
+              to="/#book-meeting"
               onClick={() => setMobileMenuOpen(false)}
               className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-200 hover:text-white hover:bg-white/10 transition-colors"
             >
-              Book a Demo
+              Book a Meeting
             </Link>
           </div>
         )}
@@ -138,8 +151,12 @@ function KnowMorePage() {
             <Link to="/free-trial-register" className="inline-flex items-center px-6 py-3 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/25">
               Start Free Trial <ArrowRight className="ml-2 w-4 h-4" />
             </Link>
-            <Link to="/#demo-form" className="inline-flex items-center px-6 py-3 text-sm font-semibold text-gray-300 border border-gray-500 rounded-lg hover:bg-white/10 transition-all">
-              Request a Demo
+            <Link to="/demo" className="inline-flex items-center px-6 py-3 text-sm font-semibold text-white bg-white/10 border border-blue-400/50 rounded-lg hover:bg-white/20 transition-all">
+              <Play className="mr-2 w-4 h-4 fill-current text-blue-300" />
+              Interactive Demo
+            </Link>
+            <Link to="/#book-meeting" className="inline-flex items-center px-6 py-3 text-sm font-semibold text-gray-300 border border-gray-500 rounded-lg hover:bg-white/10 transition-all">
+              Book a Meeting
             </Link>
           </div>
         </div>
@@ -221,13 +238,13 @@ function KnowMorePage() {
               },
               {
                 step: '03', icon: Settings, title: 'Lifecycle Actions & Governance',
-                desc: 'Extend, release, decrease amount, liquidate, amend, or activate non-operative guarantees — governed by configurable maker-checker approvals and mandatory document rules.',
-                highlights: ['Full lifecycle actions', 'Maker-checker approvals', 'Document compliance checks']
+                desc: 'Extend guarantees directly without delay, and govern releases, reductions, liquidations, amendments, or activations with configurable maker-checker approvals and mandatory document rules.',
+                highlights: ['Direct safe extensions', 'Maker-checker approvals', 'Document compliance checks']
               },
               {
                 step: '04', icon: FileText, title: 'QR-Verified Bank Letters & Audit Trail',
-                desc: 'Generate formal bank instruction and reminder letters sealed with a QR code and 6-digit security code, while tracking physical delivery and bank confirmations.',
-                highlights: ['QR & PIN letter verification', 'Delivery & reply logging', 'Auditor-ready history']
+                desc: 'Generate formal bank instruction and reminder letters sealed with a QR code and security code, while tracking physical delivery and bank confirmations.',
+                highlights: ['QR & security code verification', 'Delivery & reply logging', 'Auditor-ready history']
               },
             ].map((item, i) => (
               <div key={i} className="flex items-start space-x-5 bg-white rounded-xl p-6 border border-gray-100 hover:shadow-lg transition-shadow duration-300">
@@ -483,7 +500,7 @@ function KnowMorePage() {
               {
                 icon: ShieldCheck,
                 title: 'Tamper-Evident Audit Log & QR Letter Seals',
-                desc: 'Every action is locked into a sequential SHA-256 chain where any alteration is immediately detected. Every printed bank instruction carries a unique QR code and 6-digit security code so banks can verify its authenticity in seconds.'
+                desc: 'Every action is locked into a sequential SHA-256 chain where any alteration is immediately detected. Every printed bank instruction carries a unique QR code and security code so banks can verify its authenticity in seconds.'
               },
               {
                 icon: Fingerprint,
@@ -516,8 +533,12 @@ function KnowMorePage() {
             <Link to="/free-trial-register" className="px-6 py-2.5 text-sm font-semibold text-blue-600 bg-white rounded-lg hover:bg-gray-100 transition-colors shadow-md">
               Start Free Trial
             </Link>
-            <Link to="/#demo-form" className="px-6 py-2.5 text-sm font-semibold text-white border-2 border-white/70 rounded-lg hover:bg-white/10 transition-colors">
-              Request a Demo Today
+            <Link to="/demo" className="inline-flex items-center px-6 py-2.5 text-sm font-semibold text-white bg-blue-700/60 border-2 border-white/80 rounded-lg hover:bg-blue-700 transition-colors">
+              <Play className="w-3.5 h-3.5 mr-1.5 fill-current" />
+              Interactive Demo
+            </Link>
+            <Link to="/#book-meeting" className="px-6 py-2.5 text-sm font-semibold text-white border-2 border-white/70 rounded-lg hover:bg-white/10 transition-colors">
+              Book a Meeting
             </Link>
           </div>
         </div>
@@ -545,6 +566,8 @@ function KnowMorePage() {
           <div>
             <h4 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Quick Links</h4>
             <ul className="space-y-2 text-sm">
+              <li><Link to="/demo" className="hover:text-white transition-colors">Interactive Demo</Link></li>
+              <li><Link to="/#book-meeting" className="hover:text-white transition-colors">Book a Meeting</Link></li>
               <li><Link to="/free-trial-register" className="hover:text-white transition-colors">Start Free Trial</Link></li>
               <li><Link to="/portal/issuance" className="hover:text-white transition-colors">Public Issuance Portal</Link></li>
               <li><Link to="/login" className="hover:text-white transition-colors">Login</Link></li>

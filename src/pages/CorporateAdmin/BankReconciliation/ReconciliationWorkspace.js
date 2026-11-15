@@ -1301,26 +1301,37 @@ const ReconciliationWorkspace = () => {
                                                 </td>
 
                                                 {/* Company / Account */}
-                                                <td className="px-2.5 py-1 whitespace-nowrap">
-                                                    <span className="text-[11px] font-semibold text-gray-700 truncate max-w-[90px] block" title={txn.company_name || 'N/A'}>
-                                                        {txn.company_name || 'OEG'}
-                                                    </span>
+                                                <td className="px-2.5 py-1 min-w-[95px]">
+                                                    <div className="cell-truncate">
+                                                        <span className="text-[11px] font-semibold text-gray-700 truncate block" title={txn.company_name || 'N/A'}>
+                                                            {txn.company_name || 'OEG'}
+                                                        </span>
+                                                    </div>
                                                 </td>
 
                                                 {/* Full Description & Intelligence Badges */}
-                                                <td className="px-2.5 py-1">
+                                                <td className="px-2.5 py-1 min-w-[220px]">
                                                     <div className="flex flex-col justify-center">
                                                         {/* Narrative text: Wrap or single line */}
-                                                        <div className="flex items-center gap-1.5">
-                                                            <p
-                                                                className={`text-gray-900 font-medium ${
-                                                                    wrapText ? 'break-words whitespace-normal text-xs' : 'truncate max-w-xl text-xs'
-                                                                }`}
-                                                                title={txn.raw_description}
-                                                            >
-                                                                {txn.raw_description}
-                                                            </p>
-                                                        </div>
+                                                        {wrapText ? (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p
+                                                                    className="text-gray-900 font-medium break-words whitespace-normal text-xs"
+                                                                    title={txn.raw_description}
+                                                                >
+                                                                    {txn.raw_description}
+                                                                </p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="cell-truncate">
+                                                                <p
+                                                                    className="text-gray-900 font-medium truncate text-xs"
+                                                                    title={txn.raw_description}
+                                                                >
+                                                                    {txn.raw_description}
+                                                                </p>
+                                                            </div>
+                                                        )}
 
                                                         {/* Classification Origin Badges & Actions */}
                                                         <div className="flex flex-wrap items-center gap-1 mt-0.5">
@@ -1431,9 +1442,11 @@ const ReconciliationWorkspace = () => {
 
                                                         {/* Description Line 2 if present */}
                                                         {txn.description_line2 && (
-                                                            <p className="text-[10px] text-gray-400 mt-0.5 truncate max-w-xl" title={txn.description_line2}>
-                                                                {txn.description_line2}
-                                                            </p>
+                                                            <div className="cell-truncate mt-0.5">
+                                                                <p className="text-[10px] text-gray-400 truncate" title={txn.description_line2}>
+                                                                    {txn.description_line2}
+                                                                </p>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </td>
@@ -1452,10 +1465,12 @@ const ReconciliationWorkspace = () => {
                                                 </td>
 
                                                 {/* Bank Reference */}
-                                                <td className="px-2.5 py-1 whitespace-nowrap text-[11px] font-mono text-gray-500">
-                                                    <span className="truncate max-w-[120px] block" title={txn.back_office_ref || txn.e2e_id || ''}>
-                                                        {txn.back_office_ref || txn.e2e_id || '-'}
-                                                    </span>
+                                                <td className="px-2.5 py-1 min-w-[110px] text-[11px] font-mono text-gray-500">
+                                                    <div className="cell-truncate">
+                                                        <span className="truncate block" title={txn.back_office_ref || txn.e2e_id || ''}>
+                                                            {txn.back_office_ref || txn.e2e_id || '-'}
+                                                        </span>
+                                                    </div>
                                                 </td>
 
                                                 {/* Details Action */}

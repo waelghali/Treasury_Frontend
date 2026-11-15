@@ -1414,7 +1414,7 @@ export default function AdminQuotationDashboard() {
                                         className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
                                         onClick={() => setSelectedRfqId(rfq.id)}
                                     >
-                                        <td className="px-3.5 py-3 whitespace-nowrap">
+                                        <td className="px-3.5 py-3 min-w-[140px]">
                                             <div className="font-mono text-xs sm:text-sm font-bold text-gray-900 whitespace-nowrap">{rfq.ref_no}</div>
                                             {rfq.parent_rfq_ref && (
                                                 <div className="text-[10px] text-indigo-600 font-mono flex items-center gap-1 mt-0.5 whitespace-nowrap" title={`Re-tendered from ${rfq.parent_rfq_ref}`}>
@@ -1422,24 +1422,30 @@ export default function AdminQuotationDashboard() {
                                                 </div>
                                             )}
                                             {rfq.internal_notes && (
-                                                <div className="text-[10px] text-blue-600 truncate max-w-[130px] flex items-center gap-1 mt-0.5" title={`Internal Note: ${rfq.internal_notes}`}>
-                                                    <FileText size={10} className="text-blue-500 shrink-0" />
-                                                    <span className="truncate">{rfq.internal_notes}</span>
+                                                <div className="cell-truncate mt-0.5">
+                                                    <div className="text-[10px] text-blue-600 flex items-center gap-1 min-w-0" title={`Internal Note: ${rfq.internal_notes}`}>
+                                                        <FileText size={10} className="text-blue-500 shrink-0" />
+                                                        <span className="truncate">{rfq.internal_notes}</span>
+                                                    </div>
                                                 </div>
                                             )}
                                             {rfq.comments_to_banks && (
-                                                <div className="text-[10px] text-emerald-700 truncate max-w-[130px] flex items-center gap-1 mt-0.5" title={`Comments to Banks: ${rfq.comments_to_banks}`}>
-                                                    <MessageSquare size={10} className="text-emerald-600 shrink-0" />
-                                                    <span className="truncate">{rfq.comments_to_banks}</span>
+                                                <div className="cell-truncate mt-0.5">
+                                                    <div className="text-[10px] text-emerald-700 flex items-center gap-1 min-w-0" title={`Comments to Banks: ${rfq.comments_to_banks}`}>
+                                                        <MessageSquare size={10} className="text-emerald-600 shrink-0" />
+                                                        <span className="truncate">{rfq.comments_to_banks}</span>
+                                                    </div>
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-3.5 py-3 whitespace-nowrap">
+                                        <td className="px-3.5 py-3 min-w-[130px]">
                                             {rfq.entity_name ? (
-                                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800 bg-slate-100 border border-slate-200/80 px-2.5 py-1 rounded-xl" title={rfq.entity_name}>
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                                                    <span className="truncate max-w-[130px]">{rfq.entity_name}</span>
-                                                </span>
+                                                <div className="cell-truncate">
+                                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800 bg-slate-100 border border-slate-200/80 px-2.5 py-1 rounded-xl max-w-full w-fit min-w-0" title={rfq.entity_name}>
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                                                        <span className="truncate">{rfq.entity_name}</span>
+                                                    </span>
+                                                </div>
                                             ) : (
                                                 <span className="text-xs text-gray-400 font-mono">—</span>
                                             )}
@@ -1464,16 +1470,18 @@ export default function AdminQuotationDashboard() {
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-3 py-3 whitespace-nowrap">
-                                            <div className="text-xs font-semibold text-gray-800 truncate max-w-[120px]">{rfq.creator_name || 'corp.admin'}</div>
-                                            <div className="text-[10px] text-gray-400">{formatDate(rfq.created_at)}</div>
+                                        <td className="px-3 py-3 min-w-[120px]">
+                                            <div className="cell-truncate">
+                                                <div className="text-xs font-semibold text-gray-800 truncate" title={rfq.creator_name || 'corp.admin'}>{rfq.creator_name || 'corp.admin'}</div>
+                                            </div>
+                                            <div className="text-[10px] text-gray-400 whitespace-nowrap">{formatDate(rfq.created_at)}</div>
                                         </td>
-                                        <td className="px-3 py-3 text-xs whitespace-nowrap">
+                                        <td className="px-3 py-3 text-xs min-w-[140px]">
                                             {rfq.type === 'TBILL' ? (
-                                                <span className="font-semibold text-gray-800">{rfq.direction}</span>
+                                                <span className="font-semibold text-gray-800 whitespace-nowrap">{rfq.direction}</span>
                                             ) : rfq.legs && rfq.legs.length > 1 ? (
                                                 <div className="flex flex-col gap-1 py-0.5">
-                                                    <div className="flex items-center gap-1.5 flex-wrap max-w-[240px]">
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
                                                         {rfq.legs.map((leg, idx) => {
                                                             const pair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
                                                             return (
@@ -1535,7 +1543,7 @@ export default function AdminQuotationDashboard() {
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-3 py-3 whitespace-nowrap">
+                                        <td className="px-3 py-3 min-w-[155px]">
                                             {(() => {
                                                 const timing = getRfqTimingState(rfq);
                                                 const isMultiLeg = Boolean(rfq.legs && rfq.legs.length > 1);
@@ -1600,12 +1608,14 @@ export default function AdminQuotationDashboard() {
                                                     if (allWonSameBank) {
                                                         return (
                                                             <div className="flex flex-col">
-                                                                <span className="inline-flex items-center gap-1.5 font-bold text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-xl w-fit shadow-xs">
-                                                                    <Trophy size={12} className="text-amber-500 shrink-0" />
-                                                                    <span className="truncate max-w-[130px] lg:max-w-[160px]">{rfq.legs[0].winner_bank_name}</span>
-                                                                    <span className="text-[9px] text-emerald-700 bg-emerald-100/70 px-1 py-0.2 rounded font-bold">All {rfq.legs.length}L</span>
-                                                                </span>
-                                                                <div className="text-[10px] font-mono text-slate-600 mt-1 flex flex-col gap-0.5 pl-1">
+                                                                <div className="cell-truncate">
+                                                                    <span className="inline-flex items-center gap-1.5 font-bold text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-xl max-w-full w-fit min-w-0 shadow-xs" title={rfq.legs[0].winner_bank_name}>
+                                                                        <Trophy size={12} className="text-amber-500 shrink-0" />
+                                                                        <span className="truncate">{rfq.legs[0].winner_bank_name}</span>
+                                                                        <span className="text-[9px] text-emerald-700 bg-emerald-100/70 px-1 py-0.2 rounded font-bold shrink-0">All {rfq.legs.length}L</span>
+                                                                    </span>
+                                                                </div>
+                                                                <div className="text-[10px] font-mono text-slate-600 mt-1 flex flex-col gap-0.5 pl-1 whitespace-nowrap">
                                                                     {rfq.legs.map((l, i) => (
                                                                         <div key={i} className="flex items-center gap-1">
                                                                             <span className="text-slate-400 font-sans">L{i + 1}:</span>
@@ -1627,27 +1637,29 @@ export default function AdminQuotationDashboard() {
                                                                 const isLegInconclusive = leg.status === 'INCONCLUSIVE' || leg.is_inconclusive || (!isLegWin && (rfq.status === 'COMPLETED' || timing.badge === 'WINDOW_CLOSED'));
 
                                                                 return (
-                                                                    <div key={leg.id || idx} className="flex items-center gap-1.5 text-xs whitespace-nowrap">
-                                                                        <span className="text-[10px] font-mono text-slate-400 font-bold">L{idx + 1}:</span>
+                                                                    <div key={leg.id || idx} className="flex items-center gap-1.5 text-xs min-w-0">
+                                                                        <span className="text-[10px] font-mono text-slate-400 font-bold shrink-0">L{idx + 1}:</span>
                                                                         {isLegWin ? (
-                                                                            <div className="flex items-center gap-1">
-                                                                                <span className="inline-flex items-center gap-1 font-bold text-[11px] text-emerald-900 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 rounded-md">
-                                                                                    <Trophy size={10} className="text-amber-500 shrink-0" />
-                                                                                    <span className="truncate max-w-[100px]">{leg.winner_bank_name}</span>
-                                                                                </span>
-                                                                                <span className="font-mono font-bold text-slate-800 text-[11px]">
+                                                                            <div className="flex items-center gap-1 min-w-0">
+                                                                                <div className="cell-truncate">
+                                                                                    <span className="inline-flex items-center gap-1 font-bold text-[11px] text-emerald-900 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 rounded-md max-w-full w-fit min-w-0" title={leg.winner_bank_name}>
+                                                                                        <Trophy size={10} className="text-amber-500 shrink-0" />
+                                                                                        <span className="truncate">{leg.winner_bank_name}</span>
+                                                                                    </span>
+                                                                                </div>
+                                                                                <span className="font-mono font-bold text-slate-800 text-[11px] shrink-0">
                                                                                     @{typeof leg.winner_rate === 'number' ? leg.winner_rate.toFixed(4) : leg.winner_rate}
                                                                                 </span>
                                                                             </div>
                                                                         ) : isLegPending ? (
-                                                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded-md">
+                                                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded-md whitespace-nowrap">
                                                                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                                                                                 Pending Approval
                                                                             </span>
                                                                         ) : isLegInconclusive ? (
-                                                                            <span className="text-[10px] text-gray-400 italic">Inconclusive</span>
+                                                                            <span className="text-[10px] text-gray-400 italic whitespace-nowrap">Inconclusive</span>
                                                                         ) : (
-                                                                            <span className="text-[10px] text-purple-600 font-medium">Evaluating...</span>
+                                                                            <span className="text-[10px] text-purple-600 font-medium whitespace-nowrap">Evaluating...</span>
                                                                         )}
                                                                     </div>
                                                                 );
@@ -1660,11 +1672,13 @@ export default function AdminQuotationDashboard() {
                                                 if (rfq.winner_bank_name) {
                                                     return (
                                                         <div className="flex flex-col">
-                                                            <span className="inline-flex items-center gap-1.5 font-bold text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-xl w-fit shadow-xs">
-                                                                <Trophy size={12} className="text-amber-500 shrink-0" />
-                                                                <span className="truncate max-w-[130px] lg:max-w-[160px]">{rfq.winner_bank_name}</span>
-                                                            </span>
-                                                            <div className="text-[11px] font-mono font-bold text-slate-800 mt-1 pl-1 flex items-center gap-1.5">
+                                                            <div className="cell-truncate">
+                                                                <span className="inline-flex items-center gap-1.5 font-bold text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-xl max-w-full w-fit min-w-0 shadow-xs" title={rfq.winner_bank_name}>
+                                                                    <Trophy size={12} className="text-amber-500 shrink-0" />
+                                                                    <span className="truncate">{rfq.winner_bank_name}</span>
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-[11px] font-mono font-bold text-slate-800 mt-1 pl-1 flex items-center gap-1.5 whitespace-nowrap">
                                                                 <span>@ {typeof rfq.winner_rate === 'number' ? rfq.winner_rate.toFixed(4) : rfq.winner_rate}</span>
                                                                 {rfq.saved_vs_avg ? (
                                                                     <span className="text-[10px] text-emerald-600 font-sans font-semibold bg-emerald-50 px-1 py-0.2 rounded" title="Savings vs average market quote">
@@ -1685,7 +1699,7 @@ export default function AdminQuotationDashboard() {
                                                 );
                                             })()}
                                         </td>
-                                        <td className="px-3 py-3 whitespace-nowrap">
+                                        <td className="px-3 py-3 min-w-[155px]">
                                             {(() => {
                                                 const timing = getRfqTimingState(rfq);
                                                 const isMultiLeg = Boolean(rfq.legs && rfq.legs.length > 1);

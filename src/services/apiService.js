@@ -2,6 +2,7 @@
 import apiClient from './apiClient';
 import { v4 as uuidv4 } from 'uuid';
 import { jwtDecode } from 'jwt-decode';
+import { recordIdleLogoutMeta, clearTrackedAuthenticatedRoute } from '../utils/smartNavigation';
 export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 /**
@@ -170,6 +171,7 @@ const isCurrentRoutePublic = () => {
   if (typeof window === 'undefined') return false;
   const publicPaths = [
     '/',
+    '/demo',
     '/know-more',
     '/free-trial-register',
     '/login',
@@ -195,6 +197,15 @@ const isCurrentRoutePublic = () => {
 export const logoutUser = (options = {}) => {
   const { preserveNext = false, broadcast = true } = options;
   console.log('User logged out due to inactivity or session expiry.');
+  const storedLastActivity = getStoredTimestamp(LAST_ACTIVITY_KEY, 0);
+  const idleExpiredAt = storedLastActivity > 0
+    ? Math.min(Date.now(), storedLastActivity + TOTAL_SESSION_MS)
+    : Date.now();
+  let previousUserId = null;
+  try {
+    previousUserId = localStorage.getItem('user_id');
+  } catch {}
+
   setAuthToken(null);
   stopInactivityTracker();
   clearSessionTimers();
@@ -205,6 +216,7 @@ export const logoutUser = (options = {}) => {
 
   if (typeof window !== 'undefined') {
     if (!preserveNext) {
+      clearTrackedAuthenticatedRoute();
       if (window.location.pathname === '/login' && window.location.search) {
         window.history.replaceState({}, '', '/login');
       } else if (!isCurrentRoutePublic()) {
@@ -213,8 +225,10 @@ export const logoutUser = (options = {}) => {
     } else if (!isCurrentRoutePublic()) {
       const current = window.location.pathname + window.location.search + window.location.hash;
       if (current && current !== '/' && current !== '/app' && !current.startsWith('/login')) {
-        window.location.href = `/login?next=${encodeURIComponent(current)}`;
+        recordIdleLogoutMeta(current, idleExpiredAt, previousUserId);
+        window.location.href = `/login?next=${encodeURIComponent(current)}&idle=${idleExpiredAt}`;
       } else {
+        clearTrackedAuthenticatedRoute();
         window.location.href = '/login';
       }
     }

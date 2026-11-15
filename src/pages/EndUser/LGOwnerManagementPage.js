@@ -248,25 +248,31 @@ export default function LGOwnerManagementPage() {
                                     />
                                 </td>
                                 <td className="px-4 py-3 font-mono font-bold text-slate-800">{lg.lg_ref_number || '—'}</td>
-                                <td className="px-4 py-3 text-slate-600 max-w-[180px] truncate">{lg.beneficiary_name || '—'}</td>
+                                <td className="px-4 py-3 text-slate-600 min-w-[150px]">
+                                    <div className="cell-truncate">
+                                        <span className="truncate" title={lg.beneficiary_name || ''}>{lg.beneficiary_name || '—'}</span>
+                                    </div>
+                                </td>
                                 <td className="px-4 py-3 text-slate-600">{lg.bank_name || '—'}</td>
-                                <td className="px-4 py-3 text-right font-mono">
+                                <td className="px-4 py-3 text-right font-mono whitespace-nowrap">
                                     <span className="text-slate-400 text-xs mr-1">{lg.currency_code}</span>
                                     {lg.current_amount ? parseFloat(lg.current_amount).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '—'}
                                 </td>
-                                <td className="px-4 py-3">
+                                <td className="px-4 py-3 whitespace-nowrap">
                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusColors[lg.status] || 'bg-slate-100 text-slate-600'}`}>
                                         {lg.status?.replace(/_/g, ' ')}
                                     </span>
                                 </td>
-                                <td className="px-4 py-3">
-                                    <div className="flex items-center gap-2">
-                                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">
-                                            {(lg.current_owner_name || getUserName(lg.current_owner_user_id) || '?').charAt(0).toUpperCase()}
-                                        </span>
-                                        <span className="text-slate-700 text-xs font-medium truncate max-w-[120px]">
-                                            {lg.current_owner_name || getUserName(lg.current_owner_user_id)}
-                                        </span>
+                                <td className="px-4 py-3 min-w-[140px]">
+                                    <div className="cell-truncate">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold shrink-0">
+                                                {(lg.current_owner_name || getUserName(lg.current_owner_user_id) || '?').charAt(0).toUpperCase()}
+                                            </span>
+                                            <span className="text-slate-700 text-xs font-medium truncate" title={lg.current_owner_name || getUserName(lg.current_owner_user_id)}>
+                                                {lg.current_owner_name || getUserName(lg.current_owner_user_id)}
+                                            </span>
+                                        </div>
                                     </div>
                                 </td>
                                 <td className="px-4 py-3 text-center">

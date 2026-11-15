@@ -16,8 +16,25 @@ import { parseISO } from 'date-fns';
 function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, headerTitle, subscriptionStatus, subscriptionEndDate, userPermissions, hasCustodyModule, hasIssuanceModule, hasQuotationModule = true, hasReconciliationModule = true, quotationSidebarStatus = null }) {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Persist sidebar wrap state & notify charts/tables after width transition completes
+  useEffect(() => {
+    try {
+      localStorage.setItem('sidebar_collapsed', String(isCollapsed));
+    } catch {}
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 320);
+    return () => clearTimeout(timer);
+  }, [isCollapsed]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [newRequestCount, setNewRequestCount] = useState(0);
   const [userNotifications, setUserNotifications] = useState([]);
@@ -729,7 +746,7 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
           </div>
         )}
 
-        <div className="p-3.5 sm:p-5 md:p-8 flex-1">
+        <div className="p-3.5 sm:p-5 md:p-6 flex-1 min-w-0">
           {!isLoading && notifications.length > 0 && (
             <div className="mb-4">
               <NotificationBanner notifications={notifications} />
@@ -742,7 +759,7 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
               <p className="text-gray-600">Your subscription has expired. Please contact your administrator to restore access.</p>
             </div>
           ) : (
-            <div className="max-w-7xl mx-auto w-full">
+            <div className="w-full min-w-0">
               <Outlet />
             </div>
           )}

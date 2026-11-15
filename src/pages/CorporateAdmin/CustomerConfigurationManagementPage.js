@@ -1741,11 +1741,12 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                       { label: 'SLA', color: '#f59e0b', key: 'FACILITY_SCORE_WEIGHT_SLA', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_SLA', desc: 'Bank turnaround' },
                       { label: 'Capacity', color: '#10b981', key: 'FACILITY_SCORE_WEIGHT_CAPACITY', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_CAPACITY', desc: 'Available headroom' },
                       { label: 'Currency', color: '#ec4899', key: 'FACILITY_SCORE_WEIGHT_CURRENCY_MATCH', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_CURRENCY_MATCH', desc: 'FX match bonus' },
+                      { label: 'Rarity', color: '#06b6d4', key: 'FACILITY_SCORE_WEIGHT_RARITY', urgentKey: 'FACILITY_SCORE_WEIGHT_URGENT_RARITY', desc: 'Save rare lines' },
                     ];
 
                     const getVal = (cfgKey) => {
                       const c = configs.find(x => x.global_config_key === cfgKey);
-                      return c ? parseFloat(c.effective_value || c.global_value_default || 0) : 0;
+                      return c ? parseFloat(c.effective_value ?? c.global_value_default ?? 0) : 0;
                     };
 
                     // Render a weight editor panel for one weight set (Normal or Urgent)
@@ -1776,7 +1777,8 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                       // Balance: proportionally scale all values to sum to 100 (in steps of 5)
                       const handleBalance = () => {
                         if (total === 0) {
-                          setWeights(prev => prev.map(w => ({ ...w, val: 20 })));
+                          const equalDefaults = [25, 15, 15, 15, 15, 15];
+                          setWeights(prev => prev.map((w, idx) => ({ ...w, val: equalDefaults[idx] ?? 15 })));
                           return;
                         }
                         const scale = 100 / total;
@@ -1889,7 +1891,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
 
                           {/* Edit mode: number inputs per weight */}
                           {editing ? (
-                            <div className="grid grid-cols-5 gap-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                               {weights.map((w, i) => (
                                 <div key={i} className="text-center">
                                   <div className="flex items-center justify-center gap-1 mb-1">
@@ -1909,7 +1911,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                             </div>
                           ) : (
                             /* Read-only legend */
-                            <div className="flex gap-3">
+                            <div className="flex flex-wrap gap-3">
                               {weights.map((seg, i) => (
                                 <div key={i} className="flex items-center gap-1">
                                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: seg.color }} />
