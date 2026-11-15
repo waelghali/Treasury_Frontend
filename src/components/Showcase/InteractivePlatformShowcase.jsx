@@ -1,5 +1,6 @@
 // frontend/src/components/Showcase/InteractivePlatformShowcase.jsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Shield,
   Send,
@@ -29,10 +30,13 @@ import {
   Layers,
   Clock,
   BookOpen,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   PLATFORM_FOUNDATION_PILLARS,
   PLATFORM_MODULES,
+  VISUAL_STORIES,
   PILOT_BRANCH_STEPS,
 } from './showcaseCatalog';
 import pilotManifest from './pilotManifest.json';
@@ -51,78 +55,98 @@ const FOUNDATION_ICONS = {
   layers: Layers,
 };
 
+const STORY_NAV_ORDER = ['platform_intro', 'custody', 'issuance', 'quotations', 'reconciliation'];
+const MODULE_ORDER = ['custody', 'issuance', 'quotations', 'reconciliation'];
+const toArNum = (n) => String(n).replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[d]);
+
 const ACCENT_STYLES = {
   blue: {
     pill: 'bg-blue-50 text-blue-700 border-blue-200',
     iconBg: 'bg-blue-600 text-white shadow-blue-600/25',
     trunkBorder: 'border-blue-200/90 hover:border-blue-400',
+    activeTrunk: 'ring-2 ring-blue-500/40 border-blue-500 shadow-md',
     topBar: 'from-blue-600 to-indigo-600',
     spine: 'border-blue-200',
     liveCard: 'bg-white border-slate-200/90 hover:border-blue-400 hover:bg-blue-50/35 hover:shadow-sm hover:shadow-blue-600/10',
     hoverPill: 'bg-blue-600 text-white',
     liveBtn: 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs shadow-blue-600/20',
-    pitchBtn: 'bg-blue-50/80 hover:bg-blue-100/80 text-blue-900 border-blue-200/90',
+    secondaryBtn: 'bg-blue-50/75 hover:bg-blue-100/80 text-blue-900 border-blue-200/90',
+    activeSecondaryBtn: 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800',
     codeBadge: 'bg-blue-50 text-blue-700 border border-blue-200/90 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600',
     durationText: 'text-slate-500',
     hoverTitle: 'group-hover:text-blue-700',
-    divider: 'border-blue-200/60',
     iconText: 'text-blue-600',
     actionBox: 'bg-blue-50/90 border-blue-200 text-blue-950',
     doneStep: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100',
+    trayBg: 'bg-gradient-to-br from-blue-50/70 via-white to-slate-50 border-blue-200/90',
+    storyBarFill: 'bg-blue-400',
+    storyChip: 'bg-blue-500/20 text-blue-200 border-blue-400/35',
   },
   purple: {
     pill: 'bg-purple-50 text-purple-700 border-purple-200',
     iconBg: 'bg-purple-600 text-white shadow-purple-600/25',
     trunkBorder: 'border-purple-200/90 hover:border-purple-400',
+    activeTrunk: 'ring-2 ring-purple-500/40 border-purple-500 shadow-md',
     topBar: 'from-purple-600 to-fuchsia-600',
     spine: 'border-purple-200',
     liveCard: 'bg-white border-slate-200/90 hover:border-purple-400 hover:bg-purple-50/35 hover:shadow-sm hover:shadow-purple-600/10',
     hoverPill: 'bg-purple-600 text-white',
     liveBtn: 'bg-purple-600 hover:bg-purple-700 text-white shadow-xs shadow-purple-600/20',
-    pitchBtn: 'bg-purple-50/80 hover:bg-purple-100/80 text-purple-900 border-purple-200/90',
+    secondaryBtn: 'bg-purple-50/75 hover:bg-purple-100/80 text-purple-900 border-purple-200/90',
+    activeSecondaryBtn: 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800',
     codeBadge: 'bg-purple-50 text-purple-700 border border-purple-200/90 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-600',
     durationText: 'text-slate-500',
     hoverTitle: 'group-hover:text-purple-700',
-    divider: 'border-purple-200/60',
     iconText: 'text-purple-600',
     actionBox: 'bg-purple-50/90 border-purple-200 text-purple-950',
     doneStep: 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100',
+    trayBg: 'bg-gradient-to-br from-purple-50/70 via-white to-slate-50 border-purple-200/90',
+    storyBarFill: 'bg-purple-400',
+    storyChip: 'bg-purple-500/20 text-purple-200 border-purple-400/35',
   },
   emerald: {
     pill: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     iconBg: 'bg-emerald-600 text-white shadow-emerald-600/25',
     trunkBorder: 'border-emerald-200/90 hover:border-emerald-400',
+    activeTrunk: 'ring-2 ring-emerald-500/40 border-emerald-500 shadow-md',
     topBar: 'from-emerald-600 to-teal-600',
     spine: 'border-emerald-200',
     liveCard: 'bg-white border-slate-200/90 hover:border-emerald-400 hover:bg-emerald-50/35 hover:shadow-sm hover:shadow-emerald-600/10',
     hoverPill: 'bg-emerald-600 text-white',
     liveBtn: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs shadow-emerald-600/20',
-    pitchBtn: 'bg-emerald-50/80 hover:bg-emerald-100/80 text-emerald-900 border-emerald-200/90',
+    secondaryBtn: 'bg-emerald-50/75 hover:bg-emerald-100/80 text-emerald-900 border-emerald-200/90',
+    activeSecondaryBtn: 'bg-slate-900 text-white border-emerald-900 hover:bg-slate-800',
     codeBadge: 'bg-emerald-50 text-emerald-700 border border-emerald-200/90 group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600',
     durationText: 'text-slate-500',
     hoverTitle: 'group-hover:text-emerald-700',
-    divider: 'border-emerald-200/60',
     iconText: 'text-emerald-600',
     actionBox: 'bg-emerald-50/90 border-emerald-200 text-emerald-950',
     doneStep: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
+    trayBg: 'bg-gradient-to-br from-emerald-50/70 via-white to-slate-50 border-emerald-200/90',
+    storyBarFill: 'bg-emerald-400',
+    storyChip: 'bg-emerald-500/20 text-emerald-200 border-emerald-400/35',
   },
   amber: {
     pill: 'bg-amber-50 text-amber-800 border-amber-200',
     iconBg: 'bg-amber-500 text-white shadow-amber-500/25',
     trunkBorder: 'border-amber-200/90 hover:border-amber-400',
+    activeTrunk: 'ring-2 ring-amber-500/40 border-amber-500 shadow-md',
     topBar: 'from-amber-500 to-orange-500',
     spine: 'border-amber-200',
     liveCard: 'bg-white border-slate-200/90 hover:border-amber-400 hover:bg-amber-50/35 hover:shadow-sm hover:shadow-amber-500/10',
     hoverPill: 'bg-amber-600 text-white',
     liveBtn: 'bg-amber-600 hover:bg-amber-700 text-white shadow-xs shadow-amber-600/20',
-    pitchBtn: 'bg-amber-50/80 hover:bg-amber-100/80 text-amber-950 border-amber-200/90',
+    secondaryBtn: 'bg-amber-50/75 hover:bg-amber-100/80 text-amber-950 border-amber-200/90',
+    activeSecondaryBtn: 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800',
     codeBadge: 'bg-amber-50 text-amber-800 border border-amber-200/90 group-hover:bg-amber-600 group-hover:text-white group-hover:border-amber-600',
     durationText: 'text-slate-500',
     hoverTitle: 'group-hover:text-amber-800',
-    divider: 'border-amber-200/60',
     iconText: 'text-amber-600',
     actionBox: 'bg-amber-50/90 border-amber-200 text-amber-950',
     doneStep: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100',
+    trayBg: 'bg-gradient-to-br from-amber-50/70 via-white to-slate-50 border-amber-200/90',
+    storyBarFill: 'bg-amber-400',
+    storyChip: 'bg-amber-500/20 text-amber-200 border-amber-400/35',
   },
 };
 
@@ -154,31 +178,12 @@ const BRANCH_AUDIO_DIRS = {
   'recon-erp-export': 'recon_export',
 };
 
-const AUDIO_CACHE_VER = 'v7';
+const AUDIO_CACHE_VER = 'v13';
 const BRIEF_AUTO_ADVANCE_DELAY_MS = 1600;
+const STORY_CHAPTER_BREATH_MS = 520;
+const STORY_SILENT_FALLBACK_MS = 15500;
 
-function resolveBriefTarget(kind, id) {
-  if (kind === 'module') {
-    const mod = PLATFORM_MODULES.find((m) => m.id === id) || PLATFORM_MODULES[0];
-    if (!mod?.executivePitch) return null;
-    return {
-      kind: 'module',
-      id: mod.id,
-      mod,
-      accent: mod.accent,
-      audioKey: mod.executivePitch.audioKey,
-      titleEn: mod.titleEn,
-      titleAr: mod.titleAr,
-      tagEn: mod.executivePitch.tagEn,
-      tagAr: mod.executivePitch.tagAr,
-      headlineEn: mod.executivePitch.headlineEn,
-      headlineAr: mod.executivePitch.headlineAr,
-      pitchEn: mod.executivePitch.pitchEn,
-      pitchAr: mod.executivePitch.pitchAr,
-      outcomesEn: mod.executivePitch.outcomesEn,
-      outcomesAr: mod.executivePitch.outcomesAr,
-    };
-  }
+function resolveFoundationTarget(id) {
   const pillar =
     PLATFORM_FOUNDATION_PILLARS.find((p) => p.id === id) || PLATFORM_FOUNDATION_PILLARS[0];
   return {
@@ -203,6 +208,7 @@ function resolveBriefTarget(kind, id) {
 export default function InteractivePlatformShowcase({ embedded = false, initialLang = 'en' }) {
   const [lang, setLang] = useState(initialLang);
   const [view, setView] = useState('tree'); // 'tree' | 'stage'
+  const [expandedModuleId, setExpandedModuleId] = useState(null); // Progressive disclosure tray on /demo
   const [activeBranchId, setActiveBranchId] = useState('custody-scan-record');
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -212,26 +218,46 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
   const [readyImageSrc, setReadyImageSrc] = useState('');
   const [decodedImageSrc, setDecodedImageSrc] = useState('');
   const [plannedModalBranch, setPlannedModalBranch] = useState(null);
-  const [briefModal, setBriefModal] = useState(null); // { kind: 'module' | 'foundation', id: string } | null
+  const [briefModal, setBriefModal] = useState(null); // { id: string } | null (Foundation pillars)
+
+  // Visual Executive Story Cinema Player State
+  const [storyModal, setStoryModal] = useState(null); // { storyId, chapterIdx, phase: 'chapters' | 'handoff' } | null
+  const [storyPlaying, setStoryPlaying] = useState(false);
+  const [storyMuted, setStoryMuted] = useState(false);
+  const [storyProgress, setStoryProgress] = useState(0); // 0..100
+  const [storyDecodedSrc, setStoryDecodedSrc] = useState('');
+
   const rootRef = useRef(null);
+  const workflowTrayRef = useRef(null);
   const stageImgRef = useRef(null);
+  const storyImgRef = useRef(null);
   const hotspotRevealTimerRef = useRef(null);
   const preloadedImagesRef = useRef(new Set());
 
-  // Text-to-Voice Reader State
+  // Step & Foundation Voice Reader State
   const [speechState, setSpeechState] = useState('idle'); // 'idle' | 'playing' | 'paused'
   const [voiceChannel, setVoiceChannel] = useState('step'); // 'step' | 'brief'
   const [autoRead, setAutoRead] = useState(false); // Persistent continuous voice mode across steps & tours
-  const [stepAutoAdvance, setStepAutoAdvance] = useState(true); // Auto-advance through steps & module tours (1.1 -> 1.2 -> ...)
+  const [stepAutoAdvance, setStepAutoAdvance] = useState(true);
   const [stepAutoNextCountdown, setStepAutoNextCountdown] = useState(false);
   const [briefAutoAdvance, setBriefAutoAdvance] = useState(true);
   const [autoNextCountdown, setAutoNextCountdown] = useState(false);
   const [speechRate, setSpeechRate] = useState(1.0);
+
   const audioRef = useRef(null);
   const synthActiveRef = useRef(false);
   const stepAutoTimerRef = useRef(null);
   const briefAutoTimerRef = useRef(null);
   const briefVisitedRef = useRef(new Set());
+
+  // Dedicated Story Player Audio & Timers
+  const storyAudioRef = useRef(null);
+  const storyFallbackIntervalRef = useRef(null);
+  const storyBreathTimerRef = useRef(null);
+  const storyModalRef = useRef(storyModal);
+  const storyMutedRef = useRef(storyMuted);
+  const playStoryChapterRef = useRef(null);
+
   const autoReadRef = useRef(autoRead);
   const stepAutoAdvanceRef = useRef(stepAutoAdvance);
   const viewRef = useRef(view);
@@ -252,6 +278,8 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
   briefAutoAdvanceRef.current = briefAutoAdvance;
   langRef.current = lang;
   speechRateRef.current = speechRate;
+  storyModalRef.current = storyModal;
+  storyMutedRef.current = storyMuted;
 
   const isAr = lang === 'ar';
   const dir = isAr ? 'rtl' : 'ltr';
@@ -310,6 +338,46 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
   totalStepsRef.current = totalSteps;
   nextLiveBranchRef.current = nextLiveBranch;
 
+  // Preload helper so screenshots arrive in browser cache BEFORE user clicks
+  const preloadImageUrl = useCallback((url) => {
+    if (!url || typeof window === 'undefined' || preloadedImagesRef.current.has(url)) return;
+    preloadedImagesRef.current.add(url);
+    const img = new window.Image();
+    img.decoding = 'async';
+    img.src = url;
+  }, []);
+
+  const preloadBranchFirstShot = useCallback(
+    (branchId) => {
+      const firstShot = pilotManifest?.branches?.[branchId]?.capturedSteps?.[0]?.image;
+      if (firstShot) preloadImageUrl(firstShot);
+    },
+    [preloadImageUrl]
+  );
+
+  const preloadStoryShots = useCallback(
+    (storyId) => {
+      const story = VISUAL_STORIES[storyId];
+      if (!story) return;
+      story.chapters.forEach((ch) => {
+        if (ch.image) preloadImageUrl(ch.image);
+      });
+    },
+    [preloadImageUrl]
+  );
+
+  // Warm the Platform Overview + 4 Module Chapter-1 screenshots shortly after landing on `/demo`
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      preloadStoryShots('platform_intro');
+      PLATFORM_MODULES.forEach((m) => {
+        const st = VISUAL_STORIES[m.id];
+        if (st?.chapters?.[0]?.image) preloadImageUrl(st.chapters[0].image);
+      });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [preloadImageUrl, preloadStoryShots]);
+
   const clearStepAutoTimer = useCallback(() => {
     if (stepAutoTimerRef.current) {
       clearTimeout(stepAutoTimerRef.current);
@@ -326,7 +394,27 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
     setAutoNextCountdown(false);
   }, []);
 
-  // Stop any ongoing audio / speech synthesis cleanly (preserves persistent `autoRead` preference)
+  // Stop Story Player audio/timers cleanly
+  const stopStoryPlayback = useCallback(() => {
+    if (storyBreathTimerRef.current) {
+      clearTimeout(storyBreathTimerRef.current);
+      storyBreathTimerRef.current = null;
+    }
+    if (storyFallbackIntervalRef.current) {
+      clearInterval(storyFallbackIntervalRef.current);
+      storyFallbackIntervalRef.current = null;
+    }
+    if (storyAudioRef.current) {
+      storyAudioRef.current.pause();
+      storyAudioRef.current.onended = null;
+      storyAudioRef.current.ontimeupdate = null;
+      storyAudioRef.current.onerror = null;
+      storyAudioRef.current = null;
+    }
+    setStoryPlaying(false);
+  }, []);
+
+  // Stop any ongoing step/foundation audio cleanly
   const stopVoice = useCallback(() => {
     clearStepAutoTimer();
     clearBriefAutoTimer();
@@ -342,133 +430,336 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
     setSpeechState('idle');
   }, [clearBriefAutoTimer, clearStepAutoTimer]);
 
-  // Handle end-of-narration auto-advance for BOTH Stage Steps/Tours AND Executive Pitch Modal
-  const handleVoiceChannelEnded = useCallback(
-    (channel) => {
-      setSpeechState('idle');
+  // Advance story when a chapter finishes playing
+  const handleStoryChapterEnded = useCallback((storyId, finishedChapterIdx) => {
+    const story = VISUAL_STORIES[storyId];
+    if (!story) return;
+    setStoryProgress(100);
+    storyBreathTimerRef.current = setTimeout(() => {
+      storyBreathTimerRef.current = null;
+      const cur = storyModalRef.current;
+      if (!cur || cur.storyId !== storyId || cur.phase !== 'chapters') return;
 
-      if (channel === 'step') {
+      if (finishedChapterIdx < story.chapters.length - 1) {
+        const nextIdx = finishedChapterIdx + 1;
+        const nextState = { storyId, chapterIdx: nextIdx, phase: 'chapters' };
+        storyModalRef.current = nextState;
+        setStoryModal(nextState);
+        setStoryProgress(0);
+        if (playStoryChapterRef.current) {
+          playStoryChapterRef.current(storyId, nextIdx, langRef.current, speechRateRef.current);
+        }
+      } else {
+        setStoryPlaying(false);
+        const handoffState = { storyId, chapterIdx: finishedChapterIdx, phase: 'handoff' };
+        storyModalRef.current = handoffState;
+        setStoryModal(handoffState);
+      }
+    }, STORY_CHAPTER_BREATH_MS);
+  }, []);
+
+  // Start silent progress timer fallback (used ONLY if MP3 cannot play)
+  const startSilentStoryFallback = useCallback(
+    (storyId, chapterIdx, rate) => {
+      if (storyFallbackIntervalRef.current) {
+        clearInterval(storyFallbackIntervalRef.current);
+      }
+      const durationMs = STORY_SILENT_FALLBACK_MS / Math.max(0.8, rate || 1.0);
+      const startedAt = Date.now();
+      setStoryPlaying(true);
+      storyFallbackIntervalRef.current = setInterval(() => {
+        const elapsed = Date.now() - startedAt;
+        const pct = Math.min(100, (elapsed / durationMs) * 100);
+        setStoryProgress(pct);
+        if (pct >= 100) {
+          clearInterval(storyFallbackIntervalRef.current);
+          storyFallbackIntervalRef.current = null;
+          handleStoryChapterEnded(storyId, chapterIdx);
+        }
+      }, 80);
+    },
+    [handleStoryChapterEnded]
+  );
+
+  // Play a specific chapter MP3 with real-time progress bar sync
+  const playStoryChapter = useCallback(
+    (storyId, chapterIdx, targetLang = langRef.current, rate = speechRateRef.current) => {
+      stopStoryPlayback();
+      const story = VISUAL_STORIES[storyId];
+      const chapter = story?.chapters?.[chapterIdx];
+      if (!chapter) return;
+
+      setStoryProgress(0);
+      const mp3Url = `/demo/audio/stories/${storyId}/ch${chapter.chapter}_${targetLang}.mp3?v=${AUDIO_CACHE_VER}`;
+      const audio = new Audio(mp3Url);
+      audio.playbackRate = rate;
+      audio.muted = storyMutedRef.current;
+      storyAudioRef.current = audio;
+
+      audio.ontimeupdate = () => {
+        if (storyAudioRef.current === audio && audio.duration > 0) {
+          setStoryProgress(Math.min(100, (audio.currentTime / audio.duration) * 100));
+        }
+      };
+
+      audio.onended = () => {
+        if (storyAudioRef.current === audio) {
+          storyAudioRef.current = null;
+          handleStoryChapterEnded(storyId, chapterIdx);
+        }
+      };
+
+      audio.onerror = () => {
+        if (storyAudioRef.current === audio) {
+          storyAudioRef.current = null;
+          startSilentStoryFallback(storyId, chapterIdx, rate);
+        }
+      };
+
+      setStoryPlaying(true);
+      audio.play().catch(() => {
+        if (storyAudioRef.current === audio) {
+          storyAudioRef.current = null;
+          startSilentStoryFallback(storyId, chapterIdx, rate);
+        }
+      });
+    },
+    [handleStoryChapterEnded, startSilentStoryFallback, stopStoryPlayback]
+  );
+
+  playStoryChapterRef.current = playStoryChapter;
+
+  const openStory = useCallback(
+    (storyId, chapterIdx = 0, autoStart = true) => {
+      stopVoice();
+      stopStoryPlayback();
+      briefModalRef.current = null;
+      setBriefModal(null);
+
+      preloadStoryShots(storyId);
+      if (storyId !== 'platform_intro') {
+        const modIdx = MODULE_ORDER.indexOf(storyId);
+        const nextModId = MODULE_ORDER[(modIdx + 1) % MODULE_ORDER.length];
+        if (VISUAL_STORIES[nextModId]?.chapters?.[0]?.image) {
+          preloadImageUrl(VISUAL_STORIES[nextModId].chapters[0].image);
+        }
+      }
+
+      const nextModal = { storyId, chapterIdx, phase: 'chapters' };
+      storyModalRef.current = nextModal;
+      setStoryModal(nextModal);
+      setStoryProgress(0);
+
+      if (autoStart) {
+        playStoryChapter(storyId, chapterIdx, langRef.current, speechRateRef.current);
+      }
+    },
+    [playStoryChapter, preloadImageUrl, preloadStoryShots, stopStoryPlayback, stopVoice]
+  );
+
+  const closeStory = useCallback(() => {
+    stopStoryPlayback();
+    storyModalRef.current = null;
+    setStoryModal(null);
+    setStoryProgress(0);
+  }, [stopStoryPlayback]);
+
+  const toggleStoryPlayPause = useCallback(() => {
+    const cur = storyModalRef.current;
+    if (!cur) return;
+    if (cur.phase === 'handoff') {
+      openStory(cur.storyId, 0, true);
+      return;
+    }
+    if (storyPlaying) {
+      if (storyBreathTimerRef.current) {
+        clearTimeout(storyBreathTimerRef.current);
+        storyBreathTimerRef.current = null;
+      }
+      if (storyFallbackIntervalRef.current) {
+        clearInterval(storyFallbackIntervalRef.current);
+        storyFallbackIntervalRef.current = null;
+      }
+      if (storyAudioRef.current) {
+        storyAudioRef.current.pause();
+      }
+      setStoryPlaying(false);
+    } else if (storyAudioRef.current) {
+      storyAudioRef.current.playbackRate = speechRateRef.current;
+      storyAudioRef.current.muted = storyMutedRef.current;
+      storyAudioRef.current.play().catch(() => {});
+      setStoryPlaying(true);
+    } else {
+      playStoryChapter(cur.storyId, cur.chapterIdx, langRef.current, speechRateRef.current);
+    }
+  }, [openStory, playStoryChapter, storyPlaying]);
+
+  const jumpStoryChapter = useCallback(
+    (targetIdx) => {
+      const cur = storyModalRef.current;
+      if (!cur) return;
+      const story = VISUAL_STORIES[cur.storyId];
+      if (!story || targetIdx < 0 || targetIdx >= story.chapters.length) return;
+      const nextModal = { storyId: cur.storyId, chapterIdx: targetIdx, phase: 'chapters' };
+      storyModalRef.current = nextModal;
+      setStoryModal(nextModal);
+      setStoryProgress(0);
+      playStoryChapter(cur.storyId, targetIdx, langRef.current, speechRateRef.current);
+    },
+    [playStoryChapter]
+  );
+
+  const openStoryHandoff = useCallback(() => {
+    const cur = storyModalRef.current;
+    if (!cur) return;
+    stopStoryPlayback();
+    const story = VISUAL_STORIES[cur.storyId];
+    const lastIdx = (story?.chapters?.length || 4) - 1;
+    const nextModal = { storyId: cur.storyId, chapterIdx: lastIdx, phase: 'handoff' };
+    storyModalRef.current = nextModal;
+    setStoryModal(nextModal);
+    setStoryProgress(100);
+  }, [stopStoryPlayback]);
+
+  const toggleStoryMute = useCallback(() => {
+    const nextMuted = !storyMutedRef.current;
+    storyMutedRef.current = nextMuted;
+    setStoryMuted(nextMuted);
+    if (storyAudioRef.current) {
+      storyAudioRef.current.muted = nextMuted;
+    }
+  }, []);
+
+  // Handle end-of-narration auto-advance for Stage Steps/Tours AND Foundation Brief Modal
+  const handleVoiceChannelEnded = useCallback((channel) => {
+    setSpeechState('idle');
+
+    if (channel === 'step') {
+      if (
+        viewRef.current !== 'stage' ||
+        briefModalRef.current ||
+        storyModalRef.current ||
+        !autoReadRef.current ||
+        !stepAutoAdvanceRef.current
+      ) {
+        return;
+      }
+      const hasMoreSteps = currentStepIdxRef.current < totalStepsRef.current - 1;
+      const hasNextTour = !hasMoreSteps && Boolean(nextLiveBranchRef.current);
+      if (!hasMoreSteps && !hasNextTour) {
+        return;
+      }
+
+      setStepAutoNextCountdown(true);
+      stepAutoTimerRef.current = setTimeout(() => {
+        stepAutoTimerRef.current = null;
+        setStepAutoNextCountdown(false);
         if (
           viewRef.current !== 'stage' ||
           briefModalRef.current ||
+          storyModalRef.current ||
           !autoReadRef.current ||
           !stepAutoAdvanceRef.current
         ) {
           return;
         }
-        const hasMoreSteps = currentStepIdxRef.current < totalStepsRef.current - 1;
-        const hasNextTour = !hasMoreSteps && Boolean(nextLiveBranchRef.current);
-        if (!hasMoreSteps && !hasNextTour) {
-          return;
-        }
-
-        setStepAutoNextCountdown(true);
-        stepAutoTimerRef.current = setTimeout(() => {
-          stepAutoTimerRef.current = null;
-          setStepAutoNextCountdown(false);
-          if (
-            viewRef.current !== 'stage' ||
-            briefModalRef.current ||
-            !autoReadRef.current ||
-            !stepAutoAdvanceRef.current
-          ) {
-            return;
-          }
-          if (currentStepIdxRef.current < totalStepsRef.current - 1) {
-            setSideTab('guide');
-            setCurrentStepIdx((prev) => prev + 1);
-          } else if (nextLiveBranchRef.current) {
-            setSideTab('guide');
-            setActiveBranchId(nextLiveBranchRef.current.id);
-            setCurrentStepIdx(0);
-          }
-        }, BRIEF_AUTO_ADVANCE_DELAY_MS);
-        return;
-      }
-
-      if (channel !== 'brief') return;
-      const currentModal = briefModalRef.current;
-      if (!currentModal || !briefAutoAdvanceRef.current) return;
-
-      const list =
-        currentModal.kind === 'module' ? PLATFORM_MODULES : PLATFORM_FOUNDATION_PILLARS;
-      const curIdx = list.findIndex((item) => item.id === currentModal.id);
-      if (curIdx === -1) return;
-
-      const nextItem = list[(curIdx + 1) % list.length];
-      if (!nextItem || briefVisitedRef.current.has(nextItem.id)) {
-        briefVisitedRef.current.clear();
-        return;
-      }
-
-      setAutoNextCountdown(true);
-      briefAutoTimerRef.current = setTimeout(() => {
-        briefAutoTimerRef.current = null;
-        setAutoNextCountdown(false);
-        if (!briefModalRef.current || !briefAutoAdvanceRef.current) return;
-
-        briefVisitedRef.current.add(nextItem.id);
-        const nextModal = { kind: currentModal.kind, id: nextItem.id };
-        briefModalRef.current = nextModal;
-        setBriefModal(nextModal);
-
-        const nextTarget = resolveBriefTarget(currentModal.kind, nextItem.id);
-        if (nextTarget && playBriefVoiceRef.current) {
-          playBriefVoiceRef.current(nextTarget, langRef.current, speechRateRef.current);
+        if (currentStepIdxRef.current < totalStepsRef.current - 1) {
+          setSideTab('guide');
+          setCurrentStepIdx((prev) => prev + 1);
+        } else if (nextLiveBranchRef.current) {
+          setSideTab('guide');
+          setActiveBranchId(nextLiveBranchRef.current.id);
+          setCurrentStepIdx(0);
         }
       }, BRIEF_AUTO_ADVANCE_DELAY_MS);
-    },
-    []
-  );
-
-  // Speak arbitrary text via Web Speech API fallback if static neural MP3 is unavailable
-  const speakRawTextWithWebSpeech = useCallback((rawText, targetLang, rate, channel = 'step') => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !rawText) {
-      setSpeechState('idle');
       return;
     }
-    window.speechSynthesis.cancel();
-    const ar = targetLang === 'ar';
-    const cleanedText = ar
-      ? rawText
-          .replace(/ج\.م/g, 'جنيه مصري')
-          .replace(/\bPDF\b/gi, 'بي دي إف')
-          .replace(/\bQR\b/gi, 'كيو آر')
-          .replace(/\bERP\b/gi, 'إي آر بي')
-      : rawText
-          .replace(/\bWORM-audited\b/gi, 'tamper-proof')
-          .replace(/\bCFOs\b/g, 'Chief Financial Officers')
-          .replace(/\bLGs\b/g, 'Letters of Guarantee');
 
-    const utter = new SpeechSynthesisUtterance(cleanedText);
-    utter.lang = ar ? 'ar-EG' : 'en-US';
-    utter.rate = rate;
+    if (channel !== 'brief') return;
+    const currentModal = briefModalRef.current;
+    if (!currentModal || !briefAutoAdvanceRef.current) return;
 
-    const voices = window.speechSynthesis.getVoices() || [];
-    const langPrefix = ar ? 'ar' : 'en';
-    const preferred =
-      voices.find((v) => v.lang?.toLowerCase().startsWith(langPrefix) && /ava|andrew|multilingual|natural|online|google|salma|shakir|aria/i.test(v.name)) ||
-      voices.find((v) => v.lang?.toLowerCase().startsWith(langPrefix));
-    if (preferred) utter.voice = preferred;
+    const curIdx = PLATFORM_FOUNDATION_PILLARS.findIndex((item) => item.id === currentModal.id);
+    if (curIdx === -1) return;
 
-    utter.onstart = () => {
+    const nextItem = PLATFORM_FOUNDATION_PILLARS[(curIdx + 1) % PLATFORM_FOUNDATION_PILLARS.length];
+    if (!nextItem || briefVisitedRef.current.has(nextItem.id)) {
+      briefVisitedRef.current.clear();
+      return;
+    }
+
+    setAutoNextCountdown(true);
+    briefAutoTimerRef.current = setTimeout(() => {
+      briefAutoTimerRef.current = null;
+      setAutoNextCountdown(false);
+      if (!briefModalRef.current || !briefAutoAdvanceRef.current) return;
+
+      briefVisitedRef.current.add(nextItem.id);
+      const nextModal = { id: nextItem.id };
+      briefModalRef.current = nextModal;
+      setBriefModal(nextModal);
+
+      const nextTarget = resolveFoundationTarget(nextItem.id);
+      if (nextTarget && playBriefVoiceRef.current) {
+        playBriefVoiceRef.current(nextTarget, langRef.current, speechRateRef.current);
+      }
+    }, BRIEF_AUTO_ADVANCE_DELAY_MS);
+  }, []);
+
+  // Speak arbitrary text via Web Speech API fallback if static neural MP3 is unavailable
+  const speakRawTextWithWebSpeech = useCallback(
+    (rawText, targetLang, rate, channel = 'step') => {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window) || !rawText) {
+        setSpeechState('idle');
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const ar = targetLang === 'ar';
+      const cleanedText = ar
+        ? rawText
+            .replace(/ج\.م/g, 'جنيه مصري')
+            .replace(/\bPDF\b/gi, 'بي دي إف')
+            .replace(/\bQR\b/gi, 'كيو آر')
+            .replace(/\bERP\b/gi, 'إي آر بي')
+        : rawText
+            .replace(/\bWORM-audited\b/gi, 'tamper-proof')
+            .replace(/\bCFOs\b/g, 'Chief Financial Officers')
+            .replace(/\bLGs\b/g, 'Letters of Guarantee');
+
+      const utter = new SpeechSynthesisUtterance(cleanedText);
+      utter.lang = ar ? 'ar-EG' : 'en-US';
+      utter.rate = rate;
+
+      const voices = window.speechSynthesis.getVoices() || [];
+      const langPrefix = ar ? 'ar' : 'en';
+      const preferred =
+        voices.find(
+          (v) =>
+            v.lang?.toLowerCase().startsWith(langPrefix) &&
+            /ava|andrew|multilingual|natural|online|google|salma|shakir|aria/i.test(v.name)
+        ) || voices.find((v) => v.lang?.toLowerCase().startsWith(langPrefix));
+      if (preferred) utter.voice = preferred;
+
+      utter.onstart = () => {
+        synthActiveRef.current = true;
+        setVoiceChannel(channel);
+        setSpeechState('playing');
+      };
+      utter.onend = () => {
+        synthActiveRef.current = false;
+        handleVoiceChannelEnded(channel);
+      };
+      utter.onerror = () => {
+        synthActiveRef.current = false;
+        setSpeechState('idle');
+      };
       synthActiveRef.current = true;
       setVoiceChannel(channel);
       setSpeechState('playing');
-    };
-    utter.onend = () => {
-      synthActiveRef.current = false;
-      handleVoiceChannelEnded(channel);
-    };
-    utter.onerror = () => {
-      synthActiveRef.current = false;
-      setSpeechState('idle');
-    };
-    synthActiveRef.current = true;
-    setVoiceChannel(channel);
-    setSpeechState('playing');
-    window.speechSynthesis.speak(utter);
-  }, [handleVoiceChannelEnded]);
+      window.speechSynthesis.speak(utter);
+    },
+    [handleVoiceChannelEnded]
+  );
 
   const playAudioWithFallback = useCallback(
     ({ mp3Url, fallbackText, targetLang = lang, rate = speechRate, channel = 'step' }) => {
@@ -523,8 +814,7 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
     [activeBranchId, activeBranchMeta, activeNarrative, lang, playAudioWithFallback, speechRate]
   );
 
-  // Resolve current Brief Modal object (either Module Executive Pitch or Foundation Pillar)
-  const activeBriefData = briefModal ? resolveBriefTarget(briefModal.kind, briefModal.id) : null;
+  const activeBriefData = briefModal ? resolveFoundationTarget(briefModal.id) : null;
 
   const playBriefVoice = useCallback(
     (briefObj = activeBriefData, targetLang = lang, rate = speechRate) => {
@@ -578,7 +868,6 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
         playStepVoice();
       }
     } else {
-      // Turning Read Notes ON keeps continuous voice active across all steps & module tours (1.1, 1.2, ...)
       autoReadRef.current = true;
       setAutoRead(true);
       playStepVoice();
@@ -626,15 +915,18 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
     }
   }, [autoNextCountdown, briefModal, voiceChannel, speechState, speechRate, playBriefVoice, stopVoice]);
 
-  const openBrief = useCallback(
-    (kind, id, autoPlay = false) => {
+  const openFoundationBrief = useCallback(
+    (pillarId, autoPlay = false) => {
+      stopStoryPlayback();
+      storyModalRef.current = null;
+      setStoryModal(null);
       stopVoice();
-      const nextModal = { kind, id };
+      const nextModal = { id: pillarId };
       briefModalRef.current = nextModal;
       setBriefModal(nextModal);
       if (autoPlay) {
-        briefVisitedRef.current = new Set([id]);
-        const target = resolveBriefTarget(kind, id);
+        briefVisitedRef.current = new Set([pillarId]);
+        const target = resolveFoundationTarget(pillarId);
         if (target) {
           playBriefVoice(target, langRef.current, speechRateRef.current);
         }
@@ -642,7 +934,7 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
         briefVisitedRef.current.clear();
       }
     },
-    [playBriefVoice, stopVoice]
+    [playBriefVoice, stopStoryPlayback, stopVoice]
   );
 
   const closeBrief = useCallback(() => {
@@ -653,18 +945,29 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
   }, [stopVoice]);
 
   const cycleSpeechRate = useCallback(() => {
-    const nextRate = speechRate === 1.0 ? 1.2 : 1.0;
+    const nextRate = speechRate === 1.0 ? 1.25 : speechRate === 1.25 ? 1.5 : 1.0;
+    speechRateRef.current = nextRate;
     setSpeechRate(nextRate);
     if (audioRef.current) {
       audioRef.current.playbackRate = nextRate;
     }
+    if (storyAudioRef.current) {
+      storyAudioRef.current.playbackRate = nextRate;
+    }
   }, [speechRate]);
 
-  // Stop voice on unmount or when leaving stage; auto-read on step/lang change if enabled
-  useEffect(() => () => stopVoice(), [stopVoice]);
+  // Clean up audio on unmount
+  useEffect(
+    () => () => {
+      stopVoice();
+      stopStoryPlayback();
+    },
+    [stopStoryPlayback, stopVoice]
+  );
 
+  // Auto-read step notes when in Stage View (and no modal is open)
   useEffect(() => {
-    if (briefModal) {
+    if (briefModal || storyModal) {
       stopVoice();
       return;
     }
@@ -678,12 +981,18 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
       stopVoice();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, currentStepIdx, lang, activeBranchId]);
+  }, [view, currentStepIdx, lang, activeBranchId, Boolean(briefModal), Boolean(storyModal)]);
 
   const openBranch = useCallback(
     (branch, moduleObj) => {
       if (branch.status === 'live') {
+        stopStoryPlayback();
+        storyModalRef.current = null;
+        setStoryModal(null);
         stopVoice();
+        if (moduleObj?.id) {
+          setExpandedModuleId(moduleObj.id);
+        }
         setActiveBranchId(branch.id);
         setCurrentStepIdx(0);
         setSideTab('guide');
@@ -693,7 +1002,33 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
         setPlannedModalBranch({ branch, moduleObj });
       }
     },
-    [stopVoice]
+    [stopStoryPlayback, stopVoice]
+  );
+
+  const openBranchById = useCallback(
+    (moduleId, branchId) => {
+      const mod = PLATFORM_MODULES.find((m) => m.id === moduleId) || PLATFORM_MODULES[0];
+      const br = mod.branches.find((b) => b.id === branchId) || mod.branches[0];
+      if (br) openBranch(br, mod);
+    },
+    [openBranch]
+  );
+
+  const toggleExpandModuleWorkflows = useCallback(
+    (moduleId) => {
+      setExpandedModuleId((prev) => {
+        const next = prev === moduleId ? null : moduleId;
+        if (next) {
+          const mod = PLATFORM_MODULES.find((m) => m.id === next);
+          mod?.branches?.forEach((b) => preloadBranchFirstShot(b.id));
+          setTimeout(() => {
+            workflowTrayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }, 60);
+        }
+        return next;
+      });
+    },
+    [preloadBranchFirstShot]
   );
 
   const handleNextStep = useCallback(() => {
@@ -717,8 +1052,36 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
     }
   }, [currentStepIdx]);
 
-  // Keyboard navigation for smooth live presenting
+  // Keyboard navigation for Story Player & Stage View
   useEffect(() => {
+    if (storyModal) {
+      const onStoryKey = (e) => {
+        if (e.key === 'Escape') {
+          closeStory();
+        } else if (e.key === ' ') {
+          e.preventDefault();
+          toggleStoryPlayPause();
+        } else if (e.key === 'ArrowRight') {
+          const delta = isAr ? -1 : 1;
+          if (storyModal.phase === 'chapters') {
+            const next = storyModal.chapterIdx + delta;
+            if (next >= 0 && next < 4) jumpStoryChapter(next);
+            else if (next >= 4) openStoryHandoff();
+          }
+        } else if (e.key === 'ArrowLeft') {
+          const delta = isAr ? 1 : -1;
+          if (storyModal.phase === 'chapters') {
+            const next = storyModal.chapterIdx + delta;
+            if (next >= 0 && next < 4) jumpStoryChapter(next);
+          } else if (storyModal.phase === 'handoff' && delta < 0) {
+            jumpStoryChapter(3);
+          }
+        }
+      };
+      window.addEventListener('keydown', onStoryKey);
+      return () => window.removeEventListener('keydown', onStoryKey);
+    }
+
     if (view !== 'stage') return undefined;
     const onKey = (e) => {
       if (e.key === 'ArrowRight') {
@@ -731,7 +1094,18 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [view, isAr, handleNextStep, handlePrevStep, sideTab]);
+  }, [
+    storyModal,
+    closeStory,
+    toggleStoryPlayPause,
+    jumpStoryChapter,
+    openStoryHandoff,
+    view,
+    isAr,
+    handleNextStep,
+    handlePrevStep,
+    sideTab,
+  ]);
 
   // Sync native browser Fullscreen state (including Esc key exit)
   useEffect(() => {
@@ -759,7 +1133,6 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
         setHideNotesInFullScreen(false);
       }
     } catch {
-      // Fallback to viewport-filling overlay if native Fullscreen is restricted
       setIsFullScreen((prev) => {
         const next = !prev;
         if (!next) setHideNotesInFullScreen(false);
@@ -783,34 +1156,6 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
   const isImageDecoded = Boolean(currentShotSrc && decodedImageSrc === currentShotSrc);
   const isHotspotVisible = Boolean(currentShotSrc && readyImageSrc === currentShotSrc);
 
-  // Preload helper so screenshots arrive in browser cache BEFORE user clicks Next Step / Open Topic
-  const preloadImageUrl = useCallback((url) => {
-    if (!url || typeof window === 'undefined' || preloadedImagesRef.current.has(url)) return;
-    preloadedImagesRef.current.add(url);
-    const img = new window.Image();
-    img.decoding = 'async';
-    img.src = url;
-  }, []);
-
-  const preloadBranchFirstShot = useCallback(
-    (branchId) => {
-      const firstShot = pilotManifest?.branches?.[branchId]?.capturedSteps?.[0]?.image;
-      if (firstShot) preloadImageUrl(firstShot);
-    },
-    [preloadImageUrl]
-  );
-
-  // Warm the 4 primary Module entry screenshots shortly after landing on `/demo`
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      PLATFORM_MODULES.forEach((m) => {
-        const firstLive = m.branches.find((b) => b.status === 'live') || m.branches[0];
-        if (firstLive) preloadBranchFirstShot(firstLive.id);
-      });
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [preloadBranchFirstShot]);
-
   // Whenever inside Stage View, eagerly preload all remaining screenshots in the active tour + next tour's Step 1
   useEffect(() => {
     if (view !== 'stage') return undefined;
@@ -830,7 +1175,7 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
     return undefined;
   }, [view, activeBranchId, currentStepIdx, capturedSteps, nextLiveBranch, activeDocument, preloadImageUrl]);
 
-  // Synchronize screenshot GPU decode -> THEN reveal blue hotspot 140ms later (never before the image!)
+  // Synchronize screenshot GPU decode -> THEN reveal blue hotspot 180ms later (never before the image!)
   const finalizeShotReveal = useCallback((imgEl, targetSrc) => {
     if (!targetSrc) return;
     if (hotspotRevealTimerRef.current) {
@@ -869,6 +1214,24 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
     };
   }, [currentShotSrc, view, finalizeShotReveal]);
 
+  // Decode Story Cinema screenshot cleanly
+  const activeStoryObj = storyModal ? VISUAL_STORIES[storyModal.storyId] : null;
+  const activeStoryChapter =
+    activeStoryObj?.chapters?.[storyModal?.chapterIdx || 0] || activeStoryObj?.chapters?.[0] || null;
+  const activeStoryImageSrc = activeStoryChapter?.image || '';
+
+  useEffect(() => {
+    if (!activeStoryImageSrc || storyModal?.phase !== 'chapters') return;
+    const el = storyImgRef.current;
+    if (el && el.complete && el.naturalWidth > 0) {
+      setStoryDecodedSrc(activeStoryImageSrc);
+    }
+  }, [activeStoryImageSrc, storyModal?.phase]);
+
+  const expandedModuleObj = expandedModuleId
+    ? PLATFORM_MODULES.find((m) => m.id === expandedModuleId) || null
+    : null;
+
   const fontFamily = isAr
     ? "'Cairo', 'Segoe UI', Tahoma, sans-serif"
     : "'Inter', 'Segoe UI', sans-serif";
@@ -888,59 +1251,86 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
           : 'min-h-[calc(100vh-44px)] bg-slate-50'
       }`}
     >
-      {/* ═══════ UNIFIED COMPACT TOP BAR ═══════ */}
-      <div className="bg-gradient-to-r from-[#162038] via-[#1e2a4a] to-[#0f172a] text-white border-b border-slate-800 shrink-0">
+      {/* ═══════ UNIFIED EXECUTIVE HERO & STAGE TOP BAR ═══════ */}
+      <div className="bg-gradient-to-r from-[#11192e] via-[#1b2848] to-[#0f172a] text-white border-b border-slate-800 shrink-0">
         <div
           className={`${
             isFullScreen && view === 'stage'
               ? 'w-full px-3 h-9 flex items-center'
               : `max-w-[1840px] mx-auto px-4 sm:px-6 lg:px-7 ${
-                  view === 'stage' ? 'py-2' : 'py-3.5 lg:py-4'
+                  view === 'stage' ? 'py-2' : 'py-4 lg:py-5'
                 }`
           }`}
         >
           {view === 'tree' ? (
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 w-full">
-              <div>
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/15 text-blue-300 border border-blue-400/25">
-                    <Layers className="w-3 h-3" />
-                    {isAr ? 'جولة تفاعلية من النظام الفعلي' : 'Interactive Tour · Real System Captures'}
-                  </span>
-                  <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 w-full">
+              <div className="max-w-4xl">
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-500/15 text-blue-300 border border-blue-400/25">
+                    <Sparkles className="w-3 h-3 text-amber-300" />
                     {isAr
-                      ? 'استكشف كيف يعمل نظام Grow خطوة بخطوة'
-                      : 'See How Grow Works — Step by Step on Real Screens'}
-                  </h1>
+                      ? 'تجربة تفاعلية لصنّاع القرار · شاشات فعلية'
+                      : 'Executive Product Experience · Real System Screens'}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-400/25">
+                    {isAr ? 'بدون تسجيل مسبق' : 'Ungated · Instant Access'}
+                  </span>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-300 mt-1">
+                <h1 className="text-xl sm:text-2xl lg:text-[25px] font-extrabold tracking-tight text-white leading-snug">
                   {isAr
-                    ? 'اختر أي وحدة أو مسار عمل أدناه للتفاعل مع شاشات النظام الفعلية والمستندات البنكية مع شرح صوتي مبسط.'
-                    : 'Select any module or workflow below to explore real system screens, sample bank documents, and voice-guided notes.'}
+                    ? 'تحكم شامل بالخزانة — القيمة في دقيقة، والتفاصيل عند الطلب'
+                    : 'Corporate Treasury Control — Value in 65s, Depth on Demand'}
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
+                  {isAr
+                    ? 'شاهد عرض المنصة أو قصة أي وحدة صوتياً، ثم جرّب المسارات خطوة بخطوة.'
+                    : 'Watch the 65s overview or any voiced module story, then try step-by-step workflows.'}
                 </p>
               </div>
 
-              {/* Language Switcher */}
-              <div className="inline-flex items-center rounded-xl bg-slate-900/80 p-1 border border-slate-700 self-start lg:self-center shrink-0">
+              {/* Hero Right Controls: 65s Platform Overview CTA + Language Switcher */}
+              <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-center shrink-0">
                 <button
                   type="button"
-                  onClick={() => setLang('en')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    !isAr ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'
-                  }`}
+                  onMouseEnter={() => preloadStoryShots('platform_intro')}
+                  onClick={() => openStory('platform_intro', 0, true)}
+                  className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-600/30 border border-blue-400/40 transition-all cursor-pointer group"
                 >
-                  English
+                  <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Play className="w-3 h-3 fill-current text-white" />
+                  </span>
+                  <div className="flex flex-col text-start leading-tight">
+                    <span>
+                      {isAr ? 'شاهد عرض المنصة الكامل' : 'Watch Platform Overview'}
+                    </span>
+                    <span className="text-[10px] font-semibold text-blue-200">
+                      {isAr ? '٦٥ ثانية · ٤ وحدات بالصوت والصورة' : '65 sec · All 4 Modules with Voice'}
+                    </span>
+                  </div>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setLang('ar')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    isAr ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'
-                  }`}
-                  style={{ fontFamily: "'Cairo', sans-serif" }}
-                >
-                  العربية
-                </button>
+
+                {/* Language Switcher */}
+                <div className="inline-flex items-center rounded-xl bg-slate-900/90 p-1 border border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setLang('en')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      !isAr ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    English
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLang('ar')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      isAr ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'
+                    }`}
+                    style={{ fontFamily: "'Cairo', sans-serif" }}
+                  >
+                    العربية
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
@@ -996,19 +1386,18 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                   </div>
                 )}
 
-                {/* Quick Decision-Maker Module Pitch inside Stage */}
+                {/* Visual Executive Story Trigger inside Stage */}
                 <button
                   type="button"
-                  onClick={() => openBrief('module', activeStageModule.id, false)}
-                  className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-indigo-500/20 hover:bg-indigo-500/35 text-indigo-200 border border-indigo-400/30 transition-all shrink-0"
+                  onClick={() => openStory(activeStageModule.id, 0, true)}
+                  className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-indigo-500/20 hover:bg-indigo-500/35 text-indigo-200 border border-indigo-400/30 transition-all shrink-0 cursor-pointer"
                 >
                   <Sparkles className="w-3 h-3 text-amber-300" />
-                  <span>{isAr ? 'ملخص الوحدة لصانع القرار' : 'Module Pitch'}</span>
+                  <span>{isAr ? 'القصة التنفيذية للوحدة (٧٥ ث)' : 'Watch 75s Module Story'}</span>
                 </button>
               </div>
 
               <div className="flex items-center gap-1.5 shrink-0">
-                {/* Optional Side-Notes Collapse ONLY when inside Full Screen */}
                 {isFullScreen && (
                   <button
                     type="button"
@@ -1032,7 +1421,6 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                   </button>
                 )}
 
-                {/* True Browser Full Screen Toggle */}
                 <button
                   type="button"
                   onClick={toggleFullScreen}
@@ -1091,16 +1479,20 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
         </div>
       </div>
 
-      {/* ═══════ VIEW 1: COMPACT ABOVE-THE-FOLD 4-MODULE TREE ═══════ */}
+      {/* ═══════ VIEW 1: CALM PROGRESSIVE-DISCLOSURE 4-MODULE SHOWROOM ═══════ */}
       {view === 'tree' && (
-        <div className={`max-w-[1840px] mx-auto px-4 sm:px-6 lg:px-7 py-4 lg:py-5 w-full ${isFullScreen ? 'flex-1 overflow-y-auto' : ''}`}>
-          {/* Interactive Root Platform Governance & Control Foundation Hub */}
+        <div
+          className={`max-w-[1840px] mx-auto px-4 sm:px-6 lg:px-7 py-5 lg:py-6 w-full space-y-5 ${
+            isFullScreen ? 'flex-1 overflow-y-auto' : ''
+          }`}
+        >
+          {/* Compact Cross-Platform Governance & Security Foundation Strip */}
           <div className="w-full text-center">
-            <div className="inline-flex flex-wrap items-center justify-center gap-2.5 bg-white rounded-2xl px-3.5 py-2 shadow-sm border border-slate-200/90">
+            <div className="inline-flex flex-wrap items-center justify-center gap-2.5 bg-white rounded-2xl px-4 py-2 shadow-2xs border border-slate-200/90">
               <button
                 type="button"
-                onClick={() => openBrief('foundation', 'governance', false)}
-                className="flex items-center gap-2 group text-start"
+                onClick={() => openFoundationBrief('governance', false)}
+                className="flex items-center gap-2 group text-start cursor-pointer"
                 title={
                   isAr
                     ? 'استعرض أساسيات الحوكمة والأمان وإدارة المجموعات'
@@ -1112,10 +1504,10 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                 </div>
                 <div className="flex flex-col">
                   <span className="text-xs sm:text-sm font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors leading-tight">
-                    {isAr ? 'أساسيات الحوكمة والأمان الموحدة' : 'Platform Governance & Control Foundation'}
+                    {isAr ? 'أساسيات الحوكمة والأمان المشتركة' : 'Enterprise Governance & Security Foundation'}
                   </span>
                   <span className="text-[10px] text-blue-600 font-semibold leading-tight">
-                    {isAr ? 'اضغط على أي ركيزة للشرح الصوتي ←' : 'Click any pillar for executive brief & audio →'}
+                    {isAr ? 'تعمل تلقائياً عبر الوحدات الأربع ←' : 'Built into all 4 modules · Click any pillar →'}
                   </span>
                 </div>
               </button>
@@ -1132,7 +1524,7 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                     >
                       <button
                         type="button"
-                        onClick={() => openBrief('foundation', p.id, false)}
+                        onClick={() => openFoundationBrief(p.id, false)}
                         className="inline-flex items-center gap-1.5 ps-2.5 pe-1.5 py-1 cursor-pointer"
                       >
                         <PillarIcon className="w-3 h-3 text-blue-600 shrink-0" />
@@ -1140,7 +1532,7 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                       </button>
                       <button
                         type="button"
-                        onClick={() => openBrief('foundation', p.id, true)}
+                        onClick={() => openFoundationBrief(p.id, true)}
                         className="pe-2.5 ps-1 py-1 text-slate-400 hover:text-blue-700 cursor-pointer transition-colors"
                         title={isAr ? 'استمع للشرح مباشرة' : 'Listen directly'}
                       >
@@ -1153,198 +1545,289 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
             </div>
           </div>
 
-          {/* Sleek Tree Connector Lines (1:1 Centered Over Each of the 4 Module Columns) */}
-          <div className="hidden lg:block w-full">
-            <div className="w-0.5 h-3 bg-slate-300 mx-auto" />
-            <div className="grid grid-cols-4 gap-4">
-              {[0, 1, 2, 3].map((col) => (
-                <div key={col} className="relative flex justify-center">
-                  <div
-                    className="absolute top-0 border-t-2 border-slate-300"
-                    style={{
-                      insetInlineStart: col === 0 ? '50%' : '-0.5rem',
-                      insetInlineEnd: col === 3 ? '50%' : '-0.5rem',
-                    }}
-                  />
-                  <div className="w-0.5 h-3 bg-slate-300" />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 4 Equal Module Trunks + Sub-Function Branches (Subgrid Locks All 4 Module Headers & CTAs to Identical Height) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 lg:mt-0">
+          {/* 4 Equal-Height Executive Module Cards (Zero Sub-Card Wall!) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 items-stretch">
             {PLATFORM_MODULES.map((mod) => {
               const IconComp = MODULE_ICONS[mod.id] || Layers;
               const style = ACCENT_STYLES[mod.accent] || ACCENT_STYLES.blue;
-              const firstLiveBranch =
-                mod.branches.find((b) => b.status === 'live') || mod.branches[0];
               const moduleTopicCount = mod.branches.length;
+              const isExpanded = expandedModuleId === mod.id;
+              const bullets = (isAr ? mod.cardBulletsAr : mod.cardBulletsEn) || [];
 
               return (
                 <div
                   key={mod.id}
-                  className={`bg-white rounded-2xl border ${style.trunkBorder} shadow-xs hover:shadow-md transition-all overflow-hidden flex flex-col md:row-span-2 md:grid md:grid-rows-subgrid md:gap-y-0`}
+                  className={`relative bg-white rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col h-full ${
+                    isExpanded
+                      ? style.activeTrunk
+                      : `${style.trunkBorder} shadow-xs hover:shadow-md`
+                  }`}
                 >
-                  {/* Row 1: Unified-Height Module Trunk Header + Single Module CTA + Decision-Maker Pitch */}
-                  <div className="relative pt-4 px-3.5 pb-3 border-b border-slate-100 flex flex-col h-full">
-                    <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${style.topBar}`} />
+                  <div className={`h-1.5 w-full bg-gradient-to-r ${style.topBar} shrink-0`} />
 
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${style.pill}`}>
+                  <div className="p-5 flex flex-col flex-1">
+                    {/* Top Meta Row: Module Badge + Story Time + Icon */}
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${style.pill}`}>
                           {isAr ? mod.badgeAr : mod.badgeEn}
                         </span>
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shadow-xs ${style.iconBg}`}>
-                          <IconComp className="w-3.5 h-3.5" />
-                        </div>
+                        <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                          <Volume2 className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>{isAr ? mod.storyDurationAr || '٧٥ ثانية' : mod.storyDurationEn || '75s Story'}</span>
+                        </span>
                       </div>
-                      <h3 className="text-base font-extrabold text-slate-900 leading-snug">
-                        {isAr ? mod.titleAr : mod.titleEn}
-                      </h3>
-                      <p className="text-[11.5px] text-slate-500 mt-0.5 leading-snug">
-                        {isAr ? mod.summaryAr : mod.summaryEn}
-                      </p>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-xs shrink-0 ${style.iconBg}`}>
+                        <IconComp className="w-4 h-4" />
+                      </div>
                     </div>
 
-                    {/* Pinned Bottom Action Band: Identical Y-Height Across All 4 Columns */}
-                    <div className="mt-auto pt-2.5 space-y-1.5">
-                      {/* Primary Module-Level CTA (1 per Module Column instead of 15 repeated buttons) */}
-                      {firstLiveBranch && (
-                        <button
-                          type="button"
-                          onMouseEnter={() => preloadBranchFirstShot(firstLiveBranch.id)}
-                          onClick={() => openBranch(firstLiveBranch, mod)}
-                          className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${style.liveBtn}`}
-                        >
-                          <span className="inline-flex items-center gap-1.5">
-                            <Play className="w-3 h-3 fill-current shrink-0" />
-                            <span>{isAr ? 'ابدأ جولة الوحدة' : 'Start Module Tour'}</span>
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold opacity-90">
-                            <span>
-                              {isAr
-                                ? `${moduleTopicCount} مواضيع`
-                                : `${moduleTopicCount} Topics`}
-                            </span>
-                            {isAr ? (
-                              <ArrowLeft className="w-3 h-3 shrink-0" />
-                            ) : (
-                              <ArrowRight className="w-3 h-3 shrink-0" />
-                            )}
-                          </span>
-                        </button>
-                      )}
+                    {/* Module Title & Clear Role Distinction Subtitle */}
+                    <h2 className="text-lg font-extrabold text-slate-900 leading-snug">
+                      {isAr ? mod.titleAr : mod.titleEn}
+                    </h2>
+                    <p className={`text-xs font-bold mt-0.5 ${style.iconText}`}>
+                      {isAr ? mod.subtitleAr : mod.subtitleEn}
+                    </p>
 
-                      {/* Decision-Maker Executive Pitch Bar: Left opens text, Right ("Listen") plays sound directly! */}
-                      {mod.executivePitch && (
-                        <div
-                          className={`w-full flex items-center justify-between gap-1.5 ps-2.5 pe-1.5 py-1 rounded-xl border text-[11px] font-extrabold transition-all ${style.pitchBtn}`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => openBrief('module', mod.id, false)}
-                            className="inline-flex items-center gap-1.5 text-start flex-1 py-0.5 cursor-pointer hover:opacity-80"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                            <span>
-                              {isAr ? 'ملخص لصانع القرار' : 'Executive Pitch'}
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openBrief('module', mod.id, true)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-slate-900 hover:text-white text-slate-800 text-[10px] font-extrabold shadow-2xs border border-slate-200/80 transition-all shrink-0 cursor-pointer"
-                            title={isAr ? 'استمع للملخص الصوتي مباشرة' : 'Play executive pitch audio directly'}
-                          >
-                            <Volume2 className="w-3 h-3 shrink-0" />
-                            <span>{isAr ? 'استمع' : 'Listen'}</span>
-                          </button>
+                    {/* Executive Outcome Hook */}
+                    <p className="text-xs sm:text-[13px] text-slate-600 mt-2.5 leading-relaxed">
+                      {isAr ? mod.summaryAr : mod.summaryEn}
+                    </p>
+
+                    {/* 3 Scannable CFO Outcome Bullets */}
+                    <div className="mt-3.5 pt-3 border-t border-slate-100 space-y-2">
+                      {bullets.map((bText, i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs font-semibold text-slate-700 leading-snug">
+                          <CheckCircle2 className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${style.iconText}`} />
+                          <span>{bText}</span>
                         </div>
-                      )}
+                      ))}
                     </div>
-                  </div>
 
-                  {/* Row 2: Clean Clickable Sub-Process Topic Cards (Hover-Only Play Cue) */}
-                  <div className="p-3 bg-slate-50/60 flex-1">
-                    <div
-                      className={`space-y-2 ${
-                        isAr ? 'border-r-2 pr-2.5 mr-1' : 'border-l-2 pl-2.5 ml-1'
-                      } ${style.spine}`}
-                    >
-                      {mod.branches.map((branch) => {
-                        const isLive = branch.status === 'live';
-                        return (
-                          <div key={branch.id} className="relative">
-                            <span
-                              className={`absolute top-4 w-2.5 border-t-2 ${style.spine} ${
-                                isAr ? '-right-2.5' : '-left-2.5'
-                              }`}
-                            />
+                    {/* Pinned Equal-Height Bottom Action Stack */}
+                    <div className="mt-auto pt-5 space-y-2">
+                      {/* Primary CTA: Auto-Playing 4-Chapter Visual Executive Story */}
+                      <button
+                        type="button"
+                        onMouseEnter={() => preloadStoryShots(mod.id)}
+                        onClick={() => openStory(mod.id, 0, true)}
+                        className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-[13px] font-extrabold transition-all cursor-pointer ${style.liveBtn}`}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <Play className="w-3.5 h-3.5 fill-current shrink-0" />
+                          <span>
+                            {isAr ? 'شاهد القصة التنفيذية' : 'Watch Executive Story'}
+                          </span>
+                        </span>
+                        <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md bg-black/15">
+                          {isAr ? '٤ مشاهد · صوت' : '4 Chapters'}
+                        </span>
+                      </button>
 
-                            <button
-                              type="button"
-                              onMouseEnter={() => preloadBranchFirstShot(branch.id)}
-                              onClick={() => openBranch(branch, mod)}
-                              className={`w-full text-start rounded-xl p-2.5 border transition-all duration-150 cursor-pointer group ${
-                                isLive
-                                  ? style.liveCard
-                                  : 'bg-white border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/80'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-1.5 mb-1">
-                                <span
-                                  className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md transition-colors ${
-                                    isLive ? style.codeBadge : 'bg-slate-100 text-slate-500'
-                                  }`}
-                                >
-                                  {branch.code}
-                                </span>
-                                {isLive ? (
-                                  <div className="flex items-center gap-1.5">
-                                    <span className={`text-[10px] font-medium ${style.durationText} group-hover:hidden`}>
-                                      {isAr
-                                        ? branch.durationAr.replace(' خطوات تفاعلية', ' خطوات')
-                                        : branch.durationEn.replace(' Interactive Steps', ' Steps')}
-                                    </span>
-                                    <span className="text-slate-300 group-hover:hidden">
-                                      {isAr ? (
-                                        <ArrowLeft className="w-3 h-3" />
-                                      ) : (
-                                        <ArrowRight className="w-3 h-3" />
-                                      )}
-                                    </span>
-                                    <span
-                                      className={`hidden group-hover:inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold shadow-2xs ${style.hoverPill}`}
-                                    >
-                                      <Play className="w-2.5 h-2.5 fill-current shrink-0" />
-                                      <span>{isAr ? 'ابدأ الموضوع' : 'Open Topic'}</span>
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500">
-                                    <Clock className="w-2.5 h-2.5" />
-                                    {isAr ? 'قريباً' : 'Next'}
-                                  </span>
-                                )}
-                              </div>
-
-                              <p className={`text-xs font-bold text-slate-900 ${style.hoverTitle} transition-colors leading-snug`}>
-                                {isAr ? branch.titleAr : branch.titleEn}
-                              </p>
-
-                              <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                                {isAr ? branch.descAr : branch.descEn}
-                              </p>
-                            </button>
-                          </div>
-                        );
-                      })}
+                      {/* Secondary Progressive Disclosure CTA: Reveal Hands-On Workflows */}
+                      <button
+                        type="button"
+                        onMouseEnter={() => {
+                          const firstLive = mod.branches[0];
+                          if (firstLive) preloadBranchFirstShot(firstLive.id);
+                        }}
+                        onClick={() => toggleExpandModuleWorkflows(mod.id)}
+                        className={`w-full flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                          isExpanded ? style.activeSecondaryBtn : style.secondaryBtn
+                        }`}
+                      >
+                        <span>
+                          {isExpanded
+                            ? isAr
+                              ? `إخفاء المسارات التفاعلية (${toArNum(moduleTopicCount)})`
+                              : `Hide Hands-On Workflows (${moduleTopicCount})`
+                            : isAr
+                            ? `استكشف ${toArNum(moduleTopicCount)} مسارات تفاعلية خطوة بخطوة`
+                            : `Explore ${moduleTopicCount} Hands-On Workflows`}
+                        </span>
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4 shrink-0" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 shrink-0" />
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
               );
             })}
+          </div>
+
+          {/* ── PROGRESSIVE-DISCLOSURE HANDS-ON WORKFLOWS TRAY (Revealed On Demand!) ── */}
+          {expandedModuleObj && (() => {
+            const trayStyle = ACCENT_STYLES[expandedModuleObj.accent] || ACCENT_STYLES.blue;
+            const TrayIcon = MODULE_ICONS[expandedModuleObj.id] || Layers;
+            const firstBranch = expandedModuleObj.branches[0];
+            const colsClass =
+              expandedModuleObj.branches.length === 3
+                ? 'grid-cols-1 md:grid-cols-3'
+                : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
+
+            return (
+              <div
+                ref={workflowTrayRef}
+                className={`rounded-2xl border p-4 sm:p-5 shadow-md transition-all ${trayStyle.trayBg}`}
+              >
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 pb-4 mb-4 border-b border-slate-200/80">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-xs shrink-0 ${trayStyle.iconBg}`}>
+                      <TrayIcon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`text-[10.5px] font-extrabold px-2 py-0.5 rounded-full border ${trayStyle.pill}`}>
+                          {isAr ? expandedModuleObj.badgeAr : expandedModuleObj.badgeEn}
+                        </span>
+                        <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                          {isAr
+                            ? `المسارات التفاعلية خطوة بخطوة · ${expandedModuleObj.titleAr}`
+                            : `Hands-On Interactive Workflows · ${expandedModuleObj.titleEn}`}
+                        </h3>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-0.5">
+                        {isAr
+                          ? 'اضغط على أي مسار لتجربة شاشات النظام الفعلية والمستندات البنكية والشرح الصوتي.'
+                          : 'Select any workflow below to click through real system captures, sample bank PDFs, and guided audio.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Quick Module Switcher Pills + Full Guided Tour + Close */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="inline-flex flex-wrap items-center gap-1 bg-white/90 p-1 rounded-xl border border-slate-200/90">
+                      {PLATFORM_MODULES.map((m, idx) => {
+                        const active = m.id === expandedModuleObj.id;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setExpandedModuleId(m.id)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                              active
+                                ? 'bg-slate-900 text-white shadow-2xs'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                            }`}
+                          >
+                            {isAr ? `٠${toArNum(idx + 1)}` : `0${idx + 1}`} · {isAr ? m.titleAr : m.titleEn}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {firstBranch && (
+                      <button
+                        type="button"
+                        onClick={() => openBranch(firstBranch, expandedModuleObj)}
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${trayStyle.liveBtn}`}
+                      >
+                        <Play className="w-3 h-3 fill-current" />
+                        <span>
+                          {isAr ? 'تشغيل كافة مسارات الوحدة بالتتابع' : 'Run Full Module Tour'}
+                        </span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setExpandedModuleId(null)}
+                      className="p-2 rounded-xl bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 border border-slate-200 cursor-pointer"
+                      title={isAr ? 'إغلاق المسارات' : 'Close workflows'}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Horizontal Workflow Cards */}
+                <div className={`grid ${colsClass} gap-3.5`}>
+                  {expandedModuleObj.branches.map((branch) => {
+                    const isLive = branch.status === 'live';
+                    return (
+                      <button
+                        key={branch.id}
+                        type="button"
+                        onMouseEnter={() => preloadBranchFirstShot(branch.id)}
+                        onClick={() => openBranch(branch, expandedModuleObj)}
+                        className={`text-start rounded-xl p-3.5 border transition-all duration-150 cursor-pointer group flex flex-col justify-between h-full ${
+                          isLive
+                            ? trayStyle.liveCard
+                            : 'bg-white border-slate-200/90 hover:border-slate-300'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <span
+                              className={`text-[11px] font-extrabold px-2 py-0.5 rounded-md transition-colors ${
+                                isLive ? trayStyle.codeBadge : 'bg-slate-100 text-slate-500'
+                              }`}
+                            >
+                              {branch.code}
+                            </span>
+                            <span className="text-[11px] font-medium text-slate-500">
+                              {isAr
+                                ? branch.durationAr.replace(' خطوات تفاعلية', ' خطوات')
+                                : branch.durationEn.replace(' Interactive Steps', ' Steps')}
+                            </span>
+                          </div>
+
+                          <h4 className={`text-xs sm:text-sm font-extrabold text-slate-900 ${trayStyle.hoverTitle} transition-colors leading-snug`}>
+                            {isAr ? branch.titleAr : branch.titleEn}
+                          </h4>
+
+                          <p className="text-[11.5px] text-slate-600 mt-1.5 leading-relaxed">
+                            {isAr ? branch.descAr : branch.descEn}
+                          </p>
+                        </div>
+
+                        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-extrabold">
+                          <span className={trayStyle.iconText}>
+                            {isAr ? 'ابدأ التجربة التفاعلية' : 'Try Interactive Workflow'}
+                          </span>
+                          {isAr ? (
+                            <ArrowLeft className={`w-3.5 h-3.5 ${trayStyle.iconText} group-hover:-translate-x-0.5 transition-transform`} />
+                          ) : (
+                            <ArrowRight className={`w-3.5 h-3.5 ${trayStyle.iconText} group-hover:translate-x-0.5 transition-transform`} />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Subtle Executive Conversion Footer Strip */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-2.5 text-xs sm:text-sm text-slate-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+              <span className="font-semibold">
+                {isAr
+                  ? 'هل ترغب في رؤية المنصة على نماذج خطابات الضمان وكشوف البنوك الخاصة بشركتكم؟'
+                  : 'Want to see Grow running on your own guarantee templates, bank facilities, or statement formats?'}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <Link
+                to="/#book-meeting"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-200 transition-colors"
+              >
+                <span>{isAr ? 'احجز جلسة تنفيذية (٢٠ دقيقة)' : 'Book a 20-Min Executive Walkthrough'}</span>
+              </Link>
+              <Link
+                to="/free-trial-register"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors"
+              >
+                <span>{isAr ? 'ابدأ تجربة مجانية' : 'Start Free Trial'}</span>
+                {isAr ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
+              </Link>
+            </div>
           </div>
         </div>
       )}
@@ -1500,7 +1983,6 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                       </div>
 
                       <div className="flex items-center gap-1.5">
-                        {/* Speed Toggle */}
                         <button
                           type="button"
                           onClick={cycleSpeechRate}
@@ -1510,7 +1992,6 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                           {speechRate}x
                         </button>
 
-                        {/* Auto-Advance Steps & Module Tours (1.1 -> 1.2 -> 1.3 -> 1.4) Toggle */}
                         <button
                           type="button"
                           onClick={() => {
@@ -1538,7 +2019,7 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                       </div>
                     </div>
 
-                    {/* ── CURRENT STEP STORY & GUIDE NOTES (Eye-Level Side-by-Side!) ── */}
+                    {/* ── CURRENT STEP STORY & GUIDE NOTES ── */}
                     <div className="px-4 py-3 flex-1 overflow-y-auto space-y-2.5">
                       <div className="flex flex-wrap items-center justify-between gap-1.5">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${activeStageStyle.pill}`}>
@@ -1560,7 +2041,6 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                         {isAr ? activeNarrative.guideAr : activeNarrative.guideEn}
                       </p>
 
-                      {/* Key Value Highlights */}
                       <div className="space-y-1 pt-0.5">
                         {(isAr ? activeNarrative.highlightsAr : activeNarrative.highlightsEn).map((h, i) => (
                           <div
@@ -1573,7 +2053,6 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                         ))}
                       </div>
 
-                      {/* Interactive Screen Action Prompt */}
                       <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold ${activeStageStyle.actionBox}`}>
                         <MousePointerClick className={`w-3.5 h-3.5 ${activeStageStyle.iconText} shrink-0 animate-bounce`} />
                         <span>
@@ -1615,7 +2094,6 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                         </button>
                       </div>
 
-                      {/* Single-Row Step Jump Bar (Dynamic Column Count) */}
                       <div
                         className="grid gap-1"
                         style={{
@@ -1709,7 +2187,7 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
               </aside>
             )}
 
-            {/* ── INTERACTIVE REAL SYSTEM SCREEN (TRUE 0-GAP EDGE-TO-EDGE HEIGHT IN FULL SCREEN!) ── */}
+            {/* ── INTERACTIVE REAL SYSTEM SCREEN ── */}
             <div
               className={
                 isFullScreen
@@ -1725,7 +2203,6 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                     : 'w-full lg:w-[min(100%,calc((100vh-142px)*1.6))] bg-slate-900 rounded-2xl p-1.5 shadow-2xl border border-slate-800'
                 }
               >
-                {/* Compact Browser Chrome Header (Hidden in Full Screen so Screen Fills 100% Height!) */}
                 {!isFullScreen && (
                   <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900 text-slate-300 text-xs">
                     <div className="flex items-center gap-1.5">
@@ -1750,7 +2227,6 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                   </div>
                 )}
 
-                {/* Strict 1440:900 Stage Box — Zero Letterboxing = 100% Pixel-Exact Hotspots */}
                 <div
                   onClick={triggerScreenOutsideClick}
                   className={`relative overflow-hidden bg-slate-100 select-none cursor-pointer ${
@@ -1837,7 +2313,6 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
               </div>
             </div>
 
-            {/* Zero-Height Floating Corner Control Pill when Notes are Hidden in Full Screen */}
             {isFullScreen && !showSidePanel && (
               <div
                 dir={dir}
@@ -1881,6 +2356,561 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
         </div>
       )}
 
+      {/* ═══════ VISUAL EXECUTIVE STORY CINEMA PLAYER (4 AUTO-PLAYING CHAPTERS + GO-DEEPER HANDOFF) ═══════ */}
+      {storyModal && activeStoryObj && (() => {
+        const stStyle = ACCENT_STYLES[activeStoryObj.accent] || ACCENT_STYLES.blue;
+        const storyModuleObj =
+          activeStoryObj.kind === 'module'
+            ? PLATFORM_MODULES.find((m) => m.id === activeStoryObj.moduleId) || PLATFORM_MODULES[0]
+            : null;
+        const nextModuleObj = storyModuleObj
+          ? PLATFORM_MODULES[
+              (PLATFORM_MODULES.findIndex((m) => m.id === storyModuleObj.id) + 1) %
+                PLATFORM_MODULES.length
+            ]
+          : PLATFORM_MODULES[0];
+
+        return (
+          <div
+            dir={dir}
+            style={{ fontFamily }}
+            className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4"
+            onClick={closeStory}
+          >
+            <div
+              className="bg-[#0b1222] text-white rounded-3xl max-w-[1320px] w-full shadow-2xl border border-slate-700/80 overflow-hidden flex flex-col max-h-[95vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 1. Top Cinema Story Switcher & Utility Controls */}
+              <div className="px-4 sm:px-6 py-2.5 bg-[#080e1c] border-b border-slate-800/90 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-1">
+                  {STORY_NAV_ORDER.map((sId) => {
+                    const sObj = VISUAL_STORIES[sId];
+                    if (!sObj) return null;
+                    const isCurrent = sId === storyModal.storyId;
+                    return (
+                      <button
+                        key={sId}
+                        type="button"
+                        onMouseEnter={() => preloadStoryShots(sId)}
+                        onClick={() => openStory(sId, 0, true)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                          isCurrent
+                            ? 'bg-white text-slate-950 shadow-xs'
+                            : 'text-slate-300 hover:text-white hover:bg-white/10'
+                        }`}
+                      >
+                        {isAr ? sObj.navLabelAr : sObj.navLabelEn}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Direct Jump to Hands-On Workflows Handoff */}
+                  <button
+                    type="button"
+                    onClick={openStoryHandoff}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                      storyModal.phase === 'handoff'
+                        ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                        : 'bg-white/10 hover:bg-white/20 text-slate-200 border-white/15'
+                    }`}
+                  >
+                    <Layers className="w-3 h-3" />
+                    <span>{isAr ? 'المسارات التفاعلية' : 'Hands-On Workflows'}</span>
+                  </button>
+
+                  {/* Playback Speed */}
+                  <button
+                    type="button"
+                    onClick={cycleSpeechRate}
+                    className="px-2 py-1 rounded-lg text-[11px] font-mono font-bold bg-white/10 hover:bg-white/20 text-slate-200 cursor-pointer"
+                    title={isAr ? 'سرعة الصوت' : 'Playback speed'}
+                  >
+                    {speechRate}x
+                  </button>
+
+                  {/* Mute / Unmute */}
+                  <button
+                    type="button"
+                    onClick={toggleStoryMute}
+                    className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                      storyMuted
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                        : 'bg-white/10 hover:bg-white/20 text-slate-200 border-white/10'
+                    }`}
+                    title={storyMuted ? (isAr ? 'تشغيل الصوت' : 'Unmute') : (isAr ? 'كتم الصوت' : 'Mute')}
+                  >
+                    {storyMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                  </button>
+
+                  {/* Inline Language Switcher (Seamlessly switches voiceover mid-story!) */}
+                  <div className="inline-flex items-center rounded-lg bg-slate-900 p-0.5 border border-slate-700">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        langRef.current = 'en';
+                        setLang('en');
+                        if (storyModal.phase === 'chapters') {
+                          playStoryChapter(storyModal.storyId, storyModal.chapterIdx, 'en', speechRate);
+                        }
+                      }}
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold cursor-pointer ${
+                        !isAr ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      EN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        langRef.current = 'ar';
+                        setLang('ar');
+                        if (storyModal.phase === 'chapters') {
+                          playStoryChapter(storyModal.storyId, storyModal.chapterIdx, 'ar', speechRate);
+                        }
+                      }}
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold cursor-pointer ${
+                        isAr ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'
+                      }`}
+                      style={{ fontFamily: "'Cairo', sans-serif" }}
+                    >
+                      عربي
+                    </button>
+                  </div>
+
+                  {/* Close Modal */}
+                  <button
+                    type="button"
+                    onClick={closeStory}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                    title={isAr ? 'إغلاق (Esc)' : 'Close (Esc)'}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. 4-Segment Interactive Chapter Progress Bar */}
+              <div className="px-4 sm:px-6 py-2.5 bg-[#0e172c] border-b border-slate-800/90 shrink-0">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {activeStoryObj.chapters.map((ch, idx) => {
+                    const isDone =
+                      storyModal.phase === 'handoff' || idx < storyModal.chapterIdx;
+                    const isCurrent =
+                      storyModal.phase === 'chapters' && idx === storyModal.chapterIdx;
+                    const fillPct = isDone ? 100 : isCurrent ? storyProgress : 0;
+
+                    return (
+                      <button
+                        key={ch.chapter}
+                        type="button"
+                        onClick={() => jumpStoryChapter(idx)}
+                        className={`group text-start rounded-xl px-3 py-2 border transition-all cursor-pointer ${
+                          isCurrent
+                            ? 'bg-white/10 border-white/30 shadow-xs'
+                            : isDone
+                            ? 'bg-white/[0.04] border-white/10 hover:bg-white/10'
+                            : 'bg-white/[0.02] border-white/5 hover:bg-white/10 opacity-75 hover:opacity-100'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                          <span className="text-[11px] font-extrabold text-white truncate">
+                            {isAr ? ch.shortTabAr : ch.shortTabEn}
+                          </span>
+                          {isDone ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          ) : isCurrent && storyPlaying ? (
+                            <Volume2 className="w-3.5 h-3.5 text-blue-400 animate-pulse shrink-0" />
+                          ) : null}
+                        </div>
+                        <div className="h-1 w-full rounded-full bg-white/15 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-[width] duration-100 ${
+                              isDone ? 'bg-emerald-400' : stStyle.storyBarFill
+                            }`}
+                            style={{ width: `${fillPct}%` }}
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. Cinema Body: Either Live 4-Chapter Story OR End-of-Story "Go Deeper" Handoff */}
+              {storyModal.phase === 'chapters' && activeStoryChapter ? (
+                <div className="p-4 sm:p-6 overflow-y-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+                  {/* Narrative & Executive Outcome Column (5 cols) */}
+                  <div className="lg:col-span-5 flex flex-col justify-between h-full space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${stStyle.storyChip}`}>
+                          <Sparkles className="w-3 h-3 text-amber-300 shrink-0" />
+                          <span>{isAr ? activeStoryChapter.badgeAr : activeStoryChapter.badgeEn}</span>
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-500/15 text-emerald-300 border border-emerald-400/30">
+                          <CheckCircle2 className="w-3 h-3 shrink-0" />
+                          <span>{isAr ? activeStoryChapter.metricAr : activeStoryChapter.metricEn}</span>
+                        </span>
+                      </div>
+
+                      <h2 className="text-lg sm:text-xl lg:text-[22px] font-extrabold text-white leading-snug">
+                        {isAr ? activeStoryChapter.headlineAr : activeStoryChapter.headlineEn}
+                      </h2>
+
+                      <p className="text-xs sm:text-sm text-slate-300 leading-relaxed bg-white/[0.04] border border-white/10 rounded-2xl p-3.5">
+                        {isAr ? activeStoryChapter.captionAr : activeStoryChapter.captionEn}
+                      </p>
+                    </div>
+
+                    {/* Transport Controls + Contextual "Try This Workflow Hands-On" Micro-CTA */}
+                    <div className="space-y-3 pt-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={toggleStoryPlayPause}
+                          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                            storyPlaying
+                              ? 'bg-emerald-500 hover:bg-emerald-600 text-slate-950'
+                              : 'bg-blue-600 hover:bg-blue-500 text-white'
+                          }`}
+                        >
+                          {storyPlaying ? (
+                            <>
+                              <Pause className="w-3.5 h-3.5 fill-current" />
+                              <span>{isAr ? 'إيقاف مؤقت' : 'Pause Story'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              <span>{isAr ? 'استكمال العرض' : 'Resume Story'}</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (storyModal.chapterIdx < activeStoryObj.chapters.length - 1) {
+                              jumpStoryChapter(storyModal.chapterIdx + 1);
+                            } else {
+                              openStoryHandoff();
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all cursor-pointer"
+                        >
+                          <span>
+                            {storyModal.chapterIdx < activeStoryObj.chapters.length - 1
+                              ? isAr
+                                ? 'المشهد التالي'
+                                : 'Next Chapter'
+                              : isAr
+                              ? 'استكشف المسارات التفاعلية'
+                              : 'Explore Workflows'}
+                          </span>
+                          {isAr ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+
+                      {/* Contextual Hands-On Deep-Dive Box */}
+                      {activeStoryChapter.deepDiveBranchId && (
+                        <div className="rounded-2xl bg-gradient-to-r from-slate-900 to-[#16223d] border border-slate-700/90 p-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[10.5px] font-bold text-slate-400">
+                              {isAr
+                                ? 'هل ترغب بتجربة هذه الشاشة بنفسك الآن؟'
+                                : 'Want to test this exact workflow hands-on?'}
+                            </p>
+                            <p className="text-xs font-extrabold text-white truncate">
+                              {isAr
+                                ? activeStoryChapter.deepDiveLabelAr
+                                : activeStoryChapter.deepDiveLabelEn}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openBranchById(
+                                activeStoryChapter.deepDiveModuleId,
+                                activeStoryChapter.deepDiveBranchId
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold bg-white text-slate-950 hover:bg-blue-50 transition-colors shrink-0 cursor-pointer"
+                          >
+                            <span>{isAr ? 'جرّب الآن' : 'Try Hands-On'}</span>
+                            {isAr ? <ArrowLeft className="w-3 h-3" /> : <ArrowRight className="w-3 h-3" />}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Real System Screen Cinema Column (7 cols) */}
+                  <div className="lg:col-span-7">
+                    <div
+                      dir="ltr"
+                      onClick={toggleStoryPlayPause}
+                      className="rounded-2xl bg-slate-900 p-1.5 border border-slate-700/90 shadow-2xl cursor-pointer select-none"
+                      title={isAr ? 'اضغط للإيقاف المؤقت أو الاستكمال' : 'Click screen to pause or resume'}
+                    >
+                      {/* Authentic Browser Chrome */}
+                      <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900 text-slate-300 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/90" />
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-400/90" />
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/90" />
+                        </div>
+                        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[11px] font-mono border border-slate-700 max-w-md truncate">
+                          <Lock className="w-3 h-3 text-emerald-400 shrink-0" />
+                          <span className="truncate">{activeStoryChapter.url}</span>
+                        </div>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          Live Capture
+                        </span>
+                      </div>
+
+                      {/* 1440:900 Screen Stage with Subtle Ken Burns Motion + Spotlight Highlight */}
+                      <div
+                        className="relative overflow-hidden rounded-xl bg-slate-950"
+                        style={{ aspectRatio: '1440 / 900' }}
+                      >
+                        <img
+                          ref={storyImgRef}
+                          key={activeStoryChapter.image}
+                          src={activeStoryChapter.image}
+                          alt={activeStoryChapter.headlineEn}
+                          onLoad={() => setStoryDecodedSrc(activeStoryChapter.image)}
+                          style={{
+                            transformOrigin: activeStoryChapter.focusOrigin || '50% 50%',
+                            transform: storyPlaying ? 'scale(1.04)' : 'scale(1.0)',
+                            transition: 'transform 16s ease-out, opacity 180ms ease-out',
+                          }}
+                          className={`w-full h-full object-contain block ${
+                            storyDecodedSrc === activeStoryChapter.image ? 'opacity-100' : 'opacity-0'
+                          }`}
+                          draggable={false}
+                        />
+
+                        {/* Spotlight Proof Frame */}
+                        {activeStoryChapter.spotlight &&
+                          storyDecodedSrc === activeStoryChapter.image && (
+                            <div
+                              style={{
+                                left: `${Math.max(0.5, activeStoryChapter.spotlight.xPct)}%`,
+                                top: `${Math.max(0.5, activeStoryChapter.spotlight.yPct)}%`,
+                                width: `${Math.min(98, activeStoryChapter.spotlight.wPct)}%`,
+                                height: `${Math.min(98, activeStoryChapter.spotlight.hPct)}%`,
+                              }}
+                              className="absolute z-10 rounded-xl border-2 border-amber-400/90 bg-amber-400/[0.06] shadow-[0_0_28px_rgba(251,191,36,0.35)] pointer-events-none transition-all duration-300"
+                            >
+                              <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-85" />
+                                <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-400 border-2 border-slate-950" />
+                              </span>
+                            </div>
+                          )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* ── END-OF-STORY "GO DEEPER" HANDOFF SCREEN (Reveals Workflows at End of Pitch!) ── */
+                <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 mb-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>
+                          {isAr ? 'اكتمل الملخص التنفيذي · اختر خطوتك التالية' : 'Executive Story Complete · Choose Your Next Step'}
+                        </span>
+                      </span>
+                      <h2 className="text-xl sm:text-2xl font-extrabold text-white leading-snug">
+                        {isAr ? activeStoryObj.handoffTitleAr : activeStoryObj.handoffTitleEn}
+                      </h2>
+                      <p className="text-xs sm:text-sm text-slate-300 mt-0.5">
+                        {isAr ? activeStoryObj.handoffSubtitleAr : activeStoryObj.handoffSubtitleEn}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => openStory(activeStoryObj.id, 0, true)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/15 self-start sm:self-center shrink-0 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>{isAr ? 'إعادة القصة' : 'Replay Story'}</span>
+                    </button>
+                  </div>
+
+                  {activeStoryObj.kind === 'platform' ? (
+                    /* Platform Overview Handoff: 4 Module Cards (Watch Module Story OR Explore Workflows) */
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                      {PLATFORM_MODULES.map((m) => {
+                        const MIcon = MODULE_ICONS[m.id] || Layers;
+                        const mStyle = ACCENT_STYLES[m.accent] || ACCENT_STYLES.blue;
+                        return (
+                          <div
+                            key={m.id}
+                            className="rounded-2xl bg-slate-900/90 border border-slate-700/90 p-4 flex flex-col justify-between gap-3"
+                          >
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10.5px] font-bold text-slate-400">
+                                  {isAr ? m.badgeAr : m.badgeEn}
+                                </span>
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${mStyle.iconBg}`}>
+                                  <MIcon className="w-3.5 h-3.5" />
+                                </div>
+                              </div>
+                              <h3 className="text-sm font-extrabold text-white">
+                                {isAr ? m.titleAr : m.titleEn}
+                              </h3>
+                              <p className="text-[11.5px] text-slate-400 mt-1 leading-relaxed">
+                                {isAr ? m.subtitleAr : m.subtitleEn}
+                              </p>
+                            </div>
+
+                            <div className="space-y-1.5 pt-2 border-t border-slate-800">
+                              <button
+                                type="button"
+                                onClick={() => openStory(m.id, 0, true)}
+                                className={`w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold cursor-pointer ${mStyle.liveBtn}`}
+                              >
+                                <Play className="w-3 h-3 fill-current" />
+                                <span>{isAr ? 'قصة الوحدة (٧٥ ث)' : 'Watch 75s Story'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  closeStory();
+                                  setExpandedModuleId(m.id);
+                                  setTimeout(() => {
+                                    workflowTrayRef.current?.scrollIntoView({
+                                      behavior: 'smooth',
+                                      block: 'nearest',
+                                    });
+                                  }, 80);
+                                }}
+                                className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl text-[11.5px] font-bold bg-white/10 hover:bg-white/20 text-slate-200 cursor-pointer"
+                              >
+                                <span>
+                                  {isAr
+                                    ? `استكشف المسارات (${toArNum(m.branches.length)})`
+                                    : `Explore ${m.branches.length} Workflows`}
+                                </span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* Module Story Handoff: Reveal All Interactive Workflows of This Module! */
+                    storyModuleObj && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        {storyModuleObj.branches.map((br) => (
+                          <button
+                            key={br.id}
+                            type="button"
+                            onMouseEnter={() => preloadBranchFirstShot(br.id)}
+                            onClick={() => openBranch(br, storyModuleObj)}
+                            className="text-start rounded-2xl bg-slate-900/90 hover:bg-slate-800/95 border border-slate-700/90 hover:border-blue-400/60 p-4 transition-all group flex flex-col justify-between gap-2.5 cursor-pointer"
+                          >
+                            <div>
+                              <div className="flex items-center justify-between gap-2 mb-1.5">
+                                <span className={`px-2 py-0.5 rounded-md text-[11px] font-extrabold ${stStyle.hoverPill}`}>
+                                  {br.code}
+                                </span>
+                                <span className="text-[11px] font-medium text-slate-400">
+                                  {isAr ? br.durationAr : br.durationEn}
+                                </span>
+                              </div>
+                              <h3 className="text-sm sm:text-[15px] font-extrabold text-white group-hover:text-blue-300 transition-colors">
+                                {isAr ? br.titleAr : br.titleEn}
+                              </h3>
+                              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                                {isAr ? br.descAr : br.descEn}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs font-extrabold text-blue-400">
+                              <span>
+                                {isAr ? 'ابدأ التجربة التفاعلية خطوة بخطوة' : 'Launch Interactive Step-by-Step Tour'}
+                              </span>
+                              {isAr ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  )}
+
+                  {/* Bottom Conversion & Next-Module Bar */}
+                  <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {storyModuleObj && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const modId = storyModuleObj.id;
+                            closeStory();
+                            setExpandedModuleId(modId);
+                            setTimeout(() => {
+                              workflowTrayRef.current?.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'nearest',
+                              });
+                            }, 80);
+                          }}
+                          className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-slate-200 cursor-pointer"
+                        >
+                          {isAr ? 'عرض المسارات في الصفحة الرئيسية' : 'Show Workflows on Page'}
+                        </button>
+                      )}
+                      {storyModuleObj && nextModuleObj && (
+                        <button
+                          type="button"
+                          onClick={() => openStory(nextModuleObj.id, 0, true)}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
+                        >
+                          <Play className="w-3 h-3 fill-current" />
+                          <span>
+                            {isAr
+                              ? `القصة التالية: ${nextModuleObj.titleAr}`
+                              : `Next Story: ${nextModuleObj.titleEn}`}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        to="/#book-meeting"
+                        onClick={closeStory}
+                        className="px-3.5 py-2 rounded-xl text-xs font-extrabold bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-colors"
+                      >
+                        {isAr ? 'احجز اجتماعاً مع خبير' : 'Book a Meeting'}
+                      </Link>
+                      <Link
+                        to="/free-trial-register"
+                        onClick={closeStory}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                      >
+                        <span>{isAr ? 'ابدأ تجربة مجانية' : 'Start Free Trial'}</span>
+                        {isAr ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ═══════ MODAL FOR PLANNED BRANCHES ═══════ */}
       {plannedModalBranch && (
         <div
@@ -1913,9 +2943,17 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
             </p>
 
             <div className="rounded-xl bg-blue-50 border border-blue-200 p-3.5 text-xs text-blue-900 leading-relaxed mb-5">
-              {isAr
-                ? 'جاري تجهيز الشاشات التفاعلية والشرح الصوتي لهذا المسار قريباً. يمكنك الآن تجربة كافة الجولات التفاعلية لوحدة حفظ خطابات الضمان الواردة (١.١ إلى ١.٤).'
-                : 'Interactive step-by-step screens and voice narration for this workflow are coming next. Meanwhile, you can explore all 4 live LG Custody tours (1.1 – 1.4).'}
+              {isAr ? (
+                <span>
+                  <Clock className="w-3.5 h-3.5 inline me-1" />
+                  جاري تجهيز الشاشات التفاعلية لهذا المسار قريباً.
+                </span>
+              ) : (
+                <span>
+                  <Clock className="w-3.5 h-3.5 inline me-1" />
+                  Interactive screens for this workflow are coming soon.
+                </span>
+              )}
             </div>
 
             <div className="flex flex-wrap justify-end gap-2">
@@ -1931,32 +2969,19 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                 onClick={() => {
                   const modId = plannedModalBranch.moduleObj.id;
                   setPlannedModalBranch(null);
-                  openBrief('module', modId, false);
-                }}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                <span>{isAr ? 'ملخص الوحدة لصانع القرار' : 'Module Executive Pitch'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPlannedModalBranch(null);
-                  setActiveBranchId('custody-scan-record');
-                  setCurrentStepIdx(0);
-                  setView('stage');
+                  openStory(modId, 0, true);
                 }}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Play className="w-3 h-3 fill-current" />
-                <span>{isAr ? 'جرّب الجولة الحية (١.١)' : 'Try Live Tour (1.1)'}</span>
+                <span>{isAr ? 'شاهد القصة التنفيذية للوحدة' : 'Watch Module Story'}</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ═══════ EXECUTIVE DECISION-MAKER PITCH & GOVERNANCE FOUNDATION MODAL ═══════ */}
+      {/* ═══════ PLATFORM GOVERNANCE & SECURITY FOUNDATION MODAL ═══════ */}
       {briefModal && activeBriefData && (() => {
         const isBriefVoiceActive =
           voiceChannel === 'brief' && (speechState === 'playing' || autoNextCountdown);
@@ -1968,48 +2993,23 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
             onClick={closeBrief}
           >
             <div
-              className="bg-white rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]"
+              className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Top Dark Executive Header + Category Switcher */}
-              <div className="bg-gradient-to-r from-[#162038] via-[#1e2a4a] to-[#0f172a] text-white px-5 sm:px-6 py-3 shrink-0">
-                <div className="flex items-center justify-between gap-3 mb-2.5">
-                  {/* Switch between 4 Module Pitches vs 4 Foundation Pillars */}
-                  <div className="inline-flex items-center rounded-xl bg-slate-900/80 p-1 border border-slate-700/90">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openBrief('module', activeBriefData.mod?.id || 'custody', isBriefVoiceActive)
-                      }
-                      className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
-                        briefModal.kind === 'module'
-                          ? 'bg-blue-600 text-white shadow-xs'
-                          : 'text-slate-300 hover:text-white'
-                      }`}
-                    >
-                      {isAr ? 'ملخص الوحدات الـ ٤ لصانع القرار' : '4 Module Executive Pitches'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openBrief(
-                          'foundation',
-                          activeBriefData.pillar?.id || 'governance',
-                          isBriefVoiceActive
-                        )
-                      }
-                      className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
-                        briefModal.kind === 'foundation'
-                          ? 'bg-blue-600 text-white shadow-xs'
-                          : 'text-slate-300 hover:text-white'
-                      }`}
-                    >
-                      {isAr ? 'أساسيات الحوكمة والأمان' : 'Platform Foundation'}
-                    </button>
+              <div className="bg-gradient-to-r from-[#162038] via-[#1e2a4a] to-[#0f172a] text-white px-5 sm:px-6 py-3.5 shrink-0">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-extrabold text-xs">
+                      G
+                    </div>
+                    <span className="text-xs sm:text-sm font-extrabold text-white">
+                      {isAr
+                        ? 'أساسيات الحوكمة والأمان وإدارة المجموعات'
+                        : 'Enterprise Governance & Security Foundation'}
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    {/* Inline EN / AR Switcher inside Brief Modal */}
                     <div className="inline-flex items-center rounded-lg bg-slate-900/90 p-0.5 border border-slate-700">
                       <button
                         type="button"
@@ -2020,7 +3020,7 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                           setLang('en');
                           if (keepReading && briefModal) {
                             briefVisitedRef.current = new Set([briefModal.id]);
-                            const target = resolveBriefTarget(briefModal.kind, briefModal.id);
+                            const target = resolveFoundationTarget(briefModal.id);
                             if (target) playBriefVoice(target, 'en', speechRate);
                           }
                         }}
@@ -2039,7 +3039,7 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                           setLang('ar');
                           if (keepReading && briefModal) {
                             briefVisitedRef.current = new Set([briefModal.id]);
-                            const target = resolveBriefTarget(briefModal.kind, briefModal.id);
+                            const target = resolveFoundationTarget(briefModal.id);
                             if (target) playBriefVoice(target, 'ar', speechRate);
                           }
                         }}
@@ -2063,60 +3063,37 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                   </div>
                 </div>
 
-                {/* Sub-Navigation Cards across the 4 Modules OR 4 Foundation Pillars — FULL TEXT (No Truncation) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 items-stretch">
-                  {briefModal.kind === 'module'
-                    ? PLATFORM_MODULES.map((m, idx) => {
-                        const active = m.id === activeBriefData.mod?.id;
-                        return (
-                          <button
-                            key={m.id}
-                            type="button"
-                            onClick={() => openBrief('module', m.id, isBriefVoiceActive)}
-                            className={`px-3 py-2 rounded-xl text-xs font-bold border text-start whitespace-normal leading-snug h-full flex items-center gap-1.5 transition-all ${
-                              active
-                                ? 'bg-white text-slate-900 border-white shadow-xs'
-                                : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/15 hover:text-white'
-                            }`}
-                          >
-                            <span className="opacity-70 shrink-0">0{idx + 1}</span>
-                            <span className="flex-1">{isAr ? m.titleAr : m.titleEn}</span>
-                            {active && isBriefVoiceActive && (
-                              <Volume2 className="w-3.5 h-3.5 text-blue-600 animate-pulse shrink-0" />
-                            )}
-                          </button>
-                        );
-                      })
-                    : PLATFORM_FOUNDATION_PILLARS.map((p) => {
-                        const active = p.id === activeBriefData.pillar?.id;
-                        return (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => openBrief('foundation', p.id, isBriefVoiceActive)}
-                            className={`px-3 py-2 rounded-xl text-xs font-bold border text-start whitespace-normal leading-snug h-full flex items-center justify-between gap-1.5 transition-all ${
-                              active
-                                ? 'bg-white text-slate-900 border-white shadow-xs'
-                                : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/15 hover:text-white'
-                            }`}
-                          >
-                            <span>{isAr ? p.shortAr : p.shortEn}</span>
-                            {active && isBriefVoiceActive && (
-                              <Volume2 className="w-3.5 h-3.5 text-blue-600 animate-pulse shrink-0" />
-                            )}
-                          </button>
-                        );
-                      })}
+                  {PLATFORM_FOUNDATION_PILLARS.map((p) => {
+                    const active = p.id === activeBriefData.pillar?.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => openFoundationBrief(p.id, isBriefVoiceActive)}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold border text-start whitespace-normal leading-snug h-full flex items-center justify-between gap-1.5 transition-all cursor-pointer ${
+                          active
+                            ? 'bg-white text-slate-900 border-white shadow-xs'
+                            : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/15 hover:text-white'
+                        }`}
+                      >
+                        <span>{isAr ? p.shortAr : p.shortEn}</span>
+                        {active && isBriefVoiceActive && (
+                          <Volume2 className="w-3.5 h-3.5 text-blue-600 animate-pulse shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Voice Reader Strip for the Executive Pitch + Auto-Advance Controls */}
+              {/* Voice Reader Strip */}
               <div className="px-5 sm:px-6 py-2 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 shrink-0">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={toggleBriefVoice}
-                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
                       isBriefVoiceActive
                         ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-xs'
                         : 'bg-blue-600 hover:bg-blue-500 text-white shadow-xs'
@@ -2144,8 +3121,8 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                               ? 'استكمال الاستماع'
                               : 'Resume Audio'
                             : isAr
-                            ? 'استمع للملخص الصوتي'
-                            : 'Listen to Executive Pitch'}
+                            ? 'استمع للشرح الصوتي'
+                            : 'Listen to Foundation Brief'}
                         </span>
                       </>
                     )}
@@ -2164,36 +3141,22 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                       <Square className="w-3 h-3 fill-current" />
                     </button>
                   ) : null}
-
-                  {autoNextCountdown && (
-                    <span className="text-[11px] font-semibold text-emerald-300 animate-pulse">
-                      {isAr ? 'الانتقال للنقطة التالية…' : 'Next point in 1.5s…'}
-                    </span>
-                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* Auto-Advance between Modal Points Toggle (ON by default) */}
                   <button
                     type="button"
                     onClick={() => {
                       const next = !briefAutoAdvance;
                       briefAutoAdvanceRef.current = next;
                       setBriefAutoAdvance(next);
-                      if (!next) {
-                        clearBriefAutoTimer();
-                      }
+                      if (!next) clearBriefAutoTimer();
                     }}
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
                       briefAutoAdvance
                         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
                         : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/15'
                     }`}
-                    title={
-                      isAr
-                        ? 'الانتقال التلقائي وقراءة النقطة التالية بعد انتهاء الشرح'
-                        : 'Automatically switch to the next card and read it after 1.5 seconds'
-                    }
                   >
                     <Play className="w-3 h-3 fill-current" />
                     <span>{isAr ? 'انتقال تلقائي' : 'Auto-Advance'}</span>
@@ -2203,107 +3166,80 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                     type="button"
                     onClick={cycleSpeechRate}
                     className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold bg-white/10 hover:bg-white/20 text-slate-200"
-                    title={isAr ? 'سرعة القراءة الصوتية' : 'Voice playback speed'}
                   >
                     {speechRate}x
                   </button>
                 </div>
               </div>
 
-            {/* Executive Selling Pitch Body */}
-            <div className="px-6 py-4 overflow-y-auto space-y-3 flex-1">
-              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                <span>{isAr ? activeBriefData.tagAr : activeBriefData.tagEn}</span>
-              </div>
+              <div className="px-6 py-4 overflow-y-auto space-y-3 flex-1">
+                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <span>{isAr ? activeBriefData.tagAr : activeBriefData.tagEn}</span>
+                </div>
 
-              <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 leading-snug">
-                {isAr ? activeBriefData.headlineAr : activeBriefData.headlineEn}
-              </h2>
+                <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 leading-snug">
+                  {isAr ? activeBriefData.headlineAr : activeBriefData.headlineEn}
+                </h2>
 
-              <p className="text-sm text-slate-600 leading-relaxed">
-                {isAr ? activeBriefData.pitchAr : activeBriefData.pitchEn}
-              </p>
-
-              {/* 3 Decision-Maker Value Pillars */}
-              <div className="pt-0.5 space-y-1.5">
-                <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-                  {isAr ? 'القيمة المباشرة لصانع القرار' : 'Key Decision-Maker Outcomes'}
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  {isAr ? activeBriefData.pitchAr : activeBriefData.pitchEn}
                 </p>
-                {(isAr ? activeBriefData.outcomesAr : activeBriefData.outcomesEn).map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-emerald-50/80 border border-emerald-200/80 text-xs sm:text-sm font-semibold text-emerald-950"
-                  >
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>{item}</span>
-                  </div>
-                ))}
+
+                <div className="pt-0.5 space-y-1.5">
+                  <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                    {isAr ? 'الضوابط والنتائج المباشرة' : 'Key Governance & Security Guarantees'}
+                  </p>
+                  {(isAr ? activeBriefData.outcomesAr : activeBriefData.outcomesEn).map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-emerald-50/80 border border-emerald-200/80 text-xs sm:text-sm font-semibold text-emerald-950"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Footer Navigation: Launch Live Workflow or Step to Next Pitch */}
-            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={closeBrief}
-                className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200/70 transition-colors"
-              >
-                {isAr ? 'العودة للوحدات' : 'Back to Modules'}
-              </button>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Cycle to Next Pitch in current category */}
+              <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (briefModal.kind === 'module') {
-                      const idx = PLATFORM_MODULES.findIndex((m) => m.id === activeBriefData.mod?.id);
-                      const nextMod = PLATFORM_MODULES[(idx + 1) % PLATFORM_MODULES.length];
-                      openBrief('module', nextMod.id, isBriefVoiceActive);
-                    } else {
+                  onClick={closeBrief}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200/70 transition-colors"
+                >
+                  {isAr ? 'العودة للوحدات' : 'Back to Modules'}
+                </button>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
                       const idx = PLATFORM_FOUNDATION_PILLARS.findIndex(
                         (p) => p.id === activeBriefData.pillar?.id
                       );
                       const nextPillar =
                         PLATFORM_FOUNDATION_PILLARS[(idx + 1) % PLATFORM_FOUNDATION_PILLARS.length];
-                      openBrief('foundation', nextPillar.id, isBriefVoiceActive);
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 transition-all"
-                >
-                  <span>
-                    {briefModal.kind === 'module'
-                      ? isAr
-                        ? 'الوحدة التالية'
-                        : 'Next Module Pitch'
-                      : isAr
-                      ? 'الركيزة التالية'
-                      : 'Next Pillar'}
-                  </span>
-                  {isAr ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
-                </button>
+                      openFoundationBrief(nextPillar.id, isBriefVoiceActive);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 transition-all"
+                  >
+                    <span>{isAr ? 'الركيزة التالية' : 'Next Pillar'}</span>
+                    {isAr ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
+                  </button>
 
-                {/* Launch Live Workflow if available on this module */}
-                {briefModal.kind === 'module' &&
-                  activeBriefData.mod?.branches?.some((b) => b.status === 'live') && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const liveBranch = activeBriefData.mod.branches.find((b) => b.status === 'live');
-                        closeBrief();
-                        openBranch(liveBranch, activeBriefData.mod);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all"
-                    >
-                      <Play className="w-3 h-3 fill-current" />
-                      <span>{isAr ? 'ابدأ التجربة التفاعلية للوحدة' : 'Start Live Module Tour'}</span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => openStory('platform_intro', 0, true)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all"
+                  >
+                    <Play className="w-3 h-3 fill-current" />
+                    <span>{isAr ? 'شاهد عرض المنصة (٦٥ ث)' : 'Watch 65s Platform Overview'}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
         );
       })()}
     </div>

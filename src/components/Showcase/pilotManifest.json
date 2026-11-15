@@ -809,7 +809,7 @@
           "image": "/demo/shots/quotations_3_2/step_02_authenticated_dealer_console.png",
           "hotspot": {
             "xPct": 53.12,
-            "yPct": 60.86,
+            "yPct": 54.03,
             "wPct": 24.46,
             "hPct": 7.78
           }
@@ -827,24 +827,13 @@
         },
         {
           "step": 4,
-          "url": "app.growbusinessdevelopment.com/public-quotation/fncb-desk#blind-rank-2",
-          "image": "/demo/shots/quotations_3_2/step_04_blind_live_rank_hud.png",
+          "url": "app.growbusinessdevelopment.com/public-quotation/fncb-desk#sealed-quote-recorded",
+          "image": "/demo/shots/quotations_3_2/step_04_sealed_quote_submitted.png",
           "hotspot": {
-            "xPct": 52.0,
-            "yPct": 51.5,
-            "wPct": 43.0,
-            "hPct": 12.0
-          }
-        },
-        {
-          "step": 5,
-          "url": "app.growbusinessdevelopment.com/public-quotation/fncb-desk#leading-quote",
-          "image": "/demo/shots/quotations_3_2/step_05_sharpen_to_rank_one.png",
-          "hotspot": {
-            "xPct": 52.0,
-            "yPct": 51.5,
-            "wPct": 43.0,
-            "hPct": 12.0
+            "xPct": 50.8,
+            "yPct": 30.0,
+            "wPct": 46.2,
+            "hPct": 10.6
           }
         }
       ]
