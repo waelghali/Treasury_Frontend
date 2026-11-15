@@ -1,6 +1,6 @@
 // frontend/src/components/Showcase/InteractivePlatformShowcase.jsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Shield,
   Send,
@@ -40,6 +40,7 @@ import {
   PILOT_BRANCH_STEPS,
 } from './showcaseCatalog';
 import pilotManifest from './pilotManifest.json';
+import PublicProductExpertChat from './PublicProductExpertChat';
 
 const MODULE_ICONS = {
   custody: Shield,
@@ -206,6 +207,7 @@ function resolveFoundationTarget(id) {
 }
 
 export default function InteractivePlatformShowcase({ embedded = false, initialLang = 'en' }) {
+  const location = useLocation();
   const [lang, setLang] = useState(initialLang);
   const [view, setView] = useState('tree'); // 'tree' | 'stage'
   const [expandedModuleId, setExpandedModuleId] = useState(null); // Progressive disclosure tray on /demo
@@ -219,6 +221,8 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
   const [decodedImageSrc, setDecodedImageSrc] = useState('');
   const [plannedModalBranch, setPlannedModalBranch] = useState(null);
   const [briefModal, setBriefModal] = useState(null); // { id: string } | null (Foundation pillars)
+  const [expertChatOpen, setExpertChatOpen] = useState(false);
+  const handledQueryRef = useRef('');
 
   // Visual Executive Story Cinema Player State
   const [storyModal, setStoryModal] = useState(null); // { storyId, chapterIdx, phase: 'chapters' | 'handoff' } | null
@@ -984,17 +988,21 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
   }, [view, currentStepIdx, lang, activeBranchId, Boolean(briefModal), Boolean(storyModal)]);
 
   const openBranch = useCallback(
-    (branch, moduleObj) => {
+    (branch, moduleObj, initialStepIdx = 0) => {
       if (branch.status === 'live') {
         stopStoryPlayback();
         storyModalRef.current = null;
         setStoryModal(null);
+        briefModalRef.current = null;
+        setBriefModal(null);
         stopVoice();
         if (moduleObj?.id) {
           setExpandedModuleId(moduleObj.id);
         }
+        const targetSteps = PILOT_BRANCH_STEPS[branch.id] || [];
+        const clampedStep = Math.max(0, Math.min(initialStepIdx, Math.max(0, targetSteps.length - 1)));
         setActiveBranchId(branch.id);
-        setCurrentStepIdx(0);
+        setCurrentStepIdx(clampedStep);
         setSideTab('guide');
         setView('stage');
         setPlannedModalBranch(null);
@@ -1006,13 +1014,81 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
   );
 
   const openBranchById = useCallback(
-    (moduleId, branchId) => {
-      const mod = PLATFORM_MODULES.find((m) => m.id === moduleId) || PLATFORM_MODULES[0];
+    (moduleId, branchId, initialStepIdx = 0) => {
+      const mod =
+        PLATFORM_MODULES.find((m) => m.id === moduleId) ||
+        PLATFORM_MODULES.find((m) => m.branches.some((b) => b.id === branchId)) ||
+        PLATFORM_MODULES[0];
       const br = mod.branches.find((b) => b.id === branchId) || mod.branches[0];
-      if (br) openBranch(br, mod);
+      if (br) openBranch(br, mod, initialStepIdx);
     },
     [openBranch]
   );
+
+  const handleExpertOpenChange = useCallback(
+    (nextOpen) => {
+      if (nextOpen) {
+        stopVoice();
+        if (storyPlaying && storyAudioRef.current) {
+          storyAudioRef.current.pause();
+          setStoryPlaying(false);
+        }
+      }
+      setExpertChatOpen(nextOpen);
+    },
+    [stopVoice, storyPlaying]
+  );
+
+  const handleExpertShowcaseAction = useCallback(
+    (action) => {
+      if (!action) return;
+      if (action.type === 'story' && VISUAL_STORIES[action.id]) {
+        openStory(action.id, 0, true);
+      } else if (action.type === 'foundation') {
+        openFoundationBrief(action.id, false);
+      } else if (action.type === 'tour') {
+        const stepIdx = Math.max(0, (Number(action.step) || 1) - 1);
+        openBranchById(action.module_id, action.id, stepIdx);
+      }
+    },
+    [openBranchById, openFoundationBrief, openStory]
+  );
+
+  // Support deep-link URL query parameters (?story=..., ?branch=...&step=..., ?foundation=..., ?lang=ar, ?ask=1)
+  useEffect(() => {
+    const search = location?.search || '';
+    if (!search || handledQueryRef.current === search) return;
+    handledQueryRef.current = search;
+
+    const params = new URLSearchParams(search);
+    const qLang = params.get('lang');
+    if (qLang === 'ar' || qLang === 'en') {
+      langRef.current = qLang;
+      setLang(qLang);
+    }
+
+    const qStory = params.get('story');
+    const qFoundation = params.get('foundation');
+    const qBranch = params.get('branch');
+    const qStep = Math.max(0, (parseInt(params.get('step') || '1', 10) || 1) - 1);
+    const qAsk = params.get('ask');
+
+    if (qStory && VISUAL_STORIES[qStory]) {
+      openStory(qStory, 0, true);
+    } else if (qFoundation && PLATFORM_FOUNDATION_PILLARS.some((p) => p.id === qFoundation)) {
+      openFoundationBrief(qFoundation, false);
+    } else if (qBranch) {
+      const targetMod = PLATFORM_MODULES.find((m) => m.branches.some((b) => b.id === qBranch));
+      const targetBr = targetMod?.branches.find((b) => b.id === qBranch);
+      if (targetBr && targetMod) {
+        openBranch(targetBr, targetMod, qStep);
+      }
+    }
+
+    if (qAsk === '1' || qAsk === 'true') {
+      setExpertChatOpen(true);
+    }
+  }, [location?.search, openBranch, openFoundationBrief, openStory]);
 
   const toggleExpandModuleWorkflows = useCallback(
     (moduleId) => {
@@ -1251,6 +1327,19 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
           : 'min-h-[calc(100vh-44px)] bg-slate-50'
       }`}
     >
+      {/* ═══════ DOCKED SIDE-PUSH FLEX SHELL (SQUEEZES PAGE CLEANLY ON DESKTOP) ═══════ */}
+      <div
+        className={
+          isFullScreen
+            ? 'flex-1 min-h-0 flex items-stretch overflow-hidden w-full'
+            : 'flex items-start w-full'
+        }
+      >
+        <div
+          className={`flex-1 min-w-0 transition-all duration-200 ${
+            isFullScreen ? 'flex flex-col h-full overflow-hidden' : ''
+          }`}
+        >
       {/* ═══════ UNIFIED EXECUTIVE HERO & STAGE TOP BAR ═══════ */}
       <div className="bg-gradient-to-r from-[#11192e] via-[#1b2848] to-[#0f172a] text-white border-b border-slate-800 shrink-0">
         <div
@@ -1307,6 +1396,27 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                       {isAr ? '٦٥ ثانية · ٤ وحدات بالصوت والصورة' : '65 sec · All 4 Modules with Voice'}
                     </span>
                   </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleExpertOpenChange(!expertChatOpen)}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold border transition-all cursor-pointer ${
+                    expertChatOpen
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400 shadow-md shadow-emerald-950/30'
+                      : 'bg-slate-900/90 hover:bg-slate-800 text-white border-slate-600/90 hover:border-blue-400/60'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+                  <span>
+                    {expertChatOpen
+                      ? isAr
+                        ? 'إخفاء خبير Grow الذكي'
+                        : 'Hide Grow AI'
+                      : isAr
+                      ? 'اسأل خبير Grow الذكي'
+                      : 'Ask Grow AI'}
+                  </span>
                 </button>
 
                 {/* Language Switcher */}
@@ -1444,6 +1554,20 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
 
                 <button
                   type="button"
+                  onClick={() => handleExpertOpenChange(!expertChatOpen)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                    expertChatOpen
+                      ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                      : 'bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-200 border-emerald-400/35'
+                  }`}
+                  title={isAr ? 'اسأل خبير Grow الذكي' : 'Ask Grow AI Product Expert'}
+                >
+                  <Sparkles className={`w-3 h-3 ${expertChatOpen ? 'text-slate-950' : 'text-amber-300'}`} />
+                  <span>{isAr ? 'اسأل الذكي' : 'Ask AI'}</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setCurrentStepIdx(0)}
                   className="p-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
                   title={isAr ? 'إعادة من الخطوة الأولى' : 'Restart tour'}
@@ -1545,8 +1669,12 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
             </div>
           </div>
 
-          {/* 4 Equal-Height Executive Module Cards (Zero Sub-Card Wall!) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 items-stretch">
+          {/* 4 Equal-Height Executive Module Cards (Reflows cleanly to 2x2 when Docked AI Side Panel is open on laptops!) */}
+          <div
+            className={`grid grid-cols-1 md:grid-cols-2 ${
+              expertChatOpen ? '2xl:grid-cols-4' : 'lg:grid-cols-4'
+            } gap-4 lg:gap-5 items-stretch`}
+          >
             {PLATFORM_MODULES.map((mod) => {
               const IconComp = MODULE_ICONS[mod.id] || Layers;
               const style = ACCENT_STYLES[mod.accent] || ACCENT_STYLES.blue;
@@ -1814,6 +1942,14 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => handleExpertOpenChange(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 transition-colors cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span>{isAr ? 'لديك سيناريو خاص؟ اسأل Grow الذكي' : 'Specific scenario? Ask Grow AI'}</span>
+              </button>
               <Link
                 to="/#book-meeting"
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-200 transition-colors"
@@ -2355,6 +2491,39 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
           </div>
         </div>
       )}
+        </div>
+
+        {/* ═══════ DOCKED SIDE-PUSH GROW AI PANEL (ZERO OVERLAP, SQUEEZES PAGE CLEANLY) ═══════ */}
+        <PublicProductExpertChat
+          lang={lang}
+          pageContext={
+            storyModal
+              ? `demo:story:${storyModal.storyId}`
+              : view === 'stage'
+              ? `demo:tour:${activeBranchId}:step-${activeNarrative?.step || 1}`
+              : expandedModuleId
+              ? `demo:module:${expandedModuleId}`
+              : 'demo:showroom'
+          }
+          activeModuleId={
+            storyModal && storyModal.storyId !== 'platform_intro'
+              ? storyModal.storyId
+              : view === 'stage'
+              ? activeStageModule?.id || null
+              : expandedModuleId || null
+          }
+          isOpen={expertChatOpen}
+          onOpenChange={handleExpertOpenChange}
+          onShowcaseAction={handleExpertShowcaseAction}
+          stickyClassName={
+            isFullScreen
+              ? 'lg:top-0 lg:h-screen'
+              : embedded
+              ? 'lg:top-4 lg:h-[740px]'
+              : 'lg:top-[44px] lg:h-[calc(100vh-44px)]'
+          }
+        />
+      </div>
 
       {/* ═══════ VISUAL EXECUTIVE STORY CINEMA PLAYER (4 AUTO-PLAYING CHAPTERS + GO-DEEPER HANDOFF) ═══════ */}
       {storyModal && activeStoryObj && (() => {
@@ -2887,6 +3056,20 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (storyModuleObj?.id) {
+                            setExpandedModuleId(storyModuleObj.id);
+                          }
+                          closeStory();
+                          handleExpertOpenChange(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-200 border border-emerald-400/35 transition-colors cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        <span>{isAr ? 'اسأل الذكي عن سيناريو خاص' : 'Ask Grow AI a Question'}</span>
+                      </button>
                       <Link
                         to="/#book-meeting"
                         onClick={closeStory}

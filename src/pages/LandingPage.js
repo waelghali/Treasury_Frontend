@@ -7,9 +7,10 @@ import {
   FileCheck, Bell, Layers, Lock, 
   Send, Building2, Briefcase, ChevronRight,
   Clock, Users, BookOpen, TrendingUp, FileSpreadsheet,
-  KeyRound, Fingerprint, ShieldCheck, Play
+  KeyRound, Fingerprint, ShieldCheck, Play, Sparkles
 } from 'lucide-react';
 import HoneypotField from '../components/Security/HoneypotField';
+import PublicProductExpertChat from '../components/Showcase/PublicProductExpertChat';
 
 function LandingPage() {
   const meetingFormRef = useRef(null);
@@ -81,6 +82,7 @@ function LandingPage() {
   };
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [expertChatOpen, setExpertChatOpen] = useState(false);
 
   const handleDownload = () => {
     const link = document.createElement('a');
@@ -124,6 +126,18 @@ function LandingPage() {
               <Play className="w-3.5 h-3.5 mr-1.5 fill-current" />
               Interactive Demo
             </Link>
+            <button
+              type="button"
+              onClick={() => setExpertChatOpen((v) => !v)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border transition-colors cursor-pointer ${
+                expertChatOpen
+                  ? 'bg-emerald-600 text-white border-emerald-400'
+                  : 'bg-white/10 text-amber-200 border-white/20 hover:bg-white/20 hover:text-white'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>{expertChatOpen ? 'Hide AI' : 'Ask Grow AI'}</span>
+            </button>
             <Link to="/know-more" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Platform Overview</Link>
             <a href="#security" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Security</a>
             <Link to="/portal/issuance" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Issuance Portal</Link>
@@ -174,6 +188,17 @@ function LandingPage() {
               <Play className="w-3.5 h-3.5 mr-2 fill-current" />
               Interactive Demo
             </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setExpertChatOpen(true);
+              }}
+              className="w-full text-left flex items-center px-3 py-2 rounded-lg text-sm font-semibold text-amber-200 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <Sparkles className="w-3.5 h-3.5 mr-2 text-amber-300" />
+              Ask Grow AI
+            </button>
             <Link
               to="/portal/issuance"
               onClick={() => setMobileMenuOpen(false)}
@@ -211,6 +236,10 @@ function LandingPage() {
         )}
       </header>
 
+      {/* ═══════ DOCKED SIDE-PUSH FLEX SHELL ═══════ */}
+      <div className="flex items-start w-full">
+        <div className="flex-1 min-w-0">
+
       {/* ═══════ HERO SECTION ═══════ */}
       <section className="relative overflow-hidden" style={{ backgroundColor: '#1e2a4a', paddingTop: '56px' }}>
         {/* Decorative elements */}
@@ -245,6 +274,14 @@ function LandingPage() {
                 <Play className="mr-2 w-4 h-4 fill-current text-blue-300" />
                 Interactive Demo
               </Link>
+              <button
+                type="button"
+                onClick={() => setExpertChatOpen((v) => !v)}
+                className="inline-flex items-center px-6 py-3 text-sm font-semibold text-white bg-slate-900/70 border border-amber-300/40 rounded-lg hover:bg-slate-900 transition-all cursor-pointer"
+              >
+                <Sparkles className="mr-2 w-4 h-4 text-amber-300" />
+                {expertChatOpen ? 'Hide Grow AI' : 'Ask Grow AI'}
+              </button>
               <button
                 onClick={scrollToMeetingForm}
                 className="inline-flex items-center px-6 py-3 text-sm font-semibold text-gray-300 border border-gray-500 rounded-lg hover:bg-white/10 transition-all cursor-pointer"
@@ -722,6 +759,16 @@ function LandingPage() {
           <p className="text-xs">&copy; {new Date().getFullYear()} Grow Business Development. All rights reserved.</p>
         </div>
       </footer>
+        </div>
+
+        <PublicProductExpertChat
+          pageContext="landing"
+          isOpen={expertChatOpen}
+          onOpenChange={setExpertChatOpen}
+          onBookMeeting={scrollToMeetingForm}
+          stickyClassName="lg:top-[57px] lg:h-[calc(100vh-57px)]"
+        />
+      </div>
 
     </div>
   );
