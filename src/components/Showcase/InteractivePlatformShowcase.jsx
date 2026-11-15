@@ -1,5 +1,5 @@
 // frontend/src/components/Showcase/InteractivePlatformShowcase.jsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Shield,
   Send,
@@ -154,7 +154,7 @@ const BRANCH_AUDIO_DIRS = {
   'recon-erp-export': 'recon_export',
 };
 
-const AUDIO_CACHE_VER = 'v6';
+const AUDIO_CACHE_VER = 'v7';
 const BRIEF_AUTO_ADVANCE_DELAY_MS = 1600;
 
 function resolveBriefTarget(kind, id) {
@@ -209,9 +209,14 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
   const [hideNotesInFullScreen, setHideNotesInFullScreen] = useState(false);
   const [sideTab, setSideTab] = useState('guide'); // 'guide' | 'pdf'
   const [nudgeHotspot, setNudgeHotspot] = useState(false);
+  const [readyImageSrc, setReadyImageSrc] = useState('');
+  const [decodedImageSrc, setDecodedImageSrc] = useState('');
   const [plannedModalBranch, setPlannedModalBranch] = useState(null);
   const [briefModal, setBriefModal] = useState(null); // { kind: 'module' | 'foundation', id: string } | null
   const rootRef = useRef(null);
+  const stageImgRef = useRef(null);
+  const hotspotRevealTimerRef = useRef(null);
+  const preloadedImagesRef = useRef(new Set());
 
   // Text-to-Voice Reader State
   const [speechState, setSpeechState] = useState('idle'); // 'idle' | 'playing' | 'paused'
@@ -276,8 +281,14 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
 
   const stepsNarrative = PILOT_BRANCH_STEPS[activeBranchId] || [];
   const activeBranchMeta = pilotManifest?.branches?.[activeBranchId] || null;
-  const capturedSteps = activeBranchMeta?.capturedSteps || pilotManifest?.capturedSteps || [];
-  const activeDocument = activeBranchMeta?.document || pilotManifest?.document || {};
+  const capturedSteps = useMemo(
+    () => activeBranchMeta?.capturedSteps || pilotManifest?.capturedSteps || [],
+    [activeBranchMeta]
+  );
+  const activeDocument = useMemo(
+    () => activeBranchMeta?.document || pilotManifest?.document || {},
+    [activeBranchMeta]
+  );
   const totalSteps = stepsNarrative.length;
   const activeNarrative = stepsNarrative[currentStepIdx] || stepsNarrative[0];
   const activeCapture =
@@ -421,7 +432,6 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
     const cleanedText = ar
       ? rawText
           .replace(/ج\.م/g, 'جنيه مصري')
-          .replace(/\bGrow\b/gi, 'جرو')
           .replace(/\bPDF\b/gi, 'بي دي إف')
           .replace(/\bQR\b/gi, 'كيو آر')
           .replace(/\bERP\b/gi, 'إي آر بي')
@@ -769,6 +779,95 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
   const placeTooltipAbove = hotspot.yPct > 72;
   const placeTooltipRightAligned = hotspot.xPct > 68;
   const placeTooltipLeftAligned = hotspot.xPct < 28;
+  const currentShotSrc = activeCapture?.image || '';
+  const isImageDecoded = Boolean(currentShotSrc && decodedImageSrc === currentShotSrc);
+  const isHotspotVisible = Boolean(currentShotSrc && readyImageSrc === currentShotSrc);
+
+  // Preload helper so screenshots arrive in browser cache BEFORE user clicks Next Step / Open Topic
+  const preloadImageUrl = useCallback((url) => {
+    if (!url || typeof window === 'undefined' || preloadedImagesRef.current.has(url)) return;
+    preloadedImagesRef.current.add(url);
+    const img = new window.Image();
+    img.decoding = 'async';
+    img.src = url;
+  }, []);
+
+  const preloadBranchFirstShot = useCallback(
+    (branchId) => {
+      const firstShot = pilotManifest?.branches?.[branchId]?.capturedSteps?.[0]?.image;
+      if (firstShot) preloadImageUrl(firstShot);
+    },
+    [preloadImageUrl]
+  );
+
+  // Warm the 4 primary Module entry screenshots shortly after landing on `/demo`
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      PLATFORM_MODULES.forEach((m) => {
+        const firstLive = m.branches.find((b) => b.status === 'live') || m.branches[0];
+        if (firstLive) preloadBranchFirstShot(firstLive.id);
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [preloadBranchFirstShot]);
+
+  // Whenever inside Stage View, eagerly preload all remaining screenshots in the active tour + next tour's Step 1
+  useEffect(() => {
+    if (view !== 'stage') return undefined;
+    const orderedUrls = [];
+    for (let offset = 1; offset < capturedSteps.length; offset += 1) {
+      const nextCapture = capturedSteps[(currentStepIdx + offset) % capturedSteps.length];
+      if (nextCapture?.image) orderedUrls.push(nextCapture.image);
+    }
+    if (nextLiveBranch?.id) {
+      const nextTourFirst = pilotManifest?.branches?.[nextLiveBranch.id]?.capturedSteps?.[0]?.image;
+      if (nextTourFirst) orderedUrls.push(nextTourFirst);
+    }
+    if (activeDocument?.previewImageUrl) {
+      orderedUrls.push(activeDocument.previewImageUrl);
+    }
+    orderedUrls.forEach((u) => preloadImageUrl(u));
+    return undefined;
+  }, [view, activeBranchId, currentStepIdx, capturedSteps, nextLiveBranch, activeDocument, preloadImageUrl]);
+
+  // Synchronize screenshot GPU decode -> THEN reveal blue hotspot 140ms later (never before the image!)
+  const finalizeShotReveal = useCallback((imgEl, targetSrc) => {
+    if (!targetSrc) return;
+    if (hotspotRevealTimerRef.current) {
+      clearTimeout(hotspotRevealTimerRef.current);
+      hotspotRevealTimerRef.current = null;
+    }
+    const reveal = () => {
+      setDecodedImageSrc(targetSrc);
+      hotspotRevealTimerRef.current = setTimeout(() => {
+        hotspotRevealTimerRef.current = null;
+        setReadyImageSrc(targetSrc);
+      }, 180);
+    };
+    if (imgEl && typeof imgEl.decode === 'function') {
+      imgEl.decode().then(reveal).catch(reveal);
+    } else {
+      reveal();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (hotspotRevealTimerRef.current) {
+      clearTimeout(hotspotRevealTimerRef.current);
+      hotspotRevealTimerRef.current = null;
+    }
+    if (!currentShotSrc) return undefined;
+    const el = stageImgRef.current;
+    if (el && el.complete && el.naturalWidth > 0) {
+      finalizeShotReveal(el, currentShotSrc);
+    }
+    return () => {
+      if (hotspotRevealTimerRef.current) {
+        clearTimeout(hotspotRevealTimerRef.current);
+        hotspotRevealTimerRef.current = null;
+      }
+    };
+  }, [currentShotSrc, view, finalizeShotReveal]);
 
   const fontFamily = isAr
     ? "'Cairo', 'Segoe UI', Tahoma, sans-serif"
@@ -1114,6 +1213,7 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                       {firstLiveBranch && (
                         <button
                           type="button"
+                          onMouseEnter={() => preloadBranchFirstShot(firstLiveBranch.id)}
                           onClick={() => openBranch(firstLiveBranch, mod)}
                           className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${style.liveBtn}`}
                         >
@@ -1184,6 +1284,7 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
 
                             <button
                               type="button"
+                              onMouseEnter={() => preloadBranchFirstShot(branch.id)}
                               onClick={() => openBranch(branch, mod)}
                               className={`w-full text-start rounded-xl p-2.5 border transition-all duration-150 cursor-pointer group ${
                                 isLive
@@ -1664,18 +1765,32 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                       : { aspectRatio: '1440 / 900' }
                   }
                 >
+                  {!isImageDecoded && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-slate-100/95">
+                      <div className="w-7 h-7 rounded-full border-2 border-slate-300 border-t-blue-600 animate-spin" />
+                      <span className="text-[11px] font-semibold text-slate-500">
+                        {isAr ? 'جاري تحميل شاشة النظام…' : 'Loading system screen…'}
+                      </span>
+                    </div>
+                  )}
+
                   {activeCapture?.image && (
                     <img
+                      ref={stageImgRef}
                       key={activeCapture.image}
                       src={activeCapture.image}
                       alt={activeNarrative.headlineEn}
-                      className="w-full h-full object-contain block transition-opacity duration-300"
+                      onLoad={(e) => finalizeShotReveal(e.currentTarget, activeCapture.image)}
+                      className={`w-full h-full object-contain block transition-opacity duration-150 ${
+                        isImageDecoded ? 'opacity-100' : 'opacity-0'
+                      }`}
                       draggable={false}
                     />
                   )}
 
-                  {/* Interactive Hotspot Button */}
+                  {/* Interactive Hotspot Button — Strictly Hidden Until Screenshot Finishes Decoding */}
                   <button
+                    key={`${activeBranchId}-${currentStepIdx}-${currentShotSrc}`}
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1687,10 +1802,12 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                       width: `${Math.min(98, hotspot.wPct + 1.2)}%`,
                       height: `${Math.min(98, hotspot.hPct + 1.6)}%`,
                     }}
-                    className={`absolute z-20 rounded-xl border-2 border-blue-500 bg-blue-500/10 hover:bg-blue-500/20 transition-all duration-200 focus:outline-none group ${
-                      nudgeHotspot
-                        ? 'ring-8 ring-amber-400/70 scale-105'
-                        : 'ring-4 ring-blue-500/30 shadow-[0_0_25px_rgba(37,99,235,0.45)]'
+                    className={`absolute z-20 rounded-xl border-2 border-blue-500 bg-blue-500/10 hover:bg-blue-500/20 focus:outline-none group ${
+                      !isHotspotVisible
+                        ? 'opacity-0 scale-95 pointer-events-none'
+                        : nudgeHotspot
+                        ? 'transition-[opacity,transform,box-shadow] duration-200 opacity-100 ring-8 ring-amber-400/70 scale-105'
+                        : 'transition-[opacity,transform,box-shadow] duration-200 opacity-100 scale-100 ring-4 ring-blue-500/30 shadow-[0_0_25px_rgba(37,99,235,0.45)]'
                     }`}
                     aria-label={isAr ? activeNarrative.actionLabelAr : activeNarrative.actionLabelEn}
                   >
