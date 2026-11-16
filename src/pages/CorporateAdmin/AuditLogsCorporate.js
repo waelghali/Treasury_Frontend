@@ -1,36 +1,41 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { apiRequest, API_BASE_URL } from 'services/apiService.js';
 import {
   RefreshCw, Search, SlidersHorizontal, X, Download, Loader2,
-  AlertCircle, Shield, User, Building, Eye, Copy, Check
+  AlertCircle, Shield, User, Eye, Copy, Check, Activity
 } from 'lucide-react';
 import moment from 'moment';
 import { toast } from 'react-toastify';
 
-// Known Action Types for quick filter select
+// Known Action Types aligned with actual backend AuditLog action_type constants
 const ACTION_TYPES = [
   'ALL',
   'CREATE',
   'UPDATE',
-  'DELETE',
+  'SOFT_DELETE',
   'LOGIN_SUCCESS',
-  'LOGIN_FAILURE',
-  'LG_AMEND',
-  'LG_EXTENSION',
-  'LG_RELEASE',
-  'LG_CANCEL',
-  'TEMPLATE_UPDATE',
-  'SETTING_UPDATE',
-  'ONBOARD',
-  'RESTORE',
-  'QUOTATION_BANK_LATE_ACCESS_ATTEMPT',
-  'QUOTATION_BANK_EARLY_ACCESS_ATTEMPT',
-  'QUOTATION_PORTAL_ACCESSED',
-  'QUOTATION_PORTAL_AUTHENTICATED',
+  'LOGIN_FAILED',
+  'LG_EXTENDED',
+  'LG_AMENDED',
+  'LG_RELEASED',
+  'LG_DECREASED_AMOUNT',
+  'LG_LIQUIDATED_FULL',
+  'LG_LIQUIDATED_PARTIAL',
+  'LG_ACTIVATED',
+  'LG_RECORD_DELIVERY',
+  'LG_RECORD_BANK_REPLY',
+  'APPROVAL_REQUEST_SUBMITTED',
+  'APPROVAL_REQUEST_APPROVED',
+  'APPROVAL_REQUEST_REJECTED',
+  'ISSUANCE_REQUEST_SUBMITTED',
+  'ISSUANCE_REQUEST_APPROVED',
+  'ISSUANCE_LG_ISSUED',
+  'STATEMENT_IMPORTED',
+  'INBOX_ITEM_ACTIONED',
+  'QUOTATION_DEAL_ACCEPTED',
+  'QUOTATION_DEAL_DECLINED',
   'QUOTATION_OFFER_SUBMITTED',
-  'QUOTATION_RESULTS_SENT',
-  'QUOTATION_BANK_APPROVED',
-  'QUOTATION_BANK_DECLINED',
 ];
 
 // Known Entity Types for Corporate scope
@@ -82,6 +87,8 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) {
   const [logs, setLogs] = useState([]);
   const [corporateUsers, setCorporateUsers] = useState([]);
   const [customerEntities, setCustomerEntities] = useState([]);
+  const [availableActions, setAvailableActions] = useState([]);
+  const [availableEntities, setAvailableEntities] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -99,15 +106,26 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) {
   const [selectedLog, setSelectedLog] = useState(null);
   const [copiedKey, setCopiedKey] = useState(false);
 
-  // Load Corporate Users and Entities for dropdowns
+  // Load dynamic facets present in this customer's actual Audit Logs
   useEffect(() => {
-    apiRequest('/corporate-admin/users/', 'GET')
-      .then((data) => setCorporateUsers(data || []))
-      .catch(() => {});
-
-    apiRequest('/corporate-admin/customer-entities/', 'GET')
-      .then((data) => setCustomerEntities(data || []))
-      .catch(() => {});
+    apiRequest('/corporate-admin/activity/audit-log-facets', 'GET')
+      .then((facets) => {
+        if (facets) {
+          setCorporateUsers(facets.users || []);
+          setAvailableActions(facets.action_types || []);
+          setAvailableEntities(facets.entity_types || []);
+          setCustomerEntities(facets.customer_entities || []);
+        }
+      })
+      .catch(() => {
+        // Fallback if facets endpoint unavailable
+        apiRequest('/corporate-admin/users/', 'GET')
+          .then((data) => setCorporateUsers(data || []))
+          .catch(() => {});
+        apiRequest('/corporate-admin/customer-entities/', 'GET')
+          .then((data) => setCustomerEntities(data || []))
+          .catch(() => {});
+      });
   }, []);
 
   // Fetch audit logs from backend with all parameters
@@ -302,6 +320,22 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) {
         </div>
       </div>
 
+      {/* Shortcut Banner to Clean Activity & Controls */}
+      <div className="bg-blue-50/70 border border-blue-200 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2.5 text-xs text-slate-700">
+          <Activity className="w-4 h-4 text-blue-600 shrink-0" />
+          <span>
+            <strong>Forensic WORM Log:</strong> This view includes raw security, login, IP, and system notification events. For a clean business view of who did what or to verify renewal lists, use <strong>Activity &amp; Controls</strong>.
+          </span>
+        </div>
+        <Link
+          to="/corporate-admin/activity"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold whitespace-nowrap self-start sm:self-auto"
+        >
+          Open Activity &amp; Controls →
+        </Link>
+      </div>
+
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center shadow-sm">
           <AlertCircle className="h-5 w-5 mr-2 shrink-0 text-red-500" />
@@ -345,33 +379,40 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) {
             />
           </div>
 
-          {/* User Dropdown */}
-          <select
-            value={userFilter}
-            onChange={(e) => setUserFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="ALL">👤 All Users</option>
-            {corporateUsers.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.email || u.full_name || `User #${u.id}`}
-              </option>
-            ))}
-          </select>
+          {/* Dynamic User Dropdown — only users with audit logs */}
+          {corporateUsers.length > 0 && (
+            <select
+              value={userFilter}
+              onChange={(e) => setUserFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="ALL">👤 All Active Users ({corporateUsers.length})</option>
+              {corporateUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.email || u.full_name || `User #${u.id}`}{u.count ? ` (${u.count})` : ''}
+                </option>
+              ))}
+            </select>
+          )}
 
-          {/* Action Type Dropdown */}
+          {/* Dynamic Action Type Dropdown — only actions actually logged */}
           <select
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
             className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="ALL">⚡ All Actions</option>
-            {ACTION_TYPES.filter(a => a !== 'ALL').map((a) => (
-              <option key={a} value={a}>{a}</option>
+            <option value="ALL">⚡ All Available Actions</option>
+            {(availableActions.length > 0
+              ? availableActions
+              : ACTION_TYPES.filter((a) => a !== 'ALL').map((a) => ({ value: a }))
+            ).map((a) => (
+              <option key={a.value} value={a.value}>
+                {a.value}{a.count ? ` (${a.count})` : ''}
+              </option>
             ))}
           </select>
 
-          {/* Entity Type Dropdown */}
+          {/* Dynamic Entity Type Dropdown — only entity types actually logged */}
           <select
             value={entityFilter}
             onChange={(e) => {
@@ -380,9 +421,14 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) {
             }}
             className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="ALL">📦 All Entities</option>
-            {ENTITY_TYPES.filter(et => et !== 'ALL').map((et) => (
-              <option key={et} value={et}>{et}</option>
+            <option value="ALL">📦 All Available Entities</option>
+            {(availableEntities.length > 0
+              ? availableEntities
+              : ENTITY_TYPES.filter((et) => et !== 'ALL').map((et) => ({ value: et }))
+            ).map((et) => (
+              <option key={et.value} value={et.value}>
+                {et.value}{et.count ? ` (${et.count})` : ''}
+              </option>
             ))}
           </select>
 
@@ -396,7 +442,7 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) {
               <option value="ALL">🏢 All Subsidiaries</option>
               {customerEntities.map((ce) => (
                 <option key={ce.id} value={ce.id}>
-                  {ce.entity_name}
+                  {ce.entity_name}{ce.count ? ` (${ce.count})` : ''}
                 </option>
               ))}
             </select>

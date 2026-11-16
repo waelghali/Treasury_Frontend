@@ -4,7 +4,7 @@ import {
   Home, Users, FolderKanban, LogOut, Settings, FileText,
   BarChart, Hourglass, ClipboardList, DatabaseZap, Send, Building, Shield,
   ChevronLeft, ChevronRight, ChevronDown, FileCheck, Settings2, Download, LayoutTemplate, TrendingUp, CreditCard, BarChart3, Bell, Upload, RefreshCw,
-  Menu, X, ListTodo, Layers, Sliders, FileSpreadsheet, BarChart2, Inbox, Calendar
+  Menu, X, ListTodo, Layers, Sliders, FileSpreadsheet, BarChart2, Inbox, Calendar, Activity
 } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner';
@@ -345,7 +345,7 @@ function CorporateAdminLayout({
         </Link>
 
         {/* Action Center (Expiries, Claims & Renewals for both Issuance & Custody) */}
-        {(hasCustodyModule || hasIssuanceModule) && (
+        {(hasCustodyModule || hasIssuanceModule) && !isChecker && (
           <Link
             to="/corporate-admin/action-center"
             title={!isExpandedMode ? 'Action Center' : ''}
@@ -359,6 +359,20 @@ function CorporateAdminLayout({
             {isExpandedMode && <span className="ml-3">Action Center</span>}
           </Link>
         )}
+
+        {/* Activity & Controls (Platform-wide Activity Feed & Pre-Bank Signatory Verification) */}
+        <Link
+          to={`${basePath}/activity`}
+          title={!isExpandedMode ? 'Activity & Controls' : ''}
+          className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+            activeMenuItem === 'activity-controls' || location.pathname.includes('/activity')
+              ? 'font-semibold bg-blue-500/15 text-blue-400'
+              : 'text-slate-300 hover:text-white hover:bg-white/[0.07]'
+          }`}
+        >
+          <Activity className={`h-5 w-5 flex-shrink-0 text-emerald-400 ${!isExpandedMode ? 'mx-auto' : ''}`} />
+          {isExpandedMode && <span className="ml-3">Activity &amp; Controls</span>}
+        </Link>
 
         {/* Divider */}
         {isExpandedMode && <div className="pt-2 pb-1 px-3"><hr className="border-white/10" /></div>}

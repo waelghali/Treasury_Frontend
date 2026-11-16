@@ -14,6 +14,7 @@ import LGDetailsReadOnlyPage from '../pages/CorporateAdmin/LGDetailsReadOnlyPage
 import LGRecordListReadOnlyPage from '../pages/CorporateAdmin/LGRecordListReadOnlyPage';
 import AuditLogsCorporate from '../pages/CorporateAdmin/AuditLogsCorporate';
 import ActionCenter from '../pages/CorporateAdmin/ActionCenter';
+import ActivityAndControlsPage from '../pages/CorporateAdmin/ActivityAndControlsPage';
 import MigrationUploadPage from '../pages/CorporateAdmin/MigrationUploadPage';
 import IssuanceMigrationPage from '../pages/CorporateAdmin/IssuanceMigrationPage';
 import IssuanceRequestsPage from '../pages/CorporateAdmin/IssuanceRequestsPage';
@@ -82,6 +83,18 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIss
       <Route path="expiring-lgs" element={<LGRecordListReadOnlyPage />} />
       <Route path="entities" element={<CustomerConfigurationManagementPage onLogout={onLogout} isGracePeriod={isGracePeriod} customerId={customerId} />} />
       <Route path="action-center" element={<ActionCenter />} />
+      <Route
+        path="activity"
+        element={
+          <ActivityAndControlsPage
+            hasCustodyModule={hasCustodyModule}
+            hasIssuanceModule={hasIssuanceModule}
+            hasQuotationModule={hasQuotationModule}
+            hasReconciliationModule={hasReconciliationModule}
+            isGracePeriod={isGracePeriod}
+          />
+        }
+      />
 
       {/* Issuance Module Routes */}
       {/* Treasury Dashboard now merged into unified dashboard */}

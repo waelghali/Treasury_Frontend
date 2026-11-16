@@ -70,6 +70,7 @@ function ProtectedLayout({ onLogout, userId, userRole, userPermissions, customer
       else if (currentPath.startsWith('/corporate-admin/issuance/migration-hub')) { activeItem = 'issuance-migration-hub'; title = 'Issuance Migration'; }
       else if (currentPath.startsWith('/corporate-admin/lg-records')) { activeItem = 'lg-records'; title = 'All LG Records'; }
       else if (currentPath.startsWith('/corporate-admin/action-center')) { activeItem = 'action-center'; title = 'Action Center'; }
+      else if (currentPath.startsWith('/corporate-admin/activity')) { activeItem = 'activity-controls'; title = 'Activity & Controls'; }
       else if (currentPath.startsWith('/corporate-admin/reconciliation/rules')) { activeItem = 'reconciliation-rules'; title = 'Rules Engine'; }
       else if (currentPath.startsWith('/corporate-admin/reconciliation/export')) { activeItem = 'reconciliation-export'; title = 'Accounting Export'; }
       else if (currentPath.startsWith('/corporate-admin/reconciliation')) { activeItem = 'reconciliation-dashboard'; title = 'Statement Dash'; }
@@ -98,6 +99,11 @@ function ProtectedLayout({ onLogout, userId, userRole, userPermissions, customer
       else if (currentPath.startsWith('/end-user/issuance/issued-lgs')) { activeItem = 'issuance-issued-lgs'; title = 'Issued LGs'; }
       else if (currentPath.startsWith('/end-user/issuance/reconciliation')) { activeItem = 'issuance-reconciliation'; title = 'Pos. Reconciliation'; }
       else if (currentPath.startsWith('/end-user/reports')) { activeItem = 'end-user-reports'; title = 'Reports'; }
+    }
+    else if (role === 'checker') {
+      if (currentPath.startsWith('/checker/approval-requests')) { activeItem = 'approval-center-page'; title = 'Approval Center'; }
+      else if (currentPath.startsWith('/checker/activity')) { activeItem = 'activity-controls'; title = 'Activity & Controls'; }
+      else if (currentPath.startsWith('/checker/issuance/issued-lgs')) { activeItem = 'issuance-issued-lgs'; title = 'Issued LGs'; }
     }
     else if (role === 'viewer') {
       if (currentPath.startsWith('/viewer/dashboard')) { activeItem = 'dashboard'; title = 'Dashboard'; }
