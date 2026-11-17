@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import { Helmet } from 'react-helmet-async';
 import { Loader2, Shield, Zap, Globe, Lock, Building2, UserCircle, Package, AlertCircle, ArrowRight, Upload, Play } from 'lucide-react';
 import HoneypotField from '../../components/Security/HoneypotField';
+import { trackPublicEvent } from '../../utils/publicTelemetry';
 
 const benefits = [
   { icon: Shield, title: "Tamper-Evident Controls", description: "Sequential SHA-256 audit trails and strict maker-checker approvals." },
@@ -43,6 +44,11 @@ function FreeTrialRegistration() {
   const [termsContent, setTermsContent] = useState('');
 
   useEffect(() => {
+    trackPublicEvent('page_view', {
+      page: 'free_trial',
+      path: '/free-trial-register',
+      metadata: { module: preselectedModule || 'all' },
+    });
     const fetchTerms = async () => {
       try {
         const response = await publicApiRequest('/public/legal-content/terms_and_conditions', 'GET');
@@ -118,6 +124,11 @@ function FreeTrialRegistration() {
 
     try {
       await publicApiRequest('/public/register-free-trial/', 'POST', data);
+      trackPublicEvent('cta_click', {
+        page: 'free_trial',
+        path: '/free-trial-register',
+        metadata: { target: 'free_trial_submit', modules: modules.join(',') },
+      });
       toast.success('Registration submitted successfully. Please check your email for a confirmation message.');
       navigate('/');
     } catch (err) {

@@ -1,5 +1,6 @@
 // frontend/src/pages/SystemOwner/UserFeedbackDashboard.js
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   MessageSquare,
   Search,
@@ -10,11 +11,18 @@ import {
   Download,
   Eye,
   Copy,
-  Check
+  Check,
+  Globe
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
+import { formatDateTime } from 'utils/dateFormat';
+import PublicWebsiteInsightsPanel from './PublicWebsiteInsightsPanel';
 
 const UserFeedbackDashboard = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'public' ? 'public_insights' : 'in_app_feedback';
+  const [activeView, setActiveView] = useState(initialTab);
+
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,12 +30,19 @@ const UserFeedbackDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
-  const [sentimentFilter, setSentimentFilter] = useState('ALL');
 
   const [selectedFeedback, setSelectedFeedback] = useState(null);
-  const [updatingId, setUpdatingId] = useState(null);
   const [adminNote, setAdminNote] = useState('');
   const [copiedFeedback, setCopiedFeedback] = useState(false);
+
+  const handleSwitchTab = (nextTab) => {
+    setActiveView(nextTab);
+    if (nextTab === 'public_insights') {
+      setSearchParams({ tab: 'public' }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  };
 
   const handleCopyFeedback = (text) => {
     if (!text) return;
@@ -55,7 +70,6 @@ const UserFeedbackDashboard = () => {
   }, []);
 
   const handleUpdateStatus = async (id, newStatus, note = null) => {
-    setUpdatingId(id);
     try {
       const payload = { status: newStatus };
       if (note !== null) payload.admin_notes = note;
@@ -70,8 +84,6 @@ const UserFeedbackDashboard = () => {
     } catch (err) {
       console.error('Failed to update feedback status:', err);
       alert('Error updating feedback status.');
-    } finally {
-      setUpdatingId(null);
     }
   };
 
@@ -95,11 +107,10 @@ const UserFeedbackDashboard = () => {
 
       const matchesStatus = statusFilter === 'ALL' || fb.status === statusFilter;
       const matchesType = typeFilter === 'ALL' || fb.feedback_type === typeFilter;
-      const matchesSentiment = sentimentFilter === 'ALL' || fb.sentiment === sentimentFilter;
 
-      return matchesSearch && matchesStatus && matchesType && matchesSentiment;
+      return matchesSearch && matchesStatus && matchesType;
     });
-  }, [feedbacks, searchTerm, statusFilter, typeFilter, sentimentFilter]);
+  }, [feedbacks, searchTerm, statusFilter, typeFilter]);
 
   const exportToCSV = () => {
     if (filteredFeedbacks.length === 0) return;
@@ -187,43 +198,92 @@ const UserFeedbackDashboard = () => {
 
   return (
     <div className="flex flex-col h-full space-y-3 overflow-y-auto">
-      {/* Compact Header */}
-      <div className="flex-shrink-0 flex items-center justify-between bg-white dark:bg-slate-800 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+      {/* Compact Header + Unified 2-Tab Switcher */}
+      <div className="flex-shrink-0 flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-800 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
         <div className="flex items-center gap-2.5">
           <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg text-white">
             <MessageSquare className="w-4 h-4" />
           </div>
           <div>
             <h1 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
-              User Feedback & Feature Requests
+              User Feedback &amp; Public Insights
             </h1>
             <p className="text-[11px] text-slate-400">
-              Live suggestions, bug reports, and UX friction points captured by AI Assistant.
+              {activeView === 'public_insights'
+                ? 'First-party website visits, interactive /demo engagement, and AI Product Expert Q&A logs.'
+                : 'Live suggestions, bug reports, and UX friction points captured inside the platform.'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={fetchFeedbacks}
-            disabled={loading}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-all"
-          >
-            <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
-          <button
-            onClick={exportToCSV}
-            disabled={filteredFeedbacks.length === 0}
-            className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-all"
-          >
-            <Download className="w-3 h-3" />
-            <span>Export CSV</span>
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Segmented View Switcher */}
+          <div className="inline-flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+            <button
+              type="button"
+              onClick={() => handleSwitchTab('in_app_feedback')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeView === 'in_app_feedback'
+                  ? 'bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400'
+              }`}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>In-App Feedback</span>
+              {stats.newCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-white text-[10px] font-black">
+                  {stats.newCount}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSwitchTab('public_insights')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeView === 'public_insights'
+                  ? 'bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400'
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>Website, Demo &amp; AI Chatbot</span>
+            </button>
+          </div>
+
+          {activeView === 'in_app_feedback' && (
+            <>
+              <button
+                onClick={fetchFeedbacks}
+                disabled={loading}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-all"
+              >
+                <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
+              <button
+                onClick={exportToCSV}
+                disabled={filteredFeedbacks.length === 0}
+                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-all"
+              >
+                <Download className="w-3 h-3" />
+                <span>Export CSV</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Compact KPI Tiles */}
+      {activeView === 'public_insights' ? (
+        <PublicWebsiteInsightsPanel />
+      ) : (
+        <>
+          {error && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 px-3.5 py-2 rounded-xl text-xs font-semibold">
+              {error}
+            </div>
+          )}
+
+          {/* Compact KPI Tiles */}
       <div className="flex-shrink-0 grid grid-cols-3 sm:grid-cols-6 gap-2">
         <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total</span>
@@ -346,7 +406,7 @@ const UserFeedbackDashboard = () => {
                       {getSentimentBadge(fb.sentiment)}
                     </td>
                     <td className="py-2 px-3 text-slate-500 text-[10px]">
-                      {fb.created_at ? new Date(fb.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                      {fb.created_at ? formatDateTime(fb.created_at, 'N/A') : 'N/A'}
                     </td>
                     <td className="py-2 px-3">
                       {getStatusBadge(fb.status)}
@@ -485,6 +545,8 @@ const UserFeedbackDashboard = () => {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

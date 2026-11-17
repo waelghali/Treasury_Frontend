@@ -9,10 +9,15 @@ import {
   RefreshCw, FileText, Workflow, TrendingUp, FileSpreadsheet,
   KeyRound, Fingerprint, ShieldCheck, ArrowLeftRight, Split, Timer, Play
 } from 'lucide-react';
+import { trackPublicEvent } from '../utils/publicTelemetry';
 
 function KnowMorePage() {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const { hash } = useLocation();
+
+  useEffect(() => {
+    trackPublicEvent('page_view', { page: 'know_more', path: '/know-more' });
+  }, []);
 
   useEffect(() => {
     if (hash) {

@@ -16,26 +16,11 @@ import {
   MessageSquarePlus,
 } from 'lucide-react';
 import { API_BASE_URL } from '../../services/apiService';
+import { getOrCreatePublicSessionId, trackPublicEvent } from '../../utils/publicTelemetry';
 
-const SESSION_ID_KEY = 'grow_public_expert_session_v1';
 const MESSAGES_STORAGE_KEY = 'grow_public_expert_messages_v1';
 
 const ARABIC_CHAR_RE = /[\u0600-\u06FF]/;
-
-function getOrCreatePublicSessionId() {
-  if (typeof window === 'undefined') return 'ssr-anon';
-  try {
-    let existing = window.sessionStorage.getItem(SESSION_ID_KEY);
-    if (!existing) {
-      const rand = Math.random().toString(36).slice(2, 10);
-      existing = `pub_${Date.now().toString(36)}_${rand}`;
-      window.sessionStorage.setItem(SESSION_ID_KEY, existing);
-    }
-    return existing;
-  } catch {
-    return `pub_${Date.now().toString(36)}`;
-  }
-}
 
 function loadStoredMessages() {
   if (typeof window === 'undefined') return [];
@@ -286,13 +271,18 @@ export default function PublicProductExpertChat({
 
   useEffect(() => {
     if (isOpen) {
+      trackPublicEvent('chatbot_open', {
+        page: String(pageContext || '').includes('landing') ? 'landing' : 'demo',
+        lang,
+        metadata: { page_context: pageContext || 'demo' },
+      });
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 140);
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [isOpen]);
+  }, [isOpen, lang, pageContext]);
 
   const isAr = lang === 'ar';
   const dir = isAr ? 'rtl' : 'ltr';

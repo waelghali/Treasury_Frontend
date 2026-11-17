@@ -41,6 +41,7 @@ import {
 } from './showcaseCatalog';
 import pilotManifest from './pilotManifest.json';
 import PublicProductExpertChat from './PublicProductExpertChat';
+import { trackPublicEvent } from '../../utils/publicTelemetry';
 
 const MODULE_ICONS = {
   custody: Shield,
@@ -223,6 +224,16 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
   const [briefModal, setBriefModal] = useState(null); // { id: string } | null (Foundation pillars)
   const [expertChatOpen, setExpertChatOpen] = useState(false);
   const handledQueryRef = useRef('');
+
+  useEffect(() => {
+    if (!embedded) {
+      trackPublicEvent('page_view', {
+        page: 'demo',
+        path: '/demo',
+        lang: initialLang,
+      });
+    }
+  }, [embedded, initialLang]);
 
   // Visual Executive Story Cinema Player State
   const [storyModal, setStoryModal] = useState(null); // { storyId, chapterIdx, phase: 'chapters' | 'handoff' } | null
@@ -455,6 +466,12 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
         }
       } else {
         setStoryPlaying(false);
+        trackPublicEvent('story_complete', {
+          page: 'demo',
+          path: '/demo',
+          lang: langRef.current,
+          metadata: { story_id: storyId },
+        });
         const handoffState = { storyId, chapterIdx: finishedChapterIdx, phase: 'handoff' };
         storyModalRef.current = handoffState;
         setStoryModal(handoffState);
@@ -553,6 +570,14 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
       storyModalRef.current = nextModal;
       setStoryModal(nextModal);
       setStoryProgress(0);
+      if (chapterIdx === 0) {
+        trackPublicEvent('story_start', {
+          page: 'demo',
+          path: '/demo',
+          lang: langRef.current,
+          metadata: { story_id: storyId },
+        });
+      }
 
       if (autoStart) {
         playStoryChapter(storyId, chapterIdx, langRef.current, speechRateRef.current);
@@ -928,6 +953,12 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
       const nextModal = { id: pillarId };
       briefModalRef.current = nextModal;
       setBriefModal(nextModal);
+      trackPublicEvent('foundation_open', {
+        page: 'demo',
+        path: '/demo',
+        lang: langRef.current,
+        metadata: { pillar_id: pillarId },
+      });
       if (autoPlay) {
         briefVisitedRef.current = new Set([pillarId]);
         const target = resolveFoundationTarget(pillarId);
@@ -1006,6 +1037,16 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
         setSideTab('guide');
         setView('stage');
         setPlannedModalBranch(null);
+        trackPublicEvent('tour_open', {
+          page: 'demo',
+          path: '/demo',
+          lang: langRef.current,
+          metadata: {
+            module_id: moduleObj?.id || '',
+            branch_id: branch.id,
+            code: branch.code || '',
+          },
+        });
       } else {
         setPlannedModalBranch({ branch, moduleObj });
       }

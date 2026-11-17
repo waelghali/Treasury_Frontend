@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import HoneypotField from '../components/Security/HoneypotField';
 import PublicProductExpertChat from '../components/Showcase/PublicProductExpertChat';
+import { trackPublicEvent } from '../utils/publicTelemetry';
 
 function LandingPage() {
   const meetingFormRef = useRef(null);
@@ -18,6 +19,10 @@ function LandingPage() {
   const [formData, setFormData] = useState({ name: '', company: '', email: '', phone: '', message: '', website_url: '' });
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    trackPublicEvent('page_view', { page: 'landing', path: '/' });
+  }, []);
 
   useEffect(() => {
     if (!hash) return;
@@ -70,6 +75,11 @@ function LandingPage() {
       data.append('entry.1978314716', formData.phone);
       data.append('entry.1323929138', formData.message);
       await fetch(googleFormsUrl, { method: 'POST', body: data, mode: 'no-cors' });
+      trackPublicEvent('cta_click', {
+        page: 'landing',
+        path: '/',
+        metadata: { target: 'book_meeting_submit' },
+      });
       setFormSubmitted(true);
       setFormData({ name: '', company: '', email: '', phone: '', message: '' });
     } catch (err) {
@@ -78,6 +88,11 @@ function LandingPage() {
   };
 
   const scrollToMeetingForm = () => {
+    trackPublicEvent('cta_click', {
+      page: 'landing',
+      path: '/',
+      metadata: { target: 'book_meeting_click' },
+    });
     if (meetingFormRef.current) meetingFormRef.current.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -85,6 +100,11 @@ function LandingPage() {
   const [expertChatOpen, setExpertChatOpen] = useState(false);
 
   const handleDownload = () => {
+    trackPublicEvent('cta_click', {
+      page: 'landing',
+      path: '/',
+      metadata: { target: 'brochure_download' },
+    });
     const link = document.createElement('a');
     link.href = '/grow_brochure.pdf';
     link.download = 'Grow-Brochure.pdf';
