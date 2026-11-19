@@ -104,8 +104,31 @@ function detectDeviceType() {
   return 'desktop';
 }
 
+function isLocalhostRuntime() {
+  if (typeof window === 'undefined' || !window.location) return false;
+  const host = (window.location.hostname || '').toLowerCase();
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host === '[::1]' ||
+    host.endsWith('.local')
+  );
+}
+
 export function trackPublicEvent(eventType, options = {}) {
   if (typeof window === 'undefined') return;
+  if (isLocalhostRuntime()) {
+    try {
+      const allowLocalDebug = window.localStorage.getItem('grow_debug_public_telemetry') === 'true';
+      const targetsProdApi = String(API_BASE_URL || '').toLowerCase().includes('growbusinessdevelopment.com');
+      if (!allowLocalDebug || targetsProdApi) {
+        return;
+      }
+    } catch {
+      return;
+    }
+  }
   try {
     const sessionId = getOrCreatePublicSessionId();
     const visitorId = getOrCreatePublicVisitorId();
