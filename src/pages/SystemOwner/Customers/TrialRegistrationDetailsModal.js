@@ -5,13 +5,14 @@ import { X } from 'lucide-react';
 // import { API_BASE_URL } from 'services/apiService'; // No longer needed
 import { apiRequest } from 'services/apiService'; // ADDED: For authenticated API call
 import { toast } from 'react-toastify'; // ADDED: For user feedback
+import { formatDateTime } from 'utils/dateFormat';
 
 function TrialRegistrationDetailsModal({ registration, onClose }) {
   if (!registration) return null;
 
   // The direct link logic is removed as it causes the "Could not validate credentials" error.
   
-  const registeredDate = new Date(registration.accepted_terms_at).toLocaleString();
+  const registeredDate = formatDateTime(registration.accepted_terms_at);
 
   // --- NEW FUNCTION TO HANDLE SECURE DOCUMENT VIEWING ---
   const handleViewDocument = async (gcsPath) => {
@@ -82,13 +83,20 @@ function TrialRegistrationDetailsModal({ registration, onClose }) {
             <div>
               <p className="text-sm font-medium text-gray-500">Requested Modules</p>
               <div className="mt-1 flex gap-1 flex-wrap">
-                {(registration.requested_modules || ['custody']).map(mod => (
-                  <span key={mod} className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                    mod === 'custody' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                  }`}>
-                    {mod === 'custody' ? 'LG Custody' : 'LG Issuance'}
-                  </span>
-                ))}
+                {(registration.requested_modules || ['custody']).map(mod => {
+                  const badgeMap = {
+                    custody: { label: 'LG Custody', cls: 'bg-blue-100 text-blue-700' },
+                    issuance: { label: 'LG Issuance', cls: 'bg-purple-100 text-purple-700' },
+                    quotations: { label: 'FX & T-Bill Quotations', cls: 'bg-emerald-100 text-emerald-700' },
+                    reconciliation: { label: 'Bank Auto-Reconciliation', cls: 'bg-amber-100 text-amber-800' },
+                  };
+                  const b = badgeMap[mod] || { label: mod, cls: 'bg-gray-100 text-gray-700' };
+                  return (
+                    <span key={mod} className={`px-2 py-0.5 text-xs font-medium rounded-full ${b.cls}`}>
+                      {b.label}
+                    </span>
+                  );
+                })}
               </div>
             </div>
             <div>

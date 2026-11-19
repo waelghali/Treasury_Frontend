@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { apiRequest } from 'services/apiService';
 import { toast } from 'react-toastify';
 import { openInNewTab } from 'utils/navUtils';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDate } from 'utils/dateFormat';
 import {
     CheckCircle, Clock, AlertTriangle, XCircle, Send, Upload,
     FileText, Truck, MessageSquare, ShieldCheck, Loader2,
@@ -625,7 +627,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                         <div className="flex items-center gap-2">
                                             {step.date && (
                                                 <span className="text-xs text-slate-500 flex items-center gap-1">
-                                                    <Calendar className="w-3.5 h-3.5 text-slate-400" /> {new Date(step.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    <Calendar className="w-3.5 h-3.5 text-slate-400" /> {formatDate(step.date)}
                                                 </span>
                                             )}
                                             {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400 hover:text-slate-700" /> : <ChevronDown className="w-4 h-4 text-slate-400 hover:text-slate-700" />}
@@ -642,7 +644,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                     <div className="grid grid-cols-2 gap-3">
                                                         <div>
                                                             <label className="text-xs font-medium text-slate-600">Delivery Date</label>
-                                                            <input type="date" value={deliveryForm.delivery_date}
+                                                            <FormattedDateInput value={deliveryForm.delivery_date}
                                                                 min={dateConstraints.deliveryMin || ''}
                                                                 max={dateConstraints.deliveryMax || ''}
                                                                 onChange={e => setDeliveryForm({ ...deliveryForm, delivery_date: e.target.value })}
@@ -797,7 +799,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                         <div className="grid grid-cols-2 gap-3">
                                                             <div>
                                                                 <label className="text-xs font-medium text-gray-600">Reply Date</label>
-                                                                <input type="date" value={replyForm.bank_reply_date}
+                                                                <FormattedDateInput value={replyForm.bank_reply_date}
                                                                     min={dateConstraints.replyMin || ''}
                                                                     max={dateConstraints.replyMax || ''}
                                                                     onChange={e => setReplyForm({ ...replyForm, bank_reply_date: e.target.value })}
@@ -1027,7 +1029,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                         </div>
                                                                         <div>
                                                                             <label className="text-xs font-medium text-gray-600">Issue Date</label>
-                                                                            <input type="date" value={replyForm.bank_lg_issue_date}
+                                                                            <FormattedDateInput value={replyForm.bank_lg_issue_date}
                                                                                 max={today()}
                                                                                 onChange={e => {
                                                                                     const newIssueDate = e.target.value;
@@ -1059,7 +1061,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                         </div>
                                                                         <div>
                                                                             <label className="text-xs font-medium text-gray-600">Expiry Date</label>
-                                                                            <input type="date" value={replyForm.bank_lg_expiry_date}
+                                                                            <FormattedDateInput value={replyForm.bank_lg_expiry_date}
                                                                                 onChange={e => setReplyForm({ ...replyForm, bank_lg_expiry_date: e.target.value })}
                                                                                 className="w-full mt-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-emerald-50/30" />
                                                                             {data?.expected_values?.expiry_type === 'PERIOD_FROM_ISSUANCE' && (
@@ -1359,7 +1361,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                             </div>
                                                         )}
                                                         {step.details.bank_lg_expiry_date && (
-                                                            <div><span className="text-gray-500">Expiry:</span> <span className="font-medium">{step.details.bank_lg_expiry_date}</span></div>
+                                                            <div><span className="text-gray-500">Expiry:</span> <span className="font-medium">{formatDate(step.details.bank_lg_expiry_date)}</span></div>
                                                         )}
                                                     </div>
                                                     {step.details.notes && <div><span className="text-gray-500">Notes:</span> {step.details.notes}</div>}
@@ -1373,7 +1375,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                     Verification: {verificationStep.details?.verification_status}
                                                                 </span>
                                                                 <span className="text-xs text-gray-400">
-                                                                    {verificationStep.date ? `on ${new Date(verificationStep.date).toLocaleDateString('en-GB')}` : ''}
+                                                                    {verificationStep.date ? `on ${formatDate(verificationStep.date)}` : ''}
                                                                 </span>
                                                             </div>
                                                             {verificationStep.details?.notes && (
@@ -1944,9 +1946,15 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                         <label className="text-xs font-medium text-gray-600">
                                                                             {f.label}{f.cfg?.is_mandatory ? ' *' : ''}
                                                                         </label>
-                                                                        <input type={f.type} value={handoverForm[f.key] || ''}
-                                                                            onChange={e => setHandoverForm({ ...handoverForm, [f.key]: e.target.value })}
-                                                                            className="w-full mt-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                                                        {f.type === 'date' ? (
+                                                                            <FormattedDateInput value={handoverForm[f.key] || ''}
+                                                                                onChange={e => setHandoverForm({ ...handoverForm, [f.key]: e.target.value })}
+                                                                                className="w-full mt-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                                                        ) : (
+                                                                            <input type={f.type} value={handoverForm[f.key] || ''}
+                                                                                onChange={e => setHandoverForm({ ...handoverForm, [f.key]: e.target.value })}
+                                                                                className="w-full mt-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                                                        )}
                                                                     </div>
                                                                 ));
                                                         })()}
@@ -1956,7 +1964,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                     <div className="grid grid-cols-2 gap-3">
                                                         <div>
                                                             <label className="text-xs font-medium text-gray-600">Handover Date</label>
-                                                            <input type="date" value={handoverForm.handover_date}
+                                                            <FormattedDateInput value={handoverForm.handover_date}
                                                                 max={today()}
                                                                 onChange={e => setHandoverForm({ ...handoverForm, handover_date: e.target.value })}
                                                                 className="w-full mt-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" />
@@ -2065,7 +2073,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                     {step.details?.delivery_date ? (
                                                         <div className="text-sm space-y-1">
                                                             <div className="grid grid-cols-2 gap-2">
-                                                                <div><span className="text-gray-500">Delivered:</span> <span className="font-medium">{step.details.delivery_date}</span></div>
+                                                                <div><span className="text-gray-500">Delivered:</span> <span className="font-medium">{formatDate(step.details.delivery_date)}</span></div>
                                                                 <div><span className="text-gray-500">Method:</span> <span className="font-medium">{step.details.delivery_method}</span></div>
                                                             </div>
                                                             {step.details.delivery_notes && <div><span className="text-gray-500">Notes:</span> {step.details.delivery_notes}</div>}
@@ -2074,9 +2082,9 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                         <div className="space-y-2 p-3 bg-gray-50 rounded-lg border">
                                                             <p className="text-xs font-semibold text-gray-700">Record Delivery to Bank</p>
                                                             <div className="grid grid-cols-2 gap-2">
-                                                                <input type="date" value={cnDeliveryForm.delivery_date}
+                                                                <FormattedDateInput value={cnDeliveryForm.delivery_date}
                                                                     onChange={e => setCnDeliveryForm(p => ({ ...p, delivery_date: e.target.value }))}
-                                                                    className="px-2 py-1.5 text-sm border rounded-lg" />
+                                                                    className="w-full px-2 py-1.5 text-sm border rounded-lg bg-white" />
                                                                 <select value={cnDeliveryForm.delivery_method}
                                                                     onChange={e => setCnDeliveryForm(p => ({ ...p, delivery_method: e.target.value }))}
                                                                     className="px-2 py-1.5 text-sm border rounded-lg">
@@ -2106,7 +2114,7 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                     {/* Bank reply info or form */}
                                                     {step.details?.bank_reply_date ? (
                                                         <div className="text-sm space-y-1">
-                                                            <div><span className="text-gray-500">Bank Reply:</span> <span className="font-medium">{step.details.bank_reply_date}</span></div>
+                                                            <div><span className="text-gray-500">Bank Reply:</span> <span className="font-medium">{formatDate(step.details.bank_reply_date)}</span></div>
                                                             {step.details.bank_reply_notes && <div><span className="text-gray-500">Notes:</span> {step.details.bank_reply_notes}</div>}
                                                             <div className="mt-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2">
                                                                 <CheckCircle className="w-4 h-4 text-emerald-600" />
@@ -2116,9 +2124,9 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                     ) : step.status === 'pending_reply' && !readOnly && (
                                                         <div className="space-y-2 p-3 bg-gray-50 rounded-lg border">
                                                             <p className="text-xs font-semibold text-gray-700">Record Bank Reply to Cancellation Notice</p>
-                                                            <input type="date" value={cnReplyForm.bank_reply_date}
+                                                            <FormattedDateInput value={cnReplyForm.bank_reply_date}
                                                                 onChange={e => setCnReplyForm(p => ({ ...p, bank_reply_date: e.target.value }))}
-                                                                className="px-2 py-1.5 text-sm border rounded-lg w-full" />
+                                                                className="px-2 py-1.5 text-sm border rounded-lg w-full bg-white" />
                                                             <textarea value={cnReplyForm.bank_reply_notes}
                                                                 onChange={e => setCnReplyForm(p => ({ ...p, bank_reply_notes: e.target.value }))}
                                                                 placeholder="Bank reply notes"

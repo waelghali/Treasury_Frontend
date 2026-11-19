@@ -34,6 +34,7 @@ import {
   Lock
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
+import { formatDateTime } from 'utils/dateFormat';
 
 const MODULE_STYLE_MAP = {
   custody: {
@@ -889,14 +890,7 @@ function SystemOwnerDashboard({ onLogout }) {
                         <span>{activity.actor || 'System'}</span>
                         <span>•</span>
                         <span>
-                          {activity.timestamp
-                            ? new Date(activity.timestamp).toLocaleString(undefined, {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })
-                            : 'N/A'}
+                          {activity.timestamp ? formatDateTime(activity.timestamp, 'N/A') : 'N/A'}
                         </span>
                       </div>
                     </div>

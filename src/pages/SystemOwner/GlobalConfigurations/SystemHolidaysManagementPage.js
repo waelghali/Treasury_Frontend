@@ -5,6 +5,8 @@ import {
   AlertCircle, CheckCircle2, RefreshCw, Sparkles,
   CalendarDays
 } from 'lucide-react';
+import moment from 'moment';
+import FormattedDateInput from 'components/FormattedDateInput';
 
 export default function SystemHolidaysManagementPage() {
   const [holidays, setHolidays] = useState([]);
@@ -253,7 +255,7 @@ export default function SystemHolidaysManagementPage() {
                 {holidays.map((h) => (
                   <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="p-4 font-black text-slate-900">
-                      {new Date(h.holiday_date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                      {h.holiday_date ? moment(h.holiday_date).format('ddd, DD-MMM-YYYY') : '—'}
                     </td>
                     <td className="p-4 font-bold text-slate-800">{h.name}</td>
                     <td className="p-4">
@@ -304,8 +306,7 @@ export default function SystemHolidaysManagementPage() {
                 <label className="text-xs font-black uppercase tracking-wider text-slate-500 block mb-1.5">
                   Holiday Date *
                 </label>
-                <input
-                  type="date"
+                <FormattedDateInput
                   required
                   value={newHoliday.holiday_date}
                   onChange={(e) => setNewHoliday({ ...newHoliday, holiday_date: e.target.value })}

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import MaintenanceActionModal from '../../components/Modals/MaintenanceActionModal';
 import ChangeRequestorModal from '../../components/Modals/ChangeRequestorModal';
+import { formatDate } from '../../utils/dateFormat';
 
 const STATUS_CONFIG = {
     DRAFT: { label: 'Draft', bg: 'bg-gray-100', text: 'text-gray-700', icon: FileText },
@@ -233,11 +234,6 @@ export default function RequestorDashboard() {
 
     const handleNewRequest = () => {
         navigate(`/public-issuance/form?token=${encodeURIComponent(token)}`);
-    };
-
-    const formatDate = (d) => {
-        if (!d) return '—';
-        return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     };
 
     const formatAmount = (amount, currency) => {

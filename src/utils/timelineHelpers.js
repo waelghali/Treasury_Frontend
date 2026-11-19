@@ -22,7 +22,7 @@ const formatDate = (dateString) => {
     if (!dateString) return '';
     try { 
         const dateObj = parseISO(dateString);
-        return isValid(dateObj) ? format(dateObj, 'MMM dd, yyyy') : dateString; 
+        return isValid(dateObj) ? format(dateObj, 'dd-MMM-yyyy') : dateString; 
     } catch { 
         return dateString; 
     }

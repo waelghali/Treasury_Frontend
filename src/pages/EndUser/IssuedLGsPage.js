@@ -23,6 +23,8 @@ import CopyBadge from '../../components/CopyBadge';
 import CustomerCashbackWidget from '../../components/CustomerCashbackWidget';
 import CustomExportModal from '../../components/Modals/CustomExportModal';
 import { openInNewTab } from '../../utils/navUtils';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDate, formatDateTime } from '../../utils/dateFormat';
 
 // Status display labels (module-level so both modal and page can use)
 const statusLabels = {
@@ -162,7 +164,7 @@ function DocumentsTab({ lgId }) {
                             <p className="text-[10px] text-slate-400">
                                 {doc.document_type?.replace(/_/g, ' ') || 'File'}
                                 {doc.source && <span className="ml-1.5 px-1.5 py-0.5 bg-slate-200 text-slate-500 rounded-md text-[9px] font-medium">{doc.source}</span>}
-                                {doc.created_at ? ` · ${new Date(doc.created_at).toLocaleDateString()}` : ''}
+                                {doc.created_at ? ` · ${formatDate(doc.created_at)}` : ''}
                             </p>
                         </div>
                     </div>
@@ -830,6 +832,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
         APPROVED: 'bg-blue-100 text-blue-800',
         EXECUTED: 'bg-emerald-100 text-emerald-800',
         REJECTED: 'bg-red-100 text-red-700',
+        AUTO_REJECTED_EXPIRED: 'bg-orange-100 text-orange-800',
         CANCELLED: 'bg-slate-200 text-slate-600',
         PENDING_BANK_CHANGE_REVIEW: 'bg-violet-100 text-violet-800',
         COMPLETED: 'bg-emerald-100 text-emerald-800',
@@ -904,11 +907,11 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                             </div>
                             <div>
                                 <div className="text-[10px] font-semibold text-blue-200/80 uppercase tracking-wider mb-0.5">Issue Date</div>
-                                <div className="text-sm font-semibold text-white">{lg.issue_date || '—'}</div>
+                                <div className="text-sm font-semibold text-white">{formatDate(lg.issue_date)}</div>
                             </div>
                             <div>
                                 <div className="text-[10px] font-semibold text-blue-200/80 uppercase tracking-wider mb-0.5">Expiry</div>
-                                <div className="text-sm font-semibold text-white">{lg.expiry_date || '—'}</div>
+                                <div className="text-sm font-semibold text-white">{formatDate(lg.expiry_date)}</div>
                             </div>
                             <div>
                                 <div className="text-[10px] font-semibold text-blue-200/80 uppercase tracking-wider mb-0.5">Request</div>
@@ -1069,7 +1072,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                             <DetailRow label="Third-Party" value={req.is_third_party ? 'Yes' : 'No'} />
                                             <DetailRow label="Special Wording" value={req.requires_special_wording ? 'Yes' : 'No'} />
                                             {req.other_conditions && <DetailRow label="Other Conditions" value={req.other_conditions} />}
-                                            <DetailRow label="Submitted At" value={req.submitted_at ? new Date(req.submitted_at).toLocaleString() : null} />
+                                            <DetailRow label="Submitted At" value={req.submitted_at ? formatDateTime(req.submitted_at) : null} />
                                             {req.treasury_enrichment && Object.keys(req.treasury_enrichment).length > 0 && (
                                                 <>
                                                     <div className="col-span-full border-t border-emerald-200 mt-2 pt-2">
@@ -1125,7 +1128,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                             <div className="flex justify-between items-start gap-1 mb-1">
                                                                 <span className="font-semibold text-[13px] text-slate-900">{evt.label}</span>
                                                                 <span className="text-[10px] text-slate-400 shrink-0">
-                                                                    {evt.timestamp ? new Date(evt.timestamp).toLocaleString() : '—'}
+                                                                    {evt.timestamp ? formatDateTime(evt.timestamp) : '—'}
                                                                 </span>
                                                             </div>
                                                             {evt.actor && (
@@ -1270,7 +1273,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                         )}
                                                     </div>
                                                     <div className="mt-1.5 text-xs text-slate-500 space-y-0.5">
-                                                        {a.action_data?.new_expiry_date && <p>New Expiry: <strong>{a.action_data.new_expiry_date}</strong></p>}
+                                                        {a.action_data?.new_expiry_date && <p>New Expiry: <strong>{formatDate(a.action_data.new_expiry_date)}</strong></p>}
                                                         {a.action_data?.new_amount && <p>New Amount: <strong>{parseFloat(a.action_data.new_amount).toLocaleString()}</strong></p>}
                                                         {a.action_data?.new_beneficiary_name && <p>New Beneficiary: <strong>{a.action_data.new_beneficiary_name}</strong></p>}
                                                         {a.action_data?.new_beneficiary_address && <p>New Address: <strong>{a.action_data.new_beneficiary_address}</strong></p>}
@@ -1285,22 +1288,22 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                             {a.delivery_date ? (
                                                                 a.delivery_document_path ? (
                                                                     <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/delivery`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url || res?.signed_url) openInNewTab(res.download_url || res.signed_url); } } catch { toast.error('Failed to load delivery document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors" title="Click to download delivery proof">
-                                                                        📦 Delivered {new Date(a.delivery_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} ⬇
+                                                                        📦 Delivered {formatDate(a.delivery_date)} ⬇
                                                                     </button>
                                                                 ) : (
                                                                     <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                                                        📦 Delivered {new Date(a.delivery_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                        📦 Delivered {formatDate(a.delivery_date)}
                                                                     </span>
                                                                 )
                                                             ) : null}
                                                             {a.bank_reply_date ? (
                                                                 a.bank_reply_document_path ? (
                                                                     <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/bank_reply`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url || res?.signed_url) openInNewTab(res.download_url || res.signed_url); } } catch { toast.error('Failed to load bank reply document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 cursor-pointer transition-colors" title="Click to download bank reply document">
-                                                                        🏦 Replied {new Date(a.bank_reply_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} ⬇
+                                                                        🏦 Replied {formatDate(a.bank_reply_date)} ⬇
                                                                     </button>
                                                                 ) : (
                                                                     <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-50 text-teal-700 border border-teal-200">
-                                                                        🏦 Replied {new Date(a.bank_reply_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                        🏦 Replied {formatDate(a.bank_reply_date)}
                                                                     </span>
                                                                 )
                                                             ) : null}
@@ -1325,7 +1328,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                                 ))}
                                                             </div>
                                                         )}
-                                                        <p className="text-[10px] text-slate-400 mt-1">{a.created_at ? new Date(a.created_at).toLocaleString() : ''}</p>
+                                                        <p className="text-[10px] text-slate-400 mt-1">{a.created_at ? formatDateTime(a.created_at) : ''}</p>
                                                         {/* Bank-initiated document download (if no badge handles it) */}
                                                         {a.action_data?.bank_document_gcs && (
                                                             <div className="mt-1 flex flex-wrap gap-1.5">
@@ -1415,7 +1418,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                     <div className="flex items-center justify-between flex-wrap gap-1">
                                                         <p className="text-sm font-bold text-slate-800">{evt.label}</p>
                                                         <p className="text-[10px] text-slate-400">
-                                                            {evt.timestamp ? new Date(evt.timestamp).toLocaleString() : '—'}
+                                                            {evt.timestamp ? formatDateTime(evt.timestamp) : '—'}
                                                         </p>
                                                     </div>
                                                     {evt.actor && (
@@ -2153,12 +2156,12 @@ export default function IssuedLGsPage() {
                                 </div>
                                 <div className="min-w-[140px]">
                                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Expiry From</label>
-                                    <input type="date" value={expiryFrom} onChange={e => setExpiryFrom(e.target.value)}
+                                    <FormattedDateInput value={expiryFrom} onChange={e => setExpiryFrom(e.target.value)}
                                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" />
                                 </div>
                                 <div className="min-w-[140px]">
                                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Expiry To</label>
-                                    <input type="date" value={expiryTo} onChange={e => setExpiryTo(e.target.value)}
+                                    <FormattedDateInput value={expiryTo} onChange={e => setExpiryTo(e.target.value)}
                                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" />
                                 </div>
                             </div>
@@ -2230,7 +2233,7 @@ export default function IssuedLGsPage() {
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-slate-400">Expiry:</span>
-                                                    <span className={`font-semibold ${cd.color}`}>{r.expiry_date || '—'} ({cd.text})</span>
+                                                    <span className={`font-semibold ${cd.color}`}>{formatDate(r.expiry_date)} ({cd.text})</span>
                                                 </div>
                                             </div>
 
@@ -2306,7 +2309,7 @@ export default function IssuedLGsPage() {
                                                             {r.currency_code} {r.current_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                         </td>
                                                         <td className="px-4 py-3">
-                                                            <div className="text-slate-600 text-xs">{r.expiry_date || '—'}</div>
+                                                            <div className="text-slate-600 text-xs">{formatDate(r.expiry_date)}</div>
                                                             <div className={`text-[11px] ${cd.color}`}>{cd.text}</div>
                                                         </td>
                                                         <td className="px-4 py-3">

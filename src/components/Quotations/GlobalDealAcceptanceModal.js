@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { formatDate } from '../../utils/dateFormat';
 import { 
     Clock, 
     AlertTriangle, 
@@ -541,7 +542,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                 </span>
                             </div>
                             <span className="text-xs text-slate-600 font-bold bg-slate-100 px-2 py-1 rounded-md">
-                                {deal.value_date ? String(deal.value_date) : 'Spot (T+2)'}
+                                {deal.value_date ? formatDate(deal.value_date) : 'Spot (T+2)'}
                             </span>
                         </div>
 
@@ -658,7 +659,7 @@ export default function GlobalDealAcceptanceModal({ deal, onClose, onResolve, us
                                                             </span>
                                                         )}
                                                         <span className="text-xs text-slate-500 hidden sm:inline font-medium">
-                                                            {leg.value_date ? String(leg.value_date) : 'Spot (T+2)'}
+                                                            {leg.value_date ? formatDate(leg.value_date) : 'Spot (T+2)'}
                                                         </span>
                                                     </div>
                                                 </div>

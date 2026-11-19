@@ -3,8 +3,19 @@ import { Link, Outlet } from 'react-router-dom';
 import { Home, LogOut, FolderKanban, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner';
+import { getSidebarUserDisplay } from '../../utils/authUtils';
 
-function ViewerLayout({ onLogout, activeMenuItem, customerName, headerTitle, systemNotifications, subscriptionStatus, subscriptionEndDate }) {
+function ViewerLayout({ onLogout, userEmail, userName, activeMenuItem, customerName, headerTitle, systemNotifications, subscriptionStatus, subscriptionEndDate }) {
+  const roleLabel = 'Viewer';
+  const userDisplay = getSidebarUserDisplay({
+    userEmail,
+    userName,
+    roleLabel,
+    fallbackInitials: 'VW',
+  });
+  const orgAndRoleSubtitle = customerName
+    ? `${customerName} · ${roleLabel}`
+    : roleLabel;
   const isDashboard = activeMenuItem === 'end-user-dashboard';
   const isGracePeriod = subscriptionStatus === 'grace';
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -91,15 +102,18 @@ function ViewerLayout({ onLogout, activeMenuItem, customerName, headerTitle, sys
 
         {/* User info & Logout */}
         <div className="p-4 flex-shrink-0 relative z-10" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          <div className={`flex items-center mb-4 ${isCollapsed ? 'justify-center' : 'ml-2'}`}>
+          <div
+            className={`flex items-center mb-4 ${isCollapsed ? 'justify-center' : 'ml-1'}`}
+            title={userDisplay.tooltip}
+          >
             <span className="inline-flex items-center justify-center h-8 w-8 rounded-full text-white text-xs font-bold flex-shrink-0"
               style={{ backgroundColor: '#2563eb' }}>
-              EU
+              {userDisplay.initials}
             </span>
             {!isCollapsed && (
-              <div className="ml-3 overflow-hidden">
-                <p className="text-sm font-semibold text-white truncate">End User</p>
-                <p className="text-[10px] truncate" style={{ color: '#94a3b8' }}>{customerName || 'My Organization'}</p>
+              <div className="ml-2.5 overflow-hidden flex-1 min-w-0">
+                <p className="text-xs font-semibold text-white truncate">{userDisplay.primaryLabel}</p>
+                <p className="text-[10px] truncate" style={{ color: '#94a3b8' }}>{orgAndRoleSubtitle}</p>
               </div>
             )}
           </div>

@@ -23,6 +23,8 @@ const MIN_PRUNE_SCORE = 0.05;
 const SMART_NAV_PREFIX = 'grow_smart_nav_';
 const LAST_SESSION_ROUTE_KEY = 'grow_last_session_route';
 const IDLE_LOGOUT_META_KEY = 'grow_idle_logout_meta';
+const LAST_LOGOUT_META_KEY = 'grow_last_logout_meta';
+const TAB_LAST_AUTH_PATH_KEY = 'grow_tab_last_auth_path';
 const ORIENTATION_KEY = 'grow_post_login_orientation';
 
 const cleanPathname = (rawPath) => {
@@ -84,6 +86,9 @@ export const normalizeToHub = (rawPath, role, moduleState = {}) => {
     if (pathname.startsWith('/corporate-admin/action-center')) {
       return (custody || issuance) ? { path: '/corporate-admin/action-center', label: 'Action Center' } : null;
     }
+    if (pathname.startsWith('/corporate-admin/activity')) {
+      return { path: '/corporate-admin/activity', label: 'Activity & Controls' };
+    }
     if (pathname.startsWith('/corporate-admin/approval-requests')) {
       return { path: '/corporate-admin/approval-requests', label: 'Approval Center' };
     }
@@ -138,6 +143,9 @@ export const normalizeToHub = (rawPath, role, moduleState = {}) => {
     if (pathname.startsWith('/checker/approval-requests')) {
       return { path: '/checker/approval-requests', label: 'Approval Center' };
     }
+    if (pathname.startsWith('/checker/activity')) {
+      return { path: '/checker/activity', label: 'Activity & Controls' };
+    }
     if (pathname.startsWith('/checker/issuance/issued-lgs')) {
       return issuance ? { path: '/checker/issuance/issued-lgs', label: 'Issued LGs' } : null;
     }
@@ -181,6 +189,14 @@ export const normalizeToHub = (rawPath, role, moduleState = {}) => {
     }
     if (pathname.startsWith('/end-user/issuance/reconciliation')) {
       return issuance ? { path: '/end-user/issuance/reconciliation', label: 'Position Reconciliation' } : null;
+    }
+    if (
+      pathname === '/end-user/reconciliation' ||
+      pathname.startsWith('/end-user/reconciliation/dashboard') ||
+      pathname.startsWith('/end-user/reconciliation/workspace') ||
+      pathname.startsWith('/end-user/reconciliation/export')
+    ) {
+      return reconciliation ? { path: '/end-user/reconciliation', label: 'Bank Reconciliation' } : null;
     }
     if (pathname.startsWith('/end-user/reports')) {
       return { path: '/end-user/reports', label: 'Reports' };
@@ -228,23 +244,59 @@ export const trackAuthenticatedRoute = (fullPath, userId) => {
     userId: userId ? String(userId) : null,
     updatedAt: Date.now(),
   });
+  safeSessionStorage.setItem(TAB_LAST_AUTH_PATH_KEY, fullPath);
+  safeLocalStorage.removeItem(LAST_LOGOUT_META_KEY);
 };
 
 export const clearTrackedAuthenticatedRoute = () => {
   safeLocalStorage.removeItem(LAST_SESSION_ROUTE_KEY);
   safeSessionStorage.removeItem(IDLE_LOGOUT_META_KEY);
   safeSessionStorage.removeItem(ORIENTATION_KEY);
+  safeSessionStorage.removeItem(TAB_LAST_AUTH_PATH_KEY);
+};
+
+export const getLastLogoutMeta = () => {
+  const shared = safeLocalStorage.getJSON(LAST_LOGOUT_META_KEY, null);
+  if (shared && typeof shared === 'object') return shared;
+  const legacyTab = safeSessionStorage.getJSON(IDLE_LOGOUT_META_KEY, null);
+  if (legacyTab && typeof legacyTab === 'object') {
+    return { type: 'idle', ...legacyTab };
+  }
+  return null;
+};
+
+/**
+ * Called during explicit "Sign Out" (`preserveNext: false`) so all tabs and subsequent
+ * browser URL-bar autocompletes know the user intentionally ended their session.
+ */
+export const recordExplicitLogoutMeta = (currentPath = null, userId = null) => {
+  const cleanCurrent =
+    currentPath && currentPath !== '/' && currentPath !== '/app' && !currentPath.startsWith('/login')
+      ? currentPath
+      : null;
+  safeLocalStorage.setJSON(LAST_LOGOUT_META_KEY, {
+    type: 'explicit',
+    stalePath: cleanCurrent,
+    userId: userId ? String(userId) : null,
+    recordedAt: Date.now(),
+  });
+  clearTrackedAuthenticatedRoute();
 };
 
 /**
  * Called during active idle/401 logout (`preserveNext: true`) right before redirecting to `/login`.
  */
-export const recordIdleLogoutMeta = (currentPath, expiredAt = Date.now(), userId = null) => {
-  safeSessionStorage.setJSON(IDLE_LOGOUT_META_KEY, {
-    expiredAt,
+export const recordIdleLogoutMeta = (currentPath, expiredAt = 0, userId = null) => {
+  const safeExp = Number.isFinite(Number(expiredAt)) ? Number(expiredAt) : 0;
+  const payload = {
+    type: 'idle',
+    expiredAt: safeExp,
     stalePath: currentPath || null,
     userId: userId ? String(userId) : null,
-  });
+    recordedAt: Date.now(),
+  };
+  safeLocalStorage.setJSON(LAST_LOGOUT_META_KEY, payload);
+  safeSessionStorage.setJSON(IDLE_LOGOUT_META_KEY, payload);
   safeLocalStorage.removeItem(LAST_SESSION_ROUTE_KEY);
 };
 
@@ -255,32 +307,42 @@ export const recordIdleLogoutMeta = (currentPath, expiredAt = Date.now(), userId
 export const recordExpiredSessionBeforeClear = (expiredAt, fallbackUserId = null) => {
   const lastRoute = safeLocalStorage.getJSON(LAST_SESSION_ROUTE_KEY, null);
   const resolvedUserId = fallbackUserId || lastRoute?.userId || null;
-  safeSessionStorage.setJSON(IDLE_LOGOUT_META_KEY, {
-    expiredAt,
-    stalePath: lastRoute?.path || null,
-    userId: resolvedUserId ? String(resolvedUserId) : null,
-  });
-  safeLocalStorage.removeItem(LAST_SESSION_ROUTE_KEY);
+  recordIdleLogoutMeta(lastRoute?.path || null, expiredAt, resolvedUserId);
 };
 
 /**
  * Builds the `/login` redirect URL inside `AuthWrapper`.
- * Attaches `&idle=<ts>` if and only if this navigation came from a stale expired session
- * rather than a brand-new external deep link.
+ * - Explicit Sign Out on a leftover tab or autocompleted stale URL -> clean `/login` (no `?next=`).
+ * - Idle / expired session (same tab, sibling tab, restored tab, or autocompleted stale URL) -> `&idle=<ts>`.
+ * - Fresh external deep link (email CTA, push notification, shared specific URL) -> `?next=<url>`.
  */
 export const buildUnauthenticatedLoginTarget = (currentFullUrl) => {
   if (!currentFullUrl || currentFullUrl === '/' || currentFullUrl === '/app' || currentFullUrl.startsWith('/login')) {
     return '/login';
   }
-  const idleMeta = safeSessionStorage.getJSON(IDLE_LOGOUT_META_KEY, null);
-  if (idleMeta?.expiredAt) {
-    const isSameStaleTab = !idleMeta.stalePath || idleMeta.stalePath === currentFullUrl;
-    if (isSameStaleTab) {
-      return `/login?next=${encodeURIComponent(currentFullUrl)}&idle=${idleMeta.expiredAt}`;
-    }
-    // User clicked a different deep link while holding an old expired token; treat as fresh deep link
-    safeSessionStorage.removeItem(IDLE_LOGOUT_META_KEY);
+
+  const logoutMeta = getLastLogoutMeta();
+  const tabLastAuthPath = safeSessionStorage.getItem(TAB_LAST_AUTH_PATH_KEY);
+  const isLeftoverTab = Boolean(tabLastAuthPath && tabLastAuthPath === currentFullUrl);
+  const matchesStaleLogoutPath = Boolean(
+    logoutMeta?.stalePath && cleanPathname(logoutMeta.stalePath) === cleanPathname(currentFullUrl)
+  );
+  const hasExplicitQuery = currentFullUrl.includes('?');
+
+  if (logoutMeta?.type === 'explicit' && (isLeftoverTab || (matchesStaleLogoutPath && !hasExplicitQuery))) {
+    safeSessionStorage.removeItem(TAB_LAST_AUTH_PATH_KEY);
+    return '/login';
   }
+
+  if (logoutMeta?.type === 'idle' && (isLeftoverTab || (matchesStaleLogoutPath && !hasExplicitQuery))) {
+    const expTs = Number.isFinite(Number(logoutMeta.expiredAt)) ? Number(logoutMeta.expiredAt) : 0;
+    return `/login?next=${encodeURIComponent(currentFullUrl)}&idle=${expTs}`;
+  }
+
+  if (isLeftoverTab) {
+    return `/login?next=${encodeURIComponent(currentFullUrl)}&idle=0`;
+  }
+
   return `/login?next=${encodeURIComponent(currentFullUrl)}`;
 };
 
@@ -366,8 +428,10 @@ export const resolvePostLoginTarget = ({
   search = '',
   now = Date.now(),
 }) => {
-  const idleMeta = safeSessionStorage.getJSON(IDLE_LOGOUT_META_KEY, null);
+  const idleMeta = getLastLogoutMeta();
   safeSessionStorage.removeItem(IDLE_LOGOUT_META_KEY);
+  safeLocalStorage.removeItem(LAST_LOGOUT_META_KEY);
+  safeSessionStorage.removeItem(TAB_LAST_AUTH_PATH_KEY);
 
   try {
     const params = new URLSearchParams(search || '');

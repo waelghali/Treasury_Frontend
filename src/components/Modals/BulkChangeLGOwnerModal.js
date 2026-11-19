@@ -135,6 +135,13 @@ const BulkChangeLGOwnerModal = ({ owner, onClose, onSuccess, isGracePeriod }) =>
             setSubmitting(false);
             return;
         }
+        if (!lgsToChange || lgsToChange.length === 0) {
+            const msg = `Cannot change owner: '${oldOwner?.email || 'selected owner'}' currently has 0 LG records in their ownership.`;
+            toast.error(msg);
+            setErrors({ general: msg });
+            setSubmitting(false);
+            return;
+        }
 
         try {
             let newOwnerPayload = null;
@@ -249,6 +256,11 @@ const BulkChangeLGOwnerModal = ({ owner, onClose, onSuccess, isGracePeriod }) =>
                                                                 <AlertCircle className="h-3.5 w-3.5 mr-1" />
                                                                 {lgListError}
                                                             </p>
+                                                        ) : lgsToChange.length === 0 ? (
+                                                            <div className="p-2.5 border border-amber-300 rounded-lg bg-amber-50 text-amber-800 text-xs flex items-center">
+                                                                <AlertCircle className="h-4 w-4 mr-1.5 shrink-0 text-amber-600" />
+                                                                <span>This owner currently has <strong>0 LG records</strong> in their ownership. Bulk reassignment cannot proceed when LG count is 0.</span>
+                                                            </div>
                                                         ) : (
                                                             <div className="max-h-36 overflow-y-auto border border-gray-200 rounded-lg p-2 text-xs bg-gray-50">
                                                                 <ul className="list-disc list-inside space-y-1">
@@ -401,11 +413,12 @@ const BulkChangeLGOwnerModal = ({ owner, onClose, onSuccess, isGracePeriod }) =>
                                                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                             <button
                                                                 type="submit"
-                                                                className={`${buttonBaseClassNames} justify-center w-full sm:w-auto bg-blue-600 text-white hover:bg-blue-700 py-2.5 font-bold shadow-md ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                                disabled={isSubmitting || isGracePeriod}
+                                                                className={`${buttonBaseClassNames} justify-center w-full sm:w-auto bg-blue-600 text-white hover:bg-blue-700 py-2.5 font-bold shadow-md ${isSubmitting || isGracePeriod || isLoadingLGs || lgsToChange.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                disabled={isSubmitting || isGracePeriod || isLoadingLGs || lgsToChange.length === 0}
+                                                                title={lgsToChange.length === 0 ? 'Cannot submit — owner has 0 LG records' : undefined}
                                                             >
                                                                 {isSubmitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Users className="h-5 w-5 mr-2" />}
-                                                                {isSubmitting ? 'Processing...' : `Submit Bulk Change`}
+                                                                {isSubmitting ? 'Processing...' : `Submit Bulk Change (${lgsToChange.length})`}
                                                             </button>
                                                         </GracePeriodTooltip>
                                                     </div>

@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useLocation, Link } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
+import { isCachedTrialSession } from '../../components/Trial/useTrialExperience';
 import { toast } from 'react-toastify';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDate } from '../../utils/dateFormat';
 import {
     Upload, Search, CheckCircle2, AlertTriangle, AlertCircle, Info,
     RefreshCw, FileText, Calendar, Building2, ChevronDown, ChevronUp,
-    Check, X, Clock, Shield, Eye, Download, Loader2, BarChart3, Trash2
+    Check, X, Clock, Shield, Eye, Download, Loader2, BarChart3, Trash2, Sparkles
 } from 'lucide-react';
 
 // ─── Severity config ───
@@ -31,7 +34,19 @@ const MISMATCH_LABELS = {
 // ═══════════════════════════════════════════════
 export default function LGReconciliationPage() {
     const [searchParams] = useSearchParams();
+    const location = useLocation();
     const urlSessionId = searchParams.get('sessionId');
+    const basePrefix = location.pathname.startsWith('/end-user') ? '/end-user' : '/corporate-admin';
+
+    const [userRole] = useState(() => {
+        try {
+            const token = localStorage.getItem('jwt_token');
+            if (token) return JSON.parse(atob(token.split('.')[1])).role;
+        } catch (e) {}
+        return localStorage.getItem('user_role') || null;
+    });
+    const isEndUser = userRole === 'end_user';
+    const isCorporateAdmin = userRole === 'corporate_admin' || userRole === 'checker';
 
     const [banks, setBanks] = useState([]);
     const [sessions, setSessions] = useState([]);
@@ -55,6 +70,15 @@ export default function LGReconciliationPage() {
 
     // Tab
     const [activeTab, setActiveTab] = useState('sessions'); // sessions | upload | detail
+    const [isTrialSandbox] = useState(() => {
+        try {
+            const u = JSON.parse(localStorage.getItem('user') || '{}');
+            return isCachedTrialSession(u?.customer_id);
+        } catch {
+            return false;
+        }
+    });
+    const [isAutoLoadingTrial, setIsAutoLoadingTrial] = useState(false);
 
     useEffect(() => {
         fetchBanks();
@@ -63,6 +87,20 @@ export default function LGReconciliationPage() {
             fetchSessionDetail(urlSessionId);
         }
     }, [urlSessionId]);
+
+    useEffect(() => {
+        const handleSampleLoaded = (evt) => {
+            if (evt?.detail?.scope === 'issuance_recon') {
+                setIsAutoLoadingTrial(false);
+                fetchSessions();
+                if (evt.detail.sessionId) {
+                    fetchSessionDetail(evt.detail.sessionId);
+                }
+            }
+        };
+        window.addEventListener('grow-trial-sample-loaded', handleSampleLoaded);
+        return () => window.removeEventListener('grow-trial-sample-loaded', handleSampleLoaded);
+    }, []);
 
     const fetchBanks = async () => {
         try {
@@ -163,6 +201,36 @@ export default function LGReconciliationPage() {
         } catch (e) { toast.error('Resolution failed'); }
     };
 
+    // ── Corporate Admin Checker Approval / Rejection ──
+    const handleApproveAdjustment = async (resultId) => {
+        try {
+            const updated = await apiRequest(
+                `/issuance/reconciliation/results/${resultId}/approve`,
+                'POST'
+            );
+            setResults(prev => prev.map(r => r.id === resultId ? updated : r));
+            toast.success('Reconciliation adjustment approved and applied to LG record');
+        } catch (e) {
+            toast.error(e.message || 'Approval failed');
+        }
+    };
+
+    const handleRejectAdjustment = async (resultId) => {
+        const reason = window.prompt('Reason for rejecting this adjustment (optional):');
+        if (reason === null) return;
+        try {
+            const updated = await apiRequest(
+                `/issuance/reconciliation/results/${resultId}/reject-approval`,
+                'POST',
+                { reason: reason || '' }
+            );
+            setResults(prev => prev.map(r => r.id === resultId ? updated : r));
+            toast.info('Adjustment rejected — returned for maker review');
+        } catch (e) {
+            toast.error(e.message || 'Rejection failed');
+        }
+    };
+
     // ── Delete ──
     const handleDeleteSession = async () => {
         if (!selectedSession || !window.confirm('Are you sure you want to delete this session entirely?')) return;
@@ -220,11 +288,13 @@ export default function LGReconciliationPage() {
                         📊 LG Position Reconciliation
                     </h1>
                     <p style={{ color: '#64748b', margin: '4px 0 0' }}>
-                        Import bank position reports, match against system records, resolve variances
+                        {isCorporateAdmin
+                            ? 'Oversight & checker view — monitor bank position sessions and approve or reject maker adjustments'
+                            : 'Import bank position reports, match against system records, resolve variances'}
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                    {['sessions', 'upload'].map(tab => (
+                    {(isEndUser ? ['sessions', 'upload'] : ['sessions']).map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)}
                             style={{
                                 padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
@@ -239,7 +309,7 @@ export default function LGReconciliationPage() {
             </div>
 
             {/* ═══ Upload Tab ═══ */}
-            {activeTab === 'upload' && (
+            {isEndUser && activeTab === 'upload' && (
                 <div style={{ background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', width: '100%' }}>
                     <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24, color: '#0f172a' }}>
                         ⬆️ Upload Bank Position Report
@@ -257,7 +327,7 @@ export default function LGReconciliationPage() {
 
                         <div>
                             <label style={labelStyle}>Position Date</label>
-                            <input type="date" value={uploadDate} onChange={e => setUploadDate(e.target.value)}
+                            <FormattedDateInput value={uploadDate} onChange={e => setUploadDate(e.target.value)}
                                 style={inputStyle} />
                         </div>
 
@@ -303,14 +373,39 @@ export default function LGReconciliationPage() {
                                 placeholder="Any notes about this position report..." />
                         </div>
 
-                        <button onClick={handleUpload} disabled={uploading}
-                            style={{
-                                ...btnPrimary, opacity: uploading ? 0.7 : 1,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                            }}>
-                            {uploading ? <><Loader2 size={16} className="spin" /> Uploading & Parsing...</>
-                                : <><Upload size={16} /> Upload & Parse</>}
-                        </button>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                            <button onClick={handleUpload} disabled={uploading}
+                                style={{
+                                    ...btnPrimary, opacity: uploading ? 0.7 : 1,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flex: '1 1 220px',
+                                }}>
+                                {uploading ? <><Loader2 size={16} className="spin" /> Uploading & Parsing...</>
+                                    : <><Upload size={16} /> Upload & Parse</>}
+                            </button>
+                            {isTrialSandbox && (
+                                <button
+                                    type="button"
+                                    disabled={isAutoLoadingTrial || uploading}
+                                    onClick={() => {
+                                        setIsAutoLoadingTrial(true);
+                                        window.dispatchEvent(
+                                            new CustomEvent('grow-trial-trigger-autoload', { detail: { actionId: 'issuance_recon' } })
+                                        );
+                                        setTimeout(() => setIsAutoLoadingTrial(false), 12000);
+                                    }}
+                                    style={{
+                                        ...btnPrimary,
+                                        background: '#059669',
+                                        opacity: (isAutoLoadingTrial || uploading) ? 0.7 : 1,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flex: '1 1 220px',
+                                    }}
+                                    title="Automatically upload & match the sample Bank LG Position Statement"
+                                >
+                                    {isAutoLoadingTrial ? <><Loader2 size={16} className="spin" /> Comparing Bank List...</>
+                                        : <><Sparkles size={16} /> Do It For Me (Load Sample Bank List)</>}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
@@ -327,9 +422,15 @@ export default function LGReconciliationPage() {
                         <div style={{ textAlign: 'center', padding: 60, background: '#fff', borderRadius: 16 }}>
                             <BarChart3 size={48} color="#cbd5e1" />
                             <p style={{ color: '#64748b', marginTop: 12, fontWeight: 600 }}>No reconciliation sessions yet</p>
-                            <button onClick={() => setActiveTab('upload')} style={{ ...btnPrimary, marginTop: 16 }}>
-                                ⬆️ Upload First Report
-                            </button>
+                            {isEndUser ? (
+                                <button onClick={() => setActiveTab('upload')} style={{ ...btnPrimary, marginTop: 16 }}>
+                                    ⬆️ Upload First Report
+                                </button>
+                            ) : (
+                                <p style={{ color: '#94a3b8', fontSize: 13, marginTop: 6 }}>
+                                    Sessions uploaded by Treasury Makers (End Users) will appear here for review.
+                                </p>
+                            )}
                         </div>
                     ) : (
                         <div style={{ display: 'grid', gap: 12 }}>
@@ -348,7 +449,7 @@ export default function LGReconciliationPage() {
                                             <span style={{ fontWeight: 700, color: '#0f172a' }}>{s.bank_name}</span>
                                             <span style={{ color: '#94a3b8' }}>•</span>
                                             <Calendar size={14} color="#94a3b8" />
-                                            <span style={{ color: '#64748b', fontSize: 13 }}>{s.position_date}</span>
+                                            <span style={{ color: '#64748b', fontSize: 13 }}>{formatDate(s.position_date)}</span>
                                         </div>
                                         <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 13 }}>
                                             <span style={{ color: '#22c55e' }}>✅ {s.matched_count} matched</span>
@@ -387,7 +488,7 @@ export default function LGReconciliationPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                                 <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', margin: 0 }}>
-                                    {selectedSession.bank_name} — {selectedSession.position_date}
+                                    {selectedSession.bank_name} — {formatDate(selectedSession.position_date)}
                                 </h2>
                                 <p style={{ color: '#64748b', fontSize: 13, margin: '4px 0 0' }}>
                                     {selectedSession.original_file_name} • {selectedSession.total_bank_records} records •
@@ -395,18 +496,20 @@ export default function LGReconciliationPage() {
                                 </p>
                             </div>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                <button onClick={handleDeleteSession}
-                                    style={{ ...btnPrimary, background: '#fee2e2', color: '#ef4444', display: 'flex', alignItems: 'center', gap: 6, opacity: 0.9 }}>
-                                    <Trash2 size={14} /> Delete
-                                </button>
-                                {selectedSession.status === 'PARSED' && (
+                                {isEndUser && (
+                                    <button onClick={handleDeleteSession}
+                                        style={{ ...btnPrimary, background: '#fee2e2', color: '#ef4444', display: 'flex', alignItems: 'center', gap: 6, opacity: 0.9 }}>
+                                        <Trash2 size={14} /> Delete
+                                    </button>
+                                )}
+                                {isEndUser && selectedSession.status === 'PARSED' && (
                                     <button onClick={handleRunMatching} disabled={matching}
                                         style={{ ...btnPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
                                         {matching ? <><Loader2 size={14} className="spin" /> Matching...</>
                                             : <><RefreshCw size={14} /> Run Matching</>}
                                     </button>
                                 )}
-                                {selectedSession.status === 'MATCHED' && (
+                                {isEndUser && selectedSession.status === 'MATCHED' && (
                                     <button onClick={handleComplete} style={btnSuccess}>
                                         <Check size={14} /> Complete
                                     </button>
@@ -481,12 +584,21 @@ export default function LGReconciliationPage() {
                     {/* Results list */}
                     
                     {/* Resolution Banner */}
-                    {selectedSession.status !== 'COMPLETED' && filteredResults.some(r => !r.user_resolution) && (
+                    {selectedSession.status !== 'COMPLETED' && isEndUser && filteredResults.some(r => !r.user_resolution) && (
                         <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', padding: '12px 16px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                             <AlertTriangle size={20} color="#d97706" style={{ flexShrink: 0 }} />
                             <div style={{ fontSize: 14, color: '#b45309' }}>
                                 <strong style={{ display: 'block', marginBottom: 2 }}>Action Required: Resolve Discrepancies</strong>
                                 Please click on each pending row below to review the differences and select a resolution (Adjust, Dispute, or Ignore) before completing.
+                            </div>
+                        </div>
+                    )}
+                    {isCorporateAdmin && filteredResults.some(r => r.user_resolution === 'ADJUSTED' && r.approval_status === 'PENDING_APPROVAL') && (
+                        <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', padding: '12px 16px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                            <Shield size={20} color="#2563eb" style={{ flexShrink: 0 }} />
+                            <div style={{ fontSize: 14, color: '#1e40af' }}>
+                                <strong style={{ display: 'block', marginBottom: 2 }}>Checker Review Required: Pending Adjustments</strong>
+                                Expand rows marked <em>Pending Approval</em> below to approve or reject maker-submitted LG record adjustments.
                             </div>
                         </div>
                     )}
@@ -502,7 +614,16 @@ export default function LGReconciliationPage() {
                     ) : (
                         <div style={{ display: 'grid', gap: 8 }}>
                             {filteredResults.map(r => (
-                                <ResultRow key={r.id} result={r} onResolve={handleResolve} />
+                                <ResultRow
+                                    key={r.id}
+                                    result={r}
+                                    onResolve={handleResolve}
+                                    onApproveAdjustment={handleApproveAdjustment}
+                                    onRejectAdjustment={handleRejectAdjustment}
+                                    isEndUser={isEndUser}
+                                    isCorporateAdmin={isCorporateAdmin}
+                                    basePrefix={basePrefix}
+                                />
                             ))}
                         </div>
                     )}
@@ -529,7 +650,7 @@ export default function LGReconciliationPage() {
 // Sub-components
 // ═══════════════════════════════════════════════
 
-function ResultRow({ result, onResolve }) {
+function ResultRow({ result, onResolve, onApproveAdjustment, onRejectAdjustment, isEndUser, isCorporateAdmin, basePrefix }) {
     const [expanded, setExpanded] = useState(false);
     const [notes, setNotes] = useState('');
     const sev = SEVERITY_CONFIG[result.severity] || SEVERITY_CONFIG.INFO;
@@ -591,8 +712,8 @@ function ResultRow({ result, onResolve }) {
                         </div>
                     </div>
 
-                    {/* Resolution controls */}
-                    {!result.user_resolution && (() => {
+                    {/* Maker Resolution controls (End User only) */}
+                    {isEndUser && !result.user_resolution && (() => {
                         const isFinancial = ['AMOUNT', 'CURRENCY', 'EXPIRY'].includes(result.mismatch_type);
                         const isBankOnly = result.mismatch_type === 'BANK_ONLY';
                         const sysVal = Number(result.system_value?.replace(/,/g, '') || 0);
@@ -612,7 +733,7 @@ function ResultRow({ result, onResolve }) {
                                         {isBankOnly && <strong>Bank-Only Liability: </strong>}
                                         {isAmountIncrease && <strong>Financial Increase: </strong>}
                                         {isBankOnly ? (
-                                            <span>This record is missing from the system. <strong>"Adjust" is blocked.</strong> Please navigate to the <a href="/issuance/migration-hub" style={{color: '#b91c1c', textDecoration: 'underline'}}>Migration Hub</a> to register this historical LG or initiate a formal Issuance Request.</span>
+                                            <span>This record is missing from the system. <strong>"Adjust" is blocked.</strong> Please ask your Corporate Admin to register this historical LG in the Migration Hub or initiate a formal Issuance Request.</span>
                                         ) : (
                                             <span>You cannot bypass approval for amount increases. <strong>"Adjust" is blocked.</strong> Please initiate a formal "Amount Increase" request from the LG Maintenance module to follow the corporate approval matrix.</span>
                                         )}
@@ -664,6 +785,39 @@ function ResultRow({ result, onResolve }) {
                         );
                     })()}
 
+                    {isCorporateAdmin && !result.user_resolution && result.mismatch_type === 'BANK_ONLY' && (
+                        <div style={{ marginTop: 12, background: '#fef2f2', borderLeft: '4px solid #ef4444', padding: '10px 14px', borderRadius: '0 8px 8px 0', fontSize: 13, color: '#991b1b' }}>
+                            <strong>Bank-Only Liability:</strong> Missing from system records. You can register historical LGs via the{' '}
+                            <Link to={`${basePrefix}/issuance/migration-hub`} style={{ color: '#b91c1c', textDecoration: 'underline', fontWeight: 700 }}>
+                                Migration Hub
+                            </Link>.
+                        </div>
+                    )}
+
+                    {/* Corporate Admin Checker Approval Controls for Pending Adjustments */}
+                    {isCorporateAdmin && result.user_resolution === 'ADJUSTED' && result.approval_status === 'PENDING_APPROVAL' && (
+                        <div style={{ marginTop: 14, padding: '12px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                            <div style={{ fontSize: 13, color: '#1e3a8a' }}>
+                                <strong>Pending Corporate Admin Sign-Off:</strong> Maker requested updating system value from{' '}
+                                <code>{result.system_value || '—'}</code> to <strong>{result.bank_value || '—'}</strong>.
+                            </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button
+                                    onClick={() => onApproveAdjustment(result.id)}
+                                    style={{ ...btnSuccess, fontSize: 12, padding: '7px 14px' }}
+                                >
+                                    <Check size={14} /> Approve Adjustment
+                                </button>
+                                <button
+                                    onClick={() => onRejectAdjustment(result.id)}
+                                    style={{ ...btnPrimary, fontSize: 12, padding: '7px 14px', background: '#ef4444' }}
+                                >
+                                    <X size={14} /> Reject
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {result.resolution_notes && (
                         <p style={{ marginTop: 8, fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>
                             📝 {result.resolution_notes}
@@ -705,8 +859,8 @@ function BankRowsTable({ rows }) {
                                     <td style={cellStyle}>{r.beneficiary_name || '—'}</td>
                                     <td style={cellStyle}>{r.amount ? Number(r.amount).toLocaleString() : '—'}</td>
                                     <td style={cellStyle}>{r.currency_code || '—'}</td>
-                                    <td style={cellStyle}>{r.issue_date || '—'}</td>
-                                    <td style={cellStyle}>{r.expiry_date || '—'}</td>
+                                    <td style={cellStyle}>{formatDate(r.issue_date)}</td>
+                                    <td style={cellStyle}>{formatDate(r.expiry_date)}</td>
                                     <td style={cellStyle}>
                                         <MatchBadge status={r.match_status} />
                                     </td>

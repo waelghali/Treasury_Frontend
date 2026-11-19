@@ -5,6 +5,7 @@ import { apiRequest } from 'services/apiService.js';
 import { ChevronDown, ChevronUp, Upload, Scan, Save, AlertCircle, XCircle, Loader2, CheckCircle, Search, FileUp, FileText, Sparkles } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
+import FormattedDateInput from 'components/FormattedDateInput';
 
 // A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -348,9 +349,11 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
   const [foreignBankId, setForeignBankId] = useState(null);
   const [advisingStatusOptions, setAdvisingStatusOptions] = useState([]);
   const [communicationBanks, setCommunicationBanks] = useState([]);
+  const [isTrialSandbox, setIsTrialSandbox] = useState(false);
 
   const aiFileInputRef = useRef(null);
   const internalDocInputRef = useRef(null);
+  const handleAiScanRef = useRef(null);
 
   useEffect(() => {
     const fetchAllDropdownData = async () => {
@@ -381,11 +384,55 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
 
         // Set the default issuing method to "Manual Delivery" after fetching
         const manualDeliveryId = findIdByName(issuingMethods, 'Manual Delivery');
-        if (manualDeliveryId) {
-            setFormData(prev => ({
-                ...prev,
-                issuing_method_id: manualDeliveryId,
-            }));
+        const ownersList = Array.isArray(internalOwners) ? internalOwners : [];
+
+        // Detect Trial Sandbox strictly per-tenant (0% effect on commercial accounts)
+        let trialActive = false;
+        try {
+          const parsedUser = JSON.parse(localStorage.getItem('user') || '{}');
+          const cid = parsedUser?.customer_id;
+          const probeKey = cid ? `grow_trial_mode_probe_v2_${cid}` : null;
+          const cachedProbe = probeKey ? sessionStorage.getItem(probeKey) : null;
+          if (cachedProbe === 'true') {
+            trialActive = true;
+          } else if (cachedProbe !== 'false') {
+            const tStatus = await apiRequest('/trial-sandbox/status', 'GET').catch(() => null);
+            trialActive = Boolean(tStatus && tStatus.trial_mode === true);
+            if (probeKey) {
+              sessionStorage.setItem(probeKey, trialActive ? 'true' : 'false');
+            }
+          }
+        } catch {}
+
+        setIsTrialSandbox(trialActive);
+
+        const defaultTrialOwner = trialActive && ownersList.length > 0 ? ownersList[0] : null;
+        const defaultTrialCategory =
+          trialActive && Array.isArray(lgCategories) && lgCategories.length > 0
+            ? lgCategories.find((c) => c.customer_id !== null) || lgCategories[0]
+            : null;
+
+        setFormData((prev) => ({
+          ...prev,
+          issuing_method_id: manualDeliveryId || prev.issuing_method_id,
+          ...(defaultTrialOwner
+            ? {
+                internal_owner_email: prev.internal_owner_email || defaultTrialOwner.email || '',
+                internal_owner_phone:
+                  prev.internal_owner_phone || defaultTrialOwner.phone_number || '',
+                internal_owner_id: prev.internal_owner_id || defaultTrialOwner.internal_id || '',
+                internal_owner_manager_email:
+                  prev.internal_owner_manager_email || defaultTrialOwner.manager_email || '',
+              }
+            : {}),
+          ...(defaultTrialCategory
+            ? {
+                lg_category_id: prev.lg_category_id || String(defaultTrialCategory.id),
+              }
+            : {}),
+        }));
+        if (defaultTrialOwner) {
+          setIsInternalOwnerFieldsLocked(true);
         }
         
         // NEW: Set up advising status options and communication banks
@@ -413,6 +460,36 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
 
     fetchAllDropdownData();
   }, []);
+
+  useEffect(() => {
+    if (!isTrialSandbox || isLoading) return undefined;
+    const applySampleFile = (sampleFile) => {
+      if (!(sampleFile instanceof File)) return;
+      setFormData((prev) => ({ ...prev, ai_scan_file: sampleFile }));
+      setAiScanSuccess(false);
+      setTimeout(() => {
+        if (typeof handleAiScanRef.current === 'function') {
+          handleAiScanRef.current(sampleFile);
+        }
+      }, 60);
+    };
+
+    if (window.__growPendingCustodySampleFile instanceof File) {
+      const pending = window.__growPendingCustodySampleFile;
+      window.__growPendingCustodySampleFile = null;
+      applySampleFile(pending);
+    }
+
+    const handleSampleEvent = (evt) => {
+      const f = evt?.detail?.file;
+      if (f instanceof File) {
+        window.__growPendingCustodySampleFile = null;
+        applySampleFile(f);
+      }
+    };
+    window.addEventListener('grow-trial-load-custody-sample', handleSampleEvent);
+    return () => window.removeEventListener('grow-trial-load-custody-sample', handleSampleEvent);
+  }, [isTrialSandbox, isLoading]);
 
   useEffect(() => {
     if (!dropdownData.lgTypes || !dropdownData.lgOperationalStatuses || !dropdownData.rules || !dropdownData.lgCategories) {
@@ -582,8 +659,8 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
     }
   };
 
-  const handleAiScan = async () => {
-    const fileToProcess = formData.ai_scan_file;
+  const handleAiScan = async (overrideFile = null) => {
+    const fileToProcess = overrideFile instanceof File ? overrideFile : formData.ai_scan_file;
     if (!fileToProcess) {
       setError("Please select an AI Scan File (image or PDF) first.");
       return;
@@ -705,12 +782,18 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
           applicable_rules_text: extractedData.applicable_rules_text || '',
           other_conditions: otherConditionsString,
           mandatory_claim_statement: extractedData.mandatory_claim_statement || '',
-          lg_category_id: extractedData.lg_category_id ? String(extractedData.lg_category_id) : '',
+          lg_category_id: extractedData.lg_category_id
+            ? String(extractedData.lg_category_id)
+            : (isTrialSandbox ? prev.lg_category_id : ''),
           additional_field_values: extractedData.additional_field_values || {},
-          internal_owner_email: extractedData.internal_owner_email || '',
-          internal_owner_phone: extractedData.internal_owner_phone || '',
-          internal_owner_id: extractedData.internal_owner_id || '',
-          internal_owner_manager_email: extractedData.manager_email || '',
+          internal_owner_email:
+            extractedData.internal_owner_email || (isTrialSandbox ? prev.internal_owner_email : ''),
+          internal_owner_phone:
+            extractedData.internal_owner_phone || (isTrialSandbox ? prev.internal_owner_phone : ''),
+          internal_owner_id:
+            extractedData.internal_owner_id || (isTrialSandbox ? prev.internal_owner_id : ''),
+          internal_owner_manager_email:
+            extractedData.manager_email || (isTrialSandbox ? prev.internal_owner_manager_email : ''),
         };
         return newFormData;
       });
@@ -737,6 +820,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
       setIsFormDisabled(false);
     }
   };
+  handleAiScanRef.current = handleAiScan;
 
   const handleInternalOwnerEmailLookup = async () => {
     const email = formData.internal_owner_email ? formData.internal_owner_email.trim() : '';
@@ -1195,6 +1279,23 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                       >
                         Browse Files
                       </button>
+                      {isTrialSandbox && (
+                        <button
+                          type="button"
+                          className={`inline-flex items-center px-5 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 ${isFormDisabled || isGracePeriod || aiScanInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.dispatchEvent(
+                              new CustomEvent('grow-trial-trigger-autoload', { detail: { actionId: 'custody_scan' } })
+                            );
+                          }}
+                          disabled={isFormDisabled || isGracePeriod || aiScanInProgress}
+                          title="Auto-load personalized Sample LG PDF and run AI extraction in 1 click"
+                        >
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          Do It For Me
+                        </button>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -1304,11 +1405,28 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
                 <div className="mb-2">
                   <label htmlFor="issuance_date" className={labelClassNames}>Issuance Date {requiredSpan}</label>
-                  <input type="date" name="issuance_date" id="issuance_date" value={formData.issuance_date} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
+                  <FormattedDateInput
+                    name="issuance_date"
+                    id="issuance_date"
+                    value={formData.issuance_date}
+                    onChange={handleChange}
+                    required
+                    className={`${inputClassNames} ${errorField === 'issuance_date' ? 'border-red-500 ring-2 ring-red-200 bg-red-50/30' : ''}`}
+                    disabled={isFormDisabled || isGracePeriod}
+                  />
                 </div>
                 <div className="mb-2">
                   <label htmlFor="expiry_date" className={labelClassNames}>Expiry Date {requiredSpan}</label>
-                  <input type="date" name="expiry_date" id="expiry_date" value={formData.expiry_date} min={formatDateForInput(moment())} onChange={handleChange} required className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
+                  <FormattedDateInput
+                    name="expiry_date"
+                    id="expiry_date"
+                    value={formData.expiry_date}
+                    min={formatDateForInput(moment())}
+                    onChange={handleChange}
+                    required
+                    className={`${inputClassNames} ${errorField === 'expiry_date' ? 'border-red-500 ring-2 ring-red-200 bg-red-50/30' : ''}`}
+                    disabled={isFormDisabled || isGracePeriod}
+                  />
                   {extractedClauseCitation && (
                     <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-blue-700 bg-blue-50/80 p-2 rounded-lg border border-blue-200">
                       <Sparkles size={13} className="shrink-0 mt-0.5 text-blue-600" />
@@ -1550,7 +1668,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
             onClick={() => toggleAccordion('internalData')}
             disabled={isFormDisabled || isGracePeriod}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               </div>
@@ -1558,11 +1676,22 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                 <span className="block text-sm font-bold text-gray-900 uppercase tracking-wide">Internal Data</span>
                 <span className="block text-xs text-gray-400">Owner contacts and classification</span>
               </div>
+              {isTrialSandbox && formData.internal_owner_email && formData.lg_category_id && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  Already Filled for Trial (Owner &amp; Category) — Click to view or change
+                </span>
+              )}
             </div>
             {accordionsOpen.internalData ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
           </button>
           {accordionsOpen.internalData && (
             <div className={`p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
+              {isTrialSandbox && (
+                <div className="md:col-span-2 rounded-xl bg-emerald-50/70 border border-emerald-200 px-3.5 py-2.5 text-xs text-emerald-950">
+                  <strong>Already filled for your Free Trial:</strong> Bank LG papers do not show which employee manages the project inside your company. Grow uses <strong>Internal Owner</strong> to send automatic email reminders 30 days before expiry (and notify their manager if there is no reply), and <strong>Category</strong> to group your LGs.
+                </div>
+              )}
               <div className="mb-2">
                 <div className="flex items-center justify-between">
                   <label htmlFor="internal_owner_email" className={labelClassNames}>

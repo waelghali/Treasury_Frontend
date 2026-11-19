@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import moment from 'moment';
 import { toast } from 'react-toastify';
+import FormattedDateInput from 'components/FormattedDateInput';
 
 // Known Action Types for quick filter select
 const ACTION_TYPES = [
@@ -527,8 +528,7 @@ function AuditLogs() {
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                 Start Date
               </label>
-              <input
-                type="date"
+              <FormattedDateInput
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
@@ -538,8 +538,7 @@ function AuditLogs() {
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                 End Date
               </label>
-              <input
-                type="date"
+              <FormattedDateInput
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
@@ -601,7 +600,7 @@ function AuditLogs() {
                   <tr key={log.id} className="hover:bg-blue-50/40 transition-colors">
                     {/* Timestamp */}
                     <td className="px-4 py-3 whitespace-nowrap text-slate-500 font-mono text-[11px]">
-                      {moment(log.timestamp).format('YYYY-MM-DD HH:mm:ss')}
+                      {moment(log.timestamp).format('DD-MMM-YYYY HH:mm:ss')}
                     </td>
 
                     {/* User */}
@@ -684,7 +683,7 @@ function AuditLogs() {
                   Audit Event Details
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5 font-mono">
-                  {moment(selectedLog.timestamp).format('YYYY-MM-DD HH:mm:ss')} • {selectedLog.action_type}
+                  {moment(selectedLog.timestamp).format('DD-MMM-YYYY HH:mm:ss')} • {selectedLog.action_type}
                 </p>
               </div>
               <button

@@ -8,6 +8,8 @@ import IssuanceRequestDetailsModal from '../../components/Modals/IssuanceRequest
 import MaintenanceActionApprovalModal from '../../components/Modals/MaintenanceActionApprovalModal';
 import { Listbox, Transition, Menu } from '@headlessui/react';
 import * as XLSX from 'xlsx';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDate, formatDateTime } from '../../utils/dateFormat';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -226,7 +228,22 @@ function PendingApprovalsPage({ isGracePeriod }) {
             toast.warn("This action is disabled during your subscription's grace period.");
             return;
         }
-        if (!window.confirm("Are you sure you want to APPROVE this request?")) {
+        const targetReq = approvalRequests.find(r => r.id === requestId) || (selectedRequest?.id === requestId ? selectedRequest : null);
+        let confirmMsg = "Are you sure you want to APPROVE this request?";
+        if (targetReq?.action_type === 'LG_CHANGE_BULK_LG_OWNER') {
+            const det = targetReq.request_details || {};
+            const lgNums = Array.isArray(det.affected_lg_numbers) ? det.affected_lg_numbers : [];
+            const lgCount = Array.isArray(det.affected_lgs) ? det.affected_lgs.length : lgNums.length;
+            if (lgCount <= 0) {
+                toast.error("Cannot approve bulk owner change: 0 LG records remain under this owner. Please reject this stale request instead.");
+                return;
+            }
+            const oldEmail = det.old_owner_summary?.email || `Owner #${det.old_internal_owner_contact_id || ''}`;
+            const newEmail = det.new_owner_summary?.email || det.new_internal_owner_contact_details?.email || `Owner #${det.new_internal_owner_contact_id || ''}`;
+            const previewNums = lgNums.length > 5 ? `${lgNums.slice(0, 5).join(', ')} (+${lgNums.length - 5} more)` : lgNums.join(', ');
+            confirmMsg = `Approve transferring ${lgCount} Guarantee(s)${previewNums ? ` [${previewNums}]` : ''} from ${oldEmail} to ${newEmail}?`;
+        }
+        if (!window.confirm(confirmMsg)) {
             return;
         }
         try {
@@ -406,7 +423,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                 specificDetails = { 'New Owner Email': details.email || details.new_internal_owner_contact_details?.email || '', 'New Owner Phone': details.phone_number || '', 'Request Reason': details.reason };
                 break;
             case 'LG_ACTIVATE_NON_OPERATIVE':
-                specificDetails = { 'Payment Method': details.payment_method, 'Activation Amount': details.amount, 'Payment Ref': details.payment_reference, 'Payment Date': details.payment_date };
+                specificDetails = { 'Payment Method': details.payment_method, 'Activation Amount': details.amount, 'Payment Ref': details.payment_reference, 'Payment Date': details.payment_date ? formatDate(details.payment_date) : '' };
                 break;
             case 'LG_AMEND':
                 specificDetails = { 'Request Reason': details.reason, 'Amendments': details.amendment_details ? JSON.stringify(details.amendment_details) : '' };
@@ -633,7 +650,14 @@ function PendingApprovalsPage({ isGracePeriod }) {
     };
 
     // Maintenance action approve/reject handlers
-    const handleMaintenanceApprove = async (actionId) => {
+    const handleMaintenanceApprove = async (actionId, skipConfirm = false) => {
+        if (isGracePeriod) {
+            toast.warn("This action is disabled during your subscription's grace period.");
+            return;
+        }
+        if (!skipConfirm && !window.confirm('Are you sure you want to APPROVE this maintenance action?')) {
+            return;
+        }
         try {
             setProcessingMaintenanceId(actionId);
             await apiRequest(`/issuance/maintenance/${actionId}/approve`, 'POST');
@@ -641,12 +665,17 @@ function PendingApprovalsPage({ isGracePeriod }) {
             fetchMaintenanceActions();
         } catch (err) {
             toast.error(`Failed to approve: ${err.message || 'Unknown error'}`);
+            fetchMaintenanceActions();
         } finally {
             setProcessingMaintenanceId(null);
         }
     };
 
     const handleMaintenanceReject = async (actionId) => {
+        if (isGracePeriod) {
+            toast.warn("This action is disabled during your subscription's grace period.");
+            return;
+        }
         const reason = window.prompt('Reason for rejection (optional):');
         if (reason === null) return;
         try {
@@ -656,6 +685,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
             fetchMaintenanceActions();
         } catch (err) {
             toast.error(`Failed to reject: ${err.message || 'Unknown error'}`);
+            fetchMaintenanceActions();
         } finally {
             setProcessingMaintenanceId(null);
         }
@@ -817,13 +847,29 @@ function PendingApprovalsPage({ isGracePeriod }) {
                         let dispSource = 'custody';
                         if (actionStr.includes('ISSUANCE')) dispSource = 'issuance';
                         else if (actionStr.includes('FACILITY') || actionStr.includes('MAINTENANCE')) dispSource = 'maintenance';
-                        
+
+                        const isBulkOwner = actionStr === 'LG_CHANGE_BULK_LG_OWNER';
+                        const det = r.request_details || {};
+                        const bulkNums = Array.isArray(det.affected_lg_numbers) ? det.affected_lg_numbers : [];
+                        const bulkCount = Array.isArray(det.affected_lgs) ? det.affected_lgs.length : bulkNums.length;
+                        const oldEmail = det.old_owner_summary?.email || '';
+                        const newEmail = det.new_owner_summary?.email || det.new_internal_owner_contact_details?.email || '';
+
                         return {
                             _source: 'custody',
                             _displaySource: dispSource,
                             _id: `custody-${r.id}`,
                             _raw: r,
-                            lgNumber: r.lg_record?.lg_number || 'N/A',
+                            lgNumber: isBulkOwner
+                                ? `Bulk Handover (${bulkCount} LG${bulkCount === 1 ? '' : 's'})`
+                                : (r.lg_record?.lg_number || 'N/A'),
+                            bulkLgSubtitle: isBulkOwner && bulkNums.length > 0
+                                ? (bulkNums.length > 3 ? `${bulkNums.slice(0, 3).join(', ')} +${bulkNums.length - 3} more` : bulkNums.join(', '))
+                                : '',
+                            ownerTransferSubtitle: isBulkOwner && (oldEmail || newEmail)
+                                ? `${oldEmail || 'Old Owner'} ➔ ${newEmail || 'New Owner'}`
+                                : '',
+                            extraSearchText: isBulkOwner ? `${bulkNums.join(' ')} ${oldEmail} ${newEmail}` : '',
                             actionType: formatActionType(r.action_type),
                             requestedBy: r.maker_user?.email || 'N/A',
                             createdAt: r.created_at,
@@ -841,7 +887,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                         requestedBy: m.initiated_by_email || 'N/A',
                         createdAt: m.created_at,
                         status: m.status === 'PENDING_APPROVAL' ? 'PENDING' :
-                                m.status === 'EXECUTED' ? 'APPROVED' :
+                                (m.status === 'EXECUTED' || m.status === 'APPROVED') ? 'APPROVED' :
                                 m.status || 'UNKNOWN',
                         isPending: m.status === 'PENDING_APPROVAL',
                     })) : []),
@@ -877,7 +923,8 @@ function PendingApprovalsPage({ isGracePeriod }) {
                         const term = searchTerm.toLowerCase();
                         if (!row.lgNumber.toLowerCase().includes(term) &&
                             !row.actionType.toLowerCase().includes(term) &&
-                            !row.requestedBy.toLowerCase().includes(term)) return false;
+                            !row.requestedBy.toLowerCase().includes(term) &&
+                            !(row.extraSearchText || '').toLowerCase().includes(term)) return false;
                     }
                     if (lgActionsStatusFilter !== 'ALL') {
                         if (lgActionsStatusFilter === 'APPROVED') {
@@ -954,18 +1001,16 @@ function PendingApprovalsPage({ isGracePeriod }) {
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-400 text-[11px]">From:</span>
-                        <input
-                            type="date"
+                        <span className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-400 text-[11px] z-10">From:</span>
+                        <FormattedDateInput
                             className="pl-10 pr-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
                             value={dateFrom}
                             onChange={(e) => setDateFrom(e.target.value)}
                         />
                     </div>
                     <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-400 text-[11px]">To:</span>
-                        <input
-                            type="date"
+                        <span className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-400 text-[11px] z-10">To:</span>
+                        <FormattedDateInput
                             className="pl-7 pr-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
                             value={dateTo}
                             onChange={(e) => setDateTo(e.target.value)}
@@ -993,19 +1038,17 @@ function PendingApprovalsPage({ isGracePeriod }) {
                 </div>
 
                 <div className="flex items-center space-x-2 w-full md:w-auto">
-                    <div className="relative w-full md:w-40">
-                        <span className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500 text-xs">From:</span>
-                        <input
-                            type="date"
+                    <div className="relative w-full md:w-44">
+                        <span className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500 text-xs z-10">From:</span>
+                        <FormattedDateInput
                             className="block w-full pl-10 pr-2 py-2 border border-gray-300 rounded-md leading-5 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                             value={dateFrom}
                             onChange={(e) => setDateFrom(e.target.value)}
                         />
                     </div>
-                    <div className="relative w-full md:w-40">
-                         <span className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500 text-xs">To:</span>
-                        <input
-                            type="date"
+                    <div className="relative w-full md:w-44">
+                         <span className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500 text-xs z-10">To:</span>
+                        <FormattedDateInput
                             className="block w-full pl-10 pr-2 py-2 border border-gray-300 rounded-md leading-5 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                             value={dateTo}
                             onChange={(e) => setDateTo(e.target.value)}
@@ -1108,10 +1151,18 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                         </span>
                                     </td>
                                     <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${row._displaySource === 'lg_cancel' ? 'text-red-700' : row._displaySource === 'maintenance' ? 'text-teal-700' : row._displaySource === 'issuance' ? 'text-indigo-700' : 'text-blue-600'}`}>
-                                        {row.lgNumber}
+                                        <div>{row.lgNumber}</div>
+                                        {row.bulkLgSubtitle && (
+                                            <div className="text-xs font-mono text-gray-500 mt-0.5">{row.bulkLgSubtitle}</div>
+                                        )}
                                     </td>
                                     <td className="px-4 py-4 text-sm text-gray-500 min-w-[160px]">
                                         <div>{row.actionType}</div>
+                                        {row.ownerTransferSubtitle && (
+                                            <div className="text-xs text-gray-500 truncate max-w-[260px] mt-0.5" title={row.ownerTransferSubtitle}>
+                                                {row.ownerTransferSubtitle}
+                                            </div>
+                                        )}
                                         {row._displaySource === 'lg_cancel' && row.cancelReason && (
                                             <div className="cell-truncate mt-0.5">
                                                 <div className="text-xs text-red-500 truncate" title={row.cancelReason}>
@@ -1123,13 +1174,17 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{row.requestedBy}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{row.createdAt ? moment(row.createdAt).format('DD-MMM-YYYY HH:mm') : ''}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                            row.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                            row.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                                            row.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                                            'bg-gray-100 text-gray-800'
-                                        }`}>
-                                            {row.status}
+                                        <span
+                                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                row.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                                row.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                                                row.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                                                row.status === 'AUTO_REJECTED_EXPIRED' ? 'bg-orange-100 text-orange-800' :
+                                                'bg-gray-100 text-gray-800'
+                                            }`}
+                                            title={row.status === 'AUTO_REJECTED_EXPIRED' ? 'Automatically rejected — exceeded maximum pending approval window' : undefined}
+                                        >
+                                            {row.status === 'AUTO_REJECTED_EXPIRED' ? 'EXPIRED' : row.status}
                                         </span>
                                     </td>
 
@@ -1154,7 +1209,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                                 <strong>LG Cancellation Request</strong>
                                                                 <p className="mt-1">Reason: {meta.cancel_reason || 'No reason provided'}</p>
                                                                 <p className="text-xs mt-1 opacity-70">Previous status: {meta.previous_status || '—'}</p>
-                                                                <p className="text-xs opacity-70">Requested at: {meta.requested_at ? new Date(meta.requested_at).toLocaleString() : '—'}</p>
+                                                                <p className="text-xs opacity-70">Requested at: {meta.requested_at ? formatDateTime(meta.requested_at) : '—'}</p>
                                                             </div>,
                                                             { autoClose: 8000 }
                                                         );
@@ -1190,6 +1245,40 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                     </GracePeriodTooltip>
                                                 </>
                                             )}
+
+                                            {row._source === 'maintenance' && (() => {
+                                                const isSelfMaint = Boolean(
+                                                    (currentUserId && row._raw.initiated_by_user_id === currentUserId) ||
+                                                    (loggedInEmail && row._raw.initiated_by_email && row._raw.initiated_by_email.toLowerCase() === loggedInEmail.toLowerCase())
+                                                );
+                                                const isBusy = processingMaintenanceId === row._raw.id;
+                                                const disableApprove = !row.isPending || isGracePeriod || isBusy || isSelfMaint;
+                                                const disableReject = !row.isPending || isGracePeriod || isBusy;
+                                                return (
+                                                    <>
+                                                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                            <button
+                                                                onClick={(e) => handleActionClick(e, () => handleMaintenanceApprove(row._raw.id))}
+                                                                className={`text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-white ${disableApprove ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                                title={isSelfMaint ? 'You cannot approve your own action' : 'Approve'}
+                                                                disabled={disableApprove}
+                                                            >
+                                                                <Check className="h-5 w-5" />
+                                                            </button>
+                                                        </GracePeriodTooltip>
+                                                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                            <button
+                                                                onClick={(e) => handleActionClick(e, () => handleMaintenanceReject(row._raw.id))}
+                                                                className={`text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-white ${disableReject ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                                title="Reject"
+                                                                disabled={disableReject}
+                                                            >
+                                                                <X className="h-5 w-5" />
+                                                            </button>
+                                                        </GracePeriodTooltip>
+                                                    </>
+                                                );
+                                            })()}
 
                                             {row._source === 'lg_cancel' && row.isPending && (
                                                 <>
@@ -1235,9 +1324,12 @@ function PendingApprovalsPage({ isGracePeriod }) {
             {selectedMaintenanceAction && (
                 <MaintenanceActionApprovalModal
                     action={selectedMaintenanceAction}
+                    isGracePeriod={isGracePeriod}
+                    currentUserId={currentUserId}
+                    currentUserEmail={loggedInEmail}
                     onClose={() => setSelectedMaintenanceAction(null)}
                     onApprove={async (actionId) => {
-                        await handleMaintenanceApprove(actionId);
+                        await handleMaintenanceApprove(actionId, true);
                         setSelectedMaintenanceAction(null);
                     }}
                     onReject={async (actionId, reason) => {
@@ -1679,7 +1771,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                                 <p className="text-xs font-bold text-gray-400 uppercase mb-1">Bank Confirmed</p>
                                                                 <p className="text-gray-700">Amount: {lg.currency_code} {parseFloat(lg.current_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                                                                 <p className="text-gray-700">Bank LG #: {lg.bank_lg_number || 'N/A'}</p>
-                                                                <p className="text-gray-700">Expiry: {lg.expiry_date || 'N/A'}</p>
+                                                                <p className="text-gray-700">Expiry: {formatDate(lg.expiry_date, 'N/A')}</p>
                                                             </div>
                                                         </div>
                                                         {lg.verification_notes && (
@@ -1702,7 +1794,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                         {lg.lg_copy_documents.map(doc => (
                                                             <div key={doc.id} className="flex items-center justify-between gap-2 bg-white px-3 py-2 rounded-lg border border-indigo-100">
                                                                 <span className="text-xs text-gray-700 truncate flex-1">{doc.file_name}</span>
-                                                                {doc.created_at && <span className="text-[10px] text-gray-400 whitespace-nowrap">{new Date(doc.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>}
+                                                                {doc.created_at && <span className="text-[10px] text-gray-400 whitespace-nowrap">{formatDate(doc.created_at)}</span>}
                                                                 <button
                                                                     onClick={async () => {
                                                                         try {

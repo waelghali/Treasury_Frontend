@@ -150,7 +150,9 @@ function EndUserPendingApprovalsPage({ isGracePeriod }) { // NEW: Accept isGrace
                                     className="hover:bg-yellow-50/40 cursor-pointer transition-colors"
                                 >
                                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        {request.lg_record?.lg_number || 'N/A'}
+                                        {request.action_type === 'LG_CHANGE_BULK_LG_OWNER'
+                                            ? `Bulk Handover (${request.request_details?.affected_lgs?.length ?? request.request_details?.affected_lg_numbers?.length ?? 0} LGs)`
+                                            : (request.lg_record?.lg_number || 'N/A')}
                                     </td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatActionType(request.action_type)}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">

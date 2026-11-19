@@ -15,6 +15,8 @@ import TradeAccoladePromotionToast from '../../components/Quotations/TradeAccola
 import HoneypotField from '../../components/Security/HoneypotField';
 import './quotation-animations.css';
 import DealerMobileAlertsBanner from '../../components/DealerMobileAlertsBanner';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDateTime } from '../../utils/dateFormat';
 
 const DIRECT_BACKEND_URL = 'https://api.growbusinessdevelopment.com';
 
@@ -73,7 +75,7 @@ const formatDate = (d) => {
         const day = String(date.getDate()).padStart(2, '0');
         const month = MONTHS[date.getMonth()];
         const year = date.getFullYear();
-        return `${day} ${month} ${year}`;
+        return `${day}-${month}-${year}`;
     } catch {
         return d;
     }
@@ -3862,7 +3864,7 @@ export default function QuotationBankOfferPage() {
                                                                 </p>
                                                                 {rfq.created_at && (
                                                                     <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
-                                                                        {new Date(rfq.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                                        {formatDateTime(rfq.created_at)}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -3874,7 +3876,7 @@ export default function QuotationBankOfferPage() {
                                                                 </p>
                                                                 {(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at) && (
                                                                     <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
-                                                                        {new Date(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                                        {formatDateTime(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at)}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -3917,7 +3919,7 @@ export default function QuotationBankOfferPage() {
                                                             </p>
                                                             {rfq.created_at && (
                                                                 <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
-                                                                    {new Date(rfq.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                                    {formatDateTime(rfq.created_at)}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -3929,7 +3931,7 @@ export default function QuotationBankOfferPage() {
                                                             </p>
                                                             {(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at) && (
                                                                 <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
-                                                                    {new Date(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                                    {formatDateTime(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at)}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -4048,7 +4050,7 @@ export default function QuotationBankOfferPage() {
                                                                 </p>
                                                                 {rfq.created_at && (
                                                                     <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
-                                                                        {new Date(rfq.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                                        {formatDateTime(rfq.created_at)}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -4060,7 +4062,7 @@ export default function QuotationBankOfferPage() {
                                                                 </p>
                                                                 {(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at) && (
                                                                     <span className="text-[10px] text-gray-400 block mt-0.5 font-mono">
-                                                                        {new Date(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                                        {formatDateTime(rfq.rfq_approved_at || rfq.admin_reviewed_at || rfq.created_at)}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -4691,8 +4693,7 @@ export default function QuotationBankOfferPage() {
                                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                                     <div>
                                                                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Settlement Date</label>
-                                                                        <input
-                                                                            type="date"
+                                                                        <FormattedDateInput
                                                                             required
                                                                             disabled={timeLeft.status !== 'OPEN' || isDeskInputsLocked}
                                                                             className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
@@ -4702,8 +4703,7 @@ export default function QuotationBankOfferPage() {
                                                                     </div>
                                                                     <div>
                                                                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Maturity Date</label>
-                                                                        <input
-                                                                            type="date"
+                                                                        <FormattedDateInput
                                                                             required
                                                                             disabled={timeLeft.status !== 'OPEN' || isDeskInputsLocked}
                                                                             className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-black disabled:bg-slate-100 disabled:text-slate-400"
@@ -5101,8 +5101,7 @@ export default function QuotationBankOfferPage() {
                                                                                             Alternative Allowed
                                                                                         </span>
                                                                                     </div>
-                                                                                    <input
-                                                                                        type="date"
+                                                                                    <FormattedDateInput
                                                                                         min={rfq?.window_start ? rfq.window_start.split('T')[0] : new Date().toISOString().split('T')[0]}
                                                                                         disabled={timeLeft.status !== 'OPEN' || isSubmitting || isDeskInputsLocked}
                                                                                         className="w-full bg-blue-50/50 border-2 border-blue-200 rounded-xl px-3 py-2 text-sm font-bold font-mono text-blue-950 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400"
@@ -5391,8 +5390,7 @@ export default function QuotationBankOfferPage() {
                                                                                 Alternative Allowed
                                                                             </span>
                                                                         </div>
-                                                                        <input
-                                                                            type="date"
+                                                                        <FormattedDateInput
                                                                             min={rfq?.window_start ? rfq.window_start.split('T')[0] : new Date().toISOString().split('T')[0]}
                                                                             disabled={timeLeft.status !== 'OPEN' || isSubmitting || isDeskInputsLocked}
                                                                             className="w-full bg-blue-50/50 border-2 border-blue-200 rounded-xl px-3 py-2 text-sm font-bold font-mono text-blue-950 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400"

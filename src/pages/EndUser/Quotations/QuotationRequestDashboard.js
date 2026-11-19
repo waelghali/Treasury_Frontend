@@ -8,6 +8,7 @@ import { safeLocalStorage } from '../../../utils/safeStorage';
 import { getCurrentUser } from '../../../utils/authUtils';
 import ResultsView from './ResultsView';
 import CorporateMobileAlertsBanner from '../../../components/CorporateMobileAlertsBanner';
+import FormattedDateInput from 'components/FormattedDateInput';
 
 const MAX_PAIRS = 4;
 
@@ -20,14 +21,14 @@ const formatDate = (d) => {
             const year = parts[0];
             const month = MONTHS[parseInt(parts[1], 10) - 1] || parts[1];
             const day = String(parseInt(parts[2], 10)).padStart(2, '0');
-            return `${day} ${month} ${year}`;
+            return `${day}-${month}-${year}`;
         }
         const date = new Date(d);
         if (isNaN(date.getTime())) return d;
         const day = String(date.getDate()).padStart(2, '0');
         const month = MONTHS[date.getMonth()];
         const year = date.getFullYear();
-        return `${day} ${month} ${year}`;
+        return `${day}-${month}-${year}`;
     } catch {
         return d;
     }
@@ -697,6 +698,9 @@ export default function QuotationRequestDashboard() {
     const [lastSavedTime, setLastSavedTime] = useState(null);
     const [expandedCosts, setExpandedCosts] = useState({});
     const [includeHistoricalTariffs, setIncludeHistoricalTariffs] = useState(false);
+    const [isTrialSandbox, setIsTrialSandbox] = useState(false);
+    const trialFormPrefilledRef = useRef(false);
+    const trialBanksPrefilledRef = useRef(false);
 
     const handleReset = () => {
         if (location.search) {
@@ -745,6 +749,31 @@ export default function QuotationRequestDashboard() {
         return () => window.removeEventListener('quotation-deal-resolved', handleDealResolved);
     }, [createdRfq, navigate]);
 
+    // Detect Guided Trial Sandbox strictly per-tenant (0% effect on commercial accounts)
+    useEffect(() => {
+        if (revisionRfqId || retradeRfqId || cloneRfqId) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const u = getCurrentUser();
+                const cid = u?.customer_id;
+                if (!cid) return;
+                const probeKey = `grow_trial_mode_probe_v2_${cid}`;
+                const cached = sessionStorage.getItem(probeKey);
+                if (cached === 'true') {
+                    if (!cancelled) setIsTrialSandbox(true);
+                    return;
+                }
+                if (cached === 'false') return;
+                const res = await apiClient.get('/trial-sandbox/status').catch(() => null);
+                const active = Boolean(res?.data?.trial_mode === true);
+                sessionStorage.setItem(probeKey, active ? 'true' : 'false');
+                if (!cancelled && active) setIsTrialSandbox(true);
+            } catch {}
+        })();
+        return () => { cancelled = true; };
+    }, [revisionRfqId, retradeRfqId, cloneRfqId]);
+
     // Check for existing saved draft on initial page mount
     useEffect(() => {
         if (revisionRfqId || retradeRfqId) return;
@@ -752,7 +781,7 @@ export default function QuotationRequestDashboard() {
             const raw = safeLocalStorage.getItem(getDraftStorageKey());
             if (raw) {
                 const parsed = JSON.parse(raw);
-                if (parsed && (parsed.formData || parsed.pairs?.length || parsed.selectedBanks?.length)) {
+                if (parsed && !parsed.isTrialSample && (parsed.formData || parsed.pairs?.length || parsed.selectedBanks?.length)) {
                     const ageDays = (Date.now() - (parsed.timestamp || 0)) / (1000 * 60 * 60 * 24);
                     if (ageDays <= 7) {
                         setSavedDraft(parsed);
@@ -788,9 +817,13 @@ export default function QuotationRequestDashboard() {
         const timer = setTimeout(() => {
             try {
                 const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const isUntouchedTrialSample = Boolean(
+                    isTrialSandbox && (formData.commentsToBanks || '').startsWith('[TRIAL SAMPLE]')
+                );
                 const draftData = {
                     timestamp: Date.now(),
                     savedAtFormatted: nowTime,
+                    isTrialSample: isUntouchedTrialSample,
                     formData,
                     pairs,
                     selectedBanks,
@@ -807,7 +840,7 @@ export default function QuotationRequestDashboard() {
         }, 800);
 
         return () => clearTimeout(timer);
-    }, [formData, pairs, selectedBanks, includeCrossEntityBanks, userNotes, releaseDocsToWinnerOnly, files.length, isFormDirty, revisionRfqId, retradeRfqId, createdRfq]);
+    }, [formData, pairs, selectedBanks, includeCrossEntityBanks, userNotes, releaseDocsToWinnerOnly, files.length, isFormDirty, revisionRfqId, retradeRfqId, createdRfq, isTrialSandbox]);
 
     const handleManualSaveDraft = () => {
         try {
@@ -1584,6 +1617,109 @@ export default function QuotationRequestDashboard() {
             prevTypeRef.current = formData.type;
         }
     }, [formData.type, formData.entityId, entitiesLoading, entities.length]);
+
+    // Guided Trial Sandbox: Pre-fill ready-to-launch 2-pair FX Spot package + main Legal Entity + 3 Relationship Banks
+    useEffect(() => {
+        if (!isTrialSandbox || entitiesLoading || entities.length === 0) return;
+        if (revisionRfqId || retradeRfqId || cloneRfqId || trialFormPrefilledRef.current) return;
+
+        trialFormPrefilledRef.current = true;
+        const nowIso = toLocalISOString(new Date());
+        const todayDate = nowIso ? nowIso.split('T')[0] : '';
+        const tbillMaturity = toLocalISOString(new Date(Date.now() + 91 * 86400000)).split('T')[0];
+
+        const trialPair1 = {
+            id: 'trial-pair-usd',
+            direction: 'Buy',
+            buyCurrency: 'USD',
+            sellCurrency: 'EGP',
+            amount: '250000',
+            minTicketAmount: '',
+            valueDate: todayDate,
+            allowAlternativeValueDate: false,
+            quotationBase: 'Execution',
+            maxTolerancePercent: '0.05',
+        };
+        const trialPair2 = {
+            id: 'trial-pair-eur',
+            direction: 'Buy',
+            buyCurrency: 'EUR',
+            sellCurrency: 'EGP',
+            amount: '100000',
+            minTicketAmount: '',
+            valueDate: todayDate,
+            allowAlternativeValueDate: false,
+            quotationBase: 'Execution',
+            maxTolerancePercent: '0.05',
+        };
+
+        setFormData(prev => ({
+            ...prev,
+            entityId: prev.entityId || String(entities[0].id),
+            valueDate: todayDate,
+            settlementDateStart: todayDate,
+            maturityDateStart: tbillMaturity,
+            amount: prev.amount || '10000000',
+            windowStart: nowIso,
+            windowDuration: '3600',
+            commentsToBanks:
+                prev.commentsToBanks ||
+                '[TRIAL SAMPLE] Spot FX cover for equipment & import invoice settlement',
+        }));
+        setPairs([trialPair1, trialPair2]);
+        setActivePairIndex(0);
+    }, [isTrialSandbox, entitiesLoading, entities, revisionRfqId, retradeRfqId, cloneRfqId]);
+
+    useEffect(() => {
+        if (!isTrialSandbox || !trialFormPrefilledRef.current || trialBanksPrefilledRef.current) return;
+        if (revisionRfqId || retradeRfqId || cloneRfqId) return;
+        if (!directBanks || directBanks.length === 0) return;
+
+        trialBanksPrefilledRef.current = true;
+        if (selectedBanks.length > 0) return;
+
+        const curDate = formData.valueDate || toLocalISOString(new Date()).split('T')[0];
+        const preselected = directBanks.map(bank => {
+            const initialPairConfigs = {};
+            pairs.forEach(p => {
+                initialPairConfigs[p.id] = {
+                    costMin: 0,
+                    costPercent: 0,
+                    costMax: 0,
+                    costFlat: 0,
+                    quotationBase: p.quotationBase || 'Execution',
+                    isDocumentVisible: true,
+                    valueDate: p.valueDate || curDate,
+                    allowAlternativeValueDate: false,
+                    _baseCustomized: false,
+                    _altCustomized: false,
+                    _dateCustomized: false,
+                    _docCustomized: false,
+                };
+            });
+            return {
+                id: bank.bank_id,
+                name: bank.bank?.name || `Bank ${bank.bank_id}`,
+                emails: bank.emails,
+                contacts: bank.contacts || [],
+                costMin: 0,
+                costPercent: 0,
+                costMax: 0,
+                costFlat: 0,
+                quotationBase: 'Execution',
+                isDocumentVisible: true,
+                valueDate: curDate,
+                allowAlternativeValueDate: false,
+                _baseCustomized: false,
+                _altCustomized: false,
+                _dateCustomized: false,
+                _docCustomized: false,
+                is_cross_entity: false,
+                pairConfigs: initialPairConfigs,
+            };
+        });
+        setSelectedBanks(preselected);
+    }, [isTrialSandbox, directBanks, pairs, formData.valueDate, selectedBanks.length, revisionRfqId, retradeRfqId, cloneRfqId]);
 
     const activePair = pairs[activePairIndex] || pairs[0] || {};
 
@@ -3580,8 +3716,7 @@ export default function QuotationRequestDashboard() {
                                             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
                                                 Settlement Date {formData.direction === 'Sell' ? '(Fixed)' : '(Exact or Start)'}
                                             </label>
-                                            <input
-                                                type="date"
+                                            <FormattedDateInput
                                                 required
                                                 min={todayStr}
                                                 className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
@@ -3593,8 +3728,7 @@ export default function QuotationRequestDashboard() {
                                             <label className={`block text-[10px] font-bold text-gray-400 uppercase mb-1 ${formData.direction === 'Sell' ? 'opacity-30' : ''}`}>
                                                 Settlement Range End (Optional)
                                             </label>
-                                            <input
-                                                type="date"
+                                            <FormattedDateInput
                                                 disabled={formData.direction === 'Sell'}
                                                 min={formData.settlementDateStart || todayStr}
                                                 className={`w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all ${formData.direction === 'Sell' ? 'opacity-30 cursor-not-allowed' : ''}`}
@@ -3615,8 +3749,7 @@ export default function QuotationRequestDashboard() {
                                             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
                                                 Maturity Date {formData.direction === 'Sell' ? '(Fixed)' : '(Exact or Start)'}
                                             </label>
-                                            <input
-                                                type="date"
+                                            <FormattedDateInput
                                                 required
                                                 min={formData.settlementDateStart || todayStr}
                                                 className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
@@ -3628,8 +3761,7 @@ export default function QuotationRequestDashboard() {
                                             <label className={`block text-[10px] font-bold text-gray-400 uppercase mb-1 ${formData.direction === 'Sell' ? 'opacity-30' : ''}`}>
                                                 Maturity Range End (Optional)
                                             </label>
-                                            <input
-                                                type="date"
+                                            <FormattedDateInput
                                                 disabled={formData.direction === 'Sell'}
                                                 min={formData.maturityDateStart || formData.settlementDateStart || todayStr}
                                                 className={`w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all ${formData.direction === 'Sell' ? 'opacity-30 cursor-not-allowed' : ''}`}
@@ -3941,8 +4073,7 @@ export default function QuotationRequestDashboard() {
                                                     </button>
                                                 )}
                                             </div>
-                                            <input
-                                                type="date"
+                                            <FormattedDateInput
                                                 required
                                                 min={todayStr}
                                                 className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-slate-800"
@@ -5334,8 +5465,7 @@ export default function QuotationRequestDashboard() {
                                                                     <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1 h-3.5 truncate">
                                                                         Value Date{isSelected.customPairTariffs ? ` (${curPair.buyCurrency}/${curPair.sellCurrency})` : ''}
                                                                     </label>
-                                                                    <input
-                                                                        type="date"
+                                                                    <FormattedDateInput
                                                                         min={windowStartDate || todayStr}
                                                                         className="w-full h-8 bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-black font-semibold text-gray-900 shadow-2xs"
                                                                         value={activeCfg.valueDate || ''}

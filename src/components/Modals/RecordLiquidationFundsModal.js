@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, DollarSign, Building2, Calendar, FileText, CheckCircle } from 'lucide-react';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
+import FormattedDateInput from 'components/FormattedDateInput';
 
 export default function RecordLiquidationFundsModal({ lg, onClose, onSuccess }) {
   const [bankAccounts, setBankAccounts] = useState([]);
@@ -103,8 +104,7 @@ export default function RecordLiquidationFundsModal({ lg, onClose, onSuccess }) 
               <label className="text-xs font-bold text-slate-700 uppercase block mb-1">
                 Value Date *
               </label>
-              <input
-                type="date"
+              <FormattedDateInput
                 required
                 value={valueDate}
                 onChange={(e) => setValueDate(e.target.value)}

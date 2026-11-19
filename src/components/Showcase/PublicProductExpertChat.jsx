@@ -14,11 +14,14 @@ import {
   Calendar,
   Loader2,
   MessageSquarePlus,
+  Mic,
+  Square,
+  Volume2,
 } from 'lucide-react';
 import { API_BASE_URL } from '../../services/apiService';
 import { getOrCreatePublicSessionId, trackPublicEvent } from '../../utils/publicTelemetry';
 
-const MESSAGES_STORAGE_KEY = 'grow_public_expert_messages_v1';
+const MESSAGES_STORAGE_KEY = 'grow_public_expert_messages_v2';
 
 const ARABIC_CHAR_RE = /[\u0600-\u06FF]/;
 
@@ -188,25 +191,146 @@ function FormattedAnswer({ text, isRtl }) {
 
 export default function PublicProductExpertChat({
   lang = 'en',
+  onLangChange = null,
   pageContext = 'landing',
   activeModuleId = null,
   isOpen = false,
   onOpenChange,
   onShowcaseAction = null,
   onBookMeeting = null,
+  onPauseDemoAudio = null,
   stickyClassName = 'lg:top-[44px] lg:h-[calc(100vh-44px)]',
 }) {
   const navigate = useNavigate();
+  const [localLang, setLocalLang] = useState(lang === 'ar' ? 'ar' : 'en');
   const [messages, setMessages] = useState(() => loadStoredMessages());
+
+  useEffect(() => {
+    setLocalLang(lang === 'ar' ? 'ar' : 'en');
+  }, [lang]);
+
+  const handleChatLangSwitch = useCallback(
+    (nextLang) => {
+      setLocalLang(nextLang);
+      if (typeof onLangChange === 'function') {
+        onLangChange(nextLang);
+      }
+    },
+    [onLangChange]
+  );
   const [inputValue, setInputValue] = useState('');
   const [honeypot, setHoneypot] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Voice AI Master State (`false` until backend confirms `voice_enabled === true` -> completely invisible when disabled)
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSec, setRecordingSec] = useState(0);
+  const [speakingMsgId, setSpeakingMsgId] = useState(null);
+  const [ttsLoadingMsgId, setTtsLoadingMsgId] = useState(null);
+
   const scrollBodyRef = useRef(null);
   const latestTurnTopRef = useRef(null);
   const prevMsgCountRef = useRef(messages.length);
   const inputRef = useRef(null);
+
+  const mediaRecorderRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const recordChunksRef = useRef([]);
+  const recordTimerRef = useRef(null);
+  const discardRecordingRef = useRef(false);
+  const chatAudioRef = useRef(null);
+  const audioUrlCacheRef = useRef(new Map());
+
+  const canRecordAudio =
+    typeof window !== 'undefined' &&
+    typeof window.MediaRecorder !== 'undefined' &&
+    Boolean(navigator?.mediaDevices?.getUserMedia);
+
+  const stopChatAudio = useCallback(() => {
+    if (chatAudioRef.current) {
+      try {
+        chatAudioRef.current.pause();
+        chatAudioRef.current.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      chatAudioRef.current = null;
+    }
+    setSpeakingMsgId(null);
+    setTtsLoadingMsgId(null);
+  }, []);
+
+  const stopRecordingStream = useCallback(() => {
+    if (recordTimerRef.current) {
+      clearInterval(recordTimerRef.current);
+      recordTimerRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      try {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      } catch {
+        // ignore
+      }
+      mediaStreamRef.current = null;
+    }
+  }, []);
+
+  // Fetch Voice AI master status on mount and whenever chat opens
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE_URL}/public-demo/voice-status`)
+      .then((r) => (r.ok ? r.json() : { voice_enabled: false }))
+      .then((d) => {
+        if (!cancelled) {
+          const allowed = Boolean(d?.voice_enabled);
+          setVoiceEnabled(allowed);
+          if (!allowed) {
+            stopChatAudio();
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setVoiceEnabled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, stopChatAudio]);
+
+  // Clean up audio & mic streams on unmount or close
+  useEffect(() => {
+    if (!isOpen) {
+      stopChatAudio();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        discardRecordingRef.current = true;
+        try {
+          mediaRecorderRef.current.stop();
+        } catch {
+          // ignore
+        }
+      }
+      stopRecordingStream();
+      setIsRecording(false);
+    }
+  }, [isOpen, stopChatAudio, stopRecordingStream]);
+
+  useEffect(() => {
+    const cacheMap = audioUrlCacheRef.current;
+    return () => {
+      stopChatAudio();
+      stopRecordingStream();
+      cacheMap.forEach((url) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          // ignore
+        }
+      });
+      cacheMap.clear();
+    };
+  }, [stopChatAudio, stopRecordingStream]);
 
   const setOpen = useCallback(
     (nextVal) => {
@@ -273,7 +397,7 @@ export default function PublicProductExpertChat({
     if (isOpen) {
       trackPublicEvent('chatbot_open', {
         page: String(pageContext || '').includes('landing') ? 'landing' : 'demo',
-        lang,
+        lang: localLang,
         metadata: { page_context: pageContext || 'demo' },
       });
       const timer = setTimeout(() => {
@@ -282,9 +406,9 @@ export default function PublicProductExpertChat({
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [isOpen, lang, pageContext]);
+  }, [isOpen, localLang, pageContext]);
 
-  const isAr = lang === 'ar';
+  const isAr = localLang === 'ar';
   const dir = isAr ? 'rtl' : 'ltr';
   const fontFamily = isAr ? "'Cairo', 'Inter', sans-serif" : undefined;
 
@@ -326,14 +450,13 @@ export default function PublicProductExpertChat({
           params.set('step', String(action.step));
         }
       }
-      const lastLang = latestAssistantTurn?.lang || lang;
-      if (lastLang === 'ar') {
+      if (isAr) {
         params.set('lang', 'ar');
       }
       setOpen(false);
       navigate(`/demo?${params.toString()}`);
     },
-    [lang, latestAssistantTurn, navigate, onShowcaseAction, setOpen]
+    [isAr, navigate, onShowcaseAction, setOpen]
   );
 
   const handleBookDemoClick = useCallback(() => {
@@ -405,6 +528,7 @@ export default function PublicProductExpertChat({
           id: `a_${Date.now()}`,
           role: 'assistant',
           content: data.answer || '',
+          spokenSummary: data.spoken_summary || '',
           lang: data.lang || effectiveLang,
           actions: Array.isArray(data.actions) ? data.actions : [],
           followUps: Array.isArray(data.follow_ups) ? data.follow_ups : [],
@@ -425,7 +549,300 @@ export default function PublicProductExpertChat({
     [honeypot, isAr, isLoading, messages, pageContext]
   );
 
+  const playAnswerAudio = useCallback(
+    async (msgObj, isAutoReply = false) => {
+      if (!msgObj || !voiceEnabled) return;
+      if (speakingMsgId === msgObj.id) {
+        stopChatAudio();
+        return;
+      }
+
+      stopChatAudio();
+      if (typeof onPauseDemoAudio === 'function') {
+        onPauseDemoAudio();
+      }
+
+      const speechText = String(msgObj.spokenSummary || msgObj.content || '').trim();
+      if (!speechText) return;
+
+      let objectUrl = audioUrlCacheRef.current.get(msgObj.id);
+      if (!objectUrl) {
+        setTtsLoadingMsgId(msgObj.id);
+        try {
+          const resp = await fetch(`${API_BASE_URL}/public-demo/tts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: speechText,
+              lang: msgObj.lang || (isAr ? 'ar' : 'en'),
+              is_auto_reply: Boolean(isAutoReply),
+              website_url: honeypot,
+            }),
+          });
+          if (resp.status === 403) {
+            setVoiceEnabled(false);
+            setTtsLoadingMsgId(null);
+            return;
+          }
+          if (!resp.ok) {
+            setTtsLoadingMsgId(null);
+            return;
+          }
+          const audioBlob = await resp.blob();
+          objectUrl = URL.createObjectURL(audioBlob);
+          audioUrlCacheRef.current.set(msgObj.id, objectUrl);
+        } catch {
+          setTtsLoadingMsgId(null);
+          return;
+        }
+      }
+
+      setTtsLoadingMsgId(null);
+      const audio = new Audio(objectUrl);
+      chatAudioRef.current = audio;
+      setSpeakingMsgId(msgObj.id);
+
+      audio.onended = () => {
+        if (chatAudioRef.current === audio) {
+          chatAudioRef.current = null;
+          setSpeakingMsgId(null);
+        }
+      };
+      audio.onerror = () => {
+        if (chatAudioRef.current === audio) {
+          chatAudioRef.current = null;
+          setSpeakingMsgId(null);
+        }
+      };
+      audio.play().catch(() => {
+        if (chatAudioRef.current === audio) {
+          chatAudioRef.current = null;
+          setSpeakingMsgId(null);
+        }
+      });
+    },
+    [honeypot, isAr, onPauseDemoAudio, speakingMsgId, stopChatAudio, voiceEnabled]
+  );
+
+  const sendVoiceBlob = useCallback(
+    async (audioBlob, mimeType) => {
+      if (!audioBlob || isLoading) return;
+      setErrorMsg('');
+      stopChatAudio();
+
+      const tempUserId = `uv_${Date.now()}`;
+      const historyPayload = messages.slice(-6).map((m) => ({
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: String(m.content || '').slice(0, 800),
+      }));
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: tempUserId,
+          role: 'user',
+          content: isAr ? '🎙️ جاري الاستماع وتحليل السؤال...' : '🎙️ Listening to your question...',
+          lang: isAr ? 'ar' : 'en',
+        },
+      ]);
+      setIsLoading(true);
+
+      try {
+        const base64Audio = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(new Error('Audio read error'));
+          reader.readAsDataURL(audioBlob);
+        });
+
+        const resp = await fetch(`${API_BASE_URL}/public-demo/voice-chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            audio_base64: base64Audio,
+            mime_type: mimeType || 'audio/webm',
+            history: historyPayload,
+            preferred_lang: isAr ? 'ar' : 'en',
+            page_context: pageContext,
+            session_id: getOrCreatePublicSessionId(),
+            website_url: honeypot,
+          }),
+        });
+
+        if (resp.status === 403) {
+          setVoiceEnabled(false);
+          setMessages((prev) => prev.filter((m) => m.id !== tempUserId));
+          return;
+        }
+
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          setMessages((prev) => prev.filter((m) => m.id !== tempUserId));
+          throw new Error(
+            typeof data?.detail === 'string'
+              ? data.detail
+              : isAr
+                ? 'تعذر معالجة السؤال الصوتي حالياً. يرجى المحاولة مرة أخرى أو كتابة سؤالك.'
+                : 'Could not process voice question right now. Please try again or type your question.'
+          );
+        }
+
+        if (!data.heard_question) {
+          setMessages((prev) => prev.filter((m) => m.id !== tempUserId));
+          setErrorMsg(
+            data.answer ||
+              (isAr
+                ? 'لم يتم التقاط صوت واضح. يرجى التحدث بالقرب من الميكروفون.'
+                : 'Could not hear a clear question. Please speak closer to your microphone.')
+          );
+          return;
+        }
+
+        const replyLang = data.lang || (isAr ? 'ar' : 'en');
+        const aiTurn = {
+          id: `av_${Date.now()}`,
+          role: 'assistant',
+          content: data.answer || '',
+          spokenSummary: data.spoken_summary || '',
+          lang: replyLang,
+          actions: Array.isArray(data.actions) ? data.actions : [],
+          followUps: Array.isArray(data.follow_ups) ? data.follow_ups : [],
+          showCommercialCta: Boolean(data.show_commercial_cta),
+        };
+
+        setMessages((prev) => [
+          ...prev.map((m) =>
+            m.id === tempUserId
+              ? { ...m, content: `🎙️ ${data.heard_question}`, lang: replyLang }
+              : m
+          ),
+          aiTurn,
+        ]);
+
+        // Auto-speak the 2-sentence studio summary immediately while the full answer displays on screen
+        playAnswerAudio(aiTurn, true);
+      } catch (err) {
+        setErrorMsg(
+          err?.message ||
+            (isAr
+              ? 'حدث خطأ أثناء إرسال السؤال الصوتي.'
+              : 'Error sending voice question. Please try again.')
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [honeypot, isAr, isLoading, messages, pageContext, playAnswerAudio, stopChatAudio]
+  );
+
+  const startVoiceRecording = useCallback(async () => {
+    if (!voiceEnabled || !canRecordAudio || isLoading || isRecording) return;
+    setErrorMsg('');
+    stopChatAudio();
+    if (typeof onPauseDemoAudio === 'function') {
+      onPauseDemoAudio();
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+
+      const preferredMimes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+      ];
+      const chosenMime =
+        preferredMimes.find((m) => window.MediaRecorder.isTypeSupported?.(m)) || '';
+
+      const recorder = chosenMime
+        ? new window.MediaRecorder(stream, { mimeType: chosenMime })
+        : new window.MediaRecorder(stream);
+
+      recordChunksRef.current = [];
+      discardRecordingRef.current = false;
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size > 0) {
+          recordChunksRef.current.push(ev.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const wasDiscarded = discardRecordingRef.current;
+        const finalMime = recorder.mimeType || chosenMime || 'audio/webm';
+        const chunks = recordChunksRef.current;
+        recordChunksRef.current = [];
+        stopRecordingStream();
+        setIsRecording(false);
+        setRecordingSec(0);
+
+        if (!wasDiscarded && chunks.length > 0) {
+          const blob = new Blob(chunks, { type: finalMime });
+          if (blob.size > 250) {
+            sendVoiceBlob(blob, finalMime);
+          }
+        }
+      };
+
+      recorder.start();
+      setIsRecording(true);
+      setRecordingSec(0);
+
+      recordTimerRef.current = setInterval(() => {
+        setRecordingSec((prev) => {
+          if (prev >= 29) {
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+              mediaRecorderRef.current.stop();
+            }
+            return 30;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch {
+      stopRecordingStream();
+      setIsRecording(false);
+      setErrorMsg(
+        isAr
+          ? 'يرجى السماح بالوصول إلى الميكروفون في المتصفح لطرح سؤالك صوتياً، أو اكتب سؤالك أدناه.'
+          : 'Please allow microphone access in your browser to speak, or type your question below.'
+      );
+    }
+  }, [
+    canRecordAudio,
+    isAr,
+    isLoading,
+    isRecording,
+    onPauseDemoAudio,
+    sendVoiceBlob,
+    stopChatAudio,
+    stopRecordingStream,
+    voiceEnabled,
+  ]);
+
+  const finishVoiceRecording = useCallback(() => {
+    discardRecordingRef.current = false;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+  }, []);
+
+  const cancelVoiceRecording = useCallback(() => {
+    discardRecordingRef.current = true;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    } else {
+      stopRecordingStream();
+      setIsRecording(false);
+      setRecordingSec(0);
+    }
+  }, [stopRecordingStream]);
+
   const handleClearChat = useCallback(() => {
+    stopChatAudio();
     setMessages([]);
     setErrorMsg('');
     if (typeof window !== 'undefined') {
@@ -435,7 +852,7 @@ export default function PublicProductExpertChat({
         // Ignore
       }
     }
-  }, []);
+  }, [stopChatAudio]);
 
   if (!isOpen) {
     return null;
@@ -481,7 +898,31 @@ export default function PublicProductExpertChat({
               </div>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div
+                dir="ltr"
+                className="inline-flex items-center rounded-lg bg-white/10 p-0.5 border border-white/15 text-[10.5px] font-bold"
+              >
+                <button
+                  type="button"
+                  onClick={() => handleChatLangSwitch('en')}
+                  className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                    !isAr ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  EN
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleChatLangSwitch('ar')}
+                  className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                    isAr ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  عربي
+                </button>
+              </div>
+
               {messages.length > 0 && (
                 <button
                   type="button"
@@ -574,6 +1015,39 @@ export default function PublicProductExpertChat({
                   className="space-y-2 scroll-mt-3"
                 >
                   <div className="bg-white rounded-2xl rounded-es-sm border border-slate-200/95 p-3.5 shadow-2xs space-y-3">
+                    {voiceEnabled && (
+                      <div dir={msgRtl ? 'rtl' : 'ltr'} className="flex items-center justify-end -mb-1">
+                        <button
+                          type="button"
+                          onClick={() => playAnswerAudio(msg, false)}
+                          disabled={ttsLoadingMsgId === msg.id}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold border transition-all cursor-pointer ${
+                            speakingMsgId === msg.id
+                              ? 'bg-amber-500 text-white border-amber-500 shadow-2xs'
+                              : ttsLoadingMsgId === msg.id
+                                ? 'bg-slate-100 text-slate-500 border-slate-200'
+                                : 'bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 border-slate-200 hover:border-blue-300'
+                          }`}
+                        >
+                          {ttsLoadingMsgId === msg.id ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <span>{msgRtl ? 'تحضير الصوت...' : 'Preparing...'}</span>
+                            </>
+                          ) : speakingMsgId === msg.id ? (
+                            <>
+                              <Square className="w-2.5 h-2.5 fill-current" />
+                              <span>{msgRtl ? 'إيقاف القراءة' : 'Stop Voice'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="w-3 h-3" />
+                              <span>{msgRtl ? 'استمع للملخص' : 'Listen'}</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
                     <FormattedAnswer text={msg.content} isRtl={msgRtl} />
 
                     {/* 1-Click Validated Showcase Proof Chips */}
@@ -708,42 +1182,100 @@ export default function PublicProductExpertChat({
             aria-hidden="true"
           />
 
-          <div className="flex items-center gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              maxLength={2000}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder={
-                isAr
-                  ? 'اكتب سؤالك بالعربية أو English...'
-                  : 'Ask in English or بالعربية...'
-              }
-              className="flex-1 min-w-0 px-3.5 py-2 rounded-xl bg-slate-100/90 focus:bg-white border border-slate-200 focus:border-blue-500 text-xs sm:text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors"
-            />
-            <button
-              type="submit"
-              disabled={!inputValue.trim() || isLoading}
-              className="p-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white transition-colors shrink-0 cursor-pointer disabled:cursor-not-allowed"
-              title={isAr ? 'إرسال' : 'Send'}
-            >
-              <Send className={`w-4 h-4 ${isAr ? '-scale-x-100' : ''}`} />
-            </button>
-          </div>
+          {voiceEnabled && isRecording ? (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-rose-50 border border-rose-200">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping shrink-0" />
+                <span className="text-xs font-extrabold text-rose-800 truncate">
+                  {isAr ? 'جاري الاستماع...' : 'Listening...'}{' '}
+                  <span className="font-mono">
+                    0:{String(recordingSec).padStart(2, '0')} / 0:30
+                  </span>
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={cancelVoiceRecording}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                >
+                  {isAr ? 'إلغاء' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  onClick={finishVoiceRecording}
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11.5px] font-extrabold shadow-2xs transition-colors cursor-pointer"
+                >
+                  <Square className="w-2.5 h-2.5 fill-current" />
+                  <span>{isAr ? 'إرسال الصوت' : 'Send Voice'}</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <input
+                ref={inputRef}
+                type="text"
+                maxLength={2000}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder={
+                  isAr
+                    ? 'اكتب سؤالك بالعربية أو English...'
+                    : 'Ask in English or بالعربية...'
+                }
+                className="flex-1 min-w-0 px-3.5 py-2 rounded-xl bg-slate-100/90 focus:bg-white border border-slate-200 focus:border-blue-500 text-xs sm:text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors"
+              />
+              {voiceEnabled && canRecordAudio && (
+                <button
+                  type="button"
+                  onClick={startVoiceRecording}
+                  disabled={isLoading}
+                  className="p-2.5 rounded-xl bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-700 border border-slate-200 hover:border-amber-300 disabled:opacity-40 transition-colors shrink-0 cursor-pointer disabled:cursor-not-allowed"
+                  title={isAr ? 'اسأل بصوتك (عربي أو English)' : 'Ask by voice (English or Arabic)'}
+                >
+                  <Mic className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={!inputValue.trim() || isLoading}
+                className="p-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white transition-colors shrink-0 cursor-pointer disabled:cursor-not-allowed"
+                title={isAr ? 'إرسال' : 'Send'}
+              >
+                <Send className={`w-4 h-4 ${isAr ? '-scale-x-100' : ''}`} />
+              </button>
+            </div>
+          )}
 
-          <div className="flex items-center justify-between text-[10.5px] text-slate-400 px-0.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[10.5px] text-slate-400 px-0.5">
             <span className="inline-flex items-center gap-1">
               <MessageSquarePlus className="w-3 h-3 text-slate-400" />
               {isAr ? 'يرد تلقائياً بلغة سؤالك' : 'Auto-replies in your typed language'}
             </span>
-            <button
-              type="button"
-              onClick={handleBookDemoClick}
-              className="font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
-            >
-              {isAr ? 'احجز جلسة مباشرة ←' : 'Book a Live Session →'}
-            </button>
+            <div className="inline-flex items-center gap-2.5">
+              <Link
+                to={`/free-trial-register${activeModuleId ? `?module=${activeModuleId}` : ''}`}
+                onClick={() =>
+                  trackPublicEvent('cta_click', {
+                    page: String(pageContext || '').includes('landing') ? 'landing' : 'demo',
+                    lang: localLang,
+                    metadata: { target: 'chatbot_free_trial', module_id: activeModuleId || '' },
+                  })
+                }
+                className="font-bold text-emerald-600 hover:text-emerald-800"
+              >
+                {isAr ? 'تجربة مجانية' : 'Free Trial'}
+              </Link>
+              <span className="text-slate-300">·</span>
+              <button
+                type="button"
+                onClick={handleBookDemoClick}
+                className="font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
+              >
+                {isAr ? 'احجز جلسة ←' : 'Book Session →'}
+              </button>
+            </div>
           </div>
         </form>
       </aside>

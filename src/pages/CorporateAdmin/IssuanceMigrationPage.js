@@ -8,6 +8,7 @@ import {
   Download, Filter, Search, History, ZapOff, Zap, FileText, Check
 } from 'lucide-react';
 import { apiRequest } from 'services/apiService';
+import { formatDate } from '../../utils/dateFormat';
 
 const API_BASE = '/issuance/migration';
 
@@ -522,7 +523,7 @@ export default function IssuanceMigrationPage() {
                       <span style={{ color: '#64748b', fontSize: 12 }}>{entry.timestamp}</span>
                     </div>
                     <div style={{ color: '#94a3b8', fontSize: 13, marginTop: 4 }}>
-                      Amount: {entry.current_amount?.toLocaleString()} | Status: {entry.status} | Expiry: {entry.expiry_date || '—'}
+                      Amount: {entry.current_amount?.toLocaleString()} | Status: {entry.status} | Expiry: {formatDate(entry.expiry_date)}
                     </div>
                     {entry.diff && Object.keys(entry.diff).length > 0 && (
                       <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>

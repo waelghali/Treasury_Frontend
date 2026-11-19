@@ -4,16 +4,27 @@ import {
   Home, FileText, PlusCircle, BarChart, LogOut,
   FolderKanban, Users, ListTodo, ChevronLeft, ChevronRight,
   Building, History, Zap, Bell, RefreshCw, Menu, X,
-  AlertCircle, TrendingUp, Inbox
+  AlertCircle, TrendingUp, Inbox, Layers, Upload, Download
 } from 'lucide-react';
 import NotificationBanner from '../NotificationBanner';
 import SubscriptionBanner from '../SubscriptionBanner';
 import { fetchActiveSystemNotifications } from '../../services/notificationService';
 import { apiRequest } from '../../services/apiService';
 import MobileAlertsControl from '../MobileAlertsControl';
+import { getSidebarUserDisplay } from '../../utils/authUtils';
 import { parseISO } from 'date-fns';
 
-function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, headerTitle, subscriptionStatus, subscriptionEndDate, userPermissions, hasCustodyModule, hasIssuanceModule, hasQuotationModule = true, hasReconciliationModule = true, quotationSidebarStatus = null }) {
+function EndUserLayout({ onLogout, userEmail, userName, activeMenuItem, customerName, customerId, headerTitle, subscriptionStatus, subscriptionEndDate, userPermissions, hasCustodyModule, hasIssuanceModule, hasQuotationModule = true, hasReconciliationModule = true, quotationSidebarStatus = null, topBanner = null, sidebarOverride = null, sidebarHeaderSlot = null, mainContentOverride = null, hideRoleSubtitle = false }) {
+  const roleLabel = 'End User';
+  const userDisplay = getSidebarUserDisplay({
+    userEmail,
+    userName,
+    roleLabel,
+    fallbackInitials: 'EU',
+  });
+  const orgAndRoleSubtitle = hideRoleSubtitle
+    ? (customerName || 'Guided Sandbox')
+    : (customerName ? `${customerName} · ${roleLabel}` : roleLabel);
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -205,9 +216,13 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
   // Reusable Nav Links for both Desktop Sidebar and Mobile Drawer
   const renderNavLinks = (isDrawer = false) => (
     <>
-      {/* Dashboard - direct to quotations active if customer only has quotation module */}
+      {/* Dashboard - direct to active non-LG module if customer has neither custody nor issuance */}
       <Link
-        to={(!hasCustodyModule && !hasIssuanceModule && hasQuotationModule) ? "/end-user/quotations/active" : "/end-user/dashboard"}
+        to={
+          (!hasCustodyModule && !hasIssuanceModule)
+            ? (hasQuotationModule ? "/end-user/quotations/active" : hasReconciliationModule ? "/end-user/reconciliation" : "/end-user/dashboard")
+            : "/end-user/dashboard"
+        }
         title={isCollapsed && !isDrawer ? "Dashboard" : ""}
         className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-dashboard' || ((!hasCustodyModule && !hasIssuanceModule && hasQuotationModule) && activeMenuItem === 'end-user-quotations-active')
           ? 'font-semibold'
@@ -490,6 +505,59 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
         </>
       )}
 
+      {/* Bank Reconciliation (Maker Workspace) */}
+      {hasReconciliationModule && (
+        <>
+          {(!isCollapsed || isDrawer) && (
+            <div className="pt-3 pb-1 px-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.6)' }}>Bank Reconciliation</p>
+            </div>
+          )}
+          <Link
+            to="/end-user/reconciliation"
+            title={isCollapsed && !isDrawer ? "Statement Ingestion" : ""}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-recon-ingest'
+              ? 'font-semibold'
+              : 'hover:bg-white/[0.07]'
+              }`}
+            style={activeMenuItem === 'end-user-recon-ingest'
+              ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
+              : { color: '#cbd5e1' }}
+          >
+            <Upload className="h-5 w-5 flex-shrink-0" />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Statement Ingestion</span>}
+          </Link>
+          <Link
+            to="/end-user/reconciliation/workspace"
+            title={isCollapsed && !isDrawer ? "Master Workspace" : ""}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-recon-workspace'
+              ? 'font-semibold'
+              : 'hover:bg-white/[0.07]'
+              }`}
+            style={activeMenuItem === 'end-user-recon-workspace'
+              ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
+              : { color: '#cbd5e1' }}
+          >
+            <Layers className="h-5 w-5 flex-shrink-0" />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Master Workspace</span>}
+          </Link>
+          <Link
+            to="/end-user/reconciliation/export"
+            title={isCollapsed && !isDrawer ? "Accounting Export" : ""}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-recon-export'
+              ? 'font-semibold'
+              : 'hover:bg-white/[0.07]'
+              }`}
+            style={activeMenuItem === 'end-user-recon-export'
+              ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }
+              : { color: '#cbd5e1' }}
+          >
+            <Download className="h-5 w-5 flex-shrink-0" />
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Accounting Export</span>}
+          </Link>
+        </>
+      )}
+
       {(hasCustodyModule || hasIssuanceModule) && (
         <>
           {(!isCollapsed || isDrawer) && (
@@ -548,8 +616,11 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
               </span>
             )}
           </button>
-          <span className="inline-flex items-center justify-center h-7 w-7 rounded-full text-white text-[10px] font-bold bg-blue-600">
-            EU
+          <span
+            title={userDisplay.tooltip}
+            className="inline-flex items-center justify-center h-7 w-7 rounded-full text-white text-[10px] font-bold bg-blue-600"
+          >
+            {userDisplay.initials}
           </span>
         </div>
       </header>
@@ -581,17 +652,24 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
             </div>
 
             <nav className="flex-1 p-3 space-y-1 overflow-y-auto dark-sidebar-nav">
-              {renderNavLinks(true)}
+              {sidebarOverride ? (
+                sidebarOverride(false, true)
+              ) : (
+                <>
+                  {sidebarHeaderSlot && sidebarHeaderSlot(false, true)}
+                  {renderNavLinks(true)}
+                </>
+              )}
             </nav>
 
             <div className="p-4 border-t border-white/10 flex flex-col gap-3 flex-shrink-0 bg-[#16203a]">
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3" title={userDisplay.tooltip}>
                 <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                  EU
+                  {userDisplay.initials}
                 </div>
-                <div className="overflow-hidden flex-1">
-                  <p className="text-sm font-semibold text-white truncate">End User</p>
-                  <p className="text-[10px] text-slate-400 truncate">{customerName || 'My Organization'}</p>
+                <div className="overflow-hidden flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-white truncate">{userDisplay.primaryLabel}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{orgAndRoleSubtitle}</p>
                 </div>
               </div>
               <button
@@ -639,21 +717,31 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
 
         {/* Navigation */}
         <nav className="flex-grow p-3 space-y-1 overflow-y-auto relative z-10 dark-sidebar-nav">
-          {renderNavLinks(false)}
+          {sidebarOverride ? (
+            sidebarOverride(isCollapsed, false)
+          ) : (
+            <>
+              {sidebarHeaderSlot && sidebarHeaderSlot(isCollapsed, false)}
+              {renderNavLinks(false)}
+            </>
+          )}
         </nav>
 
         {/* User info & Logout */}
         <div className="p-4 flex-shrink-0 relative z-10" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          <div className={`flex items-center mb-4 ${isCollapsed ? 'justify-center' : 'ml-2'}`}>
+          <div
+            className={`flex items-center mb-4 ${isCollapsed ? 'justify-center' : 'ml-1'}`}
+            title={userDisplay.tooltip}
+          >
             <span className="inline-flex items-center justify-center h-8 w-8 rounded-full text-white text-xs font-bold flex-shrink-0"
               style={{ backgroundColor: '#2563eb' }}>
-              EU
+              {userDisplay.initials}
             </span>
             {!isCollapsed && (
               <>
-                <div className="ml-3 overflow-hidden flex-1">
-                  <p className="text-sm font-semibold text-white truncate">End User</p>
-                  <p className="text-[10px] truncate" style={{ color: '#94a3b8' }}>{customerName || 'My Organization'}</p>
+                <div className="ml-2.5 overflow-hidden flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-white truncate">{userDisplay.primaryLabel}</p>
+                  <p className="text-[10px] truncate" style={{ color: '#94a3b8' }}>{orgAndRoleSubtitle}</p>
                 </div>
                 {/* Notification Bell */}
                 <div className="relative ml-2">
@@ -760,7 +848,8 @@ function EndUserLayout({ onLogout, activeMenuItem, customerName, customerId, hea
             </div>
           ) : (
             <div className="w-full min-w-0">
-              <Outlet />
+              {topBanner}
+              {mainContentOverride || <Outlet />}
             </div>
           )}
         </div>

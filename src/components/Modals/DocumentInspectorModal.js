@@ -361,7 +361,7 @@ const DocumentInspectorModal = ({
                                             </div>
                                             <p className="text-xs text-blue-800 leading-relaxed">
                                                 {isDateAligned
-                                                    ? `Aligned from ${activeDateAlignment.requested_expiry_date} to bank-confirmed date ${activeDateAlignment.bank_confirmed_expiry_date}.`
+                                                    ? `Aligned from ${formatDateSafe(activeDateAlignment.requested_expiry_date)} to bank-confirmed date ${formatDateSafe(activeDateAlignment.bank_confirmed_expiry_date)}.`
                                                     : activeDateVariance?.prompt_message}
                                             </p>
                                             {onAcceptDateAlignment && mode === 'inspect_pre_submit' && activeDateVariance && (
@@ -374,7 +374,7 @@ const DocumentInspectorModal = ({
                                                     className="w-full py-1.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs flex items-center justify-center gap-1.5 transition-colors"
                                                 >
                                                     <Check className="h-3.5 w-3.5" />
-                                                    <span>Accept & Align to {activeDateVariance.bank_confirmed_expiry_date}</span>
+                                                    <span>Accept & Align to {formatDateSafe(activeDateVariance.bank_confirmed_expiry_date)}</span>
                                                 </button>
                                             )}
                                         </div>
@@ -385,7 +385,7 @@ const DocumentInspectorModal = ({
                                             <div className="flex items-center gap-2">
                                                 <Calendar className="h-4 w-4 text-teal-600 shrink-0" />
                                                 <h4 className="text-xs font-bold text-teal-900">
-                                                    Bank Stamp Date: {activeDeliveryVariance.detected_stamp_date}
+                                                    Bank Stamp Date: {formatDateSafe(activeDeliveryVariance.detected_stamp_date)}
                                                 </h4>
                                             </div>
                                             <p className="text-xs text-teal-800 leading-relaxed">
@@ -401,7 +401,7 @@ const DocumentInspectorModal = ({
                                                     className="w-full py-1.5 px-3 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold shadow-xs flex items-center justify-center gap-1.5 transition-colors"
                                                 >
                                                     <Check className="h-3.5 w-3.5" />
-                                                    <span>Align Delivery Date to {activeDeliveryVariance.detected_stamp_date}</span>
+                                                    <span>Align Delivery Date to {formatDateSafe(activeDeliveryVariance.detected_stamp_date)}</span>
                                                 </button>
                                             )}
                                         </div>

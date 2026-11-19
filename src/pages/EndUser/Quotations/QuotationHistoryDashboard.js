@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import QuotationCancellationModal from '../../../components/Modals/QuotationCancellationModal';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { formatDateTime } from '../../../utils/dateFormat';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const formatDate = (d) => {
@@ -24,7 +25,7 @@ const formatDate = (d) => {
         const day = String(date.getDate()).padStart(2, '0');
         const month = MONTHS[date.getMonth()];
         const year = date.getFullYear();
-        return `${day} ${month} ${year}`;
+        return `${day}-${month}-${year}`;
     } catch {
         return d;
     }
@@ -632,7 +633,7 @@ export default function QuotationHistoryDashboard() {
                                         )}
                                     </div>
                                     <div className="text-sm text-gray-500 mt-1">
-                                        Requested by {rfq.creator_name || 'End User'} • {new Date(rfq.created_at).toLocaleString()}
+                                        Requested by {rfq.creator_name || 'End User'} • {formatDateTime(rfq.created_at)}
                                     </div>
                                 </div>
                                 <div className="flex gap-3">

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import FacilityFormModal from '../../components/Modals/FacilityFormModal';
 import { SkeletonCards } from '../../components/SkeletonLoader';
+import { formatDate } from '../../utils/dateFormat';
 
 export default function FacilitiesPage() {
   const [facilities, setFacilities] = useState([]);
@@ -437,7 +438,7 @@ export default function FacilitiesPage() {
                     </div>
                     <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${fac.expiry_date ? 'border-slate-200 bg-slate-50 text-slate-600' : 'border-slate-100 text-slate-400'}`}>
                       <Clock size={14} />
-                      <span className="text-[10px] font-black uppercase tracking-tighter">{fac.expiry_date ? new Date(fac.expiry_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No Expiry'}</span>
+                      <span className="text-[10px] font-black uppercase tracking-tighter">{fac.expiry_date ? formatDate(fac.expiry_date) : 'No Expiry'}</span>
                     </div>
                   </div>
 

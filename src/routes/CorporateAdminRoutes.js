@@ -26,9 +26,8 @@ import BankAccountsPage from '../pages/CorporateAdmin/BankAccountsPage';
 import IssuedLGsPage from '../pages/EndUser/IssuedLGsPage';
 import LGOwnerManagementPage from '../pages/EndUser/LGOwnerManagementPage';
 import LGReconciliationPage from '../pages/EndUser/LGReconciliationPage';
-import IssuanceRequestForm from '../pages/Public/PublicIssuanceForm';
-// NEW: Import Bank Reconciliation Module
-import ImportDashboard from '../pages/CorporateAdmin/BankReconciliation/ImportDashboard';
+// Bank Reconciliation Oversight & Governance Module
+import ReconciliationAdminOverview from '../pages/CorporateAdmin/BankReconciliation/ReconciliationAdminOverview';
 import ReconciliationWorkspace from '../pages/CorporateAdmin/BankReconciliation/ReconciliationWorkspace';
 import RuleManagement from '../pages/CorporateAdmin/BankReconciliation/RuleManagement';
 import AccountingExport from '../pages/CorporateAdmin/BankReconciliation/AccountingExport';
@@ -38,27 +37,47 @@ import ResultsView from '../pages/EndUser/Quotations/ResultsView';
 import InboxPage from '../pages/EndUser/InboxPage';
 import InboxScheduleConfigPage from '../pages/CorporateAdmin/InboxScheduleConfigPage';
 
-// NEW: Import the generic ReportsPage and the single report component for this role
+// NEW: Import the generic ReportsPage and module-specific report components
 import ReportsPage from '../pages/Reports/ReportsPage';
 import CustomerLGPerformanceReport from '../pages/Reports/CustomerLGPerformanceReport';
+import IssuanceAnalyticsReport from '../pages/Reports/IssuanceAnalyticsReport';
+import { isCachedTrialSession } from '../components/Trial/useTrialExperience';
 
-// Define the single report for the Corporate Admin role
-const corporateAdminReports = [
-  {
-    name: "Customer LG Performance",
-    description: "View LG issuance, expiry, and costs by department/entity.",
-    path: "customer-lg-performance",
-    iconName: "BarChart"
-  },
-];
-
-function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIssuanceModule, hasCustodyModule, hasQuotationModule = true, hasReconciliationModule = true }) {
+function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, isTrial = false, hasIssuanceModule, hasCustodyModule, hasQuotationModule = true, hasReconciliationModule = true }) {
   const isGracePeriod = subscriptionStatus === 'grace';
-  const isQuotationOnly = !hasCustodyModule && !hasIssuanceModule && hasQuotationModule;
+  const effectiveIsTrial = Boolean(isTrial || isCachedTrialSession(customerId));
+  const isQuotationOnly = !effectiveIsTrial && !hasCustodyModule && !hasIssuanceModule && hasQuotationModule;
+  const isReconOnly = !effectiveIsTrial && !hasCustodyModule && !hasIssuanceModule && !hasQuotationModule && hasReconciliationModule;
+  const nonLgLanding = isQuotationOnly ? "quotations" : isReconOnly ? "reconciliation" : null;
+
+  const corporateAdminReports = [
+    ...(hasIssuanceModule
+      ? [
+          {
+            name: "LG Issuance Intelligence",
+            description: "Portfolio exposure, facility headroom, bank SLA & pricing scorecard, and velocity.",
+            path: "issuance-intelligence",
+            iconName: "Send",
+          },
+        ]
+      : []),
+    ...(hasCustodyModule
+      ? [
+          {
+            name: "LG Custody Ops Health",
+            description: "Incoming guarantee custody telemetry, instruction backlogs, and expiry risks.",
+            path: "customer-lg-performance",
+            iconName: "FileText",
+          },
+        ]
+      : []),
+  ];
+
+  const defaultReportPath = hasIssuanceModule ? "issuance-intelligence" : "customer-lg-performance";
 
   return (
     <Routes>
-      <Route path="dashboard" element={isQuotationOnly ? <Navigate to="../quotations" replace /> : <UnifiedDashboard hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} isGracePeriod={isGracePeriod} />} />
+      <Route path="dashboard" element={nonLgLanding ? <Navigate to={`../${nonLgLanding}`} replace /> : <UnifiedDashboard hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} isGracePeriod={isGracePeriod} />} />
       <Route path="lg-categories" element={<LGCategoryList onLogout={onLogout} isGracePeriod={isGracePeriod} />} />
       <Route path="lg-categories/new" element={<LGCategoryForm onLogout={onLogout} isGracePeriod={isGracePeriod} />} />
       <Route path="lg-categories/edit/:id" element={<LGCategoryForm onLogout={onLogout} isGracePeriod={isGracePeriod} />} />
@@ -70,7 +89,8 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIss
 
       {/* Reports */}
       <Route path="reports" element={<ReportsPage reports={corporateAdminReports} />}>
-        <Route index element={<Navigate to="customer-lg-performance" replace />} />
+        <Route index element={<Navigate to={defaultReportPath} replace />} />
+        <Route path="issuance-intelligence" element={<IssuanceAnalyticsReport />} />
         <Route path="customer-lg-performance" element={<CustomerLGPerformanceReport />} />
       </Route>
 
@@ -96,12 +116,11 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIss
         }
       />
 
-      {/* Issuance Module Routes */}
-      {/* Treasury Dashboard now merged into unified dashboard */}
-      <Route path="issuance/request-new" element={<IssuanceRequestForm />} />
-      <Route path="issuance/requests/new" element={<IssuanceRequestForm />} />
+      {/* Issuance Module Routes — Corporate Admin is Checker/Oversight (no maker creation/edit routes) */}
+      <Route path="issuance/request-new" element={<Navigate to="../issuance/requests" replace />} />
+      <Route path="issuance/requests/new" element={<Navigate to="../issuance/requests" replace />} />
       <Route path="issuance/requests" element={<IssuanceRequestsPage />} />
-      <Route path="issuance/requests/edit/:id" element={<IssuanceRequestForm />} />
+      <Route path="issuance/requests/edit/:id" element={<Navigate to="../issuance/requests" replace />} />
       <Route path="issuance/form-config" element={<IssuanceFormConfigPage />} />
       {/* NEW: Facilities Route */}
       <Route path="issuance/facilities" element={<FacilitiesPage />} />
@@ -113,13 +132,19 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIss
       {/* Issuance Approval Inbox (shared with checker role) */}
       <Route path="approval-inbox" element={<IssuanceApprovalInboxPage />} />
 
-      {/* NEW: Reconciliation Module Route */}
-      <Route path="reconciliation" element={<ImportDashboard />} />
-      <Route path="reconciliation/dashboard" element={<ImportDashboard />} />
-      <Route path="reconciliation/workspace" element={<ReconciliationWorkspace />} />
-      <Route path="reconciliation/workspace/:statementId" element={<ReconciliationWorkspace />} />
-      <Route path="reconciliation/rules" element={<RuleManagement />} />
-      <Route path="reconciliation/export" element={<AccountingExport />} />
+      {/* Bank Reconciliation Oversight & Governance Routes */}
+      {hasReconciliationModule ? (
+        <>
+          <Route path="reconciliation" element={<ReconciliationAdminOverview />} />
+          <Route path="reconciliation/dashboard" element={<ReconciliationAdminOverview />} />
+          <Route path="reconciliation/workspace" element={<ReconciliationWorkspace readOnly={true} />} />
+          <Route path="reconciliation/workspace/:statementId" element={<ReconciliationWorkspace readOnly={true} />} />
+          <Route path="reconciliation/rules" element={<RuleManagement />} />
+          <Route path="reconciliation/export" element={<AccountingExport />} />
+        </>
+      ) : (
+        <Route path="reconciliation/*" element={<Navigate to={`../${nonLgLanding || 'dashboard'}`} replace />} />
+      )}
 
       {/* Quotation Module Route */}
       <Route path="quotations" element={<AdminQuotationDashboard />} />
@@ -131,7 +156,7 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, hasIss
       <Route path="inbox" element={<InboxPage />} />
       <Route path="inbox/schedule" element={<InboxScheduleConfigPage />} />
 
-      <Route path="*" element={<Navigate to={isQuotationOnly ? "quotations" : "dashboard"} replace />} />
+      <Route path="*" element={<Navigate to={nonLgLanding || "dashboard"} replace />} />
     </Routes>
   );
 }

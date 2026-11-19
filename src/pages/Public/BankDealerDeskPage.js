@@ -12,6 +12,7 @@ import {
     Users, UserCheck, User
 } from 'lucide-react';
 import tradingAudio from '../../utils/tradingAudioEngine';
+import { formatDate, formatDateTime } from 'utils/dateFormat';
 
 const DIRECT_BACKEND_URL = 'https://api.growbusinessdevelopment.com';
 
@@ -983,7 +984,7 @@ export default function BankDealerDeskPage() {
                                                                 <span className="px-2 py-0.5 rounded text-[11px] font-black uppercase tracking-wider bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
                                                                     {ticket.visible_legs.length} Legs Package
                                                                 </span>
-                                                                <span className="text-slate-400 font-medium text-xs">{ticket.summary_value_date}</span>
+                                                                <span className="text-slate-400 font-medium text-xs">{formatDate(ticket.summary_value_date, '')}</span>
                                                                 <span className="text-slate-600">&bull;</span>
                                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                                                                     ticket.quotation_base?.toLowerCase() === 'indicative'
@@ -1013,7 +1014,7 @@ export default function BankDealerDeskPage() {
                                                                             ({leg.currency_pair})
                                                                         </span>
                                                                         <span className="text-slate-500 text-[11px]">
-                                                                            &bull; {leg.value_date}
+                                                                            &bull; {formatDate(leg.value_date, '')}
                                                                         </span>
                                                                         {leg.allow_alternative_value_date && (
                                                                             <span className="ml-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30" title="Client allows alternative value date">
@@ -1047,7 +1048,7 @@ export default function BankDealerDeskPage() {
                                                                 {ticket.summary_amount ? formatCurrency(ticket.summary_amount) : ''} {ticket.summary_currency ? ticket.summary_currency + ' ' : ''}{ticket.summary_pair}
                                                             </span>
                                                             <span className="text-slate-600">&bull;</span>
-                                                            <span className="text-slate-400 font-medium text-xs">{ticket.summary_value_date}</span>
+                                                            <span className="text-slate-400 font-medium text-xs">{formatDate(ticket.summary_value_date, '')}</span>
                                                             {ticket.allow_alternative_value_date && (
                                                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30" title="Client allows alternative value date">
                                                                     Alt Date Allowed
@@ -1175,7 +1176,7 @@ export default function BankDealerDeskPage() {
                                                             <td className="py-3 px-4">
                                                                 <div className="font-bold text-white font-mono">{item.ref_no}</div>
                                                                 <div className="text-[10px] text-slate-500 font-sans mt-0.5">
-                                                                    {new Date(item.concluded_at).toLocaleDateString()} {new Date(item.concluded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                    {formatDateTime(item.concluded_at)}
                                                                 </div>
                                                                 <div className="mt-1">
                                                                     {item.is_won_by_me || (item.dealer_submitted_by && dealer?.email && item.dealer_submitted_by.trim().toLowerCase() === dealer.email.trim().toLowerCase()) ? (
@@ -1250,7 +1251,7 @@ export default function BankDealerDeskPage() {
                                                                 )}
                                                             </td>
                                                             <td className="py-3 px-4 text-slate-300 font-sans text-xs">
-                                                                {isMultiLeg ? 'Multiple Dates' : (item.summary_value_date || 'Spot')}
+                                                                {isMultiLeg ? 'Multiple Dates' : (item.summary_value_date ? formatDate(item.summary_value_date) : 'Spot')}
                                                             </td>
                                                             <td className="py-3 px-4">
                                                                 {item.receipt ? (
@@ -1327,7 +1328,7 @@ export default function BankDealerDeskPage() {
                                                                                             <td className="py-2 px-2 text-white font-bold">
                                                                                                 {formatCurrency(leg.amount)} <span className="text-[10px] text-slate-400">{leg.currency}</span>
                                                                                             </td>
-                                                                                            <td className="py-2 px-2 text-slate-300 font-sans text-[11px]">{leg.value_date || 'Spot'}</td>
+                                                                                            <td className="py-2 px-2 text-slate-300 font-sans text-[11px]">{leg.value_date ? formatDate(leg.value_date) : 'Spot'}</td>
                                                                                             <td className="py-2 px-2">
                                                                                                 <span className="text-emerald-400 font-extrabold">
                                                                                                     {formatRate(leg.my_rate || leg.winning_rate)}
@@ -1379,7 +1380,7 @@ export default function BankDealerDeskPage() {
                                                         </span>
                                                     </div>
                                                     <div className="text-xs font-mono text-slate-400 mt-0.5 flex flex-wrap items-center gap-2">
-                                                        <span>{item.ref_no} &bull; {new Date(item.concluded_at).toLocaleString()}</span>
+                                                        <span>{item.ref_no} &bull; {formatDateTime(item.concluded_at)}</span>
                                                         {item.is_won_by_me || (item.dealer_submitted_by && dealer?.email && item.dealer_submitted_by.trim().toLowerCase() === dealer.email.trim().toLowerCase()) ? (
                                                             <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                                                                 <UserCheck className="w-2.5 h-2.5 mr-1" /> Won by You
@@ -1426,7 +1427,7 @@ export default function BankDealerDeskPage() {
                                                                     {formatCurrency(leg.amount)} {leg.currency}
                                                                 </span>
                                                                 <span className="text-slate-400 font-sans text-[11px]">({leg.pair})</span>
-                                                                <span className="text-slate-500 text-[10px] font-sans">&bull; {leg.value_date || 'Spot'}</span>
+                                                                <span className="text-slate-500 text-[10px] font-sans">&bull; {leg.value_date ? formatDate(leg.value_date) : 'Spot'}</span>
                                                             </div>
                                                             <div className="flex items-center space-x-2.5 font-mono text-xs">
                                                                 <span className="text-emerald-400 font-extrabold text-sm">
@@ -1466,7 +1467,7 @@ export default function BankDealerDeskPage() {
                                                 <div>
                                                     <div className="text-[10px] uppercase font-bold text-slate-500">Value Date</div>
                                                     <div className="text-slate-300 mt-0.5">
-                                                        {item.summary_value_date || 'Spot'}
+                                                        {item.summary_value_date ? formatDate(item.summary_value_date) : 'Spot'}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1537,7 +1538,7 @@ export default function BankDealerDeskPage() {
                                                             <td className="py-3 px-4">
                                                                 <div className="font-bold text-white font-mono">{item.ref_no}</div>
                                                                 <div className="text-[10px] text-slate-500 font-sans mt-0.5">
-                                                                    {new Date(item.concluded_at).toLocaleDateString()} {new Date(item.concluded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                    {formatDateTime(item.concluded_at)}
                                                                 </div>
                                                                 <div className="mt-1">
                                                                     {item.quoted_by_me || item.is_won_by_me || (item.dealer_submitted_by && dealer?.email && item.dealer_submitted_by.trim().toLowerCase() === dealer.email.trim().toLowerCase()) ? (
@@ -1733,7 +1734,7 @@ export default function BankDealerDeskPage() {
                                                                                             <td className="py-2 px-2 text-white font-bold">
                                                                                                 {formatCurrency(leg.amount)} <span className="text-[10px] text-slate-400">{leg.currency}</span>
                                                                                             </td>
-                                                                                            <td className="py-2 px-2 text-slate-300 font-sans text-[11px]">{leg.value_date || 'Spot'}</td>
+                                                                                            <td className="py-2 px-2 text-slate-300 font-sans text-[11px]">{leg.value_date ? formatDate(leg.value_date) : 'Spot'}</td>
                                                                                             <td className="py-2 px-2">
                                                                                                 {leg.my_rate ? (
                                                                                                     <span className={leg.is_won ? 'text-emerald-400 font-extrabold' : 'text-slate-300'}>
@@ -1818,7 +1819,7 @@ export default function BankDealerDeskPage() {
                                                             </span>
                                                         </div>
                                                         <div className="text-xs font-mono text-slate-400 mt-0.5">
-                                                            {item.ref_no} &bull; {new Date(item.concluded_at).toLocaleString()}
+                                                            {item.ref_no} &bull; {formatDateTime(item.concluded_at)}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1856,7 +1857,7 @@ export default function BankDealerDeskPage() {
                                                                         {formatCurrency(leg.amount)} {leg.currency}
                                                                     </span>
                                                                     <span className="text-slate-400 font-sans text-[11px]">({leg.pair})</span>
-                                                                    <span className="text-slate-500 text-[10px] font-sans">&bull; {leg.value_date || 'Spot'}</span>
+                                                                    <span className="text-slate-500 text-[10px] font-sans">&bull; {leg.value_date ? formatDate(leg.value_date) : 'Spot'}</span>
                                                                 </div>
                                                                 <div className="flex items-center space-x-2.5 font-mono text-xs">
                                                                     {leg.my_rate ? (
@@ -1926,7 +1927,7 @@ export default function BankDealerDeskPage() {
                                                         </div>
                                                         <div className="font-mono text-white mt-0.5">
                                                             {item.is_won ? (
-                                                                <span className="text-slate-300 font-sans">{item.summary_value_date || 'Spot'}</span>
+                                                                <span className="text-slate-300 font-sans">{item.summary_value_date ? formatDate(item.summary_value_date) : 'Spot'}</span>
                                                             ) : item.dealer_rate ? (
                                                                 <span className="text-slate-300 font-bold">{formatRate(item.dealer_rate)}</span>
                                                             ) : (
@@ -2365,11 +2366,11 @@ export default function BankDealerDeskPage() {
                                     </div>
                                     <div>
                                         <div className="text-[10px] uppercase font-bold text-slate-500">Value Date</div>
-                                        <div className="text-slate-200 mt-0.5">{selectedDealSlip.summary_value_date || 'Spot Settlement'}</div>
+                                        <div className="text-slate-200 mt-0.5">{selectedDealSlip.summary_value_date ? formatDate(selectedDealSlip.summary_value_date) : 'Spot Settlement'}</div>
                                     </div>
                                     <div>
                                         <div className="text-[10px] uppercase font-bold text-slate-500">Concluded Timestamp</div>
-                                        <div className="text-slate-200 mt-0.5">{new Date(selectedDealSlip.concluded_at).toLocaleString()}</div>
+                                        <div className="text-slate-200 mt-0.5">{formatDateTime(selectedDealSlip.concluded_at)}</div>
                                     </div>
                                     <div>
                                         <div className="text-[10px] uppercase font-bold text-slate-500">Desk Quote Status</div>
@@ -2417,7 +2418,7 @@ export default function BankDealerDeskPage() {
                                                             <td className="py-2 px-2 text-white font-bold">
                                                                 {formatCurrency(leg.amount)} <span className="text-[10px] text-slate-400">{leg.currency}</span>
                                                             </td>
-                                                            <td className="py-2 px-2 text-slate-300 font-sans text-[11px]">{leg.value_date || 'Spot'}</td>
+                                                            <td className="py-2 px-2 text-slate-300 font-sans text-[11px]">{leg.value_date ? formatDate(leg.value_date) : 'Spot'}</td>
                                                             <td className="py-2 px-2">
                                                                 {leg.my_rate ? (
                                                                     <span className={leg.is_won ? 'text-emerald-400 font-extrabold' : 'text-slate-300'}>

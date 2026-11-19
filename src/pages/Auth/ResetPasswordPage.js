@@ -5,6 +5,7 @@ import { API_BASE_URL } from 'services/apiService';
 import { Lock, Loader2, ArrowLeft, CheckCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { toast } from 'react-toastify';
+import GrowLogo from '../../components/Common/GrowLogo';
 
 function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState('');
@@ -84,9 +85,8 @@ function ResetPasswordPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center justify-center space-x-2 mb-6 hover:opacity-90 transition-opacity">
-            <span className="text-xl font-bold text-white tracking-tight">Grow</span>
-            <span className="text-xs text-blue-400 font-medium">Business Development</span>
+          <Link to="/" className="inline-flex items-center justify-center mb-6 hover:opacity-95 transition-opacity">
+            <GrowLogo size="md" />
           </Link>
         </div>
 

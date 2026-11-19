@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import apiClient from '../../services/apiClient';
+import { formatDateTime } from 'utils/dateFormat';
 
 const QUICK_SNIPPETS = [
   {
@@ -1398,7 +1399,7 @@ function ComposeEmailPage() {
 
                     <div className="flex items-center justify-between pt-1 text-[10px] text-slate-400">
                       <span>
-                        {item.timestamp ? new Date(item.timestamp).toLocaleString() : ''}
+                        {item.timestamp ? formatDateTime(item.timestamp, '') : ''}
                       </span>
                       <button
                         type="button"

@@ -2,13 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '../../services/apiService';
 import {
   Loader2, CheckCircle, XCircle, Printer, Play, Search, Zap, Link as LinkIcon, Copy, Eye,
-  ArrowUp, ArrowDown, X, SlidersHorizontal, Edit3
+  ArrowUp, ArrowDown, X, SlidersHorizontal, Edit3, Plus
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import IssuanceExecutionModal from '../../components/Modals/IssuanceExecutionModal';
 import IssuanceRequestDetailsModal from '../../components/Modals/IssuanceRequestDetailsModal';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SkeletonTable } from '../../components/SkeletonLoader';
+import FormattedDateInput from 'components/FormattedDateInput';
 
 export default function IssuanceRequestsPage() {
   const [requests, setRequests] = useState([]);
@@ -250,18 +251,38 @@ export default function IssuanceRequestsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with Invite Button */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Issuance Requests</h1>
-        {(isCorporateAdmin || isEndUser) && (
-          <button
-            onClick={() => { setShowInviteModal(true); setGeneratedLink(''); }}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition shadow-sm"
-          >
-            <LinkIcon className="h-4 w-4" />
-            Generate Invite
-          </button>
-        )}
+      {/* Header with Role-Appropriate Actions (Maker vs Checker Governance) */}
+      <div className="flex flex-wrap justify-between items-center gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Issuance Requests</h1>
+          {isCorporateAdmin && (
+            <p className="text-xs text-gray-500 mt-0.5">
+              Governance &amp; checker view — inspect request details, approve pending steps, or generate requestor portal invites
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2.5">
+          {isEndUser && (
+            <button
+              type="button"
+              onClick={() => navigate('/end-user/issuance/request-new')}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm text-sm font-semibold"
+            >
+              <Plus className="h-4 w-4" />
+              New LG Request
+            </button>
+          )}
+          {(isCorporateAdmin || isEndUser) && (
+            <button
+              type="button"
+              onClick={() => { setShowInviteModal(true); setGeneratedLink(''); }}
+              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition shadow-sm text-sm font-semibold"
+            >
+              <LinkIcon className="h-4 w-4" />
+              Generate Invite
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-3">
@@ -310,13 +331,13 @@ export default function IssuanceRequestsPage() {
           <div className="flex flex-wrap gap-4 pt-2 border-t border-gray-100">
             <div className="min-w-[140px]">
               <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Created From</label>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+              <FormattedDateInput value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white" />
             </div>
             <div className="min-w-[140px]">
               <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Created To</label>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+              <FormattedDateInput value={dateTo} onChange={e => setDateTo(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white" />
             </div>
           </div>
         )}
@@ -396,13 +417,13 @@ export default function IssuanceRequestsPage() {
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end space-x-2">
-                        {/* Edit — visible for all pre-issuance statuses */}
-                        {!['ISSUED', 'REJECTED', 'INTERNAL_PROCESSING', 'COMPLETED', 'CANCELLED', 'CANCELLATION_REQUESTED', 'EDIT_REQUESTED'].includes(req.status) && !req.locked_for_issuance && (
+                        {/* Maker Edit / Submit — strictly End User (Maker) only, never Corporate Admin (Checker) */}
+                        {isEndUser && !['ISSUED', 'REJECTED', 'INTERNAL_PROCESSING', 'COMPLETED', 'CANCELLED', 'CANCELLATION_REQUESTED', 'EDIT_REQUESTED'].includes(req.status) && !req.locked_for_issuance && (
                           <button onClick={() => navigate(`edit/${req.id}`)} className="text-amber-600 hover:text-amber-900" title="Edit Request">
                             <Edit3 className="h-5 w-5" />
                           </button>
                         )}
-                        {req.status === 'DRAFT' && (
+                        {isEndUser && req.status === 'DRAFT' && (
                           <button onClick={() => handleStatusChange(req.id, 'submit', 'submit')} className="text-blue-600 hover:text-blue-900" title="Submit">
                             <Play className="h-5 w-5" />
                           </button>

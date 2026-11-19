@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { formatDate } from '../utils/dateFormat';
 import {
   Sparkles,
   Send,
@@ -870,7 +871,7 @@ const AIQueryAssistantModal = ({ isOpen, onClose, userRole }) => {
                           </span>
                           {ref.expiry_date && (
                             <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
-                              (Exp: {ref.expiry_date})
+                              (Exp: {formatDate(ref.expiry_date)})
                             </span>
                           )}
                           <ExternalLink className="w-3 h-3 text-indigo-500 ml-0.5 opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />

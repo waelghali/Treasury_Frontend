@@ -5,6 +5,7 @@ import { X, Save, Upload, FileText, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 import { apiRequest } from '../../services/apiService';
+import FormattedDateInput from 'components/FormattedDateInput';
 
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
@@ -213,6 +214,22 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
                             {...extraProps}
                         />
                     </div>
+                ) : type === 'date' ? (
+                    <FormattedDateInput
+                        name={name}
+                        id={name}
+                        value={inputValue}
+                        onChange={handleInputChange}
+                        readOnly={readOnly || isLoadingAI}
+                        disabled={readOnly || isLoadingAI}
+                        className={classNames(
+                            "mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2",
+                            "border border-gray-300",
+                            (readOnly || isLoadingAI) ? "bg-gray-100 text-gray-500" : "focus:border-indigo-500 focus:ring-indigo-500",
+                            hasBeenChanged ? "bg-yellow-50 border-yellow-400" : "bg-white"
+                        )}
+                        {...extraProps}
+                    />
                 ) : (
                     <input
                         type={type}

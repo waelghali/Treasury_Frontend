@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
     ArrowLeft, Search, Filter, CheckCircle2,
     RefreshCw, Link as LinkIcon, Unlink, Info,
@@ -9,6 +9,9 @@ import {
     Upload, Download, Layers, Edit3, RotateCcw, ArrowRightLeft
 } from 'lucide-react';
 import { apiRequest } from '../../../services/apiService';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDate } from '../../../utils/dateFormat';
+import { isCachedTrialSession } from '../../../components/Trial/useTrialExperience';
 
 // Standard number formatter with thousand-separator commas
 const formatMoney = (val, decimals = 2) => {
@@ -21,9 +24,11 @@ const formatMoney = (val, decimals = 2) => {
     });
 };
 
-const ReconciliationWorkspace = () => {
+const ReconciliationWorkspace = ({ readOnly = false }) => {
     const { statementId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
+    const basePrefix = location.pathname.startsWith('/end-user') ? '/end-user' : '/corporate-admin';
 
     // Data State
     const [bankTransactions, setBankTransactions] = useState([]);
@@ -39,6 +44,15 @@ const ReconciliationWorkspace = () => {
     const [showViewSettings, setShowViewSettings] = useState(false);
     const [expandedRowId, setExpandedRowId] = useState(null); // inline expanded row
     const [quickFilter, setQuickFilter] = useState('all');   // 'all' | 'sweeps' | 'unmatched' | 'reconciled'
+    const [isTrialSandbox] = useState(() => {
+        try {
+            const u = JSON.parse(localStorage.getItem('user') || '{}');
+            return isCachedTrialSession(u?.customer_id);
+        } catch {
+            return false;
+        }
+    });
+    const [isAutoLoadingTrial, setIsAutoLoadingTrial] = useState(false);
 
     const setViewMode = (val) => {
         localStorage.setItem('recon_viewMode', val);
@@ -163,9 +177,21 @@ const ReconciliationWorkspace = () => {
         setCurrentPage(1);
     }, [filters.bank_id, filters.start_date, filters.end_date, filters.is_reconciled, filters.is_classified, filters.search]);
 
+    useEffect(() => {
+        const handleSampleLoaded = (evt) => {
+            if (!evt?.detail?.scope || evt.detail.scope === 'reconciliation') {
+                setIsAutoLoadingTrial(false);
+                setViewMode('split');
+                fetchData();
+            }
+        };
+        window.addEventListener('grow-trial-sample-loaded', handleSampleLoaded);
+        return () => window.removeEventListener('grow-trial-sample-loaded', handleSampleLoaded);
+    }, []);
+
     const fetchBanks = async () => {
         try {
-            const data = await apiRequest('/corporate-admin/banks', 'GET');
+            const data = await apiRequest('/reconciliation/banks', 'GET');
             setBanks(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error("Failed to fetch banks", err);
@@ -244,6 +270,7 @@ const ReconciliationWorkspace = () => {
     };
 
     const openClassifyModal = (txn) => {
+        if (readOnly) return;
         setSelectedTxnForClassify(txn);
         const guessedParty = txn.beneficiary_name || txn.company_name || '';
         const defaultClass = taxonomy[0]?.name || 'Operating Expenses (OPEX)';
@@ -309,6 +336,7 @@ const ReconciliationWorkspace = () => {
 
     // ── Bulk Operations Handlers ──────────────────────────────────────────────
     const handleSelectAllFiltered = () => {
+        if (readOnly) return;
         setSelectedBankTxns(sortedTransactions.map(t => t.id));
     };
 
@@ -317,7 +345,7 @@ const ReconciliationWorkspace = () => {
     };
 
     const openBulkClassifyModal = () => {
-        if (selectedBankTxns.length === 0) return;
+        if (readOnly || selectedBankTxns.length === 0) return;
         const defaultCategory = taxonomy[0]?.name || 'Operating Expenses (OPEX)';
         const defaultSub = taxonomy[0]?.subclasses?.[0]?.name || '';
         const defaultGL = taxonomy[0]?.subclasses?.[0]?.default_gl_account || '';
@@ -342,7 +370,7 @@ const ReconciliationWorkspace = () => {
 
     const handleApplyBulkClassify = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
-        if (selectedBankTxns.length === 0) return;
+        if (readOnly || selectedBankTxns.length === 0) return;
 
         let finalCategory = bulkClassifyForm.category;
         let finalSubCategory = bulkClassifyForm.sub_category;
@@ -392,7 +420,7 @@ const ReconciliationWorkspace = () => {
     };
 
     const handleBulkClearClassification = async () => {
-        if (selectedBankTxns.length === 0) return;
+        if (readOnly || selectedBankTxns.length === 0) return;
         if (!window.confirm(`Are you sure you want to reset the classification for all ${selectedBankTxns.length} selected transactions?`)) {
             return;
         }
@@ -414,7 +442,7 @@ const ReconciliationWorkspace = () => {
     };
 
     const handleBulkConfirmSuggestions = async () => {
-        if (selectedBankTxns.length === 0) return;
+        if (readOnly || selectedBankTxns.length === 0) return;
         
         // Find selected transactions that have suggested_category or counterparty_name
         const candidates = bankTransactions.filter(t => 
@@ -540,6 +568,7 @@ const ReconciliationWorkspace = () => {
     };
 
     const handleAutoMatch = async () => {
+        if (readOnly) return;
         setIsAutoMatching(true);
         setMatchSummary(null);
         try {
@@ -557,6 +586,7 @@ const ReconciliationWorkspace = () => {
     };
 
     const handleRunSmartIntelligence = async () => {
+        if (readOnly) return;
         setIsClassifying(true);
         setMatchSummary(null);
         try {
@@ -574,6 +604,7 @@ const ReconciliationWorkspace = () => {
     };
 
     const handleDetectRelationships = async () => {
+        if (readOnly) return;
         setIsDetecting(true);
         setMatchSummary(null);
         try {
@@ -588,6 +619,7 @@ const ReconciliationWorkspace = () => {
     };
 
     const handleUnlink = async (transactionId) => {
+        if (readOnly) return;
         try {
             await apiRequest(`/reconciliation/transactions/${transactionId}/unlink`, 'POST');
             setVerifyingPair(null);
@@ -668,7 +700,7 @@ const ReconciliationWorkspace = () => {
     const totalPages = pageSize === 0 ? 1 : Math.ceil(sortedTransactions.length / pageSize);
 
     const handleMatch = async () => {
-        if (selectedBankTxns.length === 0 || selectedErpRecords.length === 0) return;
+        if (readOnly || selectedBankTxns.length === 0 || selectedErpRecords.length === 0) return;
         try {
             await apiRequest('/reconciliation/match', 'POST', {
                 bank_transaction_ids: selectedBankTxns,
@@ -684,6 +716,7 @@ const ReconciliationWorkspace = () => {
     };
 
     const handleUnmatchRecord = async (matchId) => {
+        if (readOnly) return;
         if (!window.confirm("Unmatch this reconciled pair? Both transactions will return to open status.")) return;
         try {
             await apiRequest('/reconciliation/unmatch', 'POST', {
@@ -698,6 +731,7 @@ const ReconciliationWorkspace = () => {
     };
 
     const handleConfirmClassification = async (txn) => {
+        if (readOnly) return;
         try {
             const formData = new FormData();
             if (txn.counterparty_name) formData.append('counterparty_name', txn.counterparty_name);
@@ -752,9 +786,9 @@ const ReconciliationWorkspace = () => {
                 {/* Left: Navigation & Ledger Context */}
                 <div className="flex items-center space-x-2.5 shrink-0">
                     <Link
-                        to="/corporate-admin/reconciliation"
+                        to={`${basePrefix}/reconciliation`}
                         className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Back to Statement Dashboard"
+                        title="Back to Reconciliation Overview"
                     >
                         <ArrowLeft className="w-4 h-4" />
                     </Link>
@@ -921,49 +955,58 @@ const ReconciliationWorkspace = () => {
 
                     <div className="h-4 w-px bg-gray-200 hidden sm:block" />
 
-                    {/* Sweeps Detection */}
-                    <button
-                        onClick={handleDetectRelationships}
-                        disabled={isDetecting || isLoading}
-                        className="px-2.5 py-1.5 bg-white border border-indigo-200/80 text-indigo-700 hover:bg-indigo-50 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50 shadow-2xs"
-                        title="Auto-detect sweeps and opposite cross-account transfers"
-                    >
-                        <LinkIcon className={`w-3.5 h-3.5 ${isDetecting ? 'animate-spin' : ''}`} />
-                        <span className="hidden lg:inline">{isDetecting ? 'Detecting...' : 'Sweeps'}</span>
-                        {pairedSweepsCount > 0 && (
-                            <span className="px-1.5 py-0.2 bg-indigo-100 text-indigo-800 rounded-full text-[10px] font-extrabold">
-                                {pairedSweepsCount}
-                            </span>
-                        )}
-                    </button>
+                    {readOnly ? (
+                        <span className="px-2.5 py-1 bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-[11px] font-bold flex items-center gap-1.5">
+                            <Eye className="w-3.5 h-3.5 text-cyan-600" />
+                            <span>Oversight Mode (Read-Only)</span>
+                        </span>
+                    ) : (
+                        <>
+                            {/* Sweeps Detection */}
+                            <button
+                                onClick={handleDetectRelationships}
+                                disabled={isDetecting || isLoading}
+                                className="px-2.5 py-1.5 bg-white border border-indigo-200/80 text-indigo-700 hover:bg-indigo-50 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50 shadow-2xs"
+                                title="Auto-detect sweeps and opposite cross-account transfers"
+                            >
+                                <LinkIcon className={`w-3.5 h-3.5 ${isDetecting ? 'animate-spin' : ''}`} />
+                                <span className="hidden lg:inline">{isDetecting ? 'Detecting...' : 'Sweeps'}</span>
+                                {pairedSweepsCount > 0 && (
+                                    <span className="px-1.5 py-0.2 bg-indigo-100 text-indigo-800 rounded-full text-[10px] font-extrabold">
+                                        {pairedSweepsCount}
+                                    </span>
+                                )}
+                            </button>
 
-                    {/* Hero Primary Action: Run Rules & AI */}
-                    <button
-                        onClick={handleRunSmartIntelligence}
-                        disabled={isClassifying || isLoading}
-                        className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs hover:shadow transition-all flex items-center gap-1.5 disabled:opacity-50"
-                        title="Run Universal Classifiers, Custom Rules, Counterparty Concepts, and Collaborative Learning"
-                    >
-                        <Zap className={`w-3.5 h-3.5 ${isClassifying ? 'animate-spin text-amber-300' : 'text-amber-300'}`} />
-                        <span>{isClassifying ? 'Classifying...' : 'Run Rules & AI'}</span>
-                    </button>
+                            {/* Hero Primary Action: Run Rules & AI */}
+                            <button
+                                onClick={handleRunSmartIntelligence}
+                                disabled={isClassifying || isLoading}
+                                className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs hover:shadow transition-all flex items-center gap-1.5 disabled:opacity-50"
+                                title="Run Universal Classifiers, Custom Rules, Counterparty Concepts, and Collaborative Learning"
+                            >
+                                <Zap className={`w-3.5 h-3.5 ${isClassifying ? 'animate-spin text-amber-300' : 'text-amber-300'}`} />
+                                <span>{isClassifying ? 'Classifying...' : 'Run Rules & AI'}</span>
+                            </button>
 
-                    {/* Dual Match Confirm (Split mode only) */}
-                    {viewMode === 'split' && (
-                        <button
-                            onClick={handleMatch}
-                            disabled={selectedBankTxns.length === 0 || selectedErpRecords.length === 0}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-40 disabled:bg-gray-300 shadow-xs flex items-center gap-1.5"
-                            title="Confirm reconciliation match between selected bank lines and ERP records"
-                        >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Confirm Match</span>
-                            {(selectedBankTxns.length > 0 || selectedErpRecords.length > 0) && (
-                                <span className="px-1.5 py-0.2 bg-white/20 rounded-full text-[10px]">
-                                    {selectedBankTxns.length}:{selectedErpRecords.length}
-                                </span>
+                            {/* Dual Match Confirm (Split mode only) */}
+                            {viewMode === 'split' && (
+                                <button
+                                    onClick={handleMatch}
+                                    disabled={selectedBankTxns.length === 0 || selectedErpRecords.length === 0}
+                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-40 disabled:bg-gray-300 shadow-xs flex items-center gap-1.5"
+                                    title="Confirm reconciliation match between selected bank lines and ERP records"
+                                >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>Confirm Match</span>
+                                    {(selectedBankTxns.length > 0 || selectedErpRecords.length > 0) && (
+                                        <span className="px-1.5 py-0.2 bg-white/20 rounded-full text-[10px]">
+                                            {selectedBankTxns.length}:{selectedErpRecords.length}
+                                        </span>
+                                    )}
+                                </button>
                             )}
-                        </button>
+                        </>
                     )}
                 </div>
             </div>
@@ -1042,18 +1085,18 @@ const ReconciliationWorkspace = () => {
 
                         {/* Date Inputs */}
                         <div className="hidden lg:flex items-center space-x-1 bg-gray-50 border border-gray-200 rounded-lg px-2 py-0.5 text-xs text-gray-600">
-                            <input
-                                type="date"
+                            <FormattedDateInput
                                 aria-label="Start date"
-                                className="bg-transparent text-xs text-gray-700 focus:outline-hidden py-0.5"
+                                showIcon={false}
+                                className="w-24 bg-transparent border-none shadow-none text-xs text-gray-700 focus:outline-hidden py-0.5 px-1"
                                 value={filters.start_date}
                                 onChange={(e) => setFilters({ ...filters, start_date: e.target.value })}
                             />
                             <span className="text-gray-300">→</span>
-                            <input
-                                type="date"
+                            <FormattedDateInput
                                 aria-label="End date"
-                                className="bg-transparent text-xs text-gray-700 focus:outline-hidden py-0.5"
+                                showIcon={false}
+                                className="w-24 bg-transparent border-none shadow-none text-xs text-gray-700 focus:outline-hidden py-0.5 px-1"
                                 value={filters.end_date}
                                 onChange={(e) => setFilters({ ...filters, end_date: e.target.value })}
                             />
@@ -1088,7 +1131,7 @@ const ReconciliationWorkspace = () => {
                                     setQuickFilter('all');
                                     setFilters({ bank_id: '', start_date: '', end_date: '', search: '', is_reconciled: '', is_classified: '' });
                                     if (statementId && statementId !== 'all') {
-                                        navigate('/corporate-admin/reconciliation/workspace');
+                                        navigate(`${basePrefix}/reconciliation/workspace`);
                                     } else {
                                         fetchData();
                                     }
@@ -1169,7 +1212,7 @@ const ReconciliationWorkspace = () => {
                     {/* Scrollable Virtual Table Body */}
                     <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0">
                         {/* Multi-Page Select All Banner */}
-                        {paginatedTransactions.length > 0 && paginatedTransactions.every(t => selectedBankTxns.includes(t.id)) && sortedTransactions.length > paginatedTransactions.length && (
+                        {!readOnly && paginatedTransactions.length > 0 && paginatedTransactions.every(t => selectedBankTxns.includes(t.id)) && sortedTransactions.length > paginatedTransactions.length && (
                             <div className="bg-amber-50/90 border-b border-amber-200 px-3 py-1.5 text-xs text-amber-900 flex items-center justify-between shrink-0 shadow-inner">
                                 <div className="flex items-center space-x-2">
                                     <span>
@@ -1200,21 +1243,23 @@ const ReconciliationWorkspace = () => {
                         <table className="w-full text-left border-collapse min-w-[900px]">
                             <thead className="sticky top-0 bg-gray-100 shadow-xs z-10 text-[10px] uppercase font-bold tracking-wider text-gray-500 select-none">
                                 <tr className="border-b border-gray-200">
-                                    <th className="px-2.5 py-1.5 w-8 text-center">
-                                        <input
-                                            type="checkbox"
-                                            className="rounded border-gray-300 text-blue-600 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
-                                            checked={paginatedTransactions.length > 0 && paginatedTransactions.every(t => selectedBankTxns.includes(t.id))}
-                                            onChange={(e) => {
-                                                if (e.target.checked) {
-                                                    setSelectedBankTxns(Array.from(new Set([...selectedBankTxns, ...paginatedTransactions.map(t => t.id)])));
-                                                } else {
-                                                    const pageIds = paginatedTransactions.map(t => t.id);
-                                                    setSelectedBankTxns(selectedBankTxns.filter(id => !pageIds.includes(id)));
-                                                }
-                                            }}
-                                        />
-                                    </th>
+                                    {!readOnly && (
+                                        <th className="px-2.5 py-1.5 w-8 text-center">
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-gray-300 text-blue-600 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                                                checked={paginatedTransactions.length > 0 && paginatedTransactions.every(t => selectedBankTxns.includes(t.id))}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedBankTxns(Array.from(new Set([...selectedBankTxns, ...paginatedTransactions.map(t => t.id)])));
+                                                    } else {
+                                                        const pageIds = paginatedTransactions.map(t => t.id);
+                                                        setSelectedBankTxns(selectedBankTxns.filter(id => !pageIds.includes(id)));
+                                                    }
+                                                }}
+                                            />
+                                        </th>
+                                    )}
                                     <th
                                         className="px-2.5 py-1.5 cursor-pointer hover:bg-gray-200/70 transition-colors w-24"
                                         onClick={() => handleSort('booking_date')}
@@ -1247,7 +1292,7 @@ const ReconciliationWorkspace = () => {
                             <tbody className="divide-y divide-gray-100 font-sans">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={8} className="px-4 py-20 text-center">
+                                        <td colSpan={readOnly ? 7 : 8} className="px-4 py-20 text-center">
                                             <div className="flex flex-col items-center justify-center space-y-2">
                                                 <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
                                                 <p className="text-gray-500 text-xs font-medium">Streaming statement lines...</p>
@@ -1256,10 +1301,40 @@ const ReconciliationWorkspace = () => {
                                     </tr>
                                 ) : paginatedTransactions.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} className="px-4 py-16 text-center text-gray-400">
+                                        <td colSpan={readOnly ? 7 : 8} className="px-4 py-16 text-center text-gray-400">
                                             <Search className="w-8 h-8 mx-auto mb-1.5 text-gray-300" />
-                                            <p className="text-xs font-bold text-gray-700">No transactions match current filters</p>
-                                            <p className="text-[11px] text-gray-400">Adjust date range, filters, or quick filter chip</p>
+                                            {isTrialSandbox && bankTransactions.length === 0 && !readOnly ? (
+                                                <>
+                                                    <p className="text-xs font-bold text-gray-700">No bank statements loaded yet</p>
+                                                    <p className="text-[11px] text-gray-500 mt-0.5 mb-3">
+                                                        Upload CSV files manually or click below to load &amp; match the sample statements and SAP invoices automatically.
+                                                    </p>
+                                                    <button
+                                                        type="button"
+                                                        disabled={isAutoLoadingTrial}
+                                                        onClick={() => {
+                                                            setIsAutoLoadingTrial(true);
+                                                            window.dispatchEvent(
+                                                                new CustomEvent('grow-trial-trigger-autoload', { detail: { actionId: 'reconciliation_full' } })
+                                                            );
+                                                            setTimeout(() => setIsAutoLoadingTrial(false), 12000);
+                                                        }}
+                                                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all disabled:opacity-60"
+                                                    >
+                                                        <Sparkles className={`w-3.5 h-3.5 ${isAutoLoadingTrial ? 'animate-spin' : ''}`} />
+                                                        <span>
+                                                            {isAutoLoadingTrial
+                                                                ? 'Loading & Matching Sample Data...'
+                                                                : 'Do It For Me — Load Sample Statements & SAP Invoices'}
+                                                        </span>
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <p className="text-xs font-bold text-gray-700">No transactions match current filters</p>
+                                                    <p className="text-[11px] text-gray-400">Adjust date range, filters, or quick filter chip</p>
+                                                </>
+                                            )}
                                         </td>
                                     </tr>
                                 ) : paginatedTransactions.map(txn => {
@@ -1272,32 +1347,38 @@ const ReconciliationWorkspace = () => {
                                             <tr
                                                 className={`transition-colors cursor-pointer select-none text-xs ${
                                                     isCompact ? 'h-9 py-1' : 'h-12 py-2'
-                                                } ${isSelected ? 'bg-blue-50/90 font-medium' : 'hover:bg-blue-50/40'} ${
+                                                } ${!readOnly && isSelected ? 'bg-blue-50/90 font-medium' : 'hover:bg-blue-50/40'} ${
                                                     txn.is_reconciled ? 'bg-emerald-50/30' : ''
                                                 }`}
                                                 onClick={() => {
-                                                    setSelectedBankTxns(prev =>
-                                                        prev.includes(txn.id) ? prev.filter(id => id !== txn.id) : [...prev, txn.id]
-                                                    );
+                                                    if (readOnly) {
+                                                        setExpandedRowId(isExpanded ? null : txn.id);
+                                                    } else {
+                                                        setSelectedBankTxns(prev =>
+                                                            prev.includes(txn.id) ? prev.filter(id => id !== txn.id) : [...prev, txn.id]
+                                                        );
+                                                    }
                                                 }}
                                             >
                                                 {/* Checkbox */}
-                                                <td className="px-2.5 py-1 text-center" onClick={(e) => e.stopPropagation()}>
-                                                    <input
-                                                        type="checkbox"
-                                                        className="rounded border-gray-300 text-blue-600 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
-                                                        checked={isSelected}
-                                                        onChange={() => {
-                                                            setSelectedBankTxns(prev =>
-                                                                prev.includes(txn.id) ? prev.filter(id => id !== txn.id) : [...prev, txn.id]
-                                                            );
-                                                        }}
-                                                    />
-                                                </td>
+                                                {!readOnly && (
+                                                    <td className="px-2.5 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                                                        <input
+                                                            type="checkbox"
+                                                            className="rounded border-gray-300 text-blue-600 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                                                            checked={isSelected}
+                                                            onChange={() => {
+                                                                setSelectedBankTxns(prev =>
+                                                                    prev.includes(txn.id) ? prev.filter(id => id !== txn.id) : [...prev, txn.id]
+                                                                );
+                                                            }}
+                                                        />
+                                                    </td>
+                                                )}
 
                                                 {/* Booking Date */}
                                                 <td className="px-2.5 py-1 whitespace-nowrap text-gray-600 font-mono text-[11px]">
-                                                    {new Date(txn.booking_date).toLocaleDateString(undefined, { year: '2-digit', month: '2-digit', day: '2-digit' })}
+                                                    {formatDate(txn.booking_date, '-')}
                                                 </td>
 
                                                 {/* Company / Account */}
@@ -1393,24 +1474,28 @@ const ReconciliationWorkspace = () => {
                                                             ) : txn.classification_source === 'COLLABORATIVE' ? (
                                                                 <span className="px-1.5 py-0.2 bg-violet-50 text-violet-700 border border-violet-300 rounded text-[9px] font-bold flex items-center shadow-xs" title={`Collaborative Platform Intelligence (${txn.classification_confidence}% confidence)`}>
                                                                     🌐 {txn.internal_category || txn.classification_category}
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); handleConfirmClassification(txn); }}
-                                                                        className="ml-1 px-1 py-0.1 bg-violet-600 hover:bg-violet-700 text-white rounded text-[8px] font-bold transition-colors"
-                                                                        title="Confirm & reinforce collaborative model"
-                                                                    >
-                                                                        Confirm
-                                                                    </button>
+                                                                    {!readOnly && (
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); handleConfirmClassification(txn); }}
+                                                                            className="ml-1 px-1 py-0.1 bg-violet-600 hover:bg-violet-700 text-white rounded text-[8px] font-bold transition-colors"
+                                                                            title="Confirm & reinforce collaborative model"
+                                                                        >
+                                                                            Confirm
+                                                                        </button>
+                                                                    )}
                                                                 </span>
                                                             ) : txn.classification_source === 'CONCEPT' ? (
                                                                 <span className="px-1.5 py-0.2 bg-amber-50 text-amber-800 border border-amber-300 rounded text-[9px] font-bold flex items-center shadow-xs" title={`Concept Logic Match (${txn.classification_confidence}% confidence)`}>
                                                                     💡 {txn.suggested_category || txn.classification_category}
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); handleConfirmClassification(txn); }}
-                                                                        className="ml-1 px-1 py-0.1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[8px] font-bold transition-colors"
-                                                                        title="Confirm & teach local registry"
-                                                                    >
-                                                                        Confirm
-                                                                    </button>
+                                                                    {!readOnly && (
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); handleConfirmClassification(txn); }}
+                                                                            className="ml-1 px-1 py-0.1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[8px] font-bold transition-colors"
+                                                                            title="Confirm & teach local registry"
+                                                                        >
+                                                                            Confirm
+                                                                        </button>
+                                                                    )}
                                                                 </span>
                                                             ) : txn.applied_rule_id ? (
                                                                 <span className="px-1.5 py-0.2 bg-blue-600 text-white rounded text-[9px] font-bold flex items-center shadow-xs" title={`User Rule: ${txn.applied_rule_name}`}>
@@ -1420,13 +1505,19 @@ const ReconciliationWorkspace = () => {
                                                             ) : txn.is_classified ? (
                                                                 <span className="px-1.5 py-0.2 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[9px] font-bold flex items-center">
                                                                     {txn.internal_category || txn.classification_category || 'Classified'}
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); openClassifyModal(txn); }}
-                                                                        className="ml-1 text-blue-400 hover:text-blue-800"
-                                                                        title="Edit classification"
-                                                                    >
-                                                                        <Edit3 className="w-2.5 h-2.5" />
-                                                                    </button>
+                                                                    {!readOnly && (
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); openClassifyModal(txn); }}
+                                                                            className="ml-1 text-blue-400 hover:text-blue-800"
+                                                                            title="Edit classification"
+                                                                        >
+                                                                            <Edit3 className="w-2.5 h-2.5" />
+                                                                        </button>
+                                                                    )}
+                                                                </span>
+                                                            ) : readOnly ? (
+                                                                <span className="px-1.5 py-0.2 bg-slate-100 text-slate-500 border border-slate-200 rounded text-[9px] font-semibold">
+                                                                    Unclassified
                                                                 </span>
                                                             ) : (
                                                                 <button
@@ -1503,7 +1594,7 @@ const ReconciliationWorkspace = () => {
                                             {/* ── Inline Expanded Row Details ── */}
                                             {isExpanded && (
                                                 <tr className="bg-slate-50/80 border-y border-slate-200 text-xs">
-                                                    <td colSpan={8} className="p-3">
+                                                    <td colSpan={readOnly ? 7 : 8} className="p-3">
                                                         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-xs">
                                                             {/* Column 1: Full Narrative */}
                                                             <div className="md:col-span-2 space-y-1">
@@ -1523,7 +1614,7 @@ const ReconciliationWorkspace = () => {
                                                                     <p className="text-gray-600">Account: <span className="font-mono font-semibold text-gray-900">{txn.account_number || 'N/A'}</span></p>
                                                                     <p className="text-gray-600">Back Office Ref: <span className="font-mono font-semibold text-gray-900">{txn.back_office_ref || 'N/A'}</span></p>
                                                                     <p className="text-gray-600">E2E ID: <span className="font-mono font-semibold text-gray-900">{txn.e2e_id || 'N/A'}</span></p>
-                                                                    <p className="text-gray-600">Value Date: <span className="font-mono font-semibold text-gray-900">{txn.value_date ? new Date(txn.value_date).toLocaleDateString() : '-'}</span></p>
+                                                                    <p className="text-gray-600">Value Date: <span className="font-mono font-semibold text-gray-900">{txn.value_date ? formatDate(txn.value_date, '-') : '-'}</span></p>
                                                                 </div>
                                                             </div>
 
@@ -1574,21 +1665,43 @@ const ReconciliationWorkspace = () => {
                                     {erpRecords.length}
                                 </span>
                             </div>
-                            <button
-                                onClick={() => { setErpImportStatus(null); setShowERPImportModal(true); }}
-                                className="flex items-center px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-bold transition-all shadow-xs"
-                                title="Upload or quick-add ERP ledger records"
-                            >
-                                <Upload className="w-3 h-3 mr-1" />
-                                Import ERP Ledger
-                            </button>
+                            {!readOnly && (
+                                <div className="flex items-center gap-1.5">
+                                    {isTrialSandbox && (
+                                        <button
+                                            type="button"
+                                            disabled={isAutoLoadingTrial}
+                                            onClick={() => {
+                                                setIsAutoLoadingTrial(true);
+                                                window.dispatchEvent(
+                                                    new CustomEvent('grow-trial-trigger-autoload', { detail: { actionId: 'reconciliation_full' } })
+                                                );
+                                                setTimeout(() => setIsAutoLoadingTrial(false), 12000);
+                                            }}
+                                            className="flex items-center px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold transition-all shadow-xs disabled:opacity-60"
+                                            title="Auto-load sample Bank statements & SAP invoices and run matching"
+                                        >
+                                            <Sparkles className={`w-3 h-3 mr-1 ${isAutoLoadingTrial ? 'animate-spin' : ''}`} />
+                                            <span>{isAutoLoadingTrial ? 'Loading...' : 'Do It For Me'}</span>
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => { setErpImportStatus(null); setShowERPImportModal(true); }}
+                                        className="flex items-center px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-bold transition-all shadow-xs"
+                                        title="Upload or quick-add ERP ledger records"
+                                    >
+                                        <Upload className="w-3 h-3 mr-1" />
+                                        Import ERP Ledger
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex-1 overflow-y-auto">
                             <table className="w-full text-left border-collapse text-xs">
                                 <thead className="sticky top-0 bg-gray-100 shadow-xs z-10 text-[10px] uppercase font-bold text-gray-500">
                                     <tr className="border-b border-gray-200">
-                                        <th className="px-2.5 py-1.5 w-8"></th>
+                                        {!readOnly && <th className="px-2.5 py-1.5 w-8"></th>}
                                         <th className="px-2.5 py-1.5">Type</th>
                                         <th className="px-2.5 py-1.5">Reference</th>
                                         <th className="px-2.5 py-1.5 text-right">Amount</th>
@@ -1600,27 +1713,30 @@ const ReconciliationWorkspace = () => {
                                         return (
                                             <tr
                                                 key={rec.id}
-                                                className={`h-9 hover:bg-blue-50/50 cursor-pointer transition-colors ${
-                                                    isSelected ? 'bg-blue-50 font-medium' : ''
+                                                className={`h-9 transition-colors ${readOnly ? '' : 'hover:bg-blue-50/50 cursor-pointer'} ${
+                                                    !readOnly && isSelected ? 'bg-blue-50 font-medium' : ''
                                                 }`}
                                                 onClick={() => {
+                                                    if (readOnly) return;
                                                     setSelectedErpRecords(prev =>
                                                         prev.includes(rec.id) ? prev.filter(id => id !== rec.id) : [...prev, rec.id]
                                                     );
                                                 }}
                                             >
-                                                <td className="px-2.5 py-1 text-center" onClick={(e) => e.stopPropagation()}>
-                                                    <input
-                                                        type="checkbox"
-                                                        className="rounded border-gray-300 text-blue-600 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
-                                                        checked={isSelected}
-                                                        onChange={() => {
-                                                            setSelectedErpRecords(prev =>
-                                                                prev.includes(rec.id) ? prev.filter(id => id !== rec.id) : [...prev, rec.id]
-                                                            );
-                                                        }}
-                                                    />
-                                                </td>
+                                                {!readOnly && (
+                                                    <td className="px-2.5 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                                                        <input
+                                                            type="checkbox"
+                                                            className="rounded border-gray-300 text-blue-600 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                                                            checked={isSelected}
+                                                            onChange={() => {
+                                                                setSelectedErpRecords(prev =>
+                                                                    prev.includes(rec.id) ? prev.filter(id => id !== rec.id) : [...prev, rec.id]
+                                                                );
+                                                            }}
+                                                        />
+                                                    </td>
+                                                )}
                                                 <td className="px-2.5 py-1">
                                                     <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                                                         (rec.record_type || rec.type || '').includes('AR')
@@ -1640,7 +1756,7 @@ const ReconciliationWorkspace = () => {
                                                 <td className="px-2.5 py-1">
                                                     <p className="font-semibold text-gray-900 font-mono text-[11px]">{rec.reference_number || rec.ref || '-'}</p>
                                                     <span className="text-[10px] text-gray-500 font-sans">
-                                                        {rec.entity_name || rec.entity || '-'} • {rec.record_date ? new Date(rec.record_date).toLocaleDateString() : (rec.date || '-')}
+                                                        {rec.entity_name || rec.entity || '-'} • {rec.record_date ? formatDate(rec.record_date, '-') : (rec.date ? formatDate(rec.date, '-') : '-')}
                                                     </span>
                                                 </td>
                                                 <td className={`px-2.5 py-1 text-right font-mono font-bold ${
@@ -1729,7 +1845,7 @@ const ReconciliationWorkspace = () => {
 
                                     {/* Meta */}
                                     <div className="text-[11px] space-y-1 text-gray-600 pt-1">
-                                        <p>Booking Date: <strong className="text-gray-900">{new Date(verifyingPair.txnA.booking_date).toLocaleDateString()}</strong></p>
+                                        <p>Booking Date: <strong className="text-gray-900">{formatDate(verifyingPair.txnA.booking_date, '-')}</strong></p>
                                         <p>Back Office Ref: <strong className="font-mono text-gray-900">{verifyingPair.txnA.back_office_ref || '-'}</strong></p>
                                     </div>
                                 </div>
@@ -1772,7 +1888,7 @@ const ReconciliationWorkspace = () => {
 
                                     {/* Meta */}
                                     <div className="text-[11px] space-y-1 text-gray-600 pt-1">
-                                        <p>Booking Date: <strong className="text-gray-900">{new Date(verifyingPair.txnB.booking_date).toLocaleDateString()}</strong></p>
+                                        <p>Booking Date: <strong className="text-gray-900">{formatDate(verifyingPair.txnB.booking_date, '-')}</strong></p>
                                         <p>Back Office Ref: <strong className="font-mono text-gray-900">{verifyingPair.txnB.back_office_ref || '-'}</strong></p>
                                     </div>
                                 </div>
@@ -1805,14 +1921,16 @@ const ReconciliationWorkspace = () => {
 
                         {/* Modal Footer */}
                         <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center shrink-0">
-                            <button
-                                onClick={() => handleUnlink(verifyingPair.txnA.id)}
-                                className="px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
-                                title="Unlink this pair if you believe it is not a match"
-                            >
-                                <Unlink className="w-3.5 h-3.5" />
-                                <span>Unlink Pair</span>
-                            </button>
+                            {!readOnly ? (
+                                <button
+                                    onClick={() => handleUnlink(verifyingPair.txnA.id)}
+                                    className="px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
+                                    title="Unlink this pair if you believe it is not a match"
+                                >
+                                    <Unlink className="w-3.5 h-3.5" />
+                                    <span>Unlink Pair</span>
+                                </button>
+                            ) : <div />}
 
                             <button
                                 onClick={() => setVerifyingPair(null)}
@@ -1884,11 +2002,11 @@ const ReconciliationWorkspace = () => {
                                 </div>
                                 <div>
                                     <span className="text-[10px] font-bold text-gray-400 uppercase">Booking Date</span>
-                                    <p className="font-semibold text-gray-900">{new Date(viewingTxn.booking_date).toLocaleDateString()}</p>
+                                    <p className="font-semibold text-gray-900">{formatDate(viewingTxn.booking_date, '-')}</p>
                                 </div>
                                 <div>
                                     <span className="text-[10px] font-bold text-gray-400 uppercase">Value Date</span>
-                                    <p className="font-semibold text-gray-900">{viewingTxn.value_date ? new Date(viewingTxn.value_date).toLocaleDateString() : '-'}</p>
+                                    <p className="font-semibold text-gray-900">{viewingTxn.value_date ? formatDate(viewingTxn.value_date, '-') : '-'}</p>
                                 </div>
                             </div>
 
@@ -1916,12 +2034,14 @@ const ReconciliationWorkspace = () => {
                                 {viewingTxn.counterparty_name && (
                                     <div className="pt-2 border-t border-indigo-100/80 flex items-center justify-between">
                                         <span className="text-gray-600 text-xs">Counterparty: <strong>{viewingTxn.counterparty_name}</strong></span>
-                                        <button
-                                            onClick={() => handleConfirmClassification(viewingTxn)}
-                                            className="px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold shadow-xs hover:bg-indigo-700 transition-colors"
-                                        >
-                                            Confirm Entity
-                                        </button>
+                                        {!readOnly && (
+                                            <button
+                                                onClick={() => handleConfirmClassification(viewingTxn)}
+                                                className="px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-bold shadow-xs hover:bg-indigo-700 transition-colors"
+                                            >
+                                                Confirm Entity
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1973,7 +2093,7 @@ const ReconciliationWorkspace = () => {
 
                         {/* Drawer Footer */}
                         <div className="p-3 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
-                            {viewingTxn.linked_txn_id ? (
+                            {!readOnly && viewingTxn.linked_txn_id ? (
                                 <button
                                     onClick={() => handleUnlink(viewingTxn.id)}
                                     className="px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-md text-xs font-bold transition-colors flex items-center gap-1"
@@ -2351,8 +2471,7 @@ const ReconciliationWorkspace = () => {
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Posting Date *</label>
-                                        <input
-                                            type="date"
+                                        <FormattedDateInput
                                             value={manualERPRecord.record_date}
                                             onChange={(e) => setManualERPRecord({ ...manualERPRecord, record_date: e.target.value })}
                                             className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none"
@@ -2393,7 +2512,7 @@ const ReconciliationWorkspace = () => {
             )}
 
             {/* ── Sleek Floating Bulk Action Dock ── */}
-            {selectedBankTxns.length > 0 && (
+            {!readOnly && selectedBankTxns.length > 0 && (
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-gray-900/95 backdrop-blur-md text-white px-5 py-3 rounded-2xl shadow-2xl border border-gray-700/60 flex items-center space-x-4 animate-in slide-in-from-bottom-5 duration-200">
                     <div className="flex items-center space-x-2 pr-3 border-r border-gray-700">
                         <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-mono font-bold text-xs flex items-center justify-center border border-blue-500/40">

@@ -20,9 +20,15 @@ import IssuedLGsPage from 'pages/EndUser/IssuedLGsPage';
 import LGReconciliationPage from 'pages/EndUser/LGReconciliationPage';
 import InboxPage from 'pages/EndUser/InboxPage';
 
+// Bank Statement Reconciliation Maker Module
+import ImportDashboard from 'pages/CorporateAdmin/BankReconciliation/ImportDashboard';
+import ReconciliationWorkspace from 'pages/CorporateAdmin/BankReconciliation/ReconciliationWorkspace';
+import AccountingExport from 'pages/CorporateAdmin/BankReconciliation/AccountingExport';
+
 // NEW: Import the generic ReportsPage and the single report component for this role
 import ReportsPage from 'pages/Reports/ReportsPage';
 import MyLGDashboardReport from 'pages/Reports/MyLGDashboardReport';
+import { isCachedTrialSession } from '../components/Trial/useTrialExperience';
 
 // Define the single report for the End User role
 const endUserReports = [
@@ -34,17 +40,20 @@ const endUserReports = [
   },
 ];
 
-function EndUserRoutes({ onLogout, subscriptionStatus, hasCustodyModule, hasIssuanceModule, hasQuotationModule = true, hasReconciliationModule = true }) { // NEW: Receive subscriptionStatus prop
+function EndUserRoutes({ onLogout, subscriptionStatus, customerId, isTrial = false, hasCustodyModule, hasIssuanceModule, hasQuotationModule = true, hasReconciliationModule = true }) { // NEW: Receive subscriptionStatus prop
   const isGracePeriod = subscriptionStatus === 'grace'; // NEW: Determine grace period status
-  const isQuotationOnly = !hasCustodyModule && !hasIssuanceModule && hasQuotationModule;
+  const effectiveIsTrial = Boolean(isTrial || isCachedTrialSession(customerId));
+  const isQuotationOnly = !effectiveIsTrial && !hasCustodyModule && !hasIssuanceModule && hasQuotationModule;
+  const isReconOnly = !effectiveIsTrial && !hasCustodyModule && !hasIssuanceModule && !hasQuotationModule && hasReconciliationModule;
+  const nonLgLanding = isQuotationOnly ? "quotations/active" : isReconOnly ? "reconciliation" : null;
 
   return (
     <Routes>
       {/* End User Dashboard */}
-      <Route path="dashboard" element={isQuotationOnly ? <Navigate to="../quotations/active" replace /> : <EndUserDashboard />} />
+      <Route path="dashboard" element={nonLgLanding ? <Navigate to={`../${nonLgLanding}`} replace /> : <EndUserDashboard />} />
 
       {/* Action Center Page */}
-      <Route path="action-center" element={isQuotationOnly ? <Navigate to="../quotations/active" replace /> : <EndUserActionCenter />} />
+      <Route path="action-center" element={nonLgLanding ? <Navigate to={`../${nonLgLanding}`} replace /> : <EndUserActionCenter />} />
 
       {/* LG Custody routes — only if customer has custody module */}
       {hasCustodyModule ? (
@@ -87,6 +96,19 @@ function EndUserRoutes({ onLogout, subscriptionStatus, hasCustodyModule, hasIssu
         <Route path="issuance/*" element={<Navigate to="../dashboard" replace />} />
       )}
 
+      {/* Bank Statement Reconciliation Routes — operational maker access */}
+      {hasReconciliationModule ? (
+        <>
+          <Route path="reconciliation" element={<ImportDashboard />} />
+          <Route path="reconciliation/dashboard" element={<ImportDashboard />} />
+          <Route path="reconciliation/workspace" element={<ReconciliationWorkspace />} />
+          <Route path="reconciliation/workspace/:statementId" element={<ReconciliationWorkspace />} />
+          <Route path="reconciliation/export" element={<AccountingExport />} />
+        </>
+      ) : (
+        <Route path="reconciliation/*" element={<Navigate to="../dashboard" replace />} />
+      )}
+
       {/* Smart Inbox Route */}
       <Route path="inbox" element={<InboxPage />} />
 
@@ -97,8 +119,8 @@ function EndUserRoutes({ onLogout, subscriptionStatus, hasCustodyModule, hasIssu
         <Route path="my-lg-dashboard" element={<MyLGDashboardReport />} />
       </Route>
 
-      {/* Catch-all for End User paths, redirect to dashboard or quotation if no other match */}
-      <Route path="*" element={<Navigate to={isQuotationOnly ? "quotations/active" : "dashboard"} replace />} />
+      {/* Catch-all for End User paths, redirect to dashboard or active module if no other match */}
+      <Route path="*" element={<Navigate to={nonLgLanding || "dashboard"} replace />} />
     </Routes>
   );
 }

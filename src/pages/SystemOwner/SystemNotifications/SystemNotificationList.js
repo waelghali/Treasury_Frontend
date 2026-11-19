@@ -18,6 +18,7 @@ import {
   Megaphone, ChevronDown, ChevronUp, ExternalLink, Sparkles, RefreshCw, Check
 } from 'lucide-react';
 import clsx from 'clsx';
+import FormattedDateInput from 'components/FormattedDateInput';
 
 // --- UI HELPERS & ATOMS ---
 
@@ -415,7 +416,7 @@ const NotificationDetailsModal = ({ isOpen, onClose, notification, onOpenAnalyti
             <div className="bg-white p-3 rounded-lg border border-gray-200">
               <span className="text-slate-400 uppercase font-semibold">Created At</span>
               <p className="text-slate-800 font-bold mt-1">
-                {format(new Date(notification.created_at), 'MMM dd, yyyy HH:mm')}
+                {format(new Date(notification.created_at), 'dd-MMM-yyyy HH:mm')}
               </p>
             </div>
 
@@ -429,9 +430,9 @@ const NotificationDetailsModal = ({ isOpen, onClose, notification, onOpenAnalyti
             <div className="bg-white p-3 rounded-lg border border-gray-200">
               <span className="text-slate-400 uppercase font-semibold">Active Window</span>
               <p className="text-slate-800 font-medium mt-1">
-                {format(new Date(notification.start_date), 'MMM dd, yyyy')}
+                {format(new Date(notification.start_date), 'dd-MMM-yyyy')}
               </p>
-              <p className="text-[11px] text-slate-400">until {format(new Date(notification.end_date), 'MMM dd, yyyy')}</p>
+              <p className="text-[11px] text-slate-400">until {format(new Date(notification.end_date), 'dd-MMM-yyyy')}</p>
             </div>
 
             <div className="bg-white p-3 rounded-lg border border-gray-200">
@@ -621,7 +622,7 @@ const AnalyticsDialog = ({ isOpen, onClose, data, isLoading, notificationTitle }
                               </div>
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-500">
-                              {format(new Date(log.last_viewed_at), 'MMM dd, HH:mm')}
+                              {format(new Date(log.last_viewed_at), 'dd-MMM-yyyy, HH:mm')}
                             </td>
                           </tr>
                         ))}
@@ -1178,8 +1179,7 @@ function SystemNotificationList({ onLogout }) {
                 Created Date Range
               </label>
               <div className="flex items-center gap-2">
-                <input
-                  type="date"
+                <FormattedDateInput
                   value={filters.createdFrom}
                   onChange={(e) => setFilters(p => ({ ...p, createdFrom: e.target.value }))}
                   className="w-1/2 px-2 py-1.5 text-xs rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500"
@@ -1187,8 +1187,7 @@ function SystemNotificationList({ onLogout }) {
                   title="Created From"
                 />
                 <span className="text-slate-400 text-xs">—</span>
-                <input
-                  type="date"
+                <FormattedDateInput
                   value={filters.createdTo}
                   onChange={(e) => setFilters(p => ({ ...p, createdTo: e.target.value }))}
                   className="w-1/2 px-2 py-1.5 text-xs rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500"
@@ -1292,7 +1291,7 @@ function SystemNotificationList({ onLogout }) {
                   <div className="space-y-0.5">
                     {getOriginBadge(notification)}
                     <p className="text-[11px] text-slate-400">
-                      {format(new Date(notification.created_at), 'MMM dd, yyyy HH:mm')}
+                      {format(new Date(notification.created_at), 'dd-MMM-yyyy HH:mm')}
                     </p>
                   </div>
                 </TableCell>
@@ -1311,10 +1310,10 @@ function SystemNotificationList({ onLogout }) {
                 <TableCell>
                   <div className="text-xs text-slate-600 space-y-0.5">
                     <p className="font-medium text-slate-700">
-                      {format(new Date(notification.start_date), 'MMM dd, yyyy HH:mm')}
+                      {format(new Date(notification.start_date), 'dd-MMM-yyyy HH:mm')}
                     </p>
                     <p className="text-[11px] text-slate-400">
-                      to {format(new Date(notification.end_date), 'MMM dd, yyyy HH:mm')}
+                      to {format(new Date(notification.end_date), 'dd-MMM-yyyy HH:mm')}
                     </p>
                   </div>
                 </TableCell>

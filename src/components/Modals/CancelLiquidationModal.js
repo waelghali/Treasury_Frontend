@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, ShieldAlert, CheckCircle, FileText, Upload, AlertCircle, RefreshCw, Archive } from 'lucide-react';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
+import FormattedDateInput from 'components/FormattedDateInput';
 
 export default function CancelLiquidationModal({ lg, onClose, onSuccess }) {
   const [targetOutcome, setTargetOutcome] = useState('REACTIVATE'); // 'REACTIVATE' | 'RELEASE'
@@ -148,8 +149,7 @@ export default function CancelLiquidationModal({ lg, onClose, onSuccess }) {
               <label className="text-xs font-bold text-slate-600 uppercase block mb-1">
                 Settlement Date *
               </label>
-              <input
-                type="date"
+              <FormattedDateInput
                 required
                 value={settlementDate}
                 onChange={(e) => setSettlementDate(e.target.value)}

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import moment from 'moment';
 import { toast } from 'react-toastify';
+import FormattedDateInput from 'components/FormattedDateInput';
 
 // Known Action Types aligned with actual backend AuditLog action_type constants
 const ACTION_TYPES = [
@@ -492,8 +493,7 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) {
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                 Start Date
               </label>
-              <input
-                type="date"
+              <FormattedDateInput
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
@@ -503,8 +503,7 @@ function AuditLogsCorporate({ onLogout, isGracePeriod }) {
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                 End Date
               </label>
-              <input
-                type="date"
+              <FormattedDateInput
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"

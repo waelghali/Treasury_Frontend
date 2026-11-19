@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import QuotationBanksModal from '../../components/Modals/QuotationBanksModal';
 import QuotationAutoAcceptConsentModal from '../../components/Modals/QuotationAutoAcceptConsentModal';
 import RangeBarController from '../../components/RangeBarController';
+import { formatDate as formatDisplayDate } from '../../utils/dateFormat';
 
 // Email Provider Preset Auto-Detector
 const detectEmailProvider = (email) => {
@@ -1157,10 +1158,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     return grouped;
   }, [configurations, filterText, sortKey, sortDirection, selectedModule, selectedGroup, subscriptionData, availableGroups, hasCustody, hasIssuance, hasQuotation, hasReconciliation]);
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-  };
+  const formatDate = (dateString) => formatDisplayDate(dateString, 'N/A');
 
   if (isLoading) {
     return (
@@ -3292,7 +3290,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                       {cbeHistoryData.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="px-4 py-2.5 font-bold text-slate-900 font-sans">
-                            {item.rate_date || '—'}
+                            {formatDisplayDate(item.rate_date)}
                           </td>
                           <td className="px-4 py-2.5 text-right text-rose-700 font-bold">
                             {item.lending_rate ? `${item.lending_rate.toFixed(2)}%` : '—'}

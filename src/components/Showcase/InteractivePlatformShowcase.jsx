@@ -32,7 +32,10 @@ import {
   BookOpen,
   ChevronDown,
   ChevronUp,
+  Calendar,
+  MessageCircle,
 } from 'lucide-react';
+import HoneypotField from '../Security/HoneypotField';
 import {
   PLATFORM_FOUNDATION_PILLARS,
   PLATFORM_MODULES,
@@ -59,6 +62,21 @@ const FOUNDATION_ICONS = {
 
 const STORY_NAV_ORDER = ['platform_intro', 'custody', 'issuance', 'quotations', 'reconciliation'];
 const MODULE_ORDER = ['custody', 'issuance', 'quotations', 'reconciliation'];
+
+const MODULE_FLAGSHIP_TOURS = {
+  custody: { branchId: 'custody-scan-record', stepIdx: 0, shortEn: 'LG Custody', shortAr: 'حفظ الضمانات' },
+  issuance: { branchId: 'issuance-facility-scoring', stepIdx: 0, shortEn: 'LG Issuance', shortAr: 'إصدار الضمانات' },
+  quotations: { branchId: 'quotations-net-award', stepIdx: 0, shortEn: 'FX & T-Bills', shortAr: 'العملات والأذون' },
+  reconciliation: { branchId: 'recon-sweeps-reversals', stepIdx: 0, shortEn: 'Bank Recon', shortAr: 'المطابقة البنكية' },
+};
+
+const MODULE_THUMBNAILS = {
+  custody: '/demo/shots/custody_action_center/step1_action_center_radar.png',
+  issuance: '/demo/shots/issuance_2_2/step_03_smart_facility_scoring.png',
+  quotations: '/demo/shots/quotations_3_3/step_01_provisional_net_standings.png',
+  reconciliation: '/demo/shots/recon_4_2/step_04_split_pane_erp_match.png',
+};
+
 const toArNum = (n) => String(n).replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[d]);
 
 const ACCENT_STYLES = {
@@ -207,12 +225,17 @@ function resolveFoundationTarget(id) {
   };
 }
 
-export default function InteractivePlatformShowcase({ embedded = false, initialLang = 'en' }) {
+export default function InteractivePlatformShowcase({
+  embedded = false,
+  initialLang = 'en',
+  externalBookOpen = false,
+  onExternalBookClose = null,
+}) {
   const location = useLocation();
   const [lang, setLang] = useState(initialLang);
-  const [view, setView] = useState('tree'); // 'tree' | 'stage'
-  const [expandedModuleId, setExpandedModuleId] = useState(null); // Progressive disclosure tray on /demo
-  const [activeBranchId, setActiveBranchId] = useState('custody-scan-record');
+  const [view, setView] = useState(embedded ? 'tree' : 'stage'); // Screen-first on /demo so visitors interact immediately!
+  const [expandedModuleId, setExpandedModuleId] = useState(null);
+  const [activeBranchId, setActiveBranchId] = useState('recon-sweeps-reversals');
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [hideNotesInFullScreen, setHideNotesInFullScreen] = useState(false);
@@ -223,7 +246,36 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
   const [plannedModalBranch, setPlannedModalBranch] = useState(null);
   const [briefModal, setBriefModal] = useState(null); // { id: string } | null (Foundation pillars)
   const [expertChatOpen, setExpertChatOpen] = useState(false);
+
+  // Zero-friction inline Walkthrough Modal right inside /demo
+  const [internalBookOpen, setInternalBookOpen] = useState(false);
+  const [bookForm, setBookForm] = useState({ name: '', company: '', contact: '', website_url: '' });
+  const [bookSubmitting, setBookSubmitting] = useState(false);
+  const [bookSubmitted, setBookSubmitted] = useState(null);
+  const [bookError, setBookError] = useState('');
+
+  const isBookModalOpen = Boolean(internalBookOpen || externalBookOpen);
+  const closeBookModal = useCallback(() => {
+    setInternalBookOpen(false);
+    setBookError('');
+    if (onExternalBookClose) onExternalBookClose();
+  }, [onExternalBookClose]);
+
+  const openInlineBookModal = useCallback((sourceLabel = 'demo_inline') => {
+    trackPublicEvent('cta_click', {
+      page: 'demo',
+      path: '/demo',
+      lang: langRef.current,
+      metadata: { target: 'book_meeting_click', source: sourceLabel },
+    });
+    setBookSubmitted(null);
+    setBookError('');
+    setInternalBookOpen(true);
+  }, []);
+
   const handledQueryRef = useRef('');
+  const previewVisitedStepsRef = useRef(new Set());
+  const previewFunnelSentRef = useRef({ started: false, completed: false });
 
   useEffect(() => {
     if (!embedded) {
@@ -234,6 +286,37 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
       });
     }
   }, [embedded, initialLang]);
+
+  useEffect(() => {
+    const stepKey = `${activeBranchId}:${currentStepIdx}`;
+    previewVisitedStepsRef.current.add(stepKey);
+    const seenCount = previewVisitedStepsRef.current.size;
+    const pageName = embedded ? 'landing' : 'demo';
+    const pathName = embedded ? '/' : '/demo';
+
+    if (seenCount >= 2 && !previewFunnelSentRef.current.started) {
+      previewFunnelSentRef.current.started = true;
+      trackPublicEvent('cta_click', {
+        page: pageName,
+        path: pathName,
+        lang: langRef.current,
+        metadata: { target: 'preview_started', branch: activeBranchId },
+      });
+    }
+    if (seenCount >= 4 && !previewFunnelSentRef.current.completed) {
+      previewFunnelSentRef.current.completed = true;
+      trackPublicEvent('cta_click', {
+        page: pageName,
+        path: pathName,
+        lang: langRef.current,
+        metadata: {
+          target: 'preview_completed',
+          branch: activeBranchId,
+          steps_explored: seenCount,
+        },
+      });
+    }
+  }, [activeBranchId, currentStepIdx, embedded]);
 
   // Visual Executive Story Cinema Player State
   const [storyModal, setStoryModal] = useState(null); // { storyId, chapterIdx, phase: 'chapters' | 'handoff' } | null
@@ -1095,7 +1178,9 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
     [openBranchById, openFoundationBrief, openStory]
   );
 
-  // Support deep-link URL query parameters (?story=..., ?branch=...&step=..., ?foundation=..., ?lang=ar, ?ask=1)
+  const trackedBranchesRef = useRef(new Set());
+
+  // Support deep-link URL query parameters (?module=..., ?story=..., ?branch=...&step=..., ?foundation=..., ?view=all, ?book=1, ?lang=ar, ?ask=1)
   useEffect(() => {
     const search = location?.search || '';
     if (!search || handledQueryRef.current === search) return;
@@ -1108,13 +1193,18 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
       setLang(qLang);
     }
 
+    const qView = params.get('view');
+    const qModule = params.get('module');
     const qStory = params.get('story');
     const qFoundation = params.get('foundation');
     const qBranch = params.get('branch');
     const qStep = Math.max(0, (parseInt(params.get('step') || '1', 10) || 1) - 1);
     const qAsk = params.get('ask');
+    const qBook = params.get('book');
 
-    if (qStory && VISUAL_STORIES[qStory]) {
+    if (qView === 'all' || qView === 'tree') {
+      setView('tree');
+    } else if (qStory && VISUAL_STORIES[qStory]) {
       openStory(qStory, 0, true);
     } else if (qFoundation && PLATFORM_FOUNDATION_PILLARS.some((p) => p.id === qFoundation)) {
       openFoundationBrief(qFoundation, false);
@@ -1122,14 +1212,92 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
       const targetMod = PLATFORM_MODULES.find((m) => m.branches.some((b) => b.id === qBranch));
       const targetBr = targetMod?.branches.find((b) => b.id === qBranch);
       if (targetBr && targetMod) {
+        trackedBranchesRef.current.add(targetBr.id);
         openBranch(targetBr, targetMod, qStep);
       }
+    } else if (qModule && MODULE_FLAGSHIP_TOURS[qModule]) {
+      const flag = MODULE_FLAGSHIP_TOURS[qModule];
+      trackedBranchesRef.current.add(flag.branchId);
+      openBranchById(qModule, flag.branchId, flag.stepIdx);
     }
 
     if (qAsk === '1' || qAsk === 'true') {
       setExpertChatOpen(true);
     }
-  }, [location?.search, openBranch, openFoundationBrief, openStory]);
+    if (qBook === '1' || qBook === 'true') {
+      setInternalBookOpen(true);
+    }
+  }, [location?.search, openBranch, openBranchById, openFoundationBrief, openStory]);
+
+  const handleInlineBookSubmit = async (e) => {
+    e.preventDefault();
+    setBookError('');
+
+    const trap = bookForm.website_url ? bookForm.website_url.trim().toLowerCase() : '';
+    const isCollision =
+      trap &&
+      ((bookForm.name && trap === bookForm.name.trim().toLowerCase()) ||
+        (bookForm.company && trap === bookForm.company.trim().toLowerCase()) ||
+        (bookForm.contact && trap === bookForm.contact.trim().toLowerCase()));
+
+    if (trap && !isCollision) {
+      await new Promise((r) => setTimeout(r, 1500));
+      setBookError('Please check your details and try again.');
+      return;
+    }
+
+    if (!bookForm.name.trim() || !bookForm.company.trim() || !bookForm.contact.trim()) {
+      setBookError(
+        langRef.current === 'ar'
+          ? 'يرجى إدخال الاسم والشركة ووسيلة التواصل.'
+          : 'Please enter your name, company, and email or WhatsApp.'
+      );
+      return;
+    }
+
+    setBookSubmitting(true);
+    const contactVal = bookForm.contact.trim();
+    const isEmail = contactVal.includes('@');
+    const contextNote = `[From /demo · Module: ${activeStageModule?.titleEn || activeStageModule?.id || 'All'}]`;
+
+    try {
+      const googleFormsUrl =
+        'https://docs.google.com/forms/d/e/1FAIpQLSdNahdLNZwI1txtvR8kSvEdaJ43hQ7VbcLOIsdC41OQV51Lvw/formResponse';
+      const data = new URLSearchParams();
+      data.append('entry.1184110141', bookForm.name.trim());
+      data.append('entry.1533984093', bookForm.company.trim());
+      data.append('entry.1421145951', isEmail ? contactVal : 'provided-via-phone@demo');
+      data.append('entry.1978314716', isEmail ? 'Provided via email' : contactVal);
+      data.append('entry.1323929138', `${contextNote} | Contact: ${contactVal}`);
+      await fetch(googleFormsUrl, { method: 'POST', body: data, mode: 'no-cors' });
+
+      trackPublicEvent('cta_click', {
+        page: 'demo',
+        path: '/demo',
+        lang: langRef.current,
+        metadata: {
+          target: 'book_meeting_submit',
+          source: 'demo_inline_modal',
+          module_id: activeStageModule?.id || '',
+        },
+      });
+
+      setBookSubmitted({
+        name: bookForm.name.trim(),
+        company: bookForm.company.trim(),
+        moduleTitle: activeStageModule?.titleEn || 'Grow Treasury',
+      });
+      setBookForm({ name: '', company: '', contact: '', website_url: '' });
+    } catch {
+      setBookError(
+        langRef.current === 'ar'
+          ? 'تعذر الإرسال، يرجى المحاولة أو التواصل عبر واتساب.'
+          : 'Network error. Please try again or message us on WhatsApp.'
+      );
+    } finally {
+      setBookSubmitting(false);
+    }
+  };
 
   const toggleExpandModuleWorkflows = useCallback(
     (moduleId) => {
@@ -1149,6 +1317,20 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
   );
 
   const handleNextStep = useCallback(() => {
+    if (!embedded && !trackedBranchesRef.current.has(activeBranchId)) {
+      trackedBranchesRef.current.add(activeBranchId);
+      trackPublicEvent('tour_open', {
+        page: 'demo',
+        path: '/demo',
+        lang: langRef.current,
+        metadata: {
+          module_id: activeStageModule?.id || '',
+          branch_id: activeBranchId,
+          code: activeBranchObj?.code || '',
+        },
+      });
+    }
+
     if (currentStepIdx < totalSteps - 1) {
       setCurrentStepIdx((prev) => prev + 1);
     } else if (nextLiveBranch) {
@@ -1161,7 +1343,16 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
       setView('tree');
       setSideTab('guide');
     }
-  }, [currentStepIdx, nextLiveBranch, totalSteps, stopVoice]);
+  }, [
+    embedded,
+    activeBranchId,
+    activeStageModule,
+    activeBranchObj,
+    currentStepIdx,
+    nextLiveBranch,
+    totalSteps,
+    stopVoice,
+  ]);
 
   const handlePrevStep = useCallback(() => {
     if (currentStepIdx > 0) {
@@ -1485,68 +1676,48 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
               </div>
             </div>
           ) : (
-            /* Single Ultra-Compact Stage Toolbar (All Controls in One Line!) */
-            <div className="flex items-center justify-between gap-2 w-full">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    stopVoice();
-                    setView('tree');
-                    setSideTab('guide');
-                  }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all shrink-0"
-                >
-                  {isAr ? <ArrowRight className="w-3.5 h-3.5" /> : <ArrowLeft className="w-3.5 h-3.5" />}
-                  <span>{isAr ? 'كافة الوحدات' : 'All Modules'}</span>
-                </button>
+            /* Clean Stage Toolbar: 1-Tap Module Switcher + Sub-Tours + AI & Lang */
+            <div className="flex flex-col gap-2 w-full">
+              <div className="flex items-center justify-between gap-2 w-full">
+                <div className="flex items-center gap-2 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      stopVoice();
+                      setView('tree');
+                      setSideTab('guide');
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all shrink-0 cursor-pointer"
+                  >
+                    <Layers className="w-3.5 h-3.5 text-blue-300" />
+                    <span>{isAr ? 'كل الجولات (١٥)' : 'All 15 Tours'}</span>
+                  </button>
 
-                <div className="flex items-center gap-2 text-xs truncate">
-                  <span className={`px-2 py-0.5 rounded-md font-extrabold text-[11px] shrink-0 ${activeStageStyle.hoverPill}`}>
-                    {activeBranchObj?.code || '1.1'}
-                  </span>
-                  <span className="font-bold text-white truncate">
-                    {isAr ? activeBranchObj?.titleAr : activeBranchObj?.titleEn}
-                  </span>
-                  <span className="hidden xl:inline text-slate-400 shrink-0">
-                    ({isAr ? `الخطوة ${activeNarrative?.step} من ${totalSteps}` : `Step ${activeNarrative?.step} of ${totalSteps}`})
-                  </span>
+                  {/* 1-Tap 4-Module Switcher (Desktop Inline) */}
+                  {!isFullScreen && (
+                    <div className="hidden lg:inline-flex items-center gap-1 p-0.5 rounded-lg bg-slate-950/70 border border-white/10 shrink-0">
+                      {['reconciliation', 'custody', 'issuance', 'quotations'].map((mId) => {
+                        const flag = MODULE_FLAGSHIP_TOURS[mId];
+                        const isActiveMod = activeStageModule?.id === mId;
+                        return (
+                          <button
+                            key={mId}
+                            type="button"
+                            onMouseEnter={() => preloadBranchFirstShot(flag.branchId)}
+                            onClick={() => openBranchById(mId, flag.branchId, flag.stepIdx)}
+                            className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                              isActiveMod
+                                ? 'bg-blue-600 text-white shadow-sm'
+                                : 'text-slate-300 hover:text-white hover:bg-white/10'
+                            }`}
+                          >
+                            {isAr ? flag.shortAr : flag.shortEn}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-
-                {/* Quick Tour Switcher within Current Module (e.g., 1.1 | 1.2 | 1.3 | 1.4) */}
-                {moduleLiveBranches.length > 1 && (
-                  <div className="hidden md:inline-flex items-center gap-1 p-0.5 rounded-lg bg-slate-900/75 border border-white/10 shrink-0">
-                    {moduleLiveBranches.map((b) => {
-                      const isCurrent = b.id === activeBranchId;
-                      return (
-                        <button
-                          key={b.id}
-                          type="button"
-                          onClick={() => openBranch(b, activeStageModule)}
-                          title={isAr ? b.titleAr : b.titleEn}
-                          className={`px-2 py-0.5 rounded-md text-[11px] font-extrabold transition-all ${
-                            isCurrent
-                              ? `${activeStageStyle.hoverPill} shadow-2xs`
-                              : 'text-slate-300 hover:text-white hover:bg-white/10'
-                          }`}
-                        >
-                          {b.code}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Visual Executive Story Trigger inside Stage */}
-                <button
-                  type="button"
-                  onClick={() => openStory(activeStageModule.id, 0, true)}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-indigo-500/20 hover:bg-indigo-500/35 text-indigo-200 border border-indigo-400/30 transition-all shrink-0 cursor-pointer"
-                >
-                  <Sparkles className="w-3 h-3 text-amber-300" />
-                  <span>{isAr ? 'القصة التنفيذية للوحدة (٧٥ ث)' : 'Watch 75s Module Story'}</span>
-                </button>
-              </div>
 
               <div className="flex items-center gap-1.5 shrink-0">
                 {isFullScreen && (
@@ -1639,6 +1810,31 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                   </button>
                 </div>
               </div>
+              </div>
+
+              {/* Mobile & Tablet 1-Tap Module Switcher Row */}
+              {!isFullScreen && (
+                <div className="flex lg:hidden items-center gap-1.5 overflow-x-auto pb-0.5">
+                  {['reconciliation', 'custody', 'issuance', 'quotations'].map((mId) => {
+                    const flag = MODULE_FLAGSHIP_TOURS[mId];
+                    const isActiveMod = activeStageModule?.id === mId;
+                    return (
+                      <button
+                        key={mId}
+                        type="button"
+                        onClick={() => openBranchById(mId, flag.branchId, flag.stepIdx)}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                          isActiveMod
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'bg-white/10 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        {isAr ? flag.shortAr : flag.shortEn}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1710,7 +1906,7 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
             </div>
           </div>
 
-          {/* 4 Equal-Height Executive Module Cards (Reflows cleanly to 2x2 when Docked AI Side Panel is open on laptops!) */}
+          {/* 4 Equal-Height Visual Module Cards (With Real Screen Previews & 1-Click Live Launch!) */}
           <div
             className={`grid grid-cols-1 md:grid-cols-2 ${
               expertChatOpen ? '2xl:grid-cols-4' : 'lg:grid-cols-4'
@@ -1722,6 +1918,11 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
               const moduleTopicCount = mod.branches.length;
               const isExpanded = expandedModuleId === mod.id;
               const bullets = (isAr ? mod.cardBulletsAr : mod.cardBulletsEn) || [];
+              const flagTour = MODULE_FLAGSHIP_TOURS[mod.id] || {
+                branchId: mod.branches[0]?.id,
+                stepIdx: 0,
+              };
+              const thumbSrc = MODULE_THUMBNAILS[mod.id];
 
               return (
                 <div
@@ -1729,43 +1930,52 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                   className={`relative bg-white rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col h-full ${
                     isExpanded
                       ? style.activeTrunk
-                      : `${style.trunkBorder} shadow-xs hover:shadow-md`
+                      : `${style.trunkBorder} shadow-sm hover:shadow-md`
                   }`}
                 >
-                  <div className={`h-1.5 w-full bg-gradient-to-r ${style.topBar} shrink-0`} />
-
-                  <div className="p-5 flex flex-col flex-1">
-                    {/* Top Meta Row: Module Badge + Story Time + Icon */}
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${style.pill}`}>
-                          {isAr ? mod.badgeAr : mod.badgeEn}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                          <Volume2 className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span>{isAr ? mod.storyDurationAr || '٧٥ ثانية' : mod.storyDurationEn || '75s Story'}</span>
+                  {/* Real Product Screen Preview Header */}
+                  {thumbSrc && (
+                    <button
+                      type="button"
+                      onMouseEnter={() => preloadBranchFirstShot(flagTour.branchId)}
+                      onClick={() => openBranchById(mod.id, flagTour.branchId, flagTour.stepIdx)}
+                      className="relative w-full h-36 bg-slate-900 overflow-hidden border-b border-slate-100 group cursor-pointer text-start shrink-0"
+                    >
+                      <img
+                        src={thumbSrc}
+                        alt={mod.titleEn}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover object-top group-hover:scale-[1.03] transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-slate-950/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-600 text-white shadow-lg">
+                          <MousePointerClick className="w-3.5 h-3.5" />
+                          <span>{isAr ? 'جرّب الشاشة الآن' : 'Try Live Screen'}</span>
                         </span>
                       </div>
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-xs shrink-0 ${style.iconBg}`}>
+                    </button>
+                  )}
+
+                  <div className="p-4 sm:p-5 flex flex-col flex-1">
+                    {/* Top Meta Row */}
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${style.pill}`}>
+                        {isAr ? mod.badgeAr : mod.badgeEn}
+                      </span>
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm shrink-0 ${style.iconBg}`}>
                         <IconComp className="w-4 h-4" />
                       </div>
                     </div>
 
-                    {/* Module Title & Clear Role Distinction Subtitle */}
-                    <h2 className="text-lg font-extrabold text-slate-900 leading-snug">
+                    <h2 className="text-base sm:text-lg font-extrabold text-slate-900 leading-snug">
                       {isAr ? mod.titleAr : mod.titleEn}
                     </h2>
                     <p className={`text-xs font-bold mt-0.5 ${style.iconText}`}>
                       {isAr ? mod.subtitleAr : mod.subtitleEn}
                     </p>
 
-                    {/* Executive Outcome Hook */}
-                    <p className="text-xs sm:text-[13px] text-slate-600 mt-2.5 leading-relaxed">
-                      {isAr ? mod.summaryAr : mod.summaryEn}
-                    </p>
-
-                    {/* 3 Scannable CFO Outcome Bullets */}
-                    <div className="mt-3.5 pt-3 border-t border-slate-100 space-y-2">
+                    <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5">
                       {bullets.map((bText, i) => (
                         <div key={i} className="flex items-start gap-2 text-xs font-semibold text-slate-700 leading-snug">
                           <CheckCircle2 className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${style.iconText}`} />
@@ -1774,53 +1984,53 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                       ))}
                     </div>
 
-                    {/* Pinned Equal-Height Bottom Action Stack */}
-                    <div className="mt-auto pt-5 space-y-2">
-                      {/* Primary CTA: Auto-Playing 4-Chapter Visual Executive Story */}
+                    {/* Pinned Bottom Action Stack: 1-Click Live Screen Primary + Story / All Tours */}
+                    <div className="mt-auto pt-4 space-y-2">
                       <button
                         type="button"
-                        onMouseEnter={() => preloadStoryShots(mod.id)}
-                        onClick={() => openStory(mod.id, 0, true)}
+                        onMouseEnter={() => preloadBranchFirstShot(flagTour.branchId)}
+                        onClick={() => openBranchById(mod.id, flagTour.branchId, flagTour.stepIdx)}
                         className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-[13px] font-extrabold transition-all cursor-pointer ${style.liveBtn}`}
                       >
-                        <span className="inline-flex items-center gap-2">
-                          <Play className="w-3.5 h-3.5 fill-current shrink-0" />
+                        <span className="inline-flex items-center gap-1.5">
+                          <MousePointerClick className="w-3.5 h-3.5 shrink-0" />
                           <span>
-                            {isAr ? 'شاهد القصة التنفيذية' : 'Watch Executive Story'}
+                            {isAr ? 'جرّب الشاشة التفاعلية' : 'Try Interactive Screen'}
                           </span>
                         </span>
-                        <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md bg-black/15">
-                          {isAr ? '٤ مشاهد · صوت' : '4 Chapters'}
-                        </span>
+                        {isAr ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
                       </button>
 
-                      {/* Secondary Progressive Disclosure CTA: Reveal Hands-On Workflows */}
-                      <button
-                        type="button"
-                        onMouseEnter={() => {
-                          const firstLive = mod.branches[0];
-                          if (firstLive) preloadBranchFirstShot(firstLive.id);
-                        }}
-                        onClick={() => toggleExpandModuleWorkflows(mod.id)}
-                        className={`w-full flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                          isExpanded ? style.activeSecondaryBtn : style.secondaryBtn
-                        }`}
-                      >
-                        <span>
-                          {isExpanded
-                            ? isAr
-                              ? `إخفاء المسارات التفاعلية (${toArNum(moduleTopicCount)})`
-                              : `Hide Hands-On Workflows (${moduleTopicCount})`
-                            : isAr
-                            ? `استكشف ${toArNum(moduleTopicCount)} مسارات تفاعلية خطوة بخطوة`
-                            : `Explore ${moduleTopicCount} Hands-On Workflows`}
-                        </span>
-                        {isExpanded ? (
-                          <ChevronUp className="w-4 h-4 shrink-0" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 shrink-0" />
-                        )}
-                      </button>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onMouseEnter={() => preloadStoryShots(mod.id)}
+                          onClick={() => openStory(mod.id, 0, true)}
+                          className={`flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all cursor-pointer ${style.secondaryBtn}`}
+                        >
+                          <Volume2 className="w-3 h-3 shrink-0" />
+                          <span>{isAr ? 'ملخص ٧٥ ث' : '75s Audio'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleExpandModuleWorkflows(mod.id)}
+                          className={`flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all cursor-pointer ${
+                            isExpanded ? style.activeSecondaryBtn : style.secondaryBtn
+                          }`}
+                        >
+                          <span>
+                            {isAr
+                              ? `كل الجولات (${toArNum(moduleTopicCount)})`
+                              : `All ${moduleTopicCount} Tours`}
+                          </span>
+                          {isExpanded ? (
+                            <ChevronUp className="w-3.5 h-3.5 shrink-0" />
+                          ) : (
+                            <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1992,24 +2202,34 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                 <span>{isAr ? 'لديك سيناريو خاص؟ اسأل Grow الذكي' : 'Specific scenario? Ask Grow AI'}</span>
               </button>
               <Link
-                to="/#book-meeting"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-200 transition-colors"
+                to={`/free-trial-register${expandedModuleId ? `?module=${expandedModuleId}` : ''}`}
+                onClick={() =>
+                  trackPublicEvent('cta_click', {
+                    page: 'demo',
+                    path: '/demo',
+                    lang,
+                    metadata: { target: 'free_trial_click', source: 'demo_tree_footer', module_id: expandedModuleId || '' },
+                  })
+                }
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 transition-colors"
               >
-                <span>{isAr ? 'احجز جلسة تنفيذية (٢٠ دقيقة)' : 'Book a 20-Min Executive Walkthrough'}</span>
-              </Link>
-              <Link
-                to="/free-trial-register"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors"
-              >
-                <span>{isAr ? 'ابدأ تجربة مجانية' : 'Start Free Trial'}</span>
+                <span>{isAr ? 'ابدأ تجربة مجانية بملفاتك' : 'Start Guided Free Trial'}</span>
                 {isAr ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
               </Link>
+              <button
+                type="button"
+                onClick={() => openInlineBookModal('demo_tree_footer')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors cursor-pointer"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>{isAr ? 'احجز جلسة تنفيذية (٢٠ دقيقة)' : 'Book a 20-Min Walkthrough'}</span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ═══════ VIEW 2: SIDE-BY-SIDE INTERACTIVE STAGE (ZERO-SCROLL & TRUE EDGE-TO-EDGE FULLSCREEN) ═══════ */}
+      {/* ═══════ VIEW 2: SIDE-BY-SIDE INTERACTIVE STAGE (SCREEN-FIRST ON MOBILE!) ═══════ */}
       {view === 'stage' && activeNarrative && (
         <div
           dir={isFullScreen ? 'ltr' : dir}
@@ -2025,7 +2245,7 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
             className={
               isFullScreen
                 ? 'contents'
-                : 'flex flex-col lg:flex-row items-stretch lg:justify-center gap-4'
+                : 'flex flex-col-reverse lg:flex-row items-stretch lg:justify-center gap-4'
             }
           >
             {/* ── SIDE-BY-SIDE GUIDE (NORMAL) OR FLOATING GLASS OVERLAY (FULL SCREEN) ── */}
@@ -2198,6 +2418,35 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
 
                     {/* ── CURRENT STEP STORY & GUIDE NOTES ── */}
                     <div className="px-4 py-3 flex-1 overflow-y-auto space-y-2.5">
+                      {/* Calm Sub-Workflow Switcher (Shows All Module Workflows Cleanly Inside Panel) */}
+                      {moduleLiveBranches.length > 1 && (
+                        <div className="pb-2 border-b border-slate-100 flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold text-slate-500 truncate">
+                            {isAr ? activeBranchObj?.titleAr : activeBranchObj?.titleEn}
+                          </span>
+                          <div className="inline-flex items-center gap-1 shrink-0">
+                            {moduleLiveBranches.map((b) => {
+                              const isCurrent = b.id === activeBranchId;
+                              return (
+                                <button
+                                  key={b.id}
+                                  type="button"
+                                  onClick={() => openBranch(b, activeStageModule)}
+                                  title={isAr ? b.titleAr : b.titleEn}
+                                  className={`px-2 py-0.5 rounded-md text-[11px] font-extrabold border transition-all cursor-pointer ${
+                                    isCurrent
+                                      ? 'bg-slate-900 text-white border-slate-900'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-400'
+                                  }`}
+                                >
+                                  {b.code}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex flex-wrap items-center justify-between gap-1.5">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${activeStageStyle.pill}`}>
                           <Users className={`w-3 h-3 ${activeStageStyle.iconText}`} />
@@ -2214,28 +2463,34 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                         {isAr ? activeNarrative.headlineAr : activeNarrative.headlineEn}
                       </h3>
 
-                      <p className="text-xs text-slate-600 leading-relaxed">
+                      <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                         {isAr ? activeNarrative.guideAr : activeNarrative.guideEn}
                       </p>
 
-                      <div className="space-y-1 pt-0.5">
-                        {(isAr ? activeNarrative.highlightsAr : activeNarrative.highlightsEn).map((h, i) => (
-                          <div
-                            key={i}
-                            className="flex items-center gap-2 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50/80 text-emerald-900 border border-emerald-200/70"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            <span>{h}</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold ${activeStageStyle.actionBox}`}>
+                      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold ${activeStageStyle.actionBox}`}>
                         <MousePointerClick className={`w-3.5 h-3.5 ${activeStageStyle.iconText} shrink-0 animate-bounce`} />
                         <span>
                           {isAr ? activeNarrative.actionLabelAr : activeNarrative.actionLabelEn}
                         </span>
                       </div>
+
+                      {/* Peak-Interest Inline Conversion Prompt on Final Step */}
+                      {currentStepIdx === totalSteps - 1 && (
+                        <div className="rounded-xl bg-slate-900 text-white p-3 flex items-center justify-between gap-2.5 shadow-sm">
+                          <span className="text-xs font-semibold leading-snug">
+                            {isAr
+                              ? 'هل تود تجربتها على كشوف ونماذج شركتك؟'
+                              : 'See this run on your own bank formats?'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => openInlineBookModal('stage_final_step')}
+                            className="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-blue-600 hover:bg-blue-500 text-white shrink-0 cursor-pointer"
+                          >
+                            {isAr ? 'احجز ٢٠ د' : 'Book 20-Min Demo'}
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* ── PINNED FOOTER: BACK / NEXT + 1-ROW STEP PROGRESS BAR ── */}
@@ -2487,6 +2742,36 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                     </div>
                   </button>
                 </div>
+
+                {/* Compact Mobile Step Bar Right Under Screen (Zero Scrolling Needed on Phones!) */}
+                {!isFullScreen && (
+                  <div
+                    dir={dir}
+                    style={{ fontFamily }}
+                    className="flex lg:hidden items-center justify-between gap-2 px-2.5 pt-2 pb-1 text-white"
+                  >
+                    <button
+                      type="button"
+                      onClick={handlePrevStep}
+                      disabled={currentStepIdx === 0}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 disabled:opacity-40 cursor-pointer"
+                    >
+                      {isAr ? 'السابق' : 'Back'}
+                    </button>
+                    <span className="text-xs font-semibold text-slate-300 truncate text-center">
+                      {isAr
+                        ? `خطوة ${activeNarrative.step} من ${totalSteps}`
+                        : `Step ${activeNarrative.step} of ${totalSteps} · Tap blue highlight`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleNextStep}
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-extrabold bg-blue-600 hover:bg-blue-500 text-white cursor-pointer"
+                    >
+                      {isAr ? 'التالي' : 'Next'}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2537,6 +2822,8 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
         {/* ═══════ DOCKED SIDE-PUSH GROW AI PANEL (ZERO OVERLAP, SQUEEZES PAGE CLEANLY) ═══════ */}
         <PublicProductExpertChat
           lang={lang}
+          onLangChange={setLang}
+          onBookMeeting={() => openInlineBookModal('chatbot_cta')}
           pageContext={
             storyModal
               ? `demo:story:${storyModal.storyId}`
@@ -2556,6 +2843,13 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
           isOpen={expertChatOpen}
           onOpenChange={handleExpertOpenChange}
           onShowcaseAction={handleExpertShowcaseAction}
+          onPauseDemoAudio={() => {
+            stopVoice();
+            if (storyPlaying && storyAudioRef.current) {
+              storyAudioRef.current.pause();
+              setStoryPlaying(false);
+            }
+          }}
           stickyClassName={
             isFullScreen
               ? 'lg:top-0 lg:h-screen'
@@ -2749,11 +3043,11 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                 </div>
               </div>
 
-              {/* 3. Cinema Body: Either Live 4-Chapter Story OR End-of-Story "Go Deeper" Handoff */}
+              {/* 3. Cinema Body: Screen-First on Mobile, Side-by-Side on Desktop */}
               {storyModal.phase === 'chapters' && activeStoryChapter ? (
                 <div className="p-4 sm:p-6 overflow-y-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
-                  {/* Narrative & Executive Outcome Column (5 cols) */}
-                  <div className="lg:col-span-5 flex flex-col justify-between h-full space-y-4">
+                  {/* Narrative & Executive Outcome Column (5 cols, below screen on mobile) */}
+                  <div className="order-2 lg:order-1 lg:col-span-5 flex flex-col justify-between h-full space-y-4">
                     <div className="space-y-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${stStyle.storyChip}`}>
@@ -2857,8 +3151,8 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                     </div>
                   </div>
 
-                  {/* Real System Screen Cinema Column (7 cols) */}
-                  <div className="lg:col-span-7">
+                  {/* Real System Screen Cinema Column (7 cols, first on mobile) */}
+                  <div className="order-1 lg:order-2 lg:col-span-7">
                     <div
                       dir="ltr"
                       onClick={toggleStoryPlayPause}
@@ -3112,20 +3406,31 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
                         <span>{isAr ? 'اسأل الذكي عن سيناريو خاص' : 'Ask Grow AI a Question'}</span>
                       </button>
                       <Link
-                        to="/#book-meeting"
-                        onClick={closeStory}
-                        className="px-3.5 py-2 rounded-xl text-xs font-extrabold bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-colors"
+                        to={`/free-trial-register${storyModuleObj?.id ? `?module=${storyModuleObj.id}` : ''}`}
+                        onClick={() => {
+                          trackPublicEvent('cta_click', {
+                            page: 'demo',
+                            path: '/demo',
+                            lang,
+                            metadata: { target: 'free_trial_click', source: 'story_handoff', module_id: storyModuleObj?.id || '' },
+                          });
+                          closeStory();
+                        }}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-colors"
                       >
-                        {isAr ? 'احجز اجتماعاً مع خبير' : 'Book a Meeting'}
-                      </Link>
-                      <Link
-                        to="/free-trial-register"
-                        onClick={closeStory}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-                      >
-                        <span>{isAr ? 'ابدأ تجربة مجانية' : 'Start Free Trial'}</span>
+                        <span>{isAr ? 'ابدأ تجربة مجانية الآن' : 'Start Guided Free Trial'}</span>
                         {isAr ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closeStory();
+                          openInlineBookModal('story_handoff');
+                        }}
+                        className="px-4 py-2 rounded-xl text-xs font-extrabold bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer"
+                      >
+                        {isAr ? 'احجز جلسة تنفيذية (٢٠ د)' : 'Book a 20-Min Walkthrough'}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -3466,6 +3771,157 @@ export default function InteractivePlatformShowcase({ embedded = false, initialL
           </div>
         );
       })()}
+
+      {/* ═══════ ZERO-FRICTION INLINE WALKTHROUGH MODAL (CONVERT WITHOUT LEAVING /DEMO!) ═══════ */}
+      {isBookModalOpen && (
+        <div
+          dir={dir}
+          style={{ fontFamily }}
+          className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={closeBookModal}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={closeBookModal}
+              className="absolute top-4 end-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {bookSubmitted ? (
+              <div className="text-center py-4">
+                <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3.5">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                </div>
+                <h3 className="text-lg font-extrabold text-slate-900">
+                  {isAr ? 'تم استلام طلبك بنجاح' : 'Walkthrough Request Received'}
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-600 mt-1.5 leading-relaxed">
+                  {isAr
+                    ? `شكراً ${bookSubmitted.name}، سيتواصل معك خبير الخزانة لتحديد الموعد المناسب.`
+                    : `Thank you, ${bookSubmitted.name}. Our treasury specialist will reach out shortly to confirm your 20-minute session.`}
+                </p>
+                <div className="mt-5 flex flex-col gap-2">
+                  <a
+                    href={`https://wa.me/201200557551?text=${encodeURIComponent(
+                      `Hello Grow Team, this is ${bookSubmitted.name} from ${bookSubmitted.company}. I just explored ${bookSubmitted.moduleTitle} on /demo and would like to pick a time for a 20-minute walkthrough.`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>
+                      {isAr ? 'تحديد الموعد فوراً عبر واتساب' : 'Pick Instant Time on WhatsApp'}
+                    </span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={closeBookModal}
+                    className="w-full py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  >
+                    {isAr ? 'العودة للعرض التفاعلي' : 'Continue Exploring Demo'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p className="text-[11px] font-extrabold uppercase tracking-wider text-blue-600 mb-1">
+                  {isAr ? 'جلسة مباشرة · ٢٠ دقيقة' : '20-Minute Live Session'}
+                </p>
+                <h3 className="text-xl font-extrabold text-slate-900 leading-snug">
+                  {isAr
+                    ? 'شاهد المنصة على نماذج وكشوف بنوك شركتك'
+                    : 'See Grow Run on Your Bank Formats'}
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-500 mt-1.5">
+                  {isAr
+                    ? 'أدخل بياناتك وسنتواصل معك لتنسيق جلسة مخصصة لفريقك.'
+                    : 'Leave your details and a treasury specialist will coordinate a tailored live walkthrough.'}
+                </p>
+
+                <form onSubmit={handleInlineBookSubmit} className="mt-5 space-y-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      {isAr ? 'الاسم بالكامل *' : 'Full Name *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={bookForm.name}
+                      onChange={(e) => setBookForm((p) => ({ ...p, name: e.target.value }))}
+                      placeholder={isAr ? 'أحمد حسن' : 'Ahmed Hassan'}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      {isAr ? 'اسم الشركة *' : 'Company *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={bookForm.company}
+                      onChange={(e) => setBookForm((p) => ({ ...p, company: e.target.value }))}
+                      placeholder={isAr ? 'اسم المؤسسة' : 'Company Name'}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      {isAr ? 'البريد الرسمي أو رقم واتساب *' : 'Work Email or WhatsApp Number *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={bookForm.contact}
+                      onChange={(e) => setBookForm((p) => ({ ...p, contact: e.target.value }))}
+                      placeholder={isAr ? 'name@company.com / +20 100...' : 'name@company.com or +20 100...'}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  {bookError && (
+                    <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
+                      {bookError}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={bookSubmitting}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 shadow-md shadow-blue-600/20 cursor-pointer"
+                  >
+                    <span>
+                      {bookSubmitting
+                        ? isAr
+                          ? 'جاري الإرسال…'
+                          : 'Sending…'
+                        : isAr
+                        ? 'تأكيد طلب الجلسة التنفيذية'
+                        : 'Request My 20-Min Walkthrough'}
+                    </span>
+                    {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+                  </button>
+
+                  <HoneypotField
+                    name="website_url"
+                    value={bookForm.website_url}
+                    onChange={(e) => setBookForm((p) => ({ ...p, website_url: e.target.value }))}
+                  />
+                </form>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

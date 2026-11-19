@@ -14,6 +14,10 @@ import ViewerLayout from './Layout/ViewerLayout';
 import { fetchActiveSystemNotifications } from '../services/notificationService';
 import apiClient from '../services/apiClient';
 import GlobalDealAcceptanceModal from './Quotations/GlobalDealAcceptanceModal';
+import TrialExperienceShell from './Trial/TrialExperienceShell';
+import TrialGuidedHome from './Trial/TrialGuidedHome';
+import { TrialGuidedSidebar, TrialFullModeSidebarHeader } from './Trial/TrialGuidedSidebar';
+import useTrialExperience from './Trial/useTrialExperience';
 import { computeSidebarStatusFromRfqs } from '../utils/quotationTiming';
 import {
   SETTLE_DWELL_MS,
@@ -23,7 +27,7 @@ import {
   trackAuthenticatedRoute,
 } from '../utils/smartNavigation';
 
-function ProtectedLayout({ onLogout, userId, userRole, userPermissions, customerName, customerId, subscriptionStatus, subscriptionEndDate, hasCustodyModule, hasIssuanceModule, hasQuotationModule, hasReconciliationModule }) {
+function ProtectedLayout({ onLogout, userId, userEmail, userName, userRole, userPermissions, customerName, customerId, isTrial = false, subscriptionStatus, subscriptionEndDate, hasCustodyModule, hasIssuanceModule, hasQuotationModule, hasReconciliationModule }) {
   const location = useLocation();
   const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [headerTitle, setHeaderTitle] = useState('');
@@ -73,7 +77,8 @@ function ProtectedLayout({ onLogout, userId, userRole, userPermissions, customer
       else if (currentPath.startsWith('/corporate-admin/activity')) { activeItem = 'activity-controls'; title = 'Activity & Controls'; }
       else if (currentPath.startsWith('/corporate-admin/reconciliation/rules')) { activeItem = 'reconciliation-rules'; title = 'Rules Engine'; }
       else if (currentPath.startsWith('/corporate-admin/reconciliation/export')) { activeItem = 'reconciliation-export'; title = 'Accounting Export'; }
-      else if (currentPath.startsWith('/corporate-admin/reconciliation')) { activeItem = 'reconciliation-dashboard'; title = 'Statement Dash'; }
+      else if (currentPath.startsWith('/corporate-admin/reconciliation/workspace')) { activeItem = 'reconciliation-workspace'; title = 'Ledger Inspector'; }
+      else if (currentPath.startsWith('/corporate-admin/reconciliation')) { activeItem = 'reconciliation-dashboard'; title = 'Reconciliation Control'; }
       else if (currentPath.startsWith('/corporate-admin/quotations')) { activeItem = 'quotation-control'; title = 'Quotation Control'; }
       else if (currentPath.startsWith('/corporate-admin/users')) { activeItem = 'user-management'; title = 'User Management'; }
       else if (currentPath.startsWith('/corporate-admin/module-configs')) { activeItem = 'module-configs'; title = 'Settings'; }
@@ -98,6 +103,9 @@ function ProtectedLayout({ onLogout, userId, userRole, userPermissions, customer
       else if (currentPath.startsWith('/end-user/issuance/requests')) { activeItem = 'issuance-requests'; title = 'Issuance Requests'; }
       else if (currentPath.startsWith('/end-user/issuance/issued-lgs')) { activeItem = 'issuance-issued-lgs'; title = 'Issued LGs'; }
       else if (currentPath.startsWith('/end-user/issuance/reconciliation')) { activeItem = 'issuance-reconciliation'; title = 'Pos. Reconciliation'; }
+      else if (currentPath.startsWith('/end-user/reconciliation/workspace')) { activeItem = 'end-user-recon-workspace'; title = 'Master Workspace'; }
+      else if (currentPath.startsWith('/end-user/reconciliation/export')) { activeItem = 'end-user-recon-export'; title = 'Accounting Export'; }
+      else if (currentPath.startsWith('/end-user/reconciliation')) { activeItem = 'end-user-recon-ingest'; title = 'Statement Ingestion'; }
       else if (currentPath.startsWith('/end-user/reports')) { activeItem = 'end-user-reports'; title = 'Reports'; }
     }
     else if (role === 'checker') {
@@ -526,11 +534,119 @@ function ProtectedLayout({ onLogout, userId, userRole, userPermissions, customer
     </>
   );
 
+  const trialExp = useTrialExperience({
+    userRole,
+    customerId,
+    isTrialToken: isTrial,
+    pathname: location.pathname,
+    search: location.search,
+  });
+
+  const moduleFlags = {
+    hasCustodyModule,
+    hasIssuanceModule,
+    hasQuotationModule,
+    hasReconciliationModule,
+  };
+
+  const handleGoToTrialHome = () => {
+    if (trialExp.uiMode !== 'guided') {
+      trialExp.setUiMode('guided');
+    }
+    const homeDest =
+      trialExp.activeRole === 'corporate_admin'
+        ? '/corporate-admin/dashboard'
+        : '/end-user/dashboard';
+    trialExp.navigateTrialTarget(homeDest, null);
+  };
+
   // --- 3. RENDERING ---
+  const trialShellBanner = trialExp.isTrial ? (
+    <TrialExperienceShell
+      isTrial={trialExp.isTrial}
+      sandboxStatus={trialExp.sandboxStatus}
+      activeRole={trialExp.activeRole}
+      showGuidedHome={trialExp.showGuidedHome}
+      isSwitchingRole={trialExp.isSwitchingRole}
+      isFastForwarding={trialExp.isFastForwarding}
+      isRefreshingSim={trialExp.isRefreshingSim}
+      downloadingSampleId={trialExp.downloadingSampleId}
+      autoLoadingActionId={trialExp.autoLoadingActionId}
+      isSubmittingFeedback={trialExp.isSubmittingFeedback}
+      onNavigateTarget={trialExp.navigateTrialTarget}
+      onGoToTrialHome={handleGoToTrialHome}
+      onDownloadSample={trialExp.downloadSampleFile}
+      onAutoLoadSample={trialExp.autoLoadSampleScenario}
+      onFastForwardRfq={trialExp.fastForwardRfq}
+      onRefreshStatus={trialExp.refreshTrialStatus}
+      onSubmitFeedback={trialExp.submitTrialFeedback}
+    />
+  ) : null;
+
+  const trialSidebarOverride =
+    trialExp.isTrial && trialExp.uiMode === 'guided'
+      ? (isCollapsed, isDrawer) => (
+          <TrialGuidedSidebar
+            isCollapsed={isCollapsed}
+            isDrawer={isDrawer}
+            pathname={location.pathname}
+            search={location.search}
+            activeRole={trialExp.activeRole}
+            sandboxStatus={trialExp.sandboxStatus}
+            moduleFlags={moduleFlags}
+            isSwitchingRole={trialExp.isSwitchingRole}
+            onNavigateTarget={trialExp.navigateTrialTarget}
+            onUnlockFullMenu={() => trialExp.setUiMode('full')}
+          />
+        )
+      : null;
+
+  const trialSidebarHeaderSlot =
+    trialExp.isTrial && trialExp.uiMode === 'full'
+      ? (isCollapsed, isDrawer) => (
+          <TrialFullModeSidebarHeader
+            isCollapsed={isCollapsed}
+            isDrawer={isDrawer}
+            activeRole={trialExp.activeRole}
+            personas={trialExp.sandboxStatus?.personas || []}
+            isSwitchingRole={trialExp.isSwitchingRole}
+            onSwitchToGuided={handleGoToTrialHome}
+            onSwitchPersona={trialExp.switchPersona}
+          />
+        )
+      : null;
+
+  const trialMainOverride =
+    trialExp.isTrial && trialExp.showGuidedHome ? (
+      <TrialGuidedHome
+        sandboxStatus={trialExp.sandboxStatus}
+        activeRole={trialExp.activeRole}
+        moduleFlags={moduleFlags}
+        isSwitchingRole={trialExp.isSwitchingRole}
+        downloadingSampleId={trialExp.downloadingSampleId}
+        isDownloadingSummary={trialExp.isDownloadingSummary}
+        isPurgingData={trialExp.isPurgingData}
+        isInvitingColleague={trialExp.isInvitingColleague}
+        isSubmittingFeedback={trialExp.isSubmittingFeedback}
+        onNavigateTarget={trialExp.navigateTrialTarget}
+        onDownloadSample={trialExp.downloadSampleFile}
+        onDownloadValueSummary={trialExp.downloadValueSummaryPdf}
+        onPurgeUploadedData={trialExp.purgeUploadedTestData}
+        onInviteColleague={trialExp.inviteColleague}
+        onSubmitFeedback={trialExp.submitTrialFeedback}
+        onOpenAiAssistant={() => setIsAiModalOpen(true)}
+        onUnlockFullMenu={() => trialExp.setUiMode('full')}
+      />
+    ) : null;
+
+  const hideRoleSubtitleInGuided = Boolean(trialExp.isTrial && trialExp.uiMode === 'guided');
+
   if (userRole === 'system_owner') {
     return renderWithAiAssistant(
       <SidebarLayout
         onLogout={onLogout}
+        userEmail={userEmail}
+        userName={userName}
         activeMenuItem={activeMenuItem}
         headerTitle={headerTitle}
         systemNotifications={systemNotifications}
@@ -542,6 +658,8 @@ function ProtectedLayout({ onLogout, userId, userRole, userPermissions, customer
     return renderWithAiAssistant(
       <CorporateAdminLayout
         onLogout={onLogout}
+        userEmail={userEmail}
+        userName={userName}
         activeMenuItem={activeMenuItem}
         customerName={customerName}
         customerId={customerId}
@@ -555,6 +673,11 @@ function ProtectedLayout({ onLogout, userId, userRole, userPermissions, customer
         hasReconciliationModule={hasReconciliationModule}
         isChecker={userRole === 'checker'}
         quotationSidebarStatus={quotationSidebarStatus}
+        topBanner={trialShellBanner}
+        sidebarOverride={trialSidebarOverride}
+        sidebarHeaderSlot={trialSidebarHeaderSlot}
+        mainContentOverride={trialMainOverride}
+        hideRoleSubtitle={hideRoleSubtitleInGuided}
       >
         <Outlet />
       </CorporateAdminLayout>
@@ -563,6 +686,8 @@ function ProtectedLayout({ onLogout, userId, userRole, userPermissions, customer
     return renderWithAiAssistant(
       <EndUserLayout
         onLogout={onLogout}
+        userEmail={userEmail}
+        userName={userName}
         activeMenuItem={activeMenuItem}
         customerName={customerName}
         customerId={customerId}
@@ -575,6 +700,11 @@ function ProtectedLayout({ onLogout, userId, userRole, userPermissions, customer
         hasQuotationModule={hasQuotationModule}
         hasReconciliationModule={hasReconciliationModule}
         quotationSidebarStatus={quotationSidebarStatus}
+        topBanner={trialShellBanner}
+        sidebarOverride={trialSidebarOverride}
+        sidebarHeaderSlot={trialSidebarHeaderSlot}
+        mainContentOverride={trialMainOverride}
+        hideRoleSubtitle={hideRoleSubtitleInGuided}
       >
         <Outlet />
       </EndUserLayout>
@@ -583,6 +713,8 @@ function ProtectedLayout({ onLogout, userId, userRole, userPermissions, customer
     return renderWithAiAssistant(
       <ViewerLayout
         onLogout={onLogout}
+        userEmail={userEmail}
+        userName={userName}
         activeMenuItem={activeMenuItem}
         customerName={customerName}
         headerTitle={headerTitle}

@@ -6,6 +6,8 @@ import { Loader2, Mail, KeyRound, ShieldCheck, ArrowRight, Send } from 'lucide-r
 import { API_BASE_URL } from 'services/apiService';
 import { toast } from 'react-toastify';
 import { Helmet } from 'react-helmet-async';
+import HoneypotField from '../../components/Security/HoneypotField';
+import GrowLogo from '../../components/Common/GrowLogo';
 
 export default function PublicIssuancePortal() {
   const navigate = useNavigate();
@@ -13,25 +15,36 @@ export default function PublicIssuancePortal() {
   const [step, setStep] = useState('email');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [domainNotOnboarded, setDomainNotOnboarded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleVerifyDomain = async (e) => {
     e.preventDefault();
+    setDomainNotOnboarded(false);
     if (!email || !email.includes('@')) {
       toast.error('Please enter a valid email address.');
       return;
     }
+
+    const safeTrap =
+      websiteUrl && websiteUrl.trim().toLowerCase() === email.trim().toLowerCase()
+        ? ''
+        : websiteUrl;
 
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/public-issuance/verify-domain`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.toLowerCase() })
+        body: JSON.stringify({ email: email.toLowerCase(), website_url: safeTrap })
       });
 
       const data = await response.json();
       if (!response.ok) {
+        if (response.status === 404) {
+          setDomainNotOnboarded(true);
+        }
         toast.error(data.detail || 'Unable to verify your organization.');
         return;
       }
@@ -91,9 +104,8 @@ export default function PublicIssuancePortal() {
         <div className="absolute top-1/2 right-1/4 w-32 h-32 rounded-full opacity-[0.03] bg-blue-400" />
 
         <div>
-          <Link to="/" className="inline-flex items-center space-x-2 mb-16 hover:opacity-90 transition-opacity">
-            <span className="text-xl font-bold text-white tracking-tight">Grow</span>
-            <span className="text-xs text-blue-400 font-medium">Business Development</span>
+          <Link to="/" className="inline-flex items-center mb-16 hover:opacity-95 transition-opacity">
+            <GrowLogo size="md" />
           </Link>
 
           <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium mb-6" style={{ backgroundColor: 'rgba(96,165,250,0.15)', color: '#93bbfc' }}>
@@ -158,16 +170,42 @@ export default function PublicIssuancePortal() {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (domainNotOnboarded) setDomainNotOnboarded(false);
+                    }}
                     placeholder="you@yourcompany.com"
                     className={inputCls}
                     required
                     autoFocus
                   />
                   <p className="mt-1.5 text-xs text-gray-400">
-                    We'll verify your organization and send a one-time code.
+                    We&apos;ll verify your organization and send a one-time code.
                   </p>
                 </div>
+
+                {domainNotOnboarded && (
+                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1.5">
+                    <p className="font-semibold">
+                      Your organization isn&apos;t onboarded on the Issuance Portal yet.
+                    </p>
+                    <p className="text-amber-800">
+                      Evaluating Grow for your treasury team?{' '}
+                      <Link
+                        to="/free-trial-register?module=issuance"
+                        className="font-bold text-blue-700 hover:underline"
+                      >
+                        Start a Guided Free Trial →
+                      </Link>{' '}
+                      or{' '}
+                      <Link to="/demo?module=issuance" className="font-semibold text-blue-700 hover:underline">
+                        watch the Interactive Demo
+                      </Link>
+                      .
+                    </p>
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   disabled={isLoading}
@@ -179,12 +217,27 @@ export default function PublicIssuancePortal() {
                     <>Continue <ArrowRight className="ml-2 h-4 w-4" /></>
                   )}
                 </button>
+
+                <HoneypotField
+                  name="website_url"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                />
               </form>
 
-              <div className="pt-5 border-t border-gray-200 flex items-center justify-center text-sm">
-                <Link to="/login" className="text-gray-400 hover:text-blue-600 transition-colors">
-                  Sign In to Platform
+              <div className="pt-5 border-t border-gray-200 flex flex-col items-center space-y-2 text-sm">
+                <Link to="/login" className="text-gray-500 hover:text-blue-600 font-medium transition-colors">
+                  Treasury Team Sign In
                 </Link>
+                <p className="text-xs text-gray-400">
+                  Evaluating Grow for your company?{' '}
+                  <Link
+                    to="/free-trial-register?module=issuance"
+                    className="font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                  >
+                    Start Free Trial →
+                  </Link>
+                </p>
               </div>
             </div>
           )}

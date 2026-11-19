@@ -24,6 +24,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { formatDateTime } from 'utils/dateFormat';
 
 // Common input field styling classes
 const inputClassNames = "block w-full text-sm px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-900";
@@ -1355,7 +1356,7 @@ function CommonListManagementPage({ onLogout }) {
                               )}
                             </td>
                             <td className="py-3 px-3 text-[11px] text-slate-500">
-                              {dealer.last_login_at ? new Date(dealer.last_login_at).toLocaleString() : 'Never'}
+                              {dealer.last_login_at ? formatDateTime(dealer.last_login_at) : 'Never'}
                             </td>
                             <td className="py-3 px-3 text-right">
                               <div className="inline-flex items-center justify-end gap-2.5">

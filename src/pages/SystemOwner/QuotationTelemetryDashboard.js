@@ -7,6 +7,7 @@ import {
     Award, X, Building2, Flame, ArrowLeft,
     Search, Filter, ChevronRight, MessageSquare, Star
 } from 'lucide-react';
+import { formatDate, formatDateTime } from 'utils/dateFormat';
 
 export default function QuotationTelemetryDashboard() {
     const [activeTab, setActiveTab] = useState('telemetry'); // 'telemetry' | 'trophies'
@@ -1283,7 +1284,7 @@ export default function QuotationTelemetryDashboard() {
                                                     )}
                                                 </div>
                                                 <p className="text-[11px] text-slate-400 mt-0.5">
-                                                    Submitted: {fb.created_at ? new Date(fb.created_at).toLocaleString() : 'Recent'}
+                                                    Submitted: {fb.created_at ? formatDateTime(fb.created_at, 'Recent') : 'Recent'}
                                                 </p>
                                             </div>
                                         </div>
@@ -1389,7 +1390,7 @@ export default function QuotationTelemetryDashboard() {
 
                                         {fb.resolved_at && (
                                             <span className="text-[10px] text-emerald-600 font-medium">
-                                                ✓ Resolved {new Date(fb.resolved_at).toLocaleDateString()} {fb.resolved_by && `by ${fb.resolved_by}`}
+                                                ✓ Resolved {formatDate(fb.resolved_at)} {fb.resolved_by && `by ${fb.resolved_by}`}
                                             </span>
                                         )}
                                     </div>

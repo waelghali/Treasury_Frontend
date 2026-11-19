@@ -5,6 +5,7 @@ import { X, Check, Loader2, AlertCircle, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 import { apiRequest } from '../../services/apiService';
+import FormattedDateInput from 'components/FormattedDateInput';
 
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
@@ -306,8 +307,7 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeri
                                                         </div>
                                                         <div>
                                                             <label htmlFor="payment_date" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Payment Date*</label>
-                                                            <input
-                                                                type="date"
+                                                            <FormattedDateInput
                                                                 name="payment_date"
                                                                 id="payment_date"
                                                                 max={moment().format('YYYY-MM-DD')}

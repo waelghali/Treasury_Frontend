@@ -7,6 +7,7 @@ import * as Yup from 'yup';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import { X, Calendar, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
+import FormattedDateInput from 'components/FormattedDateInput';
 
 // Reusable component for tooltip during grace period, as seen in the first modal
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -210,7 +211,7 @@ const ExtendLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                                                                 New Expiry Date <span className="text-red-500">*</span>
                                                             </label>
                                                             <Field
-                                                                type="date"
+                                                                component={FormattedDateInput}
                                                                 id="specificNewExpiryDate"
                                                                 name="specificNewExpiryDate"
                                                                 className={`mt-1 block w-full px-3 py-2 text-sm border rounded-lg shadow-sm focus:outline-none ${errors.specificNewExpiryDate && touched.specificNewExpiryDate ? 'border-red-500' : 'border-gray-300'}`}

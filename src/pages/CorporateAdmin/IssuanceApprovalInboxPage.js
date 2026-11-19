@@ -4,6 +4,7 @@ import { Loader2, CheckCircle, XCircle, Eye, Shield, Search, Inbox, RotateCcw, A
 import { toast } from 'react-toastify';
 import IssuanceRequestDetailsModal from '../../components/Modals/IssuanceRequestDetailsModal';
 import { SkeletonTable } from '../../components/SkeletonLoader';
+import { formatDate } from '../../utils/dateFormat';
 
 export default function IssuanceApprovalInboxPage() {
     // Tab state
@@ -566,7 +567,7 @@ export default function IssuanceApprovalInboxPage() {
                                                             <p className="text-xs font-bold text-gray-400 uppercase mb-1">Bank Confirmed</p>
                                                             <p className="text-gray-700">Amount: {lg.currency_code} {parseFloat(lg.current_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                                                             <p className="text-gray-700">Bank LG #: {lg.bank_lg_number || 'N/A'}</p>
-                                                            <p className="text-gray-700">Expiry: {lg.expiry_date || 'N/A'}</p>
+                                                            <p className="text-gray-700">Expiry: {formatDate(lg.expiry_date, 'N/A')}</p>
                                                         </div>
                                                     </div>
 

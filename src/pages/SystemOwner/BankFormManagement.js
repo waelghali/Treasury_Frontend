@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import VisualBankFormDesignerModal from '../../components/Issuance/VisualBankFormDesignerModal';
+import { formatDate } from 'utils/dateFormat';
 
 const AVAILABLE_SYSTEM_FIELDS = [
     "request_id", "serial_number", "status", "transaction_type",
@@ -949,7 +950,7 @@ export default function BankFormManagement() {
                                                         'bg-gray-100 text-gray-600'
                                                     }`}>{issue.status}</span>
                                                 </td>
-                                                <td className="px-4 py-2.5 text-[10px] text-gray-400">{issue.created_at ? new Date(issue.created_at).toLocaleDateString() : '—'}</td>
+                                                <td className="px-4 py-2.5 text-[10px] text-gray-400">{formatDate(issue.created_at)}</td>
                                                 <td className="px-4 py-2.5 text-right">
                                                     <button
                                                         onClick={() => setResolvingIssue(resolvingIssue === issue.id ? null : issue.id)}

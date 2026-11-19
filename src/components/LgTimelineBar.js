@@ -142,10 +142,10 @@ const LgTimelineBar = ({ lgRecord }) => {
                             {activeTooltip === event.id && (
                                 <div className="absolute left-1/2 transform -translate-x-1/2 mt-3 p-2 text-xs text-white bg-gray-800 rounded-lg shadow-lg w-max z-20">
                                     <p className="font-bold">{formatActionTypeLabel(event.action_type)}</p>
-                                    <p>{moment(event.timestamp).format('MMM Do, YYYY')}</p>
+                                    <p>{moment(event.timestamp).format('DD-MMM-YYYY')}</p>
                                     {instruction?.instruction_type && <p>Instruction: {formatActionTypeLabel(instruction.instruction_type)}</p>}
-                                    {instruction?.delivery_date && <p>Delivered: {moment(instruction.delivery_date).format('MMM Do, YYYY')}</p>}
-                                    {instruction?.bank_reply_date && <p>Replied: {moment(instruction.bank_reply_date).format('MMM Do, YYYY')}</p>}
+                                    {instruction?.delivery_date && <p>Delivered: {moment(instruction.delivery_date).format('DD-MMM-YYYY')}</p>}
+                                    {instruction?.bank_reply_date && <p>Replied: {moment(instruction.bank_reply_date).format('DD-MMM-YYYY')}</p>}
                                     {event.action_type.includes('REMINDER') && <p>Reminder Sent</p>}
                                 </div>
                             )}
@@ -154,8 +154,8 @@ const LgTimelineBar = ({ lgRecord }) => {
                 })}
             </div>
             <div className="flex justify-between items-center text-sm font-medium text-gray-600 px-1">
-                <span>{moment(lgCreationDate).format('MMM Do, YYYY')}</span>
-                <span>{moment(lgRecord.expiry_date).format('MMM Do, YYYY')}</span>
+                <span>{moment(lgCreationDate).format('DD-MMM-YYYY')}</span>
+                <span>{moment(lgRecord.expiry_date).format('DD-MMM-YYYY')}</span>
             </div>
         </div>
     );

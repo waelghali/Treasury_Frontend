@@ -11,6 +11,7 @@ import { toast } from 'react-toastify';
 import ApprovalProgressTracker from '../ApprovalProgressTracker';
 import IssuanceWizardModal from './IssuanceWizardModal';
 import { openInNewTab } from '../../utils/navUtils';
+import { formatDate, formatDateTime } from '../../utils/dateFormat';
 
 export default function IssuanceRequestDetailsModal({ request: requestProp, onClose, onStatusChange }) {
     const navigate = useNavigate();
@@ -451,7 +452,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                             </h4>
                                             <p className="text-xs text-amber-700">
                                                 {request.metadata_json?.pending_edit?.requested_at
-                                                    ? `Requested on ${new Date(request.metadata_json.pending_edit.requested_at).toLocaleDateString()}`
+                                                    ? `Requested on ${formatDate(request.metadata_json.pending_edit.requested_at)}`
                                                     : 'Awaiting Corporate Admin review'}
                                             </p>
                                         </div>
@@ -592,10 +593,10 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                 {payableCurrencyCode && payableCurrencyCode !== currencyCode && (
                                     <DetailRow label="Payable Currency" value={payableCurrencyCode} modified={isFieldModified('payable_currency_id')} />
                                 )}
-                                <DetailRow label="Suggested Issue Date" value={request.requested_issue_date} icon={Calendar} modified={isFieldModified('requested_issue_date')} />
+                                <DetailRow label="Suggested Issue Date" value={request.requested_issue_date ? formatDate(request.requested_issue_date) : null} icon={Calendar} modified={isFieldModified('requested_issue_date')} />
                                 {(() => {
                                     let maturityLabel = "Maturity Date";
-                                    let maturityValue = request.requested_expiry_date;
+                                    let maturityValue = request.requested_expiry_date ? formatDate(request.requested_expiry_date) : null;
                                     if (request.expiry_type === 'OPEN_ENDED' || request.is_open_ended) {
                                         maturityLabel = "Validity";
                                         maturityValue = "Open-Ended (ساري حتى الإلغاء)";
@@ -604,7 +605,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                         const u = request.validity_period_unit === 'DAYS' ? 'Days' : (request.validity_period_unit === 'MONTHS' ? 'Months' : 'Years');
                                         maturityValue = `${request.validity_period_value} ${u} from issuance`;
                                         if (request.requested_expiry_date) {
-                                            maturityValue += ` (Tentative: ${request.requested_expiry_date})`;
+                                            maturityValue += ` (Tentative: ${formatDate(request.requested_expiry_date)})`;
                                         }
                                     }
                                     return (
@@ -643,8 +644,8 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                     <DetailRow label="Reference Type" value={request.reference_type?.replace(/_/g, ' ')} icon={FileText} modified={isFieldModified('reference_type')} />
                                     <DetailRow label="Reference Number" value={request.reference_number} icon={Hash} modified={isFieldModified('reference_number')} />
                                     <DetailRow label="Reference Amount" value={request.reference_amount ? `${refCurrencyCode || currencyCode} ${parseFloat(request.reference_amount).toLocaleString()}` : null} icon={DollarSign} modified={isFieldModified('reference_amount') || isFieldModified('reference_currency_id')} />
-                                    <DetailRow label="Start Date" value={request.reference_start_date} icon={Calendar} modified={isFieldModified('reference_start_date')} />
-                                    <DetailRow label="End Date" value={request.reference_end_date} icon={Calendar} modified={isFieldModified('reference_end_date')} />
+                                    <DetailRow label="Start Date" value={request.reference_start_date ? formatDate(request.reference_start_date) : null} icon={Calendar} modified={isFieldModified('reference_start_date')} />
+                                    <DetailRow label="End Date" value={request.reference_end_date ? formatDate(request.reference_end_date) : null} icon={Calendar} modified={isFieldModified('reference_end_date')} />
                                     {request.project && (
                                         <DetailRow label="Linked Project" value={`${request.project.name} (${request.project.project_type?.replace(/_/g, ' ')}${request.project.reference_number ? ' · #' + request.project.reference_number : ''})`} icon={Briefcase} highlight modified={isFieldModified('project_id')} />
                                     )}
@@ -671,7 +672,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                     <div>
                                         <p className="text-sm font-semibold text-amber-800">Maturity Date Exceeds Reference Period</p>
                                         <p className="text-xs text-amber-700 mt-1">
-                                            The LG maturity date ({request.requested_expiry_date}) extends <span className="font-bold">{gapText}</span> beyond the reference end date ({request.reference_end_date}).
+                                            The LG maturity date ({formatDate(request.requested_expiry_date)}) extends <span className="font-bold">{gapText}</span> beyond the reference end date ({formatDate(request.reference_end_date)}).
                                             This may indicate over-coverage risk.
                                         </p>
                                     </div>
@@ -980,7 +981,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                         <DetailRow label="Internal Notes" value={request.treasury_enrichment.internal_notes} />
                                     )}
                                     {request.treasury_enrichment.enriched_at && (
-                                        <DetailRow label="Enriched At" value={new Date(request.treasury_enrichment.enriched_at).toLocaleString()} icon={Calendar} />
+                                        <DetailRow label="Enriched At" value={formatDateTime(request.treasury_enrichment.enriched_at)} icon={Calendar} />
                                     )}
                                 </div>
                             </div>
@@ -1031,7 +1032,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                                                     🆕 Added in this edit
                                                                 </span>
                                                             )}
-                                                            {doc.created_at && <span className="text-[10px] text-gray-400">{new Date(doc.created_at).toLocaleDateString()}</span>}
+                                                            {doc.created_at && <span className="text-[10px] text-gray-400">{formatDate(doc.created_at)}</span>}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1443,8 +1444,8 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                         )}
                     </div>
                     <div className="flex gap-2">
-                        {/* === DRAFT ACTIONS === */}
-                        {request.status === 'DRAFT' && (
+                        {/* === DRAFT ACTIONS (Maker / End User only) === */}
+                        {userRole === 'end_user' && request.status === 'DRAFT' && (
                             <>
                                 <button
                                     onClick={async () => {
@@ -1466,8 +1467,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                 <button
                                     onClick={() => {
                                         onClose();
-                                        const basePath = userRole === 'corporate_admin' ? '/corporate-admin' : '/end-user';
-                                        navigate(`${basePath}/issuance/requests/edit/${request.id}`);
+                                        navigate(`/end-user/issuance/requests/edit/${request.id}`);
                                     }}
                                     className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 rounded-md font-medium text-sm hover:bg-gray-100 transition-colors"
                                 >
@@ -1496,14 +1496,13 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                             </>
                         )}
 
-                        {/* === REVISION_REQUIRED ACTIONS === */}
-                        {request.status === 'REVISION_REQUIRED' && (
+                        {/* === REVISION_REQUIRED ACTIONS (Maker / End User only) === */}
+                        {userRole === 'end_user' && request.status === 'REVISION_REQUIRED' && (
                             <>
                                 <button
                                     onClick={() => {
                                         onClose();
-                                        const basePath = userRole === 'corporate_admin' ? '/corporate-admin' : '/end-user';
-                                        navigate(`${basePath}/issuance/requests/edit/${request.id}`);
+                                        navigate(`/end-user/issuance/requests/edit/${request.id}`);
                                     }}
                                     className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-md font-medium text-sm hover:bg-amber-100 transition-colors"
                                 >
@@ -1532,8 +1531,8 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                             </>
                         )}
 
-                        {/* === RESERVE / RELEASE FACILITY === */}
-                        {request.status === 'FACILITY_RESERVED' && (
+                        {/* === RESERVE / RELEASE FACILITY (Maker / End User only) === */}
+                        {userRole === 'end_user' && request.status === 'FACILITY_RESERVED' && (
                             <button
                                 onClick={async () => {
                                     if (!window.confirm('Release the facility reservation? The reserved amount will be freed.')) return;
@@ -1815,9 +1814,9 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                                 {docAnalysis.clause_harvest.recommended_expiry_date && (
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-mono text-xs font-bold text-blue-800 bg-blue-100/90 px-2.5 py-1 rounded-lg border border-blue-200">
-                                                            Proposed Expiry: {docAnalysis.clause_harvest.recommended_expiry_date}
+                                                            Proposed Expiry: {formatDate(docAnalysis.clause_harvest.recommended_expiry_date)}
                                                         </span>
-                                                        {fullRequest?.requested_expiry_date !== docAnalysis.clause_harvest.recommended_expiry_date && (
+                                                        {userRole === 'end_user' && fullRequest?.requested_expiry_date !== docAnalysis.clause_harvest.recommended_expiry_date && (
                                                             <button
                                                                 type="button"
                                                                 onClick={async () => {
@@ -1829,7 +1828,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                                                             ...prev,
                                                                             requested_expiry_date: docAnalysis.clause_harvest.recommended_expiry_date
                                                                         }));
-                                                                        toast.success(`Expiry date updated to ${docAnalysis.clause_harvest.recommended_expiry_date}`);
+                                                                        toast.success(`Expiry date updated to ${formatDate(docAnalysis.clause_harvest.recommended_expiry_date)}`);
                                                                     } catch (err) {
                                                                         toast.error(err?.message || 'Failed to update expiry date');
                                                                     }

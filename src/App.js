@@ -46,14 +46,16 @@ import {
   clearSessionTimers,
   extendSession,
   logoutUser,
+  resolveSessionExpiredAt,
   handleUserActivity,
-  TOTAL_SESSION_MS,
   WARNING_BUFFER_MS
 } from './services/apiService';
 import { syncPushOwnership } from './services/pushService';
 import {
   resolvePostLoginTarget,
   recordExpiredSessionBeforeClear,
+  getLastLogoutMeta,
+  buildUnauthenticatedLoginTarget,
 } from './utils/smartNavigation';
 import { jwtDecode } from 'jwt-decode';
 
@@ -71,8 +73,11 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [_mustAcceptPolicies, setMustAcceptPolicies] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [userEmail, setUserEmail] = useState(null);
+  const [userName, setUserName] = useState(null);
   const [customerId, setCustomerId] = useState(null);
   const [customerName, setCustomerName] = useState(null);
+  const [isTrial, setIsTrial] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [subscriptionEndDate, setSubscriptionEndDate] = useState(null);
@@ -145,33 +150,50 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
       try {
         if (checkExpiry && (!isTokenValid(token) || isSessionIdleExpired())) {
           let prevUserId = null;
-          let lastAct = 0;
           try {
             prevUserId = localStorage.getItem('user_id');
-            lastAct = Number(localStorage.getItem('last_activity_at')) || 0;
           } catch {}
-          const expiredAt = lastAct > 0 ? Math.min(Date.now(), lastAct + TOTAL_SESSION_MS) : Date.now();
+          const expiredAt = resolveSessionExpiredAt(token);
           recordExpiredSessionBeforeClear(expiredAt, prevUserId);
           setAuthToken(null);
           setIsAuthenticated(false);
           setUserRole(null);
+          setUserEmail(null);
+          setUserName(null);
           return { isAuthenticated: false };
         }
         const decoded = jwtDecode(token);
+        const resolvedEmail = decoded.email || decoded.sub || null;
+        const resolvedName = decoded.full_name || decoded.name || null;
+        let decodedIsTrial = Boolean(decoded.is_trial);
+        if (!decodedIsTrial && decoded.customer_id) {
+          try {
+            decodedIsTrial =
+              sessionStorage.getItem(`grow_trial_mode_probe_v2_${decoded.customer_id}`) === 'true';
+          } catch {}
+        }
         setIsAuthenticated(true);
         setUserRole(decoded.role);
         setMustChangePassword(decoded.must_change_password || false);
         setMustAcceptPolicies(decoded.must_accept_policies || false);
         setUserId(decoded.user_id);
+        setUserEmail(resolvedEmail);
+        setUserName(resolvedName);
         setCustomerId(decoded.customer_id || null);
+        setIsTrial(decodedIsTrial);
         try {
+          if (decodedIsTrial && decoded.customer_id) {
+            sessionStorage.setItem(`grow_trial_mode_probe_v2_${decoded.customer_id}`, 'true');
+          }
           const userObj = {
             id: decoded.user_id,
             user_id: decoded.user_id,
-            email: decoded.email || decoded.sub,
+            email: resolvedEmail,
+            full_name: resolvedName,
             role: decoded.role,
             customer_id: decoded.customer_id,
-            customer_name: decoded.customer_name
+            customer_name: decoded.customer_name,
+            is_trial: decodedIsTrial
           };
           localStorage.setItem('user', JSON.stringify(userObj));
           localStorage.setItem('user_role', decoded.role);
@@ -193,6 +215,8 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
         return {
           isAuthenticated: true,
           userId: decoded.user_id,
+          customerId: decoded.customer_id || null,
+          isTrial: decodedIsTrial,
           userRole: decoded.role,
           mustChangePassword: decoded.must_change_password || false,
           mustAcceptPolicies: decoded.must_accept_policies || false,
@@ -206,10 +230,14 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
         console.error("App.js: Failed to decode token:", error);
         setAuthToken(null);
         setIsAuthenticated(false);
+        setUserEmail(null);
+        setUserName(null);
       }
     } else {
       setIsAuthenticated(false);
       setUserRole(null);
+      setUserEmail(null);
+      setUserName(null);
     }
     return { isAuthenticated: false };
   };
@@ -222,14 +250,39 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
     if (state.isAuthenticated && !modalOpenRef.current) initTrackers(state, false);
     if (state.isAuthenticated && state.mustAcceptPolicies) setShowLegalModal(true);
 
+    const handleCrossTabLogout = (reasonOverride = null, expiredAtOverride = null) => {
+      onHideSessionModal();
+      stopInactivityTracker();
+      clearSessionTimers();
+      setIsAuthenticated(false);
+      setUserRole(null);
+      setUserEmail(null);
+      setUserName(null);
+
+      if (!isPublicPage()) {
+        const meta = getLastLogoutMeta();
+        const reason = reasonOverride || meta?.type || 'explicit';
+        if (reason === 'explicit') {
+          navigate('/login', { replace: true });
+        } else {
+          const current = window.location.pathname + window.location.search + window.location.hash;
+          if (current && current !== '/' && current !== '/app' && !current.startsWith('/login')) {
+            const expTs =
+              expiredAtOverride !== null && expiredAtOverride !== undefined
+                ? expiredAtOverride
+                : meta?.expiredAt ?? 0;
+            navigate(`/login?next=${encodeURIComponent(current)}&idle=${expTs}`, { replace: true });
+          } else {
+            navigate(buildUnauthenticatedLoginTarget(current), { replace: true });
+          }
+        }
+      }
+    };
+
     const handleStorageChange = (event) => {
       if (event.key === 'jwt_token') {
         if (!event.newValue) {
-          onHideSessionModal();
-          stopInactivityTracker();
-          clearSessionTimers();
-          setIsAuthenticated(false);
-          setUserRole(null);
+          handleCrossTabLogout();
           return;
         }
         const newState = decodeTokenAndSetState(event.newValue, false);
@@ -246,11 +299,7 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
 
     const unsubscribeSync = subscribeSessionSync((data) => {
       if (data.type === 'SESSION_LOGOUT') {
-        onHideSessionModal();
-        stopInactivityTracker();
-        clearSessionTimers();
-        setIsAuthenticated(false);
-        setUserRole(null);
+        handleCrossTabLogout(data.reason || null, data.expiredAt);
       } else if (data.type === 'SESSION_EXTENDED' || data.type === 'USER_ACTIVITY') {
         if (modalOpenRef.current) {
           onHideSessionModal();
@@ -308,6 +357,23 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
   }, [isAuthenticated, isPublicRoute, onIdleWarning]);
 
   const navigatePostLogin = (state) => {
+    try {
+      sessionStorage.setItem('grow_just_logged_in_v1', '1');
+    } catch {}
+
+    // Free Trial accounts MUST always land directly on Trial Home on every login — never any other page
+    if (state.isTrial) {
+      try {
+        if (state.customerId) {
+          localStorage.setItem(`grow_trial_ui_mode_v1_${state.customerId}`, 'guided');
+        }
+      } catch {}
+      const trialHomePath =
+        state.userRole === 'corporate_admin' ? '/corporate-admin/dashboard' : '/end-user/dashboard';
+      navigate(trialHomePath, { replace: true });
+      return;
+    }
+
     const defaultPath = getDefaultRedirectPath(state.userRole, state);
     const { path, changedHubLabel } = resolvePostLoginTarget({
       userId: state.userId || userId,
@@ -368,23 +434,30 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
   }, [isAuthenticated, userId]);
 
   const getDefaultRedirectPath = (role, moduleState = null) => {
+    const trialFlag = moduleState?.isTrial !== undefined ? moduleState.isTrial : isTrial;
+    if (trialFlag) {
+      return role === 'corporate_admin' ? "/corporate-admin/dashboard" : "/end-user/dashboard";
+    }
     const custody = moduleState?.hasCustodyModule !== undefined ? moduleState.hasCustodyModule : hasCustodyModule;
     const issuance = moduleState?.hasIssuanceModule !== undefined ? moduleState.hasIssuanceModule : hasIssuanceModule;
     const quotation = moduleState?.hasQuotationModule !== undefined ? moduleState.hasQuotationModule : hasQuotationModule;
+    const reconciliation = moduleState?.hasReconciliationModule !== undefined ? moduleState.hasReconciliationModule : hasReconciliationModule;
 
     if (role === 'system_owner') return "/system-owner/dashboard";
     if (role === 'corporate_admin') {
-      if (!custody && !issuance && quotation) {
-        return "/corporate-admin/quotations";
+      if (!custody && !issuance) {
+        if (quotation) return "/corporate-admin/quotations";
+        if (reconciliation) return "/corporate-admin/reconciliation";
       }
       return "/corporate-admin/dashboard";
     }
     if (role === 'checker') return "/checker/approval-requests";
     if (role === 'end_user' || role === 'viewer') {
-      if (!custody && !issuance && quotation) {
-        return "/end-user/quotations/active";
+      if (!custody && !issuance) {
+        if (quotation) return "/end-user/quotations/active";
+        if (reconciliation) return "/end-user/reconciliation";
       }
-      return "/end-user/action-center";
+      return "/end-user/dashboard";
     }
     return "/login";
   };
@@ -433,11 +506,11 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
             {mustChangePassword ? (
               <Route path="*" element={<Navigate to="/force-password-change" replace />} />
             ) : (
-              <Route path="/*" element={<ProtectedLayout onLogout={handleLogout} userId={userId} userRole={userRole} userPermissions={userPermissions} customerName={customerName} customerId={customerId} subscriptionStatus={subscriptionStatus} subscriptionEndDate={subscriptionEndDate} hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} hasQuotationModule={hasQuotationModule} hasReconciliationModule={hasReconciliationModule} />}>
+              <Route path="/*" element={<ProtectedLayout onLogout={handleLogout} userId={userId} userEmail={userEmail} userName={userName} userRole={userRole} userPermissions={userPermissions} customerName={customerName} customerId={customerId} isTrial={isTrial} subscriptionStatus={subscriptionStatus} subscriptionEndDate={subscriptionEndDate} hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} hasQuotationModule={hasQuotationModule} hasReconciliationModule={hasReconciliationModule} />}>
                 <Route path="system-owner/*" element={<SystemOwnerRoutes onLogout={handleLogout} />} />
-                <Route path="corporate-admin/*" element={<CorporateAdminRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} hasIssuanceModule={hasIssuanceModule} hasCustodyModule={hasCustodyModule} hasQuotationModule={hasQuotationModule} hasReconciliationModule={hasReconciliationModule} />} />
+                <Route path="corporate-admin/*" element={<CorporateAdminRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} isTrial={isTrial} hasIssuanceModule={hasIssuanceModule} hasCustodyModule={hasCustodyModule} hasQuotationModule={hasQuotationModule} hasReconciliationModule={hasReconciliationModule} />} />
                 <Route path="checker/*" element={<CheckerRoutes />} />
-                <Route path="end-user/*" element={<EndUserRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} hasQuotationModule={hasQuotationModule} hasReconciliationModule={hasReconciliationModule} />} />
+                <Route path="end-user/*" element={<EndUserRoutes onLogout={handleLogout} subscriptionStatus={subscriptionStatus} customerId={customerId} isTrial={isTrial} hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} hasQuotationModule={hasQuotationModule} hasReconciliationModule={hasReconciliationModule} />} />
                 <Route path="lg-records/:id" element={<LGRecordsRedirect />} />
                 <Route path="lg-records" element={<LGRecordsRedirect />} />
                 <Route path="issuance/facilities" element={<Navigate to="/corporate-admin/issuance/facilities" replace />} />

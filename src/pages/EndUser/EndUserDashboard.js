@@ -1,10 +1,11 @@
 // In EndUserDashboard.js, around line 55
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PlusCircle, FileText, BarChart2, AlertCircle, Save, Loader2, Clock, Printer, Wrench, CalendarClock, TrendingUp, Pencil, XCircle, CheckCircle, ArrowRight } from 'lucide-react';
 import { apiRequest } from 'services/apiService.js';
 import CorporateMobileAlertsBanner from '../../components/CorporateMobileAlertsBanner';
+import { formatDate } from '../../utils/dateFormat';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -56,6 +57,8 @@ function EndUserDashboard({ isGracePeriod }) { // NEW: Accept isGracePeriod prop
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' or 'actions'
   const [maintenanceActions, setMaintenanceActions] = useState([]);
   const [actionsLoading, setActionsLoading] = useState(false);
+  const [actionsLoaded, setActionsLoaded] = useState(false);
+  const actionsFetchedRef = useRef(false);
 
   useEffect(() => {
     const fetchDashboardInfo = async () => {
@@ -79,19 +82,21 @@ function EndUserDashboard({ isGracePeriod }) { // NEW: Accept isGracePeriod prop
     setActionsLoading(true);
     try {
       const data = await apiRequest('/issuance/my-maintenance-actions', 'GET');
-      setMaintenanceActions(data.actions || []);
+      setMaintenanceActions(data?.actions || []);
     } catch (err) {
       console.error('Failed to load maintenance actions:', err);
     } finally {
       setActionsLoading(false);
+      setActionsLoaded(true);
     }
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'actions' && maintenanceActions.length === 0 && !actionsLoading) {
+    if (activeTab === 'actions' && !actionsFetchedRef.current) {
+      actionsFetchedRef.current = true;
       fetchMaintenanceActions();
     }
-  }, [activeTab, maintenanceActions.length, actionsLoading, fetchMaintenanceActions]);
+  }, [activeTab, fetchMaintenanceActions]);
 
   // NEW: Updated quickActions to conditionally disable the 'Record New LG' action
   const quickActions = [
@@ -117,11 +122,6 @@ function EndUserDashboard({ isGracePeriod }) { // NEW: Accept isGracePeriod prop
       isWriteAction: false,
     },
   ];
-
-  const formatDate = (d) => {
-    if (!d) return '—';
-    try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return d; }
-  };
 
   if (isLoading) {
     return (
@@ -169,7 +169,7 @@ function EndUserDashboard({ isGracePeriod }) { // NEW: Accept isGracePeriod prop
           onClick={() => setActiveTab('actions')}
           className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all ${activeTab === 'actions' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
         >
-          <Wrench className="w-4 h-4" /> Issuance Actions ({maintenanceActions.length})
+          <Wrench className="w-4 h-4" /> Issuance Actions{actionsLoaded ? ` (${maintenanceActions.length})` : ''}
         </button>
       </div>
 
@@ -273,7 +273,7 @@ function EndUserDashboard({ isGracePeriod }) { // NEW: Accept isGracePeriod prop
       {/* =============== ISSUANCE ACTIONS TAB =============== */}
       {activeTab === 'actions' && (
         <div>
-          {actionsLoading ? (
+          {actionsLoading || !actionsLoaded ? (
             <div className="text-center py-10">
               <Loader2 className="animate-spin h-6 w-6 text-blue-600 mx-auto" />
               <p className="text-sm text-gray-500 mt-2">Loading actions...</p>

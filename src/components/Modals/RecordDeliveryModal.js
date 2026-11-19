@@ -8,6 +8,8 @@ import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 import DocumentInspectorModal from './DocumentInspectorModal';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDate } from '../../utils/dateFormat';
 
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     if (isGracePeriod) {
@@ -294,7 +296,7 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod, a
                                                 <span className="text-blue-300">•</span>
                                                 <span><strong>Type:</strong> {instruction.instruction_type || instruction.action_type?.replace(/_/g, ' ') || 'N/A'}</span>
                                                 <span className="text-blue-300">•</span>
-                                                <span><strong>Instruction Date:</strong> {new Date(instruction.instruction_date || instruction.created_at).toLocaleDateString()}</span>
+                                                <span><strong>Instruction Date:</strong> {formatDate(instruction.instruction_date || instruction.created_at)}</span>
                                             </div>
 
                                             {/* Delivery Date & File Input: Stacked normally, Side-by-Side when AI Verification is open */}
@@ -304,7 +306,7 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod, a
                                                         Delivery Date <span className="text-red-500">*</span>
                                                     </label>
                                                     <Field
-                                                        type="date"
+                                                        component={FormattedDateInput}
                                                         id="deliveryDate"
                                                         name="deliveryDate"
                                                         className={`block w-full px-3 ${verificationResult ? 'py-1.5' : 'py-2'} text-sm rounded-lg border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.deliveryDate && touched.deliveryDate ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
@@ -386,9 +388,9 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod, a
                                                                 <Calendar className="h-4 w-4 text-teal-700 shrink-0" />
                                                                 <span>
                                                                     <strong>Bank Stamp Date:</strong>{' '}
-                                                                    <span className="font-mono font-bold">{verificationResult.delivery_date_variance.detected_stamp_date}</span>
+                                                                    <span className="font-mono font-bold">{formatDate(verificationResult.delivery_date_variance.detected_stamp_date)}</span>
                                                                     <span className="text-teal-700 ml-1.5">
-                                                                        (entered: <span className="font-mono">{verificationResult.delivery_date_variance.user_delivery_date}</span>)
+                                                                        (entered: <span className="font-mono">{formatDate(verificationResult.delivery_date_variance.user_delivery_date)}</span>)
                                                                     </span>
                                                                 </span>
                                                             </div>
@@ -400,11 +402,11 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod, a
                                                                     className="px-3 py-1 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-md shadow-sm flex items-center gap-1.5 transition-colors"
                                                                 >
                                                                     <Calendar className="h-3.5 w-3.5" />
-                                                                    <span>Align Date to {verificationResult.delivery_date_variance.detected_stamp_date}</span>
+                                                                    <span>Align Date to {formatDate(verificationResult.delivery_date_variance.detected_stamp_date)}</span>
                                                                 </button>
                                                             ) : (
                                                                 <span className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
-                                                                    ⚠️ {verificationResult.delivery_date_variance.invalid_reason || `Cannot align to ${verificationResult.delivery_date_variance.detected_stamp_date}`}
+                                                                    ⚠️ {verificationResult.delivery_date_variance.invalid_reason || `Cannot align to ${formatDate(verificationResult.delivery_date_variance.detected_stamp_date)}`}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -414,7 +416,7 @@ const RecordDeliveryModal = ({ instruction, onClose, onSuccess, isGracePeriod, a
                                                         <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-300 rounded-lg flex items-center justify-between text-xs font-bold text-emerald-900">
                                                             <span className="flex items-center gap-1.5">
                                                                 <Calendar className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                                                                <span>✓ Delivery Date Aligned to Bank Stamp: <span className="font-mono">{verificationResult.aligned_stamp_date}</span></span>
+                                                                <span>✓ Delivery Date Aligned to Bank Stamp: <span className="font-mono">{formatDate(verificationResult.aligned_stamp_date)}</span></span>
                                                             </span>
                                                         </div>
                                                     )}

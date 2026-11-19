@@ -259,7 +259,7 @@ function RescheduleModal({ job, onClose, onSaved }) {
     if (triggerType === 'date') {
       return {
         text: runDate
-          ? `One-time execution scheduled for ${moment(runDate).format('MMM D, YYYY [at] hh:mm A')} (Cairo Time)`
+          ? `One-time execution scheduled for ${moment(runDate).format('DD-MMM-YYYY [at] hh:mm A')} (Cairo Time)`
           : 'Please select a date and time',
         tech: runDate ? `date[run_date='${moment(runDate).tz('Africa/Cairo').toISOString()}']` : '',
       };

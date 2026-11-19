@@ -20,6 +20,9 @@ import {
   X,
   CheckCircle2,
   Layers,
+  Mic,
+  MicOff,
+  AlertTriangle,
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 import { formatDateTime } from 'utils/dateFormat';
@@ -62,12 +65,19 @@ export default function PublicWebsiteInsightsPanel() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [copiedChat, setCopiedChat] = useState(false);
 
+  const [voiceSaving, setVoiceSaving] = useState(false);
+  const [capInput, setCapInput] = useState('1000');
+
   const fetchAnalytics = useCallback(async (windowDays = days) => {
     setLoading(true);
     setErrorText('');
     try {
       const response = await apiClient.get(`/public-demo/admin/analytics?days=${windowDays}`);
-      setAnalytics(response.data || null);
+      const payload = response.data || null;
+      setAnalytics(payload);
+      if (payload?.voice_control?.monthly_cap) {
+        setCapInput(String(payload.voice_control.monthly_cap));
+      }
     } catch (err) {
       console.error('Failed to load public website & demo analytics:', err);
       setErrorText('Could not load website, demo, and chatbot analytics.');
@@ -75,6 +85,24 @@ export default function PublicWebsiteInsightsPanel() {
       setLoading(false);
     }
   }, [days]);
+
+  const handleUpdateVoiceSettings = async (patchBody) => {
+    setVoiceSaving(true);
+    try {
+      const resp = await apiClient.patch('/public-demo/admin/voice-settings', patchBody);
+      if (resp.data) {
+        setAnalytics((prev) => (prev ? { ...prev, voice_control: resp.data } : prev));
+        if (resp.data.monthly_cap) {
+          setCapInput(String(resp.data.monthly_cap));
+        }
+      }
+    } catch (err) {
+      console.error('Failed updating voice AI settings:', err);
+      setErrorText('Could not update Voice AI settings.');
+    } finally {
+      setVoiceSaving(false);
+    }
+  };
 
   useEffect(() => {
     fetchAnalytics(days);
@@ -219,8 +247,176 @@ export default function PublicWebsiteInsightsPanel() {
     return <Monitor className="w-3 h-3 text-slate-400 inline mr-1" />;
   };
 
+  const voiceControl = analytics?.voice_control || {
+    voice_enabled: true,
+    monthly_cap: 1000,
+    alert_at_pct: 80,
+    near_cap_threshold: 800,
+    auto_disable_at_cap: false,
+    current_month: '',
+    voice_qa_count: 0,
+    voice_input_count: 0,
+    tts_output_count: 0,
+    usage_pct: 0,
+    near_cap: false,
+    at_or_over_cap: false,
+    estimated_voice_cost_usd: 0,
+  };
+
   return (
     <div className="space-y-3 pb-4">
+      {/* Near-Cap / Full-Cap System Owner Alert Banner */}
+      {(voiceControl.near_cap || voiceControl.at_or_over_cap) && (
+        <div
+          className={`px-4 py-3 rounded-xl border flex flex-wrap items-center justify-between gap-2 text-xs ${
+            voiceControl.at_or_over_cap
+              ? 'bg-rose-50 border-rose-300 text-rose-900'
+              : 'bg-amber-50 border-amber-300 text-amber-900'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <AlertTriangle
+              className={`w-4 h-4 shrink-0 ${
+                voiceControl.at_or_over_cap ? 'text-rose-600' : 'text-amber-600'
+              }`}
+            />
+            <span>
+              <strong>
+                {voiceControl.at_or_over_cap
+                  ? `Monthly Voice Quota Reached (${voiceControl.voice_qa_count} / ${voiceControl.monthly_cap}):`
+                  : `Approaching Monthly Voice Quota (${voiceControl.voice_qa_count} / ${voiceControl.monthly_cap} — ${voiceControl.usage_pct}%):`}
+              </strong>{' '}
+              {voiceControl.voice_enabled
+                ? 'Voice AI is currently active. You can disable it with 1 click below to completely hide the Mic & Listen icons from all visitors.'
+                : 'Voice AI is currently disabled and completely hidden from visitors.'}
+            </span>
+          </div>
+          {voiceControl.voice_enabled && (
+            <button
+              type="button"
+              disabled={voiceSaving}
+              onClick={() => handleUpdateVoiceSettings({ voice_enabled: false })}
+              className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors"
+            >
+              Disable Voice AI Now
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Voice AI 1-Click Master Kill-Switch & Monthly Quota Control Card */}
+      <div className="bg-white dark:bg-slate-800 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div
+            className={`p-2 rounded-lg ${
+              voiceControl.voice_enabled
+                ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                : 'bg-slate-100 text-slate-400 border border-slate-200'
+            }`}
+          >
+            {voiceControl.voice_enabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-black text-slate-900 dark:text-white">
+                Chatbot Voice Mode (Mic &amp; Studio Speech)
+              </span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                  voiceControl.voice_enabled
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                    : 'bg-slate-100 text-slate-600 border-slate-300'
+                }`}
+              >
+                {voiceControl.voice_enabled
+                  ? 'LIVE ON WEBSITE & /DEMO'
+                  : 'DISABLED (HIDDEN FROM VISITORS)'}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {voiceControl.voice_enabled
+                ? `Month ${voiceControl.current_month || 'Current'}: ${voiceControl.voice_qa_count} / ${voiceControl.monthly_cap} Voice Q&As (${voiceControl.usage_pct}%) · ${voiceControl.voice_input_count} mic, ${voiceControl.tts_output_count} spoken · Est. ~$${voiceControl.estimated_voice_cost_usd}`
+                : 'Mic button and Listen icons are completely hidden on / and /demo as if voice never existed.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Quota Progress Mini-Meter */}
+          <div className="w-36 hidden sm:block">
+            <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-0.5">
+              <span>Quota ({voiceControl.alert_at_pct}% alert)</span>
+              <span>{voiceControl.voice_qa_count}/{voiceControl.monthly_cap}</span>
+            </div>
+            <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div
+                style={{ width: `${Math.min(100, voiceControl.usage_pct || 0)}%` }}
+                className={`h-full rounded-full transition-all ${
+                  voiceControl.at_or_over_cap
+                    ? 'bg-rose-600'
+                    : voiceControl.near_cap
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
+                }`}
+              />
+            </div>
+          </div>
+
+          {/* Editable Monthly Cap */}
+          <div className="flex items-center gap-1 text-[11px]">
+            <span className="text-slate-500 font-semibold">Cap:</span>
+            <input
+              type="number"
+              min={10}
+              max={100000}
+              value={capInput}
+              onChange={(e) => setCapInput(e.target.value)}
+              className="w-16 px-2 py-1 text-xs font-bold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-center"
+            />
+            {Number(capInput) !== Number(voiceControl.monthly_cap) && Number(capInput) >= 10 && (
+              <button
+                type="button"
+                disabled={voiceSaving}
+                onClick={() => handleUpdateVoiceSettings({ monthly_cap: Number(capInput) })}
+                className="px-2 py-1 rounded-lg bg-indigo-600 text-white text-[10.5px] font-bold"
+              >
+                Save
+              </button>
+            )}
+          </div>
+
+          {/* Optional Auto-Disable Checkbox */}
+          <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={Boolean(voiceControl.auto_disable_at_cap)}
+              disabled={voiceSaving}
+              onChange={(e) =>
+                handleUpdateVoiceSettings({ auto_disable_at_cap: e.target.checked })
+              }
+              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span>Auto-off at cap</span>
+          </label>
+
+          {/* 1-Click Master Switch Button */}
+          <button
+            type="button"
+            disabled={voiceSaving}
+            onClick={() =>
+              handleUpdateVoiceSettings({ voice_enabled: !voiceControl.voice_enabled })
+            }
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all shadow-2xs ${
+              voiceControl.voice_enabled
+                ? 'bg-slate-900 hover:bg-rose-600 text-white'
+                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+            }`}
+          >
+            {voiceControl.voice_enabled ? 'Disable Voice AI' : 'Enable Voice AI'}
+          </button>
+        </div>
+      </div>
+
       {/* Window Controls & Export Toolbar */}
       <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 flex-wrap">

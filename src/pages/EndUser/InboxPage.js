@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
 import { toast } from 'react-toastify';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDateTime } from '../../utils/dateFormat';
 import {
     Inbox, Mail, Send, RefreshCw, CheckCircle2, AlertTriangle, AlertCircle,
     FileText, Calendar, Building2, ChevronDown, ChevronUp, Check, X, XCircle,
@@ -732,7 +734,7 @@ export default function InboxPage() {
 
                                         <div className="text-xs text-gray-500 flex items-center gap-1">
                                             <Calendar className="w-3.5 h-3.5" />
-                                            {new Date(item.received_at).toLocaleString()}
+                                            {formatDateTime(item.received_at)}
                                         </div>
                                     </div>
 
@@ -991,8 +993,7 @@ export default function InboxPage() {
                                 <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
                                     Position Snapshot Date <span className="text-red-500">*</span>
                                 </label>
-                                <input
-                                    type="date"
+                                <FormattedDateInput
                                     value={confirmPositionDate}
                                     onChange={(e) => setConfirmPositionDate(e.target.value)}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -1071,8 +1072,7 @@ export default function InboxPage() {
                                 <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
                                     Position Date <span className="text-red-500">*</span>
                                 </label>
-                                <input
-                                    type="date"
+                                <FormattedDateInput
                                     required
                                     value={reqPositionDate}
                                     onChange={(e) => setReqPositionDate(e.target.value)}
@@ -1162,7 +1162,7 @@ export default function InboxPage() {
                             <div>
                                 <span className="text-gray-500 text-[10.5px] uppercase font-semibold block">Received Date</span>
                                 <span className="font-semibold text-gray-900">
-                                    {new Date(selectedItem.received_at).toLocaleString()}
+                                    {formatDateTime(selectedItem.received_at)}
                                 </span>
                             </div>
                             <div>

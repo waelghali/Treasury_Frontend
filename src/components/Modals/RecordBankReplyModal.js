@@ -8,6 +8,8 @@ import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 import DocumentInspectorModal from './DocumentInspectorModal';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDate } from '../../utils/dateFormat';
 
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     if (isGracePeriod) {
@@ -454,11 +456,11 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
                                                 <span className="text-blue-300">•</span>
                                                 <span><strong>Type:</strong> {activeInstruction.instruction_type || activeInstruction.action_type?.replace(/_/g, ' ') || 'N/A'}</span>
                                                 <span className="text-blue-300">•</span>
-                                                <span><strong>Instruction Date:</strong> {new Date(activeInstruction.instruction_date || activeInstruction.created_at).toLocaleDateString()}</span>
+                                                <span><strong>Instruction Date:</strong> {formatDate(activeInstruction.instruction_date || activeInstruction.created_at)}</span>
                                                 {activeInstruction.delivery_date && (
                                                     <>
                                                         <span className="text-blue-300">•</span>
-                                                        <span><strong>Delivered:</strong> {new Date(activeInstruction.delivery_date).toLocaleDateString()}</span>
+                                                        <span><strong>Delivered:</strong> {formatDate(activeInstruction.delivery_date)}</span>
                                                     </>
                                                 )}
                                             </div>
@@ -470,7 +472,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
                                                         Bank Reply Date <span className="text-red-500">*</span>
                                                     </label>
                                                     <Field
-                                                        type="date"
+                                                        component={FormattedDateInput}
                                                         id="bankReplyDate"
                                                         name="bankReplyDate"
                                                         className={`block w-full px-3 ${verificationResult ? 'py-1.5' : 'py-2'} text-sm rounded-lg border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.bankReplyDate && touched.bankReplyDate ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
@@ -589,12 +591,12 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
                                                         <div className="bg-white p-2.5 rounded-lg border border-blue-200 flex items-center justify-between">
                                                             <span className="text-gray-600 font-medium">Requested Expiry:</span>
-                                                            <span className="font-mono font-bold text-gray-800">{dateVariance.requested_expiry_date}</span>
+                                                            <span className="font-mono font-bold text-gray-800">{formatDate(dateVariance.requested_expiry_date)}</span>
                                                         </div>
                                                         <div className="bg-blue-100/70 p-2.5 rounded-lg border border-blue-300 flex items-center justify-between">
                                                             <span className="text-blue-900 font-semibold">Bank Confirmed Date:</span>
                                                             <span className="font-mono font-bold text-blue-800">
-                                                                {dateVariance.bank_confirmed_expiry_date} ({dateVariance.variance_days > 0 ? `+${dateVariance.variance_days}` : dateVariance.variance_days}d)
+                                                                {formatDate(dateVariance.bank_confirmed_expiry_date)} ({dateVariance.variance_days > 0 ? `+${dateVariance.variance_days}` : dateVariance.variance_days}d)
                                                             </span>
                                                         </div>
                                                     </div>
@@ -643,7 +645,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
                                                                 disabled={isActionLoading}
                                                                 className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 text-xs font-medium rounded-lg transition-colors"
                                                             >
-                                                                Keep {dateVariance.requested_expiry_date}
+                                                                Keep {formatDate(dateVariance.requested_expiry_date)}
                                                             </button>
                                                             <button
                                                                 type="button"
@@ -656,7 +658,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
                                                                 ) : (
                                                                     <CheckCircle2 className="h-4 w-4" />
                                                                 )}
-                                                                <span>Accept & Align to {dateVariance.bank_confirmed_expiry_date}</span>
+                                                                <span>Accept & Align to {formatDate(dateVariance.bank_confirmed_expiry_date)}</span>
                                                             </button>
                                                         </div>
                                                     </div>
@@ -737,7 +739,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
                                                                     onChange={(e) => setAlignDateOnOverride(e.target.checked)}
                                                                     className="h-3.5 w-3.5 rounded text-blue-600 border-gray-300"
                                                                 />
-                                                                <span>Align record expiry date to {dateVariance.bank_confirmed_expiry_date} when proceeding</span>
+                                                                <span>Align record expiry date to {formatDate(dateVariance.bank_confirmed_expiry_date)} when proceeding</span>
                                                             </label>
                                                         </div>
                                                     )}
@@ -762,7 +764,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
                                                                     className="shrink-0 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition-colors"
                                                                 >
                                                                     <CheckCircle2 className="h-3.5 w-3.5" />
-                                                                    <span>Accept Further Date ({termsModification.bank_confirmed_expiry_date})</span>
+                                                                    <span>Accept Further Date ({formatDate(termsModification.bank_confirmed_expiry_date)})</span>
                                                                 </button>
                                                             </div>
                                                         ) : (

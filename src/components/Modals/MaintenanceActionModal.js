@@ -2,6 +2,7 @@ import React, { useState, useEffect, Fragment } from 'react';
 import { Loader2, Send, X, Calendar, TrendingUp, Pencil, Zap, CheckCircle } from 'lucide-react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import moment from 'moment';
+import FormattedDateInput from 'components/FormattedDateInput';
 
 const DISPLAY_DATE_FORMAT = 'DD-MMM-YYYY';
 const API_DATE_FORMAT = 'YYYY-MM-DD';
@@ -161,7 +162,7 @@ const MaintenanceActionModal = ({ isOpen, actionType, lg, onClose, onSubmit, sub
                                                 {extendMethod === 'date' ? (
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-700 mb-1">New Expiry Date <span className="text-red-500">*</span></label>
-                                                        <input type="date" value={formData.new_expiry_date || ''}
+                                                        <FormattedDateInput value={formData.new_expiry_date || ''}
                                                             onChange={e => setFormData({ ...formData, new_expiry_date: e.target.value })}
                                                             min={lg.expiry_date || undefined}
                                                             className="w-full px-3 py-2 border border-slate-300 shadow-sm rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" />

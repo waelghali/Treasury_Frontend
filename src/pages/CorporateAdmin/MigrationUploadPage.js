@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
 // IMPORTING THE CENTRALIZED API SERVICE
 import { apiRequest } from 'services/apiService';
 import InternalOwnerFormModal from '../../components/Modals/InternalOwnerFormModal';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDate } from '../../utils/dateFormat';
 
 // =====================================================================
 // NEW: History Preview Modal Component
@@ -64,7 +66,7 @@ const HistoryPreviewModal = ({ lgHistory, onClose }) => {
                                     {index === 0 ? 'Initial Record' : `Amendment ${index}`}
                                 </h3>
                                 <time className="block mb-2 text-sm font-normal leading-none text-gray-400">
-                                    {snapshot.issuance_date} to {snapshot.expiry_date}
+                                    {formatDate(snapshot.issuance_date)} to {formatDate(snapshot.expiry_date)}
                                 </time>
                                 <div className="bg-gray-50 p-4 rounded-lg shadow-sm mb-4">
                                     {index === 0 ? (
@@ -472,13 +474,21 @@ const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordD
                                                     </select>
                                                 ) : isEditingField && !isImported ? (
                                                     <>
-                                                        <input
-                                                            type={inputType}
-                                                            list={key === 'internal_owner_email' ? `internal-owners-list-${record.id}` : undefined}
-                                                            value={displayValue}
-                                                            onChange={(e) => handleEditChange(key, e.target.value)}
-                                                            className="w-full text-sm rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                                        />
+                                                        {inputType === 'date' ? (
+                                                            <FormattedDateInput
+                                                                value={displayValue}
+                                                                onChange={(e) => handleEditChange(key, e.target.value)}
+                                                                className="w-full px-2.5 py-1.5 text-sm rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                                            />
+                                                        ) : (
+                                                            <input
+                                                                type={inputType}
+                                                                list={key === 'internal_owner_email' ? `internal-owners-list-${record.id}` : undefined}
+                                                                value={displayValue}
+                                                                onChange={(e) => handleEditChange(key, e.target.value)}
+                                                                className="w-full text-sm rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                                            />
+                                                        )}
                                                         {key === 'internal_owner_email' && internalOwners.length > 0 && (
                                                             <datalist id={`internal-owners-list-${record.id}`}>
                                                                 {internalOwners.map(owner => (

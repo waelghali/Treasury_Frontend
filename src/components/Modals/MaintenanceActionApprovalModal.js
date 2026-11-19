@@ -44,11 +44,17 @@ const ComparisonRow = ({ label, current, proposed, changed }) => (
     </tr>
 );
 
-const MaintenanceActionApprovalModal = ({ action, onClose, onApprove, onReject }) => {
+const MaintenanceActionApprovalModal = ({ action, onClose, onApprove, onReject, isGracePeriod = false, currentUserId = null, currentUserEmail = '' }) => {
     const [rejectionReason, setRejectionReason] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
 
     if (!action) return null;
+
+    const isPending = action.status === 'PENDING_APPROVAL';
+    const isSelfInitiated = Boolean(
+        (currentUserId && action.initiated_by_user_id === currentUserId) ||
+        (currentUserEmail && action.initiated_by_email && action.initiated_by_email.toLowerCase() === currentUserEmail.toLowerCase())
+    );
 
     const handleApprove = async () => {
         if (!window.confirm('Approve this maintenance action?')) return;
@@ -253,8 +259,18 @@ const MaintenanceActionApprovalModal = ({ action, onClose, onApprove, onReject }
                                             <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-white/20 text-white">
                                                 {formatActionType(action.action_type)}
                                             </span>
-                                            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-yellow-400/90 text-yellow-900">
-                                                Pending Approval
+                                            <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${
+                                                action.status === 'PENDING_APPROVAL' ? 'bg-yellow-400/90 text-yellow-900' :
+                                                (action.status === 'EXECUTED' || action.status === 'APPROVED') ? 'bg-emerald-400/90 text-emerald-950' :
+                                                action.status === 'REJECTED' ? 'bg-red-400/90 text-red-950' :
+                                                action.status === 'AUTO_REJECTED_EXPIRED' ? 'bg-orange-400/90 text-orange-950' :
+                                                'bg-gray-200 text-gray-800'
+                                            }`}>
+                                                {action.status === 'PENDING_APPROVAL' ? 'Pending Approval' :
+                                                 (action.status === 'EXECUTED' || action.status === 'APPROVED') ? 'Approved & Executed' :
+                                                 action.status === 'REJECTED' ? 'Rejected' :
+                                                 action.status === 'AUTO_REJECTED_EXPIRED' ? 'Expired (Auto-Rejected)' :
+                                                 action.status}
                                             </span>
                                         </div>
                                     </div>
@@ -333,17 +349,23 @@ const MaintenanceActionApprovalModal = ({ action, onClose, onApprove, onReject }
                                             </h4>
                                             <div className="space-y-2">
                                                 {approvalHistory.filter(e => e.action !== 'SUBMITTED').map((entry, idx) => (
-                                                    <div key={idx} className="flex items-center gap-3 text-sm bg-gray-50 rounded-lg px-4 py-2 border border-gray-100">
+                                                    <div key={idx} className="flex flex-wrap items-center gap-3 text-sm bg-gray-50 rounded-lg px-4 py-2 border border-gray-100">
                                                         <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                                            entry.action === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                                                            (entry.action === 'APPROVED' || entry.action === 'APPROVED_STEP' || entry.action === 'FULLY_APPROVED') ? 'bg-green-100 text-green-800' :
                                                             entry.action === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                                                            entry.action === 'AUTO_REJECTED_EXPIRED' ? 'bg-orange-100 text-orange-800' :
                                                             'bg-gray-100 text-gray-700'
                                                         }`}>
-                                                            {entry.action}
+                                                            {entry.action === 'AUTO_REJECTED_EXPIRED' ? 'EXPIRED (AUTO-REJECTED)' : entry.action}
                                                         </span>
                                                         <span className="text-gray-600 font-medium">
-                                                            {entry.user_name || entry.user_email || (entry.user_id ? `User #${entry.user_id}` : '')}
+                                                            {entry.user_name || entry.user_email || (entry.user_id ? `User #${entry.user_id}` : (entry.action === 'AUTO_REJECTED_EXPIRED' ? 'System' : ''))}
                                                         </span>
+                                                        {(entry.reason || entry.notes) && (
+                                                            <span className="text-gray-500 text-xs italic">
+                                                                — {entry.reason || entry.notes}
+                                                            </span>
+                                                        )}
                                                         {entry.timestamp && (
                                                             <span className="text-gray-400 text-xs ml-auto">
                                                                 {moment(entry.timestamp).format('DD-MMM-YYYY HH:mm')}
@@ -356,39 +378,67 @@ const MaintenanceActionApprovalModal = ({ action, onClose, onApprove, onReject }
                                     )}
                                 </div>
 
-                                {/* ── Footer: Reject reason + Actions ── */}
+                                {/* ── Footer: Reject reason + Actions (only when PENDING_APPROVAL) ── */}
                                 <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 rounded-b-2xl">
-                                    <div className="mb-3">
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">
-                                            Rejection reason (required if rejecting)
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={rejectionReason}
-                                            onChange={(e) => setRejectionReason(e.target.value)}
-                                            placeholder="Enter reason..."
-                                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                                            disabled={isProcessing}
-                                        />
-                                    </div>
-                                    <div className="flex justify-end gap-3">
-                                        <button
-                                            onClick={handleReject}
-                                            disabled={isProcessing}
-                                            className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition-colors"
-                                        >
-                                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <X className="h-4 w-4 mr-1.5" />}
-                                            Reject
-                                        </button>
-                                        <button
-                                            onClick={handleApprove}
-                                            disabled={isProcessing}
-                                            className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-sm"
-                                        >
-                                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Check className="h-4 w-4 mr-1.5" />}
-                                            Approve
-                                        </button>
-                                    </div>
+                                    {isPending ? (
+                                        <>
+                                            <div className="mb-3">
+                                                <label className="block text-xs font-medium text-gray-500 mb-1">
+                                                    Rejection reason (optional)
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={rejectionReason}
+                                                    onChange={(e) => setRejectionReason(e.target.value)}
+                                                    placeholder="Enter reason..."
+                                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                                                    disabled={isProcessing || isGracePeriod}
+                                                />
+                                            </div>
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div>
+                                                    {isSelfInitiated && (
+                                                        <span className="text-xs text-amber-700 font-medium">
+                                                            You initiated this maintenance action and cannot self-approve it.
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex justify-end gap-3">
+                                                    <button
+                                                        onClick={handleReject}
+                                                        disabled={isProcessing || isGracePeriod}
+                                                        className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition-colors"
+                                                    >
+                                                        {isProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <X className="h-4 w-4 mr-1.5" />}
+                                                        Reject
+                                                    </button>
+                                                    <button
+                                                        onClick={handleApprove}
+                                                        disabled={isProcessing || isGracePeriod || isSelfInitiated}
+                                                        title={isSelfInitiated ? 'You cannot approve your own action' : 'Approve'}
+                                                        className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                                                    >
+                                                        {isProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Check className="h-4 w-4 mr-1.5" />}
+                                                        Approve
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-gray-500">
+                                                {action.status === 'AUTO_REJECTED_EXPIRED'
+                                                    ? 'This maintenance request exceeded the maximum pending approval window and was automatically rejected.'
+                                                    : `This maintenance request is already ${action.status?.replace(/_/g, ' ').toLowerCase()} and can no longer be actioned.`}
+                                            </span>
+                                            <button
+                                                onClick={onClose}
+                                                className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors"
+                                            >
+                                                Close
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </DialogPanel>
                         </TransitionChild>

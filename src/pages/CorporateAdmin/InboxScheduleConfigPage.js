@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
+import { formatDate } from '../../utils/dateFormat';
 import {
     Calendar, Clock, Building2, Check, X, Edit3, Trash2,
     Plus, Save, AlertCircle, RefreshCw, Send, CheckCircle2, Globe,
@@ -500,7 +501,7 @@ export default function InboxScheduleConfigPage() {
                                                         {sched.frequency === 'DAILY' && 'Every Day at 08:00 AM'}
                                                         {sched.last_sent_at && (
                                                             <span className="text-gray-400 ml-2">
-                                                                (Last sent: {new Date(sched.last_sent_at).toLocaleDateString()})
+                                                                (Last sent: {formatDate(sched.last_sent_at)})
                                                             </span>
                                                         )}
                                                     </span>

@@ -607,10 +607,28 @@ function LoginPage({ onLoginSuccess }) {
             </form>
           )}
 
-          <div className="pt-5 border-t border-gray-200 flex flex-col items-center">
+          <div className="pt-5 border-t border-gray-200 flex flex-col items-center space-y-3">
             <Link to="/forgot-password" className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">
               Forgot Password?
             </Link>
+
+            <div className="w-full pt-3 border-t border-gray-100 text-center">
+              <p className="text-xs text-gray-500">
+                Don&apos;t have an account yet?{' '}
+                <Link
+                  to="/free-trial-register"
+                  className="font-bold text-blue-600 hover:text-blue-800 underline-offset-2 hover:underline transition-colors"
+                >
+                  Start Your Free Trial →
+                </Link>
+              </p>
+              <p className="mt-1 text-[11px] text-gray-400">
+                Or{' '}
+                <Link to="/demo" className="font-medium text-gray-500 hover:text-blue-600 transition-colors">
+                  explore the Interactive Demo first
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
       </div>

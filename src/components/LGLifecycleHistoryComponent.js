@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import CancelInstructionModal from 'components/Modals/CancelInstructionModal';
 import DocumentInspectorModal from './Modals/DocumentInspectorModal';
+import FormattedDateInput from 'components/FormattedDateInput';
 import { toast } from 'react-toastify';
 import { getEventIcon, formatActionTypeLabel } from '../utils/timelineHelpers';
 
@@ -371,7 +372,7 @@ const LGLifecycleHistoryComponent = ({
         };
         const formatDate = (dateString) => {
             if (!dateString) return null;
-            try { return format(new Date(dateString), 'MMM dd, yyyy'); } catch { return null; }
+            try { return format(new Date(dateString), 'dd-MMM-yyyy'); } catch { return null; }
         };
         const addPart = (label, value) => {
             if (value !== null && value !== undefined && value !== 'N/A' && value !== '') {
@@ -634,7 +635,7 @@ const LGLifecycleHistoryComponent = ({
     // Helper for simple date formatting for status badges
     const formatDateSimple = (dateString) => {
         if (!dateString) return '';
-        try { return format(new Date(dateString), 'MMM dd, yyyy'); } catch { return ''; }
+        try { return format(new Date(dateString), 'dd-MMM-yyyy'); } catch { return ''; }
     };
 
 
@@ -736,9 +737,9 @@ const LGLifecycleHistoryComponent = ({
                                 <div className="p-4 border-b border-gray-100 bg-gray-50">
                                     <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center"><Calendar className="h-3 w-3 mr-1" />Date Range</h4>
                                     <div className="flex gap-2">
-                                        <div className="flex-1"><input type="date" className="w-full text-sm border-gray-300 rounded-md shadow-sm" value={dateRange.from} onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))} /></div>
+                                        <div className="flex-1"><FormattedDateInput className="w-full text-xs px-2.5 py-1.5 border border-gray-300 rounded-md shadow-sm bg-white" value={dateRange.from} onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))} /></div>
                                         <span className="text-gray-400 self-center">-</span>
-                                        <div className="flex-1"><input type="date" className="w-full text-sm border-gray-300 rounded-md shadow-sm" value={dateRange.to} onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))} /></div>
+                                        <div className="flex-1"><FormattedDateInput className="w-full text-xs px-2.5 py-1.5 border border-gray-300 rounded-md shadow-sm bg-white" value={dateRange.to} onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))} /></div>
                                     </div>
                                 </div>
 
@@ -878,7 +879,7 @@ const LGLifecycleHistoryComponent = ({
                                     )}
                                 </div>
                                 <span className="text-sm text-gray-500">
-                                    {format(new Date(eventItem.timestamp), 'MMM dd, yyyy HH:mm')}
+                                    {format(new Date(eventItem.timestamp), 'dd-MMM-yyyy HH:mm')}
                                 </span>
                             </div>
                             <p className="text-gray-700 mb-1">

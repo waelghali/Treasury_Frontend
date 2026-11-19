@@ -1,7 +1,7 @@
 // frontend/src/components/Modals/ApprovalRequestDetailsModal.js
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
-import { X, Check, FileText, AlertCircle, Loader2, XCircle, Sparkles } from 'lucide-react';
+import { X, Check, FileText, AlertCircle, Loader2, XCircle, Sparkles, ArrowRight, Search } from 'lucide-react';
 import moment from 'moment';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
@@ -37,17 +37,96 @@ const formatActionType = (actionType) => {
 };
 
 const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, onWithdraw, isEndUserView, isGracePeriod }) => {
+    const [liveRequest, setLiveRequest] = useState(request);
     const [lgRecordSnapshot, setLgRecordSnapshot] = useState(null);
     const [currentLgRecord, setCurrentLgRecord] = useState(null);
     const [isLoadingDetails, setIsLoadingDetails] = useState(true);
     const [detailsError, setDetailsError] = useState('');
     const [rejectionReason, setRejectionReason] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [bulkLgSearch, setBulkLgSearch] = useState('');
+    const [isLoadingBulkLgs, setIsLoadingBulkLgs] = useState(false);
+
+    const activeRequest = liveRequest || request;
+    const isSingleLgRecord = Boolean(
+        activeRequest?.entity_type === 'LGRecord' &&
+        activeRequest?.action_type !== 'LG_CHANGE_BULK_LG_OWNER' &&
+        activeRequest?.action_type !== 'LG_CHANGE_OWNER_DETAILS'
+    );
+
+    useEffect(() => {
+        setLiveRequest(request);
+        setBulkLgSearch('');
+    }, [request]);
 
     useEffect(() => {
         const fetchLgRecordDetails = async () => {
             setIsLoadingDetails(true);
             setDetailsError('');
+
+            // For Bulk LG Owner Handover, always hydrate fresh list of LGs & owner details
+            if (request?.action_type === 'LG_CHANGE_BULK_LG_OWNER') {
+                setIsLoadingBulkLgs(true);
+                try {
+                    let hydrated = request;
+                    if (!isEndUserView && request.id) {
+                        try {
+                            const freshReq = await apiRequest(`/corporate-admin/approval-requests/${request.id}`, 'GET');
+                            if (freshReq && freshReq.id) {
+                                hydrated = freshReq;
+                            }
+                        } catch (e) {
+                            // Ignore and fall back to client-side hydration below
+                        }
+                    }
+
+                    const det = { ...(hydrated.request_details || {}) };
+                    const hasBackendLgs = Array.isArray(det.affected_lgs) && (det.affected_lgs.length > 0 || hydrated.status !== 'PENDING');
+
+                    if (!hasBackendLgs && det.old_internal_owner_contact_id) {
+                        const [allLgs, allOwners] = await Promise.all([
+                            apiRequest('/end-user/lg-records/', 'GET').catch(() => []),
+                            apiRequest('/end-user/internal-owner-contacts/', 'GET').catch(() => []),
+                        ]);
+                        const oldId = Number(det.old_internal_owner_contact_id);
+                        const newId = det.new_internal_owner_contact_id ? Number(det.new_internal_owner_contact_id) : null;
+
+                        if (Array.isArray(allOwners)) {
+                            const oldOwn = allOwners.find(o => Number(o.id) === oldId);
+                            const newOwn = newId ? allOwners.find(o => Number(o.id) === newId) : null;
+                            if (oldOwn && !det.old_owner_summary) det.old_owner_summary = oldOwn;
+                            if (newOwn && !det.new_owner_summary) det.new_owner_summary = newOwn;
+                        }
+
+                        if (Array.isArray(allLgs)) {
+                            const matchingLgs = allLgs
+                                .filter(lg => Number(lg.internal_owner_contact_id ?? lg.internal_owner_contact?.id) === oldId)
+                                .map(lg => ({
+                                    id: lg.id,
+                                    lg_number: lg.lg_number,
+                                    issuer_name: lg.issuer_name,
+                                    beneficiary_entity: lg.beneficiary_corporate?.entity_name || null,
+                                    bank_name: lg.issuing_bank?.name || lg.foreign_bank_name || null,
+                                    amount: lg.lg_amount !== undefined && lg.lg_amount !== null ? Number(lg.lg_amount) : 0,
+                                    currency_code: lg.lg_currency?.iso_code || 'EGP',
+                                    expiry_date: lg.expiry_date,
+                                    status: lg.lg_status?.name || null,
+                                }));
+                            det.affected_lgs = matchingLgs;
+                            det.affected_lg_numbers = matchingLgs.map(x => x.lg_number).filter(Boolean);
+                            det.affected_lgs_count = matchingLgs.length;
+                        }
+                    }
+
+                    setLiveRequest({ ...hydrated, request_details: det });
+                } catch (err) {
+                    console.error("Failed to hydrate bulk LG owner transfer preview:", err);
+                } finally {
+                    setIsLoadingBulkLgs(false);
+                    setIsLoadingDetails(false);
+                }
+                return;
+            }
 
             const lgRecordId = request?.entity_id;
 
@@ -79,7 +158,7 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
         if (request) {
             fetchLgRecordDetails();
         }
-    }, [request]);
+    }, [request, isEndUserView]);
 
     const formatAmount = (amount, currencyCode) => {
         if (amount === null || amount === undefined || currencyCode === null || currencyCode === undefined || isNaN(parseFloat(amount))) {
@@ -198,11 +277,11 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
 	};
 
 	const renderActionSpecificDetails = () => {
-        if (!request || !request.request_details) return null;
+        if (!activeRequest || !activeRequest.request_details) return null;
 
-        const details = request.request_details;
+        const details = activeRequest.request_details;
 
-        switch (request.action_type) {
+        switch (activeRequest.action_type) {
 			case 'LG_DECREASE_AMOUNT':
 				return (
 					<div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
@@ -351,23 +430,48 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                     </div>
                 );
             case 'LG_CHANGE_SINGLE_LG_OWNER':
-            case 'LG_CHANGE_BULK_LG_OWNER':
+            case 'LG_CHANGE_BULK_LG_OWNER': {
+                const oldSummary = details.old_owner_summary || (activeRequest.entity_type === 'InternalOwnerContact' ? activeRequest.lg_record_snapshot : null) || {};
+                const newSummary = details.new_owner_summary || details.new_internal_owner_contact_details || {};
+                const affectedCount = Array.isArray(details.affected_lgs)
+                    ? details.affected_lgs.length
+                    : (Array.isArray(details.affected_lg_numbers) ? details.affected_lg_numbers.length : (details.lg_record_id ? 1 : 0));
+
                 return (
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                        <h4 className="font-semibold text-blue-800 mb-2">{formatActionType(request.action_type)} Details:</h4>
-                        <p><strong>Change Scope:</strong> {details.change_scope ? formatActionType(details.change_scope) : 'N/A'}</p>
-                        {details.old_internal_owner_contact_id && <p><strong>Old Owner ID:</strong> {details.old_internal_owner_contact_id}</p>}
-                        {details.new_internal_owner_contact_id && <p><strong>New Owner ID:</strong> {details.new_internal_owner_contact_id}</p>}
-                        {details.new_internal_owner_contact_details && (
-                            <p><strong>New Owner Email (if new):</strong> {details.new_internal_owner_contact_details.email}</p>
-                        )}
-                        {details.lg_record_id && <p><strong>Affected LG Record ID:</strong> {details.lg_record_id}</p>}
-                        {details.affected_lg_numbers && (
-                            <p><strong>Affected LGs:</strong> {details.affected_lg_numbers.join(', ')}</p>
-                        )}
-                        <p><strong>Reason:</strong> {details.reason || 'No reason provided'}</p>
+                    <div className="mt-4 p-3 bg-blue-50/80 border border-blue-200 rounded-md space-y-2">
+                        <div className="flex items-center justify-between border-b border-blue-200/70 pb-1.5">
+                            <h4 className="font-semibold text-blue-900">{formatActionType(activeRequest.action_type)} Details</h4>
+                            <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                                {affectedCount} Guarantee{affectedCount !== 1 ? 's' : ''}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                            <div className="p-2 bg-white border border-gray-200 rounded-md">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-0.5">From (Current Owner)</p>
+                                <p className="font-semibold text-gray-900 break-all">
+                                    {oldSummary.email || (details.old_internal_owner_contact_id ? `Owner ID #${details.old_internal_owner_contact_id}` : 'N/A')}
+                                </p>
+                                {oldSummary.internal_id && <p className="text-[11px] text-gray-500">ID: {oldSummary.internal_id}</p>}
+                                {oldSummary.manager_email && <p className="text-[11px] text-gray-500 break-all">Mgr: {oldSummary.manager_email}</p>}
+                            </div>
+                            <div className="p-2 bg-white border border-emerald-200 rounded-md">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 mb-0.5 flex items-center gap-1">
+                                    <ArrowRight className="h-3 w-3" /> To (New Owner)
+                                </p>
+                                <p className="font-semibold text-emerald-950 break-all">
+                                    {newSummary.email || (details.new_internal_owner_contact_id ? `Owner ID #${details.new_internal_owner_contact_id}` : 'N/A')}
+                                </p>
+                                {newSummary.internal_id && <p className="text-[11px] text-gray-600">ID: {newSummary.internal_id}</p>}
+                                {newSummary.phone_number && <p className="text-[11px] text-gray-600">Tel: {newSummary.phone_number}</p>}
+                                {newSummary.manager_email && <p className="text-[11px] text-gray-600 break-all">Mgr: {newSummary.manager_email}</p>}
+                            </div>
+                        </div>
+                        <p className="text-gray-800 pt-0.5">
+                            <strong>Reason:</strong> {details.reason || 'No reason provided'}
+                        </p>
                     </div>
                 );
+            }
             case 'ISSUANCE_CHANGE_REQUESTOR': {
                 const newReq = details.new_requestor || {};
                 const lgIds = details.lg_ids || [];
@@ -531,14 +635,20 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                                     <div className="text-center sm:text-left w-full">
                                         <div className="border-b border-gray-200 pb-2 mb-2.5 pr-8">
                                             <DialogTitle as="h3" className="text-base font-bold leading-6 text-gray-900 tracking-tight flex items-center flex-wrap gap-2">
-                                                <span>Review Approval Request: {request.lg_record?.lg_number || 'N/A'} - {formatActionType(request.action_type)}</span>
+                                                <span>
+                                                    Review Approval Request:{' '}
+                                                    {activeRequest.action_type === 'LG_CHANGE_BULK_LG_OWNER'
+                                                        ? `Bulk Handover (${activeRequest.request_details?.affected_lgs?.length ?? activeRequest.request_details?.affected_lg_numbers?.length ?? 0} LGs)`
+                                                        : (activeRequest.lg_record?.lg_number || 'N/A')}{' '}
+                                                    - {formatActionType(activeRequest.action_type)}
+                                                </span>
                                                 <span className={`px-2 py-0.5 inline-flex text-xs leading-4 font-semibold rounded-full ${
-                                                    request.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                                    request.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                                                    request.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                                                    activeRequest.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                                    activeRequest.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                                                    activeRequest.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
                                                     'bg-gray-100 text-gray-800'
                                                 }`}>
-                                                    {request.status}
+                                                    {activeRequest.status}
                                                 </span>
                                             </DialogTitle>
                                             <p className="text-xs text-red-600/90 mt-0.5">
@@ -566,8 +676,128 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                                                 {renderActionSpecificDetails()}
                                             </div>
 
-                                            {/* Only show LG Record comparison for actual LGRecord entity types */}
-                                            {request.entity_type === 'LGRecord' && (
+                                            {/* Bulk LG Owner Transfer Portfolio Table */}
+                                            {activeRequest.action_type === 'LG_CHANGE_BULK_LG_OWNER' && (() => {
+                                                const rawLgs = Array.isArray(activeRequest.request_details?.affected_lgs)
+                                                    ? activeRequest.request_details.affected_lgs
+                                                    : (Array.isArray(activeRequest.request_details?.affected_lg_numbers)
+                                                        ? activeRequest.request_details.affected_lg_numbers.map((num, idx) => ({ id: idx, lg_number: num }))
+                                                        : []);
+
+                                                const q = bulkLgSearch.trim().toLowerCase();
+                                                const filteredLgs = q
+                                                    ? rawLgs.filter(lg =>
+                                                        (lg.lg_number || '').toLowerCase().includes(q) ||
+                                                        (lg.issuer_name || '').toLowerCase().includes(q) ||
+                                                        (lg.beneficiary_entity || '').toLowerCase().includes(q) ||
+                                                        (lg.bank_name || '').toLowerCase().includes(q)
+                                                    )
+                                                    : rawLgs;
+
+                                                const totalsByCurrency = rawLgs.reduce((acc, lg) => {
+                                                    if (lg.amount !== undefined && lg.amount !== null && lg.currency_code) {
+                                                        acc[lg.currency_code] = (acc[lg.currency_code] || 0) + Number(lg.amount || 0);
+                                                    }
+                                                    return acc;
+                                                }, {});
+
+                                                return (
+                                                    <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden bg-white">
+                                                        <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
+                                                            <div className="flex items-center flex-wrap gap-2">
+                                                                <h4 className="text-xs sm:text-sm font-semibold text-gray-800">
+                                                                    Guarantees Being Transferred ({rawLgs.length})
+                                                                </h4>
+                                                                {Object.entries(totalsByCurrency).map(([ccy, sumAmt]) => (
+                                                                    <span
+                                                                        key={ccy}
+                                                                        className="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                                                    >
+                                                                        Total {formatAmount(sumAmt, ccy)}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                            {rawLgs.length > 5 && (
+                                                                <div className="relative w-52">
+                                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                                                                    <input
+                                                                        type="text"
+                                                                        value={bulkLgSearch}
+                                                                        onChange={(e) => setBulkLgSearch(e.target.value)}
+                                                                        placeholder="Filter LG #, issuer, bank..."
+                                                                        className="w-full pl-8 pr-2.5 py-1 text-xs border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {isLoadingBulkLgs && rawLgs.length === 0 ? (
+                                                            <div className="p-4 flex items-center justify-center text-xs text-blue-700 bg-blue-50/40">
+                                                                <Loader2 className="animate-spin h-4 w-4 mr-2 text-blue-600" />
+                                                                Loading guarantees being transferred...
+                                                            </div>
+                                                        ) : rawLgs.length === 0 ? (
+                                                            <div className="p-4 text-center text-xs text-amber-700 bg-amber-50/60">
+                                                                No active LG records currently remain under this owner.
+                                                            </div>
+                                                        ) : (
+                                                            <div className="max-h-60 overflow-y-auto">
+                                                                <table className="min-w-full divide-y divide-gray-200 text-xs">
+                                                                    <thead className="bg-gray-50 sticky top-0 z-10">
+                                                                        <tr>
+                                                                            <th className="px-3 py-2 text-left font-semibold text-gray-600 uppercase tracking-wider">LG Number</th>
+                                                                            <th className="px-3 py-2 text-left font-semibold text-gray-600 uppercase tracking-wider">Applicant / Issuer</th>
+                                                                            <th className="px-3 py-2 text-left font-semibold text-gray-600 uppercase tracking-wider">Entity</th>
+                                                                            <th className="px-3 py-2 text-left font-semibold text-gray-600 uppercase tracking-wider">Bank</th>
+                                                                            <th className="px-3 py-2 text-right font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                                                                            <th className="px-3 py-2 text-left font-semibold text-gray-600 uppercase tracking-wider">Expiry</th>
+                                                                            <th className="px-3 py-2 text-left font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody className="bg-white divide-y divide-gray-100">
+                                                                        {filteredLgs.map((lg, idx) => (
+                                                                            <tr key={lg.id || lg.lg_number || idx} className="hover:bg-blue-50/40">
+                                                                                <td className="px-3 py-2 whitespace-nowrap font-mono font-semibold text-blue-700">
+                                                                                    {lg.lg_number || 'N/A'}
+                                                                                </td>
+                                                                                <td className="px-3 py-2 text-gray-800 max-w-[180px] truncate" title={lg.issuer_name || ''}>
+                                                                                    {lg.issuer_name || '—'}
+                                                                                </td>
+                                                                                <td className="px-3 py-2 whitespace-nowrap text-gray-600">
+                                                                                    {lg.beneficiary_entity || '—'}
+                                                                                </td>
+                                                                                <td className="px-3 py-2 whitespace-nowrap text-gray-600">
+                                                                                    {lg.bank_name || '—'}
+                                                                                </td>
+                                                                                <td className="px-3 py-2 whitespace-nowrap text-right font-medium text-gray-900">
+                                                                                    {lg.amount !== undefined && lg.currency_code
+                                                                                        ? formatAmount(lg.amount, lg.currency_code)
+                                                                                        : '—'}
+                                                                                </td>
+                                                                                <td className="px-3 py-2 whitespace-nowrap text-gray-600">
+                                                                                    {lg.expiry_date ? formatDate(lg.expiry_date) : '—'}
+                                                                                </td>
+                                                                                <td className="px-3 py-2 whitespace-nowrap">
+                                                                                    <span className={`px-2 py-0.5 inline-flex text-[11px] font-semibold rounded-full ${
+                                                                                        (lg.status || '').toLowerCase() === 'valid'
+                                                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                                                            : 'bg-gray-100 text-gray-700 border border-gray-200'
+                                                                                    }`}>
+                                                                                        {lg.status || '—'}
+                                                                                    </span>
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
+
+                                            {/* Only show LG Record comparison for single-LG LGRecord entity types */}
+                                            {isSingleLgRecord && (
                                             <>
                                             <h4 className="text-xs sm:text-sm font-semibold text-gray-800 mb-1.5 border-b pb-1">LG Record Details (Snapshot vs. Current)</h4>
 
@@ -674,20 +904,30 @@ const ApprovalRequestDetailsModal = ({ request, onClose, onApprove, onReject, on
                                                     </button>
                                                 </GracePeriodTooltip>
                                                 <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                    <button
-                                                        type="button"
-                                                        className={`${buttonBaseClassNames} bg-green-600 text-white hover:bg-green-700 px-5 py-1.5 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                        onClick={() => {
-                                                            if (areButtonsEnabled && onApprove) {
-                                                                setIsProcessing(true);
-                                                                onApprove(request.id).finally(() => setIsProcessing(false));
-                                                            }
-                                                        }}
-                                                        disabled={isProcessing || isGracePeriod}
-                                                    >
-                                                        {isProcessing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Check className="h-4 w-4 mr-1.5" />}
-                                                        {isProcessing ? 'Approving...' : 'Approve'}
-                                                    </button>
+                                                    {(() => {
+                                                        const isZeroBulkOwner = activeRequest?.action_type === 'LG_CHANGE_BULK_LG_OWNER'
+                                                            && !isLoadingBulkLgs
+                                                            && (Array.isArray(activeRequest?.request_details?.affected_lgs)
+                                                                ? activeRequest.request_details.affected_lgs.length
+                                                                : (activeRequest?.request_details?.affected_lg_numbers?.length || 0)) === 0;
+                                                        return (
+                                                            <button
+                                                                type="button"
+                                                                className={`${buttonBaseClassNames} bg-green-600 text-white hover:bg-green-700 px-5 py-1.5 ${isGracePeriod || isZeroBulkOwner ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                title={isZeroBulkOwner ? 'Cannot approve — 0 LG records remain under this owner (please reject this stale request)' : undefined}
+                                                                onClick={() => {
+                                                                    if (areButtonsEnabled && !isZeroBulkOwner && onApprove) {
+                                                                        setIsProcessing(true);
+                                                                        onApprove(request.id).finally(() => setIsProcessing(false));
+                                                                    }
+                                                                }}
+                                                                disabled={isProcessing || isGracePeriod || isZeroBulkOwner}
+                                                            >
+                                                                {isProcessing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Check className="h-4 w-4 mr-1.5" />}
+                                                                {isProcessing ? 'Approving...' : 'Approve'}
+                                                            </button>
+                                                        );
+                                                    })()}
                                                 </GracePeriodTooltip>
                                             </div>
                                         </div>

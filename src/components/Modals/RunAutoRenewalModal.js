@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
+import FormattedDateInput from 'components/FormattedDateInput';
 
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     if (isGracePeriod) {
@@ -525,11 +526,11 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod, initialTab = '
                                                                             <div className="mt-0.5 flex items-center gap-1.5">
                                                                                 {item.bank_reply_date ? (
                                                                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800">
-                                                                                        Bank Replied ({moment(item.bank_reply_date).format('DD-MMM')})
+                                                                                        Bank Replied ({moment(item.bank_reply_date).format('DD-MMM-YYYY')})
                                                                                     </span>
                                                                                 ) : item.delivery_date ? (
                                                                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800">
-                                                                                        Delivered ({moment(item.delivery_date).format('DD-MMM')})
+                                                                                        Delivered ({moment(item.delivery_date).format('DD-MMM-YYYY')})
                                                                                     </span>
                                                                                 ) : (
                                                                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800">
@@ -853,8 +854,7 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod, initialTab = '
                                                     <td className="px-4 py-3.5 whitespace-nowrap">
                                                         <div className="flex items-center space-x-2">
                                                             <div className="relative">
-                                                                <input
-                                                                    type="date"
+                                                                <FormattedDateInput
                                                                     min={minAllowedDate}
                                                                     value={targetDateValue}
                                                                     disabled={!isSelected || isProcessing}

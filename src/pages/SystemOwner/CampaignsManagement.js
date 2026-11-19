@@ -27,6 +27,8 @@ import {
   Pencil
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDate } from 'utils/dateFormat';
 
 /**
  * Searchable Select Component for Partner Banks
@@ -624,7 +626,7 @@ const CampaignsManagement = () => {
                   <div className="flex items-center gap-2 text-xs text-slate-500">
                     <Calendar className="w-3.5 h-3.5" />
                     <span>
-                      {camp.start_date} &rarr; {camp.end_date}
+                      {formatDate(camp.start_date)} &rarr; {formatDate(camp.end_date)}
                     </span>
                   </div>
                 </div>
@@ -1137,8 +1139,7 @@ const CampaignsManagement = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Start Date *</label>
-                  <input
-                    type="date"
+                  <FormattedDateInput
                     required
                     value={formData.start_date}
                     onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
@@ -1147,8 +1148,7 @@ const CampaignsManagement = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">End Date *</label>
-                  <input
-                    type="date"
+                  <FormattedDateInput
                     required
                     value={formData.end_date}
                     onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}

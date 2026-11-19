@@ -5,10 +5,12 @@ import { toast } from 'react-toastify';
 import {
     Loader2, Save, Send, AlertCircle, Info, CheckCircle, CheckCircle2, User, FileText, DollarSign,
     Building, ChevronLeft, ChevronRight, Search, X, Upload, Trash2, Clock, AlertTriangle, Edit3, Calendar,
-    Wand2, Sparkles, Check
+    Wand2, Sparkles, Check, ShieldCheck
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { COUNTRIES_FOR_SELECT as COUNTRIES, countryNameToCode } from '../../constants/countries';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDate } from '../../utils/dateFormat';
 
 // ──────────────────────────────────────────────
 // CONSTANTS
@@ -86,6 +88,7 @@ export default function IssuanceRequestForm() {
 
     // Track whether user has manually changed payable currency (stops auto-sync)
     const [payableCurrencyTouched, setPayableCurrencyTouched] = useState(false);
+    const [isTrialSandbox, setIsTrialSandbox] = useState(false);
 
     // AI Document Verification state
     const [verificationResult, setVerificationResult] = useState(null); // {comparison, mismatches, summary, ...}
@@ -97,6 +100,39 @@ export default function IssuanceRequestForm() {
 
     // Track attached supporting document in memory for AI verification across retries
     const lastAttachedFileRef = useRef(null);
+    const supportingDocsSectionRef = useRef(null);
+
+    // Inline + Pre-Submit Special Wording Risk Check state
+    const [wordingRiskScan, setWordingRiskScan] = useState(null);
+    const [scanningWording, setScanningWording] = useState(false);
+
+    const runSpecialWordingPreview = useCallback(async (fileObj) => {
+        if (isPublic || !fileObj) return null;
+        setScanningWording(true);
+        try {
+            const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
+            const authToken = localStorage.getItem('jwt_token');
+            const fd = new FormData();
+            fd.append('file', fileObj);
+            const resp = await fetch(`${API_URL}/issuance/analyze-special-wording-preview`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${authToken}` },
+                body: fd,
+            });
+            if (resp && resp.ok) {
+                const data = await resp.json();
+                if (data?.status === 'OK') {
+                    setWordingRiskScan(data);
+                    return data;
+                }
+            }
+        } catch (err) {
+            console.warn('Inline special wording preview skipped:', err);
+        } finally {
+            setScanningWording(false);
+        }
+        return null;
+    }, [isPublic]);
 
     const addFile = (file, docType) => {
         if (file.size > 10 * 1024 * 1024) {
@@ -105,10 +141,20 @@ export default function IssuanceRequestForm() {
         }
         lastAttachedFileRef.current = { file, type: docType, name: file.name };
         setPendingFiles(prev => [...prev, { file, type: docType, name: file.name }]);
+        if (docType === 'SPECIAL_WORDING' && !isPublic) {
+            runSpecialWordingPreview(file);
+        }
     };
 
     const removeFile = (index) => {
-        setPendingFiles(prev => prev.filter((_, i) => i !== index));
+        setPendingFiles(prev => {
+            const removed = prev[index];
+            const next = prev.filter((_, i) => i !== index);
+            if (removed?.type === 'SPECIAL_WORDING' && !next.some(f => f.type === 'SPECIAL_WORDING')) {
+                setWordingRiskScan(null);
+            }
+            return next;
+        });
     };
 
     const [formData, setFormData] = useState({
@@ -291,18 +337,81 @@ export default function IssuanceRequestForm() {
                 setEntities(entData);
                 setLgTypes(typesData);
                 setDepartments(deptsData);
-                // Auto-select single-option dropdowns for internal users
-                setFormData(prev => {
-                    const updated = { ...prev };
-                    if (entData?.length === 1 && !prev.issuing_entity_id) updated.issuing_entity_id = String(entData[0].id);
-                    if (typesData?.length === 1 && !prev.lg_type_id) updated.lg_type_id = String(typesData[0].id);
-                    if (currData?.length === 1 && !prev.currency_id) {
-                        updated.currency_id = String(currData[0].id);
-                        if (!prev.payable_currency_id) updated.payable_currency_id = String(currData[0].id);
-                    }
-                    if (deptsData?.length === 1) updated.department = deptsData[0].name || deptsData[0];
-                    return updated;
-                });
+
+                // Detect Guided Trial Sandbox strictly per-tenant (0% effect on commercial accounts)
+                let trialActive = false;
+                if (!initialEditDraftId) {
+                    try {
+                        const parsedUser = JSON.parse(localStorage.getItem('user') || '{}');
+                        const cid = parsedUser?.customer_id;
+                        const probeKey = cid ? `grow_trial_mode_probe_v2_${cid}` : null;
+                        const cachedProbe = probeKey ? sessionStorage.getItem(probeKey) : null;
+                        if (cachedProbe === 'true') {
+                            trialActive = true;
+                        } else if (cachedProbe !== 'false' && cid) {
+                            const tStatus = await apiRequest('/trial-sandbox/status', 'GET').catch(() => null);
+                            trialActive = Boolean(tStatus && tStatus.trial_mode === true);
+                            if (probeKey) sessionStorage.setItem(probeKey, trialActive ? 'true' : 'false');
+                        }
+                    } catch {}
+                }
+
+                if (trialActive) {
+                    setIsTrialSandbox(true);
+                    const parsedUser = JSON.parse(localStorage.getItem('user') || '{}');
+                    const egpCurr =
+                        currData.find(c => (c.iso_code || '').toUpperCase() === 'EGP') || currData[0];
+                    const advType =
+                        typesData.find(t => (t.name || '').toLowerCase().includes('advance')) ||
+                        typesData[0];
+                    const oneYearOut = new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0];
+
+                    setFormData(prev => ({
+                        ...prev,
+                        issuing_entity_id: entData?.[0]?.id ? String(entData[0].id) : prev.issuing_entity_id,
+                        requestor_name: prev.requestor_name || 'Tarek El-Masry',
+                        requestor_email: prev.requestor_email || parsedUser?.email || 'projects@company.com',
+                        department: deptsData?.[0]?.name || deptsData?.[0] || 'Projects & EPC',
+                        job_title: prev.job_title || 'Contracts Manager',
+                        phone_number: prev.phone_number || '+201001234567',
+                        reference_type: prev.reference_type || 'CONTRACT',
+                        reference_number: prev.reference_number || 'CNT-NAUUA-2026-09',
+                        reference_amount: prev.reference_amount || '50000000',
+                        reference_currency_id: egpCurr ? String(egpCurr.id) : prev.reference_currency_id,
+                        lg_type_id: advType ? String(advType.id) : prev.lg_type_id,
+                        lg_purpose:
+                            prev.lg_purpose ||
+                            '10% Advance Payment Guarantee — Civil & Electromechanical Works (Sample)',
+                        amount: prev.amount || '5000000',
+                        currency_id: egpCurr ? String(egpCurr.id) : prev.currency_id,
+                        payable_currency_id: egpCurr ? String(egpCurr.id) : prev.payable_currency_id,
+                        requested_expiry_date: prev.requested_expiry_date || oneYearOut,
+                        operational_status: prev.operational_status || 'Operative',
+                        applicable_rules: prev.applicable_rules || 'URDG_758',
+                        beneficiary_name:
+                            prev.beneficiary_name ||
+                            'New Administrative Urban Utilities Authority (NAUUA)',
+                        beneficiary_address:
+                            prev.beneficiary_address ||
+                            'Government District, New Administrative Capital, Egypt',
+                        beneficiary_country: prev.beneficiary_country || 'EG',
+                        requires_special_wording: true,
+                    }));
+                    setCurrentStep(3);
+                } else {
+                    // Auto-select single-option dropdowns for internal users
+                    setFormData(prev => {
+                        const updated = { ...prev };
+                        if (entData?.length === 1 && !prev.issuing_entity_id) updated.issuing_entity_id = String(entData[0].id);
+                        if (typesData?.length === 1 && !prev.lg_type_id) updated.lg_type_id = String(typesData[0].id);
+                        if (currData?.length === 1 && !prev.currency_id) {
+                            updated.currency_id = String(currData[0].id);
+                            if (!prev.payable_currency_id) updated.payable_currency_id = String(currData[0].id);
+                        }
+                        if (deptsData?.length === 1) updated.department = deptsData[0].name || deptsData[0];
+                        return updated;
+                    });
+                }
                 // Fetch projects for corporate admin users only
                 try {
                     const token = localStorage.getItem('jwt_token');
@@ -321,6 +430,58 @@ export default function IssuanceRequestForm() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (!isTrialSandbox || loading) return undefined;
+
+        const attachSamples = (payload) => {
+            const { wordingFile, contractFile } = payload || {};
+            if (!wordingFile && !contractFile) return;
+
+            setFormData((prev) => ({ ...prev, requires_special_wording: true }));
+            setCurrentStep(3);
+            setPendingFiles((prev) => {
+                const next = [...prev];
+                if (wordingFile && !next.some((f) => f.type === 'SPECIAL_WORDING')) {
+                    next.push({ file: wordingFile, type: 'SPECIAL_WORDING', name: wordingFile.name });
+                }
+                if (contractFile && !next.some((f) => f.type === 'CONTRACT')) {
+                    next.push({ file: contractFile, type: 'CONTRACT', name: contractFile.name });
+                }
+                return next;
+            });
+            if (wordingFile) {
+                lastAttachedFileRef.current = {
+                    file: wordingFile,
+                    type: 'SPECIAL_WORDING',
+                    name: wordingFile.name,
+                };
+                runSpecialWordingPreview(wordingFile);
+            }
+            setTimeout(() => {
+                supportingDocsSectionRef.current?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                });
+            }, 220);
+            toast.success(
+                'Sample Risky Client Wording & Contract attached! Scanning risky clauses below…'
+            );
+        };
+
+        if (window.__growPendingIssuanceSampleFiles) {
+            const pending = window.__growPendingIssuanceSampleFiles;
+            window.__growPendingIssuanceSampleFiles = null;
+            attachSamples(pending);
+        }
+
+        const handleIssuanceSample = (evt) => {
+            window.__growPendingIssuanceSampleFiles = null;
+            attachSamples(evt?.detail);
+        };
+        window.addEventListener('grow-trial-load-issuance-wording-sample', handleIssuanceSample);
+        return () => window.removeEventListener('grow-trial-load-issuance-wording-sample', handleIssuanceSample);
+    }, [isTrialSandbox, loading, runSpecialWordingPreview]);
 
     const fetchPreviousRequestorData = async (email) => {
         if (!email || !email.includes('@')) return;
@@ -753,6 +914,25 @@ export default function IssuanceRequestForm() {
         return await resp.json();
     };
 
+    const runRequestSpecialWordingScan = async (targetRequestId, fileObj = null) => {
+        if (isPublic || !targetRequestId) return null;
+        const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
+        const authToken = localStorage.getItem('jwt_token');
+        const fd = new FormData();
+        if (fileObj) fd.append('file', fileObj);
+        const resp = await fetch(`${API_URL}/issuance/requests/${targetRequestId}/analyze-special-wording`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}` },
+            body: fd,
+        });
+        if (!resp || !resp.ok) return null;
+        const data = await resp.json();
+        if (data?.status === 'OK') {
+            setWordingRiskScan(data);
+        }
+        return data;
+    };
+
     // ──────────────────────────────────────────────
     // SUBMIT
     // ──────────────────────────────────────────────
@@ -1179,17 +1359,31 @@ export default function IssuanceRequestForm() {
                 if (isPostSubmission) {
                     toast.success('Request updated. Changes have been saved and relevant parties notified.');
                 } else if (actionType === 'SUBMIT') {
-                    // AI verification before internal submission
-                    const fileObj = lastAttachedFileRef.current?.file || pendingFiles[0]?.file || null;
-                    const docType = lastAttachedFileRef.current?.type || pendingFiles[0]?.type || existingDocuments[0]?.document_type || null;
+                    // AI verification + Special Wording Risk Check before internal submission
+                    const contractPending = pendingFiles.find((f) => f.type === 'CONTRACT');
+                    const wordingPending = pendingFiles.find((f) => f.type === 'SPECIAL_WORDING');
+                    const fileObj = contractPending?.file || lastAttachedFileRef.current?.file || pendingFiles[0]?.file || null;
+                    const docType = contractPending?.type || lastAttachedFileRef.current?.type || pendingFiles[0]?.type || existingDocuments[0]?.document_type || null;
                     const documentId = (!fileObj && (existingDocuments[0]?.id || uploadedList[0]?.id)) || null;
+                    const hasSpecialWording = Boolean(
+                        payload.requires_special_wording ||
+                        wordingPending ||
+                        existingDocuments.some((d) => d.document_type === 'SPECIAL_WORDING') ||
+                        uploadedList.some((d) => d.document_type === 'SPECIAL_WORDING')
+                    );
 
-                    if (fileObj || documentId || existingDocuments.length > 0 || pendingFiles.length > 0) {
+                    if (fileObj || documentId || existingDocuments.length > 0 || pendingFiles.length > 0 || hasSpecialWording) {
                         setVerifying(true);
                         try {
-                            const result = await runDocumentVerification(draftId, fileObj, docType, documentId);
-                            if (result && result.status === 'OK' && result.mismatches > 0) {
-                                setVerificationResult(result);
+                            const [result, swResult] = await Promise.all([
+                                (fileObj || documentId) ? runDocumentVerification(draftId, fileObj, docType, documentId).catch(() => null) : Promise.resolve(null),
+                                hasSpecialWording ? runRequestSpecialWordingScan(draftId, wordingPending?.file || null).catch(() => null) : Promise.resolve(null),
+                            ]);
+                            const effectiveSw = swResult || wordingRiskScan;
+                            const hasSwRisks = effectiveSw?.status === 'OK' && (effectiveSw.risk_level === 'RED' || effectiveSw.risk_level === 'AMBER');
+                            const hasDocMismatches = Boolean(result && result.status === 'OK' && result.mismatches > 0);
+                            if (hasDocMismatches || hasSwRisks) {
+                                setVerificationResult(result || { status: 'OK', comparison: [], mismatches: 0 });
                                 setPendingSubmitPayload({ editDraftId: draftId, payload, isPublic: false });
                                 setShowVerificationDialog(true);
                                 setSubmitting(false);
@@ -1214,21 +1408,37 @@ export default function IssuanceRequestForm() {
                 // Internal user: new submission
                 const createUrl = actionType === 'DRAFT' ? '/issuance/requests/draft' : '/issuance/requests/';
                 const createdReq = await apiRequest(createUrl, 'POST', payload);
+                if (createdReq?.id) {
+                    setDraftId(createdReq.id);
+                }
+                const contractPending = pendingFiles.find((f) => f.type === 'CONTRACT');
+                const wordingPending = pendingFiles.find((f) => f.type === 'SPECIAL_WORDING');
                 let uploadedList = [];
                 if (pendingFiles.length > 0 && createdReq?.id) {
                     uploadedList = await uploadPendingFiles(createdReq.id, false);
                 }
                 if (actionType === 'SUBMIT') {
-                    const fileObj = lastAttachedFileRef.current?.file || pendingFiles[0]?.file || null;
-                    const docType = lastAttachedFileRef.current?.type || pendingFiles[0]?.type || 'CONTRACT';
+                    const fileObj = contractPending?.file || lastAttachedFileRef.current?.file || pendingFiles[0]?.file || null;
+                    const docType = contractPending?.type || lastAttachedFileRef.current?.type || pendingFiles[0]?.type || 'CONTRACT';
                     const documentId = (!fileObj && uploadedList[0]?.id) || null;
+                    const hasSpecialWording = Boolean(
+                        payload.requires_special_wording ||
+                        wordingPending ||
+                        uploadedList.some((d) => d.document_type === 'SPECIAL_WORDING')
+                    );
 
-                    if (fileObj || documentId || pendingFiles.length > 0) {
+                    if (fileObj || documentId || pendingFiles.length > 0 || hasSpecialWording) {
                         setVerifying(true);
                         try {
-                            const result = await runDocumentVerification(createdReq.id, fileObj, docType, documentId);
-                            if (result && result.status === 'OK' && result.mismatches > 0) {
-                                setVerificationResult(result);
+                            const [result, swResult] = await Promise.all([
+                                (fileObj || documentId) ? runDocumentVerification(createdReq.id, fileObj, docType, documentId).catch(() => null) : Promise.resolve(null),
+                                hasSpecialWording ? runRequestSpecialWordingScan(createdReq.id, wordingPending?.file || null).catch(() => null) : Promise.resolve(null),
+                            ]);
+                            const effectiveSw = swResult || wordingRiskScan;
+                            const hasSwRisks = effectiveSw?.status === 'OK' && (effectiveSw.risk_level === 'RED' || effectiveSw.risk_level === 'AMBER');
+                            const hasDocMismatches = Boolean(result && result.status === 'OK' && result.mismatches > 0);
+                            if (hasDocMismatches || hasSwRisks) {
+                                setVerificationResult(result || { status: 'OK', comparison: [], mismatches: 0 });
                                 setPendingSubmitPayload({ editDraftId: createdReq.id, payload, isPublic: false });
                                 setShowVerificationDialog(true);
                                 setSubmitting(false);
@@ -1294,29 +1504,36 @@ export default function IssuanceRequestForm() {
 
     // Verification Dialog Component
     const VerificationDialog = () => {
-        if (!showVerificationDialog || !verificationResult) return null;
-        const { comparison = [], mismatches = 0, summary, clause_harvest } = verificationResult;
+        if (!showVerificationDialog || (!verificationResult && !wordingRiskScan)) return null;
+        const { comparison = [], mismatches = 0, summary, clause_harvest } = verificationResult || {};
         const hasApplicableFixes = comparison.some(c => c.verdict === 'MISMATCH' && c.document_value);
+        const hasWordingRisks = Boolean(
+            wordingRiskScan?.status === 'OK' &&
+            (wordingRiskScan.risk_level === 'RED' || wordingRiskScan.risk_level === 'AMBER')
+        );
+        const hasAnyAlert = mismatches > 0 || hasWordingRisks;
 
         return (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-200">
                     {/* Header */}
                     <div className={`px-6 py-4 border-b flex items-center justify-between gap-4 ${
-                        mismatches > 0 ? 'bg-amber-50/80 border-amber-200' : 'bg-emerald-50/80 border-emerald-200'
+                        hasWordingRisks ? 'bg-rose-50/90 border-rose-200' : mismatches > 0 ? 'bg-amber-50/80 border-amber-200' : 'bg-emerald-50/80 border-emerald-200'
                     }`}>
                         <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                                mismatches > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                                hasWordingRisks ? 'bg-rose-100 text-rose-700' : mismatches > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
                             }`}>
-                                {mismatches > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+                                {hasAnyAlert ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
                             </div>
                             <div>
-                                <h3 className={`text-base font-bold ${mismatches > 0 ? 'text-amber-950' : 'text-emerald-950'}`}>
-                                    AI Document Verification & Value Matching
+                                <h3 className={`text-base font-bold ${hasWordingRisks ? 'text-rose-950' : mismatches > 0 ? 'text-amber-950' : 'text-emerald-950'}`}>
+                                    {hasWordingRisks ? 'AI Special Wording & Document Review' : 'AI Document Verification & Value Matching'}
                                 </h3>
-                                <p className={`text-xs ${mismatches > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
-                                    {mismatches > 0
+                                <p className={`text-xs ${hasWordingRisks ? 'text-rose-700' : mismatches > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                    {hasWordingRisks
+                                        ? `${wordingRiskScan.findings?.length || 0} risky guarantee clause(s) flagged for review${mismatches > 0 ? ` · plus ${mismatches} field mismatch(es)` : ''}.`
+                                        : mismatches > 0
                                         ? `${mismatches} mismatch${mismatches !== 1 ? 'es' : ''} detected between your request and the attached reference document.`
                                         : 'All verified request fields match the reference document.'}
                                 </p>
@@ -1336,6 +1553,44 @@ export default function IssuanceRequestForm() {
 
                     {/* Body */}
                     <div className="px-6 py-4 overflow-y-auto flex-1 space-y-3">
+                        {wordingRiskScan?.status === 'OK' && wordingRiskScan.findings?.length > 0 && (
+                            <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3.5 space-y-2.5">
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <span className="text-xs font-extrabold text-rose-950 uppercase tracking-wide flex items-center gap-1.5">
+                                        <ShieldCheck className="w-4 h-4 text-rose-600" />
+                                        Special Wording Risk Check ({wordingRiskScan.findings.length} Clauses Flagged)
+                                    </span>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase text-white ${wordingRiskScan.risk_level === 'RED' ? 'bg-rose-600' : 'bg-amber-500'}`}>
+                                        {wordingRiskScan.risk_level === 'RED' ? 'High Risk' : 'Caution'} · Score {wordingRiskScan.risk_score ?? 0}/100
+                                    </span>
+                                </div>
+                                {wordingRiskScan.executive_summary && (
+                                    <p className="text-xs text-slate-700 bg-white/90 p-2.5 rounded-lg border border-rose-100">
+                                        {wordingRiskScan.executive_summary}
+                                    </p>
+                                )}
+                                <div className="space-y-2">
+                                    {wordingRiskScan.findings.map((f, fIdx) => (
+                                        <div key={fIdx} className="p-2.5 rounded-lg bg-white border border-slate-200 space-y-1">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-xs font-bold text-slate-900">{f.title}</span>
+                                                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full text-white ${f.severity === 'RED' ? 'bg-rose-600' : 'bg-amber-500'}`}>
+                                                    {f.severity}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-slate-700">{f.plain_explanation}</p>
+                                            {f.suggested_protective_rewording && (
+                                                <div dir="auto" className="text-[11px] text-emerald-900 bg-emerald-50 px-2.5 py-1.5 rounded border border-emerald-200">
+                                                    <strong>Safer Wording Suggestion: </strong>
+                                                    {f.suggested_protective_rewording}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {summary && (
                             <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 text-xs text-blue-900">
                                 <span className="font-bold uppercase tracking-wider text-[10px] text-blue-600 block mb-1">
@@ -1375,7 +1630,7 @@ export default function IssuanceRequestForm() {
                                 )}
                                 <div className="flex items-center gap-3 text-[11px] text-indigo-800">
                                     {clause_harvest.recommended_expiry_date && (
-                                        <span><strong>Recommended Expiry:</strong> {clause_harvest.recommended_expiry_date}</span>
+                                        <span><strong>Recommended Expiry:</strong> {formatDate(clause_harvest.recommended_expiry_date)}</span>
                                     )}
                                     {clause_harvest.calculation_basis && (
                                         <span><strong>Basis:</strong> {clause_harvest.calculation_basis}</span>
@@ -1479,19 +1734,19 @@ export default function IssuanceRequestForm() {
                             onClick={proceedAfterVerification}
                             disabled={submitting}
                             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-white transition shadow-sm ${
-                                mismatches === 0
+                                !hasAnyAlert
                                     ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
                                     : 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20'
                             }`}
                         >
                             {submitting ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : mismatches === 0 ? (
+                            ) : !hasAnyAlert ? (
                                 <CheckCircle2 className="w-4 h-4" />
                             ) : (
                                 <Send className="w-4 h-4" />
                             )}
-                            {mismatches === 0 ? 'Confirm & Submit Request' : 'Submit Anyway'}
+                            {!hasAnyAlert ? 'Confirm & Submit Request' : 'Submit Anyway (For Review)'}
                         </button>
                     </div>
                 </div>
@@ -1528,6 +1783,13 @@ export default function IssuanceRequestForm() {
                         name={name} value={formData[name] || ''} onChange={handleChange}
                         required={required} rows={3} placeholder={placeholder}
                         className={inputClasses(false)}
+                    />
+                ) : type === 'date' ? (
+                    <FormattedDateInput
+                        name={name} value={formData[name] || ''} onChange={handleChange}
+                        required={required} placeholder={placeholder || 'DD-MMM-YYYY'}
+                        className={inputClasses(false)}
+                        {...extraProps}
                     />
                 ) : (
                     <input
@@ -1778,8 +2040,7 @@ export default function IssuanceRequestForm() {
                             <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                 Requested Expiry Date <span className="text-red-400 ml-0.5">*</span>
                             </label>
-                            <input
-                                type="date"
+                            <FormattedDateInput
                                 name="requested_expiry_date"
                                 value={formData.requested_expiry_date || ''}
                                 onChange={handleChange}
@@ -2088,6 +2349,10 @@ export default function IssuanceRequestForm() {
                                                 <option key={idx} value={opt}>{opt}</option>
                                             ))}
                                         </select>
+                                    ) : inputType === 'date' ? (
+                                        <FormattedDateInput name={fieldName}
+                                            value={formData[fieldName] || ''} onChange={handleChange}
+                                            required={cnf.is_mandatory} className={inputClasses(false)} />
                                     ) : (
                                         <input type={inputType} name={fieldName}
                                             value={formData[fieldName] || ''} onChange={handleChange}
@@ -2100,15 +2365,17 @@ export default function IssuanceRequestForm() {
                 )}
             </div>
 
-            {/* Supporting Documents Upload */}
-            {(isDocVisible('THIRD_PARTY') || isDocVisible('SPECIAL_WORDING') || isDocVisible('OTHER')) && (
-                <div className="space-y-4 pt-2">
+            {/* Supporting Documents Upload + Inline Special Wording Risk Check */}
+            {(isDocVisible('THIRD_PARTY') || isDocVisible('SPECIAL_WORDING') || isDocVisible('OTHER') || pendingFiles.length > 0 || existingDocuments.length > 0) && (
+                <div ref={supportingDocsSectionRef} className="space-y-4 pt-2">
                     <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                        <Upload className="w-4 h-4 text-blue-500" /> Supporting Documents
+                        <Upload className="w-4 h-4 text-blue-500" /> Attached &amp; Supporting Documents
                     </h3>
 
-                    <div className="border border-dashed border-gray-300 rounded-xl p-5 bg-gray-50/50">
-                        <p className="text-xs text-slate-400 mb-3">Upload any additional supporting documents (third-party authorisation, special wording templates, etc.)</p>
+                    <div className="border border-dashed border-gray-300 rounded-xl p-5 bg-gray-50/50 space-y-3">
+                        <p className="text-xs text-slate-500">
+                            Upload supporting documents (special wording template, third-party authorization, etc.). Attached Special Wording files are automatically checked for risky clauses.
+                        </p>
                         <div className="flex flex-wrap gap-2">
                             {isDocVisible('THIRD_PARTY') && (
                                 <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200 text-xs font-medium text-slate-700 hover:bg-gray-50 hover:border-blue-300 transition cursor-pointer shadow-sm">
@@ -2120,13 +2387,30 @@ export default function IssuanceRequestForm() {
                                 </label>
                             )}
                             {isDocVisible('SPECIAL_WORDING') && (
-                                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200 text-xs font-medium text-slate-700 hover:bg-gray-50 hover:border-blue-300 transition cursor-pointer shadow-sm">
-                                    <Upload className="w-3.5 h-3.5" /> Wording Template {isDocMandatory('SPECIAL_WORDING') && <span className="text-red-400">*</span>}
-                                    <input type="file" className="hidden"
-                                        accept=".pdf,.doc,.docx"
-                                        onChange={(e) => { if (e.target.files[0]) addFile(e.target.files[0], 'SPECIAL_WORDING'); e.target.value = ''; }}
-                                    />
-                                </label>
+                                <>
+                                    <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200 text-xs font-medium text-slate-700 hover:bg-gray-50 hover:border-blue-300 transition cursor-pointer shadow-sm">
+                                        <Upload className="w-3.5 h-3.5" /> Wording Template {isDocMandatory('SPECIAL_WORDING') && <span className="text-red-400">*</span>}
+                                        <input type="file" className="hidden"
+                                            accept=".pdf,.doc,.docx"
+                                            onChange={(e) => { if (e.target.files[0]) addFile(e.target.files[0], 'SPECIAL_WORDING'); e.target.value = ''; }}
+                                        />
+                                    </label>
+                                    {isTrialSandbox && (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                window.dispatchEvent(
+                                                    new CustomEvent('grow-trial-trigger-autoload', { detail: { actionId: 'issuance_wording' } })
+                                                )
+                                            }
+                                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition cursor-pointer shadow-sm"
+                                            title="Automatically attach Sample Risky LG Wording PDF & Contract PDF and scan for risky clauses"
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5" />
+                                            Do It For Me (Attach &amp; Scan Sample Wording)
+                                        </button>
+                                    )}
+                                </>
                             )}
                             {isDocVisible('OTHER') && (
                                 <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200 text-xs font-medium text-slate-700 hover:bg-gray-50 hover:border-blue-300 transition cursor-pointer shadow-sm">
@@ -2138,42 +2422,163 @@ export default function IssuanceRequestForm() {
                                 </label>
                             )}
                         </div>
-                        {/* Show existing files (except CONTRACT) */}
-                        {existingDocuments.filter(f => f.document_type !== 'CONTRACT').map((f, i) => {
-                            const typeLabels = { THIRD_PARTY: 'Third Party', SPECIAL_WORDING: 'Wording', OTHER: 'Other' };
+
+                        {/* Show ALL existing files (including Contract so nothing looks missing on Step 4) */}
+                        {existingDocuments.map((f, i) => {
+                            const typeLabels = {
+                                CONTRACT: 'Contract / PO',
+                                THIRD_PARTY: 'Third Party',
+                                SPECIAL_WORDING: 'Special Wording',
+                                OTHER: 'Other',
+                            };
+                            const badgeCls =
+                                f.document_type === 'SPECIAL_WORDING'
+                                    ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                    : f.document_type === 'CONTRACT'
+                                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                    : 'bg-slate-200 text-slate-700';
                             return (
-                                <div key={`exist-${i}`} className="flex items-center gap-3 mt-3 bg-gray-50/80 p-2.5 rounded-lg border border-gray-200">
+                                <div key={`exist-${i}`} className="flex items-center gap-3 bg-gray-50/80 p-2.5 rounded-lg border border-gray-200">
                                     <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
                                     <span className="text-sm text-slate-600 font-medium text-ellipsis overflow-hidden flex-1">{f.file_name}</span>
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 font-medium">{typeLabels[f.document_type] || f.document_type}</span>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${badgeCls}`}>
+                                        {typeLabels[f.document_type] || f.document_type}
+                                    </span>
                                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold border border-green-200 whitespace-nowrap">Already Attached</span>
                                 </div>
                             );
                         })}
-                        {/* All pending files (except CONTRACT which is shown in Step 1) */}
-                        {pendingFiles.filter(f => f.type !== 'CONTRACT').map((f, i) => {
-                            const realIdx = pendingFiles.indexOf(f);
-                            const typeLabels = { THIRD_PARTY: 'Third Party', SPECIAL_WORDING: 'Wording', OTHER: 'Other' };
+
+                        {/* Show ALL pending files (both Contract & Special Wording together with clear badges!) */}
+                        {pendingFiles.map((f, realIdx) => {
+                            const typeLabels = {
+                                CONTRACT: 'Contract / PO',
+                                THIRD_PARTY: 'Third Party',
+                                SPECIAL_WORDING: 'Special Wording',
+                                OTHER: 'Other',
+                            };
+                            const badgeCls =
+                                f.type === 'SPECIAL_WORDING'
+                                    ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                    : f.type === 'CONTRACT'
+                                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                    : 'bg-slate-100 text-slate-600';
                             return (
-                                <div key={i} className="flex items-center gap-3 mt-3 bg-white p-2.5 rounded-lg border border-gray-200">
-                                    <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                                    <span className="text-sm text-slate-700 text-ellipsis overflow-hidden flex-1">{f.name}</span>
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-medium">{typeLabels[f.type] || f.type}</span>
+                                <div key={`${f.type}-${realIdx}`} className="flex items-center gap-3 bg-white p-2.5 rounded-lg border border-gray-200 shadow-2xs">
+                                    <FileText className={`w-4 h-4 flex-shrink-0 ${f.type === 'SPECIAL_WORDING' ? 'text-purple-600' : 'text-blue-500'}`} />
+                                    <span className="text-sm text-slate-800 font-medium text-ellipsis overflow-hidden flex-1">{f.name}</span>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${badgeCls}`}>
+                                        {typeLabels[f.type] || f.type}
+                                    </span>
                                     <span className="text-[10px] text-slate-400">{(f.file.size / 1024).toFixed(0)} KB</span>
+                                    {f.type === 'SPECIAL_WORDING' && !isPublic && (
+                                        <button
+                                            type="button"
+                                            disabled={scanningWording}
+                                            onClick={() => runSpecialWordingPreview(f.file)}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-[11px] font-bold transition cursor-pointer disabled:opacity-50"
+                                        >
+                                            {scanningWording ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldCheck className="w-3 h-3" />}
+                                            <span>{wordingRiskScan ? 'Re-Scan' : 'Scan Risks'}</span>
+                                        </button>
+                                    )}
                                     <button type="button" onClick={() => removeFile(realIdx)}
-                                        className="text-red-400 hover:text-red-600 transition p-1">
+                                        className="text-red-400 hover:text-red-600 transition p-1"
+                                        title="Remove attachment">
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                 </div>
                             );
                         })}
+
+                        {/* IMMEDIATE INLINE AI SPECIAL WORDING RISK CHECK CARD */}
+                        {scanningWording && (
+                            <div className="rounded-xl border border-purple-200 bg-purple-50/80 p-4 flex items-center gap-3 text-xs font-semibold text-purple-900">
+                                <Loader2 className="w-4 h-4 text-purple-700 animate-spin shrink-0" />
+                                <span>AI is reading the attached Special Wording document to check for risky clauses…</span>
+                            </div>
+                        )}
+
+                        {!scanningWording && wordingRiskScan?.status === 'OK' && (
+                            <div className={`rounded-xl border p-4 space-y-3 ${
+                                wordingRiskScan.risk_level === 'RED'
+                                    ? 'bg-rose-50/80 border-rose-200'
+                                    : wordingRiskScan.risk_level === 'AMBER'
+                                    ? 'bg-amber-50/80 border-amber-200'
+                                    : 'bg-emerald-50/80 border-emerald-200'
+                            }`}>
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase text-white ${
+                                            wordingRiskScan.risk_level === 'RED'
+                                                ? 'bg-rose-600'
+                                                : wordingRiskScan.risk_level === 'AMBER'
+                                                ? 'bg-amber-500'
+                                                : 'bg-emerald-600'
+                                        }`}>
+                                            {wordingRiskScan.risk_level === 'RED'
+                                                ? 'High Risk Wording'
+                                                : wordingRiskScan.risk_level === 'AMBER'
+                                                ? 'Caution'
+                                                : 'Low Risk'}
+                                        </span>
+                                        <span className="text-xs font-extrabold text-slate-900">
+                                            {wordingRiskScan.risk_label || `${wordingRiskScan.findings?.length || 0} Clause(s) Flagged for Review`}
+                                        </span>
+                                    </div>
+                                    <span className="px-2 py-0.5 rounded bg-white/90 border border-slate-200 text-[11px] font-bold text-slate-700">
+                                        Risk Score: {wordingRiskScan.risk_score ?? 0}/100
+                                    </span>
+                                </div>
+
+                                {wordingRiskScan.executive_summary && (
+                                    <p className="text-xs text-slate-700 bg-white/90 p-2.5 rounded-lg border border-slate-200/80">
+                                        {wordingRiskScan.executive_summary}
+                                    </p>
+                                )}
+
+                                {wordingRiskScan.findings?.length > 0 && (
+                                    <div className="space-y-2">
+                                        {wordingRiskScan.findings.map((f, idx) => (
+                                            <div key={idx} className="p-3 rounded-lg bg-white border border-slate-200 space-y-1.5 shadow-2xs">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                                        <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${f.severity === 'RED' ? 'text-rose-600' : 'text-amber-600'}`} />
+                                                        {f.title}
+                                                    </span>
+                                                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full text-white ${f.severity === 'RED' ? 'bg-rose-600' : 'bg-amber-500'}`}>
+                                                        {f.severity}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-slate-700">{f.plain_explanation}</p>
+                                                {f.quoted_excerpt && (
+                                                    <div dir="auto" className="text-[11px] text-slate-700 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-200 italic">
+                                                        &ldquo;{f.quoted_excerpt}&rdquo;
+                                                    </div>
+                                                )}
+                                                {f.suggested_protective_rewording && (
+                                                    <div dir="auto" className="text-[11px] text-emerald-950 bg-emerald-50/90 px-2.5 py-1.5 rounded border border-emerald-200">
+                                                        <strong className="font-bold">Safer Wording Suggestion: </strong>
+                                                        {f.suggested_protective_rewording}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <p className="text-[11px] text-slate-500">
+                                    AI highlights risky clauses so your treasury or legal team can review them before submitting — you remain in full control.
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Total files summary */}
                     {pendingFiles.length > 0 && (
-                        <div className="flex items-center gap-2 text-xs text-blue-600 font-medium bg-blue-50 px-3 py-2 rounded-lg">
+                        <div className="flex items-center gap-2 text-xs text-blue-700 font-semibold bg-blue-50 px-3 py-2 rounded-lg border border-blue-100">
                             <FileText className="w-3.5 h-3.5" />
-                            {pendingFiles.length} document{pendingFiles.length > 1 ? 's' : ''} will be uploaded upon submission
+                            {pendingFiles.length} attached document{pendingFiles.length > 1 ? 's' : ''} ready ({pendingFiles.map((f) => f.type === 'SPECIAL_WORDING' ? 'Special Wording' : f.type === 'CONTRACT' ? 'Contract / PO' : f.type).join(' + ')})
                         </div>
                     )}
                 </div>

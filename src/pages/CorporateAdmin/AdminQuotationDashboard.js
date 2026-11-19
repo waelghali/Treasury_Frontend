@@ -7,6 +7,7 @@ import AdminRevisionModal from '../../components/Modals/AdminRevisionModal';
 import MarketSpreadTicker from '../../components/Quotations/MarketSpreadTicker';
 import CorporateMobileAlertsBanner from '../../components/CorporateMobileAlertsBanner';
 import { getRfqTimingState, computeSidebarStatusFromRfqs } from '../../utils/quotationTiming';
+import FormattedDateInput from 'components/FormattedDateInput';
 import {
     Bell, Check, X, BarChart3, Landmark, Building, History, ChevronRight, ChevronDown, Clock,
     Search, Filter, AlertCircle, TrendingUp, ArrowUpRight, ArrowDownRight, FileText, Download,
@@ -23,7 +24,7 @@ const formatDate = (d) => {
         const day = String(date.getDate()).padStart(2, '0');
         const month = MONTHS[date.getMonth()];
         const year = date.getFullYear();
-        return `${day} ${month} ${year}`;
+        return `${day}-${month}-${year}`;
     } catch {
         return d;
     }
@@ -38,7 +39,7 @@ const formatDateTime = (d) => {
         const month = MONTHS[date.getMonth()];
         const year = date.getFullYear();
         const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        return `${day} ${month} ${year}, ${time}`;
+        return `${day}-${month}-${year}, ${time}`;
     } catch {
         return d;
     }
@@ -917,7 +918,7 @@ export default function AdminQuotationDashboard() {
                                                         <span className={`text-[11px] font-mono ${
                                                             b.is_custom_value_date ? 'text-blue-700 font-bold' : 'text-gray-500'
                                                         }`}>
-                                                            • {b.value_date}
+                                                            • {formatDate(b.value_date)}
                                                             {b.is_custom_value_date && ' (custom)'}
                                                         </span>
                                                     )}
@@ -1329,8 +1330,7 @@ export default function AdminQuotationDashboard() {
                                         )}
                                     </div>
                                     <div className="flex items-center gap-1.5">
-                                        <input
-                                            type="date"
+                                        <FormattedDateInput
                                             value={dateFrom}
                                             onChange={e => {
                                                 setDateFrom(e.target.value);
@@ -1339,8 +1339,7 @@ export default function AdminQuotationDashboard() {
                                             className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs font-mono outline-none text-gray-700 focus:bg-white focus:border-indigo-300"
                                         />
                                         <span className="text-gray-400 text-xs shrink-0">to</span>
-                                        <input
-                                            type="date"
+                                        <FormattedDateInput
                                             value={dateTo}
                                             onChange={e => {
                                                 setDateTo(e.target.value);
@@ -1958,8 +1957,7 @@ export default function AdminQuotationDashboard() {
                                                     <label className="text-[11px] font-semibold text-slate-700 mb-1 block">
                                                         Release Date <span className="text-rose-500">*</span>
                                                     </label>
-                                                    <input
-                                                        type="date"
+                                                    <FormattedDateInput
                                                         value={scheduledDate}
                                                         min={new Date().toISOString().split('T')[0]}
                                                         onChange={e => setScheduledDate(e.target.value)}
@@ -2108,8 +2106,7 @@ export default function AdminQuotationDashboard() {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="text-[11px] font-semibold text-slate-700 mb-1 block">New Release Date</label>
-                                    <input
-                                        type="date"
+                                    <FormattedDateInput
                                         value={rescheduleDate}
                                         min={new Date().toISOString().split('T')[0]}
                                         onChange={e => setRescheduleDate(e.target.value)}

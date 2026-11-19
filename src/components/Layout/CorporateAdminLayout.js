@@ -11,6 +11,7 @@ import SubscriptionBanner from '../SubscriptionBanner';
 import { apiRequest } from '../../services/apiService';
 import MobileAlertsControl from '../MobileAlertsControl';
 import { fetchActiveSystemNotifications } from '../../services/notificationService';
+import { getSidebarUserDisplay } from '../../utils/authUtils';
 import { parseISO } from 'date-fns';
 
 const getInitialCount = () => {
@@ -23,6 +24,8 @@ const getInitialCount = () => {
 function CorporateAdminLayout({
   activeMenuItem,
   onLogout,
+  userEmail,
+  userName,
   customerName,
   customerId,
   subscriptionStatus,
@@ -32,8 +35,23 @@ function CorporateAdminLayout({
   hasQuotationModule = true,
   hasReconciliationModule = true,
   isChecker = false,
-  quotationSidebarStatus = null
+  quotationSidebarStatus = null,
+  topBanner = null,
+  sidebarOverride = null,
+  sidebarHeaderSlot = null,
+  mainContentOverride = null,
+  hideRoleSubtitle = false
 }) {
+  const roleLabel = isChecker ? 'Checker' : 'Corporate Admin';
+  const userDisplay = getSidebarUserDisplay({
+    userEmail,
+    userName,
+    roleLabel,
+    fallbackInitials: isChecker ? 'CH' : 'CA',
+  });
+  const orgAndRoleSubtitle = hideRoleSubtitle
+    ? (customerName || 'Guided Sandbox')
+    : (customerName ? `${customerName} · ${roleLabel}` : roleLabel);
   const [pendingCount, setPendingCount] = useState(getInitialCount());
   const [isCollapsed, setIsCollapsed] = useState(() => {
     try {
@@ -285,7 +303,7 @@ function CorporateAdminLayout({
     const path = location.pathname;
     const item = activeMenuItem || '';
 
-    if (item.startsWith('issuance') || path.includes('/issuance')) {
+    if (item.startsWith('issuance') || path.includes('/issuance') || path.includes('/reports/issuance-intelligence')) {
       setExpandedSections(prev => ({ ...prev, issuance: true }));
     } else if (item === 'lg-records' || item === 'lg-categories' || item === 'migration-hub' || path.includes('/lg-records') || path.includes('/lg-categories') || path === '/corporate-admin/migration-hub') {
       setExpandedSections(prev => ({ ...prev, custody: true }));
@@ -477,6 +495,16 @@ function CorporateAdminLayout({
                       <span>Position Reconciliation</span>
                     </Link>
                     <Link
+                      to="/corporate-admin/reports/issuance-intelligence"
+                      className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                        location.pathname.includes('/reports/issuance-intelligence')
+                          ? 'font-bold text-blue-400 bg-blue-500/15'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <span>Issuance Analytics</span>
+                    </Link>
+                    <Link
                       to="/corporate-admin/issuance/form-config"
                       className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
                         activeMenuItem === 'issuance-form-config'
@@ -619,12 +647,22 @@ function CorporateAdminLayout({
                 <Link
                   to="/corporate-admin/reconciliation"
                   className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
-                    activeMenuItem === 'reconciliation-dashboard' || activeMenuItem?.includes('workspace')
+                    activeMenuItem === 'reconciliation-dashboard'
                       ? 'font-bold text-blue-400 bg-blue-500/15'
                       : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
                   }`}
                 >
-                  <span>Statement Dash</span>
+                  <span>Control Overview</span>
+                </Link>
+                <Link
+                  to="/corporate-admin/reconciliation/workspace"
+                  className={`flex items-center px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                    activeMenuItem === 'reconciliation-workspace'
+                      ? 'font-bold text-blue-400 bg-blue-500/15'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <span>Ledger Inspector</span>
                 </Link>
                 <Link
                   to="/corporate-admin/reconciliation/rules"
@@ -848,8 +886,11 @@ function CorporateAdminLayout({
               </span>
             )}
           </button>
-          <span className="inline-flex items-center justify-center h-7 w-7 rounded-full text-white text-[10px] font-bold bg-indigo-600">
-            {isChecker ? 'CK' : 'CA'}
+          <span
+            title={userDisplay.tooltip}
+            className="inline-flex items-center justify-center h-7 w-7 rounded-full text-white text-[10px] font-bold bg-indigo-600"
+          >
+            {userDisplay.initials}
           </span>
         </div>
       </header>
@@ -881,17 +922,24 @@ function CorporateAdminLayout({
             </div>
 
             <nav className="flex-1 p-3 space-y-1 overflow-y-auto dark-sidebar-nav">
-              {renderNavLinks(true)}
+              {sidebarOverride ? (
+                sidebarOverride(false, true)
+              ) : (
+                <>
+                  {sidebarHeaderSlot && sidebarHeaderSlot(false, true)}
+                  {renderNavLinks(true)}
+                </>
+              )}
             </nav>
 
             <div className="p-4 border-t border-white/10 flex flex-col gap-3 flex-shrink-0 bg-[#16203a]">
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3" title={userDisplay.tooltip}>
                 <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                  {isChecker ? 'CK' : 'CA'}
+                  {userDisplay.initials}
                 </div>
-                <div className="overflow-hidden flex-1">
-                  <p className="text-sm font-semibold text-white truncate">{isChecker ? 'Checker' : 'Corporate Admin'}</p>
-                  <p className="text-[10px] text-slate-400 truncate">{customerName || 'My Organization'}</p>
+                <div className="overflow-hidden flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-white truncate">{userDisplay.primaryLabel}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{orgAndRoleSubtitle}</p>
                 </div>
               </div>
               <button
@@ -938,21 +986,31 @@ function CorporateAdminLayout({
         </div>
 
         <nav className="flex-grow p-3 space-y-1 overflow-y-auto relative z-10 dark-sidebar-nav">
-          {renderNavLinks(false)}
+          {sidebarOverride ? (
+            sidebarOverride(isCollapsed, false)
+          ) : (
+            <>
+              {sidebarHeaderSlot && sidebarHeaderSlot(isCollapsed, false)}
+              {renderNavLinks(false)}
+            </>
+          )}
         </nav>
 
         {/* User info & Logout */}
         <div className="p-4 flex-shrink-0 relative z-10" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          <div className={`flex items-center mb-4 ${isCollapsed ? 'justify-center' : 'ml-2'}`}>
+          <div
+            className={`flex items-center mb-4 ${isCollapsed ? 'justify-center' : 'ml-1'}`}
+            title={userDisplay.tooltip}
+          >
             <span className="inline-flex items-center justify-center h-8 w-8 rounded-full text-white text-xs font-bold flex-shrink-0"
               style={{ backgroundColor: '#2563eb' }}>
-              {isChecker ? 'CH' : 'CA'}
+              {userDisplay.initials}
             </span>
             {!isCollapsed && (
               <>
-                <div className="ml-3 overflow-hidden flex-1">
-                  <p className="text-sm font-semibold text-white truncate">{isChecker ? 'Checker' : 'Corporate Admin'}</p>
-                  <p className="text-[10px] truncate" style={{ color: '#94a3b8' }}>{customerName || 'My Organization'}</p>
+                <div className="ml-2.5 overflow-hidden flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-white truncate">{userDisplay.primaryLabel}</p>
+                  <p className="text-[10px] truncate" style={{ color: '#94a3b8' }}>{orgAndRoleSubtitle}</p>
                 </div>
                 {/* Notification Bell */}
                 <div className="relative ml-2">
@@ -1058,7 +1116,8 @@ function CorporateAdminLayout({
             </div>
           ) : (
             <div className="w-full min-w-0">
-              <Outlet />
+              {topBanner}
+              {mainContentOverride || <Outlet />}
             </div>
           )}
         </div>

@@ -33,8 +33,15 @@ import {
   Mail
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
+import { getSidebarUserDisplay } from '../../utils/authUtils';
 
-function SidebarLayout({ onLogout, headerTitle }) {
+function SidebarLayout({ onLogout, userEmail, userName, headerTitle }) {
+  const userDisplay = getSidebarUserDisplay({
+    userEmail,
+    userName,
+    roleLabel: 'System Owner',
+    fallbackInitials: 'SO',
+  });
   const [showGlobalConfigSubMenu, setShowGlobalConfigSubMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreviewedFeedback, setUnreviewedFeedback] = useState(0);
@@ -380,7 +387,16 @@ function SidebarLayout({ onLogout, headerTitle }) {
             <nav className="flex-grow p-3 space-y-1 overflow-y-auto">
               <NavLinks />
             </nav>
-            <div className="p-3 border-t border-gray-200 bg-gray-50">
+            <div className="p-3 border-t border-gray-200 bg-gray-50 space-y-2">
+              <div className="flex items-center gap-2 px-1" title={userDisplay.tooltip}>
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-purple-600 text-white text-[11px] font-black flex items-center justify-center shrink-0">
+                  {userDisplay.initials}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-slate-800 truncate">{userDisplay.primaryLabel}</p>
+                  <p className="text-[10px] text-indigo-600 font-semibold truncate">System Owner</p>
+                </div>
+              </div>
               <button
                 onClick={onLogout}
                 className="w-full flex items-center justify-center p-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl"
@@ -418,16 +434,16 @@ function SidebarLayout({ onLogout, headerTitle }) {
 
         {/* Profile / Sign Out Footer */}
         <div className="p-3 border-t border-slate-100 flex-shrink-0 bg-slate-50/60">
-          <div className="flex items-center justify-between mb-2 px-1">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-purple-600 text-white text-[11px] font-black flex items-center justify-center shadow-2xs">
-                SO
+          <div className="flex items-center justify-between mb-2 px-1" title={userDisplay.tooltip}>
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-purple-600 text-white text-[11px] font-black flex items-center justify-center shadow-2xs shrink-0">
+                {userDisplay.initials}
               </div>
-              <div>
-                <p className="text-xs font-bold text-slate-800 leading-tight">Super Admin</p>
-                <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  Authenticated
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-slate-800 leading-tight truncate">{userDisplay.primaryLabel}</p>
+                <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 truncate">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  System Owner
                 </span>
               </div>
             </div>

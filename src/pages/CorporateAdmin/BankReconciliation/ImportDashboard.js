@@ -3,15 +3,20 @@ import {
     Upload, FileText, CheckCircle2,
     AlertCircle, Landmark, ArrowRight,
     Calendar, Coins, Database, Trash2,
-    RefreshCw, AlertTriangle
+    RefreshCw, AlertTriangle, Sparkles
 } from 'lucide-react';
 import { apiRequest } from '../../../services/apiService';
+import { isCachedTrialSession } from '../../../components/Trial/useTrialExperience';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDate } from '../../../utils/dateFormat';
 
 const ImportDashboard = () => {
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const location = useLocation();
+    const basePrefix = location.pathname.startsWith('/end-user') ? '/end-user' : '/corporate-admin';
     const [statements, setStatements] = useState([]);
     const [banks, setBanks] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -30,6 +35,26 @@ const ImportDashboard = () => {
     });
     const [file, setFile] = useState(null);
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const [isTrialSandbox] = useState(() => {
+        try {
+            const u = JSON.parse(localStorage.getItem('user') || '{}');
+            return isCachedTrialSession(u?.customer_id);
+        } catch {
+            return false;
+        }
+    });
+    const [isAutoLoadingTrial, setIsAutoLoadingTrial] = useState(false);
+
+    useEffect(() => {
+        const handleSampleLoaded = (evt) => {
+            if (!evt?.detail?.scope || evt.detail.scope === 'reconciliation') {
+                setIsAutoLoadingTrial(false);
+                fetchStatements();
+            }
+        };
+        window.addEventListener('grow-trial-sample-loaded', handleSampleLoaded);
+        return () => window.removeEventListener('grow-trial-sample-loaded', handleSampleLoaded);
+    }, []);
 
     useEffect(() => {
         const initialize = async () => {
@@ -45,7 +70,7 @@ const ImportDashboard = () => {
 
     const fetchBanks = async () => {
         try {
-            const data = await apiRequest('/corporate-admin/banks', 'GET');
+            const data = await apiRequest('/reconciliation/banks', 'GET');
             setBanks(data);
             if (data.length > 0) {
                 setFormData(prev => ({ ...prev, bank_id: data[0].id }));
@@ -136,7 +161,7 @@ const ImportDashboard = () => {
                     <p className="text-gray-500 mt-1">Upload statements. The system will auto-detect balances and dates.</p>
                 </div>
                 <button
-                    onClick={() => navigate('/corporate-admin/reconciliation/workspace')}
+                    onClick={() => navigate(`${basePrefix}/reconciliation/workspace`)}
                     className="flex items-center px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
                 >
                     <Landmark className="w-5 h-5 mr-2" />
@@ -201,18 +226,16 @@ const ImportDashboard = () => {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                                            <input
-                                                type="date"
-                                                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                                            <FormattedDateInput
+                                                className="w-full px-3 py-2 border rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
                                                 value={formData.start_date}
                                                 onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                                             />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                                            <input
-                                                type="date"
-                                                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                                            <FormattedDateInput
+                                                className="w-full px-3 py-2 border rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
                                                 value={formData.end_date}
                                                 onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                                             />
@@ -251,16 +274,35 @@ const ImportDashboard = () => {
                                 </div>
                             )}
 
-                            <button
-                                type="submit"
-                                disabled={isUploading}
-                                className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all flex items-center justify-center disabled:opacity-50"
-                            >
-                                {isUploading ? "Analyzing File..." : "Import Statement"}
-                            </button>
+                            <div className={isTrialSandbox ? 'grid grid-cols-1 sm:grid-cols-2 gap-2.5' : ''}>
+                                <button
+                                    type="submit"
+                                    disabled={isUploading}
+                                    className="w-full bg-blue-600 text-white py-2.5 px-3 rounded-lg font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all flex items-center justify-center disabled:opacity-50"
+                                >
+                                    {isUploading ? "Analyzing File..." : "Import Statement"}
+                                </button>
+                                {isTrialSandbox && (
+                                    <button
+                                        type="button"
+                                        disabled={isAutoLoadingTrial || isUploading}
+                                        onClick={() => {
+                                            setIsAutoLoadingTrial(true);
+                                            window.dispatchEvent(
+                                                new CustomEvent('grow-trial-trigger-autoload', { detail: { actionId: 'reconciliation_full' } })
+                                            );
+                                            setTimeout(() => setIsAutoLoadingTrial(false), 12000);
+                                        }}
+                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                        title="Auto-load sample Bank A & B statements + SAP invoices and match them"
+                                    >
+                                        <Sparkles className={`w-4 h-4 ${isAutoLoadingTrial ? 'animate-spin' : ''}`} />
+                                        <span>{isAutoLoadingTrial ? 'Loading Sample...' : 'Do It For Me'}</span>
+                                    </button>
+                                )}
+                            </div>
                         </form>
                     </div>
-                </div>
 
                     {/* 3.3: Header Drift Warning */}
                     {headerDrift && (
@@ -330,6 +372,7 @@ const ImportDashboard = () => {
                             </div>
                         </div>
                     )}
+                </div>
 
                 {/* Recent Statements List */}
                 <div className="lg:col-span-2 space-y-4">
@@ -357,7 +400,7 @@ const ImportDashboard = () => {
                                                     <div className="flex items-center space-x-3 mt-1">
                                                         <span className="flex items-center text-xs text-gray-500">
                                                             <Calendar className="w-3 h-3 mr-1" />
-                                                            {new Date(stmt.statement_start_date).toLocaleDateString()} - {new Date(stmt.statement_end_date).toLocaleDateString()}
+                                                            {formatDate(stmt.statement_start_date)} - {formatDate(stmt.statement_end_date)}
                                                         </span>
                                                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${stmt.status === 'VALIDATED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
                                                             }`}>
@@ -370,10 +413,10 @@ const ImportDashboard = () => {
                                             <div className="text-right">
                                                 <div className="text-sm font-bold text-gray-900 flex items-center justify-end">
                                                     <Coins className="w-4 h-4 mr-1 text-gray-400" />
-                                                    {stmt.closing_balance.toLocaleString()} EGP
+                                                    {Number(stmt.closing_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {stmt.currency?.iso_code || stmt.currency || 'EGP'}
                                                 </div>
                                                 <p className="text-xs text-gray-500 mt-1">
-                                                    {stmt.opening_balance.toLocaleString()} (Open)
+                                                    {Number(stmt.opening_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Open)
                                                 </p>
                                             </div>
                                         </div>
@@ -382,10 +425,17 @@ const ImportDashboard = () => {
                                             <div className="flex items-center space-x-4">
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-gray-400 uppercase tracking-wider">Integrity</span>
-                                                    <span className="flex items-center text-xs font-medium text-green-600">
-                                                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                        Balanced
-                                                    </span>
+                                                    {stmt.status === 'VALIDATED' ? (
+                                                        <span className="flex items-center text-xs font-medium text-green-600">
+                                                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                                                            Balanced
+                                                        </span>
+                                                    ) : (
+                                                        <span className="flex items-center text-xs font-medium text-amber-600">
+                                                            <AlertTriangle className="w-3 h-3 mr-1" />
+                                                            Balance Warning
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -398,7 +448,7 @@ const ImportDashboard = () => {
                                                     <Trash2 className="w-4 h-4 mr-1" /> Delete
                                                 </button>
                                                 <button
-                                                    onClick={() => navigate(`/corporate-admin/reconciliation/workspace/${stmt.id}`)}
+                                                    onClick={() => navigate(`${basePrefix}/reconciliation/workspace/${stmt.id}`)}
                                                     className="flex items-center text-sm font-semibold text-blue-600 hover:text-blue-700 transition-all opacity-0 group-hover:opacity-100"
                                                 >
                                                     Go to Workspace

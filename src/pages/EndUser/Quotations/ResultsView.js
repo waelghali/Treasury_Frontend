@@ -7,6 +7,8 @@ import apiClient from '../../../services/apiClient';
 import { getCurrentUserId, getUserRole } from '../../../utils/authUtils';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
 import QuotationCancellationModal from '../../../components/Modals/QuotationCancellationModal';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDateTime } from '../../../utils/dateFormat';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -73,7 +75,7 @@ const formatDate = (d) => {
         const day = String(date.getDate()).padStart(2, '0');
         const month = MONTHS[date.getMonth()];
         const year = date.getFullYear();
-        return `${day} ${month} ${year}`;
+        return `${day}-${month}-${year}`;
     } catch {
         return d;
     }
@@ -157,7 +159,7 @@ const renderApprovalBadge = (result) => {
     if (status === 'APPROVED') {
         const approvedDetail = [
             result.approved_by_email ? `Approved by: ${result.approved_by_email}` : null,
-            result.approved_at ? `At: ${new Date(result.approved_at).toLocaleString()}` : null,
+            result.approved_at ? `At: ${formatDateTime(result.approved_at)}` : null,
             result.approval_notes ? `Notes: ${result.approval_notes}` : null
         ].filter(Boolean).join('\n');
 
@@ -174,7 +176,7 @@ const renderApprovalBadge = (result) => {
     if (status === 'DECLINED') {
         const declinedDetail = [
             result.approved_by_email ? `Declined by: ${result.approved_by_email}` : null,
-            result.approved_at ? `At: ${new Date(result.approved_at).toLocaleString()}` : null,
+            result.approved_at ? `At: ${formatDateTime(result.approved_at)}` : null,
             result.approval_notes ? `Reason: ${result.approval_notes}` : null
         ].filter(Boolean).join('\n');
 
@@ -1542,8 +1544,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                             <label className="text-[11px] font-semibold text-slate-700 mb-1 block">
                                                 Release Date <span className="text-rose-500">*</span>
                                             </label>
-                                            <input
-                                                type="date"
+                                            <FormattedDateInput
                                                 value={approvalScheduledDate}
                                                 min={new Date().toISOString().split('T')[0]}
                                                 onChange={e => setApprovalScheduledDate(e.target.value)}
@@ -2919,7 +2920,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
 
                             {frozenAt && (
                                 <span className="text-[11px] font-mono text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 shrink-0">
-                                    Snapshot: {new Date(frozenAt).toLocaleString()}
+                                    Snapshot: {formatDateTime(frozenAt)}
                                 </span>
                             )}
                         </div>
@@ -3654,7 +3655,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
                             <div className="text-right font-mono text-[10px] border border-slate-200 rounded-xl p-2.5 bg-slate-50 min-w-[200px]">
                                 <div className="font-bold text-slate-900 text-xs">RFQ #{rfq?.ref_no}</div>
                                 <div className="text-slate-500 mt-0.5">
-                                    {new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    {formatDateTime(new Date())}
                                 </div>
                                 <div className="text-emerald-700 font-bold mt-1 inline-block px-1.5 py-0.5 bg-emerald-100 rounded text-[9px]">
                                     STATUS: EXECUTED & AUDITED
@@ -3673,7 +3674,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                         Best Execution Audit Certificate
                                     </h3>
                                     <p className="text-xs text-slate-400 font-mono">
-                                        RFQ #{rfq?.ref_no} &bull; Generated {new Date().toLocaleString()}
+                                        RFQ #{rfq?.ref_no} &bull; Generated {formatDateTime(new Date())}
                                     </p>
                                 </div>
                             </div>

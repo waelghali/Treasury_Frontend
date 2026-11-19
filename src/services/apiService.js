@@ -2,7 +2,12 @@
 import apiClient from './apiClient';
 import { v4 as uuidv4 } from 'uuid';
 import { jwtDecode } from 'jwt-decode';
-import { recordIdleLogoutMeta, clearTrackedAuthenticatedRoute } from '../utils/smartNavigation';
+import {
+  recordIdleLogoutMeta,
+  recordExplicitLogoutMeta,
+  clearTrackedAuthenticatedRoute,
+  getLastLogoutMeta,
+} from '../utils/smartNavigation';
 export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 /**
@@ -99,6 +104,9 @@ export const setAuthToken = (token) => {
     localStorage.removeItem('user');
     localStorage.removeItem('user_role');
     localStorage.removeItem('user_id');
+    try {
+      sessionStorage.removeItem('grow_trial_mode_probe_v1');
+    } catch {}
   }
 };
 
@@ -194,41 +202,81 @@ const isCurrentRoutePublic = () => {
   return publicPaths.some(p => currentPath === p || currentPath.startsWith(p + '/'));
 };
 
+export const resolveSessionExpiredAt = (tokenOverride = null) => {
+  const now = Date.now();
+  const storedLastActivity = getStoredTimestamp(LAST_ACTIVITY_KEY, 0);
+  if (storedLastActivity > 0) {
+    return Math.min(now, storedLastActivity + TOTAL_SESSION_MS);
+  }
+  const tok = tokenOverride || getAuthToken();
+  if (tok) {
+    try {
+      const decoded = jwtDecode(tok);
+      if (decoded && typeof decoded.exp === 'number' && decoded.exp > 0) {
+        return Math.min(now, decoded.exp * 1000);
+      }
+    } catch {}
+  }
+  const existingMeta = getLastLogoutMeta();
+  if (existingMeta?.type === 'idle' && Number.isFinite(Number(existingMeta.expiredAt))) {
+    return Number(existingMeta.expiredAt);
+  }
+  return 0;
+};
+
 export const logoutUser = (options = {}) => {
   const { preserveNext = false, broadcast = true } = options;
   console.log('User logged out due to inactivity or session expiry.');
-  const storedLastActivity = getStoredTimestamp(LAST_ACTIVITY_KEY, 0);
-  const idleExpiredAt = storedLastActivity > 0
-    ? Math.min(Date.now(), storedLastActivity + TOTAL_SESSION_MS)
-    : Date.now();
+
+  const existingToken = getAuthToken();
+  const existingMeta = getLastLogoutMeta();
+  // If another tab already triggered an explicit Sign Out and wiped the token, honor explicit Sign Out
+  const effectivePreserveNext =
+    preserveNext && !(existingMeta?.type === 'explicit' && !existingToken);
+
+  const idleExpiredAt = effectivePreserveNext ? resolveSessionExpiredAt(existingToken) : 0;
   let previousUserId = null;
   try {
     previousUserId = localStorage.getItem('user_id');
   } catch {}
+
+  const current =
+    typeof window !== 'undefined'
+      ? window.location.pathname + window.location.search + window.location.hash
+      : '';
+
+  if (!effectivePreserveNext) {
+    recordExplicitLogoutMeta(current, previousUserId);
+  } else if (current && current !== '/' && current !== '/app' && !current.startsWith('/login')) {
+    recordIdleLogoutMeta(current, idleExpiredAt, previousUserId);
+  } else {
+    clearTrackedAuthenticatedRoute();
+  }
 
   setAuthToken(null);
   stopInactivityTracker();
   clearSessionTimers();
 
   if (broadcast) {
-    broadcastSessionEvent({ type: 'SESSION_LOGOUT', timestamp: Date.now() });
+    broadcastSessionEvent({
+      type: 'SESSION_LOGOUT',
+      reason: effectivePreserveNext ? 'idle' : 'explicit',
+      expiredAt: idleExpiredAt,
+      timestamp: Date.now(),
+    });
   }
 
   if (typeof window !== 'undefined') {
-    if (!preserveNext) {
-      clearTrackedAuthenticatedRoute();
+    if (!effectivePreserveNext) {
       if (window.location.pathname === '/login' && window.location.search) {
         window.history.replaceState({}, '', '/login');
       } else if (!isCurrentRoutePublic()) {
         window.location.href = '/login';
       }
     } else if (!isCurrentRoutePublic()) {
-      const current = window.location.pathname + window.location.search + window.location.hash;
       if (current && current !== '/' && current !== '/app' && !current.startsWith('/login')) {
-        recordIdleLogoutMeta(current, idleExpiredAt, previousUserId);
         window.location.href = `/login?next=${encodeURIComponent(current)}&idle=${idleExpiredAt}`;
       } else {
-        clearTrackedAuthenticatedRoute();
         window.location.href = '/login';
       }
     }

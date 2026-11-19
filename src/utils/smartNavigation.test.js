@@ -7,6 +7,8 @@ import {
   getActiveOrientation,
   trackAuthenticatedRoute,
   recordExpiredSessionBeforeClear,
+  recordExplicitLogoutMeta,
+  recordIdleLogoutMeta,
   buildUnauthenticatedLoginTarget,
 } from './smartNavigation';
 
@@ -207,6 +209,23 @@ describe('smartNavigation adaptive post-login routing', () => {
       path: '/end-user/quotations/history',
       label: 'Quotation History',
     });
+    expect(normalizeToHub('/end-user/reconciliation/workspace/21', 'end_user', FULL_MODULES)).toEqual({
+      path: '/end-user/reconciliation',
+      label: 'Bank Reconciliation',
+    });
+    expect(normalizeToHub('/corporate-admin/issuance/request-new', 'corporate_admin', FULL_MODULES)).toEqual({
+      path: '/corporate-admin/issuance/requests',
+      label: 'Requests Inbox',
+    });
+
+    expect(normalizeToHub('/corporate-admin/activity', 'corporate_admin', FULL_MODULES)).toEqual({
+      path: '/corporate-admin/activity',
+      label: 'Activity & Controls',
+    });
+    expect(normalizeToHub('/checker/activity', 'checker', FULL_MODULES)).toEqual({
+      path: '/checker/activity',
+      label: 'Activity & Controls',
+    });
 
     // Setup/utility routes must never become habitual home pages
     expect(normalizeToHub('/corporate-admin/users', 'corporate_admin', FULL_MODULES)).toBeNull();
@@ -237,5 +256,28 @@ describe('smartNavigation adaptive post-login routing', () => {
       now: start,
     });
     expect(getActiveOrientation(userId, start + ORIENTATION_WINDOW_MS + 1)).toBeNull();
+  });
+
+  test('explicit Sign Out clears stale next-page across sibling tabs and browser URL-bar autocomplete, while preserving multi-tab idle timestamps', () => {
+    const expiredTs = 1_795_000_000_000;
+
+    // 1. Explicit Sign Out on /corporate-admin/activity -> browser URL-bar autocomplete to /corporate-admin/activity goes cleanly to /login
+    recordExplicitLogoutMeta('/corporate-admin/activity', '42');
+    window.sessionStorage.clear(); // Simulate new tab / sibling tab
+    expect(buildUnauthenticatedLoginTarget('/corporate-admin/activity')).toBe('/login');
+
+    // Genuine email deep link with query or different page still works after Sign Out
+    expect(buildUnauthenticatedLoginTarget('/corporate-admin/approval-requests?req=12')).toBe(
+      `/login?next=${encodeURIComponent('/corporate-admin/approval-requests?req=12')}`
+    );
+
+    // 2. Multi-tab Idle Expiry -> Tab 1 records idle meta, Tab 2 (empty sessionStorage) still attaches &idle=<expiredTs>
+    window.sessionStorage.clear();
+    recordIdleLogoutMeta('/corporate-admin/dashboard', expiredTs, '42');
+    window.sessionStorage.clear(); // Simulate Tab 2 having its own empty sessionStorage
+    window.sessionStorage.setItem('grow_tab_last_auth_path', '/corporate-admin/activity');
+    expect(buildUnauthenticatedLoginTarget('/corporate-admin/activity')).toBe(
+      `/login?next=${encodeURIComponent('/corporate-admin/activity')}&idle=${expiredTs}`
+    );
   });
 });

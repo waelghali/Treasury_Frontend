@@ -4,6 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
 import { Edit, PlusCircle, Trash, RotateCcw, ToggleLeft, ToggleRight, Loader2, RefreshCw, Calendar, User, FileText, X, Globe, Mail, ShieldCheck, KeyRound, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-toastify';
+import FormattedDateInput from 'components/FormattedDateInput';
+import { formatDate as formatDisplayDate } from 'utils/dateFormat';
 
 // ... [Keep existing UserForm component exactly as it is] ...
 // (I am omitting UserForm code here for brevity, keep it exactly as it was in your file)
@@ -684,12 +686,7 @@ function CustomerDetailsPage({ onLogout }) {
   };
 
   // Helper to format dates
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString(undefined, { 
-      year: 'numeric', month: 'long', day: 'numeric' 
-    });
-  };
+  const formatDate = (dateString) => formatDisplayDate(dateString, 'N/A');
 
   if (isLoading) {
     // ... [Keep existing loading state] ...
@@ -786,8 +783,7 @@ function CustomerDetailsPage({ onLogout }) {
               <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wider">
                 Custom Expiry Date (Optional)
               </label>
-              <input 
-                type="date" 
+              <FormattedDateInput 
                 value={customExpiryDate}
                 onChange={(e) => setCustomExpiryDate(e.target.value)}
                 className="w-full mb-3 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
@@ -949,7 +945,7 @@ function CustomerDetailsPage({ onLogout }) {
                 )) : <span className="text-gray-400 text-sm italic">No domains configured</span>}
               </div>
             </div>
-            <p className="text-gray-700 mt-2"><span className="font-semibold">Created At:</span> {new Date(customer.created_at).toLocaleDateString()}</p>
+            <p className="text-gray-700 mt-2"><span className="font-semibold">Created At:</span> {formatDate(customer.created_at)}</p>
           </div>
         )}
       </div>

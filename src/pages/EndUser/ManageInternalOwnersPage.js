@@ -87,6 +87,11 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
             toast.warn("This action is disabled during your subscription's grace period.");
             return;
         }
+        const totalOwnedLgs = Number(owner?.owned_lgs_total_count ?? owner?.owned_lgs_count ?? 0);
+        if (totalOwnedLgs <= 0) {
+            toast.warn(`Cannot reassign LGs: '${owner?.email || 'this owner'}' currently has 0 LG records in their ownership.`);
+            return;
+        }
         setSelectedOwnerForBulkChange(owner);
         setShowBulkChangeLGOwnerModal(true);
     };
@@ -336,9 +341,9 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                             <button
                                                 onClick={() => handleBulkChangeOwner(owner)}
-                                                className={`text-purple-600 hover:text-purple-900 mr-2 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod || owner.owned_lgs_total_count === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                title="Reassign all LGs for this owner"
-                                                disabled={isGracePeriod || owner.owned_lgs_total_count === 0} // NEW: Disable button
+                                                className={`text-purple-600 hover:text-purple-900 mr-2 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod || Number(owner.owned_lgs_total_count || 0) <= 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                                title={Number(owner.owned_lgs_total_count || 0) <= 0 ? 'Cannot reassign — this owner currently has 0 LG records' : 'Reassign all LGs for this owner'}
+                                                disabled={isGracePeriod || Number(owner.owned_lgs_total_count || 0) <= 0}
                                             >
                                                 <Users className="h-5 w-5" />
                                             </button>

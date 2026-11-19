@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Smartphone, Trash2, X, AlertCircle, RefreshCw, CheckCircle2, Shield, Fingerprint } from 'lucide-react';
 import { listPushDevices, removePushDevice } from '../../services/pushService';
+import { formatDateTime } from '../../utils/dateFormat';
 
 export default function PushDevicesModal({ isOpen, onClose, onDeviceRemoved }) {
     const [devices, setDevices] = useState([]);
@@ -54,14 +55,7 @@ export default function PushDevicesModal({ isOpen, onClose, onDeviceRemoved }) {
 
     const formatTimestamp = (ts) => {
         if (!ts) return 'Never';
-        try {
-            return new Date(ts).toLocaleString([], {
-                year: 'numeric', month: 'short', day: 'numeric',
-                hour: '2-digit', minute: '2-digit'
-            });
-        } catch {
-            return String(ts);
-        }
+        return formatDateTime(ts, 'Never');
     };
 
     return (

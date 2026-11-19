@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../services/apiService';
 import COUNTRIES from '../../constants/countries';
+import FormattedDateInput from 'components/FormattedDateInput';
 import {
   X, Plus, Trash2, ShieldCheck, Loader2, Building2,
   Calendar, Hash, Percent, Clock, Globe, Search,
@@ -531,11 +532,11 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
                 <div className="space-y-1"><label className="text-[12px] px-3 font-black text-slate-500 uppercase">Reference #</label>
                   <input className="text-[14px] w-full px-3 py-1  border rounded-xl text-sm" value={formData.reference_number} onChange={e => setFormData({ ...formData, reference_number: e.target.value })} /></div>
                 <div className="space-y-1"><label className="text-[12px] px-3 font-black text-slate-500 uppercase">Start Date</label>
-                  <input type="date" className="text-[14px] w-full px-3 py-1 border rounded-xl text-sm" value={formData.start_date} onChange={e => setFormData({ ...formData, start_date: e.target.value })} /></div>
+                  <FormattedDateInput className="text-[14px] w-full px-3 py-1 border rounded-xl text-sm" value={formData.start_date} onChange={e => setFormData({ ...formData, start_date: e.target.value })} /></div>
                 <div className="space-y-1"><label className="text-[12px] px-3 font-black text-slate-500 uppercase">Expiry Date</label>
-                  <input type="date" className="text-[14px] w-full px-3 py-1  border rounded-xl text-sm" value={formData.expiry_date} onChange={e => setFormData({ ...formData, expiry_date: e.target.value })} /></div>
+                  <FormattedDateInput className="text-[14px] w-full px-3 py-1 border rounded-xl text-sm" value={formData.expiry_date} onChange={e => setFormData({ ...formData, expiry_date: e.target.value })} /></div>
                 <div className="space-y-1"><label className="text-[12px] px-3 font-black text-slate-500 uppercase">Next Review</label>
-                  <input type="date" className="text-[14px] w-full px-3 py-1  border rounded-xl text-sm" value={formData.review_date} onChange={e => setFormData({ ...formData, review_date: e.target.value })} /></div>
+                  <FormattedDateInput className="text-[14px] w-full px-3 py-1 border rounded-xl text-sm" value={formData.review_date} onChange={e => setFormData({ ...formData, review_date: e.target.value })} /></div>
               </div>
 
               {/* FOREIGN BANK BLOCK */}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { ShieldCheck, ShieldAlert, Lock, CheckCircle2, XCircle, Building2, FileText, ArrowRight, RefreshCw } from 'lucide-react';
 import { publicApiRequest } from '../../services/apiService';
+import { formatDate } from '../../utils/dateFormat';
 
 export default function VerifyInstructionPage() {
   const [searchParams] = useSearchParams();
@@ -375,6 +376,11 @@ export default function VerifyInstructionPage() {
           ) : (
             /* Step 2: Verified Instruction Summary */
             <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+              {verifiedData?.is_trial_document && (
+                <div className="px-5 py-3 bg-amber-500 text-slate-950 font-extrabold text-xs uppercase tracking-wider text-center border-b border-amber-400">
+                  Trial Sandbox Evaluation Document · Not Valid For Official Bank Execution
+                </div>
+              )}
               {/* Top Status Banner */}
               <div
                 className={`p-5 border-b ${
@@ -456,7 +462,7 @@ export default function VerifyInstructionPage() {
                   </div>
                   <div className="py-2.5 flex justify-between gap-4">
                     <span className="text-slate-400">Instruction Date</span>
-                    <span className="font-mono text-slate-200 text-right">{verifiedData.issue_date}</span>
+                    <span className="font-mono text-slate-200 text-right">{formatDate(verifiedData.issue_date)}</span>
                   </div>
                 </div>
 
@@ -470,8 +476,20 @@ export default function VerifyInstructionPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-900 py-4 text-center text-xs text-slate-500">
-        Powered by <strong className="text-slate-300">Grow Business Development</strong> &mdash; Enterprise Treasury Management Platform
+      <footer className="border-t border-slate-900 py-4 px-4 text-center text-xs text-slate-500 space-y-1">
+        <div>
+          Powered by <strong className="text-slate-300">Grow Treasury</strong> &mdash; Enterprise Guarantee &amp; Treasury Governance
+        </div>
+        <div className="text-[11px] text-slate-500">
+          Want tamper-proof LG &amp; FX controls for your organization?{' '}
+          <a href="/demo" className="text-slate-300 hover:text-white underline-offset-2 hover:underline">
+            Interactive Demo
+          </a>{' '}
+          &middot;{' '}
+          <a href="/free-trial-register" className="text-amber-400 hover:text-amber-300 font-semibold underline-offset-2 hover:underline">
+            Start Free Trial
+          </a>
+        </div>
       </footer>
     </div>
   );

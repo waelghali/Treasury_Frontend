@@ -7,6 +7,7 @@ import {
     KeyRound, Lock, Send, AlertTriangle, ShieldCheck, Timer
 } from 'lucide-react';
 import HoneypotField from '../../components/Security/HoneypotField';
+import { formatDateTime } from '../../utils/dateFormat';
 
 const DIRECT_BACKEND_URL = 'https://api.growbusinessdevelopment.com';
 
@@ -287,7 +288,7 @@ export default function PublicBankHandshakePage() {
                                             <div>
                                                 <div className="text-emerald-300 font-extrabold text-[11px]">Access Active</div>
                                                 <div className="text-[10px] text-emerald-400/80 font-normal">
-                                                    {new Date(confirmedAt).toLocaleString()}
+                                                    {formatDateTime(confirmedAt)}
                                                 </div>
                                             </div>
                                         </div>

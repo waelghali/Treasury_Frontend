@@ -11,7 +11,7 @@ function SubscriptionBanner({ subscriptionEndDate, isExpired, growthRatio = 0 })
   const today = new Date();
   const daysDiff = differenceInDays(endDate, today);
   const graceDaysLeft = Math.max(0, 30 - Math.abs(daysDiff));
-  const formattedEndDate = format(endDate, 'MMM dd, yyyy');
+  const formattedEndDate = format(endDate, 'dd-MMM-yyyy');
 
   // AGGRESSIVE scaling — the banner takes over more screen real estate each day
   const verticalPadding = 1 + (growthRatio * 8);       // 1rem  →  9rem
