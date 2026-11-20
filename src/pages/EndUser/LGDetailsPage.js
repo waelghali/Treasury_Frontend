@@ -517,7 +517,11 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
         isLgValid &&
         daysRemaining !== null &&
         daysRemaining <= 30 &&
-        !hasInFlightExtension &&
+        !isGracePeriod;
+    const isExtensionPendingCalm =
+        isLgValid &&
+        !isCriticalForExtend &&
+        hasInFlightExtension &&
         !isGracePeriod;
 
     const handleJumpToHistory = (instructionId = null) => {
@@ -748,9 +752,17 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                                     className={
                                         isCriticalForExtend
                                             ? 'inline-flex items-center justify-center px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700 ring-2 ring-blue-200/70 shadow-sm transition-all duration-150'
-                                            : `${actionBarButtonClassNames()} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`
+                                            : isExtensionPendingCalm
+                                                ? 'inline-flex items-center justify-center px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg border border-amber-200 bg-amber-50/80 hover:bg-amber-100 text-amber-800 shadow-sm transition-all duration-150'
+                                                : `${actionBarButtonClassNames()} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`
                                     }
-                                    title={isCriticalForExtend ? 'Critical expiry — Extend LG' : 'Extend LG'}
+                                    title={
+                                        isCriticalForExtend
+                                            ? 'Critical expiry — Extend LG'
+                                            : isExtensionPendingCalm
+                                                ? 'Extension already in progress — click to extend further'
+                                                : 'Extend LG'
+                                    }
                                     disabled={isGracePeriod}
                                 >
                                     {isCriticalForExtend && (
@@ -759,8 +771,17 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                                             <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
                                         </span>
                                     )}
-                                    <CalendarPlus className="h-4 w-4 mr-1.5 text-blue-600 shrink-0" />
-                                    Extend
+                                    {isExtensionPendingCalm ? (
+                                        <>
+                                            <Clock className="h-4 w-4 mr-1.5 text-amber-600 shrink-0" />
+                                            Extension Open
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CalendarPlus className="h-4 w-4 mr-1.5 text-blue-600 shrink-0" />
+                                            Extend
+                                        </>
+                                    )}
                                 </button>
                             </GracePeriodTooltip>
                         )}
